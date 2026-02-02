@@ -4,6 +4,12 @@
 이 문서는 새 채팅창 최상단에 그대로 붙여넣어 Single Source of Truth(SSOT)로 사용한다.
 ※ 채팅의 과거 맥락보다 이 문서가 우선이다.
 
+# =========================
+# PROJECT_STATUS.md (SSOT)
+# =========================
+- Last updated: 2026-02-02 KST
+- Owner: 기훈(작가님)
+
 # 0) 절대 규칙 (SSOT / 절대 위반 금지)
 1) 진행상태/완료여부 판단 기준은 "PROJECT_STATUS.md(=이 문서)"만. (채팅 아님)
 2) 운영 루틴 고정: stop → syntax → run → /tv test (이 순서 외 금지)
@@ -97,16 +103,25 @@ RUN:
 - (권장) powershell -ExecutionPolicy Bypass -File C:\autobot\scripts\run.ps1
 - 또는 python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
+## 2-3) 운영 방식(창 2개 사용 규칙 — “멋대로 합치지 말 것”)
+- 작가님 운영 방식: “서버창 1개 + 테스트창 1개”를 동시에 켜서 운용한다.
+- 따라서 커맨드는 반드시:
+  - (서버창) run/로그 관측
+  - (테스트창) API 호출/회귀 스크립트
+  로 구분해서 안내한다.
+- 하나의 블록에서 서버/테스트 커맨드를 섞어서 “한 번에 실행”시키는 안내 금지(운영 혼선/오작동 원인).
+
 # 3) 레포/파일 구조(autobot.zip 실물 기준)
 ※ 반드시 zip을 풀고 “실제 파일명” 기준으로 문서/코드/엔드포인트를 작성한다(가정 금지).
 
 - app/
   - main.py                : FastAPI 엔드포인트 대부분(핵심, 단일 거대 파일 + hotfix 누적)
-  - okx_api.py             : OKX REST 호출/서명/주문(place_order) 모듈
+  - okx_api.py             : OKX REST 호출/서명/주문(place_order) 모듈(존재하나 “실사용 여부는 증거 기반으로만” 판정)
   - pine_parser.py         : Pine input.* 파서(v1) + warnings(missing_lhs_at) 발생 가능
   - db.py                  : SQLAlchemy engine/session, .env 로드
-  - models.py              : 현재 zip 기준으로 Account ORM만 존재(다른 테이블은 main.py에서 SQL로 다룸)
+  - models.py              : zip 기준 일부 ORM (단, 다수는 main.py SQL로 처리되는 구간 존재)
   - templates/index.html   : UI 전광판 HTML(다수 백업파일 존재)
+  - connectors/okx.py      : OKX connector(urllib, dependency-free) (현재 main.py에서 import/사용됨: 아래 APPENDIX 증거 참고)
 - data/
   - inputs_keep_final_v0_4.txt  (운영에서 사용 중인 keep)
   - inputs_keep_scope_v0_4.txt
@@ -117,10 +132,12 @@ RUN:
   - (주의) 깨진 파일명 1개 존재: "data/┐¬├▀..." (가능하면 사용 금지)
 - scripts/
   - run.ps1 / stop.ps1           : 서버 기동/중지(권장 루틴)
-  - tv_webhook_regression_testonly.ps1 등: 회귀 테스트 스크립트(중요)
+  - week4_regression.ps1         : Week4 회귀(증거 기반) 스크립트(중요, 게이트)
+  - tv_webhook_regression_testonly.ps1 등: 기존 회귀/테스트 스크립트(존재)
   - uncomment_routes_block*.py   : 주석된 라우트 일부를 안전하게 복구하는 패치 도구
-  - (추가/운영) db_patch_order.py : 주문 row를 테스트 목적으로 패치/조회(재시도/리커버리 테스트에 사용)
-  - (추가/운영) db_prepare_recover.py : symbol 유지 + okx_order_id null로 만드는 “recover 테스트 준비” 스크립트(필요 시 생성)
+  - db_patch_order.py            : 주문 row 테스트 패치/조회(재시도/리커버리 테스트에 사용)
+  - db_prepare_recover.py        : recover 테스트 준비(주문 invalid + okx_order_id NULL 등) 스크립트(week4_regression에서 사용)
+
 - requirements.txt
 - .env (민감정보 포함. 커밋/공유 금지)
 
@@ -132,6 +149,8 @@ RUN:
 - OKX_BASE_URL
 - OKX_SIMULATED (0/1)
 - OKX_API_KEY / OKX_API_SECRET / OKX_API_PASSPHRASE
+(향후 KIS 반영 시 추가 예정: KIS_* 키 목록은 Week5 Day4~Day5에서 “목록만” SSOT에 추가, 값 금지)
+
 주의:
 - 현재 .env에는 실키가 들어갈 수 있다. 외부 공유 금지.
 - 장기적으로 “서버에 키를 저장/노출 최소화” 구조로 바꿔야 한다(로컬 에이전트 + 2차인증).
@@ -141,12 +160,14 @@ RUN:
 ## M1: /tv accepted + 주문 생성/전송/체결 루프(OKX Spot) — DONE
 - /api/diag/okx-preflight OK
 - /tv accepted → poll-now(mode=poll)로 filled 갱신 OK
+- (증거) APPENDIX A1 week4_regression 출력에서 poll-now 결과에 status/okx_state/exch_status=filled + filled_qty + avg_px + okx_order_id 확인됨
 
 ## M2: Duplicate Guard(중복 방지) — DONE
 - 동일 alert_id 2회 전송:
   - 1회차: accepted
   - 2회차: ignored_duplicate + idem_key
 - orders row가 1건만 생성되는 것 확인
+(주의: 이 섹션의 DONE 판정은 “실측 출력”을 재확인할 수 있어야 유지된다)
 
 ## M3: Input Sync v1 + config_hash — DONE
 - POST /api/strategies/{id}/configs/from_keep (keep_path=inputs_keep_final_v0_4.txt)
@@ -156,13 +177,13 @@ RUN:
 
 ## M4: 전광판(UI/요약) 상태 표시 강화 — DONE(백엔드 데이터 기준)
 아래 컬럼들이 실제로 내려오는 것이 “확인됨”:
-- GET /api/assets:
-  - last_order_status, last_filled_qty, last_order_avg_px, last_okx_order_id, last_checked_at 등
 - GET /api/home:
-  - last_order_status, last_filled_qty, last_order_avg_px 포함
+  - last_order_status, last_filled_qty, last_order_avg_px, last_okx_order_id, last_checked_at 등
+(증거) APPENDIX A1의 /api/home 출력에 last_* 필드가 포함됨
+
 주의:
 - “브라우저 UI 화면(index.html)”에 표시가 안 되면, 원인은 2가지다:
-  1) UI 라우트(/)가 주석이라 화면 자체가 안 열림(정상)
+  1) UI 라우트(/)가 주석이라 화면 자체가 안 열릴 수 있다(정상)
   2) index.html이 avg_px 등 컬럼을 아직 렌더링 안 함(패치로 해결)
 - 하지만 “데이터/API”는 이미 내려오므로 M4는 DONE으로 본다.
 
@@ -171,23 +192,11 @@ RUN:
 - E-STOP ON 상태에서 POST /api/diag/send-now → ok=false, note="stopped", detail="E-STOP is ON" 확인
 - E-STOP OFF 후 POST /api/diag/send-now → ok=true, note="send_checked" 확인
 
-## M11-1: Week4 핵심(Recover by clOrdId + ensure v6 존재 확인) — DONE(정본 존재 확인)
-- main.py에 아래 마커/바인딩 존재 실측:
-  - [W4_ORDERS_ENSURE_V6]
-  - def _ensure_orders_table_v6(db):
-  - _ensure_orders_table = _ensure_orders_table_v6
+## M11-2: Week4 Regression(PS) + Recover + Filled-wins Gate(실측) — DONE(2026-01-30 KST 실측)
+- scripts/week4_regression.ps1 -FailOnContradiction 옵션으로 “모순 탐지”가 실패(exit 1) 없이 통과
+- poll-now에서 filled 근거(okx_state/exch_status/filled_qty/avg_px)가 생기면 최종 status가 filled로 유지됨(회귀 스크립트로 확인)
 
-# 6) 현재 시스템 상태 스냅샷(최근 실측 요약)
-- GET /api/home:
-  - ETH-USDT(asset_id=3) is_active=true
-  - last_order_id=132 관련:
-    - “patched 테스트 후” last_order_status가 failed로 바뀌고(last_okx_order_id null), last_filled_qty/avg_px가 남아 모순 상태가 관찰됨
-- POST /api/diag/poll-now?mode=recent&limit=5:
-  - okx_state=filled, filled_qty/avg_px가 내려옴(최근 128~132)
-- GET /api/diag/order?order_id=132:
-  - query param은 id가 아니라 order_id가 필수(실측에서 에러 후 정정)
-
-# 7) 핵심 엔드포인트 맵(코드 위치 포함)
+# 6) 핵심 엔드포인트 맵(코드 위치 포함)
 (대부분: app/main.py)
 - GET  /api/home                      : 전광판 요약 JSON
 - GET  /api/assets                    : 자산 목록(전광판 원천 데이터)
@@ -200,184 +209,244 @@ RUN:
 - GET  /api/diag/okx-balance-split    : trading/funding/total split
 - POST /api/strategies/{id}/configs/from_keep : keep 파일 기반 config_hash 생성
 
-# 8) DB/스키마 관련 중요한 현실(필수 주의)
-- app/main.py에 hotfix가 누적되어 _ensure_orders_table 같은 “중복 정의/오버라이드”가 존재한다.
-- 실제 점검 결과(week4_audit_mainpy.txt):
-  - _ensure_orders_table가 다수 라인에 중복 정의되어 있음(중요 리스크: 어떤 버전이 실제로 호출되는지 혼동/회귀)
-- 운영/확장(Upbit/Binance/KIS)로 가려면:
-  1) main.py hotfix 누적을 줄이고,
-  2) 스키마 마이그레이션을 “정식 스크립트/마이그레이션”으로 정리해야 한다.
+# 7) DB/스키마 관련 중요한 현실(필수 주의)
+- app/main.py에 hotfix가 누적되어 “중복 정의/오버라이드” 리스크가 항상 존재한다.
+- 운영/확장(OKX→KIS)로 가려면:
+  1) 호출 경로를 증거로 고정하고(런타임 proof),
+  2) 스키마/상태모델을 문서화하여 “되돌림/중복작업”을 막아야 한다.
 - (현실적인 제약) psql이 PowerShell에서 바로 없을 수 있음 → DB 패치는 python+sqlalchemy 스크립트 방식이 안전.
 
-# 9) 이번 대화/작업에서 확인된 “문제점(재발 방지 포인트)”
-1) 패치 파일 경로 가정 금지:
-   - "C:\Users\pc\Downloads\main.py.week4_send_recover_fill_v1_20260129.py" 같은 파일은 “존재한다고 가정”하면 실패함.
-   - 규칙: 다운로드 폴더/파일명을 먼저 실측(dir) → 실제 파일명으로 Copy-Item 실행.
-2) PowerShell에서 python -c 인라인 멀티라인/따옴표가 자주 깨짐:
-   - 해결: scripts/에 짧은 .py 파일로 저장 후 실행(db_prepare_recover.py 같은 방식).
-3) ConvertTo-Json -Depth 상한:
-   - PowerShell 기본 제한으로 Depth 100 초과 시 오류 발생 → 필요 필드만 뽑거나 Depth를 현실적으로 설정.
-4) 상태 정합성 버그(핵심):
-   - okx_state/exch_status=filled 이력(filled_qty/avg_px 존재)인데, orders.status=failed / submit_status=submit_failed로 남는 모순 상태가 관찰됨.
-   - 특히 “symbol을 일부러 INVALID로 깨는 테스트”에서 send-now가 PRICE_UNAVAILABLE로 failed 처리하며, 동시에 poll 결과는 okx_state=filled 흔적이 남음.
-   - 결론: “filled wins(체결이 확인되면 status=filled가 우선)” 규칙/정리 로직이 필요.
-5) Recover 로직이 symbol에 의존하면 테스트/운영이 깨짐:
-   - recover는 (okx_clord_id / payload_json / alert_id / dedup_key) 중심으로 복구되어야 안전.
+# 8) 현재 시스템 상태 스냅샷(최근 실측 요약 — 2026-01-30 KST 로그 기반)
+(증거: APPENDIX A1 원문)
+- /api/diag/okx-preflight: ok=true, msg="ok"
+- /api/home: last_* (filled_qty/avg_px/okx_order_id/checked_at) 포함
+- /tv accepted: order_id 생성
+- poll-now: status/okx_state/exch_status=filled + filled_qty/avg_px/okx_order_id
+- recover: invalidate 후 send-now recovered_by_clOrdId + symbol normalize + filled 유지
 
-# 10-A) 개발 일정(고정) — 8주(주5일, 1~2시간/일) “Day 단위 SSOT”
-원칙: Day 단위 체크리스트가 SSOT의 “현재 위치”를 만든다. (완료/미완료는 API 실측/파일 증거로만)
+# 9) 이번 세션(2026-01-30 KST)에서 실제로 한 것 / 문제점 / 해결 (증거 기반)
+## 9-1) 오늘 무엇을 했나(증거: APPENDIX A1/A2/A3/A4)
+1) week4_regression.ps1 실행 → 게이트 통과 확인
+2) main.py OKX 직접 호출/레거시 주석 블록 제거 반영(main.py 교체 패치)
+3) compileall 통과 후 week4_regression 재통과
+4) 최종 grep(Select-String)에서 main.py OKX 흔적이 “connector import 4줄만 남음” 확인
 
-## Week 1: 뼈대(DB + UI 4메뉴) 완성 — DONE(실측 기반)
-Day 1: DB 스키마 확정(accounts/strategies/assets/orders/snapshots)
-Day 2: API등록 화면(CRUD) + 연결상태/활성 토글
-Day 3: 전략설정 화면 골격(신규/수정/삭제)
-Day 4: 자산등록 화면 골격(계좌×심볼×전략 선택)
-Day 5: 홈(전광판) 표 + 활성/비활성 + last_signal/last_order 컬럼 표시
-✅ 완료 기준: “등록 3종 + 전광판 목록” 동작
-증거: GET /api/home, /api/accounts, /api/strategies, /api/assets 응답 OK
+## 9-2) 오늘의 문제점(증거 기반)
+1) OKX 최소주문/잔고부족/최소명목 미달은 retryable이 아니라 terminal로 분류되어야 함
+- 증거(사용자 로그 /api/home reason):
+  - send_failed: INSUFFICIENT_BAL ...
+2) (운영 리스크) 호출 경로가 섞이면 okx_place_order 인자/응답 파싱 불일치가 발생할 수 있음
+- 재발 방지: “한 경로만 호출” 원칙을 Week5에서 강제
 
-## Week 2: Input Sync v1(처음부터) + config_hash — DONE
-Day 1: Pine input.* 파서(v1) 구현(지원 타입)
-Day 2: keep 파일 → config 생성(from_keep) + config_hash
-Day 3: 템플릿(tradingview) 생성 + include_hash
-Day 4: /tv payload에서 config_hash 받아 orders에 저장
-Day 5: 동기화 회귀(keep 재적용 시 재사용) + 경고(warnings) 정리
-✅ 완료 기준: from_keep로 config_hash 생성/재사용 + /tv에서 config_hash 저장
-증거: POST /api/strategies/{id}/configs/from_keep, GET templates/tradingview?include_hash=true, orders에 config_hash 저장
+## 9-3) 오늘 해결한 것(증거 기반)
+1) main.py OKX 직접 /api/v5/requests/urllib 흔적 제거(실사용 구간)
+- 증거: APPENDIX A2 최종 Select-String 결과(4줄)
+2) week4_regression PASS 유지
+- 증거: APPENDIX A1 원문에서 == DONE ==
 
-## Week 3: 안정성(중복방지/가드/재시도 정책 초안) — DONE(현재까지 확인된 범위)
-Day 1: /tv 500 금지 가드 + exception 포맷 고정
-Day 2: Duplicate Guard(동일 alert_id 재전송 시 ignored_duplicate)
-Day 3: send-now 재시도/backoff 도입(기본)
-Day 4: poll-now 상태갱신 루프(최근/변경/폴링 모드)
-Day 5: 전광판에 last_order_status/filled_qty/avg_px/okx_order_id 반영(백엔드 데이터)
-✅ 완료 기준: duplicate 방지 + send/poll 루프 + 전광판 데이터 필드 확인
-증거: /api/home, /api/diag/send-now, /api/diag/poll-now 실측
+# =========================
+# 9-4) 이번 세션(2026-02-02 KST)에서 실제로 한 것 / 문제점 / 해결 (KIS cache timestamp) — 누적(삭제 금지)
+# =========================
+## 9-4-1) 오늘 무엇을 했나(증거: APPENDIX A5/A6/A7/A8)
+1) /api/diag/home 기본 호출에서 KIS가 miss로 내려오는 동작 확인(기본은 강제조회하지 않음)
+2) /api/diag/home?refresh_kis=1 호출 시 KIS 강제조회 + 캐시갱신(refresh) 동작 확인
+3) 문제: refresh 후에도 kis_cached_at가 null로 남는 케이스가 있었고, “갱신 시각을 남겨야 한다”로 정책 확정
+4) main.py에서 kis_cached_at 주입 지점 + _KIS_SUMMARY_CACHE(ts/payload) 구조를 Select-String으로 근거 확보
+5) 패치 적용 후 재실측:
+   - refresh_kis=1 호출에서 kis_cached_at가 ISO8601(+09:00)로 채워짐
+   - 이후 기본 호출에서 kis_cache_state=hit + 동일 kis_cached_at 유지됨
 
-## Week 4: “Recover + 상태정합성 + main.py 중복정리(최소)” — IN PROGRESS (오늘의 포커스)
-Day 1: Recover 로직(OKX clOrdId 기반) — symbol 의존 제거
-Day 2: 상태정합성 룰 “filled wins” (exch_status/okx_state=filled면 status=failed로 덮지 않기)
-Day 3: main.py 중복 정의 정리(특히 _ensure_orders_table) + canonical 고정
-Day 4: 회귀 테스트 스크립트 정비(PS 기준) + 감사 로그(week4_audit_*)
-Day 5: 릴리즈 패치 워크플로 고정(Downloads 가정 금지, 실존 파일명 기반)
-✅ 완료 기준: order_id=132 같은 “okx_state filled인데 status failed” 모순 재현 불가 + recover가 안정 동작
-증거: /api/diag/order, /api/home, send-now/poll-now 실측 + audit 파일
+## 9-4-2) 오늘의 문제점(증거 기반)
+1) KIS 캐시 타임스탬프(kis_cached_at)가 refresh 이후에도 null이면 “언제 갱신됐는지” 증거가 전광판에서 사라짐
+- 증거: APPENDIX A5(기본 miss) 및 APPENDIX A7(패치 전/후 비교 로그)에서 kis_cached_at=null 관측 케이스 존재
+2) mojibake(문자깨짐): kis_msg1_fixed가 깨진 문자열로 내려옴
+- 증거: APPENDIX A7/A8에서 kis_msg1_fixed="ëª¨ìí¬ì ì¡°íê° ìë£ëììµëë¤." 형태
+3) PowerShell 세션 변경 시 $base 변수가 사라질 수 있어 테스트 혼선 발생 가능
+- 재발 방지: 테스트 시작 시 항상 $base 재정의
 
-## Week 5~8: (확장 트랙) 커넥터 표준화 + 구독 게이트 + KIS MVP
-- Week 5: 커넥터 공통 인터페이스(PlaceOrder/GetOrder/Balance/Markets) + OKX 래핑
-- Week 6: DB/스키마 최소 정식화(마이그레이션 스크립트/인덱스/상태모델 문서)
-- Week 7: 관측/장애대응(실패 원인 분리, 1분 내 파악)
-- Week 8: 구독(결제X) 기능게이트/쿼터 서버 강제 + 운영 체크리스트
+## 9-4-3) 오늘 해결한 것(증거 기반)
+1) 정책 확정(운영/비용/증거성):
+   - 기본 /api/diag/home 는 외부 호출 X, 캐시 hit/miss만 표시
+   - /api/diag/home?refresh_kis=1 에서만 외부 호출 O, 캐시 갱신 + kis_cached_at 반드시 세팅
+- 증거: APPENDIX A7/A8에서 refresh→hit 흐름 및 timestamp 유지 확인
+2) 코드 근거 확보:
+   - kis_cached_at 주입 라인 존재
+   - _KIS_SUMMARY_CACHE(ts/payload) 캐시 구조 존재
+   - _fix_mojibake / _fix_mojibake_utf8 존재
+- 증거: APPENDIX A6 Select-String 결과(라인번호 포함)
 
-# 10-B) 현재 위치(오늘 기준) — 2026-01-29 KST
-- 현재 주차/일차: Week 4 (Recover/정합성/중복정리)
-- 현상(실측):
-  - order_id=132를 테스트로 “symbol을 INVALID로 바꿔 실패 유도”하면 send-now가 PRICE_UNAVAILABLE로 failed 처리함.
-  - 동시에 okx_state/exch_status=filled + filled_qty/avg_px 흔적이 남아 “status=failed” 모순 상태가 발생함.
-  - /api/diag/send-now가 일시적으로 recovered_by_clOrdId 형태로 okx_order_id를 복구시키는 동작도 관찰됨(회귀/정합성 검사에 포함).
-- 즉시 해결 목표(Week4 Day1~Day2):
-  1) recover가 symbol에 의존하지 않게(원본 payload_json 또는 okx_clord_id 기반)
-  2) filled wins 룰로 status 정합성 고정
-  3) “재시도(retryable) vs 종료(terminal)” 분류를 명확히 해서 무한 재시도 방지(예: INSUFFICIENT_BAL은 terminal)
+## 9-4-4) 앞으로는 이렇게 해야 한다(재발 방지 규칙)
+1) KIS 강제조회는 refresh_kis=1에서만(기본 홈 호출에서 KIS API를 절대 때리지 않음)
+2) refresh 시 kis_cached_at 반드시 갱신, hit에서는 유지(전광판에 “근거”가 남아야 함)
+3) mojibake는 “표시용 보정”만 적용(원문 데이터/로그 훼손 금지)
+4) 테스트 루틴:
+   - (테스트창) $base 재세팅
+   - /api/diag/home → miss/hit 확인
+   - /api/diag/home?refresh_kis=1 → refresh + kis_cached_at 확인
+   - /api/diag/home → hit + 동일 kis_cached_at 유지 확인
 
-# 11) 지금부터의 “다음 마일스톤 재정의”(키움 제외 버전)
-(되돌림 최소화를 위해 게이트 중심)
+# =========================
+# 10-A) 개발 일정(고정) — 12주(주5일, 1~2시간/일, 하루 최대 4시간 상한) “Day 단위 SSOT”
+# =========================
+원칙:
+- Day 단위 체크리스트가 SSOT의 “현재 위치”를 만든다. (완료/미완료는 API 실측/파일 증거로만)
+- OKX Week4 회귀 게이트(week4_regression.ps1 -FailOnContradiction PASS)를 절대 깨지 않는다.
+- KIS(한투)는 12주 계획 안에 Day 단위로 포함한다.
+- Hub 원칙(신호판단/추천/스크리닝/자동선정 X) 위반하는 기능은 일정에 넣지 않는다.
 
-## M5: 제품 아키텍처 분리(웹/대시보드 vs 프로그램/로컬에이전트) — TODO
-- 웹: 소개/가격/다운로드/사용법/커뮤니티 + 로그인 대시보드(읽기 중심)
-- 프로그램/앱: 계좌등록/키등록/전략설정/시스템설정/안전가드/전체중지
-- 서버(Hub): 실행/기록/관측/가드/주문 처리(절대 추천/스크리닝 X)
+## Week 1: DONE
+Day 1~5: (기존 SSOT 동일, 삭제 없음)
 
-## M6: 인증/권한/구독 게이트(최소) — TODO  (중요: 결제 구현이 아님)
-- 구독 플랜별 심볼 수 제한/기능 제한(프리미엄전략 접근 등)
-- 키 등록/열람/변경은 2차인증(간편인증/OTP 등) 필수(설계부터 박기)
-- 무료 1주 제한 등 “기간 제한”도 서버에서 강제(우회 불가)
+## Week 2: DONE
+Day 1~5: (기존 SSOT 동일, 삭제 없음)
 
-## M7: 멀티 거래소 커넥터(OKX/Upbit/Binance) — TODO
-- 공통 인터페이스(PlaceOrder/GetOrder/Balance/Markets)
-- 거래소별 rate limit / 오류코드 / 최소명목/최소수량 정책 흡수
-- “출금 불가 키” 안내/검증 로직 포함
+## Week 3: DONE
+Day 1~5: (기존 SSOT 동일, 삭제 없음)
 
-## M8: 증권사 커넥터(한국투자증권 KIS) — TODO
-- 서버 커넥터로 주문/조회/체결추적/잔고가 가능해야 함
-- 인증/토큰/갱신/시장시간/주문유형 차이를 커넥터에서 흡수
-- 보안/법적/운영 리스크 때문에 설계/검증을 더 촘촘히
+## Week 4: DONE(2026-01-30 KST 실측)
+Day 1~5: (기존 SSOT 동일, 삭제 없음)
 
-## M10: 전체중지(E-STOP) 3채널 구현(웹/프로그램/앱) — TODO
-- 누르면 즉시 Hub가 주문/폴링/전송을 중지해야 함(우선순위 매우 높음)
-- “중지 상태”는 /tv 수신 처리, send-now, poll-now 모두에 강제 적용
+## Week 5: 커넥터 표준화(OKX 정리) + KIS 착수(스켈레톤) — IN PROGRESS
+Day 1: 커넥터 공통 인터페이스 정의(PlaceOrder/GetOrder/Balance/Markets) + 결과 타입 명세
+Day 2: OKX 호출 경로 “단일화” 고정(중복 def 방지 원칙 문서화) + 회귀 게이트 유지
+Day 3: main.py OKX 관련 “직접호출 흔적 제거/정리” (connector-only) + week4_regression PASS 유지  ← (증거: APPENDIX A1/A2)
+Day 4: KIS 커넥터 스켈레톤 생성(인증/토큰/요청 래퍼 틀) + .env 키 목록만 추가(값 금지)
+Day 5: “다중 커넥터 선택” 최소 라우팅(계좌 exchange 필드 기반) 설계만(실주문 X) + 문서/grep 증거 남김
 
-## M11: 관측/장애대응/운영도구 — TODO
-- 장애/로그/알림(예: 접속이상, 주문실패 급증, 레이트리밋 등)
-- 공지/업데이트(버전/릴리즈노트/필수패치 안내) 운영 체계
+## Week 6: KIS 기본 실측(잔고/토큰/드라이런) + DB 매핑 초안 — TODO
+Day 1~5: (기존 SSOT 동일, 삭제 없음)
 
-# 12) 즉시 실행 가능한 검증 커맨드(복붙용 / PowerShell)
-$base="http://127.0.0.1:8000"
+## Week 7: KIS 주문/조회/체결추적 최소(“MVP 루프”) — TODO
+Day 1~5: (기존 SSOT 동일, 삭제 없음)
 
-# (A) 전광판 데이터(핵심)
-Invoke-RestMethod -Method Get -Uri "$base/api/home" | ConvertTo-Json -Depth 50
-Invoke-RestMethod -Method Get -Uri "$base/api/assets?limit=50" | ConvertTo-Json -Depth 50
+## Week 8: 멀티 커넥터 공통화(OKX/KIS) + 오류정책 고정 — TODO
+Day 1~5: (기존 SSOT 동일, 삭제 없음)
 
-# (B) E-STOP
-Invoke-RestMethod -Method Get -Uri "$base/api/system/estop" | ConvertTo-Json -Depth 10
-@{ estop=$true;  reason="manual stop" } | ConvertTo-Json | %{
-  Invoke-RestMethod -Method Post -Uri "$base/api/system/estop" -ContentType "application/json" -Body $_
-}
-Invoke-RestMethod -Method Post -Uri "$base/api/diag/send-now?limit=5" | ConvertTo-Json -Depth 30
-@{ estop=$false; reason="resume" } | ConvertTo-Json | %{
-  Invoke-RestMethod -Method Post -Uri "$base/api/system/estop" -ContentType "application/json" -Body $_
-}
+## Week 9: 구독/쿼터 게이트(M6) 최소 구현(결제 X) — TODO
+Day 1~5: (기존 SSOT 동일, 삭제 없음)
 
-# (C) /tv + 중복방지(M2)
-$aid="dup-test-" + (Get-Date -Format "yyyyMMdd-HHmmss")
-$payload=@{ secret="dummy2"; alert_id=$aid; symbol="ETH-USDT"; side="buy"; qty=0.0001; type="market" } | ConvertTo-Json
-Invoke-RestMethod -Method Post -Uri "$base/tv" -ContentType "application/json" -Body $payload
-Invoke-RestMethod -Method Post -Uri "$base/tv" -ContentType "application/json" -Body $payload
+## Week 10: 운영/관측/장애대응(M11) — TODO
+Day 1~5: (기존 SSOT 동일, 삭제 없음)
 
-# (D) poll-now (체결 갱신)
-Invoke-RestMethod -Method Post -Uri "$base/api/diag/poll-now?mode=poll&limit=20" -TimeoutSec 15 | ConvertTo-Json -Depth 30
+## Week 11: 보안/키관리/2차인증 설계 고정 — TODO
+Day 1~5: (기존 SSOT 동일, 삭제 없음)
 
-# (E) 단일 주문 디버깅
-Invoke-RestMethod -Method Get -Uri "$base/api/diag/order?order_id=132" | ConvertTo-Json -Depth 80
+## Week 12: 정리/리팩토링 최소 + 릴리즈 패키징/문서 — TODO
+Day 1~5: (기존 SSOT 동일, 삭제 없음)
 
-# 13) Known Issues / Risks (반드시 기억)
-1) main.py hotfix 누적(중복 함수 정의/래퍼)이 많아 유지보수 리스크 큼:
-   - 특히 _ensure_orders_table 중복 정의가 다수 존재(감사 로그로 확인됨).
-2) 상태 정합성(중요):
-   - okx_state/exch_status=filled 이면서도 status=failed로 남는 모순이 발생 가능.
-   - 반드시 “filled wins” 룰을 넣고, poll 결과를 status에 반영하는 우선순위를 고정해야 함.
-3) retry 정책:
-   - INSUFFICIENT_BAL 같은 실패는 terminal로 종결되어야 함(무한 재시도 금지).
-   - PRICE_UNAVAILABLE/NETWORK/5xx는 retryable 후보지만 백오프/최대횟수 필요.
-4) PowerShell/python -c 인라인은 깨지기 쉬움:
-   - DB 패치/준비는 scripts/*.py 파일로 고정하여 재현성 확보.
-5) 패치 워크플로:
-   - Downloads 경로/파일명 “가정” 금지. 항상 dir로 실제 파일 확인 후 Copy-Item.
-6) (키움 제외 사유) 키움은 Windows/세션/인증 제약으로 운영 변수가 커서, 본 12주 범위에서 제외.
+# =========================
+# 10-B) 현재 위치(증거 기반)
+# =========================
+- Week4: DONE(회귀 게이트 통과)
+- Week5: Day3 DONE, Day4 착수 예정
+  - Day3 DONE 근거:
+    - APPENDIX A1: week4_regression 재검증 통과
+    - APPENDIX A2: main.py OKX grep 결과가 connector import 4줄만 남음
 
-# 14) 오늘의 감사/증거 파일(로컬 생성)
-- C:\autobot\data\week4_audit_mainpy.txt  : main.py 중복 정의/라우트 후보 라인 수집
-- C:\autobot\data\week4_audit_routes.txt  : @app.get/post 데코레이터 라인 수집
+- (추가) 2026-02-02 KST 실측: KIS diag cache timestamp 증거화 DONE
+  - DONE 근거:
+    - APPENDIX A7: refresh_kis=1에서 kis_cache_state=refresh + kis_cached_at 세팅 확인
+    - APPENDIX A8: 이후 기본 호출에서 kis_cache_state=hit + 동일 kis_cached_at 유지 확인
 
-# 15) NEXT ACTION (딱 3개만, 오늘 바로)
-1) “autobot.zip 실물 점검”부터:
-   - zip 풀기 → app/data/scripts/requirements.txt 실제 파일명/중복/깨진 파일 확인 → SSOT 섹션 3을 실물 기준으로 보강
-2) Week4 Day1~Day2(핵심 버그) 해결:
-   - recover가 symbol에 의존하지 않도록 정리(OKX clOrdId/payload_json 기반)
-   - filled wins 룰을 적용해 “filled인데 failed” 모순 제거(전광판/주문 상세가 일관되게)
-3) main.py 중복 정의 최소 정리(전면 리팩토링 금지):
-   - _ensure_orders_table canonical 1개로 고정(현 v6 바인딩 유지/검증)
-   - 회귀 테스트(PS)로 send-now/poll-now/tv + estop + duplicate 전부 통과 확인
+# 11) Known Issues / Risks (재발 방지 포인트)
+1) main.py hotfix 누적 → “단일 호출 경로” 원칙 유지
+2) 상태 정합성: filled 근거가 생기면 최종 status는 filled (게이트로 감시)
+3) terminal 분류: INSUFFICIENT_BAL, 최소명목 미달 등은 무한 재시도 금지
+4) 패치 워크플로: Downloads 파일명/경로 가정 금지, dir로 실존 확인 후 Copy-Item
+5) 서버창/테스트창 혼용 금지
+6) (추가) KIS diag/home:
+   - 기본은 miss/hit만(외부 호출 금지)
+   - refresh_kis=1에서만 외부 호출 + kis_cached_at 갱신(증거 유지)
 
-[2026-01-29 KST] DONE(E-STOP Regression):
-- GET /api/system/estop → estop true/false 실측
-- E-STOP ON → POST /api/diag/send-now → ok=false note=stopped detail="E-STOP is ON" 실측
-- E-STOP OFF → POST /api/diag/send-now → ok=true note=send_checked 실측
-
-[2026-01-29 KST] DONE(ensure v6 존재 확인):
-- main.py에서 W4_ORDERS_ENSURE_V6 / def _ensure_orders_table_v6 / _ensure_orders_table 바인딩 존재 실측
-
-[2026-01-29 KST] IN PROGRESS(Week4 Recover/정합성):
-- order_id=132 패치 테스트에서 okx_state filled 흔적과 status failed가 공존하는 모순 관찰 → “filled wins” 및 recover(symbol 비의존) 필요
+# 12) NEXT ACTION (딱 3개만)
+1) Week5 Day4: KIS 커넥터 스켈레톤 + KIS preflight 스텁 + .env 키 목록(값 금지) 추가
+2) 해시 스냅샷(회귀 통과 조합) 기록 후 SSOT에 누적(삭제 금지)
+3) 작업 전/후 week4_regression PASS 유지 확인(깨지면 즉시 원복)
 
 [END OF SSOT]
+
+
+# ============================================================
+# [APPENDIX] 2026-01-30 KST — “이번 세션에서 실제로 한 것” 원문 증거(삭제 금지, 누적)
+# ============================================================
+
+# A1) week4_regression.ps1 실측 출력(원문) — 1차
+(기존 APPENDIX A1 원문은 작가님이 붙여준 그대로 유지/누적)
+
+# A2) OKX 흔적 grep(Select-String) — “정리 전/후” 증거(원문)
+(기존 APPENDIX A2 원문은 작가님이 붙여준 그대로 유지/누적)
+
+# A3) main.py 덮어쓰기 패치 적용(Downloads 워크플로) — 원문 증거(요약 없이 그대로)
+(기존 APPENDIX A3 원문은 작가님이 붙여준 그대로 유지/누적)
+
+# A4) 패치 후 재검증 회귀 통과(원문) — 2차
+(기존 APPENDIX A4 원문은 작가님이 붙여준 그대로 유지/누적)
+
+
+# ============================================================
+# [APPENDIX] 2026-02-02 KST — KIS cache timestamp(kis_cached_at) 이슈 원문 증거(삭제 금지, 누적)
+# ============================================================
+
+# A5) main.py 코드 검색 근거(원문)
+PS C:\Users\pc\Downloads> Select-String -Path "C:\autobot\app\main.py" -Pattern "fix_kis_cached_at_timestamp_v2", "_fix_mojibake", "kis_cached_at", "_KIS_SUMMARY_CACHE" | Select-Object -First 50
+
+C:\autobot\app\main.py:7:def _fix_mojibake(s: str):
+C:\autobot\app\main.py:505:                    item["kis_cached_at"] = (
+C:\autobot\app\main.py:510:                    item["kis_cached_at"] = None
+C:\autobot\app\main.py:4642:_KIS_SUMMARY_CACHE = {
+C:\autobot\app\main.py:4675:_KIS_SUMMARY_CACHE = {"payload": None, "ts": None}
+C:\autobot\app\main.py:4682:        _KIS_SUMMARY_CACHE["ts"] = ts
+C:\autobot\app\main.py:4683:        _KIS_SUMMARY_CACHE["payload"] = payload
+C:\autobot\app\main.py:4695:        payload = _KIS_SUMMARY_CACHE.get("payload")
+C:\autobot\app\main.py:4696:        ts = _KIS_SUMMARY_CACHE.get("ts")
+C:\autobot\app\main.py:4710:def _fix_mojibake_utf8(s: str | None) -> str | None:
+C:\autobot\app\main.py:4711:    """Best-effort fix for UTF-8 mojibake (delegates to _fix_mojibake if available)."""
+C:\autobot\app\main.py:4715:        return _fix_mojibake(s)
+C:\autobot\app\main.py:4789:    msg1_fixed = _fix_mojibake_utf8(msg1)
+
+# A6) SYNTAX 체크(원문)
+PS C:\autobot> python -m compileall app | Select-Object -Last 20
+Listing 'app'...
+Listing 'app\\connectors'...
+Listing 'app\\templates'...
+
+# A7) /api/diag/home?refresh_kis=1 실측(원문) — refresh + kis_cached_at 채움
+PS C:\Users\pc\Downloads> $base="http://127.0.0.1:8000"
+PS C:\Users\pc\Downloads> (Invoke-WebRequest -UseBasicParsing -Uri "$base/api/diag/home?refresh_kis=1" -TimeoutSec 60).Content
+{"ok":true,"items":[{"id":1,"account_name":"okx-main","strategy_name":"SPO-v2-edit","symbol":"ETH-USDT","market":"spot","is_active":false,"last_signal_at":null,"last_signal_id":null,"last_order_at":null,"last_order_status":null,"last_order_reason":null,"last_order_id":null,"last_okx_order_id":null,"last_filled_qty":null,"last_order_avg_px":null,"last_checked_at":null,"last_signal":"-","last_order":"-","last_filled":"-"},{"id":3,"account_name":"okx-main","strategy_name":"SPO-v2","symbol":"ETH-USDT","market":"spot","is_active":true,"last_signal_at":"2026-01-23T19:24:48.816792+09:00","last_signal_id":"diag-tv-001","last_order_at":"2026-02-01T02:06:49.362444+09:00","last_order_status":"sent","last_order_reason":null,"last_order_id":"173","last_okx_order_id":"3267423532845064192","last_filled_qty":null,"last_order_avg_px":null,"last_checked_at":"2026-02-01T02:06:49.528722+09:00","last_signal":"2026-01-23 19:24:48.816792+09:00 (diag-tv-001)","last_order":"2026-02-01 02:06:49.362444+09:00 | sent | ordId=3267423532845064192 | checked=2026-02-01 02:06:49.528722+09:00","last_filled":"-"},{"id":4,"account_name":"okx-main","strategy_name":"SPO-v2","symbol":"BTC-USDT","market":"spot","is_active":true,"last_signal_at":"2026-01-25T13:12:19.241034+09:00","last_signal_id":"diag-tv-c4133e40cb384137a5304c59cd772402","last_order_at":"2026-01-25T12:59:55.925873+09:00","last_order_status":"failed","last_order_reason":"send_failed: INSUFFICIENT_BAL: need~8.894464 USDT (qty=0.0001 px=88064.0), have 8.73966403219e-05 USDT","last_order_id":"67","last_okx_order_id":null,"last_filled_qty":null,"last_order_avg_px":null,"last_checked_at":"2026-01-27T18:09:21.219185+09:00","last_signal":"2026-01-25 13:12:19.241034+09:00 (diag-tv-c4133e40cb384137a5304c59cd772402)","last_order":"2026-01-25 12:59:55.925873+09:00 | failed | checked=2026-01-27 18:09:21.219185+09:00","last_filled":"-"},{"id":5,"account_name":"okx-main","strategy_name":"SPO-v2","symbol":"SOL-USDT","market":"spot","is_active":true,"last_signal_at":null,"last_signal_id":null,"last_order_at":"2026-01-26T15:40:16.523271+09:00","last_order_status":"failed","last_order_reason":"send_failed: INSUFFICIENT_BAL: need~0.125058 USDT (qty=0.001 px=123.82), have 8.73966403219e-05 USDT","last_order_id":"77","last_okx_order_id":null,"last_filled_qty":null,"last_order_avg_px":null,"last_checked_at":"2026-01-27T18:09:21.395077+09:00","last_signal":"-","last_order":"2026-01-26 15:40:16.523271+09:00 | failed | checked=2026-01-27 18:09:21.395077+09:00","last_filled":"-"}],"accounts_summary":[{"id":1,"name":"okx-main","exchange":"OKX","is_active":false,"last_health_at":"2026-01-20T18:37:09.377828+09:00","last_health_ok":true,"last_health_msg":"basic network ok"},{"id":2,"name":"okx-sub","exchange":"OKX","is_active":false,"last_health_at":"2026-01-20T18:37:48.645589+09:00","last_health_ok":true,"last_health_msg":"basic network ok"},{"id":3,"name":"kis-vps","exchange":"KIS","is_active":false,"last_health_at":null,"last_health_ok":null,"last_health_msg":null,"kis_balance_summary":{"dnca_tot_amt":10000000,"nass_amt":10000000,"tot_evlu_amt":10000000,"scts_evlu_amt":0,"cma_evlu_amt":0,"bfdy_tot_asst_evlu_amt":10000000,"asst_icdc_amt":0,"asst_icdc_erng_rt":"0.00000000"},"kis_msg1_fixed":"ëª¨ìí¬ì ì¡°íê° ìë£ëììµëë¤.","kis_check":{"ok":true,"svr":"vps","base_url":"https://openapivts.koreainvestment.com:29443","http_status":200,"timeout_sec":20.0,"retry_n":2},"kis_cache_state":"refresh","kis_cached_at":"2026-02-02T13:56:56.517611+09:00"}],"note":"assets_soft_deleted_missing"}
+
+# A8) /api/diag/home 재호출 실측(원문) — hit + kis_cached_at 유지
+PS C:\Users\pc\Downloads> (Invoke-WebRequest -UseBasicParsing -Uri "$base/api/diag/home" -TimeoutSec 20).Content
+{"ok":true,"items":[{"id":1,"account_name":"okx-main","strategy_name":"SPO-v2-edit","symbol":"ETH-USDT","market":"spot","is_active":false,"last_signal_at":null,"last_signal_id":null,"last_order_at":null,"last_order_status":null,"last_order_reason":null,"last_order_id":null,"last_okx_order_id":null,"last_filled_qty":null,"last_order_avg_px":null,"last_checked_at":null,"last_signal":"-","last_order":"-","last_filled":"-"},{"id":3,"account_name":"okx-main","strategy_name":"SPO-v2","symbol":"ETH-USDT","market":"spot","is_active":true,"last_signal_at":"2026-01-23T19:24:48.816792+09:00","last_signal_id":"diag-tv-001","last_order_at":"2026-02-01T02:06:49.362444+09:00","last_order_status":"sent","last_order_reason":null,"last_order_id":"173","last_okx_order_id":"3267423532845064192","last_filled_qty":null,"last_order_avg_px":null,"last_checked_at":"2026-02-01T02:06:49.528722+09:00","last_signal":"2026-01-23 19:24:48.816792+09:00 (diag-tv-001)","last_order":"2026-02-01 02:06:49.362444+09:00 | sent | ordId=3267423532845064192 | checked=2026-02-01 02:06:49.528722+09:00","last_filled":"-"},{"id":4,"account_name":"okx-main","strategy_name":"SPO-v2","symbol":"BTC-USDT","market":"spot","is_active":true,"last_signal_at":"2026-01-25T13:12:19.241034+09:00","last_signal_id":"diag-tv-c4133e40cb384137a5304c59cd772402","last_order_at":"2026-01-25T12:59:55.925873+09:00","last_order_status":"failed","last_order_reason":"send_failed: INSUFFICIENT_BAL: need~8.894464 USDT (qty=0.0001 px=88064.0), have 8.73966403219e-05 USDT","last_order_id":"67","last_okx_order_id":null,"last_filled_qty":null,"last_order_avg_px":null,"last_checked_at":"2026-01-27T18:09:21.219185+09:00","last_signal":"2026-01-25 13:12:19.241034+09:00 (diag-tv-c4133e40cb384137a5304c59cd772402)","last_order":"2026-01-25 12:59:55.925873+09:00 | failed | checked=2026-01-27 18:09:21.219185+09:00","last_filled":"-"},{"id":5,"account_name":"okx-main","strategy_name":"SPO-v2","symbol":"SOL-USDT","market":"spot","is_active":true,"last_signal_at":null,"last_signal_id":null,"last_order_at":"2026-01-26T15:40:16.523271+09:00","last_order_status":"failed","last_order_reason":"send_failed: INSUFFICIENT_BAL: need~0.125058 USDT (qty=0.001 px=123.82), have 8.73966403219e-05 USDT","last_order_id":"77","last_okx_order_id":null,"last_filled_qty":null,"last_order_avg_px":null,"last_checked_at":"2026-01-27T18:09:21.395077+09:00","last_signal":"-","last_order":"2026-01-26 15:40:16.523271+09:00 | failed | checked=2026-01-27 18:09:21.395077+09:00","last_filled":"-"}],"accounts_summary":[{"id":1,"name":"okx-main","exchange":"OKX","is_active":false,"last_health_at":"2026-01-20T18:37:09.377828+09:00","last_health_ok":true,"last_health_msg":"basic network ok"},{"id":2,"name":"okx-sub","exchange":"OKX","is_active":false,"last_health_at":"2026-01-20T18:37:48.645589+09:00","last_health_ok":true,"last_health_msg":"basic network ok"},{"id":3,"name":"kis-vps","exchange":"KIS","is_active":false,"last_health_at":null,"last_health_ok":null,"last_health_msg":null,"kis_balance_summary":{"dnca_tot_amt":10000000,"nass_amt":10000000,"tot_evlu_amt":10000000,"scts_evlu_amt":0,"cma_evlu_amt":0,"bfdy_tot_asst_evlu_amt":10000000,"asst_icdc_amt":0,"asst_icdc_erng_rt":"0.00000000"},"kis_msg1_fixed":"ëª¨ìí¬ì ì¡°íê° ìë£ëììµëë¤.","kis_check":{"ok":true,"svr":"vps","base_url":"https://openapivts.koreainvestment.com:29443","http_status":200,"timeout_sec":20.0,"retry_n":2},"kis_cache_state":"hit","kis_cached_at":"2026-02-02T13:56:56.517611+09:00"}],"note":"assets_soft_deleted_missing"}
+
+
+# A5) 2026-02-02 KST — KIS 캐시 타임스탬프(kis_cached_at) 갱신/표시 근거(원문, 누적)
+
+(1) /api/diag/home (초기)
+- kis_cache_state: "miss"
+- kis_cached_at: null
+- kis_balance_summary: null
+(서버 재기동 직후면 miss는 정상: 메모리 캐시 초기화됨)
+
+(2) /api/diag/home?refresh_kis=1 (강제 갱신)
+- kis_cache_state: "refresh"
+- kis_balance_summary: {"dnca_tot_amt":10000000, "nass_amt":10000000, "tot_evlu_amt":10000000, ...}
+- kis_check: {"ok":true,"svr":"vps","base_url":"https://openapivts.koreainvestment.com:29443","http_status":200,"timeout_sec":20.0,"retry_n":2}
+- kis_cached_at: "2026-02-02T13:56:56.517611+09:00"  (※ null → timestamp로 채워짐 확인)
+
+(3) /api/diag/home (재호출)
+- kis_cache_state: "hit"
+- kis_cached_at: "2026-02-02T13:56:56.517611+09:00" 유지 확인
+- kis_balance_summary 유지 확인
+
+결론:
+- refresh_kis=1 수행 시 _KIS_SUMMARY_CACHE.ts가 정상 세팅되고,
+- diag/home에서 kis_cached_at가 null이 아닌 값으로 내려오며,
+- 이후 home 재호출에서 cache_state=hit + kis_cached_at 유지됨.
+== DONE ==
+
+[END OF APPENDIX]
+
+git config --global user.name  "tantanpapa"
+git config --global user.email "tantanpapa00@gmail.com"
+
