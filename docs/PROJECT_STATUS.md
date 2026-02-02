@@ -69,7 +69,8 @@
 - OKX 주문/체결 루프, KIS MVP (place_order, get_order, polling, routing)
 
 ## Week 8: 멀티 커넥터 공통화 — IN PROGRESS
-- Day1: 공통 인터페이스 정의
+- Day1: 공통 인터페이스 정의 (DONE)
+- Day2: exchange_order_id 공통 필드 추가 (DONE)
 
 ## Week 9~12: TODO
 - 구독/쿼터, 운영/관측, 보안/키관리, 릴리즈
