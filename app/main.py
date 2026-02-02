@@ -3305,6 +3305,42 @@ def _pick_connector_name(exchange: str) -> str:
         return "KISConnector"
     return "UNKNOWN"
 
+
+# ===================================================================
+# Connector Factory (Week8 Day5)
+# - 통합 커넥터 팩토리: exchange 이름으로 커넥터 인스턴스 반환
+# - 싱글톤 패턴으로 인스턴스 캐싱
+# ===================================================================
+_CONNECTOR_CACHE: dict = {}
+
+def get_connector(exchange: str):
+    """Get connector instance by exchange name.
+
+    Args:
+        exchange: Exchange name (OKX, KIS, etc.)
+
+    Returns:
+        Connector instance or None if unknown exchange.
+    """
+    from app.connectors.base import Connector
+
+    ex = _norm_exchange(exchange)
+    if ex in _CONNECTOR_CACHE:
+        return _CONNECTOR_CACHE[ex]
+
+    conn = None
+    if ex in ("OKX", "OKEX"):
+        from app.connectors.okx import OKXConnector
+        conn = OKXConnector()
+    elif ex in ("KIS", "KOREAINVESTMENT", "KOREA INVESTMENT", "KOREA_INVESTMENT", "KOREAINVESTMENTSEC"):
+        from app.connectors.kis import KISConnector
+        conn = KISConnector()
+
+    if conn is not None:
+        _CONNECTOR_CACHE[ex] = conn
+    return conn
+
+
 @app.get("/api/diag/connector-route")
 def api_diag_connector_route(account_id: int | None = None, db: Session = Depends(get_db)):
     """Design-only routing check (Week5 Day5). Does not place orders."""
@@ -3339,6 +3375,66 @@ def api_diag_connector_route(account_id: int | None = None, db: Session = Depend
         return {"ok": False, "code": "exception", "detail": str(e), "note": "design_only"}
 
 
+@app.get("/api/diag/connector-test")
+def api_diag_connector_test(exchange: str = "OKX", symbol: str | None = None):
+    """Test connector factory and methods (Week8 Day5).
+
+    Args:
+        exchange: Exchange name (OKX or KIS)
+        symbol: Optional symbol for get_markets test (e.g., ETH-USDT for OKX, 005930 for KIS)
+    """
+    from dataclasses import asdict
+
+    try:
+        conn = get_connector(exchange)
+        if conn is None:
+            return {"ok": False, "code": "unknown_exchange", "exchange": exchange}
+
+        result = {
+            "ok": True,
+            "exchange": exchange,
+            "connector": type(conn).__name__,
+            "methods": {},
+        }
+
+        # Test get_balance_split
+        try:
+            ccy = "KRW" if exchange.upper() == "KIS" else "USDT"
+            bs = conn.get_balance_split(ccy=ccy)
+            result["methods"]["get_balance_split"] = {
+                "ok": bs.ok,
+                "ccy": bs.ccy,
+                "total": bs.total if bs.ok else None,
+                "trading": bs.trading if bs.ok else None,
+                "funding": bs.funding if bs.ok else None,
+                "err_code": bs.err_code,
+                "err_msg": bs.err_msg,
+            }
+        except Exception as e:
+            result["methods"]["get_balance_split"] = {"ok": False, "error": str(e)}
+
+        # Test get_markets (if symbol provided)
+        if symbol:
+            try:
+                ms = conn.get_markets(symbol=symbol)
+                if ms:
+                    m = ms[0]
+                    result["methods"]["get_markets"] = {
+                        "ok": True,
+                        "symbol": m.symbol,
+                        "min_qty": m.min_qty,
+                        "lot_qty": m.lot_qty,
+                        "min_notional": m.min_notional,
+                        "raw_keys": list((m.raw or {}).keys())[:10] if m.raw else None,
+                    }
+                else:
+                    result["methods"]["get_markets"] = {"ok": True, "items": 0}
+            except Exception as e:
+                result["methods"]["get_markets"] = {"ok": False, "error": str(e)}
+
+        return result
+    except Exception as e:
+        return {"ok": False, "code": "exception", "detail": str(e)}
 
 
 def okx_avail_ccy_split2(ccy: str = "USDT"):
