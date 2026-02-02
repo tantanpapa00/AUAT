@@ -275,7 +275,7 @@ class KISConnector(Connector):
         return True, hk
 
     # ---------------------
-    # Connector protocol stubs (Week6~7)
+    # Connector protocol (Week7)
     # ---------------------
     def place_order(
         self,
@@ -287,16 +287,87 @@ class KISConnector(Connector):
         px: Optional[float] = None,
         payload: Optional[Dict[str, Any]] = None,
     ) -> PlaceOrderResult:
-        return PlaceOrderResult(
-            ok=False,
-            exchange=self.exchange,
-            symbol=symbol,
-            side=side,
-            qty=float(qty),
-            order_type=order_type,
-            err_code="not_implemented",
-            err_msg="KIS place_order not implemented yet (Week6~7 scope)",
-        )
+        """KIS 국내주식 현금 주문 (매수/매도)."""
+        import os as _os
+
+        cano = (_os.getenv("KIS_CANO") or "").strip()
+        acnt_prdt_cd = (_os.getenv("KIS_ACNT_PRDT_CD") or "").strip()
+        if not cano or not acnt_prdt_cd:
+            return PlaceOrderResult(
+                ok=False, exchange=self.exchange, symbol=symbol, side=side,
+                qty=float(qty), order_type=order_type,
+                err_code="missing_env", err_msg="KIS_CANO or KIS_ACNT_PRDT_CD missing",
+            )
+
+        # TR ID: 매수 TTTC0802U/VTTC0802U, 매도 TTTC0801U/VTTC0801U
+        if side == "buy":
+            tr_id = "TTTC0802U" if self.svr == "prod" else "VTTC0802U"
+        else:
+            tr_id = "TTTC0801U" if self.svr == "prod" else "VTTC0801U"
+
+        # 주문구분: 00=지정가, 01=시장가
+        ord_dvsn = "01" if order_type == "market" else "00"
+        ord_unpr = "0" if order_type == "market" else str(int(px or 0))
+
+        body = {
+            "CANO": cano,
+            "ACNT_PRDT_CD": acnt_prdt_cd,
+            "PDNO": symbol,  # 종목코드 6자리
+            "ORD_DVSN": ord_dvsn,
+            "ORD_QTY": str(int(qty)),
+            "ORD_UNPR": ord_unpr,
+        }
+
+        try:
+            ok, hk = self.make_hashkey(body=body)
+            headers = {"tr_id": tr_id, "custtype": "P", "tr_cont": ""}
+            if ok and hk:
+                headers["hashkey"] = hk
+
+            req_ok, status, j, raw = self.request(
+                method="POST",
+                path="/uapi/domestic-stock/v1/trading/order-cash",
+                json_body=body,
+                headers=headers,
+                require_token=True,
+            )
+
+            if not req_ok or status != 200:
+                return PlaceOrderResult(
+                    ok=False, exchange=self.exchange, symbol=symbol, side=side,
+                    qty=float(qty), order_type=order_type,
+                    err_code=f"http_{status}", err_msg=raw[:200] if raw else "request_failed",
+                    raw={"status": status, "raw": raw},
+                )
+
+            # 응답 파싱
+            rt_cd = (j or {}).get("rt_cd")
+            output = (j or {}).get("output") or {}
+            odno = output.get("ODNO")  # 주문번호
+            ord_tmd = output.get("ORD_TMD")  # 주문시각
+
+            if rt_cd != "0":
+                return PlaceOrderResult(
+                    ok=False, exchange=self.exchange, symbol=symbol, side=side,
+                    qty=float(qty), order_type=order_type,
+                    err_code=rt_cd, err_msg=(j or {}).get("msg1", "kis_error"),
+                    raw=j,
+                )
+
+            return PlaceOrderResult(
+                ok=True, exchange=self.exchange, symbol=symbol, side=side,
+                qty=float(qty), order_type=order_type,
+                okx_order_id=odno,  # KIS 주문번호 (필드명은 공통화를 위해 okx_order_id 사용)
+                clord_id=ord_tmd,
+                state="submitted",
+                raw=j,
+            )
+        except Exception as e:
+            return PlaceOrderResult(
+                ok=False, exchange=self.exchange, symbol=symbol, side=side,
+                qty=float(qty), order_type=order_type,
+                err_code="exception", err_msg=f"{type(e).__name__}: {e}",
+            )
 
     def get_order(
         self,
@@ -305,15 +376,102 @@ class KISConnector(Connector):
         exchange_order_id: Optional[str] = None,
         clord_id: Optional[str] = None,
     ) -> OrderResult:
-        return OrderResult(
-            ok=False,
-            exchange=self.exchange,
-            symbol=symbol,
-            okx_order_id=exchange_order_id,
-            clord_id=clord_id,
-            err_code="not_implemented",
-            err_msg="KIS get_order not implemented yet (Week6~7 scope)",
-        )
+        """KIS 주문 체결 조회."""
+        import os as _os
+
+        cano = (_os.getenv("KIS_CANO") or "").strip()
+        acnt_prdt_cd = (_os.getenv("KIS_ACNT_PRDT_CD") or "").strip()
+        if not cano or not acnt_prdt_cd:
+            return OrderResult(
+                ok=False, exchange=self.exchange, symbol=symbol,
+                err_code="missing_env", err_msg="KIS_CANO or KIS_ACNT_PRDT_CD missing",
+            )
+
+        # TR ID: TTTC8001R (실전), VTTC8001R (모의)
+        tr_id = "TTTC8001R" if self.svr == "prod" else "VTTC8001R"
+
+        # 오늘 날짜
+        today = datetime.now().strftime("%Y%m%d")
+
+        params = {
+            "CANO": cano,
+            "ACNT_PRDT_CD": acnt_prdt_cd,
+            "INQR_STRT_DT": today,
+            "INQR_END_DT": today,
+            "SLL_BUY_DVSN_CD": "00",  # 전체
+            "INQR_DVSN": "00",
+            "PDNO": symbol or "",
+            "CCLD_DVSN": "00",
+            "ORD_GNO_BRNO": "",
+            "ODNO": exchange_order_id or "",
+            "INQR_DVSN_3": "00",
+            "INQR_DVSN_1": "",
+            "CTX_AREA_FK100": "",
+            "CTX_AREA_NK100": "",
+        }
+
+        try:
+            req_ok, status, j, raw = self.request(
+                method="GET",
+                path="/uapi/domestic-stock/v1/trading/inquire-daily-ccld",
+                params=params,
+                headers={"tr_id": tr_id, "custtype": "P", "tr_cont": ""},
+                require_token=True,
+            )
+
+            if not req_ok or status != 200:
+                return OrderResult(
+                    ok=False, exchange=self.exchange, symbol=symbol,
+                    err_code=f"http_{status}", err_msg=raw[:200] if raw else "request_failed",
+                    raw={"status": status, "raw": raw},
+                )
+
+            rt_cd = (j or {}).get("rt_cd")
+            if rt_cd != "0":
+                return OrderResult(
+                    ok=False, exchange=self.exchange, symbol=symbol,
+                    err_code=rt_cd, err_msg=(j or {}).get("msg1", "kis_error"),
+                    raw=j,
+                )
+
+            # output1에서 주문번호로 찾기
+            output1 = (j or {}).get("output1") or []
+            found = None
+            for item in output1:
+                if exchange_order_id and item.get("odno") == exchange_order_id:
+                    found = item
+                    break
+            if not found and output1:
+                found = output1[0]
+
+            if not found:
+                return OrderResult(
+                    ok=True, exchange=self.exchange, symbol=symbol,
+                    okx_order_id=exchange_order_id,
+                    state="not_found",
+                    raw=j,
+                )
+
+            # 체결 정보 추출
+            def _to_f(x):
+                try:
+                    return float(x) if x else None
+                except:
+                    return None
+
+            return OrderResult(
+                ok=True, exchange=self.exchange, symbol=symbol,
+                okx_order_id=found.get("odno"),
+                state=found.get("ord_dvsn_name", "unknown"),
+                filled_qty=_to_f(found.get("tot_ccld_qty")),
+                avg_px=_to_f(found.get("avg_prvs")),
+                raw=j,
+            )
+        except Exception as e:
+            return OrderResult(
+                ok=False, exchange=self.exchange, symbol=symbol,
+                err_code="exception", err_msg=f"{type(e).__name__}: {e}",
+            )
 
     def get_balance_split(self, *, ccy: str = "KRW") -> BalanceSplit:
         return BalanceSplit(

@@ -329,8 +329,12 @@ Day 3: 드라이런(DRY_RUN) 플래그 KIS 경로 적용 확인 ← DONE (2026-0
 Day 4: DB 매핑 초안 (orders 테이블 KIS 컬럼 검토) ← DONE (2026-02-02 KST, 증거: main.py:4547-4552 OKX컬럼, KIS 필요: kis_order_no/kis_order_date/kis_state)
 Day 5: KIS 실측 회귀 테스트 작성 + 문서화 ← DONE (2026-02-02 KST, 증거: scripts/kis_regression.ps1 PASS)
 
-## Week 7: KIS 주문/조회/체결추적 최소(“MVP 루프”) — TODO
-Day 1~5: (기존 SSOT 동일, 삭제 없음)
+## Week 7: KIS 주문/조회/체결추적 최소("MVP 루프") — IN PROGRESS
+Day 1: KIS place_order/get_order 구현 ← DONE (2026-02-02 KST)
+Day 2: KIS 주문 테스트 엔드포인트 추가
+Day 3: KIS 체결 추적 (polling) 구현
+Day 4: main.py에 KIS 경로 연결
+Day 5: KIS MVP 회귀 테스트 + 문서화
 
 ## Week 8: 멀티 커넥터 공통화(OKX/KIS) + 오류정책 고정 — TODO
 Day 1~5: (기존 SSOT 동일, 삭제 없음)
