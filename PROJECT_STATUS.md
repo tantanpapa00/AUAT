@@ -311,12 +311,12 @@ Day 1~5: (기존 SSOT 동일, 삭제 없음)
 ## Week 4: DONE(2026-01-30 KST 실측)
 Day 1~5: (기존 SSOT 동일, 삭제 없음)
 
-## Week 5: 커넥터 표준화(OKX 정리) + KIS 착수(스켈레톤) — IN PROGRESS
+## Week 5: 커넥터 표준화(OKX 정리) + KIS 착수(스켈레톤) — DONE (2026-02-02 KST)
 Day 1: 커넥터 공통 인터페이스 정의(PlaceOrder/GetOrder/Balance/Markets) + 결과 타입 명세
 Day 2: OKX 호출 경로 “단일화” 고정(중복 def 방지 원칙 문서화) + 회귀 게이트 유지
 Day 3: main.py OKX 관련 “직접호출 흔적 제거/정리” (connector-only) + week4_regression PASS 유지  ← (증거: APPENDIX A1/A2)
 Day 4: KIS 커넥터 스켈레톤 생성(인증/토큰/요청 래퍼 틀) + .env 키 목록만 추가(값 금지) ← DONE (2026-02-02 KST, 증거: kis.py + main.py:3054 kis-preflight)
-Day 5: “다중 커넥터 선택” 최소 라우팅(계좌 exchange 필드 기반) 설계만(실주문 X) + 문서/grep 증거 남김
+Day 5: "다중 커넥터 선택" 최소 라우팅(계좌 exchange 필드 기반) 설계만(실주문 X) + 문서/grep 증거 남김 ← DONE (2026-02-02 KST, 증거: main.py:3193-3237)
 
 ## Week 6: KIS 기본 실측(잔고/토큰/드라이런) + DB 매핑 초안 — TODO
 Day 1~5: (기존 SSOT 동일, 삭제 없음)
@@ -343,7 +343,7 @@ Day 1~5: (기존 SSOT 동일, 삭제 없음)
 # 10-B) 현재 위치(증거 기반)
 # =========================
 - Week4: DONE(회귀 게이트 통과)
-- Week5: Day4 DONE, Day5 착수 예정
+- Week5: DONE (2026-02-02 KST)
   - Day3 DONE 근거:
     - APPENDIX A1: week4_regression 재검증 통과
     - APPENDIX A2: main.py OKX grep 결과가 connector import 4줄만 남음
@@ -351,6 +351,11 @@ Day 1~5: (기존 SSOT 동일, 삭제 없음)
     - kis.py: KISConnector 스켈레톤 구현 (tokenP/request/hashkey)
     - main.py:3054: /api/diag/kis-preflight 엔드포인트
     - PROJECT_STATUS.md: KIS_* 환경변수 키 목록 추가
+  - Day5 DONE 근거 (2026-02-02 KST):
+    - main.py:3193: _norm_exchange() 정규화 함수
+    - main.py:3198: _pick_connector_name() 커넥터 선택 함수
+    - main.py:3206: /api/diag/connector-route 설계 전용 엔드포인트
+    - 테스트: OKX→OKXConnector, KIS→KISConnector 라우팅 확인
 
 - (추가) 2026-02-02 KST 실측: KIS diag cache timestamp 증거화 DONE
   - DONE 근거:
@@ -368,7 +373,7 @@ Day 1~5: (기존 SSOT 동일, 삭제 없음)
    - refresh_kis=1에서만 외부 호출 + kis_cached_at 갱신(증거 유지)
 
 # 12) NEXT ACTION (딱 3개만)
-1) Week5 Day5: "다중 커넥터 선택" 최소 라우팅(계좌 exchange 필드 기반) 설계 + 문서/grep 증거 남김
+1) Week6 Day1: KIS 기본 실측(잔고/토큰/드라이런) 착수 + DB 매핑 초안
 2) 해시 스냅샷(회귀 통과 조합) 기록 후 SSOT에 누적(삭제 금지)
 3) 작업 전/후 week4_regression PASS 유지 확인(깨지면 즉시 원복)
 
