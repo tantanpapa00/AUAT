@@ -2661,7 +2661,8 @@ def api_send_now(
         rows = db.execute(text("""
             select id, asset_id, alert_id, symbol, market, side, qty, order_type, reason, submit_err,
                    submit_try_count, next_submit_at,
-                   payload_json, okx_state, exch_status, filled_qty, avg_px
+                   payload_json, okx_state, exch_status, filled_qty, avg_px,
+                   exchange
               from orders
              where (submit_status is null or submit_status in ('received','submit_failed'))
                and (okx_order_id is null or okx_order_id = '')
@@ -2804,6 +2805,46 @@ def api_send_now(
             except Exception:
                 db.rollback()
             try:
+                # Week7 Day4: exchange 분기 (KIS vs OKX)
+                order_exchange = (r.get("exchange") or "OKX").strip().upper()
+
+                # === KIS 경로 ===
+                if order_exchange == "KIS":
+                    from app.connectors.kis import KISConnector as _KISConnector
+                    kis_conn = _KISConnector()
+                    kis_res = kis_conn.place_order(
+                        symbol=(payload_symbol or symbol),
+                        side=side,
+                        qty=qty,
+                        order_type=order_type,
+                    )
+
+                    if kis_res.ok and kis_res.okx_order_id:
+                        # 성공: DB 업데이트
+                        db.execute(text("""
+                            update orders
+                               set status='sent',
+                                   okx_order_id=:ord,
+                                   okx_state='submitted',
+                                   last_checked_at=now(),
+                                   reason=null,
+                                   submit_status='submitted',
+                                   submit_err=null,
+                                   submit_try_count=0,
+                                   next_submit_at=null,
+                                   exch_status=coalesce(exch_status,'unknown'),
+                                   exch_err=null,
+                                   next_check_at=now()
+                             where id=:id
+                        """), {"id": oid, "ord": str(kis_res.okx_order_id)})
+                        db.commit()
+                        out_items.append({"id": oid, "status": "sent", "okx_order_id": str(kis_res.okx_order_id), "exchange": "KIS"})
+                        continue
+                    else:
+                        # 실패
+                        raise RuntimeError(f"kis_place_order_failed: {kis_res.err_code} {kis_res.err_msg}")
+
+                # === OKX 경로 (기존 로직) ===
                 # Always compute deterministic clOrdId so we can recover safely without duplicate submits
                 gen_cid = _mk_okx_clordid(oid, alert_id)
                 if not gen_cid:

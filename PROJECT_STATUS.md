@@ -385,7 +385,7 @@ Day 1~5: (기존 SSOT 동일, 삭제 없음)
   - Day1: DONE - KIS place_order/get_order 구현 (kis.py:280-390)
   - Day2: DONE - /api/diag/kis-order-test 엔드포인트 추가 (main.py:3186-3230)
   - Day3: DONE - KIS 체결 추적 (polling) 구현 (main.py:4221-4410, /api/diag/kis-poll-test)
-  - Day4: main.py에 KIS 경로 연결
+  - Day4: DONE - api_send_now에 KIS 경로 연결 (main.py:2807-2843 exchange 분기)
   - Day5: KIS MVP 회귀 테스트 + 문서화
 
 # 11) Known Issues / Risks (재발 방지 포인트)
@@ -399,7 +399,7 @@ Day 1~5: (기존 SSOT 동일, 삭제 없음)
    - refresh_kis=1에서만 외부 호출 + kis_cached_at 갱신(증거 유지)
 
 # 12) NEXT ACTION (딱 3개만)
-1) Week7 Day4: main.py에 KIS 경로 연결
+1) Week7 Day5: KIS MVP 회귀 테스트 + 문서화
 2) 해시 스냅샷(회귀 통과 조합) 기록 후 SSOT에 누적(삭제 금지)
 3) 작업 전/후 week4_regression PASS 유지 확인(깨지면 즉시 원복)
 
