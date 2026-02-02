@@ -1,11 +1,12 @@
 # kis_regression.ps1
-# Week6 Day5: KIS 실측 회귀 테스트 (진단 전용)
+# Week7 Day5: KIS MVP 회귀 테스트 (place_order/get_order/polling/routing)
 # Usage: powershell -ExecutionPolicy Bypass -File C:\autobot\scripts\kis_regression.ps1
 
 $base = "http://127.0.0.1:8000"
 $errors = 0
+$warnings = 0
 
-Write-Host "=== KIS Regression Test (Week6) ===" -ForegroundColor Cyan
+Write-Host "=== KIS MVP Regression Test (Week7) ===" -ForegroundColor Cyan
 Write-Host ""
 
 # 1) KIS Preflight (토큰 발급)
@@ -62,12 +63,78 @@ try {
     $errors++
 }
 
+# 4) KIS Order Test (DRY_RUN 모드 - 토큰/해시키 검증)
+# NOTE: DRY_RUN=1이 아니면 dry_run_required 반환 (정상 동작)
+Write-Host "[4] KIS Order Test (DRY_RUN)..." -NoNewline
+try {
+    $r4 = Invoke-WebRequest -UseBasicParsing -Uri "$base/api/diag/kis-order-test?symbol=005930&side=buy&qty=1" -TimeoutSec 20
+    $j4 = $r4.Content | ConvertFrom-Json
+    if ($j4.ok -eq $true -and $j4.dry_run -eq $true) {
+        Write-Host " OK (connector=$($j4.connector), token_valid=$($j4.token_valid), hashkey_ok=$($j4.hashkey_ok))" -ForegroundColor Green
+    } elseif ($j4.code -eq "dry_run_required") {
+        Write-Host " SKIP (DRY_RUN=1 not set, expected in prod)" -ForegroundColor Yellow
+        $warnings++
+    } elseif ($j4.code -eq "token_fail") {
+        Write-Host " SKIP (token fail, check KIS creds)" -ForegroundColor Yellow
+        $warnings++
+    } else {
+        Write-Host " FAIL: code=$($j4.code) detail=$($j4.detail)" -ForegroundColor Red
+        $errors++
+    }
+} catch {
+    Write-Host " ERROR: $_" -ForegroundColor Red
+    $errors++
+}
+
+# 5) KIS Poll Test (체결 추적 폴링)
+# NOTE: 폴링 대상 주문이 없어도 ok=true 반환 (polled=[])
+Write-Host "[5] KIS Poll Test..." -NoNewline
+try {
+    $r5 = Invoke-WebRequest -UseBasicParsing -Uri "$base/api/diag/kis-poll-test?limit=5" -TimeoutSec 30
+    $j5 = $r5.Content | ConvertFrom-Json
+    if ($j5.ok -eq $true) {
+        $polledCount = 0
+        if ($j5.polled -ne $null) { $polledCount = $j5.polled.Count }
+        Write-Host " OK (polled=$polledCount)" -ForegroundColor Green
+    } else {
+        Write-Host " FAIL: code=$($j5.code) detail=$($j5.detail)" -ForegroundColor Red
+        $errors++
+    }
+} catch {
+    Write-Host " ERROR: $_" -ForegroundColor Red
+    $errors++
+}
+
+# 6) Send-Now KIS Routing 검증 (실제 전송 없이 라우팅만 확인)
+# NOTE: E-STOP ON이면 stopped 반환, 대상 주문 없으면 ok=true + items=[]
+Write-Host "[6] Send-Now (KIS routing check)..." -NoNewline
+try {
+    $r6 = Invoke-WebRequest -UseBasicParsing -Uri "$base/api/diag/send-now?limit=1" -Method Post -TimeoutSec 20
+    $j6 = $r6.Content | ConvertFrom-Json
+    if ($j6.ok -eq $true) {
+        Write-Host " OK (note=$($j6.note))" -ForegroundColor Green
+    } elseif ($j6.note -eq "stopped") {
+        Write-Host " SKIP (E-STOP ON, expected)" -ForegroundColor Yellow
+        $warnings++
+    } else {
+        Write-Host " FAIL: ok=$($j6.ok) note=$($j6.note)" -ForegroundColor Red
+        $errors++
+    }
+} catch {
+    Write-Host " ERROR: $_" -ForegroundColor Red
+    $errors++
+}
+
 # Summary
 Write-Host ""
+Write-Host "--- Summary ---"
+Write-Host "Errors: $errors" -ForegroundColor $(if ($errors -gt 0) { "Red" } else { "Green" })
+Write-Host "Warnings: $warnings" -ForegroundColor $(if ($warnings -gt 0) { "Yellow" } else { "Green" })
+
 if ($errors -eq 0) {
-    Write-Host "== KIS REGRESSION PASS ==" -ForegroundColor Green
+    Write-Host "== KIS MVP REGRESSION PASS ==" -ForegroundColor Green
     exit 0
 } else {
-    Write-Host "== KIS REGRESSION FAIL ($errors errors) ==" -ForegroundColor Red
+    Write-Host "== KIS MVP REGRESSION FAIL ($errors errors) ==" -ForegroundColor Red
     exit 1
 }
