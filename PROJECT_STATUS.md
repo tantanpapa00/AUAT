@@ -381,6 +381,13 @@ Day 1~5: (기존 SSOT 동일, 삭제 없음)
   - Day4: DB 매핑 초안 (KIS 컬럼: kis_order_no/kis_order_date/kis_state)
   - Day5: scripts/kis_regression.ps1 작성 + PASS 확인
 
+- Week7: IN PROGRESS (2026-02-02 KST)
+  - Day1: DONE - KIS place_order/get_order 구현 (kis.py:280-390)
+  - Day2: DONE - /api/diag/kis-order-test 엔드포인트 추가 (main.py:3186-3230)
+  - Day3: KIS 체결 추적 (polling) 구현
+  - Day4: main.py에 KIS 경로 연결
+  - Day5: KIS MVP 회귀 테스트 + 문서화
+
 # 11) Known Issues / Risks (재발 방지 포인트)
 1) main.py hotfix 누적 → “단일 호출 경로” 원칙 유지
 2) 상태 정합성: filled 근거가 생기면 최종 status는 filled (게이트로 감시)
@@ -392,7 +399,7 @@ Day 1~5: (기존 SSOT 동일, 삭제 없음)
    - refresh_kis=1에서만 외부 호출 + kis_cached_at 갱신(증거 유지)
 
 # 12) NEXT ACTION (딱 3개만)
-1) Week7 Day1: KIS 주문 API 스펙 조사 + place_order 스켈레톤
+1) Week7 Day3: KIS 체결 추적 (polling) 구현
 2) 해시 스냅샷(회귀 통과 조합) 기록 후 SSOT에 누적(삭제 금지)
 3) 작업 전/후 week4_regression PASS 유지 확인(깨지면 즉시 원복)
 

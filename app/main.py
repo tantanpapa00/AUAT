@@ -3184,6 +3184,54 @@ def api_diag_kis_balance():
     return {"ok": True, "check": kis_inquire_balance()}
 
 
+@app.get("/api/diag/kis-order-test")
+def api_diag_kis_order_test(
+    symbol: str = "005930",
+    side: str = "buy",
+    qty: int = 1,
+):
+    """KIS order test endpoint (Week7 Day2). DRY_RUN only, no real order."""
+    import os as _os
+    from app.connectors.kis import KISConnector
+
+    # 안전장치: DRY_RUN=1이 아니면 거부
+    if str(_os.getenv("DRY_RUN", "0")) != "1":
+        return {"ok": False, "code": "dry_run_required", "detail": "Set DRY_RUN=1 to use this endpoint"}
+
+    try:
+        conn = KISConnector()
+        # 토큰 발급 테스트
+        tok_ok, tok = conn.get_token()
+        if not tok_ok or not tok:
+            return {"ok": False, "code": "token_fail", "detail": "Failed to get KIS token"}
+
+        # hashkey 테스트 (body 샘플)
+        cano = (_os.getenv("KIS_CANO") or "").strip()
+        acnt_prdt_cd = (_os.getenv("KIS_ACNT_PRDT_CD") or "").strip()
+        test_body = {
+            "CANO": cano,
+            "ACNT_PRDT_CD": acnt_prdt_cd,
+            "PDNO": symbol,
+            "ORD_DVSN": "01",  # 시장가
+            "ORD_QTY": str(qty),
+            "ORD_UNPR": "0",
+        }
+        hk_ok, hk = conn.make_hashkey(body=test_body)
+
+        return {
+            "ok": True,
+            "dry_run": True,
+            "connector": "KISConnector",
+            "svr": conn.svr,
+            "token_valid": tok.is_valid if tok else False,
+            "hashkey_ok": hk_ok,
+            "test_params": {"symbol": symbol, "side": side, "qty": qty},
+            "note": "No real order placed (DRY_RUN=1)",
+        }
+    except Exception as e:
+        return {"ok": False, "code": "exception", "detail": str(e)}
+
+
 # ===================================================================
 # Multi-connector routing (design-only) - Week5 Day5
 # - MUST NOT affect /tv or order execution paths yet.
