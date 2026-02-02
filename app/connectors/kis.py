@@ -477,16 +477,128 @@ class KISConnector(Connector):
             )
 
     def get_balance_split(self, *, ccy: str = "KRW") -> BalanceSplit:
-        return BalanceSplit(
-            ok=False,
-            exchange=self.exchange,
-            ccy=ccy,
-            total=0.0,
-            trading=0.0,
-            funding=0.0,
-            err_code="not_implemented",
-            err_msg="KIS balance not implemented yet (Week6 scope)",
-        )
+        """KIS 국내주식 잔고조회 (v1_국내주식-006).
+
+        TR ID: TTTC8434R (prod) / VTTC8434R (vps)
+        Returns:
+            - total: 총 평가금액 (tot_evlu_amt)
+            - trading: 예수금 총액 (dnca_tot_amt) - 매매 가능 현금
+            - funding: 유가증권 평가금액 (scts_evlu_amt) - 보유주식 평가액
+        """
+        import os as _os
+
+        cano = (_os.getenv("KIS_CANO") or "").strip()
+        acnt_prdt_cd = (_os.getenv("KIS_ACNT_PRDT_CD") or "").strip()
+        if not cano or not acnt_prdt_cd:
+            return BalanceSplit(
+                ok=False,
+                exchange=self.exchange,
+                ccy=ccy,
+                total=0.0,
+                trading=0.0,
+                funding=0.0,
+                err_code="missing_env",
+                err_msg="KIS_CANO or KIS_ACNT_PRDT_CD missing",
+            )
+
+        tr_id = "TTTC8434R" if self.svr == "prod" else "VTTC8434R"
+
+        params = {
+            "CANO": cano,
+            "ACNT_PRDT_CD": acnt_prdt_cd,
+            "AFHR_FLPR_YN": "N",
+            "OFL_YN": "",
+            "INQR_DVSN": "01",
+            "UNPR_DVSN": "01",
+            "FUND_STTL_ICLD_YN": "N",
+            "FNCG_AMT_AUTO_RDPT_YN": "N",
+            "PRCS_DVSN": "00",
+            "CTX_AREA_FK100": "",
+            "CTX_AREA_NK100": "",
+        }
+
+        try:
+            req_ok, status, j, raw = self.request(
+                method="GET",
+                path="/uapi/domestic-stock/v1/trading/inquire-balance",
+                params=params,
+                headers={"tr_id": tr_id, "custtype": "P", "tr_cont": ""},
+                require_token=True,
+            )
+
+            if not req_ok or status != 200:
+                return BalanceSplit(
+                    ok=False,
+                    exchange=self.exchange,
+                    ccy=ccy,
+                    total=0.0,
+                    trading=0.0,
+                    funding=0.0,
+                    err_code=f"http_{status}",
+                    err_msg=raw[:200] if raw else "request_failed",
+                    raw={"status": status, "raw": raw},
+                )
+
+            rt_cd = (j or {}).get("rt_cd")
+            if rt_cd != "0":
+                return BalanceSplit(
+                    ok=False,
+                    exchange=self.exchange,
+                    ccy=ccy,
+                    total=0.0,
+                    trading=0.0,
+                    funding=0.0,
+                    err_code=rt_cd,
+                    err_msg=(j or {}).get("msg1", "kis_error"),
+                    raw=j,
+                )
+
+            # output2에서 잔고 정보 추출
+            output2 = (j or {}).get("output2") or []
+            out2 = output2[0] if isinstance(output2, list) and len(output2) > 0 else {}
+
+            def _to_f(x):
+                try:
+                    if x is None:
+                        return 0.0
+                    s = str(x).strip()
+                    if s == "":
+                        return 0.0
+                    return float(s)
+                except Exception:
+                    return 0.0
+
+            # dnca_tot_amt: 예수금 총액 (매매 가능 현금)
+            # tot_evlu_amt: 총 평가금액
+            # scts_evlu_amt: 유가증권 평가금액 (보유주식)
+            trading = _to_f(out2.get("dnca_tot_amt"))
+            funding = _to_f(out2.get("scts_evlu_amt"))
+            total = _to_f(out2.get("tot_evlu_amt"))
+
+            # tot_evlu_amt가 없으면 trading + funding으로 계산
+            if total == 0.0 and (trading > 0 or funding > 0):
+                total = trading + funding
+
+            return BalanceSplit(
+                ok=True,
+                exchange=self.exchange,
+                ccy=ccy,
+                total=total,
+                trading=trading,
+                funding=funding,
+                raw=j,
+            )
+        except Exception as e:
+            return BalanceSplit(
+                ok=False,
+                exchange=self.exchange,
+                ccy=ccy,
+                total=0.0,
+                trading=0.0,
+                funding=0.0,
+                err_code="exception",
+                err_msg=f"{type(e).__name__}: {e}",
+            )
 
     def get_markets(self, *, symbol: Optional[str] = None) -> list[MarketInfo]:
         return []
