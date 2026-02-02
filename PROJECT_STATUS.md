@@ -322,12 +322,12 @@ Day 3: main.py OKX 관련 “직접호출 흔적 제거/정리” (connector-onl
 Day 4: KIS 커넥터 스켈레톤 생성(인증/토큰/요청 래퍼 틀) + .env 키 목록만 추가(값 금지) ← DONE (2026-02-02 KST, 증거: kis.py + main.py:3054 kis-preflight)
 Day 5: "다중 커넥터 선택" 최소 라우팅(계좌 exchange 필드 기반) 설계만(실주문 X) + 문서/grep 증거 남김 ← DONE (2026-02-02 KST, 증거: main.py:3193-3237)
 
-## Week 6: KIS 기본 실측(잔고/토큰/드라이런) + DB 매핑 초안 — IN PROGRESS
+## Week 6: KIS 기본 실측(잔고/토큰/드라이런) + DB 매핑 초안 — DONE (2026-02-02 KST)
 Day 1: KIS 잔고 조회 실측 + 추가 환경변수 문서화 ← DONE (2026-02-02 KST, 증거: /api/diag/kis-balance 200 OK)
-Day 2: KIS 토큰 갱신/만료 핸들링 검증
-Day 3: 드라이런(DRY_RUN) 플래그 KIS 경로 적용 확인
-Day 4: DB 매핑 초안 (orders 테이블 KIS 컬럼 검토)
-Day 5: KIS 실측 회귀 테스트 작성 + 문서화
+Day 2: KIS 토큰 갱신/만료 핸들링 검증 ← DONE (2026-02-02 KST, 증거: kis.py:50-52 is_valid, preflight 10초 캐시)
+Day 3: 드라이런(DRY_RUN) 플래그 KIS 경로 적용 확인 ← DONE (2026-02-02 KST, 증거: main.py:3552 브로커 호출 전 체크)
+Day 4: DB 매핑 초안 (orders 테이블 KIS 컬럼 검토) ← DONE (2026-02-02 KST, 증거: main.py:4547-4552 OKX컬럼, KIS 필요: kis_order_no/kis_order_date/kis_state)
+Day 5: KIS 실측 회귀 테스트 작성 + 문서화 ← DONE (2026-02-02 KST, 증거: scripts/kis_regression.ps1 PASS)
 
 ## Week 7: KIS 주문/조회/체결추적 최소(“MVP 루프”) — TODO
 Day 1~5: (기존 SSOT 동일, 삭제 없음)
@@ -370,11 +370,12 @@ Day 1~5: (기존 SSOT 동일, 삭제 없음)
     - APPENDIX A7: refresh_kis=1에서 kis_cache_state=refresh + kis_cached_at 세팅 확인
     - APPENDIX A8: 이후 기본 호출에서 kis_cache_state=hit + 동일 kis_cached_at 유지 확인
 
-- Week6: Day1 DONE (2026-02-02 KST)
-  - Day1 DONE 근거:
-    - /api/diag/kis-balance: 200 OK, svr=vps, dnca_tot_amt=10000000
-    - kis_inquire_balance(): main.py:3068-3178 구현 확인
-    - KIS 추가 환경변수 문서화 (CANO, ACNT_PRDT_CD, TIMEOUT_SEC, RETRY_N)
+- Week6: DONE (2026-02-02 KST)
+  - Day1: /api/diag/kis-balance 200 OK 확인
+  - Day2: 토큰 갱신/만료 핸들링 (is_valid, 30초 전 갱신) 확인
+  - Day3: DRY_RUN 플래그 브로커 호출 전 체크 확인
+  - Day4: DB 매핑 초안 (KIS 컬럼: kis_order_no/kis_order_date/kis_state)
+  - Day5: scripts/kis_regression.ps1 작성 + PASS 확인
 
 # 11) Known Issues / Risks (재발 방지 포인트)
 1) main.py hotfix 누적 → “단일 호출 경로” 원칙 유지
@@ -387,7 +388,7 @@ Day 1~5: (기존 SSOT 동일, 삭제 없음)
    - refresh_kis=1에서만 외부 호출 + kis_cached_at 갱신(증거 유지)
 
 # 12) NEXT ACTION (딱 3개만)
-1) Week6 Day2: KIS 토큰 갱신/만료 핸들링 검증
+1) Week7 Day1: KIS 주문 API 스펙 조사 + place_order 스켈레톤
 2) 해시 스냅샷(회귀 통과 조합) 기록 후 SSOT에 누적(삭제 금지)
 3) 작업 전/후 week4_regression PASS 유지 확인(깨지면 즉시 원복)
 
