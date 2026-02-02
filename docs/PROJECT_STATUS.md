@@ -71,6 +71,7 @@
 ## Week 8: 멀티 커넥터 공통화 — IN PROGRESS
 - Day1: 공통 인터페이스 정의 (DONE)
 - Day2: exchange_order_id 공통 필드 추가 (DONE)
+- Day3: KIS get_balance_split 구현 (DONE)
 
 ## Week 9~12: TODO
 - 구독/쿼터, 운영/관측, 보안/키관리, 릴리즈
@@ -78,7 +79,7 @@
 ---
 
 # 7) NEXT ACTION (3개)
-1) Week8 Day1: 멀티 커넥터 공통화 착수
+1) Week8 Day4: KIS get_markets 구현 또는 connector 테스트 강화
 2) 회귀 게이트 유지 (week4_regression + kis_regression)
 3) 작업 전 docs/AI_RULES.md 필독
 
