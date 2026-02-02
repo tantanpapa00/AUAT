@@ -1,0 +1,45 @@
+﻿# --- Secrets (NEVER COMMIT) ---
+.env
+*.env
+.env.*
+secrets.*
+**/*secret*
+**/*apikey*
+**/*api_key*
+**/*token*
+**/*passphrase*
+**/*credential*
+**/*private*
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Virtual env ---
+.venv/
+venv/
+
+# --- Logs / dumps ---
+*.log
+*.tmp
+*.bak
+*.zip
+*.7z
+
+# --- OS / IDE ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --- DB files (keep txt configs; ignore local db artifacts if any) ---
+*.sqlite
+*.sqlite3
+*.db
