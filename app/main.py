@@ -3232,6 +3232,19 @@ def api_diag_kis_order_test(
         return {"ok": False, "code": "exception", "detail": str(e)}
 
 
+@app.get("/api/diag/kis-poll-test")
+def api_diag_kis_poll_test(limit: int = 5):
+    """KIS 체결 추적 (polling) 테스트 엔드포인트 (Week7 Day3).
+
+    exchange='KIS'이고 폴링 대상인 주문들을 조회하고 상태를 갱신합니다.
+    """
+    try:
+        result = kis_poll_orders_once(limit=limit)
+        return result
+    except Exception as e:
+        return {"ok": False, "code": "exception", "detail": str(e)}
+
+
 # ===================================================================
 # Multi-connector routing (design-only) - Week5 Day5
 # - MUST NOT affect /tv or order execution paths yet.
@@ -4202,6 +4215,254 @@ def poll_orders_once_impl(*, limit: int = 20) -> dict:
 # =========================
 
 
+# ============================================================
+# Week7 Day3: KIS 체결 추적 (polling) 구현
+# ============================================================
+def kis_poll_orders_once(*, limit: int = 20) -> dict:
+    """
+    KIS 주문 상태 1회 폴링 구현.
+    대상: exchange='KIS', okx_order_id(주문번호) 있고 exch_status in ('unknown','live','partial')
+    결과: orders + assets(last_order_*) 갱신
+    """
+    import time as _time
+    from app.connectors.kis import KISConnector
+
+    t0 = _time.time()
+
+    def _backoff_seconds(attempt: int) -> int:
+        steps = [5, 15, 30, 60]
+        if attempt <= 1:
+            return steps[0]
+        idx = attempt - 1
+        if idx >= len(steps):
+            idx = len(steps) - 1
+        return steps[idx]
+
+    _POLL_MAX_FAIL_ATTEMPTS = 10
+
+    def _is_permanent_poll_error(msg: str) -> bool:
+        m = (msg or "").lower()
+        # KIS: 잘못된 주문번호 등 400 계열
+        if "status=400" in m or "http_400" in m:
+            return True
+        if "egw00201" in m:  # 유효하지 않은 TR ID 등
+            return True
+        return False
+
+    db_gen = get_db()
+    db = next(db_gen)
+
+    out_items = []
+    scanned = 0
+    changed = 0
+
+    try:
+        _ensure_orders_table(db)
+
+        from sqlalchemy import text as _t
+
+        # KIS 주문만 폴링 (exchange='KIS' 또는 account의 exchange='KIS' JOIN)
+        # 단순화: exchange 컬럼이 'KIS'인 경우만 대상
+        rows = db.execute(_t("""
+            select id, asset_id, symbol, qty, status, okx_order_id, okx_clord_id,
+                   submit_status, exch_status, next_check_at, check_count
+              from orders
+             where exchange = 'KIS'
+               and okx_order_id is not null
+               and okx_order_id <> ''
+               and submit_status = 'submitted'
+               and exch_status in ('unknown','live','partial')
+               and (next_check_at is null or next_check_at <= now())
+             order by coalesce(next_check_at, created_at) asc, id asc
+             limit :lim
+        """), {"lim": int(limit)}).mappings().all()
+
+        if not rows:
+            return {
+                "ok": True,
+                "items": [],
+                "count": 0,
+                "scanned": 0,
+                "changed": 0,
+                "note": "no_kis_orders_to_poll",
+                "elapsed_ms": int((_time.time() - t0) * 1000),
+            }
+
+        conn = KISConnector()
+
+        for r in rows:
+            scanned += 1
+            oid = int(r["id"])
+            asset_id = int(r["asset_id"]) if r.get("asset_id") is not None else None
+            symbol = str(r["symbol"])
+            kis_order_id = str(r["okx_order_id"])  # KIS 주문번호 (okx_order_id 필드 재사용)
+            req_qty = float(r["qty"]) if r.get("qty") is not None else 0.0
+            prev_status = str(r.get("status") or "sent")
+            prev_exch_status = str(r.get("exch_status") or "unknown")
+            prev_check_count = int(r.get("check_count") or 0)
+
+            try:
+                # KIS get_order 호출
+                res = conn.get_order(symbol=symbol, exchange_order_id=kis_order_id)
+
+                state = None
+                fill_qty = None
+                avg_px = None
+
+                if res.ok:
+                    state = res.state  # "지정가", "시장가", "not_found" 등
+                    fill_qty = res.filled_qty
+                    avg_px = res.avg_px
+
+                f_qty = fill_qty if fill_qty is not None else None
+                a_px = avg_px if avg_px is not None else None
+
+                new_status = prev_status
+                exch_status = prev_exch_status
+
+                # KIS 상태 매핑:
+                # - 체결완료: filled_qty == req_qty
+                # - 부분체결: 0 < filled_qty < req_qty
+                # - 미체결: filled_qty == 0 or None
+                # - not_found: 주문 조회 실패
+
+                if state == "not_found":
+                    # 주문 조회 실패 - 재시도
+                    new_status = "sent"
+                    exch_status = "unknown"
+                elif f_qty is not None and req_qty > 0:
+                    if f_qty >= (req_qty - 1e-12):
+                        new_status = "filled"
+                        exch_status = "filled"
+                    elif f_qty > 0:
+                        new_status = "partial"
+                        exch_status = "partial"
+                    else:
+                        new_status = "sent"
+                        exch_status = "live"
+                elif res.ok:
+                    # 체결 수량 없음 - 미체결
+                    new_status = "sent"
+                    exch_status = "live"
+
+                attempt = prev_check_count + 1
+                delay_sec = _backoff_seconds(attempt) if exch_status not in ("filled", "canceled") else 5
+
+                db.execute(_t("""
+                    update orders
+                       set status          = :st,
+                           okx_state       = :os,
+                           filled_qty      = coalesce(:fq, filled_qty),
+                           avg_px          = coalesce(:ap, avg_px),
+                           last_checked_at = now(),
+                           reason          = null,
+                           exch_status     = :es,
+                           exch_err        = null,
+                           check_count     = check_count + 1,
+                           next_check_at   = case
+                               when :es in ('filled','canceled') then null
+                               else now() + (:delay || ' seconds')::interval
+                           end
+                     where id = :id
+                """), {"id": oid, "st": new_status, "os": state, "fq": f_qty, "ap": a_px, "es": exch_status, "delay": int(delay_sec)})
+
+                if asset_id is not None:
+                    _sync_asset_last_order(
+                        db,
+                        asset_id=asset_id,
+                        order_id=oid,
+                        status=new_status,
+                        reason=None,
+                        okx_order_id=kis_order_id,
+                        filled_qty=f_qty,
+                        avg_px=a_px,
+                    )
+
+                db.commit()
+                changed += 1
+                out_items.append({
+                    "id": oid,
+                    "symbol": symbol,
+                    "status": new_status,
+                    "exch_status": exch_status,
+                    "kis_state": state,
+                    "filled_qty": f_qty,
+                    "avg_px": a_px,
+                    "kis_order_id": kis_order_id,
+                })
+
+            except Exception as e:
+                db.rollback()
+                msg = str(e)
+                attempt = prev_check_count + 1
+                permanent = _is_permanent_poll_error(msg)
+                terminal = permanent or attempt >= _POLL_MAX_FAIL_ATTEMPTS
+                reason_txt = ("kis_poll_failed_terminal: " if terminal else "kis_poll_failed: ") + msg
+
+                try:
+                    if terminal:
+                        db.execute(_t("""
+                            update orders
+                               set status = 'failed',
+                                   reason = :r,
+                                   exch_status = 'failed',
+                                   exch_err = :r,
+                                   last_checked_at = now(),
+                                   check_count = check_count + 1,
+                                   next_check_at = null
+                             where id = :id
+                        """), {"id": oid, "r": reason_txt})
+                    else:
+                        delay_sec = _backoff_seconds(attempt)
+                        db.execute(_t("""
+                            update orders
+                               set reason = :r,
+                                   exch_err = :r,
+                                   last_checked_at = now(),
+                                   check_count = check_count + 1,
+                                   next_check_at = now() + (:delay || ' seconds')::interval
+                             where id = :id
+                        """), {"id": oid, "r": reason_txt, "delay": int(delay_sec)})
+
+                    if asset_id is not None:
+                        _sync_asset_last_order(
+                            db,
+                            asset_id=asset_id,
+                            order_id=oid,
+                            status=("failed" if terminal else prev_status),
+                            reason=reason_txt,
+                            okx_order_id=kis_order_id,
+                        )
+
+                    db.commit()
+                except Exception:
+                    db.rollback()
+
+                out_items.append({
+                    "id": oid,
+                    "symbol": symbol,
+                    "status": ("failed" if terminal else prev_status),
+                    "exch_status": ("failed" if terminal else prev_exch_status),
+                    "reason": reason_txt,
+                    "kis_order_id": kis_order_id,
+                })
+
+        return {
+            "ok": True,
+            "items": out_items,
+            "count": len(out_items),
+            "scanned": scanned,
+            "changed": changed,
+            "note": "kis_poll_checked",
+            "elapsed_ms": int((_time.time() - t0) * 1000),
+        }
+
+    finally:
+        try:
+            db_gen.close()
+        except Exception:
+            pass
+
 
 # ============================================================
 # M3 S3-1 (SSOT-safe): Config from KEEP file (Input Sync v1 + config_hash)
@@ -4665,6 +4926,9 @@ def _ensure_orders_table_v6(db):
         "ALTER TABLE orders ADD COLUMN IF NOT EXISTS submit_try_count INTEGER",
         "ALTER TABLE orders ALTER COLUMN submit_try_count SET DEFAULT 0",
         "ALTER TABLE orders ADD COLUMN IF NOT EXISTS next_submit_at TIMESTAMPTZ",
+
+        # Week7 Day3: exchange 컬럼 추가 (KIS/OKX 구분용)
+        "ALTER TABLE orders ADD COLUMN IF NOT EXISTS exchange TEXT",
     ]
 
     for s in stmts:
@@ -4680,6 +4944,8 @@ def _ensure_orders_table_v6(db):
         "CREATE INDEX IF NOT EXISTS idx_orders_idem_key ON orders(idem_key)",
         "CREATE INDEX IF NOT EXISTS idx_orders_submit_queue ON orders(submit_status, next_submit_at)",
         "CREATE INDEX IF NOT EXISTS idx_orders_check_queue ON orders(next_check_at)",
+        # Week7 Day3: exchange 인덱스
+        "CREATE INDEX IF NOT EXISTS idx_orders_exchange ON orders(exchange)",
     ]
     for s in idx:
         try:
