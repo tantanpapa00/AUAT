@@ -601,4 +601,73 @@ class KISConnector(Connector):
             )
 
     def get_markets(self, *, symbol: Optional[str] = None) -> list[MarketInfo]:
-        return []
+        """KIS 종목 정보 조회 (주식현재가 시세).
+
+        TR ID: FHKST01010100 (prod/vps 동일)
+        NOTE: KIS는 전체 종목 목록 API가 없으므로 symbol 필수.
+              symbol 없으면 빈 리스트 반환.
+        """
+        if not symbol:
+            return []
+
+        # 현재가 시세 조회 (공개 API, 인증 필요)
+        tr_id = "FHKST01010100"
+
+        params = {
+            "FID_COND_MRKT_DIV_CODE": "J",  # J: 주식, ETF, ETN
+            "FID_INPUT_ISCD": symbol,
+        }
+
+        try:
+            req_ok, status, j, raw = self.request(
+                method="GET",
+                path="/uapi/domestic-stock/v1/quotations/inquire-price",
+                params=params,
+                headers={"tr_id": tr_id, "custtype": "P", "tr_cont": ""},
+                require_token=True,
+            )
+
+            if not req_ok or status != 200:
+                return [MarketInfo(
+                    exchange=self.exchange,
+                    symbol=symbol,
+                    raw={"error": f"http_{status}", "raw": raw[:200] if raw else None},
+                )]
+
+            rt_cd = (j or {}).get("rt_cd")
+            if rt_cd != "0":
+                return [MarketInfo(
+                    exchange=self.exchange,
+                    symbol=symbol,
+                    raw={"error": rt_cd, "msg": (j or {}).get("msg1")},
+                )]
+
+            output = (j or {}).get("output") or {}
+
+            def _to_f(x):
+                try:
+                    if x is None:
+                        return None
+                    s = str(x).strip()
+                    if s == "":
+                        return None
+                    return float(s)
+                except Exception:
+                    return None
+
+            # 국내 주식은 일반적으로 1주 단위 거래
+            # stck_mxpr: 상한가, stck_llam: 하한가, stck_prpr: 현재가
+            return [MarketInfo(
+                exchange=self.exchange,
+                symbol=symbol,
+                min_qty=1.0,  # 국내 주식 최소 거래단위
+                lot_qty=1.0,  # 1주 단위
+                min_notional=None,  # 국내 주식은 최소 주문금액 제한 없음
+                raw=output,
+            )]
+        except Exception as e:
+            return [MarketInfo(
+                exchange=self.exchange,
+                symbol=symbol,
+                raw={"error": "exception", "detail": f"{type(e).__name__}: {e}"},
+            )]
