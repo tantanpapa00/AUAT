@@ -6,7 +6,8 @@
 
 ## Current Status
 - Week 7: DONE (KIS MVP)
-- Week 8: IN PROGRESS (멀티 커넥터 공통화)
+- Week 8: DONE (멀티 커넥터 공통화)
+- Week 9: TODO (구독/쿼터, 운영/관측)
 
 ## Quick Commands
 - Syntax: `python -m compileall app`
