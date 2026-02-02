@@ -1,1 +1,0 @@
-﻿{"ok":true,"strategy_id":2,"config_id":3,"include_hash":true,"template":{"secret":"?ш린???쒕쾭?_?숈씪???쒗겕由?,"alert_id":"{{strategy.order.id}}","symbol":"{{ticker}}","side":"{{strategy.order.action}}","qty":"{{strategy.order.contracts}}","type":"market","config_hash":"cfg_b03bff24292d"}}
