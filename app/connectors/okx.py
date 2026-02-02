@@ -188,7 +188,8 @@ class OKXConnector(Connector):
                 side=side,
                 qty=float(qty),
                 order_type=order_type,
-                okx_order_id=str(ord_id) if ord_id else None,
+                exchange_order_id=str(ord_id) if ord_id else None,
+                okx_order_id=str(ord_id) if ord_id else None,  # backward compat
                 clord_id=str(clord) if clord else None,
                 state=str(state) if state else None,
                 raw=j,
@@ -225,7 +226,8 @@ class OKXConnector(Connector):
             side=side,
             qty=float(qty),
             order_type=order_type,
-            okx_order_id=None,
+            exchange_order_id=None,
+            okx_order_id=None,  # backward compat
             clord_id=clord,
             state=None,
             err_code=err_code,
@@ -274,7 +276,8 @@ class OKXConnector(Connector):
                 ok=True,
                 exchange=self.exchange,
                 symbol=symbol,
-                okx_order_id=str(ord_id) if ord_id else None,
+                exchange_order_id=str(ord_id) if ord_id else None,
+                okx_order_id=str(ord_id) if ord_id else None,  # backward compat
                 clord_id=str(cl_id) if cl_id else None,
                 state=str(state) if state else None,
                 avg_px=_to_f(avg_px),
@@ -286,6 +289,8 @@ class OKXConnector(Connector):
             ok=False,
             exchange=self.exchange,
             symbol=symbol,
+            exchange_order_id=None,
+            okx_order_id=None,  # backward compat
             err_code=code or None,
             err_msg=str(j.get("msg") or j.get("sMsg") or "okx_error"),
             raw=j,

@@ -357,7 +357,8 @@ class KISConnector(Connector):
             return PlaceOrderResult(
                 ok=True, exchange=self.exchange, symbol=symbol, side=side,
                 qty=float(qty), order_type=order_type,
-                okx_order_id=odno,  # KIS 주문번호 (필드명은 공통화를 위해 okx_order_id 사용)
+                exchange_order_id=odno,  # KIS 주문번호 (ODNO)
+                okx_order_id=odno,  # backward compat
                 clord_id=ord_tmd,
                 state="submitted",
                 raw=j,
@@ -447,7 +448,8 @@ class KISConnector(Connector):
             if not found:
                 return OrderResult(
                     ok=True, exchange=self.exchange, symbol=symbol,
-                    okx_order_id=exchange_order_id,
+                    exchange_order_id=exchange_order_id,
+                    okx_order_id=exchange_order_id,  # backward compat
                     state="not_found",
                     raw=j,
                 )
@@ -461,7 +463,8 @@ class KISConnector(Connector):
 
             return OrderResult(
                 ok=True, exchange=self.exchange, symbol=symbol,
-                okx_order_id=found.get("odno"),
+                exchange_order_id=found.get("odno"),
+                okx_order_id=found.get("odno"),  # backward compat
                 state=found.get("ord_dvsn_name", "unknown"),
                 filled_qty=_to_f(found.get("tot_ccld_qty")),
                 avg_px=_to_f(found.get("avg_prvs")),

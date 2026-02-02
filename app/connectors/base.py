@@ -21,7 +21,8 @@ class PlaceOrderResult:
     side: Side
     qty: float
     order_type: OrderType
-    okx_order_id: Optional[str] = None
+    exchange_order_id: Optional[str] = None  # 공통 필드 (OKX: ordId, KIS: ODNO)
+    okx_order_id: Optional[str] = None  # deprecated: use exchange_order_id (backward compat)
     clord_id: Optional[str] = None
     state: Optional[str] = None
     avg_px: Optional[float] = None
@@ -36,7 +37,8 @@ class OrderResult:
     ok: bool
     exchange: str
     symbol: str
-    okx_order_id: Optional[str] = None
+    exchange_order_id: Optional[str] = None  # 공통 필드 (OKX: ordId, KIS: ODNO)
+    okx_order_id: Optional[str] = None  # deprecated: use exchange_order_id (backward compat)
     clord_id: Optional[str] = None
     state: Optional[str] = None
     avg_px: Optional[float] = None
