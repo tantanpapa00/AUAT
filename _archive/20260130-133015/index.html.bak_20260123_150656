@@ -1,0 +1,1331 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AutoBot Admin</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --card:#111a2e;
+      --card2:#0f172a;
+      --line:#22304a;
+      --text:#e5e7eb;
+      --muted:#9ca3af;
+      --pri:#60a5fa;
+      --pri2:#93c5fd;
+      --ok:#34d399;
+      --warn:#fbbf24;
+      --bad:#f87171;
+      --w: #fb923c;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius:16px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", Arial, sans-serif;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family:var(--sans);
+      background: radial-gradient(1200px 600px at 20% 0%, rgba(96,165,250,.16), transparent 60%),
+                  radial-gradient(1200px 600px at 80% 0%, rgba(52,211,153,.12), transparent 60%),
+                  var(--bg);
+      color:var(--text);
+    }
+    header{
+      padding:20px 24px;
+      border-bottom:1px solid var(--line);
+      background: rgba(17,26,46,.65);
+      backdrop-filter: blur(10px);
+      position: sticky; top:0; z-index: 20;
+    }
+    header .top{
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      max-width:1200px; margin:0 auto;
+    }
+    h1{ margin:0; font-size:18px; font-weight:800; letter-spacing:.2px; }
+    .sub{ color:var(--muted); font-size:12px; margin-top:2px; }
+    .wrap{ max-width:1200px; margin:0 auto; padding:18px 24px 60px; }
+    .tabs{ display:flex; gap:10px; margin:16px 0 14px; flex-wrap:wrap; }
+    .tab{
+      padding:10px 14px; border-radius:999px;
+      border:1px solid var(--line);
+      background: rgba(15,23,42,.6);
+      cursor:pointer; font-weight:700; font-size:13px;
+      color:var(--muted);
+      transition:.15s;
+      display:flex; align-items:center; gap:8px;
+    }
+    .tab.active{
+      background: rgba(96,165,250,.16);
+      border-color: rgba(96,165,250,.35);
+      color: var(--text);
+    }
+    .pill{ display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid var(--line); font-size:12px; }
+    .pill.on{ background:#0f2a20; border-color:#1f8f64; color:var(--ok); }
+    .pill.off{ background:#2a1a0f; border-color:#a16207; color:var(--warn); }
+    .grid2{ display:grid; grid-template-columns: 1.2fr .8fr; gap:14px; align-items:start; }
+    @media (max-width: 980px){ .grid2{ grid-template-columns: 1fr; } }
+    .card{
+      background: rgba(17,26,46,.75);
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .card .hd{
+      padding:14px 14px 10px;
+      border-bottom:1px solid var(--line);
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+    }
+    .card .hd b{ font-size:13px; }
+    .card .bd{ padding:14px; }
+    .hint{ color:var(--muted); font-size:12px; line-height:1.45; }
+    .mono{ font-family: var(--mono); }
+    .muted{ color: var(--muted); }
+    button{
+      border:1px solid rgba(96,165,250,.35);
+      background: rgba(96,165,250,.16);
+      color: var(--text);
+      padding:9px 12px;
+      border-radius: 12px;
+      font-weight: 800;
+      cursor:pointer;
+      transition:.15s;
+    }
+    button:hover{ filter: brightness(1.08); }
+    button.secondary{
+      border-color: rgba(148,163,184,.25);
+      background: rgba(148,163,184,.10);
+      color: var(--text);
+    }
+    button.danger{
+      border-color: rgba(248,113,113,.35);
+      background: rgba(248,113,113,.14);
+    }
+    input, select, textarea{
+      width:100%;
+      background: rgba(15,23,42,.65);
+      border:1px solid var(--line);
+      color: var(--text);
+      padding:9px 10px;
+      border-radius: 12px;
+      outline:none;
+      font-family: var(--sans);
+    }
+    textarea.mono{ font-family: var(--mono); font-size:12px; line-height:1.4; height:140px; }
+    .row-actions{ display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
+    table{ width:100%; border-collapse: collapse; }
+    th, td{ border-bottom:1px solid rgba(34,48,74,.7); padding:10px 8px; font-size:13px; vertical-align:top; }
+    th{ color: var(--muted); text-align:left; font-weight:800; font-size:12px; }
+    tr:hover td{ background: rgba(96,165,250,.04); }
+    .kv{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .kv .k{ color: var(--muted); font-size:12px; }
+    .okmsg{ color: var(--ok); font-size:12px; margin-top:8px; }
+    .err{ color: var(--bad); font-size:12px; white-space:pre-wrap; margin-top:8px; }
+    .badge{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:3px 10px; border-radius:999px;
+      border:1px solid var(--line);
+      background: rgba(15,23,42,.55);
+      font-size:12px; color: var(--muted);
+    }
+    .badge .dot{ width:8px; height:8px; border-radius:99px; background: var(--muted); }
+    .badge.ok .dot{ background: var(--ok); }
+    .badge.bad .dot{ background: var(--bad); }
+    .badge.warn .dot{ background: var(--warn); }
+    .modal-backdrop{
+      position:fixed; inset:0; background: rgba(0,0,0,.55);
+      display:none; align-items:center; justify-content:center;
+      z-index: 50;
+      padding:18px;
+    }
+    .modal{
+      width:min(980px, 100%);
+      background: rgba(17,26,46,.95);
+      border:1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .modal .hd{
+      padding:14px 16px;
+      border-bottom:1px solid var(--line);
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+    }
+    .modal .hd b{ font-size:14px; }
+    .modal .bd{ padding:14px 16px; max-height: 72vh; overflow:auto; }
+    .modal .ft{
+      padding:12px 16px;
+      border-top:1px solid var(--line);
+      display:flex; justify-content:flex-end; gap:10px;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap:10px 10px;
+      margin-top: 10px;
+    }
+    @media (max-width: 760px){ .grid{ grid-template-columns: 1fr; } }
+    .field label{
+      display:block;
+      font-size:12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight:800;
+    }
+    .group-hd{
+      margin-top:16px;
+      padding-top:14px;
+      border-top:1px solid rgba(34,48,74,.7);
+    }
+    .box{
+      border:1px solid rgba(34,48,74,.8);
+      border-radius: 14px;
+      padding:12px 12px;
+      background: rgba(15,23,42,.35);
+    }
+    .right{ text-align:right; }
+  </style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <div>
+      <h1>AutoBot Admin</h1>
+      <div class="sub">FastAPI + PostgreSQL (local) · 브로커 공통 코어 + 브로커별 어댑터(OKX/키움/한투)</div>
+    </div>
+    <div class="kv">
+      <span class="badge" id="healthBadge"><span class="dot"></span><span id="healthText">health: -</span></span>
+      <button class="secondary" onclick="reloadHome()">새로고침</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" id="tab-home" onclick="showTab('home')">🏠 홈</div>
+    <div class="tab" id="tab-accounts" onclick="showTab('accounts')">👤 계정</div>
+    <div class="tab" id="tab-strategies" onclick="showTab('strategies')">🧠 전략</div>
+    <div class="tab" id="tab-assets" onclick="showTab('assets')">📦 자산</div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div id="panel-home" class="grid2">
+    <div class="card">
+      <div class="hd"><b>전광판 (Home)</b><span class="hint">active/last_signal/last_order 등 표시</span></div>
+      <div class="bd">
+        <div class="hint" id="homeMsg"></div>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>계정</th>
+              <th>전략</th>
+              <th>심볼</th>
+              <th>시장</th>
+              <th>활성</th>
+              <th>last_signal</th>
+              <th>last_order</th>
+            </tr>
+          </thead>
+          <tbody id="homeTb"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="hd"><b>상태</b><span class="hint">서버/DB</span></div>
+      <div class="bd">
+        <div class="box">
+          <div class="kv">
+            <span class="k">Server</span><span id="serverInfo" class="mono muted">-</span>
+          </div>
+          <div class="kv" style="margin-top:10px;">
+            <span class="k">DB</span><span id="dbInfo" class="mono muted">-</span>
+          </div>
+        </div>
+
+        <div class="box" style="margin-top:12px;">
+          <b>Week2 Input Sync</b>
+          <div class="hint" style="margin-top:8px;">
+            전략 → 설정 → signal_params 자동 폼 렌더링 → config 저장 → config_hash 생성 → TradingView 템플릿 출력
+          </div>
+        </div>
+
+        <div class="box" style="margin-top:12px;">
+          <b>Week3~ 멀티 브로커 확장</b>
+          <div class="hint" style="margin-top:8px;">
+            공통 코어(webhook_events/order_requests 저장) + 주문엔진 코어 + 브로커 어댑터(OKX/키움/한투)
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="panel-accounts" style="display:none;">
+    <div class="card">
+      <div class="hd">
+        <b>Accounts</b>
+        <div class="row-actions">
+          <button onclick="openModal('account','create')">+ 추가</button>
+        </div>
+      </div>
+      <div class="bd">
+        <div class="hint" id="accountsMsg"></div>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>name</th><th>exchange</th><th>active</th><th>last_health</th><th>actions</th>
+            </tr>
+          </thead>
+          <tbody id="accountsTb"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="panel-strategies" style="display:none;">
+    <div class="card">
+      <div class="hd">
+        <b>Strategies</b>
+        <div class="row-actions">
+          <button onclick="openModal('strategy','create')">+ 추가</button>
+        </div>
+      </div>
+      <div class="bd">
+        <div class="hint" id="strategiesMsg"></div>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>name</th><th>active</th><th>params</th><th>updated</th><th>actions</th>
+            </tr>
+          </thead>
+          <tbody id="strategiesTb"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="panel-assets" style="display:none;">
+    <div class="card">
+      <div class="hd">
+        <b>Assets</b>
+        <div class="row-actions">
+          <button onclick="openModal('asset','create')">+ 추가</button>
+        </div>
+      </div>
+      <div class="bd">
+        <div class="hint" id="assetsMsg"></div>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>account</th><th>strategy</th><th>symbol</th><th>market</th><th>active</th><th>actions</th>
+            </tr>
+          </thead>
+          <tbody id="assetsTb"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-backdrop" id="modal-backdrop">
+  <div class="modal">
+    <div class="hd">
+      <b id="modal-title">Modal</b>
+      <button class="secondary" onclick="closeModal()">닫기</button>
+    </div>
+    <div class="bd" id="modal-body"></div>
+    <div class="ft" id="modal-footer"></div>
+  </div>
+</div>
+
+<script>
+  const state = {
+    tab: "home",
+    accounts: [],
+    strategies: [],
+    assets: [],
+    modal: null,
+    onlyRequired: undefined, // strategy_config 필수만 보기 토글 상태
+  };
+
+  function showTab(tab){
+    state.tab = tab;
+    for(const id of ["home","accounts","strategies","assets"]){
+      document.getElementById("panel-"+id).style.display = (id===tab) ? "" : "none";
+      document.getElementById("tab-"+id).classList.toggle("active", id===tab);
+    }
+    if(tab==="home") reloadHome();
+    if(tab==="accounts") reloadAccounts();
+    if(tab==="strategies") reloadStrategies();
+    if(tab==="assets") reloadAssets();
+  }
+
+  async function api(url, opts={}){
+    const res = await fetch(url, {
+      headers: { "Content-Type":"application/json", ...(opts.headers||{}) },
+      ...opts
+    });
+    const text = await res.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch(e){ data = text; }
+    if(!res.ok){
+      const msg = (data && data.detail) ? data.detail : (typeof data==="string" ? data : JSON.stringify(data));
+      throw new Error(`${res.status} ${res.statusText} :: ${msg}`);
+    }
+    return data;
+  }
+
+  function setMsg(which, msg=""){
+    const el = document.getElementById(which+"Msg");
+    if(el) el.textContent = msg || "";
+  }
+
+  function escapeHtml(s){
+    return String(s??"")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+  function escapeAttr(s){ return escapeHtml(s); }
+
+  function closeModal(){
+    document.getElementById("modal-backdrop").style.display = "none";
+    state.modal = null;
+  }
+
+  // ---------------- Home ----------------
+  async function reloadHome(){
+    setMsg("home");
+    try{
+      const health = await api("/health");
+      const hb = document.getElementById("healthBadge");
+      const ht = document.getElementById("healthText");
+      hb.classList.remove("ok","bad","warn");
+      hb.classList.add(health.ok ? "ok":"bad");
+      ht.textContent = `health: ${health.ok ? "ok":"fail"}`;
+
+      const db = await api("/db-check");
+      document.getElementById("serverInfo").textContent = `${health.app} @ ${health.time}`;
+      document.getElementById("dbInfo").textContent = JSON.stringify(db, null, 2);
+
+      const rows = await api("/api/home");
+      const tb = document.getElementById("homeTb");
+      tb.innerHTML = "";
+      for(const r of rows.items || []){
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${r.id}</td>
+          <td>${escapeHtml(r.account_name||"-")}</td>
+          <td>${escapeHtml(r.strategy_name||"-")}</td>
+          <td class="mono">${escapeHtml(r.symbol||"-")}</td>
+          <td>${escapeHtml(r.market||"-")}</td>
+          <td>${r.is_active ? "✅" : "—"}</td>
+          <td class="mono">${escapeHtml(r.last_signal||"-")}</td>
+          <td class="mono">${escapeHtml(r.last_order||"-")}</td>
+        `;
+        tb.appendChild(tr);
+      }
+    }catch(e){
+      document.getElementById("homeMsg").textContent = e.message;
+    }
+  }
+
+  // ---------------- Accounts ----------------
+  async function reloadAccounts(){
+    setMsg("accounts");
+    const rows = await api("/api/accounts");
+    state.accounts = rows.items || [];
+    const tb = document.getElementById("accountsTb");
+    tb.innerHTML = "";
+    for(const a of state.accounts){
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${a.id}</td>
+        <td>${escapeHtml(a.name)}</td>
+        <td>${escapeHtml(a.exchange)}</td>
+        <td>${a.is_active ? "✅" : "—"}</td>
+        <td class="mono">${escapeHtml(a.last_health_msg || "-")}</td>
+        <td class="right">
+          <div class="row-actions">
+            <button class="secondary" onclick="toggleAccount(${a.id}, ${a.is_active ? "false":"true"})">${a.is_active?"비활성":"활성"}</button>
+            <button class="secondary" onclick="openModal('account','edit', ${a.id})">수정</button>
+            <button class="danger" onclick="deleteAccount(${a.id})">삭제</button>
+          </div>
+        </td>
+      `;
+      tb.appendChild(tr);
+    }
+  }
+  async function toggleAccount(id, on){
+    await api(`/api/accounts/${id}`, { method:"PUT", body: JSON.stringify({ is_active:on }) });
+    reloadAccounts(); reloadHome();
+  }
+  async function deleteAccount(id){
+    if(!confirm("삭제할까요? (참조가 있으면 soft delete 됩니다)")) return;
+    setMsg("accounts");
+    await api(`/api/accounts/${id}`, { method:"DELETE" });
+    reloadAccounts(); reloadHome();
+    setMsg("accounts","삭제 완료");
+  }
+
+  // ---------------- Strategies ----------------
+  async function reloadStrategies(){
+    setMsg("strategies");
+    const rows = await api("/api/strategies");
+    state.strategies = rows.items || [];
+    const tb = document.getElementById("strategiesTb");
+    tb.innerHTML = "";
+    for(const s of state.strategies){
+      let pcount = "-";
+      try{
+        const pr = await api(`/api/strategies/${s.id}/signal-params`);
+        const arr = Array.isArray(pr) ? pr : (pr.items || pr.params || []);
+        pcount = (arr && arr.length !== undefined) ? arr.length : "-";
+      }catch(e){ pcount = "0"; }
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${s.id}</td>
+        <td>${escapeHtml(s.name)}</td>
+        <td>${s.is_active ? "✅" : "—"}</td>
+        <td class="mono">${pcount}</td>
+        <td class="mono">${escapeHtml(s.updated_at || "-")}</td>
+        <td class="right">
+          <div class="row-actions">
+            <button class="secondary" onclick="toggleStrategy(${s.id}, ${s.is_active ? "false":"true"})">${s.is_active?"비활성":"활성"}</button>
+            <button class="secondary" onclick="openModal('strategy','edit', ${s.id})">수정</button>
+            <button class="secondary" onclick="openStrategyConfig(${s.id})">설정</button>
+            <button class="danger" onclick="deleteStrategy(${s.id})">삭제</button>
+          </div>
+        </td>
+      `;
+      tb.appendChild(tr);
+    }
+  }
+  async function toggleStrategy(id, on){
+    await api(`/api/strategies/${id}`, { method:"PUT", body: JSON.stringify({ is_active:on }) });
+    reloadStrategies(); reloadHome();
+  }
+  async function deleteStrategy(id){
+    if(!confirm("삭제할까요? (참조가 있으면 soft delete 됩니다)")) return;
+    setMsg("strategies");
+    await api(`/api/strategies/${id}`, { method:"DELETE" });
+    reloadStrategies(); reloadHome();
+    setMsg("strategies","삭제 완료");
+  }
+
+  // ---------------- Assets ----------------
+  async function reloadAssets(){
+    setMsg("assets");
+    const rows = await api("/api/assets");
+    state.assets = rows.items || [];
+    const tb = document.getElementById("assetsTb");
+    tb.innerHTML = "";
+    for(const a of state.assets){
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${a.id}</td>
+        <td>${escapeHtml(a.account_name||"-")}</td>
+        <td>${escapeHtml(a.strategy_name||"-")}</td>
+        <td class="mono">${escapeHtml(a.symbol||"-")}</td>
+        <td>${escapeHtml(a.market||"-")}</td>
+        <td>${a.is_active ? "✅" : "—"}</td>
+        <td class="right">
+          <div class="row-actions">
+            <button class="secondary" onclick="openModal('asset','edit', ${a.id})">수정</button>
+            <button class="danger" onclick="deleteAsset(${a.id})">삭제</button>
+          </div>
+        </td>
+      `;
+      tb.appendChild(tr);
+    }
+  }
+  async function deleteAsset(id){
+    if(!confirm("삭제할까요? (참조가 있으면 soft delete 됩니다)")) return;
+    setMsg("assets");
+    await api(`/api/assets/${id}`, { method:"DELETE" });
+    reloadAssets(); reloadHome();
+    setMsg("assets","삭제 완료");
+  }
+
+  // ---------------- Modal: CRUD ----------------
+  function openModal(kind, mode, id=null){
+    state.modal = { kind, mode, item: null };
+
+    if(kind === "account"){
+      state.modal.item = (mode==="edit")
+        ? state.accounts.find(x=>x.id===id)
+        : { name:"", exchange:"OKX", api_key:"", api_secret:"", api_passphrase:"", is_active:false };
+      renderAccountModal();
+    }
+
+    if(kind === "strategy"){
+      state.modal.item = (mode==="edit")
+        ? state.strategies.find(x=>x.id===id)
+        : { name:"", tv_secret:"", is_active:false };
+      renderStrategyModal();
+    }
+
+    if(kind === "asset"){
+      state.modal.item = (mode==="edit")
+        ? state.assets.find(x=>x.id===id)
+        : { account_id: null, strategy_id: null, symbol:"", market:"SPOT", is_active:true };
+      renderAssetModal();
+    }
+
+    document.getElementById("modal-backdrop").style.display = "flex";
+  }
+
+  function renderAccountModal(){
+    const item = state.modal.item;
+    document.getElementById("modal-title").textContent = state.modal.mode==="create" ? "Account 추가" : `Account 수정 (ID ${item.id})`;
+    document.getElementById("modal-body").innerHTML = `
+      <div class="grid">
+        <div class="field"><label>name</label><input id="f_name" value="${escapeAttr(item.name||"")}" /></div>
+        <div class="field"><label>exchange</label>
+          <select id="f_exchange">
+            <option ${item.exchange==="OKX"?"selected":""}>OKX</option>
+            <option ${item.exchange==="KIWOOM"?"selected":""}>KIWOOM</option>
+            <option ${item.exchange==="KIS"?"selected":""}>KIS</option>
+          </select>
+        </div>
+        <div class="field"><label>api_key</label><input id="f_api_key" value="${escapeAttr(item.api_key||"")}" /></div>
+        <div class="field"><label>api_secret</label><input id="f_api_secret" value="${escapeAttr(item.api_secret||"")}" /></div>
+        <div class="field"><label>api_passphrase</label><input id="f_api_passphrase" value="${escapeAttr(item.api_passphrase||"")}" /></div>
+        <div class="field"><label>is_active</label>
+          <select id="f_is_active">
+            <option value="false" ${item.is_active? "":"selected"}>false</option>
+            <option value="true" ${item.is_active? "selected":""}>true</option>
+          </select>
+        </div>
+      </div>
+      <div class="err" id="modal-err"></div>
+    `;
+    document.getElementById("modal-footer").innerHTML = `
+      <button class="secondary" onclick="closeModal()">취소</button>
+      <button onclick="saveAccount()">저장</button>
+    `;
+  }
+  async function saveAccount(){
+    const item = state.modal.item;
+    const payload = {
+      name: document.getElementById("f_name").value.trim(),
+      exchange: document.getElementById("f_exchange").value.trim(),
+      api_key: document.getElementById("f_api_key").value.trim(),
+      api_secret: document.getElementById("f_api_secret").value.trim(),
+      api_passphrase: document.getElementById("f_api_passphrase").value.trim(),
+      is_active: document.getElementById("f_is_active").value==="true"
+    };
+    try{
+      if(state.modal.mode==="create"){
+        await api("/api/accounts", { method:"POST", body: JSON.stringify(payload) });
+      }else{
+        await api(`/api/accounts/${item.id}`, { method:"PUT", body: JSON.stringify(payload) });
+      }
+      closeModal();
+      await reloadAccounts();
+      reloadHome();
+      setMsg("accounts","저장 완료");
+    }catch(e){
+      document.getElementById("modal-err").textContent = e.message;
+    }
+  }
+
+  function renderStrategyModal(){
+    const item = state.modal.item;
+    document.getElementById("modal-title").textContent = state.modal.mode==="create" ? "Strategy 추가" : `Strategy 수정 (ID ${item.id})`;
+    document.getElementById("modal-body").innerHTML = `
+      <div class="grid">
+        <div class="field"><label>name</label><input id="f_name" value="${escapeAttr(item.name||"")}" /></div>
+        <div class="field"><label>tv_secret</label><input id="f_tv_secret" value="${escapeAttr(item.tv_secret||"")}" /></div>
+        <div class="field"><label>is_active</label>
+          <select id="f_is_active">
+            <option value="false" ${item.is_active? "":"selected"}>false</option>
+            <option value="true" ${item.is_active? "selected":""}>true</option>
+          </select>
+        </div>
+      </div>
+      <div class="err" id="modal-err"></div>
+    `;
+    document.getElementById("modal-footer").innerHTML = `
+      <button class="secondary" onclick="closeModal()">취소</button>
+      <button onclick="saveStrategy()">저장</button>
+    `;
+  }
+  async function saveStrategy(){
+    const item = state.modal.item;
+    const payload = {
+      name: document.getElementById("f_name").value.trim(),
+      tv_secret: document.getElementById("f_tv_secret").value.trim(),
+      is_active: document.getElementById("f_is_active").value==="true"
+    };
+    try{
+      if(state.modal.mode==="create"){
+        await api("/api/strategies", { method:"POST", body: JSON.stringify(payload) });
+      }else{
+        await api(`/api/strategies/${item.id}`, { method:"PUT", body: JSON.stringify(payload) });
+      }
+      closeModal();
+      await reloadStrategies();
+      reloadHome();
+      setMsg("strategies","저장 완료");
+    }catch(e){
+      document.getElementById("modal-err").textContent = e.message;
+    }
+  }
+
+  function renderAssetModal(){
+    const item = state.modal.item;
+    document.getElementById("modal-title").textContent = state.modal.mode==="create" ? "Asset 추가" : `Asset 수정 (ID ${item.id})`;
+
+    const accOpts = state.accounts.map(a => `<option value="${a.id}" ${item.account_id===a.id?"selected":""}>${escapeHtml(a.name)} (#${a.id})</option>`).join("");
+    const stOpts  = state.strategies.map(s => `<option value="${s.id}" ${item.strategy_id===s.id?"selected":""}>${escapeHtml(s.name)} (#${s.id})</option>`).join("");
+
+    document.getElementById("modal-body").innerHTML = `
+      <div class="grid">
+        <div class="field"><label>account</label>
+          <select id="f_account_id"><option value="">-</option>${accOpts}</select>
+        </div>
+        <div class="field"><label>strategy</label>
+          <select id="f_strategy_id"><option value="">-</option>${stOpts}</select>
+        </div>
+        <div class="field"><label>symbol</label><input id="f_symbol" value="${escapeAttr(item.symbol||"")}" /></div>
+        <div class="field"><label>market</label><input id="f_market" value="${escapeAttr(item.market||"SPOT")}" /></div>
+        <div class="field"><label>is_active</label>
+          <select id="f_is_active">
+            <option value="false" ${item.is_active? "":"selected"}>false</option>
+            <option value="true" ${item.is_active? "selected":""}>true</option>
+          </select>
+        </div>
+      </div>
+      <div class="err" id="modal-err"></div>
+    `;
+    document.getElementById("modal-footer").innerHTML = `
+      <button class="secondary" onclick="closeModal()">취소</button>
+      <button onclick="saveAsset()">저장</button>
+    `;
+  }
+  async function saveAsset(){
+    const item = state.modal.item;
+    const payload = {
+      account_id: document.getElementById("f_account_id").value ? Number(document.getElementById("f_account_id").value) : null,
+      strategy_id: document.getElementById("f_strategy_id").value ? Number(document.getElementById("f_strategy_id").value) : null,
+      symbol: document.getElementById("f_symbol").value.trim(),
+      market: document.getElementById("f_market").value.trim(),
+      is_active: document.getElementById("f_is_active").value==="true"
+    };
+    try{
+      if(state.modal.mode==="create"){
+        await api("/api/assets", { method:"POST", body: JSON.stringify(payload) });
+      }else{
+        await api(`/api/assets/${item.id}`, { method:"PUT", body: JSON.stringify(payload) });
+      }
+      closeModal();
+      await reloadAssets();
+      reloadHome();
+      setMsg("assets","저장 완료");
+    }catch(e){
+      document.getElementById("modal-err").textContent = e.message;
+    }
+  }
+
+  // ---------------- Strategy Config (Week2 Day5 UI 마감) ----------------
+  // ✅ 기능
+  // 1) signal_params 자동 폼 렌더링
+  // 2) "필수만 보기(99.*)" 토글(기본 ON)
+  // 3) 저장(config 생성) → 결과(config_id/config_hash/reused) 표시
+  // 4) 저장 직후 TradingView 템플릿 2종 자동 출력 + 복사
+  // 5) 파라미터 0이면 "먼저 sync 필요" + (선택) UI에서 Parse+Sync 버튼 제공
+
+  function isRequiredGroup(groupName){
+    const g = String(groupName||"").toLowerCase().trim();
+    if(g.startsWith("99.")) return true;
+    if(g.includes("webhook") || g.includes("alert")) return true;
+    return false;
+  }
+
+  function filterParamsByRequired(params, onlyRequired){
+    if(!onlyRequired) return params;
+    return params.filter(p => isRequiredGroup(p.group_name));
+  }
+
+  async function openStrategyConfig(strategyId){
+    state.modal = { kind:"strategy_config", mode:"edit", item:{ strategyId } };
+    document.getElementById("modal-backdrop").style.display = "flex";
+    document.getElementById("modal-title").textContent = `Strategy 설정 (ID ${strategyId})`;
+    document.getElementById("modal-body").innerHTML = `<div class="hint">signal_params 불러오는 중...</div>`;
+    document.getElementById("modal-footer").innerHTML = `
+      <button class="secondary" onclick="closeModal()">닫기</button>
+    `;
+
+    try{
+      const paramsRaw = await api(`/api/strategies/${strategyId}/signal-params`);
+      const params = normalizeSignalParams(paramsRaw);
+      __lastParams = params;
+
+      if(params.length === 0){
+        renderStrategyConfigEmptyModal(strategyId);
+        return;
+      }
+      renderStrategyConfigModal(strategyId, paramsRaw);
+    }catch(e){
+      document.getElementById("modal-body").innerHTML = `
+        <div class="err">signal_params 로드 실패:\n${escapeHtml(e.message)}</div>
+        <div class="hint" style="margin-top:10px;">
+          체크: GET /api/strategies/${strategyId}/signal-params 가 존재해야 합니다.
+        </div>
+      `;
+      document.getElementById("modal-footer").innerHTML = `
+        <button class="secondary" onclick="closeModal()">닫기</button>
+      `;
+    }
+  }
+
+  function normalizeSignalParams(rows){
+    const arr = Array.isArray(rows) ? rows : (rows && rows.items ? rows.items : []);
+    return arr
+      .filter(x => !x.is_hidden)
+      .sort((a,b)=>{
+        const ga = (a.group_name||"").toLowerCase();
+        const gb = (b.group_name||"").toLowerCase();
+        if(ga<gb) return -1; if(ga>gb) return 1;
+        const oa = a.order_index ?? 0;
+        const ob = b.order_index ?? 0;
+        if(oa!==ob) return oa-ob;
+        return String(a.key).localeCompare(String(b.key));
+      });
+  }
+
+  function renderStrategyConfigEmptyModal(strategyId){
+    document.getElementById("modal-body").innerHTML = `
+      <div class="box">
+        <div class="kv">
+          <span class="k">전략 ID</span><b class="mono">${strategyId}</b>
+          <span class="k">파라미터 수</span><b>0</b>
+        </div>
+        <div class="err" style="margin-top:10px;">
+          이 전략에는 signal_params가 없습니다. 먼저 <b>sync</b>가 필요합니다.
+        </div>
+        <div class="hint" style="margin-top:10px;">
+          ✅ 가장 쉬운 방법(권장): 기존에 성공했던 PowerShell 커맨드 재사용<br/>
+          - POST /api/pine/parse-inputs → inputs.json 생성<br/>
+          - POST /api/strategies/${strategyId}/signal-params:sync
+        </div>
+      </div>
+
+      <div class="box" style="margin-top:14px;">
+        <b>선택: UI에서 바로 Parse + Sync</b>
+        <div class="hint" style="margin-top:6px;">
+          TradingView PineScript 전체 코드를 아래에 붙여넣고 실행하세요.
+        </div>
+        <textarea id="pine_code" class="mono" style="height:180px;" placeholder="//@version=5 ... 전체 Pine 코드"></textarea>
+        <div class="kv" style="margin-top:10px; justify-content:flex-end;">
+          <button class="secondary" onclick="parseAndSync(${strategyId})">Parse + Sync</button>
+        </div>
+        <div id="sync_status" class="mono muted" style="margin-top:8px;">-</div>
+      </div>
+    `;
+
+    document.getElementById("modal-footer").innerHTML = `
+      <button class="secondary" onclick="closeModal()">닫기</button>
+    `;
+  }
+
+  async function parseAndSync(strategyId){
+    const st = document.getElementById("sync_status");
+    st.textContent = "Parsing...";
+    try{
+      const code = (document.getElementById("pine_code").value || "").trim();
+      if(!code) throw new Error("Pine 코드가 비었습니다. PineScript 전체를 붙여넣어 주세요.");
+
+      const parsed = await api("/api/pine/parse-inputs", {
+        method:"POST",
+        body: JSON.stringify({ code })
+      });
+
+      if(!parsed || !parsed.ok) throw new Error("parse-inputs 실패: 응답이 비정상입니다.");
+      st.textContent = `Parsed OK: count=${parsed.count} → syncing...`;
+
+      const syncRes = await api(`/api/strategies/${strategyId}/signal-params:sync`, {
+        method:"POST",
+        body: JSON.stringify({ inputs: parsed.inputs })
+      });
+
+      st.textContent = `Sync OK: received=${syncRes.received}, upserted=${syncRes.upserted}. 다시 불러오는 중...`;
+
+      const paramsRaw = await api(`/api/strategies/${strategyId}/signal-params`);
+      const params = normalizeSignalParams(paramsRaw);
+      __lastParams = params;
+      renderStrategyConfigModal(strategyId, paramsRaw);
+    }catch(e){
+      st.textContent = `ERROR: ${e.message}`;
+    }
+  }
+
+  function renderStrategyConfigModal(strategyId, rows){
+    const paramsAll = normalizeSignalParams(rows);
+    __lastParams = paramsAll;
+
+    if(state.onlyRequired === undefined) state.onlyRequired = true;
+    const params = filterParamsByRequired(paramsAll, state.onlyRequired);
+
+    const byGroup = new Map();
+    for(const p of params){
+      const g = p.group_name || "General";
+      if(!byGroup.has(g)) byGroup.set(g, []);
+      byGroup.get(g).push(p);
+    }
+
+    let html = `
+      <div class="box">
+        <div class="kv" style="flex-wrap:wrap;">
+          <span class="k">전략 ID</span><b class="mono">${strategyId}</b>
+          <span class="k">파라미터</span><b>${params.length}</b>
+          <span class="k">전체</span><b class="muted">${paramsAll.length}</b>
+
+          <span class="k">config name</span>
+          <input id="cfg_name" style="width:260px;" value="ui-${new Date().toISOString().slice(0,19)}" />
+
+          <label class="pill ${state.onlyRequired?'on':'off'}" style="cursor:pointer;">
+            <input id="only_required" type="checkbox" ${state.onlyRequired?'checked':''}
+                   onchange="toggleRequired(${strategyId})" style="margin-right:6px;" />
+            필수만 보기(99.*)
+          </label>
+
+          <button class="secondary" onclick="fillDefaults()">기본값으로 리셋</button>
+        </div>
+        <div class="hint" style="margin-top:8px;">
+          저장하면 strategy_configs에 config가 쌓이고, 바로 TradingView 템플릿 2종(해시 포함/미포함)을 생성합니다.
+          (필수만 보기 ON이면 화면은 99.* 그룹만 보이지만, 저장은 전체 key를 포함합니다. 보이지 않는 값은 defval로 저장됩니다.)
+        </div>
+      </div>
+    `;
+
+    for(const [g, items] of byGroup.entries()){
+      html += `<div class="group-hd"><b>${escapeHtml(g)}</b></div>`;
+      html += `<div class="grid">`;
+      for(const p of items){
+        html += renderParamField(p);
+      }
+      html += `</div>`;
+    }
+
+    html += `
+      <div style="margin-top:14px;" class="box">
+        <div class="kv">
+          <span class="k">저장 결과</span>
+          <span id="cfg_result" class="mono muted">-</span>
+          <button class="secondary" onclick="copyText('cfg_result')">복사</button>
+        </div>
+        <div class="err" id="cfg_err"></div>
+        <div class="okmsg" id="cfg_ok"></div>
+      </div>
+
+      <div style="margin-top:14px;" class="box">
+        <div class="kv" style="justify-content:space-between;">
+          <div><b>TradingView Template (include_hash=true)</b></div>
+          <div class="kv">
+            <button class="secondary" onclick="copyText('tv_with_hash')">복사</button>
+          </div>
+        </div>
+        <textarea id="tv_with_hash" class="mono" readonly></textarea>
+      </div>
+
+      <div style="margin-top:14px;" class="box">
+        <div class="kv" style="justify-content:space-between;">
+          <div><b>TradingView Template (include_hash=false)</b></div>
+          <div class="kv">
+            <button class="secondary" onclick="copyText('tv_no_hash')">복사</button>
+          </div>
+        </div>
+        <textarea id="tv_no_hash" class="mono" readonly></textarea>
+      </div>
+    `;
+
+    document.getElementById("modal-body").innerHTML = html;
+
+    document.getElementById("modal-footer").innerHTML = `
+      <button class="secondary" onclick="closeModal()">닫기</button>
+      <button onclick="saveStrategyConfig(${strategyId})">저장(config 생성)</button>
+    `;
+
+    applyDefvalsFromParams();
+  }
+
+  function toggleRequired(strategyId){
+    const chk = document.getElementById("only_required");
+    state.onlyRequired = !!(chk && chk.checked);
+    renderStrategyConfigModal(strategyId, __lastParams);
+  }
+
+  function fillDefaults(){
+    applyDefvalsFromParams();
+    document.getElementById("cfg_err") && (document.getElementById("cfg_err").textContent = "");
+    document.getElementById("cfg_ok")  && (document.getElementById("cfg_ok").textContent  = "");
+  }
+
+  function renderParamField(p){
+    const key = String(p.key || "");
+    const title = p.title || key;
+    const type = (p.type || "string").toLowerCase();
+    const tooltip = p.tooltip ? `<div class="hint">${escapeHtml(p.tooltip)}</div>` : "";
+    const id = `p_${key.replaceAll(".","_").replaceAll("-","_")}`;
+
+    const options = p.options;
+
+    if(Array.isArray(options) && options.length){
+      const opts = options.map(o => {
+        const ov = String(o);
+        return `<option value="${escapeAttr(ov)}">${escapeHtml(ov)}</option>`;
+      }).join("");
+      return `
+        <div class="field">
+          <label>${escapeHtml(title)} <span class="hint mono">(${escapeHtml(key)})</span></label>
+          <select id="${escapeAttr(id)}" data-key="${escapeAttr(key)}" data-type="string">${opts}</select>
+          ${tooltip}
+        </div>
+      `;
+    }
+
+    if(type === "bool" || type === "boolean"){
+      return `
+        <div class="field">
+          <label>${escapeHtml(title)} <span class="hint mono">(${escapeHtml(key)})</span></label>
+          <select id="${escapeAttr(id)}" data-key="${escapeAttr(key)}" data-type="bool">
+            <option value="false">false</option>
+            <option value="true">true</option>
+          </select>
+          ${tooltip}
+        </div>
+      `;
+    }
+
+    if(type === "int" || type === "integer" || type === "float" || type === "number"){
+      const min = (p.min_val ?? "");
+      const max = (p.max_val ?? "");
+      const step = (p.step_val ?? (type === "int" ? 1 : 0.01));
+      return `
+        <div class="field">
+          <label>${escapeHtml(title)} <span class="hint mono">(${escapeHtml(key)})</span></label>
+          <input id="${escapeAttr(id)}" data-key="${escapeAttr(key)}" data-type="${escapeAttr(type)}"
+                 type="number" step="${escapeAttr(step)}" ${min!==""?`min="${escapeAttr(min)}"`:""} ${max!==""?`max="${escapeAttr(max)}"`:""} />
+          ${tooltip}
+        </div>
+      `;
+    }
+
+    return `
+      <div class="field">
+        <label>${escapeHtml(title)} <span class="hint mono">(${escapeHtml(key)})</span></label>
+        <input id="${escapeAttr(id)}" data-key="${escapeAttr(key)}" data-type="string" type="text" />
+        ${tooltip}
+      </div>
+    `;
+  }
+
+  let __lastParams = [];
+  function applyDefvalsFromParams(){
+    if(!__lastParams.length) return;
+    for(const p of __lastParams){
+      if(p.is_hidden) continue;
+      const key = String(p.key||"");
+      const id = `p_${key.replaceAll(".","_").replaceAll("-","_")}`;
+      const el = document.getElementById(id);
+      if(!el) continue;
+
+      const t = (p.type||"string").toLowerCase();
+      const v = p.defval;
+
+      if(t === "bool" || t === "boolean"){
+        el.value = (v === true) ? "true" : "false";
+      }else if(t === "int" || t === "integer" || t === "float" || t === "number"){
+        el.value = (v === null || v === undefined) ? "" : String(v);
+      }else{
+        el.value = (v === null || v === undefined) ? "" : String(v);
+      }
+
+      if(el.tagName === "SELECT" && Array.isArray(p.options) && p.options.length){
+        const sv = (v === null || v === undefined) ? "" : String(v);
+        if(sv) el.value = sv;
+      }
+    }
+  }
+
+  async function saveStrategyConfig(strategyId){
+    document.getElementById("cfg_err").textContent = "";
+    document.getElementById("cfg_ok").textContent = "";
+    document.getElementById("cfg_result").textContent = "-";
+    document.getElementById("tv_with_hash").value = "";
+    document.getElementById("tv_no_hash").value = "";
+
+    try{
+      const paramsRaw = await api(`/api/strategies/${strategyId}/signal-params`);
+      const params = normalizeSignalParams(paramsRaw);
+      __lastParams = params;
+
+      const values = {};
+      for(const p of params){
+        values[p.key] = p.defval;
+      }
+
+      const fields = document.querySelectorAll("[data-key][data-type]");
+      for(const el of fields){
+        const key = el.getAttribute("data-key");
+        const type = el.getAttribute("data-type");
+
+        let raw = el.value;
+        if(type === "bool" || type === "boolean"){
+          values[key] = (raw === "true");
+        }else if(type === "int" || type === "integer"){
+          values[key] = (raw === "" ? null : Number.parseInt(raw, 10));
+        }else if(type === "float" || type === "number"){
+          values[key] = (raw === "" ? null : Number.parseFloat(raw));
+        }else{
+          values[key] = raw;
+        }
+      }
+
+      const name = (document.getElementById("cfg_name").value || "ui").trim();
+
+      const body = { name, values, is_active: true };
+      const saved = await api(`/api/strategies/${strategyId}/configs`, { method:"POST", body: JSON.stringify(body) });
+
+      const configId = saved.config_id ?? saved.id ?? null;
+      const cfgHash  = saved.config_hash ?? saved.hash ?? null;
+      const reused   = (saved.reused === true);
+
+      document.getElementById("cfg_result").textContent = `config_id=${configId} | config_hash=${cfgHash} | reused=${reused}`;
+
+      const t1 = await api(`/api/strategies/${strategyId}/templates/tradingview?config_id=${configId}&include_hash=true`);
+      const t2 = await api(`/api/strategies/${strategyId}/templates/tradingview?config_id=${configId}&include_hash=false`);
+
+      document.getElementById("tv_with_hash").value = JSON.stringify(t1.template, null, 2);
+      document.getElementById("tv_no_hash").value  = JSON.stringify(t2.template, null, 2);
+
+      document.getElementById("cfg_ok").textContent = "저장 + 템플릿 생성 완료";
+    }catch(e){
+      document.getElementById("cfg_err").textContent = e.message;
+    }
+  }
+
+  async function copyText(id){
+    const el = document.getElementById(id);
+    if(!el) return;
+    const text = (el.tagName === "TEXTAREA" || el.tagName === "INPUT") ? el.value : el.textContent;
+    try{
+      await navigator.clipboard.writeText(text || "");
+    }catch(e){
+      const ta = document.createElement("textarea");
+      ta.value = text || "";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+  }
+
+  // 초기 로드
+  (async ()=>{
+    await reloadHome();
+    await reloadAccounts();
+    await reloadStrategies();
+    await reloadAssets();
+  })();
+</script>
+
+<script id="day5_override">
+(function(){
+  const S = window.__day5 = window.__day5 || { requiredOnly:true, allParams:null, strategyId:null };
+
+  function norm(rows){
+    if(Array.isArray(rows)) return rows;
+    if(rows && Array.isArray(rows.items)) return rows.items;
+    return [];
+  }
+
+  async function fetchTemplates(strategyId, configId){
+    const t1 = await fetch(`/api/strategies/${strategyId}/templates/tradingview?config_id=${configId}&include_hash=true`).then(r=>r.json());
+    const t0 = await fetch(`/api/strategies/${strategyId}/templates/tradingview?config_id=${configId}&include_hash=false`).then(r=>r.json());
+    return {with_hash:t1, without_hash:t0};
+  }
+
+  function ensurePanels(strategyId, allCount, shownCount){
+    const body = document.getElementById('modal-body');
+    if(!body) return;
+
+    // tools(토글/카운트) 박스
+    let tools = document.getElementById('cfg-tools');
+    if(!tools){
+      tools = document.createElement('div');
+      tools.id='cfg-tools';
+      tools.style.cssText='padding:10px 12px;margin-bottom:10px;border:1px solid #eee;border-radius:10px;background:#fafafa;display:flex;gap:12px;align-items:center;flex-wrap:wrap;';
+      tools.innerHTML = `
+        <label style="display:inline-flex;align-items:center;gap:8px;">
+          <input type="checkbox" id="cfg_required_only" checked />
+          <span>필수만 보기(99.*)</span>
+        </label>
+        <span id="cfg_counts" style="opacity:.8"></span>
+        <span style="opacity:.6">※ 0개면 sync 필요</span>
+      `;
+      body.prepend(tools);
+
+      tools.querySelector('#cfg_required_only').addEventListener('change', ()=>{
+        S.requiredOnly = tools.querySelector('#cfg_required_only').checked;
+        if(typeof window.renderStrategyConfigModal==='function'){
+          window.renderStrategyConfigModal(S.strategyId, S.allParams);
+        }
+      });
+    }
+
+    tools.querySelector('#cfg_required_only').checked = (S.requiredOnly !== false);
+    tools.querySelector('#cfg_counts').textContent = `파라미터: ${shownCount}/${allCount}`;
+
+    // 저장결과/템플릿 패널
+    let res = document.getElementById('cfg-save-result');
+    if(!res){
+      res=document.createElement('div');
+      res.id='cfg-save-result';
+      res.style.cssText='margin-top:12px;padding:10px 12px;border:1px solid #eee;border-radius:10px;background:#fff;';
+      res.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <b>저장 결과</b>
+          <button type="button" id="cfg_copy_result" class="secondary">복사</button>
+        </div>
+        <pre id="cfg_result_pre" class="code" style="white-space:pre-wrap;margin:8px 0 0;">(아직 저장 전)</pre>
+
+        <div style="height:10px"></div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <b>TradingView 템플릿 (hash 포함)</b>
+          <button type="button" id="cfg_copy_tpl1" class="secondary">복사</button>
+        </div>
+        <pre id="cfg_tpl1_pre" class="code" style="white-space:pre-wrap;margin:8px 0 0;">(저장 후 자동 출력)</pre>
+
+        <div style="height:10px"></div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <b>TradingView 템플릿 (hash 미포함)</b>
+          <button type="button" id="cfg_copy_tpl0" class="secondary">복사</button>
+        </div>
+        <pre id="cfg_tpl0_pre" class="code" style="white-space:pre-wrap;margin:8px 0 0;">(저장 후 자동 출력)</pre>
+      `;
+      body.appendChild(res);
+
+      const copy = async(preId)=>{
+        const el=document.getElementById(preId);
+        if(!el) return;
+        const txt=el.textContent||'';
+        try{ await navigator.clipboard.writeText(txt); }
+        catch(e){ prompt("복사:", txt); }
+      };
+      res.querySelector('#cfg_copy_result').addEventListener('click', ()=>copy('cfg_result_pre'));
+      res.querySelector('#cfg_copy_tpl1').addEventListener('click', ()=>copy('cfg_tpl1_pre'));
+      res.querySelector('#cfg_copy_tpl0').addEventListener('click', ()=>copy('cfg_tpl0_pre'));
+    }
+  }
+
+  function showSyncNeeded(strategyId){
+    const body=document.getElementById('modal-body');
+    const footer=document.getElementById('modal-footer');
+    if(body){
+      body.innerHTML = `
+        <div class="err">이 전략은 signal_params가 0개입니다. 먼저 <b>signal-params:sync</b>가 필요합니다.</div>
+        <div class="hint" style="margin-top:10px;">
+          <pre class="code">curl.exe -sS -X POST "http://127.0.0.1:8000/api/strategies/${strategyId}/signal-params:sync" -H "Content-Type: application/json; charset=utf-8" --data-binary "@sync_payload.json"</pre>
+        </div>
+      `;
+    }
+    if(footer){
+      footer.innerHTML = `<button class="secondary" onclick="closeModal && closeModal()">닫기</button>`;
+    }
+  }
+
+  // 1) openStrategyConfig 오버라이드: params 0이면 안내, 아니면 render로 강제
+  if(typeof window.openStrategyConfig === 'function'){
+    const orig = window.openStrategyConfig;
+    window.openStrategyConfig = async function(strategyId){
+      S.strategyId = strategyId;
+      try{
+        const params = (typeof window.api==='function')
+          ? await window.api(`/api/strategies/${strategyId}/signal-params`)
+          : await fetch(`/api/strategies/${strategyId}/signal-params`).then(r=>r.json());
+
+        S.allParams = params;
+
+        const arr = norm(params);
+        if(arr.length===0){
+          try{ await orig.call(this, strategyId); }catch(e){}
+          showSyncNeeded(strategyId);
+          return;
+        }
+
+        if(typeof window.renderStrategyConfigModal==='function'){
+          window.renderStrategyConfigModal(strategyId, params);
+          return;
+        }
+
+        return orig.call(this, strategyId);
+      }catch(e){
+        return orig.call(this, strategyId);
+      }
+    };
+  }
+
+  // 2) renderStrategyConfigModal 오버라이드: 99.* 필수만 보기 + 패널 주입
+  if(typeof window.renderStrategyConfigModal === 'function'){
+    const origR = window.renderStrategyConfigModal;
+    window.renderStrategyConfigModal = function(strategyId, rows){
+      S.strategyId = strategyId;
+      S.allParams = rows;
+
+      const allArr = norm(rows);
+      const shownArr = (S.requiredOnly !== false)
+        ? allArr.filter(p => String(p.group_name||'').startsWith('99'))
+        : allArr;
+
+      const ret = origR.call(this, strategyId, shownArr);
+      try{ ensurePanels(strategyId, allArr.length, shownArr.length); }catch(e){}
+      return ret;
+    };
+  }
+
+  // 3) api 오버라이드: config 저장 성공 시 결과 + 템플릿 2종 자동 출력
+  if(typeof window.api === 'function'){
+    const origApi = window.api;
+    window.api = async function(path, opts){
+      const res = await origApi.call(this, path, opts);
+
+      try{
+        const isSave =
+          typeof path === 'string' &&
+          /\/api\/strategies\/\d+\/configs$/.test(path) &&
+          opts &&
+          String(opts.method||'GET').toUpperCase()==='POST';
+
+        if(isSave && res && res.ok && res.config_id){
+          const pre = document.getElementById('cfg_result_pre');
+          if(pre) pre.textContent = JSON.stringify(res, null, 2);
+
+          const tpls = await fetchTemplates(S.strategyId, res.config_id);
+
+          const pre1 = document.getElementById('cfg_tpl1_pre');
+          const pre0 = document.getElementById('cfg_tpl0_pre');
+
+          if(pre1) pre1.textContent = JSON.stringify(tpls.with_hash, null, 2);
+          if(pre0) pre0.textContent = JSON.stringify(tpls.without_hash, null, 2);
+        }
+      }catch(e){}
+
+      return res;
+    };
+  }
+})();
+</script>
+
+</body>
+</html>

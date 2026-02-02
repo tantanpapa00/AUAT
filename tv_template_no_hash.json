@@ -1,0 +1,1 @@
+{"ok":true,"strategy_id":2,"config_id":3,"include_hash":false,"template":{"secret":"여기에_서버와_동일한_시크릿","alert_id":"{{strategy.order.id}}","symbol":"{{ticker}}","side":"{{strategy.order.action}}","qty":"{{strategy.order.contracts}}","type":"market"}}

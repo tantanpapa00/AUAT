@@ -1,0 +1,9 @@
+﻿== grep: def _ensure_orders_table ==
+  1168: # def _ensure_orders_table(db: Session):
+  2815:     def _ensure_orders_table(db):
+
+== grep: def _ensure_orders_table_v6 ==
+  4637: def _ensure_orders_table_v6(db):
+
+== grep: binding _ensure_orders_table = _ensure_orders_table_v6 ==
+  4772: _ensure_orders_table = _ensure_orders_table_v6

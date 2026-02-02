@@ -1,0 +1,481 @@
+﻿input.bool(true, "전략 주문에 alert_message 포함", group=group_webhook)
+
+---
+
+input.string("", "secret", group=group_webhook, tooltip="서버(TV_SHARED_SECRET)와 동일해야 합니다.")
+
+---
+
+input.string("AUTO(base/quote)", "instId 모드", options=["AUTO(base/quote)","MANUAL"], group=group_webhook)
+
+---
+
+input.string("BTC-USDT", "instId (MANUAL)", group=group_webhook)
+
+---
+
+input.string("availPct", "BUY 전송필드", options=["availPct","notional","sz"], group=group_webhook,
+     tooltip="OKX 스팟: 시장가 BUY는 availPct가 가장 깔끔합니다.")
+
+---
+
+input.string("sz", "SELL 전송필드", options=["sz","notional"], group=group_webhook,
+     tooltip="OKX 스팟: SELL은 보통 sz(코인 수량)로 보냅니다.")
+
+---
+
+input.bool(true, "메타(ticker/tf/ts) 포함", group=group_webhook)
+
+---
+
+input.timeframe("D", "상위 타임프레임(HTF)", group=group_htf)
+
+---
+
+input.int(50,  "HTF VWMA50 길이", minval=1, group=group_htf)
+
+---
+
+input.int(200, "HTF VWMA200 길이", minval=1, group=group_htf)
+
+---
+
+input.int(100, "HTF HULL 길이", minval=5, maxval=400, group=group_htf)
+
+---
+
+input.int(9,  "HTF 일목: 전환선", minval=1, group=group_htf)
+
+---
+
+input.int(26, "HTF 일목: 기준선", minval=1, group=group_htf)
+
+---
+
+input.int(52, "HTF 일목: 선행스팬B", minval=1, group=group_htf)
+
+---
+
+input.int(20,  "HTF Supertrend ATR 길이", minval=1, group=group_htf)
+
+---
+
+input.float(5.0,"HTF Supertrend 배수", step=0.1, minval=0.1, group=group_htf)
+
+---
+
+input.bool(true, "HTF Supertrend 방향 반전(보정)", group=group_htf, tooltip="ta.supertrend()의 dir 부호가 사용자 체감/기존 ST와 반대일 수 있어 보정합니다.")
+
+---
+
+input.float(55.0, "가용자금 사용률(%) [A형]", step=1, minval=1, maxval=100, group=group_common,
+     tooltip="A형 매수금액=가용자금×(가용자금 사용률%)×(트랜치 비율%).")
+
+---
+
+input.float(100.0, "절대 노출 상한(자산 대비 %, 안전장치)", step=1, minval=1, maxval=100, group=group_common,
+     tooltip="원치 않으면 100%로 두세요. (이 값은 '추가로' 막아주는 상한선입니다.)")
+
+---
+
+input.float(0.10,  "매도 허용 최소수익 (평단 대비 %)", step=0.01, minval=0.0, group=group_common)
+
+---
+
+input.float(0.20,  "매도 게이트 버퍼 (수수료/슬리피지 %, 왕복)", step=0.01, minval=0.0, group=group_common)
+
+---
+
+input.bool(true, "1봉당 1회 주문(락)", group=group_common)
+
+---
+
+input.bool(false, "디버그 라벨 표시", group=group_common)
+
+---
+
+input.bool(false, "디버그 상세 사유 표시", group=group_common)
+
+---
+
+input.bool(true, "표시: 체결 가능한 신호만 표시(매수 필터 반영)", group=group_common)
+
+---
+
+input.bool(true,  "표시: 실제 체결 마커(BUY/SELL) 표시", group=group_common)
+
+---
+
+input.bool(true,  "표시: 신호(조건) 마커 표시(참고용)", group=group_common)
+
+---
+
+input.bool(false, "시작일 이후만 거래", group=group_bt)
+
+---
+
+input.time(timestamp("2024-01-01T00:00:00"), "시작일", group=group_bt, tooltip="이 날짜/시간 이후부터 주문(매수/매도)을 허용합니다.")
+
+---
+
+input.bool(true, "매수: 하단 밴드 근처/이하만", group=group_filters)
+
+---
+
+input.float(0.0, "하단 밴드 버퍼(OSC 단위)", step=0.05, minval=0.0, group=group_filters)
+
+---
+
+input.bool(false, "추가매수: 직전체결가 대비 최소간격(%) 사용(선택)", group=group_filters)
+
+---
+
+input.float(2.0, "추가매수: 최소간격(%)", step=0.1, minval=0.0, group=group_filters)
+
+---
+
+input.bool(false, "외부 보유수량/평단 동기화 사용(일회성)", group="03. 동기화(선택)")
+
+---
+
+input.bool(true,  "동기화 수량을 노출/매도 계산에 사용", group="03. 동기화(선택)")
+
+---
+
+input.float(0.0,  "현재 보유수량(코인 수량)", step=0.0001, minval=0.0, group="03. 동기화(선택)")
+
+---
+
+input.float(0.0,  "현재 평단(USDT)", step=0.01, minval=0.0, group="03. 동기화(선택)")
+
+---
+
+input.bool(false, "동기화 실행(토글: OFF→ON)", group="03. 동기화(선택)")
+
+---
+
+input.bool(false, "동기화 해제/초기화(토글: OFF→ON)", group="03. 동기화(선택)")
+
+---
+
+input.bool(true,  "동기화 실행 시 차수/기준값 리셋", group="03. 동기화(선택)")
+
+---
+
+input.string("extend", "10차 이후 동작 (extend/cycle/stop)", options=["extend","cycle","stop"], group=group_buy)
+
+---
+
+input.float(5.0,  "BUY1  (트랜치 %)", step=0.1, minval=0.0, group=group_buy)
+
+---
+
+input.float(5.0,  "BUY2  (트랜치 %)", step=0.1, minval=0.0, group=group_buy)
+
+---
+
+input.float(5.0,  "BUY3  (트랜치 %)", step=0.1, minval=0.0, group=group_buy)
+
+---
+
+input.float(5.0,  "BUY4  (트랜치 %)", step=0.1, minval=0.0, group=group_buy)
+
+---
+
+input.float(5.0,  "BUY5  (트랜치 %)", step=0.1, minval=0.0, group=group_buy)
+
+---
+
+input.float(5.0,  "BUY6  (트랜치 %)", step=0.1, minval=0.0, group=group_buy)
+
+---
+
+input.float(5.0,  "BUY7  (트랜치 %)", step=0.1, minval=0.0, group=group_buy)
+
+---
+
+input.float(5.0,  "BUY8  (트랜치 %)", step=0.1, minval=0.0, group=group_buy)
+
+---
+
+input.float(5.0,  "BUY9  (트랜치 %)", step=0.1, minval=0.0, group=group_buy)
+
+---
+
+input.float(5.0,  "BUY10 (트랜치 %, 10차 이후 반복 시 사용)", step=0.1, minval=0.0, group=group_buy)
+
+---
+
+input.int(6, "최대 매도 차수", minval=1, maxval=6, group=group_sell)
+
+---
+
+input.string("cycle", "최대 매도차수 이후 동작 (extend/cycle/stop)", options=["extend","cycle","stop"], group=group_sell)
+
+---
+
+input.float(10.0, "SELL1 (보유수량 대비 %)", step=0.1, minval=0.0, maxval=100, group=group_sell)
+
+---
+
+input.float(20.0, "SELL2 (보유수량 대비 %)", step=0.1, minval=0.0, maxval=100, group=group_sell)
+
+---
+
+input.float(30.0, "SELL3 (보유수량 대비 %)", step=0.1, minval=0.0, maxval=100, group=group_sell)
+
+---
+
+input.float(5.0,  "SELL4 (보유수량 대비 %)", step=0.1, minval=0.0, maxval=100, group=group_sell)
+
+---
+
+input.float(2.5,  "SELL5 (보유수량 대비 %)", step=0.1, minval=0.0, maxval=100, group=group_sell)
+
+---
+
+input.float(1.0,  "SELL6 (보유수량 대비 %)", step=0.1, minval=0.0, maxval=100, group=group_sell)
+
+---
+
+input.int(20, "스무딩 길이", minval=2, group=group_osc)
+
+---
+
+input.float(1.0, "임계값(Threshold)", step=0.1, group=group_osc)
+
+---
+
+input.bool(true, "4국면 모드 사용", group=group_reg)
+
+---
+
+input.string("Auto", "국면 수동 지정", options=["Auto","R1","R2","R3","R4"], group=group_reg)
+
+---
+
+input.bool(false, "차트에 국면 표시", group=group_reg)
+
+---
+
+input.bool(true, "R1: 확정봉에서만 신호 사용", group=group_r1)
+
+---
+
+input.bool(true, "R1: OSC 매수 허용", group=group_r1)
+
+---
+
+input.bool(true, "R1: 눌림(조정) 1회 트리거 사용", group=group_r1)
+
+---
+
+input.float(1.0, "R1 눌림매수 배수(BUY1×배수)", step=0.1, minval=0.0, group=group_r1)
+
+---
+
+input.float(1.0, "R1 매수비중 배수", step=0.05, minval=0.0, group=group_r1)
+
+---
+
+input.float(1.3, "R1 매도비중 배수(기본: 확대)", step=0.05, minval=0.0, group=group_r1)
+
+---
+
+input.bool(false, "R1 매수1 반복", group=group_r1)
+
+---
+
+input.bool(false, "R1 매도1 반복", group=group_r1)
+
+---
+
+input.bool(true,  "R1 매수 후 매도비중 리셋", group=group_r1)
+
+---
+
+input.bool(true,  "R1 매도 후 매수비중 리셋", group=group_r1)
+
+---
+
+input.string("Normal", "R1 매도방법", options=["Normal","Alternate"], group=group_r1)
+
+---
+
+input.bool(true,  "R1: 평단가 이하에서만 매수", group=group_r1)
+
+---
+
+input.bool(true,  "R1: 직전신호가보다 낮을 때만 매수", group=group_r1)
+
+---
+
+input.bool(true,  "R1: 직전체결가보다 낮을 때만 매수", group=group_r1)
+
+---
+
+input.bool(true, "R2: 확정봉에서만 신호 사용", group=group_r2)
+
+---
+
+input.bool(false, "R2: OSC 매수 허용(기본 OFF)", group=group_r2)
+
+---
+
+input.float(0.0, "R2 매수비중 배수(기본: 0)", step=0.05, minval=0.0, group=group_r2)
+
+---
+
+input.float(1.6, "R2 매도비중 배수(기본: 확대)", step=0.05, minval=0.0, group=group_r2)
+
+---
+
+input.bool(false, "R2 매수1 반복", group=group_r2)
+
+---
+
+input.bool(false, "R2 매도1 반복", group=group_r2)
+
+---
+
+input.bool(true,  "R2 매수 후 매도비중 리셋", group=group_r2)
+
+---
+
+input.bool(true,  "R2 매도 후 매수비중 리셋", group=group_r2)
+
+---
+
+input.string("Alternate", "R2 매도방법(기본: 교대매도)", options=["Normal","Alternate"], group=group_r2)
+
+---
+
+input.bool(false, "R2: 평단가 이하에서만 매수(선택)", group=group_r2)
+
+---
+
+input.bool(false, "R2: 직전신호가보다 낮을 때만 매수(선택)", group=group_r2)
+
+---
+
+input.bool(false, "R2: 직전체결가보다 낮을 때만 매수(선택)", group=group_r2)
+
+---
+
+input.bool(true, "R3: 확정봉에서만 신호 사용", group=group_r3)
+
+---
+
+input.bool(true, "R3: OSC 매수 허용(기본 ON)", group=group_r3)
+
+---
+
+input.bool(true, "R3: 돌파(HTF 선행스팬B 상향돌파) 1회 매수", group=group_r3)
+
+---
+
+input.bool(true, "R3: 돌파는 음운(SpanA<SpanB)에서만", group=group_r3)
+
+---
+
+input.float(1.0, "R3 돌파매수 배수(BUY1×배수)", step=0.1, minval=0.0, group=group_r3)
+
+---
+
+input.float(1.0, "R3 매수비중 배수", step=0.05, minval=0.0, group=group_r3)
+
+---
+
+input.float(1.3, "R3 매도비중 배수", step=0.05, minval=0.0, group=group_r3)
+
+---
+
+input.bool(true,  "R3 매수1 반복(기본: ON)", group=group_r3)
+
+---
+
+input.bool(false, "R3 매도1 반복", group=group_r3)
+
+---
+
+input.bool(true,  "R3 매수 후 매도비중 리셋", group=group_r3)
+
+---
+
+input.bool(true,  "R3 매도 후 매수비중 리셋", group=group_r3)
+
+---
+
+input.string("Normal", "R3 매도방법", options=["Normal","Alternate"], group=group_r3)
+
+---
+
+input.bool(false, "R3: 평단가 이하에서만 매수(선택)", group=group_r3)
+
+---
+
+input.bool(true,  "R3: 직전신호가보다 낮을 때만 매수(기본 ON)", group=group_r3)
+
+---
+
+input.bool(true,  "R3: 직전체결가보다 낮을 때만 매수(기본 ON)", group=group_r3)
+
+---
+
+input.bool(true, "R4: 확정봉에서만 신호 사용", group=group_r4)
+
+---
+
+input.bool(true, "R4: OSC 매수 허용", group=group_r4)
+
+---
+
+input.float(1.2, "R4 매수비중 배수(기본: 확대)", step=0.05, minval=0.0, group=group_r4)
+
+---
+
+input.float(0.7, "R4 매도비중 배수(기본: 축소)", step=0.05, minval=0.0, group=group_r4)
+
+---
+
+input.bool(false, "R4 매수1 반복", group=group_r4)
+
+---
+
+input.bool(false, "R4 매도1 반복", group=group_r4)
+
+---
+
+input.bool(true,  "R4 매수 후 매도비중 리셋", group=group_r4)
+
+---
+
+input.bool(false, "R4 매도 후 매수비중 리셋(기본: OFF)", group=group_r4)
+
+---
+
+input.string("Normal", "R4 매도방법", options=["Normal","Alternate"], group=group_r4)
+
+---
+
+input.bool(true,  "R4: 평단가 이하에서만 매수", group=group_r4)
+
+---
+
+input.bool(true,  "R4: 직전신호가보다 낮을 때만 매수", group=group_r4)
+
+---
+
+input.bool(false, "R4: 직전체결가보다 낮을 때만 매수(선택)", group=group_r4)
+
+---
+
+input.bool(true,  "HUD 표시", group=group_common)
+
+---
+
+input.string("LABEL(가격차트)", "HUD 모드", options=["TABLE(패널)", "LABEL(가격차트)"], group=group_common)
+
+---
+
+input.int(14, "LABEL 위치 ATR", minval=1, group=group_common)

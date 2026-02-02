@@ -1,0 +1,239 @@
+[HANDOFF PROMPT | bbooster Hub | COPY-PASTE | 기존 8주 일정 유지 + 인수인계 확정본 v2026-01-26 KST]
+
+당신은 "bbooster Hub (TradingView → Hub → Broker/Exchange)" 프로젝트를 이어받아 진행한다.
+반드시 아래 PROJECT_STATUS(SSOT)를 진행상태 기준으로 삼고, 채팅 과거 맥락보다 이 문서를 우선한다.
+
+────────────────────────────────────────
+0) 절대 규칙
+────────────────────────────────────────
+1) 완료/진행 판단 기준은 SSOT(Project Status)이며 “증거(로그) + 재현 커맨드”로만 체크한다.
+2) 운영 루틴 고정: stop → syntax → run → /tv test (순서 변경 금지)
+3) Hub 원칙: 신호판단/추천 X. TV가 신호, Hub는 브릿지+사이징+안정성.
+4) /tv는 500 금지. 예외는 ok=False, code=exception, detail=... 로만 반환.
+5) /tv 테스트는 PowerShell Invoke-RestMethod만 사용 (curl JSON 이스케이프 금지).
+6) Scope 제외: SMC 전략/SMC 파일, MFT 캔들 파일/로직은 절대 사용/참조/확장하지 않는다.
+7) 인수인계/프롬프트 작업 시 필수:
+   - autobot.zip을 먼저 풀어서(app/, data/, scripts/, requirements.txt 등) 내용을 자세히 확인한 뒤 진행한다.
+   - zip 안에 SMC/MFT가 있어도 “스코프 밖”이므로 만지지 않는다.
+8) 오류 발생 시 원칙:
+   - (1) 이 인수인계/SSOT를 먼저 확인
+   - (2) 답이 없으면 재현 로그 확보
+   - (3) 추론 땜질 금지, 필요한 파일(main.py 등) 근거 기반으로만 수정
+
+────────────────────────────────────────
+1) PROJECT_STATUS (SSOT) — 2026-01-26 KST 최신 상태
+────────────────────────────────────────
+[Milestone]
+- Week1 뼈대(DB+UI 4메뉴+전광판): DONE
+- Week2 Input Sync v1 + config_hash (M3): DONE (증거 확보)
+
+[Week2/M3 DONE 증거]
+A) from_pine 대용량 파싱/저장 + config_hash
+- POST /api/strategies/2/configs/from_pine (bytes 전송) =>
+  ok=True, config_id=12, config_hash=cfg_afac00e143ad, parsed=119, kept=84
+  note=reused_existing_config_hash 확인
+
+B) /tv config_hash only (secret 없이) 주문 + 멱등 + 체결동기 + 전광판
+- POST /tv (config_hash=cfg_afac00e143ad) =>
+  ok=True code=accepted strategy_id=2 config_id=12 config_hash=cfg_afac... order_id=84
+- 재전송(같은 alert_id) =>
+  ok=True code=ignored_duplicate idem_key 동일, orders row 증가 없음
+- poll-now(mode=poll) =>
+  order_id=84 filled, filled_qty=0.0001, avg_px=2900.3, okx_state=filled
+- /api/home =>
+  last_order_status=filled, last_filled_qty, last_order_avg_px, ordId 반영 확인
+
+[따라서 “Week2는 끝났다”]
+- Input Sync v1 + config_hash의 end-to-end 흐름은 증거로 완료되었다.
+
+────────────────────────────────────────
+2) Fixed Runbook (항상 이대로)
+────────────────────────────────────────
+[Stop]
+powershell -ExecutionPolicy Bypass -File C:\autobot\scripts\stop.ps1
+
+[Syntax]
+python -c "import py_compile; py_compile.compile(r'C:\autobot\app\main.py', doraise=True); print('OK: syntax')"
+
+[Run]
+powershell -ExecutionPolicy Bypass -File C:\autobot\scripts\run.ps1
+
+[Smoke: /tv (secret 버전)]
+$base="http://127.0.0.1:8000"
+$body=@{ secret="dummy2"; alert_id="tv-smoke-1"; symbol="ETH-USDT"; side="buy"; qty=0.0001 } | ConvertTo-Json -Compress
+Invoke-RestMethod -Method Post -Uri "$base/tv" -ContentType "application/json" -Body $body
+
+[Smoke: /tv (config_hash only)]
+$cfg="cfg_afac00e143ad"
+$body=@{ config_hash=$cfg; alert_id="tv-smoke-m3-hash-1"; symbol="ETH-USDT"; side="buy"; qty=0.0001 } | ConvertTo-Json -Compress
+Invoke-RestMethod -Method Post -Uri "$base/tv" -ContentType "application/json" -Body $body
+
+[Poll/Home]
+Invoke-RestMethod -Method Post -Uri "$base/api/diag/poll-now?mode=poll&limit=20" -TimeoutSec 10
+Invoke-RestMethod -Method Get  -Uri "$base/api/home"
+
+[from_pine 대용량 안정 전송(필수 요령)]
+- ConvertTo-Json 문자열로 바로 보내면 body 파싱이 깨질 수 있음.
+- 해결: payload.json을 UTF-8로 생성 → bytes로 전송.
+- ContentType: "application/json; charset=utf-8"
+
+────────────────────────────────────────
+3) 일정(8주 / 주5일 / 1~2시간/일) — “기존 일정 유지”
+────────────────────────────────────────
+Week 1: 뼈대(DB + UI 4메뉴) 완성  ✅ DONE
+ Day1 DB 스키마(accounts/strategies/assets/orders/snapshots)
+ Day2 API등록 화면(CRUD) + 연결상태/활성 토글
+ Day3 전략설정 화면 골격(신규/수정/삭제)
+ Day4 자산등록 화면 골격(계좌×심볼×전략 선택)
+ Day5 홈(전광판) 표 + last_signal/last_order 컬럼
+
+Week 2: Input Sync v1 + config_hash ✅ DONE(증거 확보)
+ Day1 Pine input.* 파서(v1)
+ Day2 DB 저장 + config_hash 생성/검증
+ Day3 UI에서 파서 결과 반영(keep 스코프 기준)
+ Day4 TradingView template 생성(include_hash)
+ Day5 진단루프(send/poll/home) E2E
+
+Week 3: Webhook 스키마 v1 확정 + Validation/Idempotency 규격화  ← 다음 단계(여기부터 진행)
+ Day1 /tv payload schema v1 문서(필수/옵션/우선순위: config_hash 우선, 없으면 secret)
+ Day2 Validation/에러코드 규격화(4xx + ok=False code=...), 500 완전 차단
+ Day3 idem_key 규칙/저장 규칙 고정 + 회귀 테스트(PS 스크립트) 추가
+ Day4 orders 상태머신(received/sent/partial/filled/failed/canceled) 문서화/반영
+ Day5 DRY_RUN에서도 재현 가능한 테스트 루프 고정
+
+Week 4: Broker Adapter 인터페이스 표준화
+Week 5: “자본% = 실가용자금” 사이징 엔진 v1(수량/금액/자본% 3모드 정식 완료)
+Week 6: UI/운영 기능(로그/리플레이/알림/리포트)
+Week 7: 멀티브로커 + 국내증권 API PoC(1곳)
+Week 8: 패키징/배포/구독 전환 준비
+
+────────────────────────────────────────
+4) 새 채팅창에서 “첫 작업 지시(Next 1 Action)”
+────────────────────────────────────────
+- 지금부터는 Week3 Day1을 한다.
+- Day1 산출물은 “/tv webhook schema v1” 문서다.
+- 구현을 먼저 건드리지 말고, (1) 현재 openapi.json 확인 → (2) 실제 허용되는 payload 필드 정리 → (3) 에러코드 표준(초안) 작성.
+- 문서가 생기면 Day2에서 validation과 4xx 코드를 코드로 고정한다.
+
+
+
+[SSOT Update | 2026-01-26 KST | bbooster Hub]
+
+- Done:
+  1) M3(Input Sync v1) “from_pine → parse/keep → DB 저장 → config_hash 생성/재사용” E2E 성공 증거 확보
+  2) /tv에서 config_hash-only(=secret 없이) 주문 처리 + 멱등(ignored_duplicate) + poll-now 체결동기 + home 전광판 반영까지 E2E 성공
+  3) 대용량 pine_code(약 42,675 chars) 전송 시 PowerShell body 파싱 오류를 “UTF-8 bytes 전송” 방식으로 해결/표준화
+
+- Proof (재현 커맨드 + 핵심 응답):
+  [0] Runbook(고정)
+    - stop  : powershell -ExecutionPolicy Bypass -File C:\autobot\scripts\stop.ps1
+    - syntax: python -c "import py_compile; py_compile.compile(r'C:\autobot\app\main.py', doraise=True); print('OK: syntax')"
+    - run   : powershell -ExecutionPolicy Bypass -File C:\autobot\scripts\run.ps1
+
+  [1] OpenAPI 라우트 확인(진실의 근거)
+    - Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8000/openapi.json" | Out-Null
+    - "openapi ok"  (확인 완료)
+    - openapi.json에서 "from_pine" 존재 여부 확인 후 진행
+
+  [2] from_pine (대용량 pine_code) — bytes 전송 표준
+    - $base="http://127.0.0.1:8000"
+    - $pyexe="C:\autobot\.venv\Scripts\python.exe"
+    - $strategyId=2
+    - $pinePath="C:\autobot\data\역추세매매 현물 v0.4.txt"
+    - $tmpJson="$env:TEMP\from_pine_payload.json"
+
+    - payload.json 생성(UTF-8)
+      $genPy="$env:TEMP\gen_from_pine_payload.py"
+      @'
+      import json, sys
+      pine_path = sys.argv[1]
+      out_path  = sys.argv[2]
+      code = open(pine_path, "r", encoding="utf-8").read()
+      payload = {"pine_code": code, "scope": "sizing_ops_v1"}
+      open(out_path, "w", encoding="utf-8").write(json.dumps(payload, ensure_ascii=False))
+      print("WROTE:", out_path)
+      print("len(pine_code)=", len(code))
+      '@ | Set-Content -Encoding UTF8 $genPy
+      & $pyexe $genPy $pinePath $tmpJson
+
+    - 전송(bytes)
+      $bytes=[System.IO.File]::ReadAllBytes($tmpJson)
+      Invoke-RestMethod -Method Post `
+        -Uri "$base/api/strategies/$strategyId/configs/from_pine" `
+        -ContentType "application/json; charset=utf-8" `
+        -Body $bytes | ConvertTo-Json -Depth 50
+
+    - 핵심 응답(성공)
+      {
+        "ok": true,
+        "strategy_id": 2,
+        "config_id": 12,
+        "config_hash": "cfg_afac00e143ad",
+        "counts": { "parsed": 119, "kept": 84 },
+        "note": "reused_existing_config_hash"
+      }
+
+  [3] template include_hash 확인
+    - GET /api/strategies/2/templates/tradingview?config_id=12&include_hash=true
+    - 응답: template에 "config_hash": "cfg_afac00e143ad" 포함 확인
+
+  [4] /tv config_hash-only 주문 + 멱등 + 체결동기 + home 반영
+    - $cfg="cfg_afac00e143ad"
+    - $body=@{
+        config_hash=$cfg
+        alert_id="tv-smoke-m3-hash-1"
+        symbol="ETH-USDT"
+        side="buy"
+        qty=0.0001
+      } | ConvertTo-Json -Compress
+
+    - 1회차(/tv)
+      Invoke-RestMethod -Method Post -Uri "$base/tv" -ContentType "application/json" -Body $body | ConvertTo-Json -Depth 30
+      => ok=true code=accepted strategy_id=2 config_id=12 config_hash=cfg_afac... order_id=84
+
+    - 2회차(동일 alert_id 재전송)
+      => ok=true code=ignored_duplicate idem_key 동일(orders row 증가 없음)
+
+    - poll-now(체결 동기)
+      Invoke-RestMethod -Method Post -Uri "$base/api/diag/poll-now?mode=poll&limit=20" -TimeoutSec 10 | ConvertTo-Json -Depth 50
+      => id=84 status=filled filled_qty=0.0001 avg_px=2900.3 okx_state=filled okx_order_id 확인
+
+    - home(전광판 갱신)
+      Invoke-RestMethod -Method Get -Uri "$base/api/home" | ConvertTo-Json -Depth 50
+      => ETH-USDT(last_order_status=filled, last_filled_qty=0.0001, last_order_avg_px, ordId) 반영 확인
+
+- Issues & Fix (문제 / 원인 / 해결 / 재발방지):
+  1) 문제: POST /configs/from_pine에서 "There was an error parsing the body" 발생
+     - 원인: PowerShell ConvertTo-Json 문자열 바디로 대용량 pine_code 전송 시 인코딩/바디 파싱이 깨질 수 있음
+     - 해결: payload.json(UTF-8, ensure_ascii=False) 생성 후 ReadAllBytes로 bytes 전송 + ContentType "application/json; charset=utf-8"
+     - 재발방지: “from_pine은 무조건 bytes 전송”을 Runbook/SSOT에 고정
+
+  2) 문제: DB 컬럼 가정 불일치(values_json/account_id 등)로 SQL 예외 발생 전례
+     - 원인: strategy_configs 실제 컬럼은 (id, strategy_id, name, values(jsonb), config_hash, is_active, created_at, updated_at)인데
+             코드/패치가 values_json/account_id 같은 컬럼을 가정
+     - 해결: 반드시 “실제 스키마 기반”으로 쿼리/매핑(=values 컬럼) 사용
+     - 재발방지: 오류 시 먼저 openapi.json + DB 컬럼 확인(가정 금지)
+
+  3) 문제: /tv에서 missing_secret가 먼저 걸리며 config_hash-only 흐름이 막히는 상황/패치 혼선 전례
+     - 원인: /tv 우선순위가 “secret 필수”로 먼저 체크되면 config_hash-only가 불가능
+     - 해결: 규칙은 고정: “config_hash 있으면 secret 없이 처리 → 없으면 secret fallback”
+     - 재발방지: Week3 Day1 문서(/tv schema v1)에 우선순위를 명문화하고, 회귀테스트에 포함
+
+  4) 문제: 추론 기반 핫패치가 ASGI 로딩 실패(“Attribute app not found”) 등 치명 오류로 이어질 수 있음
+     - 원인: 정규식 패치/임시 스크립트가 main.py 구조를 깨뜨리는 위험
+     - 해결: “SSOT 확인 → 근거(라인/로그) 확보 → 최소 수정” 원칙으로만 진행
+     - 재발방지: 작업 전 main.py 백업(파일 복사) + compileall/py_compile 통과 전 run 금지
+
+- Risks (남아있는 리스크):
+  1) Week3(스키마/검증/회귀테스트)가 문서/테스트로 고정되기 전에는, 새 채팅/새 시도가 또 “다른 방식”으로 새어 나갈 수 있음
+  2) config_hash/secret 혼재 시 우선순위/에러코드가 흔들리면, 장기적으로 멱등/확장(브로커 추가)에서 문제가 커질 수 있음
+
+- Next 1 Action (딱 1개만):
+  -> Week3 Day1 착수: “/tv Webhook Schema v1” 문서 작성(필수/옵션/우선순위/에러코드/예시 payload 3종)
+     (작성 후 Day2에서 validation/4xx 코드를 코드로 고정)
+
+- Rollback (되돌리기 원칙 1줄):
+  - main.py 수정 전: C:\autobot\app\main.py → C:\autobot\app\main.py.bak(날짜)로 복사 백업
+  - 문제 발생 시: stop.ps1 → bak로 복구 → syntax(필수) → run.ps1
+
+끝.

@@ -1,0 +1,43 @@
+from __future__ import annotations
+
+from typing import Any
+
+# Week5 OKX connector (thin wrapper)
+# Goal: remove duplicated OKX signing/http code across main.py and keep all OKX REST logic in app/okx_api.py.
+# This module only normalizes legacy arg names and forwards to okx_api.okx_place_order.
+
+from app import okx_api
+
+
+def okx_place_order(
+    *,
+    symbol: str | None = None,
+    side: str | None = None,
+    qty: float | None = None,
+    order_type: str = "market",
+    px: float | None = None,
+    payload: dict | None = None,
+    **kwargs: Any,
+) -> dict:
+    # legacy kwargs mapping (some call paths use instId/sz/ordType/action)
+    if symbol is None and "instId" in kwargs:
+        symbol = str(kwargs["instId"])
+    if side is None and "action" in kwargs:
+        side = str(kwargs["action"])
+    if qty is None and "sz" in kwargs:
+        qty = float(kwargs["sz"])
+    if "ordType" in kwargs and kwargs["ordType"] is not None:
+        order_type = str(kwargs["ordType"])
+
+    if payload is None:
+        payload = {}
+
+    # clOrdId propagation (payload wins, else kwargs)
+    if isinstance(payload, dict) and "clOrdId" not in payload and kwargs.get("clOrdId") is not None:
+        payload = dict(payload)
+        payload["clOrdId"] = str(kwargs["clOrdId"])
+
+    if not symbol or not side or qty is None:
+        raise ValueError(f"missing required fields: symbol={symbol} side={side} qty={qty}")
+
+    return okx_api.okx_place_order(symbol=symbol, side=side, qty=float(qty), order_type=order_type, px=px, payload=payload)

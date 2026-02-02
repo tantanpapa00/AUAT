@@ -1,0 +1,39 @@
+﻿=== FILE ===
+C:\autobot\app\main.py
+
+
+=== DUPLICATE SUSPECTS ===
+
+--- def _ensure_orders_table ---
+1156: # def _ensure_orders_table(db: Session):
+2696:     def _ensure_orders_table(db):
+3802: def _ensure_orders_table(db):
+3850: def _ensure_orders_table(db):
+3876: def _ensure_orders_table(db):
+3914:     def _ensure_orders_table(db):
+3947:     def _ensure_orders_table(db):
+
+--- def api_send_now|async def api_send_now ---
+2433: def api_send_now(
+
+--- def api_poll_now|async def api_poll_now ---
+2266: def api_poll_now(
+
+--- def tv_webhook|async def tv_webhook ---
+1927: async def tv_webhook(request: Request, db: Session = Depends(get_db)):
+
+--- def _is_estop_on ---
+111: def _is_estop_on(db: Session) -> bool:
+
+--- def api_get_estop|def api_set_estop ---
+116: def api_get_estop(db: Session = Depends(get_db)):
+139: async def api_set_estop(request: Request, db: Session = Depends(get_db)):
+
+--- ROUTE: /api/diag/send-now ---
+2432: @app.post("/api/diag/send-now")
+
+--- ROUTE: /api/diag/poll-now ---
+2265: @app.post("/api/diag/poll-now")
+
+--- ROUTE: /tv ---
+1926: @app.post("/tv")

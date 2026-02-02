@@ -1,0 +1,1210 @@
+﻿from fastapi import FastAPI, Depends, HTTPException, Request, Query
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
+
+from datetime import datetime, timezone
+
+import json
+import hashlib
+import math
+import socket
+
+from .db import get_db
+from .crud_accounts import (
+    list_accounts, get_account, create_account, update_account,
+    delete_account, toggle_account, set_health
+)
+from .pine_parser import parse_pine_inputs
+
+
+app = FastAPI(title="AutoBot Admin v0.1")
+templates = Jinja2Templates(directory="app/templates")
+
+
+@app.get("/", response_class=HTMLResponse)
+def home(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/db-check")
+def db_check(db: Session = Depends(get_db)):
+    v = db.execute(text("select version()")).scalar()
+    return {"ok": True, "version": v}
+
+
+@app.get("/health")
+def health():
+    return {"ok": True}
+
+
+# ---- Home API (Dashboard) ----
+@app.get("/api/home")
+def api_home(db: Session = Depends(get_db)):
+    """
+    UI 전광판용: assets + account/strategy 이름 join
+    - 절대 500 내지 않도록: 실패 시에도 ok:true, items:[] 반환
+    """
+    q = text("""
+        select
+          a.id,
+          acc.name as account_name,
+          s.name   as strategy_name,
+          a.symbol,
+          a.market,
+          a.is_active,
+          a.last_signal_at,
+          a.last_signal_id,
+          a.last_order_at,
+          a.last_order_status,
+          a.last_order_reason
+        from assets a
+        join accounts acc on acc.id = a.account_id
+        join strategies s on s.id = a.strategy_id
+        order by a.id asc
+    """)
+    try:
+        rows = db.execute(q).mappings().all()
+        return {"ok": True, "items": [dict(r) for r in rows]}
+    except Exception as e:
+        return {"ok": True, "items": [], "warn": str(e)}
+
+
+# ---- Accounts API ----
+@app.get("/api/accounts")
+def api_list_accounts(db: Session = Depends(get_db)):
+    rows = list_accounts(db)
+    return [
+        {
+            "id": r.id,
+            "name": r.name,
+            "exchange": r.exchange,
+            "is_active": r.is_active,
+            "last_health_at": r.last_health_at,
+            "last_health_ok": r.last_health_ok,
+            "last_health_msg": r.last_health_msg,
+        } for r in rows
+    ]
+
+
+@app.post("/api/accounts")
+def api_create_account(payload: dict, db: Session = Depends(get_db)):
+    required = ["name", "exchange", "api_key", "api_secret"]
+    for k in required:
+        if not payload.get(k):
+            raise HTTPException(status_code=400, detail=f"missing: {k}")
+    try:
+        acc = create_account(db, payload)
+        return {"ok": True, "id": acc.id}
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Account name already exists")
+
+
+@app.put("/api/accounts/{account_id}")
+def api_update_account(account_id: int, payload: dict, db: Session = Depends(get_db)):
+    acc = get_account(db, account_id)
+    if not acc:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    allowed = {"name", "exchange", "api_key", "api_secret", "api_passphrase", "is_active"}
+    payload = {k: v for k, v in payload.items() if k in allowed}
+
+    try:
+        update_account(db, acc, payload)
+        return {"ok": True}
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Account name already exists")
+
+
+@app.delete("/api/accounts/{account_id}")
+def api_delete_account(account_id: int, db: Session = Depends(get_db)):
+    acc = get_account(db, account_id)
+    if not acc:
+        raise HTTPException(status_code=404, detail="Account not found")
+    delete_account(db, acc)
+    return {"ok": True}
+
+
+@app.post("/api/accounts/{account_id}/toggle")
+def api_toggle_account(account_id: int, db: Session = Depends(get_db)):
+    acc = get_account(db, account_id)
+    if not acc:
+        raise HTTPException(status_code=404, detail="Account not found")
+    toggle_account(db, acc)
+    return {"ok": True}
+
+
+@app.post("/api/accounts/{account_id}/health")
+def api_health_account(account_id: int, db: Session = Depends(get_db)):
+    """
+    Day2: 기본 네트워크 체크 수준.
+    Week4에서 OKX 서명 호출로 '진짜 키 검증'으로 교체/확장.
+    """
+    acc = get_account(db, account_id)
+    if not acc:
+        raise HTTPException(status_code=404, detail="Account not found")
+    try:
+        socket.gethostbyname("www.google.com")
+        set_health(db, acc, True, "basic network ok")
+    except Exception:
+        set_health(db, acc, False, "network check failed")
+    return {"ok": True}
+
+
+# ---- Strategies API ----
+@app.get("/api/strategies")
+def api_list_strategies(db: Session = Depends(get_db)):
+    rows = db.execute(text("""
+        select id, name, tv_secret, is_active, created_at, updated_at
+        from strategies
+        order by id asc
+    """)).mappings().all()
+    return [dict(r) for r in rows]
+
+
+@app.post("/api/strategies")
+def api_create_strategy(payload: dict, db: Session = Depends(get_db)):
+    if not payload.get("name"):
+        raise HTTPException(status_code=400, detail="missing: name")
+    if not payload.get("tv_secret"):
+        raise HTTPException(status_code=400, detail="missing: tv_secret")
+
+    try:
+        row = db.execute(
+            text("""
+                insert into strategies(name, tv_secret, is_active)
+                values (:name, :tv_secret, :is_active)
+                returning id
+            """),
+            {
+                "name": payload["name"],
+                "tv_secret": payload["tv_secret"],
+                "is_active": bool(payload.get("is_active", False)),
+            }
+        ).mappings().first()
+        db.commit()
+        return {"ok": True, "id": row["id"]}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.put("/api/strategies/{strategy_id}")
+def api_update_strategy(strategy_id: int, payload: dict, db: Session = Depends(get_db)):
+    allowed = {"name", "tv_secret", "is_active"}
+    payload = {k: v for k, v in payload.items() if k in allowed}
+
+    if not payload:
+        return {"ok": True}
+
+    sets = []
+    params = {"id": strategy_id}
+    for k, v in payload.items():
+        sets.append(f"{k} = :{k}")
+        params[k] = v
+
+    q = f"""
+        update strategies
+        set {", ".join(sets)}, updated_at = now()
+        where id = :id
+        returning id
+    """
+    try:
+        row = db.execute(text(q), params).mappings().first()
+        if not row:
+            db.rollback()
+            raise HTTPException(status_code=404, detail="Strategy not found")
+        db.commit()
+        return {"ok": True}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/api/strategies/{strategy_id}")
+def api_delete_strategy(strategy_id: int, db: Session = Depends(get_db)):
+    exists = db.execute(
+        text("select id from strategies where id = :id"),
+        {"id": strategy_id}
+    ).mappings().first()
+    if not exists:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+
+    try:
+        row = db.execute(
+            text("delete from strategies where id = :id returning id"),
+            {"id": strategy_id}
+        ).mappings().first()
+
+        if not row:
+            db.rollback()
+            raise HTTPException(status_code=404, detail="Strategy not found")
+
+        db.commit()
+        return {"ok": True, "deleted": True}
+
+    except IntegrityError:
+        db.rollback()
+        try:
+            db.execute(
+                text("""
+                    update strategies
+                    set is_active = false,
+                        updated_at = now()
+                    where id = :id
+                    returning id
+                """),
+                {"id": strategy_id}
+            )
+            db.commit()
+            return {"ok": True, "deleted": False, "soft_deleted": True}
+        except Exception as e2:
+            db.rollback()
+            raise HTTPException(status_code=400, detail=f"soft delete failed: {str(e2)}")
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"delete failed: {str(e)}")
+
+
+# ---- Assets API ----
+@app.get("/api/assets")
+def api_list_assets(db: Session = Depends(get_db)):
+    rows = db.execute(text("""
+        select
+            a.id,
+            a.account_id,
+            ac.name as account_name,
+            a.strategy_id,
+            s.name as strategy_name,
+            a.symbol,
+            a.market,
+            a.is_active,
+            a.cooldown_sec,
+            a.max_orders_per_day,
+            a.last_signal_at,
+            a.last_signal_id,
+            a.last_order_at,
+            a.last_order_id,
+            a.last_order_status,
+            a.last_order_reason,
+            a.created_at,
+            a.updated_at
+        from assets a
+        join accounts ac on ac.id = a.account_id
+        join strategies s on s.id = a.strategy_id
+        order by a.id asc
+    """)).mappings().all()
+    return [dict(r) for r in rows]
+
+
+@app.post("/api/assets")
+def api_create_asset(payload: dict, db: Session = Depends(get_db)):
+    required = ["account_id", "strategy_id", "symbol"]
+    for k in required:
+        if payload.get(k) in (None, ""):
+            raise HTTPException(status_code=400, detail=f"missing: {k}")
+
+    market = (payload.get("market") or "spot").strip()
+    symbol = str(payload["symbol"]).strip()
+
+    try:
+        row = db.execute(
+            text("""
+                insert into assets(account_id, strategy_id, symbol, market, is_active)
+                values (:account_id, :strategy_id, :symbol, :market, :is_active)
+                returning id
+            """),
+            {
+                "account_id": int(payload["account_id"]),
+                "strategy_id": int(payload["strategy_id"]),
+                "symbol": symbol,
+                "market": market,
+                "is_active": bool(payload.get("is_active", True)),
+            }
+        ).mappings().first()
+        db.commit()
+        return {"ok": True, "id": row["id"]}
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Duplicate asset (account_id+strategy_id+symbol+market)")
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.put("/api/assets/{asset_id}")
+def api_update_asset(asset_id: int, payload: dict, db: Session = Depends(get_db)):
+    allowed = {"account_id", "strategy_id", "symbol", "market", "is_active", "cooldown_sec", "max_orders_per_day"}
+    payload = {k: v for k, v in payload.items() if k in allowed}
+
+    if not payload:
+        return {"ok": True}
+
+    sets = []
+    params = {"id": asset_id}
+
+    for k, v in payload.items():
+        if k in ("account_id", "strategy_id"):
+            params[k] = int(v)
+        elif k in ("cooldown_sec", "max_orders_per_day"):
+            params[k] = int(v)
+        elif k in ("symbol", "market") and v is not None:
+            params[k] = str(v).strip()
+        elif k == "is_active":
+            params[k] = bool(v)
+        else:
+            params[k] = v
+        sets.append(f"{k} = :{k}")
+
+    q = f"""
+        update assets
+        set {", ".join(sets)}, updated_at = now()
+        where id = :id
+        returning id
+    """
+    try:
+        row = db.execute(text(q), params).mappings().first()
+        if not row:
+            db.rollback()
+            raise HTTPException(status_code=404, detail="Asset not found")
+        db.commit()
+        return {"ok": True}
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Duplicate asset (account_id+strategy_id+symbol+market)")
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/api/assets/{asset_id}")
+def api_delete_asset(asset_id: int, db: Session = Depends(get_db)):
+    exists = db.execute(
+        text("select id from assets where id = :id"),
+        {"id": asset_id}
+    ).mappings().first()
+    if not exists:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    try:
+        row = db.execute(
+            text("delete from assets where id = :id returning id"),
+            {"id": asset_id}
+        ).mappings().first()
+
+        if not row:
+            db.rollback()
+            raise HTTPException(status_code=404, detail="Asset not found")
+
+        db.commit()
+        return {"ok": True, "deleted": True}
+
+    except IntegrityError:
+        db.rollback()
+        try:
+            db.execute(
+                text("""
+                    update assets
+                    set is_active = false,
+                        updated_at = now()
+                    where id = :id
+                    returning id
+                """),
+                {"id": asset_id}
+            )
+            db.commit()
+            return {"ok": True, "deleted": False, "soft_deleted": True}
+        except Exception as e2:
+            db.rollback()
+            raise HTTPException(status_code=400, detail=f"soft delete failed: {str(e2)}")
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"delete failed: {str(e)}")
+
+
+@app.post("/api/assets/{asset_id}/toggle")
+def api_toggle_asset(asset_id: int, db: Session = Depends(get_db)):
+    exists = db.execute(
+        text("select id from assets where id = :id"),
+        {"id": asset_id}
+    ).mappings().first()
+    if not exists:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    db.execute(
+        text("""
+            update assets
+            set is_active = not is_active,
+                updated_at = now()
+            where id = :id
+        """),
+        {"id": asset_id}
+    )
+    db.commit()
+    return {"ok": True}
+
+
+# ============================================================
+# [W2] Signal Params Sync + Config Save + TV Templates
+# ============================================================
+
+def _sanitize(obj):
+    if obj is None:
+        return None
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    if isinstance(obj, dict):
+        return {k: _sanitize(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize(v) for v in obj]
+    return obj
+
+
+def _safe_dumps(obj) -> str:
+    return json.dumps(_sanitize(obj), ensure_ascii=False, separators=(",", ":"), sort_keys=False)
+
+
+def _canonical_values(values: dict) -> str:
+    return json.dumps(_sanitize(values), ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+
+
+def _make_config_hash(values: dict, prefix: str = "cfg_", short: int = 12) -> str:
+    s = _canonical_values(values)
+    h = hashlib.sha256(s.encode("utf-8")).hexdigest()
+    return f"{prefix}{h[:short]}"
+
+
+def _get_strategy_or_404(db: Session, strategy_id: int) -> dict:
+    row = db.execute(
+        text("select id, name, tv_secret, is_active from strategies where id=:id"),
+        {"id": strategy_id},
+    ).mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+    return dict(row)
+
+
+@app.post("/api/strategies/{strategy_id}/signal-params:sync")
+def api_signal_params_sync(strategy_id: int, payload: dict, db: Session = Depends(get_db)):
+    """
+    inputs[] -> signal_params 업서트
+    """
+    try:
+        inputs = payload.get("inputs")
+        if not isinstance(inputs, list) or len(inputs) == 0:
+            raise HTTPException(status_code=400, detail="missing: inputs[]")
+
+        _ = _get_strategy_or_404(db, strategy_id)
+
+        upsert_sql = text("""
+            insert into signal_params (
+                strategy_id, key, title, type, defval, options,
+                group_name, inline_key, tooltip,
+                min_val, max_val, step_val,
+                order_index, is_hidden, raw,
+                updated_at
+            )
+            values (
+                :strategy_id, :key, :title, :type,
+                CAST(:defval AS jsonb),
+                CAST(:options AS jsonb),
+
+                :group_name, :inline_key, :tooltip,
+                :min_val, :max_val, :step_val,
+                :order_index, :is_hidden,
+                CAST(:raw AS jsonb),
+                now()
+            )
+            on conflict (strategy_id, key) do update set
+                title       = excluded.title,
+                type        = excluded.type,
+                defval      = excluded.defval,
+                options     = excluded.options,
+                group_name  = excluded.group_name,
+                inline_key  = excluded.inline_key,
+                tooltip     = excluded.tooltip,
+                min_val     = excluded.min_val,
+                max_val     = excluded.max_val,
+                step_val    = excluded.step_val,
+                order_index = excluded.order_index,
+                is_hidden   = excluded.is_hidden,
+                raw         = excluded.raw,
+                updated_at  = now()
+        """)
+
+        upserted = 0
+        for idx, it in enumerate(inputs):
+            if not isinstance(it, dict):
+                continue
+            key = it.get("key")
+            if not key:
+                continue
+
+            group_name = it.get("group") or it.get("group_name")
+
+            # MFT 관련 키/그룹은 기본 숨김
+            k_lower = str(key).lower()
+            g_lower = str(group_name).lower() if group_name else ""
+            is_hidden = bool(it.get("is_hidden", False)) or ("mft" in k_lower) or ("mft" in g_lower)
+
+            params = {
+                "strategy_id": strategy_id,
+                "key": key,
+                "title": it.get("title"),
+                "type": it.get("type") or "unknown",
+                "defval": _safe_dumps(it.get("defval")),
+                "options": _safe_dumps(it.get("options")) if it.get("options") is not None else "null",
+                "group_name": group_name,
+                "inline_key": it.get("inline") or it.get("inline_key"),
+                "tooltip": it.get("tooltip"),
+                "min_val": it.get("minval") if it.get("minval") is not None else it.get("min_val"),
+                "max_val": it.get("maxval") if it.get("maxval") is not None else it.get("max_val"),
+                "step_val": it.get("step") if it.get("step") is not None else it.get("step_val"),
+                "order_index": int(it.get("order_index", idx)),
+                "is_hidden": is_hidden,
+                "raw": _safe_dumps(it),
+            }
+            db.execute(upsert_sql, params)
+            upserted += 1
+
+        db.commit()
+        return {"ok": True, "strategy_id": strategy_id, "received": len(inputs), "upserted": upserted}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"sync_failed: {type(e).__name__}: {str(e)}")
+
+
+@app.get("/api/strategies/{strategy_id}/signal-params")
+def api_signal_params_list(strategy_id: int, db: Session = Depends(get_db)):
+    _ = _get_strategy_or_404(db, strategy_id)
+
+    rows = db.execute(text("""
+        select
+            key, title, type, defval, options,
+            group_name, inline_key, tooltip,
+            min_val, max_val, step_val,
+            order_index, is_hidden,
+            created_at, updated_at
+        from signal_params
+        where strategy_id=:sid
+        order by order_index asc, key asc
+    """), {"sid": strategy_id}).mappings().all()
+
+    return {"ok": True, "strategy_id": strategy_id, "count": len(rows), "items": [dict(r) for r in rows]}
+
+
+@app.post("/api/strategies/{strategy_id}/configs")
+def api_create_strategy_config(strategy_id: int, payload: dict, db: Session = Depends(get_db)):
+    _ = _get_strategy_or_404(db, strategy_id)
+
+    values = payload.get("values")
+    if not isinstance(values, dict) or len(values) == 0:
+        raise HTTPException(status_code=400, detail="missing: values (object)")
+
+    name = payload.get("name") or "default"
+    is_active = bool(payload.get("is_active", True))
+    cfg_hash = _make_config_hash(values)
+
+    def _find_existing():
+        return db.execute(
+            text("""
+                select id, config_hash
+                from strategy_configs
+                where strategy_id=:sid and config_hash=:h
+                order by id desc
+                limit 1
+            """),
+            {"sid": strategy_id, "h": cfg_hash}
+        ).mappings().first()
+
+    try:
+        exists = _find_existing()
+        if exists:
+            return {
+                "ok": True,
+                "strategy_id": strategy_id,
+                "config_id": exists["id"],
+                "config_hash": exists["config_hash"],
+                "reused": True,
+            }
+
+        row = db.execute(text("""
+            insert into strategy_configs(strategy_id, name, values, config_hash, is_active)
+            values (:sid, :name, CAST(:values AS jsonb), :hash, :is_active)
+            returning id, config_hash
+        """), {
+            "sid": strategy_id,
+            "name": name,
+            "values": _safe_dumps(values),
+            "hash": cfg_hash,
+            "is_active": is_active,
+        }).mappings().first()
+        db.commit()
+        return {
+            "ok": True,
+            "strategy_id": strategy_id,
+            "config_id": row["id"],
+            "config_hash": row["config_hash"],
+            "reused": False,
+        }
+
+    except IntegrityError:
+        db.rollback()
+        exists = _find_existing()
+        if exists:
+            return {
+                "ok": True,
+                "strategy_id": strategy_id,
+                "config_id": exists["id"],
+                "config_hash": exists["config_hash"],
+                "reused": True,
+            }
+        raise HTTPException(status_code=400, detail="config_save_failed: IntegrityError")
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"config_save_failed: {type(e).__name__}: {str(e)}")
+
+
+@app.get("/api/strategies/{strategy_id}/templates/tradingview")
+def api_templates_tradingview(
+    strategy_id: int,
+    config_id: int = Query(..., description="strategy_configs.id"),
+    include_hash: bool = Query(True),
+    db: Session = Depends(get_db),
+):
+    strat = _get_strategy_or_404(db, strategy_id)
+
+    cfg = db.execute(text("""
+        select id, name, values, config_hash, is_active, created_at, updated_at
+        from strategy_configs
+        where id=:cid and strategy_id=:sid
+    """), {"cid": config_id, "sid": strategy_id}).mappings().first()
+
+    if not cfg:
+        raise HTTPException(status_code=404, detail="Config not found")
+
+    values = cfg["values"] if isinstance(cfg["values"], dict) else {}
+    tv_secret = values.get("tv_secret") or strat.get("tv_secret")
+
+    template = {
+        "secret": tv_secret,
+        "alert_id": "{{strategy.order.id}}",
+        "symbol": "{{ticker}}",
+        "side": "{{strategy.order.action}}",
+        "qty": "{{strategy.order.contracts}}",
+        "type": "market",
+    }
+    if include_hash:
+        template["config_hash"] = cfg["config_hash"]
+
+    return {
+        "ok": True,
+        "strategy_id": strategy_id,
+        "config_id": config_id,
+        "include_hash": include_hash,
+        "template": template,
+    }
+
+
+# ---- Pine input parser API ----
+@app.post("/api/pine/parse-inputs")
+def api_pine_parse_inputs(payload: dict):
+    code = payload.get("code") or ""
+    if not isinstance(code, str) or not code.strip():
+        raise HTTPException(status_code=400, detail="missing: code")
+
+    try:
+        res = parse_pine_inputs(code)
+        return {"ok": True, **res}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"parse_failed: {str(e)}")
+
+
+# ============================================================
+# [W3D1] TradingView Webhook (/tv) + Secret Validation + Diag Log
+# ============================================================
+
+def _ensure_tv_events_table(db: Session):
+    db.execute(text("""
+        create table if not exists tv_events (
+            id           bigserial primary key,
+            received_at  timestamptz not null default now(),
+            remote_ip    text,
+            user_agent   text,
+
+            strategy_id  int,
+            config_id    int,
+            config_hash  text,
+            asset_id     int,
+
+            alert_id     text,
+            symbol       text,
+            side         text,
+            qty          numeric,
+
+            ok           boolean not null default false,
+            code         text,
+            detail       text,
+
+            payload      jsonb
+        );
+    """))
+    db.execute(text("create index if not exists ix_tv_events_received_at on tv_events(received_at desc);"))
+    db.execute(text("create index if not exists ix_tv_events_config_hash  on tv_events(config_hash);"))
+    db.execute(text("create index if not exists ix_tv_events_alert_id     on tv_events(alert_id);"))
+    db.execute(text("create index if not exists ix_tv_events_strategy_id  on tv_events(strategy_id);"))
+
+
+def _insert_tv_event(
+    db: Session,
+    *,
+    remote_ip: str | None,
+    user_agent: str | None,
+    strategy_id: int | None,
+    config_id: int | None,
+    config_hash: str | None,
+    asset_id: int | None,
+    alert_id: str | None,
+    symbol: str | None,
+    side: str | None,
+    qty,
+    ok: bool,
+    code: str,
+    detail: str | None,
+    payload: dict | None,
+):
+    _ensure_tv_events_table(db)
+    db.execute(
+        text("""
+            insert into tv_events(
+                remote_ip, user_agent,
+                strategy_id, config_id, config_hash, asset_id,
+                alert_id, symbol, side, qty,
+                ok, code, detail,
+                payload
+            )
+            values(
+                :remote_ip, :user_agent,
+                :strategy_id, :config_id, :config_hash, :asset_id,
+                :alert_id, :symbol, :side, :qty,
+                :ok, :code, :detail,
+                CAST(:payload as jsonb)
+            )
+        """),
+        {
+            "remote_ip": remote_ip,
+            "user_agent": user_agent,
+            "strategy_id": strategy_id,
+            "config_id": config_id,
+            "config_hash": config_hash,
+            "asset_id": asset_id,
+            "alert_id": alert_id,
+            "symbol": symbol,
+            "side": side,
+            "qty": qty,
+            "ok": ok,
+            "code": code,
+            "detail": detail,
+            "payload": _safe_dumps(payload) if payload is not None else "null",
+        }
+    )
+
+
+def _resolve_by_config_hash(db: Session, config_hash: str):
+    row = db.execute(text("""
+        select
+            c.id as config_id,
+            c.strategy_id,
+            c.values as cfg_values,
+            c.config_hash,
+            s.tv_secret as strategy_secret
+        from strategy_configs c
+        join strategies s on s.id = c.strategy_id
+        where c.config_hash = :h
+        order by c.id desc
+        limit 1
+    """), {"h": config_hash}).mappings().first()
+    if not row:
+        return None
+
+    cfg_values = row["cfg_values"] if isinstance(row["cfg_values"], dict) else {}
+    expected_secret = cfg_values.get("tv_secret") or row["strategy_secret"]
+
+    return {
+        "config_id": int(row["config_id"]),
+        "strategy_id": int(row["strategy_id"]),
+        "config_hash": row["config_hash"],
+        "expected_secret": expected_secret,
+    }
+
+
+def _resolve_strategy_by_secret(db: Session, secret: str):
+    row = db.execute(
+        text("select id as strategy_id, tv_secret from strategies where tv_secret=:s limit 1"),
+        {"s": secret},
+    ).mappings().first()
+    if not row:
+        return None
+    return {"strategy_id": int(row["strategy_id"]), "expected_secret": row["tv_secret"]}
+
+
+def _resolve_asset(db: Session, strategy_id: int, symbol: str, market: str = "spot"):
+    row = db.execute(text("""
+        select id, account_id, strategy_id, symbol, market, is_active
+        from assets
+        where strategy_id=:sid and symbol=:sym and market=:mkt
+        order by id asc
+        limit 1
+    """), {"sid": strategy_id, "sym": symbol, "mkt": market}).mappings().first()
+    return dict(row) if row else None
+
+
+# ============================================================
+# [W3D2] Orders table + Idempotency (중복방지)
+# + 500 방지: 원인을 JSON(detail)로 반드시 내려줌
+# ============================================================
+
+def _ensure_orders_table(db: Session):
+    db.execute(text("""
+        create table if not exists orders (
+            id              bigserial primary key,
+            created_at      timestamptz not null default now(),
+            updated_at      timestamptz not null default now(),
+
+            account_id      int,
+            strategy_id     int,
+            config_id       int,
+            config_hash     text,
+            asset_id        int,
+
+            alert_id        text,
+            symbol          text,
+            market          text,
+            side            text,
+            qty             numeric,
+            order_type      text,
+
+            idem_key        text not null,
+            idem_source     text,
+
+            status          text not null default 'received', -- received|sent|filled|failed|ignored
+            reason          text,
+            okx_order_id    text,
+            okx_response    jsonb,
+
+            payload         jsonb
+        );
+    """))
+    db.execute(text("create unique index if not exists ux_orders_idem_key on orders(idem_key);"))
+    db.execute(text("create index if not exists ix_orders_created_at on orders(created_at desc);"))
+    db.execute(text("create index if not exists ix_orders_asset_id on orders(asset_id);"))
+    db.execute(text("create index if not exists ix_orders_alert_id on orders(alert_id);"))
+
+
+def _mk_idem_key(*parts: str | None) -> str:
+    raw = "|".join([str(p) if p is not None else "" for p in parts])
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _create_order_if_new(
+    db: Session,
+    *,
+    account_id: int | None,
+    strategy_id: int | None,
+    config_id: int | None,
+    config_hash: str | None,
+    asset_id: int | None,
+    alert_id: str | None,
+    symbol: str | None,
+    market: str | None,
+    side: str | None,
+    qty,
+    order_type: str | None,
+    payload: dict | None,
+):
+    """
+    Insert order row only if idem_key not exists.
+    Returns: (created: bool, order_id: int|None, idem_key: str)
+    """
+    try:
+        _ensure_orders_table(db)
+
+        bar_ts = None
+        if isinstance(payload, dict):
+            bar_ts = payload.get("bar_ts") or payload.get("time") or payload.get("timestamp")
+
+        # bar_ts 없으면 "분 단위" 버킷으로 중복 폭탄 방지(완전 방지는 Week4에서 bar_ts 넣어서 해결)
+        bucket = datetime.now(timezone.utc).strftime("%Y%m%d%H%M") if not bar_ts else str(bar_ts)
+        idem_key = _mk_idem_key(config_hash, alert_id, symbol, side, bucket)
+
+        row = db.execute(text("""
+            insert into orders(
+                account_id, strategy_id, config_id, config_hash, asset_id,
+                alert_id, symbol, market, side, qty, order_type,
+                idem_key, idem_source,
+                status, reason,
+                payload
+            )
+            values(
+                :account_id, :strategy_id, :config_id, :config_hash, :asset_id,
+                :alert_id, :symbol, :market, :side, :qty, :order_type,
+                :idem_key, 'tv',
+                'received', null,
+                CAST(:payload as jsonb)
+            )
+            returning id
+        """), {
+            "account_id": account_id,
+            "strategy_id": strategy_id,
+            "config_id": config_id,
+            "config_hash": config_hash,
+            "asset_id": asset_id,
+            "alert_id": alert_id,
+            "symbol": symbol,
+            "market": market,
+            "side": side,
+            "qty": qty,
+            "order_type": order_type,
+            "idem_key": idem_key,
+            "payload": _safe_dumps(payload) if payload is not None else "null",
+        }).scalar_one()
+
+        return True, int(row), idem_key
+
+    except IntegrityError:
+        # 중복(ux_orders_idem_key) -> 정상 duplicate 처리
+        db.rollback()
+        # idem_key를 다시 계산해 반환해야 하므로 동일 로직로 재구성
+        bar_ts = None
+        if isinstance(payload, dict):
+            bar_ts = payload.get("bar_ts") or payload.get("time") or payload.get("timestamp")
+        bucket = datetime.now(timezone.utc).strftime("%Y%m%d%H%M") if not bar_ts else str(bar_ts)
+        idem_key = _mk_idem_key(config_hash, alert_id, symbol, side, bucket)
+        return False, None, idem_key
+
+    except Exception as e:
+        db.rollback()
+        # ✅ 여기 핵심: 500으로 죽지 말고 원인을 detail로 노출
+        raise HTTPException(status_code=400, detail=f"orders_insert_failed: {type(e).__name__}: {str(e)}")
+
+
+@app.post("/tv")
+async def tv_webhook(request: Request, db: Session = Depends(get_db)):
+    """
+    TradingView -> 우리 서버
+    - Day1: 수신 + secret 검증 + config_hash 기반 라우팅 + tv_events 기록
+    - Day2: orders 기록 + idempotency 기본(중복이면 ignored_duplicate)
+    - Day3: OKX 주문 호출로 확장 예정
+    """
+    remote_ip = getattr(getattr(request, "client", None), "host", None)
+    user_agent = request.headers.get("user-agent")
+
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = None
+
+    secret = payload.get("secret") if isinstance(payload, dict) else None
+    config_hash = payload.get("config_hash") if isinstance(payload, dict) else None
+    alert_id = payload.get("alert_id") if isinstance(payload, dict) else None
+    symbol = payload.get("symbol") if isinstance(payload, dict) else None
+    side = payload.get("side") if isinstance(payload, dict) else None
+    qty = payload.get("qty") if isinstance(payload, dict) else None
+
+    strategy_id = None
+    config_id = None
+    asset_id = None
+
+    ok = False
+    code = "init"
+    detail = None
+
+    try:
+        if not isinstance(payload, dict):
+            code = "bad_json"
+            detail = "payload is not a JSON object"
+            return {"ok": False, "code": code, "detail": detail}
+
+        if not secret:
+            code = "missing_secret"
+            detail = "missing: secret"
+            return {"ok": False, "code": code, "detail": detail}
+
+        # 1) config_hash 우선: config -> strategy + expected_secret 결정
+        if config_hash:
+            resolved = _resolve_by_config_hash(db, str(config_hash).strip())
+            if not resolved:
+                code = "config_not_found"
+                detail = "config_hash not found"
+                return {"ok": False, "code": code, "detail": detail}
+
+            strategy_id = int(resolved["strategy_id"])
+            config_id = int(resolved["config_id"])
+            expected_secret = resolved["expected_secret"]
+
+            if str(secret) != str(expected_secret):
+                code = "secret_mismatch"
+                detail = "secret != expected_secret(for config)"
+                return {"ok": False, "code": code, "detail": detail}
+
+        # 2) config_hash 없으면 secret으로 strategy 매칭
+        else:
+            resolved2 = _resolve_strategy_by_secret(db, str(secret))
+            if not resolved2:
+                code = "secret_invalid"
+                detail = "no strategy matches secret"
+                return {"ok": False, "code": code, "detail": detail}
+            strategy_id = int(resolved2["strategy_id"])
+
+        # 3) asset 라우팅 (spot 고정)
+        if not symbol:
+            code = "missing_symbol"
+            detail = "missing: symbol"
+            return {"ok": False, "code": code, "detail": detail}
+
+        asset = _resolve_asset(db, strategy_id, str(symbol).strip(), market="spot")
+        if not asset:
+            code = "asset_not_found"
+            detail = "no asset for (strategy_id + symbol + spot)"
+            return {"ok": False, "code": code, "detail": detail}
+
+        asset_id = int(asset["id"])
+        if not bool(asset["is_active"]):
+            code = "asset_inactive"
+            detail = "asset.is_active = false"
+            return {"ok": False, "code": code, "detail": detail}
+
+        # 4) orders 기록 + idempotency
+        try:
+            created, order_id, idem_key = _create_order_if_new(
+                db,
+                account_id=int(asset.get("account_id")) if asset.get("account_id") is not None else None,
+                strategy_id=strategy_id,
+                config_id=config_id,
+                config_hash=str(config_hash) if config_hash else None,
+                asset_id=asset_id,
+                alert_id=str(alert_id) if alert_id else None,
+                symbol=str(symbol) if symbol else None,
+                market="spot",
+                side=str(side) if side else None,
+                qty=qty,
+                order_type=payload.get("type") if isinstance(payload, dict) else None,
+                payload=payload if isinstance(payload, dict) else None,
+            )
+        except HTTPException as he:
+            # ✅ 여기서도 500 방지: 원인을 JSON으로 반환
+            ok = False
+            code = "orders_insert_failed"
+            detail = he.detail
+            return {"ok": False, "code": code, "detail": detail}
+
+        if not created:
+            ok = True
+            code = "ignored_duplicate"
+            detail = f"duplicate idem_key={idem_key}"
+            return {
+                "ok": True,
+                "code": code,
+                "detail": detail,
+                "strategy_id": strategy_id,
+                "config_id": config_id,
+                "config_hash": config_hash,
+                "asset_id": asset_id,
+                "idem_key": idem_key,
+            }
+
+        # 5) accepted (Day1 성공 조건 + Day2 order row 생성)
+        ok = True
+        code = "accepted"
+
+        # 전광판 last_signal 갱신
+        try:
+            db.execute(text("""
+                update assets
+                set last_signal_at = now(),
+                    last_signal_id = :sid,
+                    updated_at = now()
+                where id = :aid
+            """), {"sid": str(alert_id) if alert_id else None, "aid": asset_id})
+        except Exception:
+            pass
+
+        return {
+            "ok": True,
+            "code": code,
+            "strategy_id": strategy_id,
+            "config_id": config_id,
+            "config_hash": config_hash,
+            "asset_id": asset_id,
+            "order_id": order_id,
+            "idem_key": idem_key,
+        }
+
+    finally:
+        # ✅ 성공/실패 무조건 tv_events 기록 (그리고 여기서 commit)
+        try:
+            _insert_tv_event(
+                db,
+                remote_ip=remote_ip,
+                user_agent=user_agent,
+                strategy_id=strategy_id,
+                config_id=config_id,
+                config_hash=str(config_hash) if config_hash else None,
+                asset_id=asset_id,
+                alert_id=str(alert_id) if alert_id else None,
+                symbol=str(symbol) if symbol else None,
+                side=str(side) if side else None,
+                qty=qty,
+                ok=ok,
+                code=code if code else "unknown",
+                detail=detail,
+                payload=payload if isinstance(payload, dict) else None,
+            )
+            db.commit()
+        except Exception:
+            db.rollback()
+
+
+@app.get("/api/diag/tv-events")
+def api_list_tv_events(limit: int = Query(50, ge=1, le=500), db: Session = Depends(get_db)):
+    _ensure_tv_events_table(db)
+    rows = db.execute(text("""
+        select
+            id, received_at, remote_ip,
+            strategy_id, config_id, config_hash, asset_id,
+            alert_id, symbol, side, qty,
+            ok, code, detail
+        from tv_events
+        order by id desc
+        limit :lim
+    """), {"lim": limit}).mappings().all()
+    return {"ok": True, "count": len(rows), "items": [dict(r) for r in rows]}
+
+
+@app.get("/api/orders")
+def api_list_orders(limit: int = Query(50, ge=1, le=500), db: Session = Depends(get_db)):
+    _ensure_orders_table(db)
+    rows = db.execute(text("""
+        select
+            id, created_at, updated_at,
+            account_id, strategy_id, config_id, config_hash, asset_id,
+            alert_id, symbol, market, side, qty, order_type,
+            idem_key, status, reason, okx_order_id
+        from orders
+        order by id desc
+        limit :lim
+    """), {"lim": limit}).mappings().all()
+    return {"ok": True, "count": len(rows), "items": [dict(r) for r in rows]}

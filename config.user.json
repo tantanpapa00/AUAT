@@ -1,0 +1,7 @@
+﻿{
+  "tv_secret": "여기에_서버와_동일한_시크릿",
+  "instId_mode": "AUTO(base/quote)",
+  "instId_manual": "BTC-USDT",
+  "buy_payload_mode": "availPct",
+  "sell_payload_mode": "sz"
+}

@@ -1,0 +1,94 @@
+﻿# Week3 Day3: /tv schema/validation/idempotency regression (PowerShell only)
+# TEST-ONLY: 서버는 이미 떠 있어야 함 (run.ps1 창 유지)
+
+$ErrorActionPreference = "Stop"
+$base = "http://127.0.0.1:8000"
+
+function Show($obj){ $obj | ConvertTo-Json -Depth 50 }
+
+function Post-Tv($obj){
+  $json = $obj | ConvertTo-Json -Compress
+  try {
+    $r = Invoke-RestMethod -Method Post -Uri "$base/tv" -ContentType "application/json" -Body $json
+    return [pscustomobject]@{ http_status=200; body=($r | ConvertTo-Json -Compress) }
+  } catch {
+    $status = $null
+    $body   = $null
+    if ($_.Exception.Response) {
+      try { $status = $_.Exception.Response.StatusCode.value__ } catch {}
+      try {
+        $stream = $_.Exception.Response.GetResponseStream()
+        if ($stream) {
+          $reader = New-Object System.IO.StreamReader($stream)
+          $body = $reader.ReadToEnd()
+        }
+      } catch {}
+    }
+    if (-not $body -and $_.ErrorDetails -and $_.ErrorDetails.Message) { $body = $_.ErrorDetails.Message }
+    if (-not $body) { $body = $_.Exception.Message }
+    return [pscustomobject]@{ http_status=$status; body=$body }
+  }
+}
+
+function Assert-Contains($text, $needle, $label){
+  if ($null -eq $text -or ($text -notmatch [regex]::Escape($needle))) {
+    throw "ASSERT FAILED: $label (missing '$needle')`nTEXT=$text"
+  }
+}
+
+function Assert-Status($got, $want, $label){
+  if ([int]$got -ne [int]$want) { throw "ASSERT FAILED: $label (status $got != $want)" }
+}
+
+"== OpenAPI check =="
+Invoke-RestMethod -Method Get -Uri "$base/openapi.json" | Out-Null
+"openapi ok"
+
+$cfg    = "cfg_afac00e143ad"
+$symbol = "ETH-USDT"
+$qty    = 0.0001
+
+$runId    = (Get-Date -Format "yyyyMMdd-HHmmss")
+$aid_acc  = "tv-reg-acc-$runId"
+$aid_bad  = "tv-reg-bad-$runId"
+$aid_nosec= "tv-reg-nosec-$runId"
+$aid_nosym= "tv-reg-nosym-$runId"
+"== T1 accepted (config_hash-only) =="
+$r1 = Post-Tv @{ config_hash=$cfg; alert_id=$aid_acc; symbol=$symbol; side="buy"; qty=$qty }
+Show $r1
+Assert-Status $r1.http_status 200 "T1 status"
+Assert-Contains $r1.body '"code":"accepted"' "T1 accepted code"
+
+"== T2 duplicate (same alert_id) =="
+$r2 = Post-Tv @{ config_hash=$cfg; alert_id=$aid_acc; symbol=$symbol; side="buy"; qty=$qty }
+Show $r2
+Assert-Status $r2.http_status 200 "T2 status"
+Assert-Contains $r2.body '"code":"ignored_duplicate"' "T2 ignored_duplicate"
+
+"== T3 404 unknown_config_hash =="
+$r3 = Post-Tv @{ config_hash="cfg_NOT_EXIST"; alert_id=$aid_bad; symbol=$symbol; side="buy"; qty=$qty }
+Show $r3
+Assert-Status $r3.http_status 404 "T3 status"
+Assert-Contains $r3.body '"code":"unknown_config_hash"' "T3 code"
+
+"== T4 401 missing_secret =="
+$r4 = Post-Tv @{ alert_id=$aid_nosec; symbol=$symbol; side="buy"; qty=$qty }
+Show $r4
+Assert-Status $r4.http_status 401 "T4 status"
+Assert-Contains $r4.body '"code":"missing_secret"' "T4 code"
+
+"== T5 400 missing_symbol =="
+$r5 = Post-Tv @{ config_hash=$cfg; alert_id=$aid_nosym; side="buy"; qty=$qty }
+Show $r5
+Assert-Status $r5.http_status 400 "T5 status"
+Assert-Contains $r5.body '"code":"missing_symbol"' "T5 code"
+
+"== T6 tv-events log check =="
+$ev = Invoke-RestMethod -Method Get -Uri "$base/api/diag/tv-events?limit=200"
+$evJson = $ev | ConvertTo-Json -Depth 50
+Assert-Contains $evJson $aid_acc   "T6 has accepted/dup alert_id"
+Assert-Contains $evJson $aid_bad   "T6 has 404 alert_id"
+Assert-Contains $evJson $aid_nosec "T6 has 401 alert_id"
+Assert-Contains $evJson $aid_nosym "T6 has 400 alert_id"
+
+"== ALL PASS =="
