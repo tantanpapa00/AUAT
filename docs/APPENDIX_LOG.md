@@ -65,3 +65,25 @@
 - config_hash 사용 예시
 - 에러 코드 안내 포함
 
+---
+
+# 2026-02-03 KST — Week 8 Day 2: /tv 검증 강화 (환불 방지 패키지)
+
+## 수정 파일: app/main.py
+추가된 검증:
+- missing_side: side 필드 누락 시
+- invalid_side: buy/sell 외 값
+- missing_qty: qty 필드 누락 시
+- invalid_qty: 0 이하 또는 숫자 아님
+
+개선된 에러 메시지 (한글화):
+- bad_json → "JSON 형식 오류: payload가 객체가 아님"
+- missing_secret → "secret 누락: 얼러트 메시지에 secret 필드 추가 필요"
+- secret_invalid → "secret 미등록: 전략에 등록된 tv_secret 확인 필요"
+- asset_not_found → "자산 미등록: symbol이 전략에 등록되지 않음"
+- asset_inactive → "자산 비활성: 활성화 필요"
+
+## 수정 파일: docs/TV_TEMPLATE.md
+- 에러 코드 표 확장 (14개 코드)
+- 환불 방지 패키지 라벨 추가
+

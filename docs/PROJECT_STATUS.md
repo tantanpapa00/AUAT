@@ -110,7 +110,9 @@ Day 5: KIS MVP 회귀 테스트(PowerShell) + 문서화(실측 원문 APPENDIX�
 ## Week 8: 얼러트 메시지 "환불 방지 패키지"(기본/고급 모드) — IN PROGRESS
 Day 1: 표준 TradingView 템플릿 1종(현물/주식 공용) 확정 + docs에 "복붙 예시" 추가 — DONE (2026-02-03)
 - 생성: docs/TV_TEMPLATE.md (OKX/KIS 공용 복붙 예시 포함)
-Day 2: /tv payload 검증 강화(필수필드/심볼/마켓/계좌 매칭) + 에러코드 표준화(환불 방지)
+Day 2: /tv payload 검증 강화(필수필드/심볼/마켓/계좌 매칭) + 에러코드 표준화(환불 방지) — DONE (2026-02-03)
+- 추가: missing_side, invalid_side, missing_qty, invalid_qty 검증
+- 개선: 모든 에러 메시지 한글화 + 해결방법 안내
 Day 3: "템플릿 생성 API"(templates/tradingview 확장) — 계좌/자산/전략 선택하면 자동 생성
 Day 4: (선택) 간단 Wizard 문서(스크린샷 없이 텍스트 기준) + 체크리스트(초보자용)
 Day 5: 회귀 스크립트 1개 추가(tv_template_regression.ps1) + PASS 기준 정의
@@ -130,7 +132,7 @@ Day 1~5: (기존 SSOT 동일, 삭제 없음)
 ---
 
 # 7) NEXT ACTION (3개)
-1) Week8 Day2 착수: /tv payload 검증 강화 + 에러코드 표준화(환불 방지)
+1) Week8 Day3 착수: 템플릿 생성 API (templates/tradingview 확장)
 2) 회귀 게이트 유지 (week4_regression + kis_regression)
 3) 작업 전 docs/AI_RULES.md 필독
 

@@ -2215,15 +2215,15 @@ async def tv_webhook(request: Request, db: Session = Depends(get_db)):
     try:
         if not isinstance(payload, dict):
             code = "bad_json"
-            detail = "payload is not a JSON object"
+            detail = "JSON 형식 오류: payload가 객체가 아님 (중괄호 {} 확인)"
             return {"ok": False, "code": code, "detail": detail}
         # [E-STOP_V1] if ON, block all execution paths immediately
         if _is_estop_on(db):
-            return _tv_json(False, "stopped", "E-STOP is ON", estop=True)
+            return _tv_json(False, "stopped", "E-STOP 활성화됨: 관리자에게 문의", estop=True)
 
         if not secret:
             code = "missing_secret"
-            detail = "missing: secret"
+            detail = "secret 누락: 얼러트 메시지에 secret 필드 추가 필요"
             return _tv_json(False, code, detail)
 
         # 1) config_hash 우선: config -> strategy + expected_secret 결정
@@ -2231,7 +2231,7 @@ async def tv_webhook(request: Request, db: Session = Depends(get_db)):
             resolved = _resolve_by_config_hash(db, str(config_hash).strip())
             if not resolved:
                 code = "config_not_found"
-                detail = "config_hash not found"
+                detail = f"config_hash '{config_hash}' 미등록: 전략 설정 확인 필요"
                 return {"ok": False, "code": code, "detail": detail}
 
             strategy_id = int(resolved["strategy_id"])
@@ -2240,7 +2240,7 @@ async def tv_webhook(request: Request, db: Session = Depends(get_db)):
 
             if str(secret) != str(expected_secret):
                 code = "secret_mismatch"
-                detail = "secret != expected_secret(for config)"
+                detail = "secret 불일치: config_hash에 등록된 secret과 다름"
                 return {"ok": False, "code": code, "detail": detail}
 
         # 2) config_hash 없으면 secret으로 strategy 매칭
@@ -2248,26 +2248,58 @@ async def tv_webhook(request: Request, db: Session = Depends(get_db)):
             resolved2 = _resolve_strategy_by_secret(db, str(secret))
             if not resolved2:
                 code = "secret_invalid"
-                detail = "no strategy matches secret"
+                detail = "secret 미등록: 전략에 등록된 tv_secret 확인 필요"
                 return {"ok": False, "code": code, "detail": detail}
             strategy_id = int(resolved2["id"])
 
         # 3) asset 라우팅 (spot 고정)
         if not symbol:
             code = "missing_symbol"
-            detail = "missing: symbol"
+            detail = "missing: symbol (티커/종목코드 필수)"
             return _tv_json(False, code, detail)
+
+        # [Week8] side 검증 강화
+        if not side:
+            code = "missing_side"
+            detail = "missing: side (buy 또는 sell 필수)"
+            return _tv_json(False, code, detail)
+        side_lower = str(side).strip().lower()
+        if side_lower not in ("buy", "sell"):
+            code = "invalid_side"
+            detail = f"invalid side: '{side}' (buy 또는 sell만 허용)"
+            return _tv_json(False, code, detail)
+
+        # [Week8] qty 검증 강화
+        if qty is None:
+            code = "missing_qty"
+            detail = "missing: qty (수량 필수)"
+            return _tv_json(False, code, detail)
+        try:
+            qty_float = float(qty)
+            if qty_float <= 0:
+                code = "invalid_qty"
+                detail = f"invalid qty: {qty} (0보다 커야 함)"
+                return _tv_json(False, code, detail)
+        except (ValueError, TypeError):
+            code = "invalid_qty"
+            detail = f"invalid qty: '{qty}' (숫자여야 함)"
+            return _tv_json(False, code, detail)
+
+        # [Week8] alert_id 권장 (누락 시 경고 포함하되 진행)
+        if not alert_id:
+            # 경고만 - 진행은 허용 (idempotency 불가 안내)
+            pass  # TODO: 향후 로그에 warning 기록
 
         asset = _resolve_asset(db, strategy_id, str(symbol).strip(), market="spot")
         if not asset:
             code = "asset_not_found"
-            detail = "no asset for (strategy_id + symbol + spot)"
+            detail = f"자산 미등록: symbol='{symbol}'이 전략에 등록되지 않음 (자산 추가 필요)"
             return {"ok": False, "code": code, "detail": detail}
 
         asset_id = int(asset["id"])
         if not bool(asset["is_active"]):
             code = "asset_inactive"
-            detail = "asset.is_active = false"
+            detail = f"자산 비활성: symbol='{symbol}' 활성화 필요 (is_active=true)"
             return {"ok": False, "code": code, "detail": detail}
 
         # 4) orders 기록 + idempotency

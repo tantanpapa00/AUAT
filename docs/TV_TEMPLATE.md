@@ -152,18 +152,26 @@
 
 ---
 
-## 5. 에러 코드 안내
+## 5. 에러 코드 안내 (환불 방지 패키지)
+
+> **Tip**: 에러 발생 시 `detail` 필드에 구체적인 해결 방법이 표시됩니다.
 
 | 코드 | 설명 | 해결방법 |
 |------|------|----------|
-| `bad_json` | JSON 형식 오류 | JSON 문법 확인 (쉼표, 따옴표 등) |
-| `missing_secret` | secret 누락 | secret 또는 config_hash 추가 |
-| `secret_invalid` | secret 불일치 | 올바른 secret 값 확인 |
-| `missing_symbol` | symbol 누락 | symbol 필드 추가 |
-| `asset_not_found` | 자산 미등록 | DB에 해당 심볼 자산 등록 필요 |
-| `asset_inactive` | 자산 비활성 | 자산 is_active 활성화 필요 |
-| `ignored_duplicate` | 중복 요청 | alert_id 변경 (정상 작동) |
-| `stopped` | E-STOP 작동중 | E-STOP 해제 필요 |
+| `bad_json` | JSON 형식 오류 | 중괄호 `{}`, 쉼표, 따옴표 확인 |
+| `missing_secret` | secret 누락 | `"secret": "..."` 추가 |
+| `secret_invalid` | secret 미등록 | 전략의 tv_secret 값 확인 |
+| `secret_mismatch` | secret 불일치 | config_hash에 등록된 secret 확인 |
+| `config_not_found` | config_hash 미등록 | 전략 설정 확인 |
+| `missing_symbol` | symbol 누락 | `"symbol": "..."` 추가 |
+| `missing_side` | side 누락 | `"side": "buy"` 또는 `"sell"` 추가 |
+| `invalid_side` | side 값 오류 | `buy` 또는 `sell`만 허용 |
+| `missing_qty` | qty 누락 | `"qty": 1` 추가 |
+| `invalid_qty` | qty 값 오류 | 0보다 큰 숫자 입력 |
+| `asset_not_found` | 자산 미등록 | 해당 심볼을 전략에 추가 |
+| `asset_inactive` | 자산 비활성 | 자산 is_active 활성화 |
+| `ignored_duplicate` | 중복 요청 (정상) | alert_id 변경 또는 무시 |
+| `stopped` | E-STOP 활성화 | 관리자에게 E-STOP 해제 요청 |
 
 ---
 
