@@ -282,3 +282,19 @@ $ curl -s -H "Authorization: Bearer test" http://127.0.0.1:8000/api/subscription
 - week4_regression: PASS
 - tv_template_regression: PASS
 
+
+# 2026-02-03 15:10:00 +09:00 — Week 9 Day 4: 동기화 플로우 문서화
+
+## AUTH_SPEC.md 5) 섹션 확장
+- 5-1) 실행 시 동기화 (공통) - 플로우차트 형식
+- 5-2) 토큰 만료 처리 - 플로우차트 형식
+- 5-3) 주기적 동기화 - PC 30분, 앱 15분
+- 5-4) 오프라인 모드 (PC 전용)
+- 5-5) 기능 잠금/해제 매핑 테이블
+- 5-6) 에러 메시지 (사용자 표시용)
+- 5-7) 로컬 저장 보안 가이드
+
+## 작업 결과
+- 코드 변경 없음 (문서화만)
+- 구현은 Week 11 (PC) / Week 12 (앱)에서 진행
+
