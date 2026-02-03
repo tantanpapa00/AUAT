@@ -87,3 +87,21 @@
 - 에러 코드 표 확장 (14개 코드)
 - 환불 방지 패키지 라벨 추가
 
+---
+
+# 2026-02-03 KST — Week 8 Day 3: 템플릿 생성 API
+
+## 추가된 엔드포인트
+
+### GET /api/templates/tradingview/options
+- 활성 자산 목록 조회 (account/strategy/asset 계층)
+- 템플릿 생성 전 선택용
+
+### GET /api/assets/{asset_id}/template/tradingview
+- 파라미터: side (buy/sell), qty (수량), order_type (market)
+- 반환: template (dict) + template_json (복붙용 문자열)
+
+### POST /api/templates/tradingview/generate
+- body: { asset_ids: [1,2,3], side, qty, type }
+- 다중 자산 일괄 템플릿 생성
+

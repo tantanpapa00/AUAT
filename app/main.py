@@ -1204,6 +1204,198 @@ def api_templates_tradingview(
     }
 
 
+# ============================================================
+# [Week8 Day3] 템플릿 생성 API — 계좌/자산/전략 선택 → 자동 생성
+# ============================================================
+
+@app.get("/api/templates/tradingview/options")
+def api_template_options(db: Session = Depends(get_db)):
+    """
+    템플릿 생성을 위한 선택 가능 옵션 목록 반환.
+    계좌 → 전략 → 자산 계층 구조로 조회.
+    """
+    rows = db.execute(text("""
+        SELECT
+            a.id AS asset_id,
+            a.symbol,
+            a.market,
+            a.is_active AS asset_active,
+            ac.id AS account_id,
+            ac.name AS account_name,
+            ac.exchange,
+            ac.is_active AS account_active,
+            s.id AS strategy_id,
+            s.name AS strategy_name,
+            s.tv_secret,
+            s.is_active AS strategy_active
+        FROM assets a
+        JOIN accounts ac ON ac.id = a.account_id
+        JOIN strategies s ON s.id = a.strategy_id
+        WHERE a.is_active = true
+          AND ac.is_active = true
+          AND s.is_active = true
+        ORDER BY ac.name, s.name, a.symbol
+    """)).mappings().all()
+
+    options = []
+    for r in rows:
+        options.append({
+            "asset_id": r["asset_id"],
+            "symbol": r["symbol"],
+            "market": r["market"],
+            "account_id": r["account_id"],
+            "account_name": r["account_name"],
+            "exchange": r["exchange"],
+            "strategy_id": r["strategy_id"],
+            "strategy_name": r["strategy_name"],
+            "label": f"{r['account_name']} / {r['strategy_name']} / {r['symbol']}",
+        })
+
+    return {"ok": True, "count": len(options), "options": options}
+
+
+@app.get("/api/assets/{asset_id}/template/tradingview")
+def api_asset_template_tradingview(
+    asset_id: int,
+    side: str = Query("buy", description="buy 또는 sell"),
+    qty: float = Query(1, description="수량"),
+    order_type: str = Query("market", description="주문 유형"),
+    db: Session = Depends(get_db),
+):
+    """
+    특정 자산에 대한 TradingView 얼러트 템플릿 생성.
+    복사하여 TradingView에 붙여넣기 가능.
+    """
+    row = db.execute(text("""
+        SELECT
+            a.id AS asset_id,
+            a.symbol,
+            a.market,
+            ac.exchange,
+            s.id AS strategy_id,
+            s.tv_secret
+        FROM assets a
+        JOIN accounts ac ON ac.id = a.account_id
+        JOIN strategies s ON s.id = a.strategy_id
+        WHERE a.id = :aid
+    """), {"aid": asset_id}).mappings().first()
+
+    if not row:
+        raise HTTPException(status_code=404, detail=f"자산 미존재: asset_id={asset_id}")
+
+    if not row["tv_secret"]:
+        raise HTTPException(status_code=400, detail="전략에 tv_secret 미설정")
+
+    # side 검증
+    side_lower = side.strip().lower()
+    if side_lower not in ("buy", "sell"):
+        raise HTTPException(status_code=400, detail=f"invalid side: {side} (buy 또는 sell)")
+
+    template = {
+        "secret": row["tv_secret"],
+        "symbol": row["symbol"],
+        "side": side_lower,
+        "qty": qty,
+        "alert_id": "{{timenow}}",
+        "type": order_type,
+    }
+
+    # JSON 문자열로 복붙 가능하게
+    import json as _json
+    template_json = _json.dumps(template, ensure_ascii=False, indent=2)
+
+    return {
+        "ok": True,
+        "asset_id": asset_id,
+        "symbol": row["symbol"],
+        "exchange": row["exchange"],
+        "market": row["market"],
+        "template": template,
+        "template_json": template_json,
+        "usage": "TradingView 얼러트 Message에 template_json 값을 복사하여 붙여넣기",
+    }
+
+
+@app.post("/api/templates/tradingview/generate")
+def api_generate_template(payload: dict, db: Session = Depends(get_db)):
+    """
+    POST body로 asset_id, side, qty를 받아 템플릿 생성.
+    다중 자산 한번에 생성 지원.
+    """
+    asset_ids = payload.get("asset_ids")
+    if not asset_ids:
+        asset_id = payload.get("asset_id")
+        if asset_id:
+            asset_ids = [asset_id]
+        else:
+            raise HTTPException(status_code=400, detail="missing: asset_id 또는 asset_ids")
+
+    side = payload.get("side", "buy")
+    qty = payload.get("qty", 1)
+    order_type = payload.get("type", "market")
+
+    side_lower = str(side).strip().lower()
+    if side_lower not in ("buy", "sell"):
+        raise HTTPException(status_code=400, detail=f"invalid side: {side}")
+
+    try:
+        qty_float = float(qty)
+        if qty_float <= 0:
+            raise HTTPException(status_code=400, detail=f"invalid qty: {qty}")
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail=f"invalid qty: {qty}")
+
+    results = []
+    import json as _json
+
+    for aid in asset_ids:
+        row = db.execute(text("""
+            SELECT
+                a.id AS asset_id,
+                a.symbol,
+                a.market,
+                ac.exchange,
+                ac.name AS account_name,
+                s.id AS strategy_id,
+                s.name AS strategy_name,
+                s.tv_secret
+            FROM assets a
+            JOIN accounts ac ON ac.id = a.account_id
+            JOIN strategies s ON s.id = a.strategy_id
+            WHERE a.id = :aid
+        """), {"aid": int(aid)}).mappings().first()
+
+        if not row:
+            results.append({"asset_id": aid, "ok": False, "error": "자산 미존재"})
+            continue
+
+        if not row["tv_secret"]:
+            results.append({"asset_id": aid, "ok": False, "error": "tv_secret 미설정"})
+            continue
+
+        template = {
+            "secret": row["tv_secret"],
+            "symbol": row["symbol"],
+            "side": side_lower,
+            "qty": qty_float,
+            "alert_id": "{{timenow}}",
+            "type": order_type,
+        }
+
+        results.append({
+            "asset_id": aid,
+            "ok": True,
+            "symbol": row["symbol"],
+            "exchange": row["exchange"],
+            "account_name": row["account_name"],
+            "strategy_name": row["strategy_name"],
+            "template": template,
+            "template_json": _json.dumps(template, ensure_ascii=False, indent=2),
+        })
+
+    return {"ok": True, "count": len(results), "results": results}
+
+
 # ---- Pine input parser API ----
 # @app.post("/api/pine/parse-inputs")
 # def api_pine_parse_inputs(payload: dict):

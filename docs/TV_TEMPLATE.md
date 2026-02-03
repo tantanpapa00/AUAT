@@ -152,6 +152,65 @@
 
 ---
 
+## 4.5 템플릿 자동 생성 API (권장)
+
+수동으로 템플릿을 작성하는 대신 API를 사용하면 자동으로 생성됩니다.
+
+### 옵션 목록 조회
+```bash
+GET /api/templates/tradingview/options
+```
+
+**응답 예시:**
+```json
+{
+  "ok": true,
+  "count": 2,
+  "options": [
+    {
+      "asset_id": 1,
+      "symbol": "BTC-USDT",
+      "exchange": "OKX",
+      "account_name": "OKX-Main",
+      "strategy_name": "Scalping",
+      "label": "OKX-Main / Scalping / BTC-USDT"
+    }
+  ]
+}
+```
+
+### 자산별 템플릿 생성
+```bash
+GET /api/assets/{asset_id}/template/tradingview?side=buy&qty=0.001
+```
+
+**응답 예시:**
+```json
+{
+  "ok": true,
+  "asset_id": 1,
+  "symbol": "BTC-USDT",
+  "exchange": "OKX",
+  "template_json": "{\n  \"secret\": \"abc123\",\n  \"symbol\": \"BTC-USDT\",\n  ...}"
+}
+```
+
+→ `template_json` 값을 TradingView Message에 붙여넣기
+
+### 다중 자산 일괄 생성
+```bash
+POST /api/templates/tradingview/generate
+Content-Type: application/json
+
+{
+  "asset_ids": [1, 2, 3],
+  "side": "buy",
+  "qty": 1
+}
+```
+
+---
+
 ## 5. 에러 코드 안내 (환불 방지 패키지)
 
 > **Tip**: 에러 발생 시 `detail` 필드에 구체적인 해결 방법이 표시됩니다.
