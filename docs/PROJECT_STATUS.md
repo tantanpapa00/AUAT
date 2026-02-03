@@ -108,16 +108,19 @@ Day 5: 회귀: Gate-OKX/Gate-TV/Gate-E-STOP 전부 PASS — DONE (2026-02-03)
 - Gate-TV: tv_template_regression.ps1 PASS
 - Gate-E-STOP: E-STOP ON 시 send-now 차단 확인
 
-## Week 10: 종합 UI v1(공통 데이터) — 타임라인/마커/성과 최소 — IN PROGRESS
+## Week 10: 종합 UI v1(공통 데이터) — 타임라인/마커/성과 최소 — DONE
 Day 1: 이벤트(타임라인) 스키마 확정 + DB/로그 저장 방식 결정 — DONE (2026-02-03)
 - 생성: docs/TIMELINE_SPEC.md (이벤트 타입, 스키마, API 스펙)
 - 구현: app/models.py Event 모델 추가
 Day 2: GET /api/timeline 구현 + PS 실측 — DONE (2026-02-03)
 - 구현: /api/timeline 엔드포인트 (asset_id, order_id, limit, offset 필터)
 - Fallback: events 테이블 없으면 orders 테이블에서 이벤트 생성
-Day 3: API: 전광판(/api/home)에 "최근 이벤트 요약" 3~5개 추가 + PS 실측
-Day 4: UI(웹/PC 공용 기준): 타임라인 리스트 렌더(최소 HTML 또는 JSON 기반 뷰)
-Day 5: 회귀: Gate-OKX/Gate-TV PASS + timeline endpoint PASS
+Day 3: /api/home에 최근 이벤트 요약 5개 추가 — DONE (2026-02-03)
+- 구현: recent_events 필드 추가
+Day 4: 타임라인 HTML 뷰어 — DONE (2026-02-03)
+- 구현: /ui/timeline 엔드포인트 (최소 HTML 렌더링)
+Day 5: 회귀 게이트 전체 PASS — DONE (2026-02-03)
+- Gate-OKX: PASS, Gate-TV: PASS, timeline: PASS
 
 ## Week 11: PC 프로그램(설정 본체) v1 — 키/계좌/전략/템플릿/로그 — TODO
 Day 1: PC 앱 기술선정 고정(Tauri/Electron/.NET 중 1) + 빌드/런 구조 문서화
@@ -165,9 +168,9 @@ Day 5: SSOT/APPENDIX 정리(증거 누락 없게), 릴리즈 태그 준비
 ---
 
 # 7) NEXT ACTION (3개)
-1) Week 10 Day 3: /api/home에 최근 이벤트 요약 3~5개 추가
+1) Week 11 Day 1: PC 앱 기술선정 고정 (Tauri/Electron/.NET 중 1) + 빌드/런 구조 문서화
 2) 회귀 게이트 유지 (Gate-OKX + Gate-TV + Gate-E-STOP)
-3) 작업 전 docs/AI_RULES.md + docs/TIMELINE_SPEC.md 필독
+3) 작업 전 docs/AI_RULES.md 필독
 
 ---
 

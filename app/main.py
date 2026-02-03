@@ -423,7 +423,37 @@ def api_home():
         warn = f"accounts_summary_failed: {e2}"
         accounts_summary = []
 
-    out = {"ok": True, "items": items, "accounts_summary": accounts_summary}
+    # 최근 이벤트 요약 (Week 10 Day 3)
+    recent_events: list[dict] = []
+    try:
+        with _db_conn() as conn:
+            event_rows = conn.execute(text_sql("""
+                SELECT
+                    o.id,
+                    o.asset_id,
+                    o.status,
+                    o.created_at,
+                    a.symbol
+                FROM orders o
+                LEFT JOIN assets a ON o.asset_id = a.id
+                ORDER BY o.created_at DESC
+                LIMIT 5
+            """)).mappings().all()
+            for row in event_rows:
+                evt_type = "order_sent" if row["status"] == "sent" else (
+                    "order_filled" if row["status"] == "filled" else (
+                    "order_failed" if row["status"] == "failed" else "order_created"))
+                recent_events.append({
+                    "id": row["id"],
+                    "event_type": evt_type,
+                    "symbol": row["symbol"] or "N/A",
+                    "summary": f'{row["symbol"] or "N/A"} {evt_type.replace("order_", "")}',
+                    "created_at": row["created_at"].isoformat() if row["created_at"] else ""
+                })
+    except Exception:
+        pass  # 실패해도 다른 데이터는 반환
+
+    out = {"ok": True, "items": items, "accounts_summary": accounts_summary, "recent_events": recent_events}
     if warn:
         out["warn"] = warn
     return out
@@ -6103,6 +6133,78 @@ class TimelineResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+@app.get("/ui/timeline", response_class=HTMLResponse)
+def ui_timeline(
+    asset_id: Optional[int] = Query(None),
+    limit: int = Query(20, ge=1, le=100)
+):
+    """
+    타임라인 HTML 뷰어 (Week 10 Day 4)
+    - 최소 HTML 렌더링
+    - PC/웹 공용 기준
+    """
+    import urllib.request
+    import json
+
+    # 내부 API 호출
+    url = f"http://127.0.0.1:8000/api/timeline?limit={limit}"
+    if asset_id:
+        url += f"&asset_id={asset_id}"
+
+    try:
+        with urllib.request.urlopen(url, timeout=5) as resp:
+            data = json.loads(resp.read().decode())
+    except Exception as e:
+        return HTMLResponse(f"<html><body><h1>Error</h1><p>{e}</p></body></html>")
+
+    # HTML 생성
+    rows_html = ""
+    for item in data.get("items", []):
+        evt_class = "sent" if "sent" in item["event_type"] else (
+            "filled" if "filled" in item["event_type"] else (
+            "failed" if "failed" in item["event_type"] else "default"))
+        rows_html += f"""
+        <tr class="{evt_class}">
+            <td>{item['id']}</td>
+            <td>{item['event_type']}</td>
+            <td>{item.get('summary', '-')}</td>
+            <td>{item.get('created_at', '-')[:19]}</td>
+        </tr>"""
+
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Timeline - bbooster Hub</title>
+    <style>
+        body {{ font-family: -apple-system, sans-serif; margin: 20px; background: #1a1a2e; color: #eee; }}
+        h1 {{ color: #00d9ff; }}
+        table {{ border-collapse: collapse; width: 100%; }}
+        th, td {{ border: 1px solid #333; padding: 8px; text-align: left; }}
+        th {{ background: #16213e; }}
+        tr:nth-child(even) {{ background: #1f1f3a; }}
+        .sent {{ color: #00ff88; }}
+        .filled {{ color: #00d9ff; }}
+        .failed {{ color: #ff6b6b; }}
+        .info {{ margin-bottom: 10px; color: #888; }}
+    </style>
+</head>
+<body>
+    <h1>Timeline</h1>
+    <p class="info">Total: {data.get('total', 0)} | Showing: {len(data.get('items', []))}</p>
+    <table>
+        <thead>
+            <tr><th>ID</th><th>Type</th><th>Summary</th><th>Time</th></tr>
+        </thead>
+        <tbody>
+            {rows_html}
+        </tbody>
+    </table>
+</body>
+</html>"""
+    return HTMLResponse(html)
 
 
 @app.get("/api/timeline")

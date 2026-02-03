@@ -399,3 +399,30 @@ $ curl -s "http://127.0.0.1:8000/api/timeline?asset_id=3&limit=3"
 - week4_regression: PASS
 - tv_template_regression: PASS
 
+
+# 2026-02-03 15:40:00 +09:00 — Week 10 Day 3-5: 완료
+
+## Day 3: /api/home recent_events
+```
+$ curl -s "http://127.0.0.1:8000/api/home" | python -c "..."
+recent_events: 5 items
+[{"id":193,"event_type":"order_sent","symbol":"ETH-USDT","summary":"ETH-USDT sent",...}]
+```
+
+## Day 4: /ui/timeline HTML 뷰어
+- GET /ui/timeline?limit=20
+- 다크모드 HTML 테이블 렌더링
+- 이벤트 타입별 색상 (sent=녹색, filled=청색, failed=적색)
+
+## Day 5: 회귀 게이트 전체 PASS
+- Gate-OKX: week4_regression.ps1 == DONE ==
+- Gate-TV: tv_template_regression.ps1 == PASS ==
+- Gate-E-STOP: estop=false 확인
+- /api/timeline: ok=true, total=147
+
+## Week 10 완료
+- Day 1: TIMELINE_SPEC.md, Event 모델
+- Day 2: /api/timeline 엔드포인트
+- Day 3: /api/home recent_events 추가
+- Day 4: /ui/timeline HTML 뷰어
+- Day 5: 회귀 게이트 전체 PASS
