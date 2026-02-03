@@ -149,4 +149,49 @@
 | Day 3 | 템플릿 생성 API | 3개 엔드포인트 추가 |
 | Day 4 | Wizard 문서 | docs/TV_WIZARD.md |
 | Day 5 | 회귀 스크립트 | scripts/tv_template_regression.ps1 |
+| 추가 | ShortMsg 기능 | 초보자용 간편 템플릿 |
+
+---
+
+# 2026-02-03 KST — ShortMsg 기능 구현
+
+## 추가 엔드포인트
+- POST /api/shortmsg — ShortMsg 생성 (short_id 발급)
+- GET /api/shortmsg — 목록 조회
+- GET /api/shortmsg/{short_id} — 단건 조회
+- GET /api/shortmsg/{short_id}/template/tradingview — TV 템플릿 생성
+
+## /tv 확장
+- short_id 경로 추가 (기존 config_hash 경로와 병행)
+- side_policy: tv / force_buy / force_sell
+- qty_policy: tv_qty / pct_available / fixed_quote
+
+## DB 변경
+- shortmsgs 테이블 신규 (short_id, name, payload, is_active, note, created_at, updated_at)
+- orders.short_id 컬럼 추가
+
+## 회귀 테스트 실측 (2026-02-03)
+```
+=== ShortMsg Regression Test ===
+[0] Get test tv_secret... OK (secret found)
+[1] Create ShortMsg... OK (short_id=cmmVlORa)
+[2] Get ShortMsg... OK (name=Test OKX ETH spot)
+[3] List ShortMsgs... OK (count=1)
+[4] Get ShortMsg Template... OK (has template_json)
+[5] POST /tv with short_id... SKIP (asset not registered)
+[6] POST /tv without short_id... OK (legacy path works)
+[7] POST /tv with invalid short_id... OK (shortmsg_not_found)
+== SHORTMSG REGRESSION PASS ==
+```
+
+## week4_regression 실측 (2026-02-03)
+```
+[A0] /api/diag/okx-preflight OK
+[A] /api/home OK
+[A] /api/system/estop OK (estop=false)
+[B] /tv accepted (order_id=187)
+[C] poll-now OK
+[D] recover test OK (id=187, status=sent, okx_order_id=3274302954801946624)
+== DONE ==
+```
 
