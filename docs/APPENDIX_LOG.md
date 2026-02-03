@@ -195,3 +195,41 @@
 == DONE ==
 ```
 
+---
+
+# 2026-02-03 KST — Week 9 Day 1: 멀티 커넥터 공통화
+
+## 생성/수정 파일
+- app/connectors/__init__.py: 커넥터 팩토리 모듈화
+  - get_connector(), list_connectors(), get_all_connectors()
+  - 싱글톤 패턴 (_CONNECTOR_CACHE)
+  - exchange alias 정규화 (_norm_exchange)
+- app/main.py: 커넥터 팩토리 import로 교체
+  - GET /api/diag/connector-all 추가
+- scripts/connector_regression.ps1: 회귀 테스트 스크립트
+- docs/CONNECTOR.md: 인터페이스 명세
+
+## connector_regression.ps1 실측 (2026-02-03 14:30 KST)
+```
+=== Connector Regression Test (Week 9) ===
+
+[1] GET /api/diag/connector-all... OK (connectors=2)
+   - KIS : OK (trading=10000000.0)
+   - OKX : OK (trading=201.65414219026633)
+
+[2] GET /api/diag/connector-test?exchange=OKX... OK (connector=OKXConnector)
+[3] GET /api/diag/connector-test?exchange=KIS... OK (connector=KISConnector)
+[4] GET /api/diag/connector-route... OK (exchange=OKX, connector=OKXConnector)
+
+--- Summary ---
+Errors: 0
+Warnings: 0
+== CONNECTOR REGRESSION PASS ==
+```
+
+## 기존 게이트 유지 확인
+- week4_regression: PASS
+- kis_regression: PASS
+- tv_template_regression: PASS
+- shortmsg_regression: PASS
+

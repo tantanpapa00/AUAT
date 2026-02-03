@@ -3952,37 +3952,10 @@ def _pick_connector_name(exchange: str) -> str:
 
 # ===================================================================
 # Connector Factory (Week8 Day5)
-# - 통합 커넥터 팩토리: exchange 이름으로 커넥터 인스턴스 반환
+# - 통합 커넥터 팩토리: app/connectors/__init__.py로 이동 (Week 9)
 # - 싱글톤 패턴으로 인스턴스 캐싱
 # ===================================================================
-_CONNECTOR_CACHE: dict = {}
-
-def get_connector(exchange: str):
-    """Get connector instance by exchange name.
-
-    Args:
-        exchange: Exchange name (OKX, KIS, etc.)
-
-    Returns:
-        Connector instance or None if unknown exchange.
-    """
-    from app.connectors.base import Connector
-
-    ex = _norm_exchange(exchange)
-    if ex in _CONNECTOR_CACHE:
-        return _CONNECTOR_CACHE[ex]
-
-    conn = None
-    if ex in ("OKX", "OKEX"):
-        from app.connectors.okx import OKXConnector
-        conn = OKXConnector()
-    elif ex in ("KIS", "KOREAINVESTMENT", "KOREA INVESTMENT", "KOREA_INVESTMENT", "KOREAINVESTMENTSEC"):
-        from app.connectors.kis import KISConnector
-        conn = KISConnector()
-
-    if conn is not None:
-        _CONNECTOR_CACHE[ex] = conn
-    return conn
+from app.connectors import get_connector, list_connectors, get_all_connectors, SUPPORTED_EXCHANGES
 
 
 @app.get("/api/diag/connector-route")
@@ -4079,6 +4052,64 @@ def api_diag_connector_test(exchange: str = "OKX", symbol: str | None = None):
         return result
     except Exception as e:
         return {"ok": False, "code": "exception", "detail": str(e)}
+
+
+@app.get("/api/diag/connector-all")
+def api_diag_connector_all(db: Session = Depends(get_db)):
+    """
+    Week 9: Test all registered connectors with unified interface.
+    Returns health check for each connector.
+    """
+    results = {
+        "ok": True,
+        "supported_exchanges": SUPPORTED_EXCHANGES,
+        "connectors": {},
+    }
+
+    for ex in SUPPORTED_EXCHANGES:
+        try:
+            conn = get_connector(ex)
+            if conn is None:
+                results["connectors"][ex] = {"ok": False, "error": "connector_init_failed"}
+                continue
+
+            # Determine currency for balance check
+            ccy = "USDT" if ex == "OKX" else "KRW"
+
+            connector_result = {
+                "ok": True,
+                "exchange": ex,
+                "connector_class": type(conn).__name__,
+                "methods": {},
+            }
+
+            # Test get_balance_split
+            try:
+                bs = conn.get_balance_split(ccy=ccy)
+                connector_result["methods"]["get_balance_split"] = {
+                    "ok": bs.ok,
+                    "ccy": bs.ccy,
+                    "total": bs.total if bs.ok else None,
+                    "trading": bs.trading if bs.ok else None,
+                    "err_code": bs.err_code,
+                    "err_msg": bs.err_msg,
+                }
+            except Exception as e:
+                connector_result["methods"]["get_balance_split"] = {"ok": False, "error": str(e)}
+
+            results["connectors"][ex] = connector_result
+
+        except Exception as e:
+            results["connectors"][ex] = {"ok": False, "error": str(e)}
+            results["ok"] = False
+
+    # Check overall status
+    for ex, res in results["connectors"].items():
+        if not res.get("ok"):
+            results["ok"] = False
+            break
+
+    return results
 
 
 def okx_avail_ccy_split2(ccy: str = "USDT"):

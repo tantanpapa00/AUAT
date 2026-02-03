@@ -129,8 +129,13 @@ Day 5: 회귀 스크립트 1개 추가(tv_template_regression.ps1) + PASS 기준
   * /tv short_id 경로 — payload 기반 side/qty 정책 적용
   * scripts/shortmsg_regression.ps1 — 회귀 테스트
 
-## Week 9: Upbit Spot 착수(필요 시) + 멀티 커넥터 공통화 — TODO
-Day 1~5: (OKX/KIS 구조 유지하면서 Upbit spot은 "필요 시"만)
+## Week 9: Upbit Spot 착수(필요 시) + 멀티 커넥터 공통화 — IN PROGRESS
+Day 1: 커넥터 팩토리 모듈화 + 공통 테스트 엔드포인트 — DONE (2026-02-03)
+- app/connectors/__init__.py: get_connector, list_connectors, get_all_connectors
+- GET /api/diag/connector-all: 모든 커넥터 일괄 테스트
+- scripts/connector_regression.ps1: 커넥터 회귀 테스트
+- docs/CONNECTOR.md: 인터페이스 명세
+Day 2~5: (Upbit은 필요 시)
 
 ## Week 10: 운영/관측/장애대응(M11) — TODO
 Day 1~5: (기존 SSOT 동일, 삭제 없음)
