@@ -5,9 +5,9 @@
 - Evidence: docs/APPENDIX_LOG.md (append-only)
 
 ## Current Status
-- Week 7: DONE (KIS MVP)
-- Week 8: DONE (멀티 커넥터 공통화)
-- Week 9: TODO (구독/쿼터, 운영/관측)
+- Week 7: DONE (KIS MVP + 커넥터 확장)
+- Week 8: TODO (얼러트 "환불 방지 패키지")
+- Week 9: TODO (Upbit + 멀티 커넥터 공통화)
 
 ## Quick Commands
 - Syntax: `python -m compileall app`

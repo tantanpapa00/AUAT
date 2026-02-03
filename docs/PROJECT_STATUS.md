@@ -60,28 +60,76 @@
 | POST | /api/diag/poll-now | 체결 조회 |
 | GET | /api/diag/kis-preflight | KIS 연결 체크 |
 | GET | /api/diag/kis-balance | KIS 잔고 |
+| GET | /api/diag/connector-test | 커넥터 테스트 (Week7) |
 
 ---
 
 # 6) 개발 일정 (12주)
 
-## Week 1~7: DONE
-- OKX 주문/체결 루프, KIS MVP (place_order, get_order, polling, routing)
+## 원칙
+- Day 단위 체크리스트가 SSOT의 "현재 위치"를 만든다. (완료/미완료는 API 실측/파일 증거로만)
+- OKX Week4 회귀 게이트(week4_regression.ps1 -FailOnContradiction PASS)를 절대 깨지 않는다.
+- KIS(한투)는 12주 계획 안에 Day 단위로 포함한다.
+- Hub 원칙(신호판단/추천/스크리닝/자동선정 X) 위반하는 기능은 일정에 넣지 않는다.
+- 선물(Futures)은 전면 미지원(설계/구현/QA 범위에서 제외).
 
-## Week 8: 멀티 커넥터 공통화 — DONE
-- Day1: 공통 인터페이스 정의 (DONE)
-- Day2: exchange_order_id 공통 필드 추가 (DONE)
-- Day3: KIS get_balance_split 구현 (DONE)
-- Day4: KIS get_markets 구현 (DONE)
-- Day5: Connector 팩토리 + 테스트 엔드포인트 (DONE)
+## Week 1: DONE
+Day 1~5: (기존 SSOT 동일, 삭제 없음)
 
-## Week 9~12: TODO
-- 구독/쿼터, 운영/관측, 보안/키관리, 릴리즈
+## Week 2: DONE
+Day 1~5: (기존 SSOT 동일, 삭제 없음)
+
+## Week 3: DONE
+Day 1~5: (기존 SSOT 동일, 삭제 없음)
+
+## Week 4: DONE (2026-01-30 KST 실측)
+Day 1~5: (기존 SSOT 동일, 삭제 없음)
+
+## Week 5: 커넥터 표준화(OKX 정리) + KIS 착수(스켈레톤) — DONE (2026-02-02 KST)
+Day 1: 커넥터 공통 인터페이스 정의(PlaceOrder/GetOrder/Balance/Markets) + 결과 타입 명세
+Day 2: OKX 호출 경로 "단일화" 고정(중복 def 방지 원칙 문서화) + 회귀 게이트 유지
+Day 3: main.py OKX 관련 "직접호출 흔적 제거/정리" (connector-only) + week4_regression PASS 유지
+Day 4: KIS 커넥터 스켈레톤 생성(인증/토큰/요청 래퍼 틀) + .env 키 목록만 추가(값 금지)
+Day 5: "다중 커넥터 선택" 최소 라우팅(계좌 exchange 필드 기반) 설계만(실주문 X) + 문서/grep 증거 남김
+
+## Week 6: KIS 기본 실측(잔고/토큰/드라이런) + DB 매핑 초안 — DONE (2026-02-02 KST)
+Day 1: KIS 잔고 조회 실측 + 추가 환경변수 문서화
+Day 2: KIS 토큰 갱신/만료 핸들링 검증
+Day 3: 드라이런(DRY_RUN) 플래그 KIS 경로 적용 확인
+Day 4: DB 매핑 초안 (orders 테이블 KIS 컬럼 검토) — KIS 필요: kis_order_no/kis_order_date/kis_state
+Day 5: KIS 실측 회귀 테스트 작성 + 문서화 (scripts/kis_regression.ps1 PASS)
+
+## Week 7: KIS 주문/조회/체결추적 최소("MVP 루프") + "주식(국내/해외) 표준화" — DONE (2026-02-03 KST)
+Day 1: KIS place_order/get_order 구현
+Day 2: KIS 주문 테스트 엔드포인트 추가(국내/해외 공통) + 심볼 정규화 규칙 확정(6자리/티커)
+Day 3: KIS 체결 추적(polling) 구현 + 상태맵(kis_state→internal status) 고정
+Day 4: main.py에 KIS 경로 연결(send-now/poll-now 최소 루프) + 전광판 last_* 반영
+Day 5: KIS MVP 회귀 테스트(PowerShell) + 문서화(실측 원문 APPENDIX에 누적)
+- 추가: exchange_order_id 공통 필드, KIS get_balance_split/get_markets, Connector 팩토리 (2026-02-03)
+
+## Week 8: 얼러트 메시지 "환불 방지 패키지"(기본/고급 모드) — TODO
+Day 1: 표준 TradingView 템플릿 1종(현물/주식 공용) 확정 + docs에 "복붙 예시" 추가
+Day 2: /tv payload 검증 강화(필수필드/심볼/마켓/계좌 매칭) + 에러코드 표준화(환불 방지)
+Day 3: "템플릿 생성 API"(templates/tradingview 확장) — 계좌/자산/전략 선택하면 자동 생성
+Day 4: (선택) 간단 Wizard 문서(스크린샷 없이 텍스트 기준) + 체크리스트(초보자용)
+Day 5: 회귀 스크립트 1개 추가(tv_template_regression.ps1) + PASS 기준 정의
+
+## Week 9: Upbit Spot 착수(필요 시) + 멀티 커넥터 공통화 — TODO
+Day 1~5: (OKX/KIS 구조 유지하면서 Upbit spot은 "필요 시"만)
+
+## Week 10: 운영/관측/장애대응(M11) — TODO
+Day 1~5: (기존 SSOT 동일, 삭제 없음)
+
+## Week 11: 보안/키관리/2차인증 설계 고정 — TODO
+Day 1~5: (기존 SSOT 동일, 삭제 없음)
+
+## Week 12: 정리/리팩토링 최소 + 릴리즈 패키징/문서 — TODO
+Day 1~5: (기존 SSOT 동일, 삭제 없음)
 
 ---
 
 # 7) NEXT ACTION (3개)
-1) Week9 착수: 구독/쿼터 또는 운영/관측
+1) Week8 Day1 착수: 표준 TradingView 템플릿 확정 + docs "복붙 예시" 추가
 2) 회귀 게이트 유지 (week4_regression + kis_regression)
 3) 작업 전 docs/AI_RULES.md 필독
 
