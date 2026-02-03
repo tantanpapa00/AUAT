@@ -344,3 +344,33 @@ $ curl -X POST "http://127.0.0.1:8000/api/system/estop" -d '{"estop":false}'
 - Day 4: PC/앱 동기화 플로우 문서화
 - Day 5: 회귀 게이트 전체 PASS
 
+
+# 2026-02-03 15:25:00 +09:00 — Week 10 Day 1: 타임라인 스키마 확정
+
+## 생성 파일
+- docs/TIMELINE_SPEC.md: 이벤트 타입, DB 스키마, API 스펙
+
+## Event 모델 (app/models.py)
+```python
+class Event(Base):
+    __tablename__ = "events"
+    id = Column(BigInteger, primary_key=True)
+    event_type = Column(Text, nullable=False)  # signal, order_created, order_sent, ...
+    asset_id = Column(BigInteger, ForeignKey("assets.id"), nullable=True)
+    order_id = Column(BigInteger, ForeignKey("orders.id"), nullable=True)
+    account_id = Column(BigInteger, ForeignKey("accounts.id"), nullable=True)
+    summary = Column(Text, nullable=False)
+    detail = Column(JSONB, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+```
+
+## 이벤트 타입
+- signal, order_created, order_sent, order_failed, order_filled
+- order_partial, order_canceled, poll, error, estop_on, estop_off
+
+## Syntax check
+```
+$ python -m compileall app
+Compiling 'app\\models.py'...
+```
+
