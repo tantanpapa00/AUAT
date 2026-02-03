@@ -298,3 +298,49 @@ $ curl -s -H "Authorization: Bearer test" http://127.0.0.1:8000/api/subscription
 - 코드 변경 없음 (문서화만)
 - 구현은 Week 11 (PC) / Week 12 (앱)에서 진행
 
+
+# 2026-02-03 15:20:00 +09:00 — Week 9 Day 5: 회귀 게이트 전체 PASS
+
+## Gate-OKX (week4_regression.ps1)
+```
+== Week4 Regression ==
+[A0] /api/diag/okx-preflight... ok=true
+[A] /api/home... ok=true (4 items)
+[A] /api/system/estop... estop=false
+[B] /tv accepted... order_id=191
+[C] poll-now... ok=true
+[D] recover test... ok=true, status=sent, okx_order_id=3274817031181656064
+== DONE ==
+```
+
+## Gate-TV (tv_template_regression.ps1)
+```
+[1] Template Options API... OK
+[2] Asset Template API... OK
+[3] Batch Template Generate... OK
+Errors: 0
+== TV TEMPLATE REGRESSION PASS ==
+```
+
+## Gate-E-STOP
+```
+# E-STOP ON 설정
+$ curl -X POST "http://127.0.0.1:8000/api/system/estop" -d '{"estop":true}'
+{"ok":true,"estop":true,"value":"1","reason":"day5_test"}
+
+# send-now 차단 확인
+$ curl -X POST "http://127.0.0.1:8000/api/diag/send-now"
+{"ok":false,"count":0,"items":[],"scanned":0,"note":"stopped","detail":"E-STOP is ON","elapsed_ms":2}
+
+# E-STOP OFF 복원
+$ curl -X POST "http://127.0.0.1:8000/api/system/estop" -d '{"estop":false}'
+{"ok":true,"estop":false,"value":"0","reason":"day5_test_done"}
+```
+
+## Week 9 완료
+- Day 1: PRODUCT_SPEC.md 생성, 커넥터 팩토리 모듈화
+- Day 2: AUTH_SPEC.md 생성, /api/subscription/me 스텁
+- Day 3: Pydantic 모델 확정 (PlanType, Entitlements, PLAN_DEFAULTS)
+- Day 4: PC/앱 동기화 플로우 문서화
+- Day 5: 회귀 게이트 전체 PASS
+

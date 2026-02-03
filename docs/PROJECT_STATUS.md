@@ -90,7 +90,7 @@
 - 포함: TV_TEMPLATE.md, /tv 검증 강화, 템플릿 생성 API, TV_WIZARD.md, tv_template_regression.ps1, ShortMsg
 - 증거: APPENDIX_LOG.md 2026-02-03 원문(회귀 PASS, connector-test OK)
 
-## Week 9: 3종 제품 아키텍처 고정 + 구독/권한 뼈대 — IN PROGRESS
+## Week 9: 3종 제품 아키텍처 고정 + 구독/권한 뼈대 — DONE
 Day 1: SSOT에 3종 역할/범위(사이트/PC/앱) + 허브/프리미엄 경계 확정 — DONE (2026-02-03)
 - 생성: docs/PRODUCT_SPEC.md (1-6 ~ 1-9)
 - 커넥터 팩토리 모듈화: app/connectors/__init__.py, scripts/connector_regression.ps1
@@ -103,7 +103,10 @@ Day 3: Plan/Entitlement 모델 확정 + 서버 응답형식 고정 — DONE (202
 Day 4: PC/앱 "실행 시 구독 동기화" 플로우 문서화 — DONE (2026-02-03)
 - AUTH_SPEC.md 5) 섹션 확장: 실행 시 동기화, 토큰 만료, 주기적 동기화, 오프라인 모드
 - 기능 잠금/해제 매핑, 에러 메시지, 로컬 저장 보안 가이드
-Day 5: 회귀: 기존 Gate-OKX/Gate-TV/Gate-E-STOP 전부 PASS 확인 — TODO
+Day 5: 회귀: Gate-OKX/Gate-TV/Gate-E-STOP 전부 PASS — DONE (2026-02-03)
+- Gate-OKX: week4_regression.ps1 PASS
+- Gate-TV: tv_template_regression.ps1 PASS
+- Gate-E-STOP: E-STOP ON 시 send-now 차단 확인
 
 ## Week 10: 종합 UI v1(공통 데이터) — 타임라인/마커/성과 최소 — TODO
 Day 1: 이벤트(타임라인) 스키마 확정(order/signal/poll/error) + DB/로그 저장 방식 결정
@@ -158,8 +161,8 @@ Day 5: SSOT/APPENDIX 정리(증거 누락 없게), 릴리즈 태그 준비
 ---
 
 # 7) NEXT ACTION (3개)
-1) Week9 Day 5: 회귀 (Gate-OKX/Gate-TV/Gate-E-STOP 전부 PASS 확인)
-2) Week 10 준비: 타임라인 스키마 설계
+1) Week 10 Day 1: 이벤트(타임라인) 스키마 확정 + DB/로그 저장 방식 결정
+2) 회귀 게이트 유지 (Gate-OKX + Gate-TV + Gate-E-STOP)
 3) 작업 전 docs/AI_RULES.md 필독
 
 ---
