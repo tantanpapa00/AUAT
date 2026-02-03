@@ -311,19 +311,316 @@ pub fn delete_account_keys(account_name: String, exchange: String) -> Result<(),
 
 ---
 
-# 8) 구현 계획
+# 8) Day 3 상세: 템플릿 생성 UI (Week 11 Day 3)
+
+## 8-1) 개요
+
+PC 앱에서 TradingView 얼러트 템플릿을 쉽게 생성하고 복사할 수 있는 UI.
+
+**지원 기능**:
+1. **자산별 템플릿**: 단일 자산 선택 → 템플릿 생성
+2. **배치 생성**: 여러 자산 선택 → 한번에 템플릿 생성
+3. **ShortMsg 템플릿**: 간소화된 short_id 기반 템플릿
+
+## 8-2) UI 구성 (Templates.vue)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  TradingView 템플릿 생성                                            │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  [탭: 자산별 템플릿] [탭: 배치 생성] [탭: ShortMsg]                    │
+│                                                                     │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │  자산 선택                                                    │  │
+│  │  ┌─────────────────────────────────────────────────────────┐  │  │
+│  │  │ [v] okx-main / momentum / BTC-USDT                      │  │  │
+│  │  │ [ ] okx-main / momentum / ETH-USDT                      │  │  │
+│  │  │ [v] kis-vps / swing / 삼성전자                           │  │  │
+│  │  └─────────────────────────────────────────────────────────┘  │  │
+│  │                                                                │  │
+│  │  옵션                                                          │  │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │  │
+│  │  │ Side: [buy▼] │  │ Qty: [1    ] │  │ Type: [market▼]│       │  │
+│  │  └──────────────┘  └──────────────┘  └──────────────┘         │  │
+│  │                                                                │  │
+│  │  [템플릿 생성]                                                  │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                                                     │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │  생성된 템플릿 (2개)                                          │  │
+│  │                                                                │  │
+│  │  ▼ BTC-USDT (okx-main / momentum)                 [복사 📋]   │  │
+│  │  ┌─────────────────────────────────────────────────────────┐  │  │
+│  │  │ {                                                       │  │  │
+│  │  │   "secret": "abc123...",                               │  │  │
+│  │  │   "symbol": "BTC-USDT",                                │  │  │
+│  │  │   "side": "buy",                                       │  │  │
+│  │  │   "qty": 1,                                            │  │  │
+│  │  │   "alert_id": "{{timenow}}",                           │  │  │
+│  │  │   "type": "market"                                     │  │  │
+│  │  │ }                                                       │  │  │
+│  │  └─────────────────────────────────────────────────────────┘  │  │
+│  │                                                                │  │
+│  │  ▼ 삼성전자 (kis-vps / swing)                      [복사 📋]   │  │
+│  │  ┌─────────────────────────────────────────────────────────┐  │  │
+│  │  │ { ... }                                                 │  │  │
+│  │  └─────────────────────────────────────────────────────────┘  │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                                                     │
+│  💡 TradingView 얼러트 > Message에 위 JSON을 붙여넣으세요          │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## 8-3) API 연동
+
+| 작업 | HTTP | 엔드포인트 | 설명 |
+|------|------|------------|------|
+| 옵션 목록 조회 | GET | /api/templates/tradingview/options | 활성 계좌/전략/자산 목록 |
+| 단일 자산 템플릿 | GET | /api/assets/{asset_id}/template/tradingview?side=buy&qty=1 | 개별 생성 |
+| 배치 생성 | POST | /api/templates/tradingview/generate | 다중 자산 한번에 |
+| ShortMsg 템플릿 | GET | /api/shortmsg/{short_id}/template/tradingview | ShortMsg용 |
+
+## 8-4) API 응답 스키마
+
+### GET /api/templates/tradingview/options
+
+```json
+{
+  "ok": true,
+  "count": 3,
+  "options": [
+    {
+      "asset_id": 1,
+      "symbol": "BTC-USDT",
+      "market": "spot",
+      "account_id": 1,
+      "account_name": "okx-main",
+      "exchange": "OKX",
+      "strategy_id": 1,
+      "strategy_name": "momentum",
+      "label": "okx-main / momentum / BTC-USDT"
+    }
+  ]
+}
+```
+
+### POST /api/templates/tradingview/generate
+
+**Request:**
+```json
+{
+  "asset_ids": [1, 2, 3],
+  "side": "buy",
+  "qty": 1,
+  "type": "market"
+}
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "count": 3,
+  "results": [
+    {
+      "asset_id": 1,
+      "ok": true,
+      "symbol": "BTC-USDT",
+      "exchange": "OKX",
+      "account_name": "okx-main",
+      "strategy_name": "momentum",
+      "template": {
+        "secret": "abc123",
+        "symbol": "BTC-USDT",
+        "side": "buy",
+        "qty": 1,
+        "alert_id": "{{timenow}}",
+        "type": "market"
+      },
+      "template_json": "{\n  \"secret\": \"abc123\",\n  ...}"
+    }
+  ]
+}
+```
+
+## 8-5) Tauri 커맨드 (Rust)
+
+```rust
+// src/commands/clipboard.rs
+
+use tauri::Manager;
+
+#[tauri::command]
+pub async fn copy_to_clipboard(app: tauri::AppHandle, text: String) -> Result<(), String> {
+    use arboard::Clipboard;
+
+    let mut clipboard = Clipboard::new().map_err(|e| e.to_string())?;
+    clipboard.set_text(&text).map_err(|e| e.to_string())?;
+
+    // 성공 알림 (optional)
+    app.emit_all("clipboard_copied", ()).ok();
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn format_template_preview(template_json: String, max_lines: usize) -> String {
+    // 미리보기용 축약
+    let lines: Vec<&str> = template_json.lines().collect();
+    if lines.len() <= max_lines {
+        template_json
+    } else {
+        let preview: Vec<&str> = lines.iter().take(max_lines - 1).cloned().collect();
+        format!("{}\n  ...", preview.join("\n"))
+    }
+}
+```
+
+## 8-6) 프론트엔드 컴포넌트 (Vue)
+
+```vue
+<!-- ui/src/pages/Templates.vue -->
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { invoke } from '@tauri-apps/api/tauri'
+
+interface AssetOption {
+  asset_id: number
+  symbol: string
+  market: string
+  account_name: string
+  exchange: string
+  strategy_name: string
+  label: string
+}
+
+interface GeneratedTemplate {
+  asset_id: number
+  ok: boolean
+  symbol: string
+  exchange: string
+  template_json: string
+  error?: string
+}
+
+const options = ref<AssetOption[]>([])
+const selected = ref<number[]>([])
+const side = ref<'buy' | 'sell'>('buy')
+const qty = ref(1)
+const orderType = ref('market')
+const templates = ref<GeneratedTemplate[]>([])
+const loading = ref(false)
+
+onMounted(async () => {
+  // 옵션 목록 로드
+  const resp = await fetch('http://127.0.0.1:8000/api/templates/tradingview/options')
+  const data = await resp.json()
+  if (data.ok) {
+    options.value = data.options
+  }
+})
+
+async function generateTemplates() {
+  if (selected.value.length === 0) return
+
+  loading.value = true
+  try {
+    const resp = await fetch('http://127.0.0.1:8000/api/templates/tradingview/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        asset_ids: selected.value,
+        side: side.value,
+        qty: qty.value,
+        type: orderType.value
+      })
+    })
+    const data = await resp.json()
+    if (data.ok) {
+      templates.value = data.results
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+async function copyTemplate(templateJson: string) {
+  await invoke('copy_to_clipboard', { text: templateJson })
+  // Toast 알림 표시
+}
+</script>
+```
+
+## 8-7) 워크플로우
+
+```
+┌────────────────┐     ┌────────────────┐     ┌────────────────┐
+│ 1. 옵션 로드   │ ──► │ 2. 자산 선택   │ ──► │ 3. 옵션 설정   │
+│ GET /options   │     │ (체크박스)     │     │ side/qty/type  │
+└────────────────┘     └────────────────┘     └────────────────┘
+                                                      │
+                                                      ▼
+┌────────────────┐     ┌────────────────┐     ┌────────────────┐
+│ 6. 완료       │ ◄── │ 5. 클립보드    │ ◄── │ 4. 템플릿 생성 │
+│ TV에 붙여넣기 │     │ 복사           │     │ POST /generate │
+└────────────────┘     └────────────────┘     └────────────────┘
+```
+
+## 8-8) ShortMsg 탭 UI
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  ShortMsg 템플릿                                                    │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  등록된 ShortMsg                                                    │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │ ID: XyZ12345  │ 이름: BTC 롱                    [템플릿 보기] │    │
+│  │ OKX / spot / BTC-USDT                                      │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │ ID: AbC67890  │ 이름: 삼성전자 매수              [템플릿 보기] │    │
+│  │ KIS / stock / 005930                                       │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+│                                                                     │
+│  ShortMsg 템플릿 장점:                                              │
+│  • TV 변수 최소화 (short_id가 모든 설정 포함)                        │
+│  • 설정 변경 시 템플릿 재생성 불필요                                  │
+│  • 여러 자산에 동일 템플릿 재사용 가능                                │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## 8-9) 에러 처리
+
+| 상황 | UI 표시 | 처리 |
+|------|---------|------|
+| 활성 자산 없음 | "활성 자산이 없습니다. 계좌/전략/자산을 먼저 설정하세요." | 계좌 페이지 링크 |
+| tv_secret 미설정 | "전략에 tv_secret이 설정되지 않았습니다." | 해당 자산 결과에 error 표시 |
+| 네트워크 오류 | "서버 연결 실패. 서버가 실행 중인지 확인하세요." | 재시도 버튼 |
+
+## 8-10) 보안 체크리스트
+
+- [x] secret 값은 템플릿 JSON에만 포함 (UI에 직접 표시 X)
+- [x] 클립보드 복사 후 자동 만료 옵션 (선택적)
+- [x] 템플릿 로그 저장 시 secret 마스킹
+
+---
+
+# 9) 구현 계획
 
 | Day | 작업 | 상태 |
 |-----|------|------|
 | Day 1 | 기술선정 + 빌드/런 구조 문서화 | DONE |
 | Day 2 | 계좌/키 등록 UI + 암호화 저장 | DONE (spec) |
-| Day 3 | 템플릿 생성 UI 연결 | TODO |
+| Day 3 | 템플릿 생성 UI 연결 | DONE (spec) |
 | Day 4 | 시스템 설정 UI 연결 | TODO |
 | Day 5 | 회귀 테스트 + 실측 로그 | TODO |
 
 ---
 
-# 9) 참조
+# 10) 참조
 
 - [Tauri 공식 문서](https://tauri.app/v1/guides/)
 - [Tauri + Vue 예제](https://github.com/tauri-apps/tauri/tree/dev/examples)
