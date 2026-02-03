@@ -5969,3 +5969,44 @@ def api_diag_kis_balance_summary():
     except Exception:
         pass
     return payload
+
+
+# =============================================================================
+# Subscription / Entitlement (Week 9 Day 2 - STUB)
+# =============================================================================
+
+@app.get("/api/subscription/me")
+def api_subscription_me(request: Request):
+    """
+    구독/권한 조회 (스텁)
+    - Authorization 헤더가 없으면 unauthorized
+    - 헤더가 있으면 하드코딩된 hub plan 반환
+
+    NOTE: Week 14에서 실제 DB/결제 연동 구현 예정
+    """
+    auth_header = request.headers.get("Authorization", "")
+
+    # 토큰 없음 → unauthorized
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return {
+            "ok": False,
+            "code": "unauthorized",
+            "detail": "Missing or invalid token"
+        }
+
+    # 스텁: 하드코딩된 hub plan 반환
+    # 실제 구현 시 토큰 검증 + DB 조회 필요
+    return {
+        "ok": True,
+        "user_id": "u_stub_001",
+        "plan": "hub",
+        "expires_at": "2026-03-03T00:00:00Z",
+        "entitlements": {
+            "hub_enabled": True,
+            "premium_enabled": False,
+            "max_symbols": 5,
+            "log_retention_days": 30,
+            "batch_template": True,
+            "export_csv": True
+        }
+    }

@@ -233,3 +233,27 @@ Warnings: 0
 - tv_template_regression: PASS
 - shortmsg_regression: PASS
 
+
+# 2026-02-03 14:55:00 +09:00 — Week 9 Day 2: Auth/Subscription Stub
+
+## /api/subscription/me 스텁 실측
+
+### 토큰 없이 호출 (unauthorized 응답)
+```
+$ curl -s http://127.0.0.1:8000/api/subscription/me
+{"ok":false,"code":"unauthorized","detail":"Missing or invalid token"}
+```
+
+### 토큰으로 호출 (hub plan 반환)
+```
+$ curl -s -H "Authorization: Bearer test_token_123" http://127.0.0.1:8000/api/subscription/me
+{"ok":true,"user_id":"u_stub_001","plan":"hub","expires_at":"2026-03-03T00:00:00Z","entitlements":{"hub_enabled":true,"premium_enabled":false,"max_symbols":5,"log_retention_days":30,"batch_template":true,"export_csv":true}}
+```
+
+## 생성 파일
+- docs/AUTH_SPEC.md: Auth 토큰 스펙 초안 (로그인/구독조회/Entitlement 정의)
+
+## 게이트 유지 확인
+- week4_regression: PASS
+- tv_template_regression: PASS
+
