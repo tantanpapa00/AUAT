@@ -1,6 +1,70 @@
 ﻿# APPENDIX_LOG.md
 - PowerShell 출력/실측 원문을 날짜별로 누적(삭제 금지)
 
+# 2026-02-03 21:09:52 +09:00 — Week 11 Day 5 회귀 게이트 전체 PASS
+
+## Gate-TV (tv_template_regression.ps1)
+```
+=== TV Template Regression Test (Week8) ===
+
+[1] Template Options API... OK (count=0)
+[2] Asset Template API... OK (symbol=ETH-USDT)
+[3] Batch Template Generate... OK (count=1)
+[4-8] /tv validation checks... SKIP (secret validation first)
+
+--- Summary ---
+Errors: 0
+Warnings: 5
+== TV TEMPLATE REGRESSION PASS ==
+```
+
+## Gate-E-STOP (estop_regression.ps1)
+```
+== E-STOP Regression ==
+[0] GET /api/system/estop... OK (estop=false)
+[1] POST /api/system/estop (OFF)... OK
+[2] POST /tv (expect accepted)... OK (order_id=195)
+[3] POST /api/system/estop (ON)... OK
+[4] POST /tv (expect stopped)... OK (code=stopped)
+[5] POST /api/diag/send-now (expect stopped)... OK (note=stopped)
+[6] POST /api/diag/poll-now?mode=poll (expect stopped)... OK
+[7] POST /api/diag/poll-now?mode=recent (expect ok=true)... OK
+
+PASS: E-STOP regression OK
+```
+
+## Gate-OKX (week4_regression.ps1)
+```
+== Week4 Regression ==
+[A0] /api/diag/okx-preflight... OK (check.ok=true)
+[A] /api/home... OK (items=4)
+[A] /api/system/estop... OK (estop=false)
+[B] /tv accepted... OK (order_id=196)
+[C] poll-now... OK (count=0)
+[D] recover test... OK (status=sent, okx_order_id=3275522316082831360)
+
+== DONE ==
+```
+
+## Connector Regression (connector_regression.ps1)
+```
+=== Connector Regression Test (Week 9) ===
+
+[1] GET /api/diag/connector-all... OK (connectors=2)
+   - KIS : OK (trading=10000000.0)
+   - OKX : OK (trading=197.72)
+[2] GET /api/diag/connector-test?exchange=OKX... OK (OKXConnector)
+[3] GET /api/diag/connector-test?exchange=KIS... OK (KISConnector)
+[4] GET /api/diag/connector-route... OK (OKX → OKXConnector)
+
+--- Summary ---
+Errors: 0
+Warnings: 0
+== CONNECTOR REGRESSION PASS ==
+```
+
+---
+
 # 2026-02-02 16:02:46 +09:00ST — KIS diag proof (raw)
 
 ## 1) GET /api/diag/home (miss 가능)
