@@ -97,7 +97,9 @@ Day 1: SSOT에 3종 역할/범위(사이트/PC/앱) + 허브/프리미엄 경계
 Day 2: 서버에 Auth 토큰 스펙(초안) + /api/subscription/me(스텁) 설계 — DONE (2026-02-03)
 - 생성: docs/AUTH_SPEC.md (Plan/Entitlement 정의, 동기화 플로우)
 - 구현: /api/subscription/me 스텁 엔드포인트
-Day 3: Plan/Entitlement 모델 확정(허브/프리미엄/심볼제한/로그보관) + 서버 응답형식 고정 — TODO
+Day 3: Plan/Entitlement 모델 확정 + 서버 응답형식 고정 — DONE (2026-02-03)
+- Pydantic 모델: PlanType, Entitlements, SubscriptionResponse, SubscriptionErrorResponse
+- PLAN_DEFAULTS: free/hub/premium 기본 권한값 확정
 Day 4: PC/앱에서 "실행 시 구독 동기화" 플로우 문서화(구현은 다음 주) — TODO
 Day 5: 회귀: 기존 Gate-OKX/Gate-TV/Gate-E-STOP 전부 PASS 확인 — TODO
 
@@ -154,7 +156,7 @@ Day 5: SSOT/APPENDIX 정리(증거 누락 없게), 릴리즈 태그 준비
 ---
 
 # 7) NEXT ACTION (3개)
-1) Week9 Day 3: Plan/Entitlement 모델 확정 + 서버 응답형식 고정
+1) Week9 Day 4: PC/앱 "실행 시 구독 동기화" 플로우 문서화
 2) 회귀 게이트 유지 (Gate-OKX + Gate-TV + Gate-E-STOP)
 3) 작업 전 docs/AI_RULES.md + docs/AUTH_SPEC.md 필독
 

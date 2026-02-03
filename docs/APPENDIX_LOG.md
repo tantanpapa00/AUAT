@@ -257,3 +257,28 @@ $ curl -s -H "Authorization: Bearer test_token_123" http://127.0.0.1:8000/api/su
 - week4_regression: PASS
 - tv_template_regression: PASS
 
+
+# 2026-02-03 15:05:00 +09:00 — Week 9 Day 3: Pydantic 모델 확정
+
+## Pydantic 모델 추가 (app/main.py)
+- PlanType(Enum): free, hub, premium
+- Entitlements(BaseModel): hub_enabled, premium_enabled, max_symbols, log_retention_days, batch_template, export_csv
+- SubscriptionResponse(BaseModel): ok, user_id, plan, expires_at, entitlements
+- SubscriptionErrorResponse(BaseModel): ok, code, detail
+- PLAN_DEFAULTS: Plan별 기본 권한값
+
+## /api/subscription/me 테스트
+```
+# 토큰 없이
+$ curl -s http://127.0.0.1:8000/api/subscription/me
+{"ok":false,"code":"unauthorized","detail":"Missing or invalid token"}
+
+# 토큰으로
+$ curl -s -H "Authorization: Bearer test" http://127.0.0.1:8000/api/subscription/me
+{"ok":true,"user_id":"u_stub_001","plan":"hub","expires_at":"2026-03-03T00:00:00Z","entitlements":{"hub_enabled":true,"premium_enabled":false,"max_symbols":5,"log_retention_days":30,"batch_template":true,"export_csv":true}}
+```
+
+## 게이트 유지 확인
+- week4_regression: PASS
+- tv_template_regression: PASS
+

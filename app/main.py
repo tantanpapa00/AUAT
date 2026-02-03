@@ -2,6 +2,9 @@ from fastapi import FastAPI, Depends, HTTPException, Request, Query
 from fastapi.responses import HTMLResponse
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel, Field
+from typing import Optional, Literal
+from enum import Enum
 
 
 def _fix_mojibake(s: str):
@@ -5972,8 +5975,66 @@ def api_diag_kis_balance_summary():
 
 
 # =============================================================================
-# Subscription / Entitlement (Week 9 Day 2 - STUB)
+# Subscription / Entitlement (Week 9 Day 3 - Pydantic Models)
 # =============================================================================
+
+# Plan 종류 (SSOT: docs/AUTH_SPEC.md 4-1)
+class PlanType(str, Enum):
+    FREE = "free"
+    HUB = "hub"
+    PREMIUM = "premium"
+
+# Entitlement 모델 (SSOT: docs/AUTH_SPEC.md 4-2)
+class Entitlements(BaseModel):
+    hub_enabled: bool = Field(description="허브 기능 사용 가능")
+    premium_enabled: bool = Field(description="프리미엄 엔진 사용 가능")
+    max_symbols: int = Field(ge=0, description="심볼 개수 제한 (0=무제한)")
+    log_retention_days: int = Field(ge=1, description="로그 보관 기간 (일)")
+    batch_template: bool = Field(description="템플릿 일괄 생성 가능")
+    export_csv: bool = Field(description="CSV 내보내기 가능")
+
+# Plan별 기본 권한 (SSOT: docs/AUTH_SPEC.md 4-3)
+PLAN_DEFAULTS: dict[PlanType, Entitlements] = {
+    PlanType.FREE: Entitlements(
+        hub_enabled=False,
+        premium_enabled=False,
+        max_symbols=0,
+        log_retention_days=7,
+        batch_template=False,
+        export_csv=False
+    ),
+    PlanType.HUB: Entitlements(
+        hub_enabled=True,
+        premium_enabled=False,
+        max_symbols=5,
+        log_retention_days=30,
+        batch_template=True,
+        export_csv=True
+    ),
+    PlanType.PREMIUM: Entitlements(
+        hub_enabled=True,
+        premium_enabled=True,
+        max_symbols=0,
+        log_retention_days=90,
+        batch_template=True,
+        export_csv=True
+    ),
+}
+
+# 구독 조회 응답 (성공)
+class SubscriptionResponse(BaseModel):
+    ok: Literal[True] = True
+    user_id: str
+    plan: PlanType
+    expires_at: str = Field(description="ISO8601 형식")
+    entitlements: Entitlements
+
+# 구독 조회 응답 (실패)
+class SubscriptionErrorResponse(BaseModel):
+    ok: Literal[False] = False
+    code: str = Field(description="에러 코드: unauthorized, no_subscription, expired")
+    detail: str
+
 
 @app.get("/api/subscription/me")
 def api_subscription_me(request: Request):
@@ -5988,25 +6049,16 @@ def api_subscription_me(request: Request):
 
     # 토큰 없음 → unauthorized
     if not auth_header or not auth_header.startswith("Bearer "):
-        return {
-            "ok": False,
-            "code": "unauthorized",
-            "detail": "Missing or invalid token"
-        }
+        return SubscriptionErrorResponse(
+            code="unauthorized",
+            detail="Missing or invalid token"
+        ).model_dump()
 
     # 스텁: 하드코딩된 hub plan 반환
     # 실제 구현 시 토큰 검증 + DB 조회 필요
-    return {
-        "ok": True,
-        "user_id": "u_stub_001",
-        "plan": "hub",
-        "expires_at": "2026-03-03T00:00:00Z",
-        "entitlements": {
-            "hub_enabled": True,
-            "premium_enabled": False,
-            "max_symbols": 5,
-            "log_retention_days": 30,
-            "batch_template": True,
-            "export_csv": True
-        }
-    }
+    return SubscriptionResponse(
+        user_id="u_stub_001",
+        plan=PlanType.HUB,
+        expires_at="2026-03-03T00:00:00Z",
+        entitlements=PLAN_DEFAULTS[PlanType.HUB]
+    ).model_dump()

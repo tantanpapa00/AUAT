@@ -1,7 +1,7 @@
 # AUTH_SPEC.md (SSOT)
 - Last updated: 2026-02-03 KST
 - Owner: 기훈(작가님)
-- Status: DRAFT (Week 9 Day 2)
+- Status: FIXED (Week 9 Day 3 - Pydantic 모델 확정)
 
 > NOTE: 이 파일은 Auth/구독/권한 스펙의 '진실(SSOT)'입니다.
 > 구현 시 반드시 이 문서와 일치해야 합니다.
@@ -200,16 +200,51 @@ Authorization: Bearer <access_token>
 
 ---
 
-# 7) 스텁 구현 (Week 9 Day 2)
+# 7) 구현 상태 (Week 9 Day 3)
 
-## 현재 상태
-- `/api/subscription/me`: 스텁 구현 (하드코딩된 응답)
+## Pydantic 모델 (app/main.py)
+```python
+class PlanType(str, Enum):
+    FREE = "free"
+    HUB = "hub"
+    PREMIUM = "premium"
+
+class Entitlements(BaseModel):
+    hub_enabled: bool
+    premium_enabled: bool
+    max_symbols: int  # 0=무제한
+    log_retention_days: int
+    batch_template: bool
+    export_csv: bool
+
+class SubscriptionResponse(BaseModel):
+    ok: Literal[True] = True
+    user_id: str
+    plan: PlanType
+    expires_at: str
+    entitlements: Entitlements
+
+class SubscriptionErrorResponse(BaseModel):
+    ok: Literal[False] = False
+    code: str  # unauthorized, no_subscription, expired
+    detail: str
+```
+
+## Plan별 기본값 (PLAN_DEFAULTS)
+| Plan | hub_enabled | premium_enabled | max_symbols | log_retention_days | batch_template | export_csv |
+|------|-------------|-----------------|-------------|-------------------|----------------|------------|
+| free | false | false | 0 | 7 | false | false |
+| hub | true | false | 5 | 30 | true | true |
+| premium | true | true | 0 | 90 | true | true |
+
+## 엔드포인트 상태
+- `/api/subscription/me`: 스텁 구현 (Pydantic 모델 사용)
 - `/api/auth/login`: TODO (Week 14)
 - `/api/auth/refresh`: TODO (Week 14)
 
 ## 스텁 동작
-- Authorization 헤더 없음 → ok=false, code=unauthorized
-- Authorization 헤더 있음 → 하드코딩된 hub plan 반환
+- Authorization 헤더 없음 → SubscriptionErrorResponse(code="unauthorized")
+- Authorization 헤더 있음 → SubscriptionResponse(plan="hub", entitlements=PLAN_DEFAULTS[HUB])
 
 ---
 
