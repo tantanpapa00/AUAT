@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 _CONNECTOR_CACHE: Dict[str, "Connector"] = {}
 
 # Supported exchanges
-SUPPORTED_EXCHANGES = ["OKX", "KIS", "BINANCE"]
+SUPPORTED_EXCHANGES = ["OKX", "KIS", "BINANCE", "BYBIT"]
 
 
 def _norm_exchange(exchange: str | None) -> str:
@@ -28,6 +28,8 @@ def _norm_exchange(exchange: str | None) -> str:
         return "KIS"
     if ex in ("BINANCE.COM", "BINANCESPOT"):
         return "BINANCE"
+    if ex in ("BYBIT.COM", "BYBITSPOT"):
+        return "BYBIT"
     return ex
 
 
@@ -57,6 +59,9 @@ def get_connector(exchange: str) -> Optional["Connector"]:
     elif ex == "BINANCE":
         from .binance import BinanceConnector
         conn = BinanceConnector()
+    elif ex == "BYBIT":
+        from .bybit import BybitConnector
+        conn = BybitConnector()
 
     if conn is not None:
         _CONNECTOR_CACHE[ex] = conn
