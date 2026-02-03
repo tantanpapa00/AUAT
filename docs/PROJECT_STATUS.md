@@ -65,94 +65,96 @@
 
 ---
 
-# 6) 개발 일정 (12주)
+# 6) 개발 일정 (16주, v2)
+
+## 게이트(절대)
+- **Gate-OKX**: scripts/week4_regression.ps1 -FailOnContradiction PASS 유지(깨지면 즉시 원복)
+- **Gate-TV**: scripts/tv_template_regression.ps1 PASS 유지
+- **Gate-E-STOP**: E-STOP ON에서 send-now 차단 실측 유지
 
 ## 원칙
-- Day 단위 체크리스트가 SSOT의 "현재 위치"를 만든다. (완료/미완료는 API 실측/파일 증거로만)
-- OKX Week4 회귀 게이트(week4_regression.ps1 -FailOnContradiction PASS)를 절대 깨지 않는다.
-- KIS(한투)는 12주 계획 안에 Day 단위로 포함한다.
+- 완료/미완료는 PS 실측/파일/코드근거로만 판정. 주차 숫자보다 모듈 게이트 우선.
 - Hub 원칙(신호판단/추천/스크리닝/자동선정 X) 위반하는 기능은 일정에 넣지 않는다.
 - 선물(Futures)은 전면 미지원(설계/구현/QA 범위에서 제외).
 
-## Week 1: DONE
-Day 1~5: (기존 SSOT 동일, 삭제 없음)
+## Week 1~4: DONE (DB+UI 기본/OKX 루프/회귀 게이트 정착)
+- 증거: APPENDIX(week4_regression PASS), /tv accepted, poll-now filled, recover PASS
 
-## Week 2: DONE
-Day 1~5: (기존 SSOT 동일, 삭제 없음)
+## Week 5~6: DONE (OKX 커넥터 단일화 + KIS 착수/실측/회귀 기반)
+- 증거: KIS diag/home refresh_kis timestamp, kis_regression PASS 등
 
-## Week 3: DONE
-Day 1~5: (기존 SSOT 동일, 삭제 없음)
+## Week 7: DONE (KIS place_order/get_order 골격 + 라우팅 최소)
+- 증거: APPENDIX_LOG.md 실측 원문
 
-## Week 4: DONE (2026-01-30 KST 실측)
-Day 1~5: (기존 SSOT 동일, 삭제 없음)
+## Week 8: DONE (환불 방지 패키지 v1 + ShortMsg)
+- 포함: TV_TEMPLATE.md, /tv 검증 강화, 템플릿 생성 API, TV_WIZARD.md, tv_template_regression.ps1, ShortMsg
+- 증거: APPENDIX_LOG.md 2026-02-03 원문(회귀 PASS, connector-test OK)
 
-## Week 5: 커넥터 표준화(OKX 정리) + KIS 착수(스켈레톤) — DONE (2026-02-02 KST)
-Day 1: 커넥터 공통 인터페이스 정의(PlaceOrder/GetOrder/Balance/Markets) + 결과 타입 명세
-Day 2: OKX 호출 경로 "단일화" 고정(중복 def 방지 원칙 문서화) + 회귀 게이트 유지
-Day 3: main.py OKX 관련 "직접호출 흔적 제거/정리" (connector-only) + week4_regression PASS 유지
-Day 4: KIS 커넥터 스켈레톤 생성(인증/토큰/요청 래퍼 틀) + .env 키 목록만 추가(값 금지)
-Day 5: "다중 커넥터 선택" 최소 라우팅(계좌 exchange 필드 기반) 설계만(실주문 X) + 문서/grep 증거 남김
+## Week 9: 3종 제품 아키텍처 고정 + 구독/권한 뼈대 — IN PROGRESS
+Day 1: SSOT에 3종 역할/범위(사이트/PC/앱) + 허브/프리미엄 경계 확정 — DONE (2026-02-03)
+- 생성: docs/PRODUCT_SPEC.md (1-6 ~ 1-9)
+- 커넥터 팩토리 모듈화: app/connectors/__init__.py, scripts/connector_regression.ps1
+Day 2: 서버에 Auth 토큰 스펙(초안) + /api/subscription/me(스텁) 설계 — TODO
+Day 3: Plan/Entitlement 모델 확정(허브/프리미엄/심볼제한/로그보관) + 서버 응답형식 고정 — TODO
+Day 4: PC/앱에서 "실행 시 구독 동기화" 플로우 문서화(구현은 다음 주) — TODO
+Day 5: 회귀: 기존 Gate-OKX/Gate-TV/Gate-E-STOP 전부 PASS 확인 — TODO
 
-## Week 6: KIS 기본 실측(잔고/토큰/드라이런) + DB 매핑 초안 — DONE (2026-02-02 KST)
-Day 1: KIS 잔고 조회 실측 + 추가 환경변수 문서화
-Day 2: KIS 토큰 갱신/만료 핸들링 검증
-Day 3: 드라이런(DRY_RUN) 플래그 KIS 경로 적용 확인
-Day 4: DB 매핑 초안 (orders 테이블 KIS 컬럼 검토) — KIS 필요: kis_order_no/kis_order_date/kis_state
-Day 5: KIS 실측 회귀 테스트 작성 + 문서화 (scripts/kis_regression.ps1 PASS)
+## Week 10: 종합 UI v1(공통 데이터) — 타임라인/마커/성과 최소 — TODO
+Day 1: 이벤트(타임라인) 스키마 확정(order/signal/poll/error) + DB/로그 저장 방식 결정
+Day 2: API: GET /api/timeline?asset_id=...&limit=... (읽기) 구현 + PS 실측
+Day 3: API: 전광판(/api/home)에 "최근 이벤트 요약" 3~5개 추가 + PS 실측
+Day 4: UI(웹/PC 공용 기준): 타임라인 리스트 렌더(최소 HTML 또는 JSON 기반 뷰)
+Day 5: 회귀: Gate-OKX/Gate-TV PASS + timeline endpoint PASS
 
-## Week 7: KIS 주문/조회/체결추적 최소("MVP 루프") + "주식(국내/해외) 표준화" — DONE (2026-02-03 KST)
-Day 1: KIS place_order/get_order 구현
-Day 2: KIS 주문 테스트 엔드포인트 추가(국내/해외 공통) + 심볼 정규화 규칙 확정(6자리/티커)
-Day 3: KIS 체결 추적(polling) 구현 + 상태맵(kis_state→internal status) 고정
-Day 4: main.py에 KIS 경로 연결(send-now/poll-now 최소 루프) + 전광판 last_* 반영
-Day 5: KIS MVP 회귀 테스트(PowerShell) + 문서화(실측 원문 APPENDIX에 누적)
-- 추가: exchange_order_id 공통 필드, KIS get_balance_split/get_markets, Connector 팩토리 (2026-02-03)
+## Week 11: PC 프로그램(설정 본체) v1 — 키/계좌/전략/템플릿/로그 — TODO
+Day 1: PC 앱 기술선정 고정(Tauri/Electron/.NET 중 1) + 빌드/런 구조 문서화
+Day 2: PC: 계좌/키 등록 UI(입력/검증) + 로컬 암호화 저장(값 로그 금지)
+Day 3: PC: 템플릿 생성(assets/template, batch generate, shortmsg template) UI 연결
+Day 4: PC: 시스템 설정(E-STOP, DRY_RUN, submit/poll enable) UI 연결
+Day 5: 회귀: PC 조작 후 서버 API 상태 변화 실측 로그 누적
 
-## Week 8: 얼러트 메시지 "환불 방지 패키지"(기본/고급 모드) — DONE (2026-02-03)
-Day 1: 표준 TradingView 템플릿 1종(현물/주식 공용) 확정 + docs에 "복붙 예시" 추가 — DONE (2026-02-03)
-- 생성: docs/TV_TEMPLATE.md (OKX/KIS 공용 복붙 예시 포함)
-Day 2: /tv payload 검증 강화(필수필드/심볼/마켓/계좌 매칭) + 에러코드 표준화(환불 방지) — DONE (2026-02-03)
-- 추가: missing_side, invalid_side, missing_qty, invalid_qty 검증
-- 개선: 모든 에러 메시지 한글화 + 해결방법 안내
-Day 3: "템플릿 생성 API"(templates/tradingview 확장) — 계좌/자산/전략 선택하면 자동 생성 — DONE (2026-02-03)
-- GET /api/templates/tradingview/options (옵션 목록)
-- GET /api/assets/{asset_id}/template/tradingview (자산별 생성)
-- POST /api/templates/tradingview/generate (다중 일괄 생성)
-Day 4: (선택) 간단 Wizard 문서(스크린샷 없이 텍스트 기준) + 체크리스트(초보자용) — DONE (2026-02-03)
-- 생성: docs/TV_WIZARD.md (Phase 1~4 + FAQ + 체크리스트)
-Day 5: 회귀 스크립트 1개 추가(tv_template_regression.ps1) + PASS 기준 정의 — DONE (2026-02-03)
-- 생성: scripts/tv_template_regression.ps1 (8개 테스트 케이스)
-- PASS 기준: Template API + /tv 검증 에러코드 반환 확인
-- 추가: ShortMsg 기능 (2026-02-03)
-  * POST /api/shortmsg — ShortMsg 생성 (short_id 발급)
-  * GET /api/shortmsg/{short_id} — 조회
-  * GET /api/shortmsg/{short_id}/template/tradingview — TV 템플릿 생성
-  * /tv short_id 경로 — payload 기반 side/qty 정책 적용
-  * scripts/shortmsg_regression.ps1 — 회귀 테스트
+## Week 12: 앱(모바일) v1 — 관측/알림/E-STOP — TODO
+Day 1: 앱 기술선정 고정(Flutter/ReactNative 중 1) + 인증/토큰 저장 정책 문서화
+Day 2: 앱: 대시보드(계좌/자산/주문 상태 요약) 읽기 전용 화면
+Day 3: 앱: E-STOP ON/OFF 버튼 + 실측(차단 동작 확인)
+Day 4: 앱: 알림 설계(푸시/로컬) "어떤 이벤트에 알림을 보낼지" 확정
+Day 5: 회귀: 앱 경유 E-STOP 동작 + Gate-OKX/Gate-TV PASS
 
-## Week 9: Upbit Spot 착수(필요 시) + 멀티 커넥터 공통화 — IN PROGRESS
-Day 1: 커넥터 팩토리 모듈화 + 공통 테스트 엔드포인트 — DONE (2026-02-03)
-- app/connectors/__init__.py: get_connector, list_connectors, get_all_connectors
-- GET /api/diag/connector-all: 모든 커넥터 일괄 테스트
-- scripts/connector_regression.ps1: 커넥터 회귀 테스트
-- docs/CONNECTOR.md: 인터페이스 명세
-Day 2~5: (Upbit은 필요 시)
+## Week 13: 프리미엄 엔진 v0(신호판단 포함) — TODO
+> 단, 종목추천/자동선정/스크리너 금지 준수
+Day 1: 프리미엄 엔진 경계 정의(입력: 사용자 지정 asset, 출력: signal event) + 정책 문서화
+Day 2: 엔진 파라미터 스키마(프리미엄 설정) + 저장/버전/검증 규칙
+Day 3: 엔진 → 주문 파이프라인 연결("signal 생성"만, sizing/guard는 Hub 규칙 유지)
+Day 4: 회귀: 프리미엄 엔진 OFF/ON 전환 시 동작 차이 실측
+Day 5: 리스크: 오주문 방지/과도 신호 방지(쿨다운/일일제한) 기본 가드 적용
 
-## Week 10: 운영/관측/장애대응(M11) — TODO
-Day 1~5: (기존 SSOT 동일, 삭제 없음)
+## Week 14: 결제/구독 연동 v1 — 사이트 정본, PC/앱 entitlement 동기화 실구현 — TODO
+Day 1: 결제 프로바이더(Stripe/토스 등) 1개 선정 + 최소 플로우 문서화
+Day 2: /api/subscription/me 실구현 + 만료/업그레이드 반영
+Day 3: PC/앱: 실행 시 entitlement fetch + 기능 잠금/해제 적용
+Day 4: 환불/만료/다운그레이드 시나리오 테스트(PS 실측 + UI 반영)
+Day 5: 회귀: 기존 Gate + entitlement 시나리오 PASS
 
-## Week 11: 보안/키관리/2차인증 설계 고정 — TODO
-Day 1~5: (기존 SSOT 동일, 삭제 없음)
+## Week 15: 운영/관측/장애대응 v1 — 로그/리커버리/CS 대응 — TODO
+Day 1: 에러코드 카탈로그 정리(/tv 포함) + "환불 방지" 문구 고정
+Day 2: 주문/체결 상태모델 통합 점검(OKX/KIS) + terminal/retryable 규칙 확정
+Day 3: 리커버리(runbook) 문서화 + scripts 정리
+Day 4: 관리자/CS용 조회 API(읽기 전용) 최소 추가
+Day 5: 회귀 + 장애 시나리오 리허설(네트워크/키오류/잔고부족)
 
-## Week 12: 정리/리팩토링 최소 + 릴리즈 패키징/문서 — TODO
-Day 1~5: (기존 SSOT 동일, 삭제 없음)
+## Week 16: 릴리즈 패키징/문서/법적고지 최종 — "출시 가능한 1.0" — TODO
+Day 1: 설치/업데이트/다운로드(사이트) 플로우 정리
+Day 2: 온보딩 문서(PC 기준) + 앱 관측 가이드
+Day 3: 약관/면책/리스크 고지 문서 확정(사이트 반영)
+Day 4: 최종 회귀(OKX/KIS/TV/ShortMsg/구독/E-STOP) 전체 PASS
+Day 5: SSOT/APPENDIX 정리(증거 누락 없게), 릴리즈 태그 준비
 
 ---
 
 # 7) NEXT ACTION (3개)
-1) Week9 착수: Upbit Spot (필요 시) + 멀티 커넥터 공통화
-2) 회귀 게이트 유지 (week4_regression + kis_regression + tv_template_regression + shortmsg_regression)
-3) 작업 전 docs/AI_RULES.md 필독
+1) Week9 Day 2: Auth 토큰 스펙 + /api/subscription/me 스텁 설계
+2) 회귀 게이트 유지 (Gate-OKX + Gate-TV + Gate-E-STOP)
+3) 작업 전 docs/AI_RULES.md + docs/PRODUCT_SPEC.md 필독
 
 ---
 
