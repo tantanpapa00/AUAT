@@ -122,8 +122,10 @@ Day 4: 타임라인 HTML 뷰어 — DONE (2026-02-03)
 Day 5: 회귀 게이트 전체 PASS — DONE (2026-02-03)
 - Gate-OKX: PASS, Gate-TV: PASS, timeline: PASS
 
-## Week 11: PC 프로그램(설정 본체) v1 — 키/계좌/전략/템플릿/로그 — TODO
-Day 1: PC 앱 기술선정 고정(Tauri/Electron/.NET 중 1) + 빌드/런 구조 문서화
+## Week 11: PC 프로그램(설정 본체) v1 — 키/계좌/전략/템플릿/로그 — IN PROGRESS
+Day 1: PC 앱 기술선정 고정 + 빌드/런 구조 문서화 — DONE (2026-02-03)
+- 선정: Tauri (Rust + Web, 가벼움, 보안 우수)
+- 생성: docs/PC_APP_SPEC.md (아키텍처, 디렉토리 구조, 빌드/런, 보안)
 Day 2: PC: 계좌/키 등록 UI(입력/검증) + 로컬 암호화 저장(값 로그 금지)
 Day 3: PC: 템플릿 생성(assets/template, batch generate, shortmsg template) UI 연결
 Day 4: PC: 시스템 설정(E-STOP, DRY_RUN, submit/poll enable) UI 연결
@@ -168,9 +170,9 @@ Day 5: SSOT/APPENDIX 정리(증거 누락 없게), 릴리즈 태그 준비
 ---
 
 # 7) NEXT ACTION (3개)
-1) Week 11 Day 1: PC 앱 기술선정 고정 (Tauri/Electron/.NET 중 1) + 빌드/런 구조 문서화
+1) Week 11 Day 2: 계좌/키 등록 UI + 로컬 암호화 저장
 2) 회귀 게이트 유지 (Gate-OKX + Gate-TV + Gate-E-STOP)
-3) 작업 전 docs/AI_RULES.md 필독
+3) 작업 전 docs/AI_RULES.md + docs/PC_APP_SPEC.md 필독
 
 ---
 
