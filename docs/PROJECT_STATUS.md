@@ -122,6 +122,12 @@ Day 4: (선택) 간단 Wizard 문서(스크린샷 없이 텍스트 기준) + 체
 Day 5: 회귀 스크립트 1개 추가(tv_template_regression.ps1) + PASS 기준 정의 — DONE (2026-02-03)
 - 생성: scripts/tv_template_regression.ps1 (8개 테스트 케이스)
 - PASS 기준: Template API + /tv 검증 에러코드 반환 확인
+- 추가: ShortMsg 기능 (2026-02-03)
+  * POST /api/shortmsg — ShortMsg 생성 (short_id 발급)
+  * GET /api/shortmsg/{short_id} — 조회
+  * GET /api/shortmsg/{short_id}/template/tradingview — TV 템플릿 생성
+  * /tv short_id 경로 — payload 기반 side/qty 정책 적용
+  * scripts/shortmsg_regression.ps1 — 회귀 테스트
 
 ## Week 9: Upbit Spot 착수(필요 시) + 멀티 커넥터 공통화 — TODO
 Day 1~5: (OKX/KIS 구조 유지하면서 Upbit spot은 "필요 시"만)
@@ -139,7 +145,7 @@ Day 1~5: (기존 SSOT 동일, 삭제 없음)
 
 # 7) NEXT ACTION (3개)
 1) Week9 착수: Upbit Spot (필요 시) + 멀티 커넥터 공통화
-2) 회귀 게이트 유지 (week4_regression + kis_regression + tv_template_regression)
+2) 회귀 게이트 유지 (week4_regression + kis_regression + tv_template_regression + shortmsg_regression)
 3) 작업 전 docs/AI_RULES.md 필독
 
 ---

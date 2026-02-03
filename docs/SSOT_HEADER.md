@@ -11,7 +11,7 @@
 
 ## Quick Commands
 - Syntax: `python -m compileall app`
-- Gates: `scripts/week4_regression.ps1`, `scripts/kis_regression.ps1`, `scripts/tv_template_regression.ps1`
+- Gates: `week4_regression.ps1`, `kis_regression.ps1`, `tv_template_regression.ps1`, `shortmsg_regression.ps1`
 - Server: `scripts/run.ps1` / `scripts/stop.ps1`
 
 ## Scope Exclusions

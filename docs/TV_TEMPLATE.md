@@ -5,7 +5,41 @@
 
 ---
 
-## 1. 필수 필드
+## 0. ShortMsg 모드 (권장)
+
+> **초보자 권장**: ShortMsg를 사용하면 복잡한 설정 없이 `short_id` 하나로 모든 설정이 자동 적용됩니다.
+
+### ShortMsg 템플릿 (복붙용)
+```json
+{
+  "secret": "YOUR_TV_SECRET",
+  "alert_id": "{{timenow}}",
+  "symbol": "{{ticker}}",
+  "side": "{{strategy.order.action}}",
+  "qty": "{{strategy.order.contracts}}",
+  "short_id": "YOUR_SHORT_ID"
+}
+```
+
+### ShortMsg 생성 방법
+1. **API로 생성**: `POST /api/shortmsg`
+2. **short_id 받기**: 응답의 `short_id` 값 복사
+3. **템플릿에 적용**: 위 템플릿의 `YOUR_SHORT_ID` 교체
+4. **TradingView에 붙여넣기**: 끝!
+
+### ShortMsg payload 옵션
+| 옵션 | 값 | 설명 |
+|------|-----|------|
+| `exchange` | `OKX`, `KIS` | 거래소 |
+| `market` | `spot`, `stock` | 시장 |
+| `symbol` | 티커 | 거래 심볼 |
+| `side_policy` | `tv`, `force_buy`, `force_sell` | 매수/매도 결정 방식 |
+| `qty_policy` | `tv_qty`, `pct_available`, `fixed_quote` | 수량 결정 방식 |
+| `order_type` | `market`, `limit` | 주문 유형 |
+
+---
+
+## 1. 필수 필드 (기존 모드)
 
 | 필드 | 타입 | 설명 | 예시 |
 |------|------|------|------|
@@ -231,6 +265,10 @@ Content-Type: application/json
 | `asset_inactive` | 자산 비활성 | 자산 is_active 활성화 |
 | `ignored_duplicate` | 중복 요청 (정상) | alert_id 변경 또는 무시 |
 | `stopped` | E-STOP 활성화 | 관리자에게 E-STOP 해제 요청 |
+| `shortmsg_not_found` | short_id 미등록 | 올바른 short_id 확인 |
+| `shortmsg_inactive` | short_id 비활성 | ShortMsg 활성화 필요 |
+| `shortmsg_invalid_payload` | ShortMsg 설정 오류 | payload 검증 확인 |
+| `insufficient_balance` | 잔고 부족 | 가용 잔고 확인 |
 
 ---
 

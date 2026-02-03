@@ -1396,6 +1396,249 @@ def api_generate_template(payload: dict, db: Session = Depends(get_db)):
     return {"ok": True, "count": len(results), "results": results}
 
 
+# ============================================================
+# [ShortMsg] 짧은 메시지 템플릿 (환불 방지 패키지 v2)
+# ============================================================
+
+def _ensure_shortmsgs_table(db: Session):
+    """shortmsgs 테이블 생성 (없으면)."""
+    db.execute(text("""
+        CREATE TABLE IF NOT EXISTS shortmsgs (
+            id BIGSERIAL PRIMARY KEY,
+            short_id VARCHAR(16) NOT NULL UNIQUE,
+            name TEXT,
+            payload JSONB NOT NULL DEFAULT '{}',
+            is_active BOOLEAN NOT NULL DEFAULT TRUE,
+            note TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """))
+    # 인덱스 추가 (중복 방지)
+    try:
+        db.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS idx_shortmsgs_short_id ON shortmsgs(short_id)"))
+    except Exception:
+        pass
+    db.commit()
+
+
+def _generate_short_id(length: int = 8) -> str:
+    """URL-safe 짧은 ID 생성 (base62)."""
+    import uuid
+    import hashlib
+    chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    uid = uuid.uuid4().hex + str(datetime.now().timestamp())
+    h = hashlib.sha256(uid.encode()).hexdigest()
+    result = ""
+    num = int(h[:16], 16)
+    while len(result) < length:
+        result += chars[num % 62]
+        num //= 62
+    return result[:length]
+
+
+def _validate_shortmsg_payload(payload: dict) -> tuple[bool, str | None]:
+    """ShortMsg payload 검증. (ok, error_msg)"""
+    if not isinstance(payload, dict):
+        return False, "payload must be object"
+
+    exchange = payload.get("exchange")
+    if exchange not in ("OKX", "KIS"):
+        return False, f"invalid exchange: {exchange} (OKX/KIS만 지원)"
+
+    market = payload.get("market")
+    if market not in ("spot", "stock"):
+        return False, f"invalid market: {market} (spot/stock만 지원)"
+
+    symbol = payload.get("symbol")
+    if not symbol or not isinstance(symbol, str) or not symbol.strip():
+        return False, "symbol 필수"
+
+    side_policy = payload.get("side_policy", "tv")
+    if side_policy not in ("tv", "force_buy", "force_sell"):
+        return False, f"invalid side_policy: {side_policy}"
+
+    qty_policy = payload.get("qty_policy", "tv_qty")
+    if qty_policy not in ("tv_qty", "pct_available", "fixed_quote"):
+        return False, f"invalid qty_policy: {qty_policy}"
+
+    if qty_policy == "pct_available":
+        pct = payload.get("pct_available")
+        if pct is None or not isinstance(pct, (int, float)) or pct <= 0 or pct > 100:
+            return False, "pct_available: 0 < value <= 100 필요"
+
+    if qty_policy == "fixed_quote":
+        fq = payload.get("fixed_quote")
+        if fq is None or not isinstance(fq, (int, float)) or fq <= 0:
+            return False, "fixed_quote: 0보다 큰 값 필요"
+
+    order_type = payload.get("order_type", "market")
+    if order_type not in ("market", "limit"):
+        return False, f"invalid order_type: {order_type}"
+
+    return True, None
+
+
+@app.post("/api/shortmsg")
+def api_create_shortmsg(payload: dict, db: Session = Depends(get_db)):
+    """
+    ShortMsg 생성.
+    입력: { secret, name, is_active, payload: {...} }
+    출력: { ok, short_id, url }
+    """
+    _ensure_shortmsgs_table(db)
+
+    # secret 검증 (시스템 또는 전략 secret)
+    secret = payload.get("secret")
+    if not secret:
+        raise HTTPException(status_code=400, detail="missing: secret")
+
+    # 전략 secret 확인
+    strat = db.execute(text("""
+        SELECT id, tv_secret FROM strategies WHERE tv_secret = :s LIMIT 1
+    """), {"s": str(secret)}).mappings().first()
+    if not strat:
+        raise HTTPException(status_code=401, detail="invalid secret")
+
+    name = payload.get("name", "")
+    is_active = bool(payload.get("is_active", True))
+    note = payload.get("note")
+    inner_payload = payload.get("payload")
+
+    if not inner_payload:
+        raise HTTPException(status_code=400, detail="missing: payload")
+
+    # payload 검증
+    valid, err = _validate_shortmsg_payload(inner_payload)
+    if not valid:
+        raise HTTPException(status_code=400, detail=f"payload 검증 실패: {err}")
+
+    # short_id 생성 (충돌 시 재시도)
+    for _ in range(5):
+        short_id = _generate_short_id(8)
+        exists = db.execute(text("SELECT 1 FROM shortmsgs WHERE short_id=:s"), {"s": short_id}).first()
+        if not exists:
+            break
+    else:
+        raise HTTPException(status_code=500, detail="short_id 생성 실패 (재시도 초과)")
+
+    import json as _json
+    db.execute(text("""
+        INSERT INTO shortmsgs (short_id, name, payload, is_active, note, created_at, updated_at)
+        VALUES (:short_id, :name, :payload::jsonb, :is_active, :note, NOW(), NOW())
+    """), {
+        "short_id": short_id,
+        "name": name,
+        "payload": _json.dumps(inner_payload, ensure_ascii=False),
+        "is_active": is_active,
+        "note": note,
+    })
+    db.commit()
+
+    return {
+        "ok": True,
+        "short_id": short_id,
+        "url": f"/api/shortmsg/{short_id}",
+    }
+
+
+@app.get("/api/shortmsg/{short_id}")
+def api_get_shortmsg(short_id: str, db: Session = Depends(get_db)):
+    """ShortMsg 조회."""
+    _ensure_shortmsgs_table(db)
+
+    row = db.execute(text("""
+        SELECT short_id, name, payload, is_active, note, created_at, updated_at
+        FROM shortmsgs WHERE short_id = :s
+    """), {"s": short_id}).mappings().first()
+
+    if not row:
+        raise HTTPException(status_code=404, detail=f"shortmsg_not_found: {short_id}")
+
+    return {
+        "ok": True,
+        "short_id": row["short_id"],
+        "name": row["name"],
+        "is_active": row["is_active"],
+        "payload": row["payload"],
+        "note": row["note"],
+        "created_at": str(row["created_at"]) if row["created_at"] else None,
+        "updated_at": str(row["updated_at"]) if row["updated_at"] else None,
+    }
+
+
+@app.get("/api/shortmsg")
+def api_list_shortmsgs(db: Session = Depends(get_db)):
+    """ShortMsg 목록 조회."""
+    _ensure_shortmsgs_table(db)
+
+    rows = db.execute(text("""
+        SELECT short_id, name, is_active, created_at, updated_at
+        FROM shortmsgs
+        ORDER BY id DESC
+        LIMIT 100
+    """)).mappings().all()
+
+    return {
+        "ok": True,
+        "count": len(rows),
+        "items": [dict(r) for r in rows],
+    }
+
+
+@app.get("/api/shortmsg/{short_id}/template/tradingview")
+def api_shortmsg_template_tradingview(short_id: str, db: Session = Depends(get_db)):
+    """
+    ShortMsg용 TradingView 템플릿 생성.
+    short_id가 모든 설정을 담고 있으므로 TV 변수를 최소화.
+    """
+    _ensure_shortmsgs_table(db)
+
+    row = db.execute(text("""
+        SELECT short_id, name, payload, is_active
+        FROM shortmsgs WHERE short_id = :s
+    """), {"s": short_id}).mappings().first()
+
+    if not row:
+        raise HTTPException(status_code=404, detail=f"shortmsg_not_found: {short_id}")
+
+    if not row["is_active"]:
+        raise HTTPException(status_code=400, detail="shortmsg 비활성화됨")
+
+    payload = row["payload"]
+
+    # 연결된 전략의 tv_secret 조회 (exchange 기반으로 첫 번째 활성 전략)
+    # 실제로는 payload에 strategy_id를 포함하거나 별도 조회 필요
+    # 여기서는 첫 활성 전략 사용
+    strat = db.execute(text("""
+        SELECT id, tv_secret FROM strategies WHERE is_active = true ORDER BY id LIMIT 1
+    """)).mappings().first()
+
+    if not strat or not strat["tv_secret"]:
+        raise HTTPException(status_code=400, detail="활성 전략 없음 (tv_secret 필요)")
+
+    template = {
+        "secret": strat["tv_secret"],
+        "alert_id": "{{timenow}}",
+        "symbol": "{{ticker}}",
+        "side": "{{strategy.order.action}}",
+        "qty": "{{strategy.order.contracts}}",
+        "short_id": short_id,
+    }
+
+    import json as _json
+    template_json = _json.dumps(template, ensure_ascii=False, indent=2)
+
+    return {
+        "ok": True,
+        "short_id": short_id,
+        "name": row["name"],
+        "template": template,
+        "template_json": template_json,
+        "usage": "TradingView 얼러트 Message에 template_json을 복붙. short_id가 설정을 대체함.",
+    }
+
+
 # ---- Pine input parser API ----
 # @app.post("/api/pine/parse-inputs")
 # def api_pine_parse_inputs(payload: dict):
@@ -2412,6 +2655,182 @@ async def tv_webhook(request: Request, db: Session = Depends(get_db)):
         # [E-STOP_V1] if ON, block all execution paths immediately
         if _is_estop_on(db):
             return _tv_json(False, "stopped", "E-STOP 활성화됨: 관리자에게 문의", estop=True)
+
+        # ============================================================
+        # [ShortMsg] short_id 경로 (기존 로직보다 우선)
+        # ============================================================
+        short_id = payload.get("short_id") if isinstance(payload, dict) else None
+        shortmsg_used = False
+
+        if short_id:
+            try:
+                _ensure_shortmsgs_table(db)
+                sm_row = db.execute(text("""
+                    SELECT short_id, name, payload, is_active
+                    FROM shortmsgs WHERE short_id = :s
+                """), {"s": str(short_id).strip()}).mappings().first()
+
+                if not sm_row:
+                    return _tv_json(False, "shortmsg_not_found", f"short_id '{short_id}' 미등록")
+
+                if not sm_row["is_active"]:
+                    return _tv_json(False, "shortmsg_inactive", f"short_id '{short_id}' 비활성화됨")
+
+                sm_payload = sm_row["payload"]
+                if not isinstance(sm_payload, dict):
+                    import json as _json
+                    sm_payload = _json.loads(sm_payload) if isinstance(sm_payload, str) else {}
+
+                # payload 유효성 검증
+                valid, err = _validate_shortmsg_payload(sm_payload)
+                if not valid:
+                    return _tv_json(False, "shortmsg_invalid_payload", f"payload 오류: {err}")
+
+                # ShortMsg에서 값 추출
+                sm_exchange = sm_payload.get("exchange")  # OKX / KIS
+                sm_market = sm_payload.get("market", "spot")  # spot / stock
+                sm_symbol = sm_payload.get("symbol")
+                sm_side_policy = sm_payload.get("side_policy", "tv")
+                sm_qty_policy = sm_payload.get("qty_policy", "tv_qty")
+                sm_order_type = sm_payload.get("order_type", "market")
+
+                # symbol 덮어쓰기
+                symbol = sm_symbol
+
+                # side 정책 적용
+                if sm_side_policy == "force_buy":
+                    side = "buy"
+                elif sm_side_policy == "force_sell":
+                    side = "sell"
+                # else: TV에서 온 side 사용
+
+                # qty 정책 적용
+                if sm_qty_policy == "tv_qty":
+                    # TV에서 온 qty 사용 (기존과 동일)
+                    pass
+                elif sm_qty_policy == "pct_available":
+                    # 가용자금 비중 계산
+                    pct = sm_payload.get("pct_available", 10)
+                    try:
+                        conn = get_connector(sm_exchange)
+                        if conn:
+                            ccy = "USDT" if sm_exchange == "OKX" else "KRW"
+                            bs = conn.get_balance_split(ccy=ccy)
+                            if bs and bs.trading > 0:
+                                # TODO: 현재가 조회 필요 (일단 qty를 비율로 계산)
+                                qty = bs.trading * (pct / 100)
+                            else:
+                                return _tv_json(False, "insufficient_balance", "가용잔고 조회 실패 또는 잔고 부족")
+                        else:
+                            return _tv_json(False, "connector_not_found", f"커넥터 없음: {sm_exchange}")
+                    except Exception as e:
+                        return _tv_json(False, "balance_error", f"잔고 조회 오류: {e}")
+                elif sm_qty_policy == "fixed_quote":
+                    # 고정금액 (quote) → 수량 계산 필요
+                    fixed = sm_payload.get("fixed_quote", 0)
+                    # TODO: 현재가 조회 후 qty = fixed / price
+                    # 일단 fixed를 qty로 사용 (추후 개선)
+                    qty = fixed
+
+                # market 덮어쓰기 (spot/stock)
+                market = sm_market
+
+                # secret 검증: ShortMsg 사용 시에도 secret 필요
+                if not secret:
+                    return _tv_json(False, "missing_secret", "secret 누락 (short_id 사용 시에도 필요)")
+
+                # secret으로 strategy 매칭
+                resolved2 = _resolve_strategy_by_secret(db, str(secret))
+                if not resolved2:
+                    return _tv_json(False, "secret_invalid", "secret 미등록")
+                strategy_id = int(resolved2["id"])
+
+                # asset 매칭 (exchange 기반 계좌 찾기)
+                # exchange에 맞는 계좌의 asset 조회
+                asset_row = db.execute(text("""
+                    SELECT a.id, a.account_id, a.strategy_id, a.symbol, a.market, a.is_active,
+                           ac.exchange
+                    FROM assets a
+                    JOIN accounts ac ON ac.id = a.account_id
+                    WHERE a.strategy_id = :st
+                      AND a.symbol = :sym
+                      AND a.market = :mkt
+                      AND ac.exchange = :ex
+                      AND a.is_active = true
+                    ORDER BY a.id
+                    LIMIT 1
+                """), {"st": strategy_id, "sym": symbol, "mkt": market, "ex": sm_exchange}).mappings().first()
+
+                if not asset_row:
+                    return _tv_json(False, "asset_not_found",
+                        f"자산 미등록: exchange={sm_exchange}, symbol={symbol}, market={market}")
+
+                asset_id = int(asset_row["id"])
+                account_id = int(asset_row["account_id"])
+
+                # side/qty 최종 검증
+                if not side:
+                    return _tv_json(False, "missing_side", "side 결정 불가 (TV 또는 정책)")
+                side_lower = str(side).strip().lower()
+                if side_lower not in ("buy", "sell"):
+                    return _tv_json(False, "invalid_side", f"invalid side: {side}")
+
+                if qty is None:
+                    return _tv_json(False, "missing_qty", "qty 결정 불가 (TV 또는 정책)")
+                try:
+                    qty_float = float(qty)
+                    if qty_float <= 0:
+                        return _tv_json(False, "invalid_qty", f"qty <= 0: {qty}")
+                except (ValueError, TypeError):
+                    return _tv_json(False, "invalid_qty", f"qty 숫자 아님: {qty}")
+
+                # orders 생성 (short_id 포함)
+                try:
+                    created, order_id, idem_key = _create_order_if_new(
+                        db,
+                        account_id=account_id,
+                        strategy_id=strategy_id,
+                        config_id=None,
+                        config_hash=None,
+                        asset_id=asset_id,
+                        alert_id=str(alert_id) if alert_id else None,
+                        symbol=symbol,
+                        market=market,
+                        side=side_lower,
+                        qty=qty_float,
+                        order_type=sm_order_type,
+                        payload=payload,
+                        short_id=short_id,  # 추가
+                    )
+
+                    # broker send
+                    if created and order_id is not None:
+                        try:
+                            _maybe_send_to_broker(db, order_id=int(order_id))
+                        except Exception:
+                            pass
+
+                except Exception as e:
+                    return _tv_json(False, "orders_insert_failed", f"주문 생성 실패: {e}")
+
+                if not created:
+                    return _tv_json(True, "ignored_duplicate", f"중복: idem_key={idem_key}",
+                        short_id=short_id)
+
+                return _tv_json(True, "accepted", None,
+                    short_id=short_id,
+                    order_id=order_id,
+                    symbol=symbol,
+                    side=side_lower,
+                    qty=qty_float,
+                )
+
+            except Exception as e:
+                return _tv_json(False, "shortmsg_error", f"short_id 처리 오류: {e}")
+
+        # ============================================================
+        # [기존 로직] short_id 없으면 기존 config_hash/secret 경로
+        # ============================================================
 
         if not secret:
             code = "missing_secret"
@@ -3826,7 +4245,8 @@ def _resolve_asset(db, strategy_id: int, symbol: str, market: str = "spot", acco
     """), {"st": strategy_id, "sym": symbol, "m": market}).mappings().first()
     return row
 def _create_order_if_new(db, account_id, strategy_id, config_id, config_hash,
-                         asset_id, alert_id, symbol, market, side, qty, order_type, payload):
+                         asset_id, alert_id, symbol, market, side, qty, order_type, payload,
+                         short_id=None):
     _ensure_orders_table(db)
     idem_key = _mk_idem_key(account_id, strategy_id, config_id, asset_id, alert_id, symbol, market, side, qty, order_type)
 
@@ -3844,7 +4264,7 @@ def _create_order_if_new(db, account_id, strategy_id, config_id, config_hash,
                 alert_id, symbol, market, side, qty, order_type,
                 idem_key, dedup_key,
                 status, reason, okx_order_id, okx_clord_id, filled_qty, avg_px, okx_state, submit_status, exch_status, submit_err, exch_err, next_check_at, check_count, submit_try_count, next_submit_at, last_checked_at,
-                payload_json
+                payload_json, short_id
             )
             VALUES(
                 :created_at, :updated_at,
@@ -3852,7 +4272,7 @@ def _create_order_if_new(db, account_id, strategy_id, config_id, config_hash,
                 :alert_id, :symbol, :market, :side, :qty, COALESCE(:order_type,'market'),
                 :idem_key, :dedup_key,
                 :status, :reason, :okx_order_id, :okx_clord_id, :filled_qty, :avg_px, :okx_state, :submit_status, :exch_status, :submit_err, :exch_err, :next_check_at, :check_count, :submit_try_count, :next_submit_at, :last_checked_at,
-                :payload_json
+                :payload_json, :short_id
             )
         """), {
             "created_at": _now_kst_iso(),
@@ -3872,6 +4292,7 @@ def _create_order_if_new(db, account_id, strategy_id, config_id, config_hash,
             "dedup_key": idem_key,   # ✅ 중요: dedup_key unique 인덱스가 있어도 중복 ''로 터지지 않게
             "status": "queued",
             "reason": None,
+            "short_id": short_id,
             "okx_order_id": None,
             "okx_clord_id": None,
             "filled_qty": None,
@@ -5290,6 +5711,9 @@ def _ensure_orders_table_v6(db):
 
         # Week7 Day3: exchange 컬럼 추가 (KIS/OKX 구분용)
         "ALTER TABLE orders ADD COLUMN IF NOT EXISTS exchange TEXT",
+
+        # ShortMsg: short_id 컬럼 추가
+        "ALTER TABLE orders ADD COLUMN IF NOT EXISTS short_id TEXT",
     ]
 
     for s in stmts:

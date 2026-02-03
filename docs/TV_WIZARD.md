@@ -5,6 +5,40 @@
 
 ---
 
+## Quick Start: ShortMsg 모드 (초보자 권장)
+
+> **가장 쉬운 방법**: ShortMsg를 사용하면 복잡한 설정 없이 3단계로 완료!
+
+### Step 1: ShortMsg 생성
+```bash
+POST /api/shortmsg
+{
+  "secret": "YOUR_TV_SECRET",
+  "name": "내 OKX 매매",
+  "payload": {
+    "exchange": "OKX",
+    "market": "spot",
+    "symbol": "ETH-USDT",
+    "side_policy": "tv",
+    "qty_policy": "tv_qty"
+  }
+}
+```
+→ 응답: `{ "ok": true, "short_id": "A1B2C3D4" }`
+
+### Step 2: 템플릿 복사
+```bash
+GET /api/shortmsg/A1B2C3D4/template/tradingview
+```
+→ `template_json` 값을 복사
+
+### Step 3: TradingView에 붙여넣기
+1. 얼러트 생성 → Webhook URL: `http://YOUR_SERVER:8000/tv`
+2. Message에 `template_json` 붙여넣기
+3. 저장 → 끝!
+
+---
+
 ## 체크리스트 (시작 전 확인)
 
 시작하기 전에 아래 항목을 모두 확인하세요:
