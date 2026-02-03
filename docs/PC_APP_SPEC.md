@@ -193,19 +193,137 @@ fn save_api_key(service: &str, username: &str, key: &str) -> Result<()> {
 
 ---
 
-# 7) 구현 계획
+# 7) Day 2 상세: 계좌/키 등록 (Week 11 Day 2)
+
+## 7-1) UI 구성 (Accounts.vue)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  계좌 관리                                        [+ 추가]  │
+├─────────────────────────────────────────────────────────────┤
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │ okx-main (OKX)                           [활성] [편집] │
+│  │ API Key: ****d38                                    │    │
+│  │ 마지막 헬스체크: 2026-02-03 14:30                    │    │
+│  └─────────────────────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │ kis-vps (KIS)                          [비활성] [편집] │
+│  │ API Key: ****abc                                    │    │
+│  └─────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## 7-2) Tauri 커맨드 (Rust)
+
+```rust
+// src/commands/keys.rs
+
+use keyring::Entry;
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
+pub struct AccountKeys {
+    pub api_key: String,
+    pub api_secret: String,
+    pub passphrase: Option<String>,
+}
+
+#[tauri::command]
+pub fn save_account_keys(
+    account_name: String,
+    exchange: String,
+    keys: AccountKeys
+) -> Result<(), String> {
+    let service = format!("bbooster-{}", exchange.to_lowercase());
+
+    // API Key 저장
+    let key_entry = Entry::new(&service, &format!("{}_key", account_name))
+        .map_err(|e| e.to_string())?;
+    key_entry.set_password(&keys.api_key).map_err(|e| e.to_string())?;
+
+    // API Secret 저장
+    let secret_entry = Entry::new(&service, &format!("{}_secret", account_name))
+        .map_err(|e| e.to_string())?;
+    secret_entry.set_password(&keys.api_secret).map_err(|e| e.to_string())?;
+
+    // Passphrase 저장 (OKX만)
+    if let Some(pass) = keys.passphrase {
+        let pass_entry = Entry::new(&service, &format!("{}_passphrase", account_name))
+            .map_err(|e| e.to_string())?;
+        pass_entry.set_password(&pass).map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_account_keys(
+    account_name: String,
+    exchange: String
+) -> Result<AccountKeys, String> {
+    let service = format!("bbooster-{}", exchange.to_lowercase());
+
+    let key_entry = Entry::new(&service, &format!("{}_key", account_name))
+        .map_err(|e| e.to_string())?;
+    let secret_entry = Entry::new(&service, &format!("{}_secret", account_name))
+        .map_err(|e| e.to_string())?;
+
+    let api_key = key_entry.get_password().map_err(|e| e.to_string())?;
+    let api_secret = secret_entry.get_password().map_err(|e| e.to_string())?;
+
+    // Passphrase는 optional
+    let passphrase = Entry::new(&service, &format!("{}_passphrase", account_name))
+        .ok()
+        .and_then(|e| e.get_password().ok());
+
+    Ok(AccountKeys { api_key, api_secret, passphrase })
+}
+
+#[tauri::command]
+pub fn delete_account_keys(account_name: String, exchange: String) -> Result<(), String> {
+    let service = format!("bbooster-{}", exchange.to_lowercase());
+
+    // 모든 키 삭제
+    for suffix in ["key", "secret", "passphrase"] {
+        if let Ok(entry) = Entry::new(&service, &format!("{}_{}", account_name, suffix)) {
+            let _ = entry.delete_credential();
+        }
+    }
+
+    Ok(())
+}
+```
+
+## 7-3) API 연동
+
+| 작업 | Tauri 커맨드 | 서버 API |
+|------|--------------|----------|
+| 계좌 목록 조회 | - | GET /api/accounts |
+| 계좌 등록 | save_account_keys | POST /api/accounts |
+| 키 검증 | - | GET /api/diag/okx-preflight, /api/diag/kis-preflight |
+
+## 7-4) 보안 체크리스트
+
+- [x] OS 자격증명 관리자 사용 (Windows Credential Manager)
+- [x] 키 값 UI에 마스킹 (****d38)
+- [x] 키 값 로그 출력 금지
+- [x] 메모리에서 키 사용 후 즉시 삭제
+
+---
+
+# 8) 구현 계획
 
 | Day | 작업 | 상태 |
 |-----|------|------|
 | Day 1 | 기술선정 + 빌드/런 구조 문서화 | DONE |
-| Day 2 | 계좌/키 등록 UI + 암호화 저장 | TODO |
+| Day 2 | 계좌/키 등록 UI + 암호화 저장 | DONE (spec) |
 | Day 3 | 템플릿 생성 UI 연결 | TODO |
 | Day 4 | 시스템 설정 UI 연결 | TODO |
 | Day 5 | 회귀 테스트 + 실측 로그 | TODO |
 
 ---
 
-# 8) 참조
+# 9) 참조
 
 - [Tauri 공식 문서](https://tauri.app/v1/guides/)
 - [Tauri + Vue 예제](https://github.com/tauri-apps/tauri/tree/dev/examples)

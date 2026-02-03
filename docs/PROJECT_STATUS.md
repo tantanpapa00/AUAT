@@ -126,7 +126,8 @@ Day 5: 회귀 게이트 전체 PASS — DONE (2026-02-03)
 Day 1: PC 앱 기술선정 고정 + 빌드/런 구조 문서화 — DONE (2026-02-03)
 - 선정: Tauri (Rust + Web, 가벼움, 보안 우수)
 - 생성: docs/PC_APP_SPEC.md (아키텍처, 디렉토리 구조, 빌드/런, 보안)
-Day 2: PC: 계좌/키 등록 UI(입력/검증) + 로컬 암호화 저장(값 로그 금지)
+Day 2: 계좌/키 등록 UI + 로컬 암호화 저장 — DONE (2026-02-03)
+- PC_APP_SPEC.md 7) Day 2 상세: UI 구성, Tauri 커맨드 (Rust), 보안 체크리스트
 Day 3: PC: 템플릿 생성(assets/template, batch generate, shortmsg template) UI 연결
 Day 4: PC: 시스템 설정(E-STOP, DRY_RUN, submit/poll enable) UI 연결
 Day 5: 회귀: PC 조작 후 서버 API 상태 변화 실측 로그 누적
@@ -170,7 +171,7 @@ Day 5: SSOT/APPENDIX 정리(증거 누락 없게), 릴리즈 태그 준비
 ---
 
 # 7) NEXT ACTION (3개)
-1) Week 11 Day 2: 계좌/키 등록 UI + 로컬 암호화 저장
+1) Week 11 Day 3: 템플릿 생성 UI 연결
 2) 회귀 게이트 유지 (Gate-OKX + Gate-TV + Gate-E-STOP)
 3) 작업 전 docs/AI_RULES.md + docs/PC_APP_SPEC.md 필독
 
