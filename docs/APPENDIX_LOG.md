@@ -374,3 +374,28 @@ $ python -m compileall app
 Compiling 'app\\models.py'...
 ```
 
+
+# 2026-02-03 15:30:00 +09:00 — Week 10 Day 2: GET /api/timeline 구현
+
+## /api/timeline 테스트
+```
+$ curl -s "http://127.0.0.1:8000/api/timeline?limit=5"
+{"ok":true,"items":[
+  {"id":191,"event_type":"order_sent","asset_id":3,"order_id":191,"summary":"ETH-USDT 주문 전송",...},
+  {"id":190,"event_type":"order_sent","asset_id":3,"order_id":190,"summary":"ETH-USDT 주문 전송",...},
+  ...
+],"total":144,"limit":5,"offset":0}
+
+$ curl -s "http://127.0.0.1:8000/api/timeline?asset_id=3&limit=3"
+{"ok":true,"items":[...],"total":115,"limit":3,"offset":0}
+```
+
+## 구현 내용
+- EventType Enum: signal, order_created, order_sent, order_failed, order_filled, ...
+- TimelineItem, TimelineResponse Pydantic 모델
+- Fallback: events 테이블 없으면 orders에서 이벤트 생성
+
+## 게이트 유지 확인
+- week4_regression: PASS
+- tv_template_regression: PASS
+

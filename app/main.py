@@ -6062,3 +6062,180 @@ def api_subscription_me(request: Request):
         expires_at="2026-03-03T00:00:00Z",
         entitlements=PLAN_DEFAULTS[PlanType.HUB]
     ).model_dump()
+
+
+# =============================================================================
+# Timeline / Events (Week 10 Day 2)
+# SSOT: docs/TIMELINE_SPEC.md
+# =============================================================================
+
+class EventType(str, Enum):
+    """이벤트 타입 (SSOT: TIMELINE_SPEC.md 2)"""
+    SIGNAL = "signal"
+    ORDER_CREATED = "order_created"
+    ORDER_SENT = "order_sent"
+    ORDER_FAILED = "order_failed"
+    ORDER_FILLED = "order_filled"
+    ORDER_PARTIAL = "order_partial"
+    ORDER_CANCELED = "order_canceled"
+    POLL = "poll"
+    ERROR = "error"
+    ESTOP_ON = "estop_on"
+    ESTOP_OFF = "estop_off"
+
+
+class TimelineItem(BaseModel):
+    """타임라인 아이템"""
+    id: int
+    event_type: str
+    asset_id: Optional[int] = None
+    order_id: Optional[int] = None
+    account_id: Optional[int] = None
+    summary: str
+    detail: Optional[dict] = None
+    created_at: str
+
+
+class TimelineResponse(BaseModel):
+    """타임라인 응답"""
+    ok: Literal[True] = True
+    items: list[TimelineItem]
+    total: int
+    limit: int
+    offset: int
+
+
+@app.get("/api/timeline")
+def api_timeline(
+    asset_id: Optional[int] = Query(None, description="자산 ID 필터"),
+    order_id: Optional[int] = Query(None, description="주문 ID 필터"),
+    account_id: Optional[int] = Query(None, description="계좌 ID 필터"),
+    event_type: Optional[str] = Query(None, description="이벤트 타입 필터"),
+    limit: int = Query(20, ge=1, le=100, description="최대 개수"),
+    offset: int = Query(0, ge=0, description="건너뛸 개수"),
+    db: Session = Depends(get_db)
+):
+    """
+    타임라인(이벤트) 조회 API
+    SSOT: docs/TIMELINE_SPEC.md 6-1
+
+    NOTE: Week 10 Day 2 - 기본 구현
+    실제 events 테이블이 없으므로 orders 테이블에서 이벤트 생성
+    """
+    from .models import Event
+
+    # events 테이블 존재 여부 확인 시도
+    try:
+        # 실제 events 테이블에서 조회 시도
+        query = db.query(Event)
+
+        if asset_id is not None:
+            query = query.filter(Event.asset_id == asset_id)
+        if order_id is not None:
+            query = query.filter(Event.order_id == order_id)
+        if account_id is not None:
+            query = query.filter(Event.account_id == account_id)
+        if event_type is not None:
+            query = query.filter(Event.event_type == event_type)
+
+        total = query.count()
+        rows = query.order_by(Event.created_at.desc()).offset(offset).limit(limit).all()
+
+        items = [
+            TimelineItem(
+                id=row.id,
+                event_type=row.event_type,
+                asset_id=row.asset_id,
+                order_id=row.order_id,
+                account_id=row.account_id,
+                summary=row.summary,
+                detail=row.detail,
+                created_at=row.created_at.isoformat() if row.created_at else ""
+            )
+            for row in rows
+        ]
+
+        return TimelineResponse(
+            items=items,
+            total=total,
+            limit=limit,
+            offset=offset
+        ).model_dump()
+
+    except Exception:
+        # events 테이블이 없으면 orders 테이블에서 이벤트 생성 (fallback)
+        # Week 10 완료 후 마이그레이션으로 events 테이블 생성 예정
+        db.rollback()  # 트랜잭션 롤백 필수
+        from sqlalchemy import text
+
+        # orders 테이블에서 최근 주문을 이벤트로 변환
+        sql = text("""
+            SELECT
+                o.id,
+                o.asset_id,
+                o.status,
+                o.submit_status,
+                o.submit_err,
+                o.created_at,
+                a.symbol
+            FROM orders o
+            LEFT JOIN assets a ON o.asset_id = a.id
+            WHERE 1=1
+            AND (:asset_id IS NULL OR o.asset_id = :asset_id)
+            AND (:order_id IS NULL OR o.id = :order_id)
+            ORDER BY o.created_at DESC
+            LIMIT :limit OFFSET :offset
+        """)
+
+        rows = db.execute(sql, {
+            "asset_id": asset_id,
+            "order_id": order_id,
+            "limit": limit,
+            "offset": offset
+        }).fetchall()
+
+        # 전체 개수
+        count_sql = text("""
+            SELECT COUNT(*) FROM orders
+            WHERE 1=1
+            AND (:asset_id IS NULL OR asset_id = :asset_id)
+            AND (:order_id IS NULL OR id = :order_id)
+        """)
+        total = db.execute(count_sql, {
+            "asset_id": asset_id,
+            "order_id": order_id
+        }).scalar() or 0
+
+        items = []
+        for row in rows:
+            # 상태에 따라 이벤트 타입 결정
+            if row.status == "sent":
+                evt_type = "order_sent"
+                summary = f"{row.symbol or 'N/A'} 주문 전송"
+            elif row.status == "filled":
+                evt_type = "order_filled"
+                summary = f"{row.symbol or 'N/A'} 체결 완료"
+            elif row.status == "failed":
+                evt_type = "order_failed"
+                summary = f"{row.symbol or 'N/A'} 주문 실패"
+            else:
+                evt_type = "order_created"
+                summary = f"{row.symbol or 'N/A'} 주문 생성"
+
+            items.append(TimelineItem(
+                id=row.id,
+                event_type=evt_type,
+                asset_id=row.asset_id,
+                order_id=row.id,
+                account_id=None,
+                summary=summary,
+                detail={"status": row.status, "submit_status": row.submit_status, "error": row.submit_err},
+                created_at=row.created_at.isoformat() if row.created_at else ""
+            ))
+
+        return TimelineResponse(
+            items=items,
+            total=total,
+            limit=limit,
+            offset=offset
+        ).model_dump()
