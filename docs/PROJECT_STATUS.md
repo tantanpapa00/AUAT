@@ -65,12 +65,22 @@
 
 ---
 
-# 6) 개발 일정 (16주, v2)
+# 6) 개발 일정 (18주, v5) — 순서/의존관계 재정렬(거래소→프리미엄→앱→커스텀→라이센스→릴리즈)
+
+## 공통 고정(반드시)
+- 차트는 TradingView embed(WebView) 방식(A) 1순위. 우리는 차트 개발하지 않는다.
+- 근거 표시는 우리 UI(타임라인 패널): reason_code/reason_text/snapshot_id 필수.
+- Premium/Custom 권장 TF: 15분봉 이상(1~5분봉은 슬리피지/체결괴리 경고).
+- Custom은 복잡도 제한 + Rule Lint(OK/WARN/BLOCK) 필수.
+- 거래소는 Spot만 지원. 선물(Futures)/레버리지 전면 미지원.
 
 ## 게이트(절대)
 - **Gate-OKX**: scripts/week4_regression.ps1 -FailOnContradiction PASS 유지(깨지면 즉시 원복)
 - **Gate-TV**: scripts/tv_template_regression.ps1 PASS 유지
 - **Gate-E-STOP**: E-STOP ON에서 send-now 차단 실측 유지
+- **Gate-BINANCE**: scripts/binance_regression.ps1 PASS 유지(Week 12~13에 생성)
+- **Gate-BYBIT**: scripts/bybit_regression.ps1 PASS 유지(Week 12~13에 생성)
+- **Gate-UPBIT**: scripts/upbit_regression.ps1 PASS 유지(Week 13에 생성)
 
 ## 원칙
 - 완료/미완료는 PS 실측/파일/코드근거로만 판정. 주차 숫자보다 모듈 게이트 우선.
@@ -136,48 +146,62 @@ Day 5: 회귀: PC 조작 후 서버 API 상태 변화 실측 로그 누적 — D
 - 증거: APPENDIX_LOG.md 2026-02-03 회귀 게이트 전체 PASS
 - Gate-TV: PASS, Gate-E-STOP: PASS, Gate-OKX: PASS, Connector: PASS
 
-## Week 12: 앱(모바일) v1 — 관측/알림/E-STOP — TODO
-Day 1: 앱 기술선정 고정(Flutter/ReactNative 중 1) + 인증/토큰 저장 정책 문서화
-Day 2: 앱: 대시보드(계좌/자산/주문 상태 요약) 읽기 전용 화면
-Day 3: 앱: E-STOP ON/OFF 버튼 + 실측(차단 동작 확인)
-Day 4: 앱: 알림 설계(푸시/로컬) "어떤 이벤트에 알림을 보낼지" 확정
-Day 5: 회귀: 앱 경유 E-STOP 동작 + Gate-OKX/Gate-TV PASS
+## Week 12: 거래소 확장 v1 — Binance/Bybit (Spot) + 공통 표준 먼저 — TODO
+Day 1: Spot 커넥터 공통 인터페이스/라우팅 정책 확정(account.exchange 기반)
+Day 2: 공통 주문 상태/이벤트 표준 재점검(sent/filled/partial/failed/canceled 등) + reason/snapshot 필드 자리 확보
+Day 3: Binance Spot 최소 구현(place_order/get_order/balance) + /api/diag/connector-test 실측
+Day 4: Bybit Spot 최소 구현(place_order/get_order/balance) + /api/diag/connector-test 실측
+Day 5: 회귀 스크립트 생성: scripts/binance_regression.ps1, scripts/bybit_regression.ps1 + Gate-OKX/Gate-TV 유지
 
-## Week 13: 프리미엄 엔진 v0(신호판단 포함) — TODO
-> 단, 종목추천/자동선정/스크리너 금지 준수
-Day 1: 프리미엄 엔진 경계 정의(입력: 사용자 지정 asset, 출력: signal event) + 정책 문서화
-Day 2: 엔진 파라미터 스키마(프리미엄 설정) + 저장/버전/검증 규칙
-Day 3: 엔진 → 주문 파이프라인 연결("signal 생성"만, sizing/guard는 Hub 규칙 유지)
-Day 4: 회귀: 프리미엄 엔진 OFF/ON 전환 시 동작 차이 실측
-Day 5: 리스크: 오주문 방지/과도 신호 방지(쿨다운/일일제한) 기본 가드 적용
+## Week 13: 거래소 확장 v2 — Upbit (Spot) + 심볼/마켓 정책 확정 — TODO
+Day 1: Upbit Spot 최소 구현(place_order/get_order/balance) + 마켓(KRW/USDT) 정책 문서화
+Day 2: 심볼 정규화 룰 확정(내부 표준 symbol 포맷, 거래소별 변환 테이블)
+Day 3: 회귀 스크립트 생성: scripts/upbit_regression.ps1 + Gate-UPBIT PASS 기준 고정
+Day 4: 이벤트/타임라인에서 exchange별 표기 통일(OKX/Binance/Bybit/Upbit)
+Day 5: 통합 회귀: Gate-OKX/Gate-TV/Gate-E-STOP + Gate-BINANCE/Gate-BYBIT/Gate-UPBIT PASS
 
-## Week 14: 결제/구독 연동 v1 — 사이트 정본, PC/앱 entitlement 동기화 실구현 — TODO
-Day 1: 결제 프로바이더(Stripe/토스 등) 1개 선정 + 최소 플로우 문서화
-Day 2: /api/subscription/me 실구현 + 만료/업그레이드 반영
-Day 3: PC/앱: 실행 시 entitlement fetch + 기능 잠금/해제 적용
-Day 4: 환불/만료/다운그레이드 시나리오 테스트(PS 실측 + UI 반영)
-Day 5: 회귀: 기존 Gate + entitlement 시나리오 PASS
+## Week 14: 프리미엄 엔진 v0 — 추세/역추세 "지표 점검" + 근거 표준화 — TODO
+> 종목추천/자동선정/스크리너 금지 준수
+Day 1: 추세/역추세 신호 정의서 확정(간단 명확) + reason_code 표준(코드 목록) 확정
+Day 2: Premium 입력/출력 계약 확정: signal_event + reason_* + snapshot_id (+ 권장 TF 정책 포함)
+Day 3: Premium 이벤트 생성 파이프라인 최소 구현(OFF=생성 없음, ON=생성) + 실측
+Day 4: 과다 신호 방지 기본 가드(쿨다운/일일제한) 정책 확정 + 실측
+Day 5: 회귀: Premium OFF/ON 차이 + Gate-TV/Gate-OKX 유지
 
-## Week 15: 운영/관측/장애대응 v1 — 로그/리커버리/CS 대응 — TODO
-Day 1: 에러코드 카탈로그 정리(/tv 포함) + "환불 방지" 문구 고정
-Day 2: 주문/체결 상태모델 통합 점검(OKX/KIS) + terminal/retryable 규칙 확정
-Day 3: 리커버리(runbook) 문서화 + scripts 정리
-Day 4: 관리자/CS용 조회 API(읽기 전용) 최소 추가
-Day 5: 회귀 + 장애 시나리오 리허설(네트워크/키오류/잔고부족)
+## Week 15: 앱(모바일) v1 — "근거 확인" 중심(프리미엄 반영 포함) — TODO
+Day 1: 앱 기술선정 고정(Flutter/ReactNative 중 1) + 인증/토큰 저장 정책 확정
+Day 2: 앱: 대시보드(계좌/자산/주문 요약) + 타임라인(근거 패널) 읽기전용
+Day 3: 앱: E-STOP ON/OFF + 실측(차단 동작 확인) + Gate-E-STOP 유지
+Day 4: 앱: TradingView 차트 embed(WebView) 화면 추가(심볼/TF 이동 링크 포함)
+Day 5: 회귀: 앱 경유 E-STOP + 프리미엄 이벤트 표시 실측 + Gate-OKX/Gate-TV PASS
 
-## Week 16: 릴리즈 패키징/문서/법적고지 최종 — "출시 가능한 1.0" — TODO
-Day 1: 설치/업데이트/다운로드(사이트) 플로우 정리
-Day 2: 온보딩 문서(PC 기준) + 앱 관측 가이드
-Day 3: 약관/면책/리스크 고지 문서 확정(사이트 반영)
-Day 4: 최종 회귀(OKX/KIS/TV/ShortMsg/구독/E-STOP) 전체 PASS
-Day 5: SSOT/APPENDIX 정리(증거 누락 없게), 릴리즈 태그 준비
+## Week 16: 커스텀 Rule Builder v1 — 역추세/추세를 "사용자 조립"으로 확장 — TODO
+Day 1: 지원 인디케이터 확정(제한): MA(SMA/EMA/WMA), Bollinger, RSI, MACD, CCI, Ichimoku
+Day 2: 규칙 저장 포맷: 문자열 금지 → AST(JSON 트리)로 확정 + 서버 validation 구현
+Day 3: 복잡도 제한 구현(깊이/leaf/OR 제한) + 실패 코드 고정(rule_complexity_exceeded)
+Day 4: Rule Lint 구현(OK/WARN/BLOCK) + 희소/상충 조건 경고(예: BB 상단돌파 AND RSI<30)
+Day 5: 회귀: Custom 룰 생성/검증/실행(이벤트 생성) + Gate-TV PASS
+
+## Week 17: 보안/라이센스/구독 연동 v1 — 불펌/오남용 방지 "잠금" 완성 — TODO
+Day 1: Entitlement 적용 범위 확정(Advanced Custom, Premium 엔진, 위험 기능) + 오프라인 정책 확정
+Day 2: /api/subscription/me 실구현(만료/업그레이드/다운그레이드 반영)
+Day 3: PC/앱: 실행 시 entitlement fetch + 기능 잠금/해제 적용(오프라인 제한 포함)
+Day 4: 보안 점검: 민감정보 마스킹(로그/응답), 소스/로직 노출 금지 규칙 강제
+Day 5: 회귀: Gate 전부 + entitlement 시나리오 PASS(환불/만료/다운그레이드 포함)
+
+## Week 18: 릴리즈/운영/문서 최종 — "출시 가능한 1.0" — TODO
+Day 1: 온보딩 문서(PC 기준) + 앱 근거 확인 가이드 + 15m 권장 고지 문구 고정
+Day 2: 에러코드 카탈로그(/tv 포함) + 환불 방지 문구/경고 문구 고정
+Day 3: runbook(운영/장애대응) + scripts 정리 + 관리자 조회(읽기) 최소
+Day 4: 최종 통합 회귀: OKX/KIS/Binance/Bybit/Upbit + TV/ShortMsg/구독/E-STOP/Premium/Custom 전체 PASS
+Day 5: SSOT/APPENDIX 증거 최종 정리 + 릴리즈 태그(1.0) 준비
 
 ---
 
-# 7) NEXT ACTION (3개)
-1) Week 12 Day 1: 앱 기술선정 고정 (Flutter/ReactNative) + 인증/토큰 저장 정책 문서화
-2) 회귀 게이트 유지 (Gate-OKX + Gate-TV + Gate-E-STOP)
-3) docs/MOBILE_APP_SPEC.md 생성 (PC_APP_SPEC.md 참조)
+# 7) NEXT ACTION (3개) — v5
+1) Week 12 Day 1: Spot 커넥터 공통 인터페이스/라우팅 정책 확정
+2) Week 12 착수: Binance/Bybit 최소 구현 + 회귀 스크립트 생성
+3) Week 14 대비: 추세/역추세 신호 정의서 + reason_code 표준 먼저 고정
 
 ---
 
