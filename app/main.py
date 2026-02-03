@@ -1523,13 +1523,14 @@ def api_create_shortmsg(payload: dict, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="short_id 생성 실패 (재시도 초과)")
 
     import json as _json
+    payload_str = _json.dumps(inner_payload, ensure_ascii=False)
     db.execute(text("""
         INSERT INTO shortmsgs (short_id, name, payload, is_active, note, created_at, updated_at)
-        VALUES (:short_id, :name, :payload::jsonb, :is_active, :note, NOW(), NOW())
+        VALUES (:short_id, :name, CAST(:payload AS jsonb), :is_active, :note, NOW(), NOW())
     """), {
         "short_id": short_id,
         "name": name,
-        "payload": _json.dumps(inner_payload, ensure_ascii=False),
+        "payload": payload_str,
         "is_active": is_active,
         "note": note,
     })
