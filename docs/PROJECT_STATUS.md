@@ -39,7 +39,7 @@
 
 # 3) 파일 구조
 - app/main.py: FastAPI 엔드포인트 (핵심)
-- app/connectors/: OKX, KIS 커넥터
+- app/connectors/: OKX, KIS, Binance, Bybit, Upbit 커넥터
 - scripts/: run.ps1, stop.ps1, week4_regression.ps1, kis_regression.ps1
 - docs/: PROJECT_STATUS.md(SSOT), AI_RULES.md, APPENDIX_LOG.md
 
@@ -49,6 +49,9 @@
 - DATABASE_URL, DRY_RUN, ORDER_SUBMIT_ENABLE, ORDER_POLL_ENABLE
 - OKX_*: API_KEY, API_SECRET, API_PASSPHRASE, BASE_URL, SIMULATED
 - KIS_*: APP_KEY, APP_SECRET, CANO, ACNT_PRDT_CD, SVR, SIMULATED
+- BINANCE_*: API_KEY, API_SECRET, BASE_URL, SIMULATED
+- BYBIT_*: API_KEY, API_SECRET, BASE_URL, SIMULATED
+- UPBIT_*: ACCESS_KEY, SECRET_KEY, BASE_URL
 
 ---
 
@@ -166,8 +169,15 @@ Day 5: 회귀 스크립트 생성 + 전체 게이트 검증 — DONE (2026-02-04
 - Gate-OKX: PASS (order_id=197, okx_order_id=3276734354947792896)
 - Gate-TV: PASS
 
-## Week 13: 거래소 확장 v2 — Upbit (Spot) + 심볼/마켓 정책 확정 — TODO
-Day 1: Upbit Spot 최소 구현(place_order/get_order/balance) + 마켓(KRW/USDT) 정책 문서화
+## Week 13: 거래소 확장 v2 — Upbit (Spot) + 심볼/마켓 정책 확정 — IN PROGRESS
+Day 1: Upbit Spot 최소 구현(place_order/get_order/balance) + 마켓(KRW/USDT) 정책 문서화 — DONE (2026-02-04)
+- 생성: app/connectors/upbit.py (UpbitConnector)
+- JWT 인증 (HMAC SHA256 + Query Hash SHA512)
+- 심볼 변환: BTC-KRW → KRW-BTC (Upbit은 QUOTE-BASE 형식)
+- 마켓 정책: KRW/USDT/BTC 마켓 모두 지원 (CONNECTOR_SPEC.md §10)
+- 시장가 매수 특성: qty = 원화 금액 (다른 거래소와 다름)
+- 실측: connector load OK, get_markets() 689개 마켓 (KRW:237, USDT:170, BTC:282)
+- IP 미인증으로 balance 실패 (예상됨 - API 키 IP 화이트리스트 필요)
 Day 2: 심볼 정규화 룰 확정(내부 표준 symbol 포맷, 거래소별 변환 테이블)
 Day 3: 회귀 스크립트 생성: scripts/upbit_regression.ps1 + Gate-UPBIT PASS 기준 고정
 Day 4: 이벤트/타임라인에서 exchange별 표기 통일(OKX/Binance/Bybit/Upbit)

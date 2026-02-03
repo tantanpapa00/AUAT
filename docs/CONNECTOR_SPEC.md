@@ -1,7 +1,7 @@
 # CONNECTOR_SPEC.md (SSOT)
 - Last updated: 2026-02-04 KST
 - Owner: 기훈(작가님)
-- Status: Week 12 Day 1
+- Status: Week 13 Day 1
 
 > NOTE: 이 파일은 거래소 커넥터 인터페이스의 '진실(SSOT)'입니다.
 
@@ -15,7 +15,7 @@
 | KIS | 증권사 | Stock | DONE | Week 7 완료 |
 | Binance | 암호화폐 | Spot | DONE | Week 12 Day 3 |
 | Bybit | 암호화폐 | Spot | DONE | Week 12 Day 4 |
-| Upbit | 암호화폐 | Spot (KRW) | TODO | Week 13 |
+| Upbit | 암호화폐 | Spot (KRW/USDT) | DONE | Week 13 Day 1 |
 
 > **원칙**: 선물(Futures)/레버리지 전면 미지원. Spot만 지원.
 
@@ -476,7 +476,80 @@ Response:
 
 ---
 
-# 10) 구현 계획
+# 10) Upbit 마켓 정책 (Week13 Day1)
+
+## 10-1) 지원 마켓
+
+| 마켓 | Quote Currency | 예시 심볼 | 비고 |
+|------|----------------|-----------|------|
+| KRW 마켓 | KRW (원화) | BTC-KRW, ETH-KRW | 주력 마켓, 한국 원화 거래 |
+| BTC 마켓 | BTC | ETH-BTC, XRP-BTC | 비트코인 기준 거래 |
+| USDT 마켓 | USDT | BTC-USDT, ETH-USDT | 글로벌 스테이블코인 |
+
+> **원칙**: 모든 마켓 지원. KRW 마켓이 주력이나 USDT 마켓도 동일 인터페이스.
+
+## 10-2) 심볼 변환 규칙
+
+```
+내부 포맷: {BASE}-{QUOTE}  →  Upbit: {QUOTE}-{BASE}
+
+BTC-KRW   →  KRW-BTC
+ETH-USDT  →  USDT-ETH
+XRP-BTC   →  BTC-XRP
+```
+
+## 10-3) 시장가 주문 특성
+
+| 주문 타입 | Side | qty 의미 | 비고 |
+|-----------|------|----------|------|
+| Market BUY | bid | Quote 금액 (KRW) | 예: qty=100000 → 10만원어치 매수 |
+| Market SELL | ask | Base 수량 (코인) | 예: qty=0.01 → 0.01 BTC 매도 |
+| Limit | 양쪽 | Base 수량 (코인) | 지정가는 항상 코인 수량 |
+
+> **주의**: 시장가 매수는 원화 금액, 매도는 코인 수량. 다른 거래소와 다름.
+
+## 10-4) 인증 방식
+
+- JWT (JSON Web Token) 사용
+- HMAC SHA256 서명
+- Query Hash: SHA512 (쿼리 파라미터 해시)
+
+```python
+# JWT Payload
+{
+    "access_key": "...",
+    "nonce": "uuid",
+    "query_hash": "sha512(query_string)",
+    "query_hash_alg": "SHA512"
+}
+```
+
+## 10-5) 환경변수
+
+| 변수 | 설명 | 예시 |
+|------|------|------|
+| `UPBIT_ACCESS_KEY` | Open API Access Key | `xxx-xxx-xxx` |
+| `UPBIT_SECRET_KEY` | Open API Secret Key | `xxx-xxx-xxx` |
+| `UPBIT_BASE_URL` | API Base URL (선택) | `https://api.upbit.com` |
+| `UPBIT_TIMEOUT_SEC` | 타임아웃 (선택) | `10` |
+
+## 10-6) 기본 통화
+
+- **get_balance_split()**: `ccy` 기본값 = `KRW` (다른 거래소는 USDT)
+- 원화 잔고 조회가 가장 일반적인 사용 패턴
+
+## 10-7) 주문 상태 매핑
+
+| Upbit 상태 | 내부 상태 | 의미 |
+|------------|-----------|------|
+| `wait` | `sent` | 체결 대기 |
+| `watch` | `sent` | 예약주문 대기 |
+| `done` | `filled` | 전체 체결 |
+| `cancel` | `canceled` | 취소됨 |
+
+---
+
+# 11) 구현 계획 (v5 일정)
 
 | Week | Day | 작업 | 상태 |
 |------|-----|------|------|
@@ -485,13 +558,13 @@ Response:
 | 12 | 3 | Binance Spot 최소 구현 | DONE |
 | 12 | 4 | Bybit Spot 최소 구현 | DONE |
 | 12 | 5 | 회귀 스크립트 생성 | DONE |
-| 13 | 1 | Upbit Spot 최소 구현 | TODO |
+| 13 | 1 | Upbit Spot 최소 구현 + KRW/USDT 마켓 정책 | DONE |
 | 13 | 2 | 심볼 정규화 룰 확정 | TODO |
 | 13 | 3 | upbit_regression.ps1 생성 | TODO |
 
 ---
 
-# 11) 참조
+# 12) 참조
 
 - app/connectors/base.py (기존 인터페이스)
 - app/connectors/__init__.py (팩토리)
