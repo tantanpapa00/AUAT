@@ -484,7 +484,7 @@ Response:
 | 12 | 2 | 주문 상태/이벤트 표준 재점검 + reason/snapshot 필드 | DONE |
 | 12 | 3 | Binance Spot 최소 구현 | DONE |
 | 12 | 4 | Bybit Spot 최소 구현 | DONE |
-| 12 | 5 | 회귀 스크립트 생성 | TODO |
+| 12 | 5 | 회귀 스크립트 생성 | DONE |
 | 13 | 1 | Upbit Spot 최소 구현 | TODO |
 | 13 | 2 | 심볼 정규화 룰 확정 | TODO |
 | 13 | 3 | upbit_regression.ps1 생성 | TODO |

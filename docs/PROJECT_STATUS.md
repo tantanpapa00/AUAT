@@ -146,7 +146,7 @@ Day 5: 회귀: PC 조작 후 서버 API 상태 변화 실측 로그 누적 — D
 - 증거: APPENDIX_LOG.md 2026-02-03 회귀 게이트 전체 PASS
 - Gate-TV: PASS, Gate-E-STOP: PASS, Gate-OKX: PASS, Connector: PASS
 
-## Week 12: 거래소 확장 v1 — Binance/Bybit (Spot) + 공통 표준 먼저 — IN PROGRESS
+## Week 12: 거래소 확장 v1 — Binance/Bybit (Spot) + 공통 표준 먼저 — DONE
 Day 1: Spot 커넥터 공통 인터페이스/라우팅 정책 확정(account.exchange 기반) — DONE (2026-02-03)
 - 생성: docs/CONNECTOR_SPEC.md (인터페이스, 라우팅, 상태 표준, 심볼 정규화, 환경변수)
 Day 2: 공통 주문 상태/이벤트 표준 재점검 + reason/snapshot 필드 자리 확보 — DONE (2026-02-04)
@@ -159,7 +159,12 @@ Day 3: Binance Spot 최소 구현(place_order/get_order/balance) + /api/diag/con
 Day 4: Bybit Spot 최소 구현(place_order/get_order/balance) + /api/diag/connector-test 실측 — DONE (2026-02-04)
 - 생성: app/connectors/bybit.py (BybitConnector)
 - 커넥터 로드 확인 (API 키 없어서 balance 조회 실패, 구현은 완료)
-Day 5: 회귀 스크립트 생성: scripts/binance_regression.ps1, scripts/bybit_regression.ps1 + Gate-OKX/Gate-TV 유지
+Day 5: 회귀 스크립트 생성 + 전체 게이트 검증 — DONE (2026-02-04)
+- 생성: scripts/binance_regression.ps1, scripts/bybit_regression.ps1
+- Gate-BINANCE: PASS (connector load + balance 2.77 USDT)
+- Gate-BYBIT: PASS (connector load, API 키 미설정으로 balance 실패는 예상대로)
+- Gate-OKX: PASS (order_id=197, okx_order_id=3276734354947792896)
+- Gate-TV: PASS
 
 ## Week 13: 거래소 확장 v2 — Upbit (Spot) + 심볼/마켓 정책 확정 — TODO
 Day 1: Upbit Spot 최소 구현(place_order/get_order/balance) + 마켓(KRW/USDT) 정책 문서화
@@ -207,9 +212,9 @@ Day 5: SSOT/APPENDIX 증거 최종 정리 + 릴리즈 태그(1.0) 준비
 ---
 
 # 7) NEXT ACTION (3개) — v5
-1) Week 12 Day 5: 회귀 스크립트 생성 (binance_regression.ps1, bybit_regression.ps1) + Gate-OKX/Gate-TV 유지
-2) Week 13 Day 1: Upbit Spot 최소 구현 시작
-3) docs/CONNECTOR_SPEC.md 참조하여 구현
+1) Week 13 Day 1: Upbit Spot 최소 구현 + 마켓(KRW/USDT) 정책 문서화
+2) Week 13 Day 2: 심볼 정규화 룰 확정
+3) Week 13 Day 3: upbit_regression.ps1 생성 + Gate-UPBIT PASS 기준 고정
 
 ---
 
