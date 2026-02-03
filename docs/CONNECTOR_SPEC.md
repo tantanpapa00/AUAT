@@ -1,5 +1,5 @@
 # CONNECTOR_SPEC.md (SSOT)
-- Last updated: 2026-02-03 KST
+- Last updated: 2026-02-04 KST
 - Owner: 기훈(작가님)
 - Status: Week 12 Day 1
 
@@ -215,6 +215,58 @@ def _normalize_state(exchange_state: str) -> str:
     return "unknown"
 ```
 
+## 4-4) reason/snapshot 필드 표준 (Week12 Day2)
+
+> **원칙**: 모든 주문 상태 변경은 `reason_code`, `reason_text`, `snapshot_id`를 기록해야 함.
+
+### 필드 정의
+
+| 필드 | 타입 | 용도 | 예시 |
+|------|------|------|------|
+| `reason_code` | TEXT | 표준화된 사유 코드 (기계용) | `signal_buy`, `estop`, `insufficient_balance` |
+| `reason_text` | TEXT | 사람이 읽을 수 있는 설명 | `TradingView buy signal received` |
+| `snapshot_id` | TEXT | 스냅샷 참조 ID (선택) | `snap_20260204_123456` |
+
+### 표준 reason_code 목록
+
+| 코드 | 의미 | 사용 위치 |
+|------|------|-----------|
+| `signal_buy` | 매수 시그널 | order_created |
+| `signal_sell` | 매도 시그널 | order_created |
+| `estop` | E-STOP 발동 | order_failed |
+| `dry_run` | DRY_RUN 모드 | order_created |
+| `insufficient_balance` | 잔고 부족 | order_failed |
+| `symbol_not_found` | 심볼 없음 | order_failed |
+| `api_error` | API 오류 | order_failed |
+| `network_error` | 네트워크 오류 | order_failed |
+| `exchange_error` | 거래소 오류 | order_failed |
+| `rate_limit` | API 제한 초과 | order_failed |
+| `timeout` | 타임아웃 | order_failed |
+| `user_cancel` | 사용자 취소 | order_canceled |
+| `auto_cancel` | 자동 취소 | order_canceled |
+| `filled` | 체결 완료 | order_filled |
+| `partial_filled` | 부분 체결 | order_partial |
+
+### 사용 예시
+
+```python
+# 주문 생성 시
+order.reason_code = "signal_buy"
+order.reason_text = f"TradingView signal: {alert_id}"
+order.snapshot_id = f"snap_{timestamp}"
+
+# 실패 시
+order.reason_code = "estop"
+order.reason_text = "E-STOP activated by user"
+```
+
+### 이벤트(Event) 연동
+
+Event 모델에서도 동일한 필드 사용:
+- `reason_code`: 이벤트 발생 원인 코드
+- `reason_text`: 이벤트 설명
+- `snapshot_id`: 관련 스냅샷 참조
+
 ---
 
 # 5) 심볼 정규화
@@ -429,7 +481,7 @@ Response:
 | Week | Day | 작업 | 상태 |
 |------|-----|------|------|
 | 12 | 1 | 공통 인터페이스/라우팅 정책 확정 | DONE (spec) |
-| 12 | 2 | 주문 상태/이벤트 표준 재점검 | TODO |
+| 12 | 2 | 주문 상태/이벤트 표준 재점검 + reason/snapshot 필드 | DONE |
 | 12 | 3 | Binance Spot 최소 구현 | TODO |
 | 12 | 4 | Bybit Spot 최소 구현 | TODO |
 | 12 | 5 | 회귀 스크립트 생성 | TODO |

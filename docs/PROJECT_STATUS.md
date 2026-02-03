@@ -1,5 +1,5 @@
 # PROJECT_STATUS.md (SSOT)
-- Last updated: 2026-02-03 KST
+- Last updated: 2026-02-04 KST
 - Owner: 기훈(작가님)
 
 > NOTE: 이 파일이 '진실(SSOT)'입니다. 채팅은 인터페이스일 뿐.
@@ -149,7 +149,10 @@ Day 5: 회귀: PC 조작 후 서버 API 상태 변화 실측 로그 누적 — D
 ## Week 12: 거래소 확장 v1 — Binance/Bybit (Spot) + 공통 표준 먼저 — IN PROGRESS
 Day 1: Spot 커넥터 공통 인터페이스/라우팅 정책 확정(account.exchange 기반) — DONE (2026-02-03)
 - 생성: docs/CONNECTOR_SPEC.md (인터페이스, 라우팅, 상태 표준, 심볼 정규화, 환경변수)
-Day 2: 공통 주문 상태/이벤트 표준 재점검(sent/filled/partial/failed/canceled 등) + reason/snapshot 필드 자리 확보
+Day 2: 공통 주문 상태/이벤트 표준 재점검 + reason/snapshot 필드 자리 확보 — DONE (2026-02-04)
+- 추가: orders 테이블에 reason_code, reason_text, snapshot_id, exchange_order_id 컬럼
+- 추가: Event 모델에 reason_code, reason_text, snapshot_id 컬럼
+- 문서화: CONNECTOR_SPEC.md §4-4 reason/snapshot 필드 표준
 Day 3: Binance Spot 최소 구현(place_order/get_order/balance) + /api/diag/connector-test 실측
 Day 4: Bybit Spot 최소 구현(place_order/get_order/balance) + /api/diag/connector-test 실측
 Day 5: 회귀 스크립트 생성: scripts/binance_regression.ps1, scripts/bybit_regression.ps1 + Gate-OKX/Gate-TV 유지
@@ -200,8 +203,8 @@ Day 5: SSOT/APPENDIX 증거 최종 정리 + 릴리즈 태그(1.0) 준비
 ---
 
 # 7) NEXT ACTION (3개) — v5
-1) Week 12 Day 2: 공통 주문 상태/이벤트 표준 재점검 + reason/snapshot 필드 자리 확보
-2) Week 12 Day 3-4: Binance/Bybit Spot 최소 구현 + connector-test 실측
+1) Week 12 Day 3: Binance Spot 최소 구현 (place_order/get_order/balance) + connector-test 실측
+2) Week 12 Day 4: Bybit Spot 최소 구현 (place_order/get_order/balance) + connector-test 실측 (API 키 없어도 구현 가능)
 3) docs/CONNECTOR_SPEC.md 참조하여 구현
 
 ---

@@ -5717,7 +5717,15 @@ def _ensure_orders_table_v6(db):
                 check_count     INTEGER DEFAULT 0,
 
                 submit_try_count INTEGER DEFAULT 0,
-                next_submit_at   TIMESTAMPTZ
+                next_submit_at   TIMESTAMPTZ,
+
+                -- Week12 Day2: reason/snapshot 필드 (audit trail)
+                reason_code      TEXT,
+                reason_text      TEXT,
+                snapshot_id      TEXT,
+
+                -- Week12 Day2: 멀티 거래소 공통 필드
+                exchange_order_id TEXT
             );
         """))
     except Exception:
@@ -5779,6 +5787,14 @@ def _ensure_orders_table_v6(db):
 
         # ShortMsg: short_id 컬럼 추가
         "ALTER TABLE orders ADD COLUMN IF NOT EXISTS short_id TEXT",
+
+        # Week12 Day2: reason/snapshot 필드 (audit trail)
+        "ALTER TABLE orders ADD COLUMN IF NOT EXISTS reason_code TEXT",
+        "ALTER TABLE orders ADD COLUMN IF NOT EXISTS reason_text TEXT",
+        "ALTER TABLE orders ADD COLUMN IF NOT EXISTS snapshot_id TEXT",
+
+        # Week12 Day2: 멀티 거래소 공통 필드
+        "ALTER TABLE orders ADD COLUMN IF NOT EXISTS exchange_order_id TEXT",
     ]
 
     for s in stmts:

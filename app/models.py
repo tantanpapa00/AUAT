@@ -45,5 +45,10 @@ class Event(Base):
     summary = Column(Text, nullable=False)  # 짧은 요약 (UI 표시용)
     detail = Column(JSONB, nullable=True)   # 상세 데이터 (flexible)
 
+    # Week12 Day2: reason/snapshot 필드 (audit trail)
+    reason_code = Column(Text, nullable=True)   # 표준 코드 (기계용)
+    reason_text = Column(Text, nullable=True)   # 설명 (사람용)
+    snapshot_id = Column(Text, nullable=True)   # 스냅샷 참조 ID
+
     # 메타
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
