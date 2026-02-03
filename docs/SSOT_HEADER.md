@@ -6,7 +6,7 @@
 
 ## Current Status
 - Week 7: DONE (KIS MVP + 커넥터 확장)
-- Week 8: IN PROGRESS (얼러트 "환불 방지 패키지") — Day1~3 DONE
+- Week 8: IN PROGRESS (얼러트 "환불 방지 패키지") — Day1~4 DONE
 - Week 9: TODO (Upbit + 멀티 커넥터 공통화)
 
 ## Quick Commands

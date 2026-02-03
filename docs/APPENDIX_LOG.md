@@ -105,3 +105,15 @@
 - body: { asset_ids: [1,2,3], side, qty, type }
 - 다중 자산 일괄 템플릿 생성
 
+---
+
+# 2026-02-03 KST — Week 8 Day 4: Wizard 문서 생성
+
+## 생성 파일: docs/TV_WIZARD.md
+- Phase 1: 사전 준비 (계좌/전략/자산 확인)
+- Phase 2: 템플릿 생성 (API 사용)
+- Phase 3: TradingView 설정 (Step-by-step)
+- Phase 4: 테스트 + 문제 해결
+- FAQ 5개 항목
+- 시작 전/완료 후 체크리스트 포함
+

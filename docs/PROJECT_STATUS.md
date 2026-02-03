@@ -117,7 +117,8 @@ Day 3: "템플릿 생성 API"(templates/tradingview 확장) — 계좌/자산/�
 - GET /api/templates/tradingview/options (옵션 목록)
 - GET /api/assets/{asset_id}/template/tradingview (자산별 생성)
 - POST /api/templates/tradingview/generate (다중 일괄 생성)
-Day 4: (선택) 간단 Wizard 문서(스크린샷 없이 텍스트 기준) + 체크리스트(초보자용)
+Day 4: (선택) 간단 Wizard 문서(스크린샷 없이 텍스트 기준) + 체크리스트(초보자용) — DONE (2026-02-03)
+- 생성: docs/TV_WIZARD.md (Phase 1~4 + FAQ + 체크리스트)
 Day 5: 회귀 스크립트 1개 추가(tv_template_regression.ps1) + PASS 기준 정의
 
 ## Week 9: Upbit Spot 착수(필요 시) + 멀티 커넥터 공통화 — TODO
@@ -135,7 +136,7 @@ Day 1~5: (기존 SSOT 동일, 삭제 없음)
 ---
 
 # 7) NEXT ACTION (3개)
-1) Week8 Day4 착수: (선택) 간단 Wizard 문서 + 체크리스트
+1) Week8 Day5 착수: 회귀 스크립트 추가 (tv_template_regression.ps1)
 2) 회귀 게이트 유지 (week4_regression + kis_regression)
 3) 작업 전 docs/AI_RULES.md 필독
 
