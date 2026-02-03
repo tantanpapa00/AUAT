@@ -54,3 +54,14 @@
 ## GET /api/diag/connector-test?exchange=KIS&symbol=005930
 {"ok":true,"exchange":"KIS","connector":"KISConnector","methods":{"get_balance_split":{"ok":true,"ccy":"KRW","total":10000000.0,"trading":10000000.0,"funding":0.0,"err_code":null,"err_msg":null},"get_markets":{"ok":true,"symbol":"005930","min_qty":1.0,"lot_qty":1.0,"min_notional":null,"raw_keys":["iscd_stat_cls_code","marg_rate","rprs_mrkt_kor_name","bstp_kor_isnm","temp_stop_yn","oprc_rang_cont_yn","clpr_rang_cont_yn","crdt_able_yn","grmn_rate_cls_code","elw_pblc_yn"]}}}
 
+---
+
+# 2026-02-03 KST — Week 8 Day 1: TV Template 생성
+
+## 생성 파일: docs/TV_TEMPLATE.md
+- OKX 현물 (BTC-USDT, ETH-USDT)
+- KIS 국내주식 (005930)
+- KIS 해외주식 (AAPL, TSLA)
+- config_hash 사용 예시
+- 에러 코드 안내 포함
+
