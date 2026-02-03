@@ -184,7 +184,10 @@ Day 2: 심볼 정규화 룰 확정(내부 표준 symbol 포맷, 거래소별 변
 - 함수: to_exchange_symbol(), from_exchange_symbol(), validate_symbol(), parse_tv_ticker()
 - KNOWN_QUOTES: 역변환용 quote 통화 목록 (USDT, KRW, BTC 등)
 - 문서화: CONNECTOR_SPEC.md §5 전면 확장 (규칙, 변환 테이블, 엣지 케이스)
-Day 3: 회귀 스크립트 생성: scripts/upbit_regression.ps1 + Gate-UPBIT PASS 기준 고정
+Day 3: 회귀 스크립트 생성: scripts/upbit_regression.ps1 + Gate-UPBIT PASS 기준 고정 — DONE (2026-02-04)
+- 생성: scripts/upbit_regression.ps1
+- Gate-UPBIT: PASS (connector load OK, balance는 IP 화이트리스트 필요)
+- 테스트: connector-test, connector-all, symbol normalization
 Day 4: 이벤트/타임라인에서 exchange별 표기 통일(OKX/Binance/Bybit/Upbit)
 Day 5: 통합 회귀: Gate-OKX/Gate-TV/Gate-E-STOP + Gate-BINANCE/Gate-BYBIT/Gate-UPBIT PASS
 
