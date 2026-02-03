@@ -130,7 +130,8 @@ Day 2: 계좌/키 등록 UI + 로컬 암호화 저장 — DONE (2026-02-03)
 - PC_APP_SPEC.md 7) Day 2 상세: UI 구성, Tauri 커맨드 (Rust), 보안 체크리스트
 Day 3: PC: 템플릿 생성(assets/template, batch generate, shortmsg template) UI 연결 — DONE (2026-02-03)
 - 구현: PC_APP_SPEC.md 8) Day 3 상세 (UI 구성, API 연동, Tauri 커맨드, 워크플로우)
-Day 4: PC: 시스템 설정(E-STOP, DRY_RUN, submit/poll enable) UI 연결
+Day 4: PC: 시스템 설정(E-STOP, DRY_RUN, submit/poll enable) UI 연결 — DONE (2026-02-03)
+- 구현: PC_APP_SPEC.md 9) Day 4 상세 (E-STOP 제어, 시스템 상태 표시, 서버 연결, Tauri 커맨드)
 Day 5: 회귀: PC 조작 후 서버 API 상태 변화 실측 로그 누적
 
 ## Week 12: 앱(모바일) v1 — 관측/알림/E-STOP — TODO
@@ -172,9 +173,9 @@ Day 5: SSOT/APPENDIX 정리(증거 누락 없게), 릴리즈 태그 준비
 ---
 
 # 7) NEXT ACTION (3개)
-1) Week 11 Day 4: 시스템 설정(E-STOP, DRY_RUN, submit/poll enable) UI 연결
+1) Week 11 Day 5: 회귀 테스트 + 실측 로그 누적
 2) 회귀 게이트 유지 (Gate-OKX + Gate-TV + Gate-E-STOP)
-3) 작업 전 docs/AI_RULES.md + docs/PC_APP_SPEC.md 필독
+3) Week 12 준비: 앱(모바일) 기술선정
 
 ---
 

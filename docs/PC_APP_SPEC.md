@@ -608,19 +608,387 @@ async function copyTemplate(templateJson: string) {
 
 ---
 
-# 9) 구현 계획
+# 9) Day 4 상세: 시스템 설정 UI (Week 11 Day 4)
+
+## 9-1) 개요
+
+PC 앱에서 시스템 운영 설정을 확인하고 제어하는 UI.
+
+**설정 항목**:
+| 항목 | 타입 | 제어 가능 | 설명 |
+|------|------|-----------|------|
+| E-STOP | DB (system_flags) | O | 긴급 정지 (모든 주문 차단) |
+| DRY_RUN | 환경변수 | X (읽기만) | 모의 주문 모드 |
+| ORDER_SUBMIT_ENABLE | 환경변수 | X (읽기만) | 주문 제출 활성화 |
+| ORDER_POLL_ENABLE | 환경변수 | X (읽기만) | 주문 상태 폴링 활성화 |
+
+> **NOTE**: DRY_RUN, ORDER_SUBMIT_ENABLE, ORDER_POLL_ENABLE은 서버 환경변수로 설정됨.
+> PC 앱에서는 읽기만 가능하고, 변경 시 서버 재시작 필요.
+
+## 9-2) UI 구성 (Settings.vue)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  시스템 설정                                                        │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │  🚨 긴급 정지 (E-STOP)                                        │  │
+│  │                                                                │  │
+│  │  ┌──────────────────────────────────────────────────────────┐ │  │
+│  │  │  상태: [🔴 정지됨] / [🟢 정상]                            │ │  │
+│  │  │  마지막 변경: 2026-02-03 14:30:00                        │ │  │
+│  │  │  사유: 수동 점검                                          │ │  │
+│  │  └──────────────────────────────────────────────────────────┘ │  │
+│  │                                                                │  │
+│  │  사유 입력: [점검 중...                                    ]  │  │
+│  │                                                                │  │
+│  │  [🛑 E-STOP 켜기]    [▶️ E-STOP 해제]                         │  │
+│  │                                                                │  │
+│  │  ⚠️ E-STOP 켜면 모든 주문 전송이 차단됩니다.                  │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                                                     │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │  📊 시스템 상태 (읽기 전용)                                   │  │
+│  │                                                                │  │
+│  │  ┌────────────────────────┬──────────┬────────────────────┐   │  │
+│  │  │ 항목                   │ 값       │ 설명               │   │  │
+│  │  ├────────────────────────┼──────────┼────────────────────┤   │  │
+│  │  │ DRY_RUN                │ 🟢 OFF   │ 실제 주문 모드     │   │  │
+│  │  │ ORDER_SUBMIT_ENABLE    │ 🟢 ON    │ 주문 전송 활성     │   │  │
+│  │  │ ORDER_POLL_ENABLE      │ 🟢 ON    │ 체결 조회 활성     │   │  │
+│  │  │ 서버 연결              │ 🟢 정상  │ 127.0.0.1:8000    │   │  │
+│  │  └────────────────────────┴──────────┴────────────────────┘   │  │
+│  │                                                                │  │
+│  │  ℹ️ 환경변수 설정은 서버 재시작이 필요합니다.                  │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                                                     │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │  🔗 서버 연결                                                 │  │
+│  │                                                                │  │
+│  │  서버 주소: [http://127.0.0.1:8000               ]            │  │
+│  │  연결 상태: 🟢 연결됨 (ping: 12ms)                             │  │
+│  │                                                                │  │
+│  │  [연결 테스트]  [저장]                                         │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## 9-3) API 연동
+
+| 작업 | HTTP | 엔드포인트 | 설명 |
+|------|------|------------|------|
+| E-STOP 조회 | GET | /api/system/estop | 현재 E-STOP 상태 |
+| E-STOP 설정 | POST | /api/system/estop | E-STOP ON/OFF |
+| 시스템 상태 | GET | /api/home | 서버 상태 확인 |
+| 헬스체크 | GET | /api/health (신규) | 서버 연결 + 환경변수 상태 |
+
+## 9-4) API 응답 스키마
+
+### GET /api/system/estop
+
+```json
+{
+  "ok": true,
+  "estop": false,
+  "value": "0",
+  "reason": null,
+  "updated_at": "2026-02-03T14:30:00+09:00"
+}
+```
+
+### POST /api/system/estop
+
+**Request:**
+```json
+{
+  "estop": true,
+  "reason": "수동 점검"
+}
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "estop": true,
+  "value": "1",
+  "reason": "수동 점검"
+}
+```
+
+### GET /api/health (권장 신규 추가)
+
+```json
+{
+  "ok": true,
+  "server": "running",
+  "version": "1.0.0",
+  "env": {
+    "DRY_RUN": false,
+    "ORDER_SUBMIT_ENABLE": true,
+    "ORDER_POLL_ENABLE": true
+  },
+  "estop": false,
+  "timestamp": "2026-02-03T14:30:00+09:00"
+}
+```
+
+## 9-5) Tauri 커맨드 (Rust)
+
+```rust
+// src/commands/settings.rs
+
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::PathBuf;
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct AppSettings {
+    pub server_url: String,
+    pub auto_connect: bool,
+    pub check_interval_sec: u32,
+}
+
+impl Default for AppSettings {
+    fn default() -> Self {
+        Self {
+            server_url: "http://127.0.0.1:8000".to_string(),
+            auto_connect: true,
+            check_interval_sec: 30,
+        }
+    }
+}
+
+fn settings_path() -> PathBuf {
+    let config_dir = dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("."));
+    config_dir.join("bbooster").join("settings.json")
+}
+
+#[tauri::command]
+pub fn load_settings() -> Result<AppSettings, String> {
+    let path = settings_path();
+    if !path.exists() {
+        return Ok(AppSettings::default());
+    }
+
+    let content = fs::read_to_string(&path)
+        .map_err(|e| e.to_string())?;
+    serde_json::from_str(&content)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn save_settings(settings: AppSettings) -> Result<(), String> {
+    let path = settings_path();
+
+    // 디렉토리 생성
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| e.to_string())?;
+    }
+
+    let content = serde_json::to_string_pretty(&settings)
+        .map_err(|e| e.to_string())?;
+    fs::write(&path, content)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn test_server_connection(server_url: String) -> Result<ConnectionResult, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let start = std::time::Instant::now();
+    let resp = client.get(format!("{}/api/home", server_url))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let ping_ms = start.elapsed().as_millis() as u32;
+    let ok = resp.status().is_success();
+
+    Ok(ConnectionResult { ok, ping_ms })
+}
+
+#[derive(Serialize)]
+pub struct ConnectionResult {
+    pub ok: bool,
+    pub ping_ms: u32,
+}
+```
+
+## 9-6) 프론트엔드 컴포넌트 (Vue)
+
+```vue
+<!-- ui/src/pages/Settings.vue -->
+<script setup lang="ts">
+import { ref, onMounted, computed } from 'vue'
+import { invoke } from '@tauri-apps/api/tauri'
+
+interface EStopStatus {
+  ok: boolean
+  estop: boolean
+  reason: string | null
+  updated_at: string | null
+}
+
+interface SystemStatus {
+  dry_run: boolean
+  order_submit_enable: boolean
+  order_poll_enable: boolean
+}
+
+const serverUrl = ref('http://127.0.0.1:8000')
+const connected = ref(false)
+const pingMs = ref(0)
+const estop = ref<EStopStatus | null>(null)
+const systemStatus = ref<SystemStatus | null>(null)
+const estopReason = ref('')
+const loading = ref(false)
+
+const estopClass = computed(() => estop.value?.estop ? 'status-danger' : 'status-ok')
+
+onMounted(async () => {
+  // 설정 로드
+  const settings = await invoke('load_settings')
+  serverUrl.value = settings.server_url
+
+  // 초기 상태 조회
+  await refreshStatus()
+})
+
+async function refreshStatus() {
+  loading.value = true
+  try {
+    // E-STOP 조회
+    const estopResp = await fetch(`${serverUrl.value}/api/system/estop`)
+    estop.value = await estopResp.json()
+
+    // 서버 연결 테스트
+    const result = await invoke('test_server_connection', { serverUrl: serverUrl.value })
+    connected.value = result.ok
+    pingMs.value = result.ping_ms
+  } catch (e) {
+    connected.value = false
+  } finally {
+    loading.value = false
+  }
+}
+
+async function setEstop(on: boolean) {
+  loading.value = true
+  try {
+    const resp = await fetch(`${serverUrl.value}/api/system/estop`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        estop: on,
+        reason: estopReason.value || (on ? 'PC앱에서 설정' : 'PC앱에서 해제')
+      })
+    })
+    estop.value = await resp.json()
+    estopReason.value = ''
+  } finally {
+    loading.value = false
+  }
+}
+
+async function saveServerSettings() {
+  await invoke('save_settings', {
+    settings: {
+      server_url: serverUrl.value,
+      auto_connect: true,
+      check_interval_sec: 30
+    }
+  })
+  await refreshStatus()
+}
+</script>
+```
+
+## 9-7) E-STOP 동작 흐름
+
+```
+┌────────────────┐     ┌────────────────┐     ┌────────────────┐
+│ PC 앱          │     │ 서버 (FastAPI) │     │ DB             │
+│ Settings.vue   │     │                │     │ system_flags   │
+└───────┬────────┘     └───────┬────────┘     └───────┬────────┘
+        │                      │                      │
+        │  POST /api/system/estop                     │
+        │  {"estop": true, "reason": "점검"}          │
+        │─────────────────────►│                      │
+        │                      │  UPSERT estop=1     │
+        │                      │─────────────────────►│
+        │                      │                      │
+        │                      │◄─────────────────────│
+        │  {"ok": true, "estop": true}                │
+        │◄─────────────────────│                      │
+        │                      │                      │
+        │  UI 업데이트         │                      │
+        │  🔴 정지됨           │                      │
+        │                      │                      │
+        ▼                      ▼                      ▼
+    [/tv 웹훅 수신 시]
+        │                      │
+        │                      │  estop=1 확인
+        │                      │  → 주문 차단
+        │                      │  → {"ok":false,"code":"estop"}
+```
+
+## 9-8) 확인 다이얼로그
+
+E-STOP 변경은 중요 작업이므로 확인 다이얼로그 표시:
+
+```
+┌─────────────────────────────────────────────┐
+│  ⚠️ E-STOP 확인                             │
+├─────────────────────────────────────────────┤
+│                                             │
+│  E-STOP을 켜시겠습니까?                     │
+│                                             │
+│  • 모든 주문 전송이 차단됩니다              │
+│  • TradingView 웹훅이 무시됩니다            │
+│  • 수동 해제 전까지 유지됩니다              │
+│                                             │
+│  [취소]                    [E-STOP 켜기]    │
+└─────────────────────────────────────────────┘
+```
+
+## 9-9) 에러 처리
+
+| 상황 | UI 표시 | 처리 |
+|------|---------|------|
+| 서버 연결 실패 | "서버 연결 실패. 주소를 확인하세요." | 재시도 버튼 |
+| E-STOP 설정 실패 | "E-STOP 설정 실패: {error}" | 에러 메시지 표시 |
+| 권한 부족 | "권한이 없습니다. (hub 이상 필요)" | 구독 업그레이드 안내 |
+
+## 9-10) 보안 체크리스트
+
+- [x] E-STOP 변경 시 확인 다이얼로그 필수
+- [x] E-STOP 변경 로그 기록 (reason 포함)
+- [x] 서버 주소 변경 시 검증 (URL 형식)
+- [x] 환경변수는 읽기 전용 (서버에서만 변경 가능)
+
+---
+
+# 10) 구현 계획
 
 | Day | 작업 | 상태 |
 |-----|------|------|
 | Day 1 | 기술선정 + 빌드/런 구조 문서화 | DONE |
 | Day 2 | 계좌/키 등록 UI + 암호화 저장 | DONE (spec) |
 | Day 3 | 템플릿 생성 UI 연결 | DONE (spec) |
-| Day 4 | 시스템 설정 UI 연결 | TODO |
+| Day 4 | 시스템 설정 UI 연결 | DONE (spec) |
 | Day 5 | 회귀 테스트 + 실측 로그 | TODO |
 
 ---
 
-# 10) 참조
+# 11) 참조
 
 - [Tauri 공식 문서](https://tauri.app/v1/guides/)
 - [Tauri + Vue 예제](https://github.com/tauri-apps/tauri/tree/dev/examples)
