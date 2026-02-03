@@ -6,12 +6,12 @@
 
 ## Current Status
 - Week 7: DONE (KIS MVP + 커넥터 확장)
-- Week 8: IN PROGRESS (얼러트 "환불 방지 패키지") — Day1~4 DONE
+- Week 8: DONE (얼러트 "환불 방지 패키지")
 - Week 9: TODO (Upbit + 멀티 커넥터 공통화)
 
 ## Quick Commands
 - Syntax: `python -m compileall app`
-- Gates: `scripts/week4_regression.ps1`, `scripts/kis_regression.ps1`
+- Gates: `scripts/week4_regression.ps1`, `scripts/kis_regression.ps1`, `scripts/tv_template_regression.ps1`
 - Server: `scripts/run.ps1` / `scripts/stop.ps1`
 
 ## Scope Exclusions

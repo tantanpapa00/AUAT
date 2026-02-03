@@ -107,7 +107,7 @@ Day 4: main.py에 KIS 경로 연결(send-now/poll-now 최소 루프) + 전광판
 Day 5: KIS MVP 회귀 테스트(PowerShell) + 문서화(실측 원문 APPENDIX에 누적)
 - 추가: exchange_order_id 공통 필드, KIS get_balance_split/get_markets, Connector 팩토리 (2026-02-03)
 
-## Week 8: 얼러트 메시지 "환불 방지 패키지"(기본/고급 모드) — IN PROGRESS
+## Week 8: 얼러트 메시지 "환불 방지 패키지"(기본/고급 모드) — DONE (2026-02-03)
 Day 1: 표준 TradingView 템플릿 1종(현물/주식 공용) 확정 + docs에 "복붙 예시" 추가 — DONE (2026-02-03)
 - 생성: docs/TV_TEMPLATE.md (OKX/KIS 공용 복붙 예시 포함)
 Day 2: /tv payload 검증 강화(필수필드/심볼/마켓/계좌 매칭) + 에러코드 표준화(환불 방지) — DONE (2026-02-03)
@@ -119,7 +119,9 @@ Day 3: "템플릿 생성 API"(templates/tradingview 확장) — 계좌/자산/�
 - POST /api/templates/tradingview/generate (다중 일괄 생성)
 Day 4: (선택) 간단 Wizard 문서(스크린샷 없이 텍스트 기준) + 체크리스트(초보자용) — DONE (2026-02-03)
 - 생성: docs/TV_WIZARD.md (Phase 1~4 + FAQ + 체크리스트)
-Day 5: 회귀 스크립트 1개 추가(tv_template_regression.ps1) + PASS 기준 정의
+Day 5: 회귀 스크립트 1개 추가(tv_template_regression.ps1) + PASS 기준 정의 — DONE (2026-02-03)
+- 생성: scripts/tv_template_regression.ps1 (8개 테스트 케이스)
+- PASS 기준: Template API + /tv 검증 에러코드 반환 확인
 
 ## Week 9: Upbit Spot 착수(필요 시) + 멀티 커넥터 공통화 — TODO
 Day 1~5: (OKX/KIS 구조 유지하면서 Upbit spot은 "필요 시"만)
@@ -136,8 +138,8 @@ Day 1~5: (기존 SSOT 동일, 삭제 없음)
 ---
 
 # 7) NEXT ACTION (3개)
-1) Week8 Day5 착수: 회귀 스크립트 추가 (tv_template_regression.ps1)
-2) 회귀 게이트 유지 (week4_regression + kis_regression)
+1) Week9 착수: Upbit Spot (필요 시) + 멀티 커넥터 공통화
+2) 회귀 게이트 유지 (week4_regression + kis_regression + tv_template_regression)
 3) 작업 전 docs/AI_RULES.md 필독
 
 ---

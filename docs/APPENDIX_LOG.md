@@ -117,3 +117,36 @@
 - FAQ 5개 항목
 - 시작 전/완료 후 체크리스트 포함
 
+---
+
+# 2026-02-03 KST — Week 8 Day 5: 회귀 스크립트 추가
+
+## 생성 파일: scripts/tv_template_regression.ps1
+
+### 테스트 케이스 (8개)
+1. Template Options API (GET /api/templates/tradingview/options)
+2. Asset Template API (GET /api/assets/{id}/template/tradingview)
+3. Batch Template Generate (POST /api/templates/tradingview/generate)
+4. /tv missing_side 검증
+5. /tv invalid_side 검증
+6. /tv missing_qty 검증
+7. /tv invalid_qty (zero) 검증
+8. /tv invalid_qty (string) 검증
+
+### PASS 기준
+- errors = 0
+- Template API 응답 정상
+- /tv 검증 에러코드 반환 확인 (또는 secret_invalid SKIP)
+
+---
+
+# Week 8 완료 요약 (2026-02-03)
+
+| Day | 작업 | 결과물 |
+|-----|------|--------|
+| Day 1 | TV 템플릿 표준화 | docs/TV_TEMPLATE.md |
+| Day 2 | /tv 검증 강화 | app/main.py (side/qty 검증) |
+| Day 3 | 템플릿 생성 API | 3개 엔드포인트 추가 |
+| Day 4 | Wizard 문서 | docs/TV_WIZARD.md |
+| Day 5 | 회귀 스크립트 | scripts/tv_template_regression.ps1 |
+
