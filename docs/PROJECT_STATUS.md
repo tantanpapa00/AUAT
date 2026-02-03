@@ -153,7 +153,9 @@ Day 2: 공통 주문 상태/이벤트 표준 재점검 + reason/snapshot 필드 
 - 추가: orders 테이블에 reason_code, reason_text, snapshot_id, exchange_order_id 컬럼
 - 추가: Event 모델에 reason_code, reason_text, snapshot_id 컬럼
 - 문서화: CONNECTOR_SPEC.md §4-4 reason/snapshot 필드 표준
-Day 3: Binance Spot 최소 구현(place_order/get_order/balance) + /api/diag/connector-test 실측
+Day 3: Binance Spot 최소 구현(place_order/get_order/balance) + /api/diag/connector-test 실측 — DONE (2026-02-04)
+- 생성: app/connectors/binance.py (BinanceConnector)
+- 실측: /api/diag/connector-test?exchange=BINANCE → ok:true, trading:2.77 USDT
 Day 4: Bybit Spot 최소 구현(place_order/get_order/balance) + /api/diag/connector-test 실측
 Day 5: 회귀 스크립트 생성: scripts/binance_regression.ps1, scripts/bybit_regression.ps1 + Gate-OKX/Gate-TV 유지
 
@@ -203,8 +205,8 @@ Day 5: SSOT/APPENDIX 증거 최종 정리 + 릴리즈 태그(1.0) 준비
 ---
 
 # 7) NEXT ACTION (3개) — v5
-1) Week 12 Day 3: Binance Spot 최소 구현 (place_order/get_order/balance) + connector-test 실측
-2) Week 12 Day 4: Bybit Spot 최소 구현 (place_order/get_order/balance) + connector-test 실측 (API 키 없어도 구현 가능)
+1) Week 12 Day 4: Bybit Spot 최소 구현 (place_order/get_order/balance) + connector-test 실측 (API 키 없어도 구현 가능)
+2) Week 12 Day 5: 회귀 스크립트 생성 (binance_regression.ps1, bybit_regression.ps1)
 3) docs/CONNECTOR_SPEC.md 참조하여 구현
 
 ---

@@ -13,7 +13,7 @@
 |----------|------|------|------|------|
 | OKX | 암호화폐 | Spot | DONE | Week 4 완료 |
 | KIS | 증권사 | Stock | DONE | Week 7 완료 |
-| Binance | 암호화폐 | Spot | TODO | Week 12 |
+| Binance | 암호화폐 | Spot | DONE | Week 12 Day 3 |
 | Bybit | 암호화폐 | Spot | TODO | Week 12 |
 | Upbit | 암호화폐 | Spot (KRW) | TODO | Week 13 |
 
@@ -482,7 +482,7 @@ Response:
 |------|-----|------|------|
 | 12 | 1 | 공통 인터페이스/라우팅 정책 확정 | DONE (spec) |
 | 12 | 2 | 주문 상태/이벤트 표준 재점검 + reason/snapshot 필드 | DONE |
-| 12 | 3 | Binance Spot 최소 구현 | TODO |
+| 12 | 3 | Binance Spot 최소 구현 | DONE |
 | 12 | 4 | Bybit Spot 최소 구현 | TODO |
 | 12 | 5 | 회귀 스크립트 생성 | TODO |
 | 13 | 1 | Upbit Spot 최소 구현 | TODO |
