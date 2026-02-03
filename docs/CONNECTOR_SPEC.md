@@ -269,53 +269,200 @@ Event 모델에서도 동일한 필드 사용:
 
 ---
 
-# 5) 심볼 정규화
+# 5) 심볼 정규화 (Week13 Day2 확정)
 
 ## 5-1) 내부 표준 포맷
 
 ```
-{BASE}-{QUOTE}
+암호화폐: {BASE}-{QUOTE}
+주식(KIS): {종목코드} (6자리 숫자)
 ```
 
-예시:
-- `BTC-USDT` (암호화폐)
-- `ETH-USDT` (암호화폐)
-- `BTC-KRW` (Upbit)
-- `005930` (KIS, 종목코드)
+### 규칙
+1. **대문자 사용**: 모든 심볼은 대문자 (BTC-USDT, 아닌 btc-usdt)
+2. **하이픈 구분**: BASE와 QUOTE는 하이픈(-)으로 구분
+3. **BASE 먼저**: 항상 BASE 통화가 앞 (BTC-USDT, 아닌 USDT-BTC)
+4. **공백 금지**: 공백 없음 (BTC-USDT, 아닌 BTC - USDT)
 
-## 5-2) 거래소별 변환
+### 예시
+| 타입 | 내부 심볼 | 의미 |
+|------|-----------|------|
+| 암호화폐 | `BTC-USDT` | 비트코인/테더 |
+| 암호화폐 | `ETH-BTC` | 이더리움/비트코인 |
+| 원화마켓 | `BTC-KRW` | 비트코인/원화 |
+| 주식 | `005930` | 삼성전자 |
+| 주식 | `000660` | SK하이닉스 |
 
-| 거래소 | 내부 포맷 | 거래소 포맷 | 변환 함수 |
-|--------|-----------|-------------|-----------|
-| OKX | `BTC-USDT` | `BTC-USDT` | 동일 |
-| Binance | `BTC-USDT` | `BTCUSDT` | 하이픈 제거 |
-| Bybit | `BTC-USDT` | `BTCUSDT` | 하이픈 제거 |
-| Upbit | `BTC-KRW` | `KRW-BTC` | 순서 반전 |
-| KIS | `005930` | `005930` | 동일 |
+## 5-2) 거래소별 변환 테이블
 
-## 5-3) 심볼 변환 함수
+| 거래소 | 내부 포맷 | 거래소 포맷 | 변환 규칙 | 예시 |
+|--------|-----------|-------------|-----------|------|
+| OKX | `BTC-USDT` | `BTC-USDT` | 동일 | BTC-USDT → BTC-USDT |
+| Binance | `BTC-USDT` | `BTCUSDT` | 하이픈 제거 | BTC-USDT → BTCUSDT |
+| Bybit | `BTC-USDT` | `BTCUSDT` | 하이픈 제거 | BTC-USDT → BTCUSDT |
+| Upbit | `BTC-KRW` | `KRW-BTC` | 순서 반전 | BTC-KRW → KRW-BTC |
+| KIS | `005930` | `005930` | 동일 | 005930 → 005930 |
+
+### 상세 변환 예시
+
+```
+내부 → 거래소:
+  BTC-USDT → OKX: BTC-USDT
+  BTC-USDT → Binance: BTCUSDT
+  BTC-USDT → Bybit: BTCUSDT
+  BTC-USDT → Upbit: USDT-BTC
+  BTC-KRW  → Upbit: KRW-BTC
+  ETH-BTC  → Upbit: BTC-ETH
+```
+
+## 5-3) 알려진 Quote 통화 목록
+
+역변환(거래소→내부)시 BASE/QUOTE 구분에 사용:
+
+```python
+KNOWN_QUOTES = [
+    # Stablecoins (우선순위 높음)
+    "USDT", "USDC", "BUSD", "DAI", "TUSD", "USDP",
+    # Fiat
+    "KRW", "USD", "EUR", "JPY", "GBP",
+    # Major crypto
+    "BTC", "ETH", "BNB", "SOL", "XRP",
+]
+```
+
+### 역변환 알고리즘
+
+```python
+def _from_binance_symbol(binance_symbol: str) -> str:
+    """BTCUSDT → BTC-USDT"""
+    for quote in KNOWN_QUOTES:
+        if binance_symbol.endswith(quote):
+            base = binance_symbol[:-len(quote)]
+            if base:  # base가 빈 문자열이 아닌 경우만
+                return f"{base}-{quote}"
+    return binance_symbol  # 변환 실패시 원본 반환
+```
+
+## 5-4) 심볼 변환 함수 (표준)
 
 ```python
 def to_exchange_symbol(internal: str, exchange: str) -> str:
     """내부 심볼 → 거래소 심볼"""
     ex = exchange.upper()
+
+    # KIS: 종목코드는 그대로
+    if ex == "KIS":
+        return internal
+
+    # OKX: 동일 포맷
+    if ex == "OKX":
+        return internal
+
+    # Binance/Bybit: 하이픈 제거
     if ex in ("BINANCE", "BYBIT"):
         return internal.replace("-", "")
+
+    # Upbit: 순서 반전 (BASE-QUOTE → QUOTE-BASE)
     if ex == "UPBIT":
         parts = internal.split("-")
         if len(parts) == 2:
-            return f"{parts[1]}-{parts[0]}"  # BTC-KRW → KRW-BTC
-    return internal
+            return f"{parts[1]}-{parts[0]}"
+
+    return internal  # 기본값: 원본
+
 
 def from_exchange_symbol(external: str, exchange: str) -> str:
     """거래소 심볼 → 내부 심볼"""
     ex = exchange.upper()
+
+    # KIS/OKX: 동일 포맷
+    if ex in ("KIS", "OKX"):
+        return external
+
+    # Upbit: 순서 반전 (QUOTE-BASE → BASE-QUOTE)
     if ex == "UPBIT":
         parts = external.split("-")
         if len(parts) == 2:
-            return f"{parts[1]}-{parts[0]}"  # KRW-BTC → BTC-KRW
-    # Binance/Bybit: 단순 연결 → 하이픈 삽입 필요 (마켓 정보 필요)
-    return external
+            return f"{parts[1]}-{parts[0]}"
+
+    # Binance/Bybit: KNOWN_QUOTES로 분리
+    if ex in ("BINANCE", "BYBIT"):
+        for quote in KNOWN_QUOTES:
+            if external.endswith(quote):
+                base = external[:-len(quote)]
+                if base:
+                    return f"{base}-{quote}"
+
+    return external  # 변환 실패시 원본
+
+
+def normalize_symbol(symbol: str) -> str:
+    """심볼 정규화 (대문자, 공백 제거)"""
+    return symbol.strip().upper()
+
+
+def validate_symbol(symbol: str, exchange: str) -> tuple[bool, str]:
+    """심볼 유효성 검사"""
+    ex = exchange.upper()
+
+    if not symbol:
+        return False, "empty_symbol"
+
+    symbol = normalize_symbol(symbol)
+
+    # KIS: 6자리 숫자
+    if ex == "KIS":
+        if not symbol.isdigit() or len(symbol) != 6:
+            return False, "invalid_kis_symbol"
+        return True, ""
+
+    # 암호화폐: BASE-QUOTE 형식
+    if "-" not in symbol:
+        return False, "missing_hyphen"
+
+    parts = symbol.split("-")
+    if len(parts) != 2:
+        return False, "invalid_format"
+
+    base, quote = parts
+    if not base or not quote:
+        return False, "empty_base_or_quote"
+
+    return True, ""
+```
+
+## 5-5) 엣지 케이스 처리
+
+| 케이스 | 입력 | 처리 | 결과 |
+|--------|------|------|------|
+| 소문자 | `btc-usdt` | 대문자 변환 | `BTC-USDT` |
+| 공백 포함 | ` BTC-USDT ` | 공백 제거 | `BTC-USDT` |
+| 하이픈 없음 | `BTCUSDT` | 역변환 시도 | `BTC-USDT` (Binance/Bybit) |
+| 잘못된 포맷 | `BTC_USDT` | 오류 반환 | `invalid_format` |
+| 빈 심볼 | `` | 오류 반환 | `empty_symbol` |
+
+## 5-6) TradingView 심볼 처리
+
+TradingView webhook에서 오는 심볼 처리:
+
+```python
+def parse_tv_symbol(ticker: str) -> tuple[str, str]:
+    """
+    TradingView ticker → (exchange, internal_symbol)
+
+    예시:
+      BINANCE:BTCUSDT → (BINANCE, BTC-USDT)
+      UPBIT:KRWBTC → (UPBIT, BTC-KRW)
+      OKX:BTC-USDT → (OKX, BTC-USDT)
+    """
+    if ":" in ticker:
+        exchange, symbol = ticker.split(":", 1)
+        exchange = exchange.upper()
+        internal = from_exchange_symbol(symbol, exchange)
+        return exchange, internal
+
+    # 거래소 없으면 기본값 사용
+    return "OKX", ticker
 ```
 
 ---
