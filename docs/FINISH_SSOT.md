@@ -118,12 +118,14 @@
     - SMOKE-10: 404 Endpoint - PASS
   - [x] Gate 스크립트 PASS 실측 기록(APPENDIX_LOG 누적)
 
-## Week C (트레이 v1 + UI/대시보드 개선 v1) — TODO
+## Week C (트레이 v1 + UI/대시보드 개선 v1) — IN PROGRESS
 - TRAY v1:
-  - 상태표시 + 시작/중지/로그/진단/E-STOP 메뉴
+  - [x] 상태표시 + 시작/중지/로그/진단/E-STOP 메뉴 (main.rs에 구현 완료, 빌드 필요)
 - UI v1:
-  - 상태등/마지막 시각/타임라인 표시 개선
-  - 오류 메시지 사람말 + 해결 가이드 연결
+  - [x] 상태등(LED 스타일) 추가
+  - [x] 마지막 수신/전송/체결 시각 표시 (status-overview 패널)
+  - [x] 주문 타임라인(received→sent→filled/partial/failed) 가시화
+  - [x] 오류 메시지 사람말 + 해결 가이드 연결 (ERROR_GUIDES)
 
 ## Week D (Android APK v0.1 "설치 가능" + E-STOP/관측 최소) — TODO
 - ANDROID v0.1:

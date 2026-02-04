@@ -14,10 +14,36 @@
                 <span>BBooster</span>
             </div>
             <div class="status-indicators">
-                <span id="server-status" class="status-badge">Server: --</span>
-                <span id="estop-status" class="status-badge">E-STOP: --</span>
+                <div class="status-light-group">
+                    <span class="status-light" id="light-server"></span>
+                    <span id="server-status" class="status-text">Server: --</span>
+                </div>
+                <div class="status-light-group">
+                    <span class="status-light" id="light-estop"></span>
+                    <span id="estop-status" class="status-text">E-STOP: --</span>
+                </div>
             </div>
         </header>
+
+        <!-- Week C: Status Overview Panel -->
+        <section class="status-overview">
+            <div class="stat-card">
+                <div class="stat-label">Last Signal</div>
+                <div class="stat-value" id="last-signal">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Last Order</div>
+                <div class="stat-value" id="last-order">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Last Filled</div>
+                <div class="stat-value" id="last-filled">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">System Status</div>
+                <div class="stat-value" id="system-status">--</div>
+            </div>
+        </section>
 
         <main class="main">
             <section class="card server-control">
@@ -38,6 +64,14 @@
                 </div>
             </section>
 
+            <!-- Week C: Order Timeline -->
+            <section class="card order-timeline">
+                <h2>Order Timeline</h2>
+                <div id="timeline-list" class="timeline-list">
+                    <p class="empty">Loading...</p>
+                </div>
+            </section>
+
             <section class="card recent-events">
                 <h2>Recent Events</h2>
                 <div id="events-list" class="events-list">
@@ -50,6 +84,15 @@
                 <div class="button-group">
                     <button id="btn-logs" class="btn btn-secondary">Open Logs Folder</button>
                     <button id="btn-diagnostic" class="btn btn-secondary">Export Diagnostic</button>
+                </div>
+            </section>
+
+            <!-- Week C: Error Guide Panel -->
+            <section class="card error-guide" id="error-guide" style="display: none;">
+                <h2>Error Resolution</h2>
+                <div class="error-content">
+                    <div class="error-message" id="error-message"></div>
+                    <div class="error-solution" id="error-solution"></div>
                 </div>
             </section>
         </main>
