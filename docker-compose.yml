@@ -1,0 +1,65 @@
+# BBooster Docker Compose
+# Week 19: Docker化 + 배포 준비
+# Services: PostgreSQL + App + ngrok (optional)
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: bbooster-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-bbooster}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-bbooster_secret}
+      POSTGRES_DB: ${DB_NAME:-bbooster}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-bbooster} -d ${DB_NAME:-bbooster}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # BBooster FastAPI App
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bbooster-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-bbooster}:${DB_PASSWORD:-bbooster_secret}@db:5432/${DB_NAME:-bbooster}
+      TV_SECRET: ${TV_SECRET:-changeme}
+      ESTOP_ENABLED: ${ESTOP_ENABLED:-false}
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
+
+  # ngrok for external webhook (TradingView)
+  # Requires: NGROK_AUTHTOKEN in .env file
+  # Dashboard: http://localhost:4040
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: bbooster-ngrok
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
+    command: http app:8000 --log stdout
+    ports:
+      - "4040:4040"
+
+volumes:
+  postgres_data:
+    driver: local
