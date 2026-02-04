@@ -81,8 +81,18 @@
   - [x] CSS 스타일시트 생성
   - [x] 엠블럼 site/assets/에 복사
 - PC_INSTALLER 착수:
-  - [ ] "설치형" 목표로 빌드 체인 확정(예: Tauri 빌드+인스톨러)
-  - [ ] 바탕화면 아이콘/자동 실행/브라우저 오픈 최소 동작
+  - [x] Tauri 프로젝트 구조 생성 (pc-app/)
+  - [x] Cargo.toml + tauri.conf.json 설정
+  - [x] Rust 백엔드: main.rs + commands.rs
+    - 서버 시작/정지
+    - 시스템 트레이 메뉴
+    - E-STOP 제어
+    - 진단 리포트 export
+    - API 키 암호화 저장 (keyring)
+  - [x] 프론트엔드: HTML + CSS + JS (Vite)
+  - [x] README.md (빌드 가이드)
+  - [ ] 실제 빌드 테스트 (Rust 환경 필요)
+  - [ ] 아이콘 파일 배치
 
 ## Week B (PC 설치형 v1 + 진단/로그/언인스톨) — TODO
 - PC_INSTALLER v1:

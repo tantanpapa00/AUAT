@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BBooster</title>
+    <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+    <div id="app">
+        <header class="header">
+            <div class="logo">
+                <img src="/src/assets/logo.png" alt="BBooster" height="32">
+                <span>BBooster</span>
+            </div>
+            <div class="status-indicators">
+                <span id="server-status" class="status-badge">Server: --</span>
+                <span id="estop-status" class="status-badge">E-STOP: --</span>
+            </div>
+        </header>
+
+        <main class="main">
+            <section class="card server-control">
+                <h2>Server Control</h2>
+                <div class="button-group">
+                    <button id="btn-start" class="btn btn-success">Start Server</button>
+                    <button id="btn-stop" class="btn btn-danger">Stop Server</button>
+                    <button id="btn-dashboard" class="btn btn-primary">Open Dashboard</button>
+                </div>
+            </section>
+
+            <section class="card estop-control">
+                <h2>E-STOP Control</h2>
+                <p class="description">Emergency stop - blocks all new orders</p>
+                <div class="button-group">
+                    <button id="btn-estop-on" class="btn btn-danger">E-STOP ON</button>
+                    <button id="btn-estop-off" class="btn btn-success">E-STOP OFF</button>
+                </div>
+            </section>
+
+            <section class="card recent-events">
+                <h2>Recent Events</h2>
+                <div id="events-list" class="events-list">
+                    <p class="empty">Loading...</p>
+                </div>
+            </section>
+
+            <section class="card tools">
+                <h2>Tools</h2>
+                <div class="button-group">
+                    <button id="btn-logs" class="btn btn-secondary">Open Logs Folder</button>
+                    <button id="btn-diagnostic" class="btn btn-secondary">Export Diagnostic</button>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <p>BBooster v1.0.0 | <a href="#" id="link-help">Help</a></p>
+        </footer>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>
