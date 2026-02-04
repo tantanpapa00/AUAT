@@ -522,7 +522,7 @@ Day 5: 회귀: Gate 전부 + entitlement 시나리오 PASS(환불/만료/다운�
 - Day 4: 보안 점검 (SECURITY_SPEC.md, 마스킹/헤더 구현)
 - Day 5: 통합 회귀 PASS
 
-## Week 18: 릴리즈/운영/문서 최종 — "출시 가능한 1.0" — IN PROGRESS
+## Week 18: 릴리즈/운영/문서 최종 — "출시 가능한 1.0" — DONE
 Day 1: 온보딩 문서(PC 기준) + 앱 근거 확인 가이드 + 15m 권장 고지 문구 고정 — DONE (2026-02-04)
 - 생성: docs/ONBOARDING.md (사용자 온보딩 가이드)
   - §1: 시작하기 전에 (제품 구성, 거래소, 플랜)
@@ -565,14 +565,43 @@ Day 4: 최종 통합 회귀: OKX/KIS/Binance/Bybit/Upbit + TV/ShortMsg/구독/E-
 - Premium: enabled=true, modes=[trend, mr, custom]
 - E-STOP: false (정상)
 - 관리자 엔드포인트: 추가됨 (Header import 수정)
-Day 5: SSOT/APPENDIX 증거 최종 정리 + 릴리즈 태그(1.0) 준비
+Day 5: SSOT/APPENDIX 증거 최종 정리 + 릴리즈 태그(1.0) 준비 — DONE (2026-02-04)
+- PROJECT_STATUS.md: Week 1~18 전체 완료 상태 정리
+- APPENDIX_LOG.md: Week 18 회귀 테스트 증거 추가
+- 릴리즈 준비: v1.0 태그 생성 대기
+
+## Week 18 완료 요약
+- Day 1: 온보딩 문서 (ONBOARDING.md) + 15m TF 권장 고지 (PC/앱 스펙)
+- Day 2: 에러코드 카탈로그 (ERROR_CATALOG.md) + 환불 방지 문구
+- Day 3: 운영 매뉴얼 (RUNBOOK.md) + 관리자 읽기 전용 엔드포인트
+- Day 4: 최종 통합 회귀 PASS (Gate-OKX, Gate-TV, Week 16/17)
+- Day 5: SSOT 정리 + 릴리즈 준비
+
+## 전체 18주 개발 완료
+- Week 1~4: DB+UI 기본/OKX 루프/회귀 게이트 — DONE
+- Week 5~6: OKX 커넥터 단일화 + KIS 착수 — DONE
+- Week 7: KIS place_order/get_order + 라우팅 — DONE
+- Week 8: 환불 방지 패키지 v1 + ShortMsg — DONE
+- Week 9: 3종 제품 아키텍처 + 구독/권한 — DONE
+- Week 10: 종합 UI v1 (타임라인/마커/성과) — DONE
+- Week 11: PC 프로그램 v1 (키/계좌/설정) — DONE
+- Week 12: 거래소 확장 v1 (Binance/Bybit) — DONE
+- Week 13: 거래소 확장 v2 (Upbit) + 심볼 정규화 — DONE
+- Week 14: 프리미엄 엔진 v0 (추세/역추세/커스텀 계약) — DONE
+- Week 15: 앱(모바일) v1 (근거 확인 중심) — DONE
+- Week 16: 커스텀 Rule Builder v1 (AST/복잡도/Lint) — DONE
+- Week 17: 보안/라이센스/구독 연동 v1 — DONE
+- Week 18: 릴리즈/운영/문서 최종 — DONE
 
 ---
 
-# 7) NEXT ACTION (3개) — v10
-1) Week 18 Day 3: runbook(운영/장애대응) + scripts 정리 + 관리자 조회(읽기) 최소
-2) Week 18 Day 4: 최종 통합 회귀 (전체 게이트 PASS)
-3) Week 18 Day 5: SSOT/APPENDIX 정리 + 릴리즈 태그(1.0) 준비
+# 7) NEXT ACTION — v11 (18주 개발 완료)
+1) 릴리즈 태그: git tag v1.0.0 준비 (사용자 승인 후 생성)
+2) 운영 모니터링: RUNBOOK.md 기반 운영 시작
+3) 사용자 온보딩: ONBOARDING.md 배포
+
+> **축하합니다! 18주 개발이 완료되었습니다.**
+> 모든 게이트 테스트 PASS, 문서 정리 완료, 릴리즈 준비 완료.
 
 ---
 
