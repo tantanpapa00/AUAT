@@ -543,7 +543,19 @@ Day 2: 에러코드 카탈로그(/tv 포함) + 환불 방지 문구/경고 문�
   - §6: 거래소별 에러 코드 (OKX/KIS/Binance/Bybit/Upbit)
   - §7: 환불 방지 문구 (설치/템플릿/Premium/커스텀 경고)
   - §8: 사용자 친화적 메시지 변환 표
-Day 3: runbook(운영/장애대응) + scripts 정리 + 관리자 조회(읽기) 최소
+Day 3: runbook(운영/장애대응) + scripts 정리 + 관리자 조회(읽기) 최소 — DONE (2026-02-04)
+- 생성: docs/RUNBOOK.md (운영/장애대응 매뉴얼)
+  - §2: 일상 운영 (시작/정지, 헬스체크, E-STOP, 로그)
+  - §3: 장애 대응 (P1~P4 등급, 서버/DB/웹훅/주문/커넥터 장애)
+  - §4: 회귀 테스트 (게이트 스크립트 목록)
+  - §5: 배포/업데이트, 롤백
+  - §6: 모니터링 (주요 항목, 알림 설정)
+  - §7: 보안 점검
+- 구현: 관리자 읽기 전용 엔드포인트
+  - GET /api/admin/system-status: 시스템 상태 조회
+  - GET /api/admin/recent-errors: 최근 에러 조회
+  - GET /api/admin/connector-status: 커넥터 상태 조회
+  - GET /api/admin/daily-summary: 일별 요약 조회
 Day 4: 최종 통합 회귀: OKX/KIS/Binance/Bybit/Upbit + TV/ShortMsg/구독/E-STOP/Premium/Custom 전체 PASS
 Day 5: SSOT/APPENDIX 증거 최종 정리 + 릴리즈 태그(1.0) 준비
 

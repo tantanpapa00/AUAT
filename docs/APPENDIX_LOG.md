@@ -81,6 +81,50 @@
 - API 키는 반드시 "출금 권한 없는" 키를 사용해야 합니다.
 ```
 
+## Week 18 Day 3 작업 내용
+
+### docs/RUNBOOK.md 생성
+- §1: 서비스 개요 (구성 요소, 핵심 엔드포인트)
+- §2: 일상 운영
+  - 서버 시작/정지 (run.ps1, stop.ps1)
+  - 헬스 체크 (/api/diag/home)
+  - E-STOP 관리
+  - 로그 확인
+- §3: 장애 대응
+  - 장애 등급 (P1~P4)
+  - 서버 다운 (P1)
+  - DB 연결 실패 (P1)
+  - 웹훅 미수신 (P2)
+  - 주문 전송 실패 (P2)
+  - 거래소 연결 불안정 (P3)
+- §4: 회귀 테스트 (게이트 스크립트 목록)
+- §5: 배포/업데이트, 롤백 절차
+- §6: 모니터링 (알림 설정 권장)
+- §7: 보안 점검
+
+### 관리자 엔드포인트 구현 (읽기 전용)
+```
+GET /api/admin/system-status
+- 시스템 상태 (estop, dry_run, submit/poll, premium)
+- DB 연결 상태
+- 주문 통계 (total, pending, filled, failed)
+- 신호 통계 (total, today)
+
+GET /api/admin/recent-errors
+- 최근 실패한 주문 목록
+
+GET /api/admin/connector-status
+- 각 거래소 커넥터 설정 상태
+
+GET /api/admin/daily-summary
+- 일별 주문 통계 (7일 기본)
+```
+
+### 보안
+- ADMIN_TOKEN 환경변수로 관리자 인증
+- 읽기 전용 (수정/삭제 불가)
+- 스택 트레이스 숨김
+
 ---
 
 # 2026-02-04 — Week 17 완료 (보안/라이센스/구독 연동 v1)
