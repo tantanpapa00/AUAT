@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Release Notes - BBooster</title>
+    <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <img src="../assets/logo.png" alt="BBooster" height="40">
+                <span>BBooster</span>
+            </div>
+            <nav class="nav">
+                <a href="../index.html">Home</a>
+                <a href="download.html">Download</a>
+                <a href="guide.html">Guide</a>
+                <a href="release.html" class="active">Release</a>
+                <a href="faq.html">FAQ</a>
+                <a href="legal.html">Legal</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="page-content">
+        <div class="container">
+            <h1>Release Notes</h1>
+
+            <article class="release-note">
+                <h2>v1.0.0 (2026-02-04) - Beta Release</h2>
+                <p><strong>Initial beta release</strong></p>
+
+                <h3>Features</h3>
+                <ul>
+                    <li>Multi-exchange support: OKX, Binance, Bybit, Upbit, KIS</li>
+                    <li>TradingView webhook integration (/tv endpoint)</li>
+                    <li>Premium signals: Trend, Mean Reversion, Custom rules</li>
+                    <li>Custom Rule Builder with AST-based validation</li>
+                    <li>E-STOP emergency stop functionality</li>
+                    <li>Timeline view for order tracking</li>
+                    <li>Subscription/Entitlement system</li>
+                    <li>Security: Sensitive data masking, security headers</li>
+                </ul>
+
+                <h3>PC Application</h3>
+                <ul>
+                    <li>Windows installer (.exe)</li>
+                    <li>System tray integration</li>
+                    <li>Diagnostic report export</li>
+                    <li>Auto-start and dashboard launch</li>
+                </ul>
+
+                <h3>Android Application</h3>
+                <ul>
+                    <li>APK installation (sideload)</li>
+                    <li>Dashboard monitoring (read-only)</li>
+                    <li>E-STOP toggle</li>
+                    <li>Event notifications (basic)</li>
+                </ul>
+
+                <h3>Known Issues</h3>
+                <ul>
+                    <li>KIS: 장 마감 시간(15:30 KST) 이후 주문 실패</li>
+                    <li>Upbit: IP 화이트리스트 필수 (미등록 시 인증 실패)</li>
+                </ul>
+            </article>
+
+            <hr style="margin: 40px 0; border: none; border-top: 1px solid #eee;">
+
+            <article class="release-note">
+                <h2>Roadmap</h2>
+                <h3>v1.1.0 (예정)</h3>
+                <ul>
+                    <li>Auto-update functionality</li>
+                    <li>Improved error messages</li>
+                    <li>Performance optimization</li>
+                </ul>
+
+                <h3>v1.2.0 (예정)</h3>
+                <ul>
+                    <li>iOS application</li>
+                    <li>Additional indicators for Custom Rules</li>
+                    <li>Backtesting (basic)</li>
+                </ul>
+            </article>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 BBooster. All rights reserved.</p>
+            <nav class="footer-nav">
+                <a href="legal.html#terms">Terms</a>
+                <a href="legal.html#privacy">Privacy</a>
+                <a href="legal.html#disclaimer">Disclaimer</a>
+            </nav>
+        </div>
+    </footer>
+</body>
+</html>
