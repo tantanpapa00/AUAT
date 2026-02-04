@@ -1,7 +1,7 @@
 # MOBILE_APP_SPEC.md (SSOT)
 - Last updated: 2026-02-04 KST
 - Owner: 기훈(작가님)
-- Status: Week 15 Day 1
+- Status: Week 18 Day 1 (TF 권장 고지 추가)
 
 > NOTE: 이 파일은 모바일 앱 스펙의 '진실(SSOT)'입니다.
 > PC 앱 스펙은 docs/PC_APP_SPEC.md 참조.
@@ -1342,7 +1342,316 @@ EntitlementGuard(
 
 ---
 
-# 14) 참조
+# 14) 15분봉 권장 고지 (TF Policy)
+
+## 14-1) 고지 원칙
+
+> ⚠️ **필수 고지**: 모든 Premium 전략(추세/역추세/커스텀)은 **15분봉(15m) 이상** 사용을 권장합니다.
+
+### 표시 위치
+
+| 위치 | 표시 방식 |
+|------|----------|
+| 타임라인 이벤트 | tf_warning=true 시 경고 아이콘 |
+| 스냅샷 상세 | TF 경고 배너 |
+| 대시보드 | 단기봉 사용 중 경고 표시 |
+
+## 14-2) 경고 문구 (고정)
+
+### 타임라인 이벤트 경고
+
+```dart
+class TfWarningBadge extends StatelessWidget {
+  final String tf;
+
+  const TfWarningBadge({required this.tf});
+
+  @override
+  Widget build(BuildContext context) {
+    final level = _getWarningLevel(tf);
+
+    if (level == TfWarningLevel.none) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: level == TfWarningLevel.red
+            ? Colors.red.shade100
+            : Colors.amber.shade100,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: level == TfWarningLevel.red
+              ? Colors.red
+              : Colors.amber,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            level == TfWarningLevel.red
+                ? Icons.warning_rounded
+                : Icons.warning_amber_rounded,
+            size: 14,
+            color: level == TfWarningLevel.red
+                ? Colors.red.shade700
+                : Colors.amber.shade700,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '단기봉',
+            style: TextStyle(
+              fontSize: 11,
+              color: level == TfWarningLevel.red
+                  ? Colors.red.shade700
+                  : Colors.amber.shade700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  TfWarningLevel _getWarningLevel(String tf) {
+    final minutes = _parseTfMinutes(tf);
+    if (minutes < 5) return TfWarningLevel.red;
+    if (minutes < 15) return TfWarningLevel.amber;
+    return TfWarningLevel.none;
+  }
+
+  int _parseTfMinutes(String tf) {
+    final match = RegExp(r'^(\d+)(m|h|d)$').firstMatch(tf);
+    if (match == null) return 0;
+    final value = int.parse(match.group(1)!);
+    final unit = match.group(2)!;
+    if (unit == 'h') return value * 60;
+    if (unit == 'd') return value * 1440;
+    return value;
+  }
+}
+
+enum TfWarningLevel { none, amber, red }
+```
+
+### 스냅샷 상세 경고 배너
+
+```dart
+class TfWarningBanner extends StatelessWidget {
+  final String tf;
+
+  const TfWarningBanner({required this.tf});
+
+  @override
+  Widget build(BuildContext context) {
+    final level = _getWarningLevel(tf);
+
+    if (level == TfWarningLevel.none) {
+      return const SizedBox.shrink();
+    }
+
+    final isRed = level == TfWarningLevel.red;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: isRed ? Colors.red.shade50 : Colors.amber.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isRed ? Colors.red.shade300 : Colors.amber.shade300,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isRed ? Icons.warning_rounded : Icons.warning_amber_rounded,
+                color: isRed ? Colors.red.shade700 : Colors.amber.shade700,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isRed ? '1분봉 강한 경고' : '5분봉 경고',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: isRed ? Colors.red.shade700 : Colors.amber.shade700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isRed
+                ? '1분봉은 체결 품질이 크게 저하될 수 있습니다. '
+                  '과도한 신호 발생, 높은 수수료 비용으로 손실 가능성이 높습니다.'
+                : '5분봉은 슬리피지 및 체결 괴리 위험이 있습니다. '
+                  '예상과 다른 가격에 체결될 수 있습니다.',
+            style: TextStyle(
+              fontSize: 13,
+              color: isRed ? Colors.red.shade700 : Colors.amber.shade700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '💡 15분봉(15m) 이상 사용을 권장합니다.',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: isRed ? Colors.red.shade700 : Colors.amber.shade700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  TfWarningLevel _getWarningLevel(String tf) {
+    final minutes = _parseTfMinutes(tf);
+    if (minutes < 5) return TfWarningLevel.red;
+    if (minutes < 15) return TfWarningLevel.amber;
+    return TfWarningLevel.none;
+  }
+
+  int _parseTfMinutes(String tf) {
+    final match = RegExp(r'^(\d+)(m|h|d)$').firstMatch(tf);
+    if (match == null) return 0;
+    final value = int.parse(match.group(1)!);
+    final unit = match.group(2)!;
+    if (unit == 'h') return value * 60;
+    if (unit == 'd') return value * 1440;
+    return value;
+  }
+}
+```
+
+## 14-3) 타임라인 통합
+
+```dart
+class TimelineItem extends StatelessWidget {
+  final TimelineEvent event;
+
+  const TimelineItem({required this.event});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ListTile(
+        leading: _buildStatusIcon(),
+        title: Row(
+          children: [
+            Text(event.symbol),
+            const SizedBox(width: 8),
+            // TF 경고 배지 표시
+            if (event.tfWarning == true)
+              TfWarningBadge(tf: event.tf),
+          ],
+        ),
+        subtitle: Text('${event.side} • ${event.reasonCode}'),
+        trailing: Text(
+          _formatTime(event.timestamp),
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        onTap: () => _showDetail(context),
+      ),
+    );
+  }
+
+  void _showDetail(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => SnapshotDetailSheet(
+        event: event,
+      ),
+    );
+  }
+}
+```
+
+## 14-4) 스냅샷 상세 화면
+
+```dart
+class SnapshotDetailSheet extends StatelessWidget {
+  final TimelineEvent event;
+
+  const SnapshotDetailSheet({required this.event});
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (context, scrollController) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: ListView(
+          controller: scrollController,
+          padding: const EdgeInsets.all(16),
+          children: [
+            // 헤더
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // TF 경고 배너 (해당 시)
+            if (event.tfWarning == true)
+              TfWarningBanner(tf: event.tf),
+
+            // 기본 정보
+            _buildInfoSection('기본 정보', [
+              _buildInfoRow('심볼', event.symbol),
+              _buildInfoRow('거래소', event.exchange),
+              _buildInfoRow('방향', event.side),
+              _buildInfoRow('타임프레임', event.tf),
+              _buildInfoRow('시간', _formatDateTime(event.timestamp)),
+            ]),
+
+            // 근거 정보
+            _buildInfoSection('신호 근거', [
+              _buildInfoRow('코드', event.reasonCode),
+              _buildInfoRow('설명', event.reasonText),
+            ]),
+
+            // 스냅샷 정보
+            if (event.snapshot != null)
+              _buildSnapshotSection(event.snapshot!),
+
+            // 차트 보기 버튼
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () => _openChart(context),
+              icon: const Icon(Icons.show_chart),
+              label: const Text('TradingView에서 보기'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ... helper methods
+}
+```
+
+---
+
+# 15) 참조
 
 - docs/PRODUCT_SPEC.md (제품 아키텍처)
 - docs/PC_APP_SPEC.md (PC 앱 스펙)
@@ -1350,6 +1659,7 @@ EntitlementGuard(
 - docs/TIMELINE_SPEC.md (타임라인 스키마)
 - docs/PREMIUM_ENGINE_SPEC.md (Premium API)
 - docs/ENTITLEMENT_SPEC.md (Week 17)
+- docs/ONBOARDING.md (Week 18)
 
 ---
 

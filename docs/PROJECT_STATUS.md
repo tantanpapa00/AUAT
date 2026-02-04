@@ -522,8 +522,18 @@ Day 5: 회귀: Gate 전부 + entitlement 시나리오 PASS(환불/만료/다운�
 - Day 4: 보안 점검 (SECURITY_SPEC.md, 마스킹/헤더 구현)
 - Day 5: 통합 회귀 PASS
 
-## Week 18: 릴리즈/운영/문서 최종 — "출시 가능한 1.0" — TODO
-Day 1: 온보딩 문서(PC 기준) + 앱 근거 확인 가이드 + 15m 권장 고지 문구 고정
+## Week 18: 릴리즈/운영/문서 최종 — "출시 가능한 1.0" — IN PROGRESS
+Day 1: 온보딩 문서(PC 기준) + 앱 근거 확인 가이드 + 15m 권장 고지 문구 고정 — DONE (2026-02-04)
+- 생성: docs/ONBOARDING.md (사용자 온보딩 가이드)
+  - §1: 시작하기 전에 (제품 구성, 거래소, 플랜)
+  - §2: PC 프로그램 설치 및 설정 (계좌/API, 템플릿, E-STOP)
+  - §3: 모바일 앱 설정 (근거 확인 가이드)
+  - §4: 타임프레임 권장 정책 (15m 이상 권장, 경고 문구)
+  - §5: FAQ (연결/주문/신호 문제 해결)
+  - §6: 보안 권장사항
+  - §7: 용어 정리
+- 수정: PC_APP_SPEC.md §10 추가 (15분봉 권장 고지 UI 컴포넌트)
+- 수정: MOBILE_APP_SPEC.md §14 추가 (15분봉 권장 고지 Flutter 위젯)
 Day 2: 에러코드 카탈로그(/tv 포함) + 환불 방지 문구/경고 문구 고정
 Day 3: runbook(운영/장애대응) + scripts 정리 + 관리자 조회(읽기) 최소
 Day 4: 최종 통합 회귀: OKX/KIS/Binance/Bybit/Upbit + TV/ShortMsg/구독/E-STOP/Premium/Custom 전체 PASS
@@ -531,10 +541,10 @@ Day 5: SSOT/APPENDIX 증거 최종 정리 + 릴리즈 태그(1.0) 준비
 
 ---
 
-# 7) NEXT ACTION (3개) — v8
-1) Week 18 Day 1: 온보딩 문서(PC 기준) + 앱 근거 확인 가이드 + 15m 권장 고지 문구 고정
-2) Week 18 Day 2: 에러코드 카탈로그(/tv 포함) + 환불 방지 문구/경고 문구 고정
-3) Week 18 Day 3: runbook(운영/장애대응) + scripts 정리 + 관리자 조회(읽기) 최소
+# 7) NEXT ACTION (3개) — v9
+1) Week 18 Day 2: 에러코드 카탈로그(/tv 포함) + 환불 방지 문구/경고 문구 고정
+2) Week 18 Day 3: runbook(운영/장애대응) + scripts 정리 + 관리자 조회(읽기) 최소
+3) Week 18 Day 4: 최종 통합 회귀 (전체 게이트 PASS)
 
 ---
 
