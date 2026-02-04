@@ -259,22 +259,27 @@ Day 5: 통합 회귀: Gate-OKX/Gate-TV/Gate-E-STOP + Gate-BINANCE/Gate-BYBIT/Gat
 - 우선순위(권장 고정): 리스크(손절/강제) > 익절 > 신호청산
 - TF 정책(고정): 15분봉 이상 권장, 1~5분봉은 슬리피지/체결괴리 경고(필수)
 
-Day 1: 추세/역추세/커스텀 신호 정의서 + reason_code 표준 확정
-- 입력 소스(정본): scripts/ 내 추세/역추세 관련 파일(경로/파일명은 SSOT에 명시)
-- 산출 문서: docs/PREMIUM_SIGNALS.md
-  - Trend / Mean-Reversion: Entry/Exit 조건을 "요약"으로만 기술(상세 로직은 scripts가 정본)
-  - Custom: 지원 지표/AST/복잡도 제한/Lint/Exit 옵션/TF 정책을 '정책 문구'로 명시
-  - reason_code 목록(TREND_*, MR_*, CUSTOM_*) + reason_text 템플릿
-  - 권장 TF(>=15m) 및 1~5m 슬리피지 경고 문구 고정
-- 완료 증거: docs/APPENDIX_LOG.md에 문서 생성/변경 커밋 + 관련 파일 경로 기록
+Day 1: 추세/역추세/커스텀 신호 정의서 + reason_code 표준 확정 — DONE (2026-02-04)
+- 입력 소스(정본): scripts/추세매매.txt, scripts/역추세매매 현물 v0.4.txt
+- 산출 문서: docs/PREMIUM_SIGNALS.md (신규 생성)
+  - Trend: Entry(ST+HVI+QQE+VWMA), Exit(HardSL/TP1/SPO/STFlip)
+  - MR: 4국면 엔진(R1~R4), OSC 기반 Entry/Exit, 분할 매수/매도
+  - Custom: 지원 인디케이터 6종, 복잡도 제한, Rule Lint, Exit 옵션
+  - reason_code: TREND_*, MR_*, CUSTOM_* 표준 목록
+  - TF 정책: 15분봉 이상 권장, 1~5분봉 슬리피지 경고
+  - snapshot_id 규격 정의
+- 완료 증거: 커밋 + APPENDIX_LOG.md 기록
 
-Day 2: Premium 입력/출력 스키마 확정(계약 고정)
-- 문서: docs/PREMIUM_ENGINE_SPEC.md (신규)
-  - 입력: asset + premium_mode(trend/mr/custom) + params_version
-  - 출력: signal_event + reason + snapshot_id
-  - Hub 경계(금지/허용) 명시
-- 모델: Pydantic/DB(Event/Snapshot 확장)에서 필드 확정
-- 완료 증거: 스키마/모델 변경 커밋 + APPENDIX 원문 기록
+Day 2: Premium 입력/출력 스키마 확정(계약 고정) — DONE (2026-02-04)
+- 문서: docs/PREMIUM_ENGINE_SPEC.md (신규 생성)
+  - 역할 분리: Premium(신호 생성) vs Hub(실행/가드/기록)
+  - signal_event 스키마: 필수/선택 필드 정의
+  - SignalSnapshot 스키마: OHLCV + indicators
+  - DB 테이블: signal_events, signal_snapshots
+  - API 엔드포인트: /api/premium/signals, /api/premium/snapshots
+  - 환경변수: PREMIUM_ENABLED, PREMIUM_DAILY_LIMIT 등
+- 모델: app/models.py에 SignalEvent, SignalSnapshot 클래스 추가
+- 완료 증거: 커밋
 
 Day 3: Premium 이벤트 생성 파이프라인 최소 구현 + 실측
 - 정책: Premium OFF면 signal_event 생성 금지, ON이면 생성
