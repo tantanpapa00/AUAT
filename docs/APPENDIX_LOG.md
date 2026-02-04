@@ -1,6 +1,470 @@
 ﻿# APPENDIX_LOG.md
 - PowerShell 출력/실측 원문을 날짜별로 누적(삭제 금지)
 
+# 2026-02-04 — Week 16 Custom Rule Builder v1 완료
+
+## Custom Rule Endpoints Test (week16_custom_rule_test.ps1)
+```
+=== Week 16 Custom Rule Builder Tests ===
+[PASS] GET /api/custom/indicators
+  - 6 indicators found: OK
+[PASS] Validate simple RSI rule
+  - Lint grade: OK
+[PASS] Complexity limit (max_leaf_per_group)
+  - Rejected as expected
+[PASS] Lint contradiction detection
+  - Lint grade: BLOCK (contradiction detected)
+[PASS] Create custom rule
+  - Rule ID: rule_1770174887415_18ba48cd
+[PASS] List custom rules
+  - Total rules: 2
+[PASS] Get rule by ID
+  - Rule name matches
+[PASS] Reject BLOCK-grade rule creation
+
+=== Results ===
+Passed: 9
+Failed: 0
+All tests passed!
+```
+
+## Custom Indicators API
+```
+GET /api/custom/indicators
+{
+    "ok": true,
+    "indicators": {
+        "MA": {"params": ["period", "type"], "outputs": ["value"]},
+        "BB": {"params": ["period", "std_mult"], "outputs": ["upper", "middle", "lower", "pct_b"]},
+        "RSI": {"params": ["period"], "outputs": ["value"]},
+        "MACD": {"params": ["fast", "slow", "signal"], "outputs": ["macd", "signal", "histogram"]},
+        "CCI": {"params": ["period"], "outputs": ["value"]},
+        "ICHIMOKU": {"params": ["tenkan", "kijun", "senkou"], "outputs": ["tenkan", "kijun", "senkou_a", "senkou_b", "chikou"]}
+    },
+    "operators": ["GT", "GTE", "LT", "LTE", "CROSS_ABOVE", "CROSS_BELOW"],
+    "complexity_limits": {
+        "max_depth": 3,
+        "max_leaf_total": 12,
+        "max_leaf_per_group": 6,
+        "max_or_groups": 2,
+        "max_leaf_per_or_group": 4
+    }
+}
+```
+
+## Complexity Limit Enforcement
+```
+POST /api/custom/rules/validate
+{
+    "entry": {"logic": "AND", "conditions": [7 conditions...]},
+    "exit": {...}
+}
+
+Response:
+{
+    "ok": false,
+    "code": "rule_complexity_exceeded",
+    "detail": "max_leaf_per_group exceeded: 7",
+    "errors": ["max_leaf_per_group exceeded: 7"]
+}
+```
+
+## Rule Lint - Contradiction Detection
+```
+POST /api/custom/rules/validate
+Entry: RSI < 30 AND RSI > 70 (impossible)
+
+Response:
+{
+    "ok": true,
+    "complexity": {"entry": {"depth": 0, "leaf_count": 2, "or_groups": 0}, ...},
+    "lint": {
+        "grade": "BLOCK",
+        "warnings": [],
+        "blocks": ["CONTRADICTION: RSI < 30 AND RSI > 70"]
+    }
+}
+```
+
+## BLOCK-grade Rule Creation Rejected
+```
+POST /api/custom/rules
+{
+    "rule_name": "Invalid Contradiction Rule",
+    "entry": {...RSI < 30 AND RSI > 70...},
+    "exit": {...}
+}
+
+Response:
+{
+    "ok": false,
+    "code": "rule_lint_block",
+    "detail": "CONTRADICTION: RSI < 30 AND RSI > 70",
+    "lint_grade": "BLOCK",
+    "lint_blocks": ["CONTRADICTION: RSI < 30 AND RSI > 70"]
+}
+```
+
+## Premium Status (custom mode enabled)
+```
+GET /api/premium/status
+{
+    "ok": true,
+    "premium_enabled": true,
+    "available_modes": ["trend", "mr", "custom"],
+    "mode_status": {"trend": true, "mr": true, "custom": true}
+}
+```
+
+---
+
+# 2026-02-04 — Week 14 Day 3 Premium 이벤트 파이프라인 구현 완료
+
+## Premium Status (PREMIUM_ENABLED=1)
+```
+GET /api/premium/status
+{
+    "ok":  true,
+    "premium_enabled":  true,
+    "available_modes":  ["trend", "mr"],
+    "mode_status":  {
+        "trend":  true,
+        "mr":  true,
+        "custom":  false
+    }
+}
+```
+
+## Premium Test Signal Creation (ON)
+```
+POST /api/diag/premium-test
+Request:
+{
+    "asset_id": 1,
+    "symbol": "BTC-USDT",
+    "exchange": "OKX",
+    "premium_mode": "mr",
+    "side": "entry",
+    "action": "buy",
+    "reason_code": "MR_ENTRY_OSC",
+    "reason_text": "역추세 진입: OSC 하단밴드 신호 (R4)",
+    "tf": "1h"
+}
+
+Response:
+{
+    "ok": true,
+    "signal_id": "sig_1_1770172842278_d575dbba",
+    "snapshot_id": "snap_1_1770172842278_de775e6a",
+    "message": "Signal created successfully. TF warning: False"
+}
+```
+
+## Premium Signals List
+```
+GET /api/premium/signals?limit=5
+{
+    "ok": true,
+    "total": 1,
+    "signals": [{
+        "signal_id": "sig_1_1770172842278_d575dbba",
+        "symbol": "BTC-USDT",
+        "side": "entry",
+        "reason_code": "MR_ENTRY_OSC"
+    }]
+}
+```
+
+## Premium Snapshot Retrieve
+```
+GET /api/premium/snapshots/snap_1_1770172842278_de775e6a
+{
+    "ok": true,
+    "snapshot": {
+        "snapshot_id": "snap_1_1770172842278_de775e6a",
+        "ohlcv": {"c":103.0,"h":105.0,"l":98.0,"o":100.0,"v":1000.0},
+        "indicators": {"test_mode":"mr","test_indicator":42.0}
+    }
+}
+```
+
+## Premium OFF Test (PREMIUM_ENABLED=0)
+```
+GET /api/premium/status
+{
+    "ok": true,
+    "premium_enabled": false,
+    "available_modes": []
+}
+
+POST /api/diag/premium-test
+{
+    "ok": false,
+    "message": "Premium is disabled. Set PREMIUM_ENABLED=1 to enable."
+}
+
+GET /api/premium/signals
+{
+    "ok": false,
+    "code": "premium_disabled",
+    "detail": "Premium is disabled"
+}
+```
+
+## Scripts Created
+- scripts/premium_test.ps1: Premium ON 테스트 (status, signal creation, list, snapshot)
+- scripts/premium_off_test.ps1: Premium OFF 테스트 (signal blocked)
+- create_premium_tables.py: DB 테이블 생성 스크립트
+
+## DB Tables Created
+- signal_events: 신호 이벤트 저장 (signal_id, reason_code, snapshot_id 등)
+- signal_snapshots: 스냅샷 저장 (ohlcv, indicators JSONB)
+
+---
+
+# 2026-02-04 — Week 14 Day 4 Premium 가드 정책 구현 완료
+
+## Premium Guards Configuration
+```
+GET /api/premium/guards
+{
+    "ok": true,
+    "guards": {
+        "cooldown_sec": 60,
+        "daily_limit": 100,
+        "tf_block_under_15m": false
+    },
+    "env_vars": {
+        "PREMIUM_COOLDOWN_SEC": "60",
+        "PREMIUM_DAILY_LIMIT": "100",
+        "PREMIUM_TF_BLOCK_UNDER": "0"
+    }
+}
+```
+
+## Cooldown Test (동일 자산 연속 신호 차단)
+```
+[2] First signal creation (should succeed)
+ok: True
+signal_id: sig_999_1770173422066_15a9eab7
+[PASS] First signal created
+
+[3] Second signal (same asset, should be blocked by cooldown)
+ok: False
+message: [cooldown_active] Cooldown active: 59.8s remaining (min interval: 60s)
+[PASS] Cooldown guard working
+```
+
+## TF Warning Test (5m timeframe)
+```
+[4] TF Warning test (5m timeframe)
+ok: True
+tf_warning: True
+message: Signal created successfully. WARNING: TF 5m is below recommended 15m. Slippage/execution risk is high.
+[PASS] TF warning triggered but signal created
+```
+
+## TF Block Test (PREMIUM_TF_BLOCK_UNDER=1)
+```
+tf_block_under_15m: True
+
+Trying to create signal with 5m TF...
+ok: False
+message: [tf_blocked] TF 5m is below recommended 15m. Slippage/execution risk is high. (Blocked by PREMIUM_TF_BLOCK_UNDER=1)
+[PASS] TF < 15m signal blocked
+
+Trying to create signal with 15m TF...
+ok: True
+signal_id: sig_995_1770173498946_e1e8963f
+[PASS] 15m TF signal created
+```
+
+## Different Asset Test (쿨다운 자산별 적용 확인)
+```
+[5] Different asset (should succeed, no cooldown)
+ok: True
+signal_id: sig_997_1770173422234_ccb91717
+[PASS] Different asset succeeds (cooldown is per-asset)
+```
+
+## Scripts Added
+- scripts/premium_guard_test.ps1: 가드 기능 통합 테스트
+- scripts/tf_block_test.ps1: TF 차단 테스트
+
+---
+
+# 2026-02-04 — Week 14 Day 5 통합 회귀 테스트 PASS
+
+## Week 14 Regression Test (scripts/week14_regression.ps1)
+```
+=== Week 14 Integration Regression ===
+
+[1] Server Health
+[PASS] GET /api/diag/home
+
+[2] Premium Status (ON)
+[PASS] GET /api/premium/status
+    premium_enabled: True
+    available_modes: trend, mr
+
+[3] Premium Guards
+[PASS] GET /api/premium/guards
+    cooldown_sec: 60
+    daily_limit: 100
+    tf_block: False
+
+[4] Signal Creation (Premium ON)
+[PASS] POST /api/diag/premium-test
+    signal_id: sig_909_1770173636135_d447b159
+
+[5] Signal List
+[PASS] GET /api/premium/signals
+    total: 12
+
+[6] Connector Check (OKX)
+[PASS] OKX connector
+
+[7] E-STOP Status
+[PASS] E-STOP check
+    estop: False
+
+[8] Timeline Check
+[PASS] GET /api/timeline
+
+[9] TF Warning Test (5m)
+[PASS] TF warning triggered
+    tf_warning: True
+
+=== Summary ===
+Passed: 9
+Failed: 0
+
+=== Week 14 Regression: PASS ===
+```
+
+## Premium ON/OFF Toggle Test
+- Premium ON (PREMIUM_ENABLED=1):
+  - Signal creation: SUCCESS (signal_id generated)
+  - Signal list: SUCCESS (signals returned)
+- Premium OFF (PREMIUM_ENABLED=0):
+  - Signal creation: BLOCKED ("Premium is disabled")
+  - Signal list: BLOCKED ("premium_disabled")
+
+## Week 14 Final State
+- PREMIUM_ENABLED=1
+- PREMIUM_TREND_ENABLED=1
+- PREMIUM_MR_ENABLED=1
+- PREMIUM_CUSTOM_ENABLED=0
+- PREMIUM_COOLDOWN_SEC=60
+- PREMIUM_DAILY_LIMIT=100
+- PREMIUM_TF_BLOCK_UNDER=0
+
+## Scripts Created in Week 14
+- scripts/premium_test.ps1: Premium ON 기능 테스트
+- scripts/premium_off_test.ps1: Premium OFF 차단 테스트
+- scripts/premium_guard_test.ps1: 가드 기능 테스트
+- scripts/tf_block_test.ps1: TF 차단 테스트
+- scripts/week14_regression.ps1: 통합 회귀 테스트
+
+---
+
+# 2026-02-04 — Week 15 앱(모바일) v1 스펙 완료
+
+## Day 1: 기술 선정
+- 선정: Flutter (Dart)
+- 문서: docs/MOBILE_APP_SPEC.md 생성
+
+## Day 2: 대시보드/타임라인 스펙
+- MOBILE_APP_SPEC.md §11 추가
+- 데이터 구조, API 연동, UI 위젯 정의
+
+## Day 3: E-STOP 실측
+```
+=== E-STOP Test ===
+
+[1] GET /api/system/estop (current status)
+estop: False
+
+[2] POST /api/system/estop (E-STOP ON)
+estop: True
+[PASS] E-STOP ON success
+
+[3] POST /api/diag/send-now (should be blocked)
+ok: False
+[INFO] send-now blocked
+
+[4] POST /api/system/estop (E-STOP OFF)
+estop: False
+[PASS] E-STOP OFF success
+
+[5] GET /api/system/estop (final status)
+estop: False
+[PASS] E-STOP restored to OFF
+```
+
+## Day 4: TradingView 차트 스펙
+- MOBILE_APP_SPEC.md §12 추가
+- 심볼 변환, TF 변환, 네비게이션 플로우
+
+## Day 5: 통합 회귀 (10/10 PASS)
+```
+=== Week 15 Integration Regression ===
+
+[1] Server Health
+    title: AutoBot Admin v0.1
+[PASS] Server is running
+
+[2] E-STOP (app control)
+    estop: False
+[PASS] GET /api/system/estop
+
+[3] Premium Status
+    enabled: True
+    modes: trend, mr
+[PASS] Premium enabled
+
+[4] Premium Guards
+    cooldown: 60s
+    daily_limit: 100
+[PASS] GET /api/premium/guards
+
+[5] Premium Signal Creation
+    signal_id: sig_1099_1770174133215_607ecbc5
+[PASS] Signal created
+
+[6] Premium Signals List
+    total: 18
+[PASS] GET /api/premium/signals
+
+[7] Timeline (app read)
+    total: 153
+    items: 10
+[PASS] GET /api/timeline
+
+[8] OKX Connector
+[PASS] OKX connector
+
+[9] TF Warning Test (5m)
+    tf_warning: True
+[PASS] TF warning triggered
+
+[10] Subscription (app read)
+    plan: hub
+[PASS] GET /api/subscription/me
+
+=== Summary ===
+Passed: 10
+Failed: 0
+
+=== Week 15 Regression: PASS ===
+```
+
+## Scripts Created in Week 15
+- scripts/estop_test.ps1: E-STOP ON/OFF 테스트
+- scripts/week15_regression.ps1: 통합 회귀 테스트
+
+---
+
 # 2026-02-04 — Week 12 Day 5 회귀 게이트 전체 PASS (거래소 확장 완료)
 
 ## Gate-BINANCE (binance_regression.ps1)

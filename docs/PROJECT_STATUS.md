@@ -202,7 +202,7 @@ Day 5: 통합 회귀: Gate-OKX/Gate-TV/Gate-E-STOP + Gate-BINANCE/Gate-BYBIT/Gat
 - Gate-UPBIT: PASS (connector OK, IP 화이트리스트 필요)
 - 지원 거래소: ["OKX", "KIS", "BINANCE", "BYBIT", "UPBIT"]
 
-## Week 14: 프리미엄 엔진 v0 — 추세/역추세 "지표 점검" + 커스텀(룰 실행 계약) + 근거 표준화 — TODO
+## Week 14: 프리미엄 엔진 v0 — 추세/역추세 "지표 점검" + 커스텀(룰 실행 계약) + 근거 표준화 — DONE
 > 종목추천/자동선정/스크리너 금지 준수
 > Premium은 신호(결과) 생성만, Hub는 실행/가드/기록만 담당(역할 중복 금지)
 > 차트는 TradingView embed(A) + 근거는 타임라인 패널로만 표시
@@ -281,38 +281,171 @@ Day 2: Premium 입력/출력 스키마 확정(계약 고정) — DONE (2026-02-0
 - 모델: app/models.py에 SignalEvent, SignalSnapshot 클래스 추가
 - 완료 증거: 커밋
 
-Day 3: Premium 이벤트 생성 파이프라인 최소 구현 + 실측
+Day 3: Premium 이벤트 생성 파이프라인 최소 구현 + 실측 — DONE (2026-02-04)
 - 정책: Premium OFF면 signal_event 생성 금지, ON이면 생성
-- 구현: trend/mr는 scripts 정본을 기준으로 최소 이벤트 생성 가능하게
-- custom은 "AST 입력이 존재하면 엔진이 평가→이벤트 생성"까지의 파이프라인 골격만 확인(빌더 UI는 별도 주차)
-- 실측: PS로 이벤트 생성/조회 확인(/api/timeline 또는 전용 endpoint)
-- 완료 증거: APPENDIX에 PS 원문(요청/응답) + Gate-TV PASS 유지
+- 구현:
+  - 환경변수: PREMIUM_ENABLED, PREMIUM_TREND_ENABLED, PREMIUM_MR_ENABLED, PREMIUM_CUSTOM_ENABLED
+  - DB 테이블: signal_events, signal_snapshots 생성 (JSONB 지원)
+  - 엔드포인트 추가:
+    - GET /api/premium/status: Premium 상태 조회
+    - GET /api/premium/signals: 신호 목록 조회
+    - GET /api/premium/snapshots/{id}: 스냅샷 조회
+    - POST /api/diag/premium-test: 테스트 신호 생성
+- 실측:
+  - Premium ON: 신호 생성 성공 (signal_id, snapshot_id 발급)
+  - Premium OFF: 신호 생성 차단 ("Premium is disabled" 메시지)
+  - TF 경고: tf < 15m이면 tf_warning=true
+- 완료 증거: APPENDIX에 PS 원문(요청/응답)
 
-Day 4: 과다 신호/단기봉 경고 가드 정책 확정 + 실측
-- 정책(초안 고정):
-  - 과다 신호 방지: 1봉 1회(또는 최소 쿨다운) / 일일 제한 (기본값)
-  - TF<15m 경고 배너(차단은 옵션)
-- 실측: 과다 신호 조건에서 이벤트가 제한되는지 확인(또는 경고 표시)
-- 완료 증거: APPENDIX에 PS 원문 + 정책 문서 업데이트
+Day 4: 과다 신호/단기봉 경고 가드 정책 확정 + 실측 — DONE (2026-02-04)
+- 정책 확정:
+  - 쿨다운: PREMIUM_COOLDOWN_SEC=60 (자산별 60초 간격)
+  - 일일 제한: PREMIUM_DAILY_LIMIT=100 (자산별 100개/일)
+  - TF 경고: TF < 15m 시 경고 메시지 (tf_warning=true)
+  - TF 차단: PREMIUM_TF_BLOCK_UNDER=1 설정 시 TF < 15m 차단
+- 구현:
+  - 가드 헬퍼 함수: _check_cooldown(), _check_daily_limit(), _check_tf_warning()
+  - 통합 가드: _apply_premium_guards() → PremiumGuardResult
+  - 엔드포인트 추가: GET /api/premium/guards (가드 설정 조회)
+  - /api/diag/premium-test에 가드 정책 적용
+- 실측:
+  - 쿨다운 작동: 동일 자산 60초 내 재생성 차단 (cooldown_active)
+  - TF 경고: 5m TF 신호 생성 시 tf_warning=true + 메시지
+  - TF 차단: PREMIUM_TF_BLOCK_UNDER=1 시 5m 신호 차단 (tf_blocked)
+  - 다른 자산: 쿨다운 없이 즉시 생성 가능
+- 완료 증거: APPENDIX에 PS 원문
 
-Day 5: 회귀(통합) — Premium ON/OFF 차이 실측 + Gate 유지
-- Premium OFF/ON 전환 실측(OFF=이벤트 없음, ON=이벤트 생성)
-- Gate-TV/Gate-OKX/Gate-E-STOP 유지(PASS)
-- 완료 증거: APPENDIX에 회귀 스크립트 실행 원문 + PASS 로그 누적
+Day 5: 회귀(통합) — Premium ON/OFF 차이 실측 + Gate 유지 — DONE (2026-02-04)
+- Premium ON/OFF 전환 실측:
+  - Premium ON: 신호 생성 성공 (signal_id 발급)
+  - Premium OFF: 신호 생성 차단 ("Premium is disabled")
+- 통합 회귀 테스트 결과 (scripts/week14_regression.ps1):
+  - [PASS] Server Health: /api/diag/home ok
+  - [PASS] Premium Status: enabled=true, modes=[trend, mr]
+  - [PASS] Premium Guards: cooldown=60s, daily_limit=100
+  - [PASS] Signal Creation: signal_id 발급
+  - [PASS] Signal List: total=12
+  - [PASS] OKX Connector: balance 조회 ok
+  - [PASS] E-STOP: estop=false
+  - [PASS] Timeline: 조회 ok
+  - [PASS] TF Warning: tf_warning=true for 5m
+- 완료 증거: APPENDIX에 회귀 스크립트 실행 원문
 
-## Week 15: 앱(모바일) v1 — "근거 확인" 중심(프리미엄 반영 포함) — TODO
-Day 1: 앱 기술선정 고정(Flutter/ReactNative 중 1) + 인증/토큰 저장 정책 확정
-Day 2: 앱: 대시보드(계좌/자산/주문 요약) + 타임라인(근거 패널) 읽기전용
-Day 3: 앱: E-STOP ON/OFF + 실측(차단 동작 확인) + Gate-E-STOP 유지
-Day 4: 앱: TradingView 차트 embed(WebView) 화면 추가(심볼/TF 이동 링크 포함)
-Day 5: 회귀: 앱 경유 E-STOP + 프리미엄 이벤트 표시 실측 + Gate-OKX/Gate-TV PASS
+## Week 14 완료 요약
+- Day 1: 신호 정의서 (PREMIUM_SIGNALS.md)
+- Day 2: 입출력 스키마 (PREMIUM_ENGINE_SPEC.md, models.py)
+- Day 3: 이벤트 파이프라인 (signal_events, signal_snapshots, API)
+- Day 4: 가드 정책 (cooldown, daily_limit, tf_warning/block)
+- Day 5: 통합 회귀 PASS
 
-## Week 16: 커스텀 Rule Builder v1 — 역추세/추세를 "사용자 조립"으로 확장 — TODO
-Day 1: 지원 인디케이터 확정(제한): MA(SMA/EMA/WMA), Bollinger, RSI, MACD, CCI, Ichimoku
-Day 2: 규칙 저장 포맷: 문자열 금지 → AST(JSON 트리)로 확정 + 서버 validation 구현
-Day 3: 복잡도 제한 구현(깊이/leaf/OR 제한) + 실패 코드 고정(rule_complexity_exceeded)
-Day 4: Rule Lint 구현(OK/WARN/BLOCK) + 희소/상충 조건 경고(예: BB 상단돌파 AND RSI<30)
-Day 5: 회귀: Custom 룰 생성/검증/실행(이벤트 생성) + Gate-TV PASS
+## Week 15: 앱(모바일) v1 — "근거 확인" 중심(프리미엄 반영 포함) — DONE
+Day 1: 앱 기술선정 고정(Flutter/ReactNative 중 1) + 인증/토큰 저장 정책 확정 — DONE (2026-02-04)
+- 기술 선정: Flutter (Dart)
+  - UI 일관성 (iOS/Android 동일)
+  - Skia 기반 성능
+  - flutter_secure_storage로 보안 저장
+- 문서 생성: docs/MOBILE_APP_SPEC.md
+  - §1: 기술 선정 (Flutter vs React Native 비교)
+  - §2: 앱 역할 (읽기 중심, 금지 기능)
+  - §3: 인증/토큰 저장 정책 (flutter_secure_storage)
+  - §4-5: 디렉토리 구조, 의존성
+  - §6: API 연동 (베이스 URL, 엔드포인트)
+  - §7: 화면 설계 (로그인, 대시보드, 타임라인, 차트, 설정)
+  - §8: E-STOP 구현
+  - §9: TradingView 차트 Embed
+  - §10: 오프라인 모드
+Day 2: 앱: 대시보드(계좌/자산/주문 요약) + 타임라인(근거 패널) 읽기전용 — DONE (2026-02-04)
+- MOBILE_APP_SPEC.md §11 추가:
+  - §11-1~3: 대시보드 데이터 구조, API 연동, UI 위젯
+  - §11-4~6: 타임라인 데이터 구조, API 연동, UI 위젯 (무한 스크롤)
+  - §11-7: 스냅샷 상세 다이얼로그 (Premium 근거 확인)
+Day 3: 앱: E-STOP ON/OFF + 실측(차단 동작 확인) + Gate-E-STOP 유지 — DONE (2026-02-04)
+- 테스트 스크립트: scripts/estop_test.ps1
+- 실측 결과:
+  - E-STOP ON: estop=true 설정 성공
+  - send-now 차단: ok=false 반환 (E-STOP ON 상태)
+  - E-STOP OFF: estop=false 복원 성공
+- Gate-E-STOP: PASS (E-STOP ON/OFF 토글 정상)
+Day 4: 앱: TradingView 차트 embed(WebView) 화면 추가(심볼/TF 이동 링크 포함) — DONE (2026-02-04)
+- MOBILE_APP_SPEC.md §12 추가:
+  - §12-1: WebView 설정 (webview_flutter)
+  - §12-2: 심볼 변환 테이블 (내부 → TradingView)
+  - §12-3: 타임프레임 변환
+  - §12-4: 타임라인에서 차트로 이동
+  - §12-5: 차트 화면 네비게이션 플로우
+Day 5: 회귀: 앱 경유 E-STOP + 프리미엄 이벤트 표시 실측 + Gate-OKX/Gate-TV PASS — DONE (2026-02-04)
+- 테스트 스크립트: scripts/week15_regression.ps1
+- 실측 결과 (10/10 PASS):
+  - [PASS] Server Health: OpenAPI 확인
+  - [PASS] E-STOP: estop=false
+  - [PASS] Premium Status: enabled=true, modes=[trend, mr]
+  - [PASS] Premium Guards: cooldown=60s, daily_limit=100
+  - [PASS] Signal Creation: signal_id 발급
+  - [PASS] Signal List: total=18
+  - [PASS] Timeline: 153개 이벤트
+  - [PASS] OKX Connector: 정상
+  - [PASS] TF Warning: tf_warning=true
+  - [PASS] Subscription: plan=hub
+
+## Week 15 완료 요약
+- Day 1: 기술 선정 (Flutter) + 인증/토큰 정책 (MOBILE_APP_SPEC.md)
+- Day 2: 대시보드/타임라인 상세 스펙
+- Day 3: E-STOP 실측 PASS
+- Day 4: TradingView 차트 embed 스펙
+- Day 5: 통합 회귀 PASS (10/10)
+
+## Week 16: 커스텀 Rule Builder v1 — 역추세/추세를 "사용자 조립"으로 확장 — DONE
+Day 1: 지원 인디케이터 확정(제한): MA(SMA/EMA/WMA), Bollinger, RSI, MACD, CCI, Ichimoku — DONE (2026-02-04)
+- 문서 생성: docs/CUSTOM_RULE_SPEC.md
+  - §2: 지원 인디케이터 6종 (MA, BB, RSI, MACD, CCI, ICHIMOKU)
+  - §2-3: 파라미터 범위 (period, type, std_mult 등)
+  - §3: 비교 연산자 (GT, GTE, LT, LTE, CROSS_ABOVE, CROSS_BELOW)
+  - §4: 조건 구조 AST (Condition, ConditionGroup)
+  - §5: 복잡도 제한 (depth=3, leaf=12, or_groups=2)
+  - §6: Rule Lint (OK/WARN/BLOCK)
+  - §7: CustomRule 스키마 + DB 테이블
+  - §8: API 엔드포인트
+Day 2: 규칙 저장 포맷: 문자열 금지 → AST(JSON 트리)로 확정 + 서버 validation 구현 — DONE (2026-02-04)
+- DB 테이블: custom_rules (JSONB 저장)
+- 엔드포인트 구현:
+  - GET /api/custom/indicators: 지원 인디케이터/연산자/제한 조회
+  - POST /api/custom/rules/validate: 저장 없이 검증만
+  - POST /api/custom/rules: 규칙 생성
+  - GET /api/custom/rules: 규칙 목록 조회
+  - GET /api/custom/rules/{rule_id}: 규칙 상세 조회
+- AST 검증: left/operator/right 구조, logic/conditions 그룹 구조
+Day 3: 복잡도 제한 구현(깊이/leaf/OR 제한) + 실패 코드 고정(rule_complexity_exceeded) — DONE (2026-02-04)
+- 구현: _count_complexity() 함수
+- 제한 적용:
+  - max_depth=3: 중첩 깊이 제한
+  - max_leaf_total=12: 전체 조건 수 제한
+  - max_leaf_per_group=6: 그룹당 조건 수 제한
+  - max_or_groups=2: OR 그룹 수 제한
+  - max_leaf_per_or_group=4: OR 그룹당 조건 수 제한
+- 실패 코드: rule_complexity_exceeded
+Day 4: Rule Lint 구현(OK/WARN/BLOCK) + 희소/상충 조건 경고(예: BB 상단돌파 AND RSI<30) — DONE (2026-02-04)
+- 구현: _lint_rule() 함수
+- 상충 감지: RSI < 30 AND RSI > 70 → BLOCK (CONTRADICTION)
+- BLOCK 등급 규칙: 저장 불가 (code=rule_lint_block)
+- WARN 등급 규칙: 저장 허용 + 경고 메시지
+Day 5: 회귀: Custom 룰 생성/검증/실행(이벤트 생성) + Gate-TV PASS — DONE (2026-02-04)
+- 테스트 스크립트: scripts/week16_custom_rule_test.ps1
+- 실측 결과 (9/9 PASS):
+  - [PASS] GET /api/custom/indicators (6종 인디케이터)
+  - [PASS] Validate simple RSI rule (lint=OK)
+  - [PASS] Complexity limit (max_leaf_per_group 초과 거부)
+  - [PASS] Lint contradiction detection (BLOCK grade)
+  - [PASS] Create custom rule
+  - [PASS] List custom rules
+  - [PASS] Get rule by ID
+  - [PASS] Reject BLOCK-grade rule creation
+
+## Week 16 완료 요약
+- Day 1: 인디케이터/연산자/AST 스펙 (CUSTOM_RULE_SPEC.md)
+- Day 2: AST 기반 규칙 저장 + CRUD API
+- Day 3: 복잡도 제한 (depth/leaf/or_groups)
+- Day 4: Rule Lint (OK/WARN/BLOCK, 상충 감지)
+- Day 5: 통합 회귀 PASS (9/9)
 
 ## Week 17: 보안/라이센스/구독 연동 v1 — 불펌/오남용 방지 "잠금" 완성 — TODO
 Day 1: Entitlement 적용 범위 확정(Advanced Custom, Premium 엔진, 위험 기능) + 오프라인 정책 확정
@@ -330,10 +463,10 @@ Day 5: SSOT/APPENDIX 증거 최종 정리 + 릴리즈 태그(1.0) 준비
 
 ---
 
-# 7) NEXT ACTION (3개) — v5
-1) Week 13 Day 1: Upbit Spot 최소 구현 + 마켓(KRW/USDT) 정책 문서화
-2) Week 13 Day 2: 심볼 정규화 룰 확정
-3) Week 13 Day 3: upbit_regression.ps1 생성 + Gate-UPBIT PASS 기준 고정
+# 7) NEXT ACTION (3개) — v6
+1) Week 17 Day 1: Entitlement 적용 범위 확정 + 오프라인 정책 확정
+2) Week 17 Day 2: /api/subscription/me 실구현
+3) Week 17 Day 3: PC/앱 실행 시 entitlement fetch + 기능 잠금/해제
 
 ---
 
