@@ -45,6 +45,42 @@
 → 15분봉(15m) 이상 사용을 강력히 권장합니다.
 ```
 
+## Week 18 Day 2 작업 내용
+
+### docs/ERROR_CATALOG.md 생성
+1. 에러 응답 표준 (ok/code/detail/hint 형식)
+2. 공통 에러 코드
+   - 인증/권한: unauthorized, token_expired, forbidden, premium_required 등
+   - 시스템: internal_error, service_unavailable, rate_limited 등
+   - 입력 검증: validation_error, missing_field, invalid_format 등
+3. /tv 웹훅 에러 코드
+   - 입력 검증: missing_token, invalid_exchange, invalid_symbol 등
+   - 시스템 상태: estop_active, dry_run_mode, hub_disabled 등
+   - 거래소 연결: exchange_not_configured, insufficient_balance 등
+   - 주문 처리: order_failed, order_rejected, duplicate_order 등
+4. Premium 에러 코드
+   - 기능 제한: premium_disabled, trend_disabled, custom_disabled 등
+   - 가드: cooldown_active, daily_limit_exceeded, tf_blocked 등
+5. 커스텀 규칙 에러 코드
+   - 검증: rule_complexity_exceeded, rule_lint_block, invalid_indicator 등
+   - 관리: rule_not_found, max_rules_exceeded 등
+6. 거래소별 에러 코드 (OKX/KIS/Binance/Bybit/Upbit)
+7. 환불 방지 문구
+   - 설치/가입 시 경고
+   - TradingView 템플릿 생성 시 경고
+   - Premium 전략 활성화 시 경고
+   - 커스텀 규칙 생성 시 경고
+   - 환불 불가/가능 사유 명시
+
+### 환불 방지 핵심 문구 (고정)
+```
+⚠️ 중요 안내
+- 본 서비스는 자동 매매를 "대행"하는 것이 아니라,
+  사용자가 설정한 조건에 따라 주문을 "전송"하는 도구입니다.
+- 모든 투자 결정과 손익에 대한 책임은 사용자에게 있습니다.
+- API 키는 반드시 "출금 권한 없는" 키를 사용해야 합니다.
+```
+
 ---
 
 # 2026-02-04 — Week 17 완료 (보안/라이센스/구독 연동 v1)
