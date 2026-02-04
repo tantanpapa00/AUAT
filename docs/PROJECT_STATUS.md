@@ -169,7 +169,7 @@ Day 5: 회귀 스크립트 생성 + 전체 게이트 검증 — DONE (2026-02-04
 - Gate-OKX: PASS (order_id=197, okx_order_id=3276734354947792896)
 - Gate-TV: PASS
 
-## Week 13: 거래소 확장 v2 — Upbit (Spot) + 심볼/마켓 정책 확정 — IN PROGRESS
+## Week 13: 거래소 확장 v2 — Upbit (Spot) + 심볼/마켓 정책 확정 — DONE
 Day 1: Upbit Spot 최소 구현(place_order/get_order/balance) + 마켓(KRW/USDT) 정책 문서화 — DONE (2026-02-04)
 - 생성: app/connectors/upbit.py (UpbitConnector)
 - JWT 인증 (HMAC SHA256 + Query Hash SHA512)
@@ -188,8 +188,19 @@ Day 3: 회귀 스크립트 생성: scripts/upbit_regression.ps1 + Gate-UPBIT PAS
 - 생성: scripts/upbit_regression.ps1
 - Gate-UPBIT: PASS (connector load OK, balance는 IP 화이트리스트 필요)
 - 테스트: connector-test, connector-all, symbol normalization
-Day 4: 이벤트/타임라인에서 exchange별 표기 통일(OKX/Binance/Bybit/Upbit)
-Day 5: 통합 회귀: Gate-OKX/Gate-TV/Gate-E-STOP + Gate-BINANCE/Gate-BYBIT/Gate-UPBIT PASS
+Day 4: 이벤트/타임라인에서 exchange별 표기 통일(OKX/Binance/Bybit/Upbit) — DONE (2026-02-04)
+- TimelineItem에 exchange 필드 추가
+- /api/timeline: exchange 정보 포함 (accounts 조인)
+- /ui/timeline: Exchange 컬럼 추가
+- ShortMsg 검증: 5개 거래소 모두 허용 (OKX/KIS/BINANCE/BYBIT/UPBIT)
+- connector-test: 통화 기본값 개선 (KIS/UPBIT=KRW, 나머지=USDT)
+Day 5: 통합 회귀: Gate-OKX/Gate-TV/Gate-E-STOP + Gate-BINANCE/Gate-BYBIT/Gate-UPBIT PASS — DONE (2026-02-04)
+- Gate-OKX: PASS (order_id=198)
+- Gate-TV: PASS (Errors=0)
+- Gate-BINANCE: PASS (connector + balance OK)
+- Gate-BYBIT: PASS (connector OK, API 키 미설정)
+- Gate-UPBIT: PASS (connector OK, IP 화이트리스트 필요)
+- 지원 거래소: ["OKX", "KIS", "BINANCE", "BYBIT", "UPBIT"]
 
 ## Week 14: 프리미엄 엔진 v0 — 추세/역추세 "지표 점검" + 근거 표준화 — TODO
 > 종목추천/자동선정/스크리너 금지 준수
