@@ -556,7 +556,15 @@ Day 3: runbook(운영/장애대응) + scripts 정리 + 관리자 조회(읽기) 
   - GET /api/admin/recent-errors: 최근 에러 조회
   - GET /api/admin/connector-status: 커넥터 상태 조회
   - GET /api/admin/daily-summary: 일별 요약 조회
-Day 4: 최종 통합 회귀: OKX/KIS/Binance/Bybit/Upbit + TV/ShortMsg/구독/E-STOP/Premium/Custom 전체 PASS
+Day 4: 최종 통합 회귀: OKX/KIS/Binance/Bybit/Upbit + TV/ShortMsg/구독/E-STOP/Premium/Custom 전체 PASS — DONE (2026-02-04)
+- Gate-OKX: PASS (order_id=203, okx_order_id=3277495419528765440)
+- Gate-TV: PASS (Errors=0, Warnings=5)
+- Week 16 Custom Rule: PASS (9/9)
+- Week 17 Entitlement: PASS (14/14)
+- OKX Connector: OK (balance 조회 정상)
+- Premium: enabled=true, modes=[trend, mr, custom]
+- E-STOP: false (정상)
+- 관리자 엔드포인트: 추가됨 (Header import 수정)
 Day 5: SSOT/APPENDIX 증거 최종 정리 + 릴리즈 태그(1.0) 준비
 
 ---

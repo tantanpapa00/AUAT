@@ -125,6 +125,38 @@ GET /api/admin/daily-summary
 - 읽기 전용 (수정/삭제 불가)
 - 스택 트레이스 숨김
 
+## Week 18 Day 4 최종 통합 회귀 결과
+
+```
+=== Gate-OKX ===
+[A0] /api/diag/okx-preflight: ok=true
+[A] /api/home: ok=true
+[B] /tv accepted: order_id=203
+[C] poll-now: ok=true
+[D] recover test: status=sent, okx_order_id=3277495419528765440
+== DONE ==
+
+=== Gate-TV ===
+[1] Template Options API... OK
+[2] Asset Template API... OK
+[3] Batch Template Generate... OK
+Errors: 0, Warnings: 5
+== TV TEMPLATE REGRESSION PASS ==
+
+=== Week 16 Custom Rule ===
+Passed: 9, Failed: 0
+All tests passed!
+
+=== Week 17 Entitlement ===
+Passed: 14, Failed: 0
+All tests passed!
+
+=== 커넥터/Premium/E-STOP ===
+OKX Connector: ok=true
+Premium: enabled=true, modes=[trend, mr, custom]
+E-STOP: false (정상)
+```
+
 ---
 
 # 2026-02-04 — Week 17 완료 (보안/라이센스/구독 연동 v1)
