@@ -36,7 +36,7 @@ Invoke-RestMethod http://127.0.0.1:8000/api/diag/home
 ## SMOKE-02: /tv 웹훅 정상 수신
 ```powershell
 $body = @{
-    token = "test-token"
+    secret = "dummy2"  # 전략에 등록된 tv_secret
     exchange = "OKX"
     symbol = "ETH-USDT"
     side = "buy"
@@ -56,12 +56,14 @@ Invoke-RestMethod -Uri http://127.0.0.1:8000/tv -Method POST -Body $body -Conten
 
 ## SMOKE-03: E-STOP ON/OFF 토글
 ```powershell
-# E-STOP ON
-Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/system/estop?value=1" -Method POST
+# E-STOP ON (JSON body)
+$onBody = @{ estop = $true } | ConvertTo-Json
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/system/estop" -Method POST -Body $onBody -ContentType "application/json"
 # 기대: ok=True, estop=True
 
-# E-STOP OFF
-Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/system/estop?value=0" -Method POST
+# E-STOP OFF (JSON body)
+$offBody = @{ estop = $false } | ConvertTo-Json
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/system/estop" -Method POST -Body $offBody -ContentType "application/json"
 # 기대: ok=True, estop=False
 ```
 **PASS 조건**: ON 시 `estop = True`, OFF 시 `estop = False`
@@ -95,7 +97,7 @@ Invoke-RestMethod "http://127.0.0.1:8000/api/diag/connector-test?exchange=OKX"
 
 # 3) 실패 시나리오 (5개)
 
-## SMOKE-06: /tv 필수 필드 누락 (token)
+## SMOKE-06: /tv 필수 필드 누락 (secret)
 ```powershell
 $body = @{
     exchange = "OKX"
@@ -108,17 +110,17 @@ Invoke-RestMethod -Uri http://127.0.0.1:8000/tv -Method POST -Body $body -Conten
 
 # 기대 결과
 # ok: False
-# code: "missing_token" 또는 유사
+# code: "missing_secret"
 ```
 **PASS 조건**: `ok = False`
 
 ---
 
-## SMOKE-07: /tv 잘못된 거래소
+## SMOKE-07: /tv 잘못된 secret
 ```powershell
 $body = @{
-    token = "test-token"
-    exchange = "INVALID_EXCHANGE"
+    secret = "invalid_secret_12345"
+    exchange = "OKX"
     symbol = "BTC-USDT"
     side = "buy"
     qty = "0.001"
@@ -128,7 +130,7 @@ Invoke-RestMethod -Uri http://127.0.0.1:8000/tv -Method POST -Body $body -Conten
 
 # 기대 결과
 # ok: False
-# code: "invalid_exchange" 또는 유사
+# code: "secret_invalid"
 ```
 **PASS 조건**: `ok = False`
 
@@ -137,9 +139,9 @@ Invoke-RestMethod -Uri http://127.0.0.1:8000/tv -Method POST -Body $body -Conten
 ## SMOKE-08: /tv 잘못된 side
 ```powershell
 $body = @{
-    token = "test-token"
+    secret = "dummy2"
     exchange = "OKX"
-    symbol = "BTC-USDT"
+    symbol = "ETH-USDT"
     side = "invalid_side"
     qty = "0.001"
 } | ConvertTo-Json
@@ -148,6 +150,7 @@ Invoke-RestMethod -Uri http://127.0.0.1:8000/tv -Method POST -Body $body -Conten
 
 # 기대 결과
 # ok: False
+# code: "invalid_side"
 ```
 **PASS 조건**: `ok = False`
 
@@ -155,18 +158,20 @@ Invoke-RestMethod -Uri http://127.0.0.1:8000/tv -Method POST -Body $body -Conten
 
 ## SMOKE-09: E-STOP ON 상태에서 주문 차단
 ```powershell
-# 1. E-STOP ON
-Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/system/estop?value=1" -Method POST
+# 1. E-STOP ON (JSON body)
+$onBody = @{ estop = $true } | ConvertTo-Json
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/system/estop" -Method POST -Body $onBody -ContentType "application/json"
 
 # 2. send-now 시도
 $body = @{ order_id = 1 } | ConvertTo-Json
 Invoke-RestMethod -Uri http://127.0.0.1:8000/api/diag/send-now -Method POST -Body $body -ContentType "application/json"
 
 # 기대 결과
-# ok: False 또는 차단 메시지
+# ok: False 또는 차단 메시지 (note에 "estop" 포함)
 
 # 3. E-STOP OFF (복원)
-Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/system/estop?value=0" -Method POST
+$offBody = @{ estop = $false } | ConvertTo-Json
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/system/estop" -Method POST -Body $offBody -ContentType "application/json"
 ```
 **PASS 조건**: E-STOP ON 상태에서 주문 차단됨
 

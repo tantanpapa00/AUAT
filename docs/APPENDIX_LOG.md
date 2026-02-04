@@ -1364,3 +1364,67 @@ recent_events: 5 items
 
 ## 생성 파일
 - docs/PC_APP_SPEC.md: 아키텍처, 디렉토리 구조, 빌드/런, 보안 가이드
+
+---
+
+# 2026-02-04 — 완성품 공정 Week B: 스모크 테스트 10/10 PASS
+
+## 스모크 테스트 결과 (scripts/smoke_test.ps1)
+```
+========================================
+   BBooster Smoke Test (10 cases)
+========================================
+
+--- Normal Scenarios ---
+[SMOKE-01: Health Check] PASS
+[SMOKE-02: /tv Webhook] PASS
+[SMOKE-03: E-STOP Toggle] PASS
+[SMOKE-04: Timeline] PASS
+[SMOKE-05: Connector] PASS
+
+--- Failure Scenarios ---
+[SMOKE-06: Missing Secret] PASS (expected failure)
+[SMOKE-07: Invalid Secret] PASS (expected failure)
+[SMOKE-08: Invalid Side] PASS (expected failure)
+[SMOKE-09: E-STOP Block] PASS
+[SMOKE-10: 404 Endpoint] PASS
+
+========================================
+   Results
+========================================
+Passed: 10 / 10
+Failed: 0 / 10
+
+ALL SMOKE TESTS PASSED!
+```
+
+## Gate 테스트 결과 (2026-02-04)
+
+### Gate-OKX
+```
+GET /api/diag/connector-test?exchange=OKX
+{"ok":true,"exchange":"OKX","connector":"OKXConnector",
+ "methods":{"get_balance_split":{"ok":true,"ccy":"USDT","total":192.59,"trading":192.51}}}
+```
+
+### Gate-TV
+```
+POST /tv (secret=dummy2, symbol=ETH-USDT)
+{"ok":true,"code":"accepted","strategy_id":2,"asset_id":3,"order_id":204}
+```
+
+### Gate-E-STOP
+```
+GET /api/system/estop
+{"ok":true,"estop":false,"value":"0","reason":null}
+```
+
+## 수정 사항
+- scripts/smoke_test.ps1: secret 필드 사용, E-STOP JSON body 방식으로 수정
+- docs/QA_SMOKE.md: 테스트 케이스 문서 업데이트
+
+## Week B 완료 항목
+- [x] docs/QA_SMOKE.md 생성
+- [x] scripts/smoke_test.ps1 생성
+- [x] 스모크 테스트 10/10 PASS
+- [x] Gate PASS 실측 기록

@@ -63,10 +63,10 @@ Test-Smoke "SMOKE-01: Health Check" {
     Invoke-RestMethod http://127.0.0.1:8000/api/diag/home -TimeoutSec 5
 } $true
 
-# SMOKE-02: /tv Webhook
+# SMOKE-02: /tv Webhook (secret 필드로 전략 인증)
 Test-Smoke "SMOKE-02: /tv Webhook" {
     $body = @{
-        token = "smoke-test-token"
+        secret = "dummy2"
         exchange = "OKX"
         symbol = "ETH-USDT"
         side = "buy"
@@ -75,15 +75,17 @@ Test-Smoke "SMOKE-02: /tv Webhook" {
     Invoke-RestMethod -Uri http://127.0.0.1:8000/tv -Method POST -Body $body -ContentType "application/json" -TimeoutSec 10
 } $true
 
-# SMOKE-03: E-STOP Toggle
+# SMOKE-03: E-STOP Toggle (JSON body로 설정)
 Test-Smoke "SMOKE-03: E-STOP Toggle" {
     # ON
-    $null = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/system/estop?value=1" -Method POST -TimeoutSec 5
+    $onBody = @{ estop = $true } | ConvertTo-Json
+    $null = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/system/estop" -Method POST -Body $onBody -ContentType "application/json" -TimeoutSec 5
     $onResult = Invoke-RestMethod http://127.0.0.1:8000/api/system/estop -TimeoutSec 5
     $onState = $onResult.estop
 
     # OFF
-    $null = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/system/estop?value=0" -Method POST -TimeoutSec 5
+    $offBody = @{ estop = $false } | ConvertTo-Json
+    $null = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/system/estop" -Method POST -Body $offBody -ContentType "application/json" -TimeoutSec 5
     $offResult = Invoke-RestMethod http://127.0.0.1:8000/api/system/estop -TimeoutSec 5
     $offState = $offResult.estop
 
@@ -105,8 +107,8 @@ Write-Host "--- Failure Scenarios ---" -ForegroundColor Yellow
 
 # === 실패 시나리오 (5개) ===
 
-# SMOKE-06: Missing Token
-Test-Smoke "SMOKE-06: Missing Token" {
+# SMOKE-06: Missing Secret (secret 필드 누락 테스트)
+Test-Smoke "SMOKE-06: Missing Secret" {
     $body = @{
         exchange = "OKX"
         symbol = "ETH-USDT"
@@ -116,11 +118,11 @@ Test-Smoke "SMOKE-06: Missing Token" {
     Invoke-RestMethod -Uri http://127.0.0.1:8000/tv -Method POST -Body $body -ContentType "application/json" -TimeoutSec 5
 } $false
 
-# SMOKE-07: Invalid Exchange
-Test-Smoke "SMOKE-07: Invalid Exchange" {
+# SMOKE-07: Invalid Secret (등록되지 않은 secret)
+Test-Smoke "SMOKE-07: Invalid Secret" {
     $body = @{
-        token = "test"
-        exchange = "INVALID_EXCHANGE"
+        secret = "invalid_secret_12345"
+        exchange = "OKX"
         symbol = "BTC-USDT"
         side = "buy"
         qty = "0.001"
@@ -128,29 +130,31 @@ Test-Smoke "SMOKE-07: Invalid Exchange" {
     Invoke-RestMethod -Uri http://127.0.0.1:8000/tv -Method POST -Body $body -ContentType "application/json" -TimeoutSec 5
 } $false
 
-# SMOKE-08: Invalid Side
+# SMOKE-08: Invalid Side (잘못된 side 값)
 Test-Smoke "SMOKE-08: Invalid Side" {
     $body = @{
-        token = "test"
+        secret = "dummy2"
         exchange = "OKX"
-        symbol = "BTC-USDT"
+        symbol = "ETH-USDT"
         side = "invalid_side"
         qty = "0.001"
     } | ConvertTo-Json
     Invoke-RestMethod -Uri http://127.0.0.1:8000/tv -Method POST -Body $body -ContentType "application/json" -TimeoutSec 5
 } $false
 
-# SMOKE-09: E-STOP Block
+# SMOKE-09: E-STOP Block (E-STOP ON 상태에서 주문 차단)
 Test-Smoke "SMOKE-09: E-STOP Block" {
     # E-STOP ON
-    $null = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/system/estop?value=1" -Method POST -TimeoutSec 5
+    $onBody = @{ estop = $true } | ConvertTo-Json
+    $null = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/system/estop" -Method POST -Body $onBody -ContentType "application/json" -TimeoutSec 5
 
     # Try send-now
     $body = @{ order_id = 99999 } | ConvertTo-Json
     $result = Invoke-RestMethod -Uri http://127.0.0.1:8000/api/diag/send-now -Method POST -Body $body -ContentType "application/json" -TimeoutSec 5
 
     # E-STOP OFF (restore)
-    $null = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/system/estop?value=0" -Method POST -TimeoutSec 5
+    $offBody = @{ estop = $false } | ConvertTo-Json
+    $null = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/system/estop" -Method POST -Body $offBody -ContentType "application/json" -TimeoutSec 5
 
     # Check if blocked
     if ($result.ok -eq $false -or $result.note -match "estop" -or $result.count -eq 0) {

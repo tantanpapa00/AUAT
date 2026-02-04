@@ -105,14 +105,18 @@
 - QA:
   - [x] docs/QA_SMOKE.md 생성: 스모크 10개 정의
   - [x] scripts/smoke_test.ps1 생성
-  - [x] 스모크 테스트 실행: 8/10 PASS
+  - [x] 스모크 테스트 실행: 10/10 PASS
     - SMOKE-01: Health Check - PASS
-    - SMOKE-02: /tv Webhook - FAIL (토큰 검증)
-    - SMOKE-03: E-STOP Toggle - FAIL (상태 확인 로직)
+    - SMOKE-02: /tv Webhook - PASS (secret 필드로 수정)
+    - SMOKE-03: E-STOP Toggle - PASS (JSON body로 수정)
     - SMOKE-04: Timeline - PASS
     - SMOKE-05: Connector - PASS
-    - SMOKE-06~10: 실패 시나리오 - 전부 PASS
-  - [ ] Gate 스크립트 PASS 실측 기록(APPENDIX_LOG 누적)
+    - SMOKE-06: Missing Secret - PASS
+    - SMOKE-07: Invalid Secret - PASS
+    - SMOKE-08: Invalid Side - PASS
+    - SMOKE-09: E-STOP Block - PASS
+    - SMOKE-10: 404 Endpoint - PASS
+  - [x] Gate 스크립트 PASS 실측 기록(APPENDIX_LOG 누적)
 
 ## Week C (트레이 v1 + UI/대시보드 개선 v1) — TODO
 - TRAY v1:
