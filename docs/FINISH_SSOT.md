@@ -94,13 +94,23 @@
   - [ ] 실제 빌드 테스트 (Rust 환경 필요)
   - [ ] 아이콘 파일 배치
 
-## Week B (PC 설치형 v1 + 진단/로그/언인스톨) — TODO
+## Week B (PC 설치형 v1 + 진단/로그/언인스톨) — IN PROGRESS
 - PC_INSTALLER v1:
-  - 설치/실행/언인스톨 완주
-  - 로그 보기(폴더 오픈) + 진단 export(zip) 버튼 연결
+  - [x] Tauri 프로젝트 구조 (Week A에서 완료)
+  - [ ] 실제 빌드 테스트
+  - [ ] 설치/실행/언인스톨 완주
+  - [ ] 로그 보기(폴더 오픈) + 진단 export(zip) 버튼 연결
 - QA:
-  - docs/QA_SMOKE.md 생성: 스모크 10개 정의
-  - Gate 스크립트 PASS 실측 기록(APPENDIX_LOG 누적)
+  - [x] docs/QA_SMOKE.md 생성: 스모크 10개 정의
+  - [x] scripts/smoke_test.ps1 생성
+  - [x] 스모크 테스트 실행: 8/10 PASS
+    - SMOKE-01: Health Check - PASS
+    - SMOKE-02: /tv Webhook - FAIL (토큰 검증)
+    - SMOKE-03: E-STOP Toggle - FAIL (상태 확인 로직)
+    - SMOKE-04: Timeline - PASS
+    - SMOKE-05: Connector - PASS
+    - SMOKE-06~10: 실패 시나리오 - 전부 PASS
+  - [ ] Gate 스크립트 PASS 실측 기록(APPENDIX_LOG 누적)
 
 ## Week C (트레이 v1 + UI/대시보드 개선 v1) — TODO
 - TRAY v1:
