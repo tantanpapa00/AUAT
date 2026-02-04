@@ -447,12 +447,80 @@ Day 5: 회귀: Custom 룰 생성/검증/실행(이벤트 생성) + Gate-TV PASS 
 - Day 4: Rule Lint (OK/WARN/BLOCK, 상충 감지)
 - Day 5: 통합 회귀 PASS (9/9)
 
-## Week 17: 보안/라이센스/구독 연동 v1 — 불펌/오남용 방지 "잠금" 완성 — TODO
-Day 1: Entitlement 적용 범위 확정(Advanced Custom, Premium 엔진, 위험 기능) + 오프라인 정책 확정
-Day 2: /api/subscription/me 실구현(만료/업그레이드/다운그레이드 반영)
-Day 3: PC/앱: 실행 시 entitlement fetch + 기능 잠금/해제 적용(오프라인 제한 포함)
-Day 4: 보안 점검: 민감정보 마스킹(로그/응답), 소스/로직 노출 금지 규칙 강제
-Day 5: 회귀: Gate 전부 + entitlement 시나리오 PASS(환불/만료/다운그레이드 포함)
+## Week 17: 보안/라이센스/구독 연동 v1 — 불펌/오남용 방지 "잠금" 완성 — DONE
+Day 1: Entitlement 적용 범위 확정(Advanced Custom, Premium 엔진, 위험 기능) + 오프라인 정책 확정 — DONE (2026-02-04)
+- 문서 생성: docs/ENTITLEMENT_SPEC.md
+  - §2: Plan 체계 (free/hub/premium)
+  - §3: Entitlement 상세 (기본, Premium 세부, 커스텀, 위험 기능)
+  - §4: 권한 적용 매트릭스 (엔드포인트별, 기능별)
+  - §5: 오프라인 정책 (PC 전용, 7일 캐시 TTL, 동작 제한)
+  - §6: 만료/환불 처리
+  - §7: 보안 체크리스트
+  - §8: Pydantic 모델 확장
+- 모델 추가: PremiumEntitlements, RiskEntitlements, EntitlementsV2
+Day 2: /api/subscription/me 실구현(만료/업그레이드/다운그레이드 반영) — DONE (2026-02-04)
+- 엔드포인트 구현:
+  - GET /api/subscription/me: V2 응답 (EntitlementsV2, offline_cache_valid_until)
+  - GET /api/entitlements/config: Plan별 기본 권한 조회
+  - GET /api/entitlements/check: 특정 기능 권한 체크
+- 헬퍼 함수: _validate_token(), _get_user_subscription(), _check_entitlement()
+- 시나리오 지원:
+  - 토큰 없음 → unauthorized
+  - 잘못된 토큰 → unauthorized
+  - free/hub/premium → 각 plan별 entitlements
+  - 만료됨 → code=expired
+  - Advanced Custom → custom_advanced=true, max_rules=50
+- 테스트 스크립트: scripts/week17_entitlement_test.ps1 (14/14 PASS)
+Day 3: PC/앱: 실행 시 entitlement fetch + 기능 잠금/해제 적용(오프라인 제한 포함) — DONE (2026-02-04)
+- PC_APP_SPEC.md §9 추가:
+  - §9-1: 실행 시 구독 동기화 플로우
+  - §9-2: Tauri Rust 코드 (fetch_subscription, save_entitlements_cache)
+  - §9-3: 기능 잠금/해제 매핑
+  - §9-4: 오프라인 모드 (PC 전용)
+  - §9-5: Frontend 통합 (TypeScript/Svelte)
+  - §9-6: 주기적 동기화 (30분)
+- MOBILE_APP_SPEC.md §13 추가:
+  - §13-1: 실행 시 구독 동기화 (오프라인 미지원)
+  - §13-2: Dart 모델 (EntitlementsV2, SubscriptionResponse)
+  - §13-3: Entitlement Provider (Riverpod)
+  - §13-4: 기능 잠금/해제 매핑
+  - §13-5: UI 가드 위젯
+Day 4: 보안 점검: 민감정보 마스킹(로그/응답), 소스/로직 노출 금지 규칙 강제 — DONE (2026-02-04)
+- 문서 생성: docs/SECURITY_SPEC.md
+  - §2: 민감정보 정의 (절대 노출 금지, 부분 노출 허용)
+  - §3: 마스킹 함수 (_mask_sensitive, _mask_dict, _audit_log)
+  - §4: API 응답 보안 (스택 트레이스 숨김)
+  - §5: 프리미엄 엔진 로직 보호 (블랙박스 원칙)
+  - §6: HTTP 보안 헤더
+  - §7: 입력 검증
+  - §8: 감사 로그
+  - §9: 보안 체크리스트
+- 서버 구현:
+  - SecurityHeadersMiddleware: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection
+  - global_exception_handler: 스택 트레이스 숨김
+  - _mask_sensitive(): API Key→앞4자리, Secret→완전마스킹, Token→앞10자리, IP→마지막옥텟
+  - _mask_dict(): 딕셔너리 내 민감키 자동 마스킹
+  - _audit_log(): 감사 로그 (마스킹 적용)
+Day 5: 회귀: Gate 전부 + entitlement 시나리오 PASS(환불/만료/다운그레이드 포함) — DONE (2026-02-04)
+- Gate-OKX: PASS (week4_regression)
+- Gate-TV: PASS (tv_template_regression, Errors=0)
+- Week 16 Custom Rule: PASS (9/9)
+- Week 17 Entitlement: PASS (14/14)
+  - No token → unauthorized
+  - Free/Hub/Premium → 각 plan별 entitlements
+  - Expired → code=expired
+  - Advanced → custom_advanced=true
+  - Feature checks 작동 확인
+- E-STOP: estop=false (정상)
+- Premium: enabled=true, modes=[trend, mr, custom]
+- Security Headers: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection 적용
+
+## Week 17 완료 요약
+- Day 1: Entitlement 범위 확정 (ENTITLEMENT_SPEC.md)
+- Day 2: /api/subscription/me V2 실구현 (14/14 PASS)
+- Day 3: PC/앱 entitlement fetch 스펙 (PC_APP_SPEC §9, MOBILE_APP_SPEC §13)
+- Day 4: 보안 점검 (SECURITY_SPEC.md, 마스킹/헤더 구현)
+- Day 5: 통합 회귀 PASS
 
 ## Week 18: 릴리즈/운영/문서 최종 — "출시 가능한 1.0" — TODO
 Day 1: 온보딩 문서(PC 기준) + 앱 근거 확인 가이드 + 15m 권장 고지 문구 고정
@@ -463,10 +531,10 @@ Day 5: SSOT/APPENDIX 증거 최종 정리 + 릴리즈 태그(1.0) 준비
 
 ---
 
-# 7) NEXT ACTION (3개) — v6
-1) Week 17 Day 1: Entitlement 적용 범위 확정 + 오프라인 정책 확정
-2) Week 17 Day 2: /api/subscription/me 실구현
-3) Week 17 Day 3: PC/앱 실행 시 entitlement fetch + 기능 잠금/해제
+# 7) NEXT ACTION (3개) — v8
+1) Week 18 Day 1: 온보딩 문서(PC 기준) + 앱 근거 확인 가이드 + 15m 권장 고지 문구 고정
+2) Week 18 Day 2: 에러코드 카탈로그(/tv 포함) + 환불 방지 문구/경고 문구 고정
+3) Week 18 Day 3: runbook(운영/장애대응) + scripts 정리 + 관리자 조회(읽기) 최소
 
 ---
 

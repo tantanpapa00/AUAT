@@ -1,6 +1,151 @@
 ﻿# APPENDIX_LOG.md
 - PowerShell 출력/실측 원문을 날짜별로 누적(삭제 금지)
 
+# 2026-02-04 — Week 17 완료 (보안/라이센스/구독 연동 v1)
+
+## Week 17 Day 5 통합 회귀 결과
+```
+=== Gate-OKX: week4_regression ===
+[W] hygiene warnings (informational only)
+okx_place_order defs: 1
+connector/okx_api references: 8
+== DONE ==
+
+=== Gate-TV: tv_template_regression ===
+[1] Template Options API... OK (count=0)
+[2] Asset Template API... OK (symbol=ETH-USDT)
+[3] Batch Template Generate... OK (count=1)
+Errors: 0
+Warnings: 5
+== TV TEMPLATE REGRESSION PASS ==
+
+=== Week 16: Custom Rule Test ===
+Passed: 9, Failed: 0
+All tests passed!
+
+=== Week 17: Entitlement Test ===
+Passed: 14, Failed: 0
+All tests passed!
+
+=== Security Headers ===
+HTTP/1.1 404 Not Found
+x-content-type-options: nosniff
+x-frame-options: DENY
+x-xss-protection: 1; mode=block
+
+=== Masking Tests ===
+API Key: 582e****
+API Secret: ****
+JWT Token: eyJhbGciOi****
+IP: 192.168.1.***
+```
+
+## Week 17 생성 파일
+- docs/ENTITLEMENT_SPEC.md: 권한 정책 상세
+- docs/SECURITY_SPEC.md: 보안 정책 상세
+- scripts/week17_entitlement_test.ps1: 권한 테스트
+
+## Week 17 서버 구현
+- GET /api/subscription/me: V2 응답 (EntitlementsV2)
+- GET /api/entitlements/config: Plan별 기본 권한
+- GET /api/entitlements/check: 권한 체크
+- SecurityHeadersMiddleware: 보안 헤더 추가
+- global_exception_handler: 스택 트레이스 숨김
+- _mask_sensitive(), _mask_dict(), _audit_log(): 마스킹 헬퍼
+
+---
+
+# 2026-02-04 — Week 17 Day 1-2 Entitlement 구현 완료
+
+## Entitlement Config API
+```
+GET /api/entitlements/config
+{
+    "ok": true,
+    "plans": {
+        "free": {"hub_enabled": false, "premium_enabled": false, ...},
+        "hub": {"hub_enabled": true, "premium_enabled": false, ...},
+        "premium": {"hub_enabled": true, "premium_enabled": true, ...}
+    },
+    "complexity_limits": {
+        "basic": {"max_depth": 3, "max_leaf_total": 12, ...},
+        "advanced": {"max_depth": 5, "max_leaf_total": 24, ...}
+    },
+    "offline_policy": {
+        "cache_ttl_days": 7,
+        "sync_interval_pc_sec": 1800,
+        "sync_interval_app_sec": 900,
+        "grace_period_days": 3
+    }
+}
+```
+
+## Subscription API Tests
+```
+=== Test: No token ===
+{"ok":false,"code":"unauthorized","detail":"Missing or invalid token"}
+
+=== Test: Free token ===
+{"ok":true,"user_id":"u_test_free","plan":"free","entitlements":{"hub_enabled":false,...}}
+
+=== Test: Hub token ===
+{"ok":true,"user_id":"u_test_hub","plan":"hub","entitlements":{"hub_enabled":true,...}}
+
+=== Test: Premium token ===
+{"ok":true,"user_id":"u_test_premium","plan":"premium",
+ "entitlements":{"hub_enabled":true,"premium_enabled":true,
+  "premium":{"premium_trend":true,"premium_mr":true,"premium_custom":true,"custom_advanced":false},...}}
+
+=== Test: Expired token ===
+{"ok":false,"code":"expired","detail":"Subscription has expired"}
+
+=== Test: Advanced Custom token ===
+{"ok":true,"user_id":"u_test_advanced","plan":"premium",
+ "entitlements":{"premium":{"custom_advanced":true},"max_rules":50,"custom_complexity_multiplier":2.0,...}}
+```
+
+## Entitlement Check API
+```
+=== Free + hub_enabled ===
+{"ok":false,"code":"hub_required","detail":"Hub subscription required"}
+
+=== Hub + hub_enabled ===
+{"ok":true,"feature":"hub_enabled","has_permission":true}
+
+=== Hub + premium_enabled ===
+{"ok":false,"code":"premium_required","detail":"Premium subscription required"}
+
+=== Premium + custom_advanced ===
+{"ok":false,"code":"advanced_required","detail":"Advanced custom feature required"}
+
+=== Advanced + custom_advanced ===
+{"ok":true,"feature":"custom_advanced","has_permission":true}
+```
+
+## Week 17 Test Results (14/14 PASS)
+```
+=== Week 17 Entitlement Tests ===
+[PASS] GET /api/entitlements/config
+[PASS] Subscription: No token
+[PASS] Subscription: Free plan
+[PASS] Subscription: Hub plan
+[PASS] Subscription: Premium plan
+[PASS] Subscription: Expired
+[PASS] Subscription: Advanced Custom
+[PASS] Check: Free + hub_enabled
+[PASS] Check: Hub + hub_enabled
+[PASS] Check: Hub + premium_enabled
+[PASS] Check: Premium + premium_custom
+[PASS] Check: Premium + custom_advanced
+[PASS] Check: Advanced + custom_advanced
+[PASS] Offline cache validity present
+
+Passed: 14, Failed: 0
+All tests passed!
+```
+
+---
+
 # 2026-02-04 — Week 16 Custom Rule Builder v1 완료
 
 ## Custom Rule Endpoints Test (week16_custom_rule_test.ps1)

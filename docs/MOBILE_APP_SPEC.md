@@ -1087,13 +1087,269 @@ String _tfToInterval(String tf) {
 
 ---
 
-# 13) 참조
+# 13) Entitlement 연동 (Week 17)
+
+## 13-1) 실행 시 구독 동기화
+
+> 앱은 서버 연결 필수 (오프라인 모드 미지원)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 1. 앱 실행                                                   │
+│    ↓                                                        │
+│ 2. flutter_secure_storage에서 access_token 확인             │
+│    ├─ 없음 → 로그인 화면 표시                                │
+│    └─ 있음 → 3단계로                                        │
+│    ↓                                                        │
+│ 3. GET /api/subscription/me 호출                            │
+│    ↓                                                        │
+│ 4. 응답 처리                                                 │
+│    ├─ ok=true → entitlements 저장 → 메인 화면               │
+│    ├─ code=unauthorized → 토큰 삭제 → 로그인 화면            │
+│    ├─ code=expired → 기능 잠금 → 갱신 안내                  │
+│    └─ 네트워크 오류 → 재시도 화면 표시                       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## 13-2) Dart 모델
+
+```dart
+// lib/models/entitlements.dart
+import 'package:json_annotation/json_annotation.dart';
+
+part 'entitlements.g.dart';
+
+@JsonSerializable()
+class PremiumEntitlements {
+  final bool premiumTrend;
+  final bool premiumMr;
+  final bool premiumCustom;
+  final bool customAdvanced;
+
+  PremiumEntitlements({
+    required this.premiumTrend,
+    required this.premiumMr,
+    required this.premiumCustom,
+    required this.customAdvanced,
+  });
+
+  factory PremiumEntitlements.fromJson(Map<String, dynamic> json) =>
+      _$PremiumEntitlementsFromJson(json);
+}
+
+@JsonSerializable()
+class EntitlementsV2 {
+  final bool hubEnabled;
+  final bool premiumEnabled;
+  final int maxSymbols;
+  final int logRetentionDays;
+  final bool batchTemplate;
+  final bool exportCsv;
+  final PremiumEntitlements? premium;
+  final int maxRules;
+  final double customComplexityMultiplier;
+
+  EntitlementsV2({
+    required this.hubEnabled,
+    required this.premiumEnabled,
+    required this.maxSymbols,
+    required this.logRetentionDays,
+    required this.batchTemplate,
+    required this.exportCsv,
+    this.premium,
+    required this.maxRules,
+    required this.customComplexityMultiplier,
+  });
+
+  factory EntitlementsV2.fromJson(Map<String, dynamic> json) =>
+      _$EntitlementsV2FromJson(json);
+
+  // 권한 체크 헬퍼
+  bool get canUseHub => hubEnabled;
+  bool get canUsePremium => premiumEnabled;
+  bool get canUseCustomRules => premium?.premiumCustom ?? false;
+  bool get canUseAdvancedCustom => premium?.customAdvanced ?? false;
+}
+
+@JsonSerializable()
+class SubscriptionResponse {
+  final bool ok;
+  final String? userId;
+  final String? plan;
+  final String? expiresAt;
+  final EntitlementsV2? entitlements;
+  final String? offlineCacheValidUntil;
+  final String? code;
+  final String? detail;
+
+  SubscriptionResponse({
+    required this.ok,
+    this.userId,
+    this.plan,
+    this.expiresAt,
+    this.entitlements,
+    this.offlineCacheValidUntil,
+    this.code,
+    this.detail,
+  });
+
+  factory SubscriptionResponse.fromJson(Map<String, dynamic> json) =>
+      _$SubscriptionResponseFromJson(json);
+}
+```
+
+## 13-3) Entitlement Provider
+
+```dart
+// lib/providers/entitlement_provider.dart
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/api_service.dart';
+import '../models/entitlements.dart';
+
+final entitlementProvider = StateNotifierProvider<EntitlementNotifier, EntitlementState>((ref) {
+  return EntitlementNotifier(ref.read(apiServiceProvider));
+});
+
+class EntitlementState {
+  final EntitlementsV2? entitlements;
+  final bool isLoading;
+  final String? errorCode;
+
+  EntitlementState({
+    this.entitlements,
+    this.isLoading = false,
+    this.errorCode,
+  });
+
+  EntitlementState copyWith({
+    EntitlementsV2? entitlements,
+    bool? isLoading,
+    String? errorCode,
+  }) {
+    return EntitlementState(
+      entitlements: entitlements ?? this.entitlements,
+      isLoading: isLoading ?? this.isLoading,
+      errorCode: errorCode,
+    );
+  }
+}
+
+class EntitlementNotifier extends StateNotifier<EntitlementState> {
+  final ApiService _api;
+  Timer? _syncTimer;
+
+  EntitlementNotifier(this._api) : super(EntitlementState());
+
+  Future<void> fetchEntitlements() async {
+    state = state.copyWith(isLoading: true, errorCode: null);
+
+    try {
+      final resp = await _api.getSubscription();
+
+      if (resp.ok && resp.entitlements != null) {
+        state = state.copyWith(
+          entitlements: resp.entitlements,
+          isLoading: false,
+        );
+      } else {
+        state = state.copyWith(
+          isLoading: false,
+          errorCode: resp.code ?? 'unknown_error',
+        );
+      }
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorCode: 'network_error',
+      );
+    }
+  }
+
+  void startPeriodicSync() {
+    // 즉시 1회 실행
+    fetchEntitlements();
+
+    // 15분마다 동기화 (앱은 PC보다 짧은 주기)
+    _syncTimer = Timer.periodic(
+      const Duration(minutes: 15),
+      (_) => fetchEntitlements(),
+    );
+  }
+
+  void stopPeriodicSync() {
+    _syncTimer?.cancel();
+    _syncTimer = null;
+  }
+
+  @override
+  void dispose() {
+    stopPeriodicSync();
+    super.dispose();
+  }
+}
+```
+
+## 13-4) 기능 잠금/해제 매핑
+
+| entitlement | 잠금 시 동작 |
+|-------------|--------------|
+| hub_enabled=false | 대시보드만 표시, 상세 기능 숨김 |
+| premium_enabled=false | 프리미엄 탭 숨김 |
+| premium.premium_custom=false | 커스텀 규칙 목록 숨김 |
+
+> 앱은 읽기 중심이므로 PC보다 잠금 기능이 적음
+
+## 13-5) UI 가드 위젯
+
+```dart
+// lib/widgets/entitlement_guard.dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/entitlement_provider.dart';
+
+class EntitlementGuard extends ConsumerWidget {
+  final Widget child;
+  final bool Function(EntitlementsV2?) check;
+  final Widget? fallback;
+
+  const EntitlementGuard({
+    Key? key,
+    required this.child,
+    required this.check,
+    this.fallback,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(entitlementProvider);
+    final hasPermission = check(state.entitlements);
+
+    if (hasPermission) {
+      return child;
+    }
+
+    return fallback ?? const SizedBox.shrink();
+  }
+}
+
+// 사용 예시
+EntitlementGuard(
+  check: (e) => e?.canUsePremium ?? false,
+  fallback: UpgradePrompt(),
+  child: PremiumDashboard(),
+)
+```
+
+---
+
+# 14) 참조
 
 - docs/PRODUCT_SPEC.md (제품 아키텍처)
 - docs/PC_APP_SPEC.md (PC 앱 스펙)
 - docs/AUTH_SPEC.md (인증 스펙)
 - docs/TIMELINE_SPEC.md (타임라인 스키마)
 - docs/PREMIUM_ENGINE_SPEC.md (Premium API)
+- docs/ENTITLEMENT_SPEC.md (Week 17)
 
 ---
 
