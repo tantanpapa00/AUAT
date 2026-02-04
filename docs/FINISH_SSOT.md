@@ -73,8 +73,10 @@
   - [x] 엠블럼 확인: bbooster_emblem.png (로켓+차트+BBooster 텍스트)
   - [x] brand/BRAND_SPEC.md 생성: 컬러 팔레트, 아이콘 세트 정의
   - [x] brand/original/ 에 원본 복사
-  - [ ] 아이콘 전용(B안) 3종(다크/라이트/단색) 이미지 생성 (도구 필요)
-  - [ ] .ico / favicon / Android icon export (도구 필요)
+  - [x] 아이콘 3종 생성 (Pillow): icon-dark.png, icon-light.png, icon-mono.png
+  - [x] .ico / favicon 생성: icon.ico (multi-size), favicon.ico
+  - [x] Tauri 아이콘: 32x32, 128x128, 256x256, 128x128@2x, icon.png
+  - [x] scripts/generate_icons.py 스크립트
 - SITE v0.1:
   - [x] Home/Download/Guide/Release/FAQ/Legal 페이지 골격 생성
   - [x] 다운로드 항목에 SHA-256 표기 자리 마련
