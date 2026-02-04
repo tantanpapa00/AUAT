@@ -202,13 +202,98 @@ Day 5: 통합 회귀: Gate-OKX/Gate-TV/Gate-E-STOP + Gate-BINANCE/Gate-BYBIT/Gat
 - Gate-UPBIT: PASS (connector OK, IP 화이트리스트 필요)
 - 지원 거래소: ["OKX", "KIS", "BINANCE", "BYBIT", "UPBIT"]
 
-## Week 14: 프리미엄 엔진 v0 — 추세/역추세 "지표 점검" + 근거 표준화 — TODO
+## Week 14: 프리미엄 엔진 v0 — 추세/역추세 "지표 점검" + 커스텀(룰 실행 계약) + 근거 표준화 — TODO
 > 종목추천/자동선정/스크리너 금지 준수
-Day 1: 추세/역추세 신호 정의서 확정(간단 명확) + reason_code 표준(코드 목록) 확정
-Day 2: Premium 입력/출력 계약 확정: signal_event + reason_* + snapshot_id (+ 권장 TF 정책 포함)
-Day 3: Premium 이벤트 생성 파이프라인 최소 구현(OFF=생성 없음, ON=생성) + 실측
-Day 4: 과다 신호 방지 기본 가드(쿨다운/일일제한) 정책 확정 + 실측
-Day 5: 회귀: Premium OFF/ON 차이 + Gate-TV/Gate-OKX 유지
+> Premium은 신호(결과) 생성만, Hub는 실행/가드/기록만 담당(역할 중복 금지)
+> 차트는 TradingView embed(A) + 근거는 타임라인 패널로만 표시
+
+### (중요) 프리미엄 전략 타입(고정)
+- Premium 전략 타입: 1) 역추세  2) 추세  3) 커스텀(Rule Builder)
+- 돌파/스캘핑 같은 구체 프리셋은 "커스텀"으로 흡수한다.
+- 본 Week 14는 "커스텀 UI/빌더 완성"이 아니라, 커스텀을 포함한 Premium 계약(입출력/근거/가드)을 고정한다.
+  - 커스텀 빌더(UI/AST 편집/복잡도 제한/Lint) 구현은 별도 주차(예: Week 16)에서 완성한다.
+
+### (중요) 추세/역추세의 정본 소스 위치
+- 역추세매매/추세매매 로직(또는 기준)은 scripts/ 폴더 내 파일이 정본이다.
+- Week 14 산출물 문서(docs/PREMIUM_SIGNALS.md)는 "새 로직 창작"이 아니라,
+  scripts 내 정본 로직을 제품 스펙으로 '요약/매핑'하는 문서다.
+- scripts 로직 변경은 별도 이슈로 분리(회귀/실측/PASS 동반). docs는 매핑/설명/계약만 수정한다.
+
+### 목표(Week 14 완료 기준)
+- 추세/역추세/커스텀을 포함한 Premium 입력/출력 계약이 확정되어 있고(문서+모델),
+- Premium ON에서만 signal_event가 생성되며,
+- signal_event마다 reason_code/reason_text/snapshot_id가 저장되고,
+- PC/앱은 TradingView 차트 embed(A) + 우리 타임라인 패널에서 "근거"를 확인 가능해야 한다.
+- 슬리피지/체결괴리로 인해 15분봉 이상 사용 권장(1~5분봉은 강한 경고) 정책이 적용되어 있어야 한다.
+
+### 금지(재확인)
+- 종목추천/자동선정/스크리닝/리밸런싱 자동 구성 금지
+- 프리미엄 엔진 내부 로직/소스 노출 금지(불펌 방지)
+- 선물(Futures)/레버리지/파생상품 전면 미지원
+
+### 공통 데이터 계약(반드시 고정)
+- Premium 출력은 "signal_event"로만 표현한다.
+- signal_event 필수 필드:
+  - asset_id, symbol, exchange, market(spot), side(entry/exit), ts
+  - premium_mode(trend/mr/custom), params_version
+  - reason_code, reason_text, snapshot_id
+  - tf(타임프레임), price_hint(선택)
+- snapshot_id는 "근거 재현"용 최소 스냅샷(OHLCV 범위/계산 결과 요약/주문 시점)을 가리킨다.
+- UI(웹/PC/앱)는 차트 위 오버레이가 아니라 타임라인 패널로 근거를 표시한다(A안).
+
+### 커스텀(Rule Builder) v1 — Week 14에서 '계약'으로 고정(구현 완성은 별도 주차)
+- 커스텀 지원 인디케이터(제한): MA(SMA/EMA/WMA), BollingerBands, RSI, MACD, CCI, Ichimoku
+- 규칙 저장 포맷은 문자열이 아니라 안전한 AST(JSON 트리)로 저장/검증한다.
+- 복잡도 제한(필수, v1 고정):
+  - max_depth = 3
+  - max_leaf_total = 12 (Entry 8 / Exit 4 권장)
+  - max_leaf_per_group = 6
+  - max_or_groups = 2, max_leaf_per_or_group = 4
+  - 같은 레벨에서 AND/OR 혼합 금지(혼합은 그룹 중첩으로만 허용)
+  - 초과 시 저장/실행 불가(code=rule_complexity_exceeded)
+- Rule Lint(필수, v1 고정): OK/WARN/BLOCK 등급
+  - WARN: 희소/상충 가능성 높음(기본 저장 허용 + 강한 경고 UI)
+  - BLOCK: 거의 불가능/오해 유발/위험(기본 저장 불가, 고급 사용자 우회 토글은 premium 권한에서만)
+  - 예: "BB 상단 돌파 AND RSI<30"은 희소/상충 경고(WARN 또는 BLOCK 후보)
+- Exit 옵션(v1 고정): 1) 신호청산 2) %TP/SL 3) Trailing%
+- 우선순위(권장 고정): 리스크(손절/강제) > 익절 > 신호청산
+- TF 정책(고정): 15분봉 이상 권장, 1~5분봉은 슬리피지/체결괴리 경고(필수)
+
+Day 1: 추세/역추세/커스텀 신호 정의서 + reason_code 표준 확정
+- 입력 소스(정본): scripts/ 내 추세/역추세 관련 파일(경로/파일명은 SSOT에 명시)
+- 산출 문서: docs/PREMIUM_SIGNALS.md
+  - Trend / Mean-Reversion: Entry/Exit 조건을 "요약"으로만 기술(상세 로직은 scripts가 정본)
+  - Custom: 지원 지표/AST/복잡도 제한/Lint/Exit 옵션/TF 정책을 '정책 문구'로 명시
+  - reason_code 목록(TREND_*, MR_*, CUSTOM_*) + reason_text 템플릿
+  - 권장 TF(>=15m) 및 1~5m 슬리피지 경고 문구 고정
+- 완료 증거: docs/APPENDIX_LOG.md에 문서 생성/변경 커밋 + 관련 파일 경로 기록
+
+Day 2: Premium 입력/출력 스키마 확정(계약 고정)
+- 문서: docs/PREMIUM_ENGINE_SPEC.md (신규)
+  - 입력: asset + premium_mode(trend/mr/custom) + params_version
+  - 출력: signal_event + reason + snapshot_id
+  - Hub 경계(금지/허용) 명시
+- 모델: Pydantic/DB(Event/Snapshot 확장)에서 필드 확정
+- 완료 증거: 스키마/모델 변경 커밋 + APPENDIX 원문 기록
+
+Day 3: Premium 이벤트 생성 파이프라인 최소 구현 + 실측
+- 정책: Premium OFF면 signal_event 생성 금지, ON이면 생성
+- 구현: trend/mr는 scripts 정본을 기준으로 최소 이벤트 생성 가능하게
+- custom은 "AST 입력이 존재하면 엔진이 평가→이벤트 생성"까지의 파이프라인 골격만 확인(빌더 UI는 별도 주차)
+- 실측: PS로 이벤트 생성/조회 확인(/api/timeline 또는 전용 endpoint)
+- 완료 증거: APPENDIX에 PS 원문(요청/응답) + Gate-TV PASS 유지
+
+Day 4: 과다 신호/단기봉 경고 가드 정책 확정 + 실측
+- 정책(초안 고정):
+  - 과다 신호 방지: 1봉 1회(또는 최소 쿨다운) / 일일 제한 (기본값)
+  - TF<15m 경고 배너(차단은 옵션)
+- 실측: 과다 신호 조건에서 이벤트가 제한되는지 확인(또는 경고 표시)
+- 완료 증거: APPENDIX에 PS 원문 + 정책 문서 업데이트
+
+Day 5: 회귀(통합) — Premium ON/OFF 차이 실측 + Gate 유지
+- Premium OFF/ON 전환 실측(OFF=이벤트 없음, ON=이벤트 생성)
+- Gate-TV/Gate-OKX/Gate-E-STOP 유지(PASS)
+- 완료 증거: APPENDIX에 회귀 스크립트 실행 원문 + PASS 로그 누적
 
 ## Week 15: 앱(모바일) v1 — "근거 확인" 중심(프리미엄 반영 포함) — TODO
 Day 1: 앱 기술선정 고정(Flutter/ReactNative 중 1) + 인증/토큰 저장 정책 확정
