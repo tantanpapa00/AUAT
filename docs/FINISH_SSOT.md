@@ -127,12 +127,17 @@
   - [x] 주문 타임라인(received→sent→filled/partial/failed) 가시화
   - [x] 오류 메시지 사람말 + 해결 가이드 연결 (ERROR_GUIDES)
 
-## Week D (Android APK v0.1 "설치 가능" + E-STOP/관측 최소) — TODO
+## Week D (Android APK v0.1 "설치 가능" + E-STOP/관측 최소) — IN PROGRESS
 - ANDROID v0.1:
-  - 설치/실행/기본 화면
-  - 관측(상태/최근 이벤트) + E-STOP(가능하면) / 알림은 스텁
+  - [x] Flutter 프로젝트 구조 생성 (mobile-app/)
+  - [x] 홈 화면 (서버 상태 + 최근 주문)
+  - [x] E-STOP 제어 버튼
+  - [x] 설정 화면 (서버 URL)
+  - [x] 상태 카드, 이벤트 리스트 위젯
+  - [ ] 실제 빌드 테스트 (Flutter 환경 필요)
 - SITE:
-  - APK 설치 가이드('알 수 없는 앱 설치' 포함) 추가
+  - [x] APK 설치 가이드 상세화 (Android 버전별 안내)
+  - [x] info-box, warning-box 스타일 추가
 
 ## Week E (업데이트/릴리즈 체계 + FAQ/지원 강화) — TODO
 - PC:
