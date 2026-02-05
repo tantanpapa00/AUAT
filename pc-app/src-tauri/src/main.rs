@@ -19,12 +19,12 @@ struct ServerState {
 }
 
 fn main() {
-    // 시스템 트레이 메뉴 구성
+    // 시스템 트레이 메뉴 구성 (VPS 서버 연결 방식)
     let tray_menu = SystemTrayMenu::new()
         .add_item(CustomMenuItem::new("status", "Status: Checking...").disabled())
         .add_native_item(SystemTrayMenuItem::Separator)
-        .add_item(CustomMenuItem::new("start", "Start Server"))
-        .add_item(CustomMenuItem::new("stop", "Stop Server"))
+        .add_item(CustomMenuItem::new("start", "VPS 연결 확인"))
+        .add_item(CustomMenuItem::new("stop", "연결 해제").disabled())
         .add_native_item(SystemTrayMenuItem::Separator)
         .add_item(CustomMenuItem::new("dashboard", "Open Dashboard"))
         .add_item(CustomMenuItem::new("logs", "Open Logs Folder"))
@@ -86,16 +86,17 @@ fn main() {
             commands::test_account_connection,
         ])
         .setup(|app| {
-            // 앱 시작 시 서버 자동 시작 (옵션)
-            let handle = app.handle();
+            // 앱 시작 시 VPS 서버 연결 확인 (로컬 서버 시작 없음)
+            let _handle = app.handle();
             tauri::async_runtime::spawn(async move {
-                // 1초 대기 후 서버 시작
+                // VPS 서버 연결 상태 확인 (로컬 서버 시작하지 않음)
                 tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-                let _ = commands::start_server_internal(&handle).await;
+                // VPS: http://76.13.180.30:8000 에 연결 시도
+                // start_server_internal은 더 이상 사용하지 않음
 
                 // 대시보드 자동 열기
                 tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-                let _ = open::that("http://127.0.0.1:8000");
+                let _ = open::that("http://76.13.180.30:8000");
             });
             Ok(())
         })
@@ -122,7 +123,7 @@ fn handle_tray_menu(app: &tauri::AppHandle, id: &str) {
             });
         }
         "dashboard" => {
-            let _ = open::that("http://127.0.0.1:8000");
+            let _ = open::that("http://76.13.180.30:8000");
         }
         "logs" => {
             if let Some(data_dir) = dirs::data_dir() {

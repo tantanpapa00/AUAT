@@ -11,26 +11,28 @@ use std::os::windows::process::CommandExt;
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 // =====================================================
-// Server Management
+// Server Management (VPS 연결 방식 - 로컬 서버 시작 불필요)
 // =====================================================
+
+const VPS_SERVER_URL: &str = "http://76.13.180.30:8000";
 
 #[tauri::command]
 pub async fn start_server() -> Result<String, String> {
-    // 서버 시작 로직
-    let python_path = find_python().ok_or("Python not found")?;
-    let server_path = get_server_path()?;
-
-    let mut cmd = Command::new(&python_path);
-    cmd.args(["-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8000"])
-        .current_dir(&server_path);
-
-    #[cfg(target_os = "windows")]
-    cmd.creation_flags(CREATE_NO_WINDOW);
-
-    cmd.spawn()
-        .map_err(|e| format!("Failed to start server: {}", e))?;
-
-    Ok("Server started".to_string())
+    // VPS 서버에 연결하므로 로컬 서버 시작 불필요
+    // VPS 연결 상태만 확인
+    let client = reqwest::Client::new();
+    match client
+        .get(format!("{}/api/diag/home", VPS_SERVER_URL))
+        .timeout(std::time::Duration::from_secs(5))
+        .send()
+        .await
+    {
+        Ok(resp) if resp.status().is_success() => {
+            Ok("VPS 서버 연결됨".to_string())
+        }
+        Ok(_) => Err("VPS 서버 응답 오류".to_string()),
+        Err(e) => Err(format!("VPS 서버 연결 실패: {}", e)),
+    }
 }
 
 pub async fn start_server_internal(_app: &AppHandle) -> Result<String, String> {
@@ -39,23 +41,9 @@ pub async fn start_server_internal(_app: &AppHandle) -> Result<String, String> {
 
 #[tauri::command]
 pub async fn stop_server() -> Result<String, String> {
-    // Windows에서 Python 프로세스 종료
-    #[cfg(target_os = "windows")]
-    {
-        let _ = Command::new("taskkill")
-            .args(["/F", "/IM", "python.exe"])
-            .creation_flags(CREATE_NO_WINDOW)
-            .output();
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        let _ = Command::new("pkill")
-            .args(["-f", "uvicorn"])
-            .output();
-    }
-
-    Ok("Server stopped".to_string())
+    // VPS 서버 사용 시 로컬 서버 종료 불필요
+    // 연결 해제 메시지만 반환
+    Ok("VPS 서버 연결 해제 (서버는 계속 실행 중)".to_string())
 }
 
 pub async fn stop_server_internal(_app: &AppHandle) -> Result<String, String> {
@@ -66,7 +54,7 @@ pub async fn stop_server_internal(_app: &AppHandle) -> Result<String, String> {
 pub async fn get_server_status() -> Result<ServerStatus, String> {
     let client = reqwest::Client::new();
     match client
-        .get("http://127.0.0.1:8000/api/diag/home")
+        .get("http://76.13.180.30:8000/api/diag/home")
         .timeout(std::time::Duration::from_secs(3))
         .send()
         .await
@@ -108,7 +96,7 @@ pub struct ServerStatus {
 
 #[tauri::command]
 pub async fn open_dashboard() -> Result<(), String> {
-    open::that("http://127.0.0.1:8000").map_err(|e| e.to_string())
+    open::that("http://76.13.180.30:8000").map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -199,7 +187,7 @@ pub async fn set_estop(enabled: bool) -> Result<bool, String> {
 pub async fn set_estop_api(enabled: bool) -> Result<bool, String> {
     let client = reqwest::Client::new();
     let url = format!(
-        "http://127.0.0.1:8000/api/system/estop?value={}",
+        "http://76.13.180.30:8000/api/system/estop?value={}",
         if enabled { "1" } else { "0" }
     );
 
@@ -220,7 +208,7 @@ pub async fn set_estop_api(enabled: bool) -> Result<bool, String> {
 pub async fn get_home_data() -> Result<serde_json::Value, String> {
     let client = reqwest::Client::new();
     let resp = client
-        .get("http://127.0.0.1:8000/api/diag/home")
+        .get("http://76.13.180.30:8000/api/diag/home")
         .timeout(std::time::Duration::from_secs(5))
         .send()
         .await
@@ -366,7 +354,7 @@ pub async fn list_local_accounts() -> Result<Vec<AccountInfo>, String> {
 pub async fn fetch_server_accounts() -> Result<Vec<AccountInfo>, String> {
     let client = reqwest::Client::new();
     let resp = client
-        .get("http://127.0.0.1:8000/api/accounts")
+        .get("http://76.13.180.30:8000/api/accounts")
         .timeout(std::time::Duration::from_secs(5))
         .send()
         .await;
@@ -408,8 +396,8 @@ pub async fn fetch_server_accounts() -> Result<Vec<AccountInfo>, String> {
 pub async fn test_account_connection(exchange: String, account_name: String) -> Result<String, String> {
     let client = reqwest::Client::new();
     let endpoint = match exchange.to_uppercase().as_str() {
-        "OKX" => format!("http://127.0.0.1:8000/api/diag/okx-preflight?account={}", account_name),
-        "KIS" => format!("http://127.0.0.1:8000/api/diag/kis-preflight?account={}", account_name),
+        "OKX" => format!("http://76.13.180.30:8000/api/diag/okx-preflight?account={}", account_name),
+        "KIS" => format!("http://76.13.180.30:8000/api/diag/kis-preflight?account={}", account_name),
         _ => return Err(format!("Unknown exchange: {}", exchange)),
     };
 
@@ -501,7 +489,7 @@ pub struct TimelineEvent {
 pub async fn fetch_timeline(limit: Option<i64>) -> Result<Vec<TimelineEvent>, String> {
     let client = reqwest::Client::new();
     let url = format!(
-        "http://127.0.0.1:8000/api/timeline?limit={}",
+        "http://76.13.180.30:8000/api/timeline?limit={}",
         limit.unwrap_or(50)
     );
 
@@ -528,7 +516,7 @@ pub struct ConnectorStatus {
 pub async fn fetch_connector_status() -> Result<Vec<ConnectorStatus>, String> {
     let client = reqwest::Client::new();
     let resp = client
-        .get("http://127.0.0.1:8000/api/connectors/status")
+        .get("http://76.13.180.30:8000/api/connectors/status")
         .timeout(std::time::Duration::from_secs(5))
         .send()
         .await
@@ -554,7 +542,7 @@ pub struct SubscriptionInfo {
 pub async fn fetch_subscription() -> Result<SubscriptionInfo, String> {
     let client = reqwest::Client::new();
     let resp = client
-        .get("http://127.0.0.1:8000/api/subscription")
+        .get("http://76.13.180.30:8000/api/subscription")
         .timeout(std::time::Duration::from_secs(5))
         .send()
         .await;
