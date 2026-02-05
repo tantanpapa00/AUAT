@@ -72,3 +72,8 @@ release/
 *.sqlite
 *.sqlite3
 *.db
+
+# --- Local / Claude ---
+.claude/
+PROJECT_STATUS_LOCAL.md
+NUL
