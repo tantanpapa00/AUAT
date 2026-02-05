@@ -1414,9 +1414,119 @@ document.getElementById('btn-retry-connection')?.addEventListener('click', () =>
 });
 
 // =====================================================
+// Subscription Type Management
+// =====================================================
+const SUBSCRIPTION_TYPES = {
+    free: {
+        name: '무료',
+        icon: '⭐',
+        class: 'free',
+        features: ['basic', 'webhook'],
+        description: '기본 기능을 무료로 사용하세요. 허브형(개인 서버)으로 운영됩니다.'
+    },
+    hub: {
+        name: '허브형',
+        icon: '🏠',
+        class: 'hub',
+        features: ['basic', 'webhook', 'multi-account'],
+        description: '개인 서버에서 운영하는 허브형 사용자입니다. 무제한 계정을 등록할 수 있습니다.'
+    },
+    premium: {
+        name: '프리미엄',
+        icon: '👑',
+        class: 'premium',
+        features: ['basic', 'webhook', 'multi-account', 'premium-signals', 'cloud-sync', 'priority-support'],
+        description: '클라우드 기반 프리미엄 서비스입니다. 모든 기능과 우선 지원을 받으세요.'
+    }
+};
+
+let currentSubscription = 'free';
+
+async function loadSubscriptionStatus() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/subscription/status`);
+        if (response.ok) {
+            const data = await response.json();
+            currentSubscription = data.type || 'free';
+        }
+    } catch (error) {
+        console.log('Subscription status not available, defaulting to free');
+        currentSubscription = 'free';
+    }
+    updateSubscriptionUI();
+}
+
+function updateSubscriptionUI() {
+    const subType = SUBSCRIPTION_TYPES[currentSubscription] || SUBSCRIPTION_TYPES.free;
+
+    // Update sidebar badge
+    const badge = document.getElementById('subscription-badge');
+    const badgeText = document.getElementById('subscription-text');
+    if (badge) {
+        badge.className = `subscription-badge ${subType.class}`;
+        badge.querySelector('.badge-icon').textContent = subType.icon;
+    }
+    if (badgeText) {
+        badgeText.textContent = subType.name;
+    }
+
+    // Update subscription card in settings
+    const subCard = document.getElementById('subscription-card');
+    const subTypeBadge = document.getElementById('sub-type-badge');
+    const subDescription = document.getElementById('sub-description-text');
+    const upgradeBtn = document.getElementById('btn-upgrade');
+
+    if (subCard) {
+        subCard.className = `subscription-card ${subType.class}`;
+    }
+    if (subTypeBadge) {
+        subTypeBadge.textContent = subType.name;
+        subTypeBadge.className = `sub-type-badge ${subType.class}`;
+    }
+    if (subDescription) {
+        subDescription.textContent = subType.description;
+    }
+    if (upgradeBtn) {
+        upgradeBtn.style.display = currentSubscription === 'premium' ? 'none' : 'block';
+    }
+
+    // Update feature checks
+    const featureMap = {
+        'feat-multi-account': 'multi-account',
+        'feat-premium-signals': 'premium-signals',
+        'feat-cloud-sync': 'cloud-sync',
+        'feat-priority-support': 'priority-support'
+    };
+
+    for (const [elemId, featureKey] of Object.entries(featureMap)) {
+        const elem = document.getElementById(elemId);
+        if (elem) {
+            const hasFeature = subType.features.includes(featureKey);
+            const icon = elem.querySelector('span:first-child');
+            if (icon) {
+                icon.textContent = hasFeature ? '✓' : '✕';
+                icon.className = hasFeature ? 'check' : 'cross';
+            }
+        }
+    }
+}
+
+// Sidebar badge click to go to settings
+document.getElementById('subscription-badge')?.addEventListener('click', () => {
+    navigateTo('settings');
+});
+
+// =====================================================
 // Initialize
 // =====================================================
 checkServerConnection();
+
+// Load subscription status after connection
+setTimeout(() => {
+    if (isConnected) {
+        loadSubscriptionStatus();
+    }
+}, 2000);
 
 // Periodic status update (every 5 seconds)
 setInterval(() => {

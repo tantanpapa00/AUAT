@@ -153,21 +153,116 @@ body {
 }
 
 .subscription-badge {
-    display: inline-block;
-    padding: 6px 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
     border-radius: 20px;
     font-size: 0.8rem;
     font-weight: 600;
     background: linear-gradient(135deg, var(--primary), var(--primary-light));
     color: white;
+    cursor: pointer;
+    transition: all 0.2s;
 }
 
-.subscription-badge.pro {
+.subscription-badge:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.subscription-badge .badge-icon {
+    font-size: 1rem;
+}
+
+.subscription-badge.premium {
     background: linear-gradient(135deg, #8B5CF6, #A78BFA);
 }
 
 .subscription-badge.hub {
     background: linear-gradient(135deg, #F59E0B, #FBBF24);
+}
+
+.subscription-badge.free {
+    background: linear-gradient(135deg, #6B7280, #9CA3AF);
+}
+
+/* Subscription Info Card */
+.subscription-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.subscription-card.premium {
+    border-color: #8B5CF6;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(167, 139, 250, 0.05));
+}
+
+.subscription-card.hub {
+    border-color: #F59E0B;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(251, 191, 36, 0.05));
+}
+
+.subscription-card .sub-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 15px;
+}
+
+.subscription-card .sub-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.subscription-card .sub-title h3 {
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.subscription-card .sub-type-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.subscription-card .sub-type-badge.premium {
+    background: rgba(139, 92, 246, 0.2);
+    color: #A78BFA;
+}
+
+.subscription-card .sub-type-badge.hub {
+    background: rgba(245, 158, 11, 0.2);
+    color: #FBBF24;
+}
+
+.subscription-card .sub-features {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.subscription-card .feature-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.subscription-card .feature-item .check {
+    color: var(--success);
+}
+
+.subscription-card .feature-item .cross {
+    color: var(--text-muted);
 }
 
 /* =====================================================

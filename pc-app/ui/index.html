@@ -46,7 +46,10 @@
                 </a>
             </nav>
             <div class="sidebar-footer">
-                <div class="subscription-badge" id="subscription-badge">Free</div>
+                <div class="subscription-badge free" id="subscription-badge" title="구독 정보 보기">
+                    <span class="badge-icon">⭐</span>
+                    <span id="subscription-text">무료</span>
+                </div>
             </div>
         </aside>
 
@@ -292,6 +295,46 @@
 
             <!-- Settings Page -->
             <main class="main page-content" id="page-settings" style="display: none;">
+                <!-- Subscription Info Card -->
+                <section class="subscription-card" id="subscription-card">
+                    <div class="sub-header">
+                        <div class="sub-title">
+                            <h3>구독 정보</h3>
+                            <span class="sub-type-badge" id="sub-type-badge">--</span>
+                        </div>
+                        <button id="btn-upgrade" class="btn btn-primary" style="display: none;">프리미엄 업그레이드</button>
+                    </div>
+                    <div class="sub-features" id="sub-features">
+                        <div class="feature-item">
+                            <span class="check">✓</span>
+                            <span>기본 자동매매</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="check">✓</span>
+                            <span>TradingView 웹훅</span>
+                        </div>
+                        <div class="feature-item" id="feat-multi-account">
+                            <span class="cross">✕</span>
+                            <span>다중 계정 (5개+)</span>
+                        </div>
+                        <div class="feature-item" id="feat-premium-signals">
+                            <span class="cross">✕</span>
+                            <span>프리미엄 신호</span>
+                        </div>
+                        <div class="feature-item" id="feat-cloud-sync">
+                            <span class="cross">✕</span>
+                            <span>클라우드 동기화</span>
+                        </div>
+                        <div class="feature-item" id="feat-priority-support">
+                            <span class="cross">✕</span>
+                            <span>우선 지원</span>
+                        </div>
+                    </div>
+                    <div class="sub-description" style="margin-top: 15px; font-size: 0.85rem; color: var(--text-muted);">
+                        <span id="sub-description-text">구독 정보를 불러오는 중...</span>
+                    </div>
+                </section>
+
                 <div class="settings-grid">
                     <!-- E-STOP Control -->
                     <section class="card settings-estop">
