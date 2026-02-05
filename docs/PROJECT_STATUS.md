@@ -1020,7 +1020,70 @@ powershell -ExecutionPolicy Bypass -File scripts\build-apk.ps1
 
 ---
 
-# 11) NEXT ACTION — v16 (앱 빌드 준비 완료)
+## Week 21 Day 4 — UX 개선 통합 완료 (STEP 0~9)
+
+### 완료 항목
+
+**STEP 1: PC앱 VPS 서버 자동 연결** — DONE
+- pc-app/ui/src/config.js 생성 (API_BASE_URL, CONNECTION_TIMEOUT 등)
+- tauri.conf.json HTTP 허용 목록에 VPS IP (76.13.180.30) 추가
+- main.js에 서버 연결 체크 및 재시도 로직 구현
+- 로딩 오버레이 UI (스피너 + 메시지 + 재시도 버튼)
+
+**STEP 2: 웹 대시보드 밝은 테마 리디자인** — DONE
+- app/templates/index.html 전체 밝은 테마로 변환
+- CSS 변수 전면 수정 (--bg: #f8fafc, --card: #ffffff 등)
+- 버튼, 카드, 탭 스타일 현대적 디자인으로 개선
+- 그라데이션 배경, 부드러운 그림자, 호버 애니메이션 적용
+
+**STEP 3: 전체 UI 한국어화** — DONE
+- PC앱 사이드바 메뉴 (대시보드, 계정 관리, 템플릿, 설정, 거래 로그)
+- 대시보드 페이지 (상태 카드, 서버 제어, 긴급 정지)
+- 계정 관리 페이지 (모달, 폼 레이블, 에러 메시지)
+- 템플릿 생성기, 설정 페이지, 거래 로그 페이지 전체 한국어화
+
+**STEP 4: 허브형/프리미엄형 구분 UI** — DONE
+- 구독 배지 스타일 개선 (free, hub, premium 클래스)
+- 설정 페이지에 구독 정보 카드 추가
+- 구독 유형별 기능 표시 (다중 계정, 프리미엄 신호, 클라우드 동기화 등)
+- 사이드바 구독 배지 클릭 시 설정 페이지로 이동
+
+**STEP 5: TradingView 차트 위젯 연동** — DONE
+- 대시보드에 TradingView Advanced Chart 위젯 추가
+- 심볼 선택 (BTC/USDT, ETH/USDT, BTC 선물 등)
+- 시간간격 선택 (1분, 5분, 15분, 1시간, 일봉)
+- RSI, SMA 기본 지표 포함, 다크 테마, 한국어 로케일
+
+**STEP 6: 결제 시스템 UI (프론트엔드)** — DONE
+- 설정 페이지에 요금제 안내 섹션 추가
+- 무료/허브형(₩29,000)/프리미엄(₩99,000) 플랜 카드 디자인
+- 결제 모달 UI (결제 수단 선택, 이메일 입력, 약관 동의)
+- 카드, 계좌이체, 네이버페이 결제 수단 옵션
+
+**STEP 7: 소개 사이트 + 법적 페이지 밝은 테마 리디자인** — DONE
+- landing/index.html: 전체 밝은 테마로 변환
+  - 배경 그라데이션 (오렌지 → 블루 → 그린)
+  - 제품 카드, 거래소 아이콘, 기능 카드 현대화
+  - FAQ, CTA, Footer 밝은 스타일
+- landing/terms.html, privacy.html, risk.html 밝은 테마 적용
+
+### 커밋 목록 (8개)
+1. feat: PC앱 VPS 서버 자동 연결
+2. feat: 웹 대시보드 밝은 테마 리디자인
+3. feat: 전체 UI 한국어화
+4. feat: 허브형/프리미엄형 구분 UI 추가
+5. feat: TradingView 차트 위젯 연동
+6. feat: 결제 시스템 UI 추가 (프론트엔드)
+7. feat: 소개 사이트 + 법적 페이지 밝은 테마 리디자인
+8. docs: SSOT Week 21 Day 4 업데이트
+
+### 남은 작업
+- 결제 시스템 백엔드 연동 (PG사 API 연동)
+- 모바일 앱 UX 동일하게 적용
+
+---
+
+# 11) NEXT ACTION — v16 (UX 개선 완료)
 
 1) **PC 앱 빌드**: Rust 설치 후 `pc-app/scripts/build.ps1` 실행
 2) **모바일 앱 빌드**: Flutter 설치 후 `mobile-app/scripts/build-apk.ps1` 실행
