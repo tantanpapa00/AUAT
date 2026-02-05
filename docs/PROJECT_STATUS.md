@@ -1,5 +1,5 @@
 # PROJECT_STATUS.md (SSOT)
-- Last updated: 2026-02-05 KST
+- Last updated: 2026-02-05 (Day 4 Evening) KST
 - Owner: 기훈(작가님)
 
 > NOTE: 이 파일이 '진실(SSOT)'입니다. 채팅은 인터페이스일 뿐.
@@ -27,8 +27,9 @@
 
 # 2) 개발 환경
 - 작업 폴더: C:\Users\pc\새 폴더\AUAT
-- 서버: FastAPI(Uvicorn) http://127.0.0.1:8000
-- Swagger: http://127.0.0.1:8000/docs
+- 로컬 서버: FastAPI(Uvicorn) http://127.0.0.1:8000
+- **VPS 서버: http://76.13.180.30:8000 (운영 중)**
+- Swagger: http://76.13.180.30:8000/docs
 
 ## 운영 루틴
 - STOP: scripts/stop.ps1 또는 Ctrl+C
@@ -1083,16 +1084,97 @@ powershell -ExecutionPolicy Bypass -File scripts\build-apk.ps1
 
 ---
 
-# 11) NEXT ACTION — v16 (UX 개선 완료)
+## Week 21 Day 4 Evening — VPS 배포 + PC앱 재빌드 완료
 
-1) **PC 앱 빌드**: Rust 설치 후 `pc-app/scripts/build.ps1` 실행
-2) **모바일 앱 빌드**: Flutter 설치 후 `mobile-app/scripts/build-apk.ps1` 실행
-3) **도메인 설정**: nginx/bbooster.conf에서 `your-domain.com` → 실제 도메인 교체
-4) **VPS 배포**: nginx/VPS_SETUP.md 가이드 따라 Nginx + SSL 설치
-5) **v1.0 릴리즈**: `git tag v1.0.0 && git push --tags`
+### 완료 항목
 
-> **PC 앱 + 모바일 앱 + 서버 배포 준비 완료!**
-> 환경 설치 후 빌드 및 배포 가능한 상태입니다.
+**1. Git Push 완료** — DONE
+- 로컬에 있던 9개 커밋(STEP 1~9) GitHub에 push
+- UX 개선 전체 코드 원격 저장소에 반영
+
+**2. VPS 배포 완료** — DONE
+- ssh root@76.13.180.30 접속
+- /root/bbooster에서 git pull + docker compose up -d --build
+- 컨테이너 정상 실행 (bbooster-app, bbooster-db)
+
+**3. VPS 대시보드 정상 확인** — DONE
+- http://76.13.180.30:8000 에서 밝은 테마, 한국어 UI 반영 확인
+- 웹 대시보드 5개 탭 정상 동작
+- 랜딩 페이지 + 법적 페이지 밝은 테마 확인
+
+**4. .gitignore 정리** — DONE
+- .claude/ 폴더 제외 추가
+- NUL 파일 제외 추가
+- PROJECT_STATUS_LOCAL.md 제외 추가
+
+**5. PC앱 Rust 코드 서버 주소 변경** — DONE
+- commands.rs, main.rs의 모든 127.0.0.1:8000 → 76.13.180.30:8000으로 변경
+- 로컬 서버 실행(uvicorn) 로직 제거
+- start_server: VPS 연결 상태 확인으로 변경
+- stop_server: 연결 해제 메시지로 변경
+- 트레이 메뉴 텍스트 VPS 연결 방식으로 업데이트
+
+**6. PC앱 서버 연결 방식 수정 (fetch CORS 우회)** — DONE
+- 문제: Tauri WebView의 fetch()가 외부 VPS 서버에 CORS로 인해 접근 불가
+- 해결: Tauri invoke로 Rust 백엔드에서 HTTP 요청 수행
+- commands.rs: check_server_health 커맨드 추가 (latency_ms 포함)
+- main.js 변경:
+  - checkServerConnection() → invoke('check_server_health')
+  - loadSettingsData() → invoke('get_server_status')
+  - E-STOP 버튼 → invoke('set_estop')
+  - loadLogs() → invoke('fetch_timeline')
+  - loadSubscriptionStatus() → invoke('fetch_subscription')
+
+**7. PC앱 재빌드 완료** — DONE
+- BBooster_1.0.0_x64-setup.exe 새 버전 빌드
+- VPS 직접 연결 방식으로 동작 확인 완료
+- 서버 연결 성공 로그 확인
+
+### 커밋 목록 (3개)
+1. feat: PC앱 VPS 서버 연결 방식으로 변경
+2. fix: Tauri invoke로 서버 연결 체크 변경 (fetch CORS 우회)
+3. docs: SSOT Week 21 Day 4 — VPS 배포 + PC앱 재빌드 완료
+
+### 현재 시스템 상태
+| 항목 | 상태 |
+|------|------|
+| STEP 1~9 | ✅ 모두 완료 (코드 수정 + push + VPS 배포 + PC앱 빌드) |
+| VPS 서버 | ✅ http://76.13.180.30:8000 정상 운영 중 |
+| 웹 대시보드 | ✅ 밝은 테마 + 한국어 UI |
+| PC앱 | ✅ VPS 직접 연결 방식 동작 확인 |
+| ngrok | ⏸️ 인증 미설정 (공인 IP 직접 접속 가능하므로 불필요) |
+
+### 남은 작업 (향후)
+- 결제 시스템 백엔드 연동 (PG사 API)
+- 모바일 앱(Flutter APK) UX 업데이트 + 빌드
+- HTTPS/도메인 설정 (선택)
+
+---
+
+# 11) NEXT ACTION — v17 (VPS 배포 완료)
+
+## 완료된 작업
+- ✅ VPS 서버 배포 (http://76.13.180.30:8000)
+- ✅ PC 앱 빌드 (BBooster_1.0.0_x64-setup.exe)
+- ✅ 웹 대시보드 UX 개선 (밝은 테마 + 한국어)
+- ✅ PC앱 VPS 연결 방식 변경 (CORS 우회)
+
+## 다음 단계
+1) **모바일 앱 빌드**: Flutter 설치 후 `mobile-app/scripts/build-apk.ps1` 실행
+2) **결제 시스템 백엔드**: PG사 API 연동 (토스페이먼츠/네이버페이 등)
+3) **도메인 설정** (선택): nginx/bbooster.conf에서 도메인 교체 + SSL
+4) **v1.0 릴리즈**: `git tag v1.0.0 && git push --tags`
+
+## 운영 중인 서비스
+| 서비스 | URL |
+|--------|-----|
+| 웹 대시보드 | http://76.13.180.30:8000 |
+| API 문서 | http://76.13.180.30:8000/docs |
+| 랜딩 페이지 | http://76.13.180.30:8000/landing/ |
+| 이용약관 | http://76.13.180.30:8000/landing/terms.html |
+
+> **서버 배포 + PC앱 완료!**
+> VPS 서버 정상 운영 중, PC앱 VPS 직접 연결 확인됨.
 
 ---
 
