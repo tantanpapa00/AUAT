@@ -66,6 +66,7 @@ fn main() {
             commands::start_server,
             commands::stop_server,
             commands::get_server_status,
+            commands::check_server_health,
             commands::open_dashboard,
             commands::open_logs_folder,
             commands::export_diagnostic,

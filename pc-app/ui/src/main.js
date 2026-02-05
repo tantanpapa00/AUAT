@@ -1030,12 +1030,12 @@ const btnExportDiagSettings = document.getElementById('btn-export-diag-settings'
 
 // Load settings page data
 async function loadSettingsData() {
-    // Load E-STOP status
+    // Load E-STOP and system status via Tauri invoke (CORS 우회)
     try {
-        const response = await fetch(`${API_BASE_URL}/api/system/estop`);
-        const data = await response.json();
+        const status = await invoke('get_server_status');
 
-        if (data.estop) {
+        // E-STOP status
+        if (status.estop) {
             settingsEstopBox.className = 'estop-status-box active';
             settingsEstopText.textContent = 'E-STOP ACTIVE';
         } else {
@@ -1043,36 +1043,29 @@ async function loadSettingsData() {
             settingsEstopText.textContent = 'Normal Operation';
         }
 
-        estopLastChanged.textContent = data.updated_at ? formatDateTime(data.updated_at) : '--';
-        estopReason.textContent = data.reason || '--';
-    } catch (error) {
-        console.error('Failed to load E-STOP status:', error);
-        settingsEstopBox.className = 'estop-status-box inactive';
-        settingsEstopText.textContent = 'Unknown';
-    }
+        estopLastChanged.textContent = '--';  // invoke에서는 timestamp 미제공
+        estopReason.textContent = '--';
 
-    // Load system status
-    try {
-        const status = await invoke('get_server_status');
-
+        // System status
         sysDryRun.textContent = status.dry_run ? 'ON' : 'OFF';
         sysDryRun.className = `status-value ${status.dry_run ? 'on' : 'off'}`;
 
         sysServerStatus.textContent = status.running ? 'Connected' : 'Disconnected';
         sysServerStatus.className = `status-value ${status.running ? 'on' : 'error'}`;
 
-        // These are typically from server env, so we show placeholder
         sysOrderSubmit.textContent = status.running ? 'ON' : '--';
         sysOrderSubmit.className = `status-value ${status.running ? 'on' : 'off'}`;
 
         sysOrderPoll.textContent = status.running ? 'ON' : '--';
         sysOrderPoll.className = `status-value ${status.running ? 'on' : 'off'}`;
     } catch (error) {
-        console.error('Failed to load system status:', error);
+        console.error('Failed to load settings status:', error);
+        settingsEstopBox.className = 'estop-status-box inactive';
+        settingsEstopText.textContent = 'Unknown';
     }
 }
 
-// E-STOP controls on Settings page
+// E-STOP controls on Settings page (Tauri invoke 사용)
 settingsBtnEstopOn?.addEventListener('click', async () => {
     const reason = estopReasonInput.value.trim() || 'Manual activation from PC App';
 
@@ -1082,11 +1075,7 @@ settingsBtnEstopOn?.addEventListener('click', async () => {
 
     settingsBtnEstopOn.disabled = true;
     try {
-        await fetch(`${API_BASE_URL}/api/system/estop`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ estop: true, reason: reason })
-        });
+        await invoke('set_estop', { enabled: true });
         showToast('E-STOP activated', 'warning');
         estopReasonInput.value = '';
         loadSettingsData();
@@ -1101,11 +1090,7 @@ settingsBtnEstopOn?.addEventListener('click', async () => {
 settingsBtnEstopOff?.addEventListener('click', async () => {
     settingsBtnEstopOff.disabled = true;
     try {
-        await fetch(`${API_BASE_URL}/api/system/estop`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ estop: false, reason: 'Manual deactivation from PC App' })
-        });
+        await invoke('set_estop', { enabled: false });
         showToast('E-STOP deactivated', 'success');
         loadSettingsData();
         updateStatus();
@@ -1212,23 +1197,13 @@ const btnCloseLogDetail = document.getElementById('btn-close-log-detail');
 
 let currentLogs = [];
 
-// Load logs
+// Load logs (Tauri invoke 사용 - CORS 우회)
 async function loadLogs() {
-    const exchange = filterExchange?.value || '';
-    const status = filterStatus?.value || '';
-    const symbol = filterSymbol?.value || '';
-    const limit = filterLimit?.value || '100';
+    const limit = parseInt(filterLimit?.value || '100');
 
     try {
-        // Build query params
-        const params = new URLSearchParams();
-        params.append('limit', limit);
-        if (exchange) params.append('exchange', exchange);
-        if (status) params.append('status', status);
-        if (symbol) params.append('symbol', symbol);
-
-        const response = await fetch(`${API_BASE_URL}/api/timeline?${params.toString()}`);
-        const data = await response.json();
+        // Tauri invoke로 타임라인 데이터 조회
+        const data = await invoke('fetch_timeline', { limit: limit });
 
         if (Array.isArray(data) && data.length > 0) {
             currentLogs = data;
@@ -1236,21 +1211,21 @@ async function loadLogs() {
 
             logsTbody.innerHTML = data.map((log, index) => {
                 const time = formatDateTime(log.timestamp || log.created_at);
-                const exchange = log.exchange || '--';
-                const symbol = log.symbol || '--';
+                const exchangeVal = log.exchange || '--';
+                const symbolVal = log.symbol || '--';
                 const side = log.side || '--';
                 const qty = log.qty || log.filled_qty || '--';
-                const status = log.event_type || log.status || 'unknown';
+                const statusVal = log.event_type || log.status || 'unknown';
                 const orderId = log.order_id || log.okx_order_id || '--';
 
                 return `
                     <tr>
                         <td class="col-time">${time}</td>
-                        <td>${exchange}</td>
-                        <td class="col-symbol">${symbol}</td>
+                        <td>${exchangeVal}</td>
+                        <td class="col-symbol">${symbolVal}</td>
                         <td class="col-side ${side.toLowerCase()}">${side.toUpperCase()}</td>
                         <td>${qty}</td>
-                        <td><span class="col-status ${status.toLowerCase()}">${status}</span></td>
+                        <td><span class="col-status ${statusVal.toLowerCase()}">${statusVal}</span></td>
                         <td class="col-orderid">${orderId !== '--' ? orderId.slice(-8) : '--'}</td>
                         <td>
                             <button class="btn btn-secondary btn-view-detail" data-index="${index}">View</button>
@@ -1361,7 +1336,7 @@ btnExportCsv?.addEventListener('click', async () => {
 });
 
 // =====================================================
-// Connection Check with Loading Screen
+// Connection Check with Loading Screen (Tauri invoke 사용)
 // =====================================================
 async function checkServerConnection() {
     const loadingOverlay = document.getElementById('loading-overlay');
@@ -1373,19 +1348,18 @@ async function checkServerConnection() {
     if (retryBtn) retryBtn.style.display = 'none';
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/health`, {
-            method: 'GET',
-            signal: AbortSignal.timeout(CONNECTION_TIMEOUT)
-        });
+        // Tauri invoke를 통해 Rust에서 HTTP 요청 (CORS 우회)
+        const result = await invoke('check_server_health');
 
-        if (response.ok) {
+        if (result.ok) {
             isConnected = true;
             retryCount = 0;
             if (loadingOverlay) loadingOverlay.style.display = 'none';
+            console.log(`서버 연결 성공 (${result.latency_ms}ms)`);
             updateStatus();
             return true;
         }
-        throw new Error('Server not responding');
+        throw new Error(result.message || 'Server not responding');
     } catch (error) {
         console.error('Connection failed:', error);
         isConnected = false;
@@ -1444,10 +1418,11 @@ let currentSubscription = 'free';
 
 async function loadSubscriptionStatus() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/subscription/status`);
-        if (response.ok) {
-            const data = await response.json();
-            currentSubscription = data.type || 'free';
+        // Tauri invoke 사용 (CORS 우회)
+        const data = await invoke('fetch_subscription');
+        if (data && data.plan) {
+            currentSubscription = data.plan.toLowerCase() === 'premium' ? 'premium' :
+                                  data.plan.toLowerCase() === 'hub' ? 'hub' : 'free';
         }
     } catch (error) {
         console.log('Subscription status not available, defaulting to free');

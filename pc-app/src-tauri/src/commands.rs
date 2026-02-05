@@ -50,6 +50,51 @@ pub async fn stop_server_internal(_app: &AppHandle) -> Result<String, String> {
     stop_server().await
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct HealthCheckResult {
+    pub ok: bool,
+    pub message: String,
+    pub latency_ms: u64,
+}
+
+#[tauri::command]
+pub async fn check_server_health() -> Result<HealthCheckResult, String> {
+    let client = reqwest::Client::new();
+    let start = std::time::Instant::now();
+
+    match client
+        .get(format!("{}/api/health", VPS_SERVER_URL))
+        .timeout(std::time::Duration::from_secs(5))
+        .send()
+        .await
+    {
+        Ok(resp) => {
+            let latency = start.elapsed().as_millis() as u64;
+            if resp.status().is_success() {
+                Ok(HealthCheckResult {
+                    ok: true,
+                    message: "VPS 서버 연결 성공".to_string(),
+                    latency_ms: latency,
+                })
+            } else {
+                Ok(HealthCheckResult {
+                    ok: false,
+                    message: format!("서버 응답 오류: {}", resp.status()),
+                    latency_ms: latency,
+                })
+            }
+        }
+        Err(e) => {
+            let latency = start.elapsed().as_millis() as u64;
+            Ok(HealthCheckResult {
+                ok: false,
+                message: format!("연결 실패: {}", e),
+                latency_ms: latency,
+            })
+        }
+    }
+}
+
 #[tauri::command]
 pub async fn get_server_status() -> Result<ServerStatus, String> {
     let client = reqwest::Client::new();
