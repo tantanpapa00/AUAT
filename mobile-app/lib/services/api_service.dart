@@ -54,15 +54,53 @@ class ApiService {
   }
 
   /// Get timeline events
-  Future<Map<String, dynamic>> getTimeline({int limit = 20}) async {
+  Future<List<Map<String, dynamic>>> getTimeline({int limit = 50}) async {
     final response = await http
         .get(Uri.parse('$baseUrl/api/timeline?limit=$limit'))
         .timeout(timeout);
 
     if (response.statusCode == 200) {
-      return json.decode(response.body);
+      final data = json.decode(response.body);
+      if (data is List) {
+        return List<Map<String, dynamic>>.from(data);
+      } else if (data['items'] != null) {
+        return List<Map<String, dynamic>>.from(data['items']);
+      }
+      return [];
     } else {
       throw Exception('Failed to load timeline: ${response.statusCode}');
+    }
+  }
+
+  /// Get connector status
+  Future<List<Map<String, dynamic>>> getConnectorStatus() async {
+    final response = await http
+        .get(Uri.parse('$baseUrl/api/diag/connectors'))
+        .timeout(timeout);
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      if (data is List) {
+        return List<Map<String, dynamic>>.from(data);
+      } else if (data['connectors'] != null) {
+        return List<Map<String, dynamic>>.from(data['connectors']);
+      }
+      return [];
+    } else {
+      throw Exception('Failed to load connectors: ${response.statusCode}');
+    }
+  }
+
+  /// Get subscription info
+  Future<Map<String, dynamic>> getSubscription() async {
+    final response = await http
+        .get(Uri.parse('$baseUrl/api/subscription'))
+        .timeout(timeout);
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to load subscription: ${response.statusCode}');
     }
   }
 

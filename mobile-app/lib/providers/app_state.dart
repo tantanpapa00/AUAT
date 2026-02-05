@@ -18,9 +18,17 @@ class AppState extends ChangeNotifier {
   DateTime? _lastUpdate;
   DateTime? get lastUpdate => _lastUpdate;
 
-  // Recent events
+  // Recent events (for dashboard)
   List<Map<String, dynamic>> _recentEvents = [];
   List<Map<String, dynamic>> get recentEvents => _recentEvents;
+
+  // Timeline events (full list)
+  List<Map<String, dynamic>> _timelineEvents = [];
+  List<Map<String, dynamic>> get timelineEvents => _timelineEvents;
+
+  // Connector status
+  List<Map<String, dynamic>> _connectors = [];
+  List<Map<String, dynamic>> get connectors => _connectors;
 
   // Status summary
   Map<String, dynamic>? _statusSummary;
@@ -29,6 +37,10 @@ class AppState extends ChangeNotifier {
   // Error state
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
+
+  // Loading states
+  bool _isLoadingTimeline = false;
+  bool get isLoadingTimeline => _isLoadingTimeline;
 
   void setServerUrl(String url) {
     _serverUrl = url;
@@ -52,9 +64,25 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updateTimelineEvents(List<Map<String, dynamic>> events) {
+    _timelineEvents = events;
+    _lastUpdate = DateTime.now();
+    notifyListeners();
+  }
+
+  void updateConnectors(List<Map<String, dynamic>> connectors) {
+    _connectors = connectors;
+    notifyListeners();
+  }
+
   void updateStatusSummary(Map<String, dynamic> summary) {
     _statusSummary = summary;
     _lastUpdate = DateTime.now();
+    notifyListeners();
+  }
+
+  void setLoadingTimeline(bool loading) {
+    _isLoadingTimeline = loading;
     notifyListeners();
   }
 
@@ -67,4 +95,16 @@ class AppState extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
   }
+
+  // Computed properties
+  int get connectedCount => _connectors.where((c) => c['connected'] == true).length;
+  int get totalConnectors => _connectors.length;
+
+  int get filledCount => _timelineEvents.where((e) =>
+    (e['last_order_status'] ?? e['status'] ?? '').toString().toLowerCase() == 'filled'
+  ).length;
+
+  int get failedCount => _timelineEvents.where((e) =>
+    (e['last_order_status'] ?? e['status'] ?? '').toString().toLowerCase() == 'failed'
+  ).length;
 }
