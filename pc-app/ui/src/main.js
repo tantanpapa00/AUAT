@@ -49,11 +49,11 @@ const subscriptionBadge = document.getElementById('subscription-badge');
 
 // Page titles mapping
 const pageTitles = {
-    dashboard: 'Dashboard',
-    accounts: 'Accounts & API Keys',
-    templates: 'TradingView Templates',
-    settings: 'System Settings',
-    logs: 'Trade Logs'
+    dashboard: '대시보드',
+    accounts: '계정 및 API 키',
+    templates: 'TradingView 템플릿',
+    settings: '시스템 설정',
+    logs: '거래 로그'
 };
 
 // =====================================================

@@ -26,23 +26,23 @@
             <nav class="sidebar-nav">
                 <a href="#" class="nav-item active" data-page="dashboard">
                     <span class="nav-icon">📊</span>
-                    <span>Dashboard</span>
+                    <span>대시보드</span>
                 </a>
                 <a href="#" class="nav-item" data-page="accounts">
                     <span class="nav-icon">🔑</span>
-                    <span>Accounts</span>
+                    <span>계정 관리</span>
                 </a>
                 <a href="#" class="nav-item" data-page="templates">
                     <span class="nav-icon">📝</span>
-                    <span>Templates</span>
+                    <span>템플릿</span>
                 </a>
                 <a href="#" class="nav-item" data-page="settings">
                     <span class="nav-icon">⚙️</span>
-                    <span>Settings</span>
+                    <span>설정</span>
                 </a>
                 <a href="#" class="nav-item" data-page="logs">
                     <span class="nav-icon">📋</span>
-                    <span>Logs</span>
+                    <span>거래 로그</span>
                 </a>
             </nav>
             <div class="sidebar-footer">
@@ -60,11 +60,11 @@
                 <div class="status-indicators">
                     <div class="status-light-group">
                         <span class="status-light" id="light-server"></span>
-                        <span id="server-status" class="status-text">Server: --</span>
+                        <span id="server-status" class="status-text">서버: --</span>
                     </div>
                     <div class="status-light-group">
                         <span class="status-light" id="light-estop"></span>
-                        <span id="estop-status" class="status-text">E-STOP: --</span>
+                        <span id="estop-status" class="status-text">긴급정지: --</span>
                     </div>
                 </div>
             </header>
@@ -74,19 +74,19 @@
                 <!-- Status Overview Panel -->
                 <section class="status-overview">
                     <div class="stat-card">
-                        <div class="stat-label">Last Signal</div>
+                        <div class="stat-label">최근 신호</div>
                         <div class="stat-value" id="last-signal">--</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">Last Order</div>
+                        <div class="stat-label">최근 주문</div>
                         <div class="stat-value" id="last-order">--</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">Last Filled</div>
+                        <div class="stat-label">최근 체결</div>
                         <div class="stat-value" id="last-filled">--</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">System Status</div>
+                        <div class="stat-label">시스템 상태</div>
                         <div class="stat-value" id="system-status">--</div>
                     </div>
                 </section>
@@ -94,60 +94,60 @@
                 <div class="dashboard-grid">
                     <!-- Server Control -->
                     <section class="card server-control">
-                        <h2>Server Control</h2>
+                        <h2>서버 제어</h2>
                         <div class="button-group">
-                            <button id="btn-start" class="btn btn-success">Start Server</button>
-                            <button id="btn-stop" class="btn btn-danger">Stop Server</button>
-                            <button id="btn-dashboard" class="btn btn-primary">Open Dashboard</button>
+                            <button id="btn-start" class="btn btn-success">서버 시작</button>
+                            <button id="btn-stop" class="btn btn-danger">서버 중지</button>
+                            <button id="btn-dashboard" class="btn btn-primary">웹 대시보드 열기</button>
                         </div>
                     </section>
 
                     <!-- E-STOP Control -->
                     <section class="card estop-control">
-                        <h2>E-STOP Control</h2>
-                        <p class="description">Emergency stop - blocks all new orders</p>
+                        <h2>긴급 정지 (E-STOP)</h2>
+                        <p class="description">긴급 정지 활성화 시 모든 신규 주문이 차단됩니다</p>
                         <div class="button-group">
-                            <button id="btn-estop-on" class="btn btn-danger">E-STOP ON</button>
-                            <button id="btn-estop-off" class="btn btn-success">E-STOP OFF</button>
+                            <button id="btn-estop-on" class="btn btn-danger">긴급 정지 ON</button>
+                            <button id="btn-estop-off" class="btn btn-success">긴급 정지 OFF</button>
                         </div>
                     </section>
 
                     <!-- Connector Status -->
                     <section class="card connector-status">
-                        <h2>Connector Status</h2>
+                        <h2>커넥터 상태</h2>
                         <div id="connector-list" class="connector-list">
-                            <p class="empty">Loading...</p>
+                            <p class="empty">로딩 중...</p>
                         </div>
                     </section>
 
                     <!-- Order Timeline -->
                     <section class="card order-timeline">
-                        <h2>Order Timeline</h2>
+                        <h2>주문 타임라인</h2>
                         <div id="timeline-list" class="timeline-list">
-                            <p class="empty">Loading...</p>
+                            <p class="empty">로딩 중...</p>
                         </div>
                     </section>
 
                     <!-- Recent Events -->
                     <section class="card recent-events">
-                        <h2>Recent Events</h2>
+                        <h2>최근 이벤트</h2>
                         <div id="events-list" class="events-list">
-                            <p class="empty">Loading...</p>
+                            <p class="empty">로딩 중...</p>
                         </div>
                     </section>
 
                     <!-- Tools -->
                     <section class="card tools">
-                        <h2>Tools</h2>
+                        <h2>도구</h2>
                         <div class="button-group">
-                            <button id="btn-logs" class="btn btn-secondary">Open Logs Folder</button>
-                            <button id="btn-diagnostic" class="btn btn-secondary">Export Diagnostic</button>
+                            <button id="btn-logs" class="btn btn-secondary">로그 폴더 열기</button>
+                            <button id="btn-diagnostic" class="btn btn-secondary">진단 내보내기</button>
                         </div>
                     </section>
 
                     <!-- Error Guide Panel -->
                     <section class="card error-guide" id="error-guide" style="display: none;">
-                        <h2>Error Resolution</h2>
+                        <h2>오류 해결 가이드</h2>
                         <div class="error-content">
                             <div class="error-message" id="error-message"></div>
                             <div class="error-solution" id="error-solution"></div>
@@ -159,53 +159,53 @@
             <!-- Accounts Page -->
             <main class="main page-content" id="page-accounts" style="display: none;">
                 <div class="accounts-header">
-                    <h2>Registered Accounts</h2>
-                    <button id="btn-add-account" class="btn btn-primary">+ Add Account</button>
+                    <h2>등록된 계정</h2>
+                    <button id="btn-add-account" class="btn btn-primary">+ 계정 추가</button>
                 </div>
 
                 <div id="accounts-list" class="accounts-list">
-                    <p class="empty">Loading accounts...</p>
+                    <p class="empty">계정 로딩 중...</p>
                 </div>
 
                 <!-- Add/Edit Account Modal -->
                 <div id="account-modal" class="modal" style="display: none;">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h3 id="modal-title">Add Account</h3>
+                            <h3 id="modal-title">계정 추가</h3>
                             <button class="modal-close" id="modal-close">&times;</button>
                         </div>
                         <form id="account-form">
                             <div class="form-group">
-                                <label for="account-name">Account Name</label>
-                                <input type="text" id="account-name" placeholder="e.g., okx-main" required>
-                                <span class="form-hint">Unique identifier for this account</span>
+                                <label for="account-name">계정 이름</label>
+                                <input type="text" id="account-name" placeholder="예: okx-main" required>
+                                <span class="form-hint">이 계정의 고유 식별자</span>
                             </div>
                             <div class="form-group">
-                                <label for="account-exchange">Exchange</label>
+                                <label for="account-exchange">거래소</label>
                                 <select id="account-exchange" required>
-                                    <option value="">Select Exchange</option>
+                                    <option value="">거래소 선택</option>
                                     <option value="OKX">OKX</option>
-                                    <option value="KIS">KIS (Korea Investment)</option>
+                                    <option value="KIS">KIS (한국투자증권)</option>
                                     <option value="Binance">Binance</option>
                                     <option value="Bybit">Bybit</option>
                                     <option value="Upbit">Upbit</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="api-key">API Key</label>
-                                <input type="password" id="api-key" placeholder="Enter API Key" required>
+                                <label for="api-key">API 키</label>
+                                <input type="password" id="api-key" placeholder="API 키 입력" required>
                             </div>
                             <div class="form-group">
-                                <label for="api-secret">API Secret</label>
-                                <input type="password" id="api-secret" placeholder="Enter API Secret" required>
+                                <label for="api-secret">API 시크릿</label>
+                                <input type="password" id="api-secret" placeholder="API 시크릿 입력" required>
                             </div>
                             <div class="form-group" id="passphrase-group" style="display: none;">
-                                <label for="api-passphrase">Passphrase (OKX only)</label>
-                                <input type="password" id="api-passphrase" placeholder="Enter Passphrase">
+                                <label for="api-passphrase">패스프레이즈 (OKX 전용)</label>
+                                <input type="password" id="api-passphrase" placeholder="패스프레이즈 입력">
                             </div>
                             <div class="form-actions">
-                                <button type="button" id="btn-test-connection" class="btn btn-secondary">Test Connection</button>
-                                <button type="submit" class="btn btn-primary">Save Account</button>
+                                <button type="button" id="btn-test-connection" class="btn btn-secondary">연결 테스트</button>
+                                <button type="submit" class="btn btn-primary">계정 저장</button>
                             </div>
                             <div id="form-message" class="form-message" style="display: none;"></div>
                         </form>
@@ -216,16 +216,16 @@
                 <div id="delete-modal" class="modal" style="display: none;">
                     <div class="modal-content modal-small">
                         <div class="modal-header">
-                            <h3>Delete Account</h3>
+                            <h3>계정 삭제</h3>
                             <button class="modal-close" id="delete-modal-close">&times;</button>
                         </div>
                         <div class="modal-body">
-                            <p>Are you sure you want to delete <strong id="delete-account-name"></strong>?</p>
-                            <p class="warning-text">This will permanently remove all API keys for this account.</p>
+                            <p><strong id="delete-account-name"></strong> 계정을 정말 삭제하시겠습니까?</p>
+                            <p class="warning-text">이 계정의 모든 API 키가 영구적으로 삭제됩니다.</p>
                         </div>
                         <div class="modal-actions">
-                            <button id="btn-cancel-delete" class="btn btn-secondary">Cancel</button>
-                            <button id="btn-confirm-delete" class="btn btn-danger">Delete</button>
+                            <button id="btn-cancel-delete" class="btn btn-secondary">취소</button>
+                            <button id="btn-confirm-delete" class="btn btn-danger">삭제</button>
                         </div>
                     </div>
                 </div>
@@ -236,27 +236,27 @@
                 <div class="templates-container">
                     <!-- Template Generator -->
                     <section class="card template-generator">
-                        <h2>TradingView Template Generator</h2>
-                        <p class="description">Select assets and generate webhook alert templates for TradingView</p>
+                        <h2>TradingView 템플릿 생성기</h2>
+                        <p class="description">자산을 선택하고 TradingView 웹훅 알림 템플릿을 생성하세요</p>
 
                         <div class="template-options">
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label for="template-side">Side</label>
+                                    <label for="template-side">매매 방향</label>
                                     <select id="template-side">
-                                        <option value="buy">Buy</option>
-                                        <option value="sell">Sell</option>
+                                        <option value="buy">매수</option>
+                                        <option value="sell">매도</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label for="template-qty">Quantity</label>
+                                    <label for="template-qty">수량</label>
                                     <input type="number" id="template-qty" value="1" min="0.001" step="0.001">
                                 </div>
                                 <div class="form-group">
-                                    <label for="template-type">Order Type</label>
+                                    <label for="template-type">주문 유형</label>
                                     <select id="template-type">
-                                        <option value="market">Market</option>
-                                        <option value="limit">Limit</option>
+                                        <option value="market">시장가</option>
+                                        <option value="limit">지정가</option>
                                     </select>
                                 </div>
                             </div>
@@ -264,27 +264,27 @@
 
                         <div class="asset-selection">
                             <div class="asset-selection-header">
-                                <h3>Select Assets</h3>
-                                <button id="btn-refresh-assets" class="btn btn-secondary btn-sm">Refresh</button>
+                                <h3>자산 선택</h3>
+                                <button id="btn-refresh-assets" class="btn btn-secondary btn-sm">새로고침</button>
                             </div>
                             <div id="assets-list" class="assets-list">
-                                <p class="empty">Loading assets...</p>
+                                <p class="empty">자산 로딩 중...</p>
                             </div>
                         </div>
 
                         <div class="template-actions">
-                            <button id="btn-generate-templates" class="btn btn-primary" disabled>Generate Templates</button>
+                            <button id="btn-generate-templates" class="btn btn-primary" disabled>템플릿 생성</button>
                         </div>
                     </section>
 
                     <!-- Generated Templates -->
                     <section class="card generated-templates">
-                        <h2>Generated Templates</h2>
+                        <h2>생성된 템플릿</h2>
                         <div id="templates-result" class="templates-result">
-                            <p class="empty">Select assets and click "Generate Templates" to create webhook JSON</p>
+                            <p class="empty">자산을 선택하고 "템플릿 생성" 버튼을 클릭하여 웹훅 JSON을 만드세요</p>
                         </div>
                         <div class="template-tip">
-                            <strong>Tip:</strong> Copy the JSON and paste it into TradingView Alert > Message field
+                            <strong>팁:</strong> JSON을 복사하여 TradingView 알림 > 메시지 필드에 붙여넣으세요
                         </div>
                     </section>
                 </div>
@@ -295,101 +295,101 @@
                 <div class="settings-grid">
                     <!-- E-STOP Control -->
                     <section class="card settings-estop">
-                        <h2>Emergency Stop (E-STOP)</h2>
+                        <h2>긴급 정지 (E-STOP)</h2>
                         <div class="estop-status-box" id="settings-estop-box">
                             <div class="estop-indicator" id="settings-estop-indicator">
                                 <span class="estop-icon">●</span>
-                                <span class="estop-text" id="settings-estop-text">Checking...</span>
+                                <span class="estop-text" id="settings-estop-text">확인 중...</span>
                             </div>
                             <div class="estop-info">
                                 <div class="estop-info-row">
-                                    <span class="label">Last Changed:</span>
+                                    <span class="label">마지막 변경:</span>
                                     <span class="value" id="estop-last-changed">--</span>
                                 </div>
                                 <div class="estop-info-row">
-                                    <span class="label">Reason:</span>
+                                    <span class="label">사유:</span>
                                     <span class="value" id="estop-reason">--</span>
                                 </div>
                             </div>
                         </div>
                         <div class="form-group">
-                            <label for="estop-reason-input">Reason (optional)</label>
-                            <input type="text" id="estop-reason-input" placeholder="e.g., Manual maintenance">
+                            <label for="estop-reason-input">사유 (선택사항)</label>
+                            <input type="text" id="estop-reason-input" placeholder="예: 수동 점검">
                         </div>
                         <div class="button-group">
-                            <button id="settings-btn-estop-on" class="btn btn-danger">E-STOP ON</button>
-                            <button id="settings-btn-estop-off" class="btn btn-success">E-STOP OFF</button>
+                            <button id="settings-btn-estop-on" class="btn btn-danger">긴급 정지 ON</button>
+                            <button id="settings-btn-estop-off" class="btn btn-success">긴급 정지 OFF</button>
                         </div>
-                        <p class="warning-box">When E-STOP is ON, all TradingView webhook orders will be blocked.</p>
+                        <p class="warning-box">긴급 정지가 활성화되면 모든 TradingView 웹훅 주문이 차단됩니다.</p>
                     </section>
 
                     <!-- System Status -->
                     <section class="card settings-system">
-                        <h2>System Status (Read-only)</h2>
-                        <p class="description">These settings are controlled by server environment variables</p>
+                        <h2>시스템 상태 (읽기 전용)</h2>
+                        <p class="description">이 설정들은 서버 환경 변수로 제어됩니다</p>
                         <div class="system-status-table">
                             <div class="status-row">
                                 <span class="status-label">DRY_RUN</span>
                                 <span class="status-value" id="sys-dry-run">--</span>
-                                <span class="status-desc">Simulated orders (no real trading)</span>
+                                <span class="status-desc">모의 주문 (실제 거래 없음)</span>
                             </div>
                             <div class="status-row">
                                 <span class="status-label">ORDER_SUBMIT</span>
                                 <span class="status-value" id="sys-order-submit">--</span>
-                                <span class="status-desc">Order submission enabled</span>
+                                <span class="status-desc">주문 제출 활성화</span>
                             </div>
                             <div class="status-row">
                                 <span class="status-label">ORDER_POLL</span>
                                 <span class="status-value" id="sys-order-poll">--</span>
-                                <span class="status-desc">Order status polling enabled</span>
+                                <span class="status-desc">주문 상태 폴링 활성화</span>
                             </div>
                             <div class="status-row">
-                                <span class="status-label">Server</span>
+                                <span class="status-label">서버</span>
                                 <span class="status-value" id="sys-server-status">--</span>
-                                <span class="status-desc">Backend server connection</span>
+                                <span class="status-desc">백엔드 서버 연결</span>
                             </div>
                         </div>
-                        <p class="info-text">To change these settings, modify the server's .env file and restart.</p>
+                        <p class="info-text">이 설정을 변경하려면 서버의 .env 파일을 수정하고 재시작하세요.</p>
                     </section>
 
                     <!-- Server Connection -->
                     <section class="card settings-connection">
-                        <h2>Server Connection</h2>
+                        <h2>서버 연결</h2>
                         <div class="form-group">
-                            <label for="server-url">Server URL</label>
+                            <label for="server-url">서버 URL</label>
                             <input type="text" id="server-url" value="http://127.0.0.1:8000" placeholder="http://127.0.0.1:8000">
                         </div>
                         <div class="connection-status">
                             <span class="status-dot" id="connection-dot"></span>
-                            <span id="connection-text">Not tested</span>
+                            <span id="connection-text">테스트 필요</span>
                             <span id="connection-ping"></span>
                         </div>
                         <div class="button-group">
-                            <button id="btn-test-server" class="btn btn-secondary">Test Connection</button>
-                            <button id="btn-save-settings" class="btn btn-primary">Save Settings</button>
+                            <button id="btn-test-server" class="btn btn-secondary">연결 테스트</button>
+                            <button id="btn-save-settings" class="btn btn-primary">설정 저장</button>
                         </div>
                     </section>
 
                     <!-- App Info -->
                     <section class="card settings-info">
-                        <h2>Application Info</h2>
+                        <h2>앱 정보</h2>
                         <div class="info-table">
                             <div class="info-row">
-                                <span class="info-label">App Version</span>
+                                <span class="info-label">앱 버전</span>
                                 <span class="info-value">1.0.0</span>
                             </div>
                             <div class="info-row">
-                                <span class="info-label">Company</span>
+                                <span class="info-label">회사</span>
                                 <span class="info-value">큐브시스템 (QUBE System)</span>
                             </div>
                             <div class="info-row">
-                                <span class="info-label">Product</span>
+                                <span class="info-label">제품</span>
                                 <span class="info-value">BBooster — Quint Booster Engine System</span>
                             </div>
                         </div>
                         <div class="button-group">
-                            <button id="btn-open-logs-settings" class="btn btn-secondary">Open Logs Folder</button>
-                            <button id="btn-export-diag-settings" class="btn btn-secondary">Export Diagnostic</button>
+                            <button id="btn-open-logs-settings" class="btn btn-secondary">로그 폴더 열기</button>
+                            <button id="btn-export-diag-settings" class="btn btn-secondary">진단 내보내기</button>
                         </div>
                     </section>
                 </div>
@@ -399,12 +399,12 @@
             <main class="main page-content" id="page-logs" style="display: none;">
                 <div class="logs-header">
                     <div class="logs-title">
-                        <h2>Trade Logs</h2>
-                        <span class="logs-count" id="logs-count">0 records</span>
+                        <h2>거래 로그</h2>
+                        <span class="logs-count" id="logs-count">0개 기록</span>
                     </div>
                     <div class="logs-actions">
-                        <button id="btn-refresh-logs" class="btn btn-secondary">Refresh</button>
-                        <button id="btn-export-csv" class="btn btn-primary">Export CSV</button>
+                        <button id="btn-refresh-logs" class="btn btn-secondary">새로고침</button>
+                        <button id="btn-export-csv" class="btn btn-primary">CSV 내보내기</button>
                     </div>
                 </div>
 
@@ -412,9 +412,9 @@
                 <section class="card logs-filters">
                     <div class="filters-row">
                         <div class="form-group">
-                            <label for="filter-exchange">Exchange</label>
+                            <label for="filter-exchange">거래소</label>
                             <select id="filter-exchange">
-                                <option value="">All</option>
+                                <option value="">전체</option>
                                 <option value="OKX">OKX</option>
                                 <option value="KIS">KIS</option>
                                 <option value="Binance">Binance</option>
@@ -423,22 +423,22 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="filter-status">Status</label>
+                            <label for="filter-status">상태</label>
                             <select id="filter-status">
-                                <option value="">All</option>
-                                <option value="received">Received</option>
-                                <option value="sent">Sent</option>
-                                <option value="filled">Filled</option>
-                                <option value="partial">Partial</option>
-                                <option value="failed">Failed</option>
+                                <option value="">전체</option>
+                                <option value="received">수신됨</option>
+                                <option value="sent">전송됨</option>
+                                <option value="filled">체결됨</option>
+                                <option value="partial">부분체결</option>
+                                <option value="failed">실패</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="filter-symbol">Symbol</label>
-                            <input type="text" id="filter-symbol" placeholder="e.g., BTC-USDT">
+                            <label for="filter-symbol">심볼</label>
+                            <input type="text" id="filter-symbol" placeholder="예: BTC-USDT">
                         </div>
                         <div class="form-group">
-                            <label for="filter-limit">Show</label>
+                            <label for="filter-limit">표시 개수</label>
                             <select id="filter-limit">
                                 <option value="50">50</option>
                                 <option value="100" selected>100</option>
@@ -448,7 +448,7 @@
                         </div>
                         <div class="form-group filter-btn-group">
                             <label>&nbsp;</label>
-                            <button id="btn-apply-filters" class="btn btn-secondary">Apply</button>
+                            <button id="btn-apply-filters" class="btn btn-secondary">적용</button>
                         </div>
                     </div>
                 </section>
@@ -459,19 +459,19 @@
                         <table class="logs-table" id="logs-table">
                             <thead>
                                 <tr>
-                                    <th>Time</th>
-                                    <th>Exchange</th>
-                                    <th>Symbol</th>
-                                    <th>Side</th>
-                                    <th>Qty</th>
-                                    <th>Status</th>
-                                    <th>Order ID</th>
-                                    <th>Details</th>
+                                    <th>시간</th>
+                                    <th>거래소</th>
+                                    <th>심볼</th>
+                                    <th>방향</th>
+                                    <th>수량</th>
+                                    <th>상태</th>
+                                    <th>주문 ID</th>
+                                    <th>상세</th>
                                 </tr>
                             </thead>
                             <tbody id="logs-tbody">
                                 <tr>
-                                    <td colspan="8" class="empty-cell">Loading logs...</td>
+                                    <td colspan="8" class="empty-cell">로그 로딩 중...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -482,15 +482,15 @@
                 <div id="log-detail-modal" class="modal" style="display: none;">
                     <div class="modal-content modal-large">
                         <div class="modal-header">
-                            <h3>Log Details</h3>
+                            <h3>로그 상세</h3>
                             <button class="modal-close" id="log-detail-close">&times;</button>
                         </div>
                         <div class="modal-body">
                             <pre id="log-detail-json" class="log-detail-json"></pre>
                         </div>
                         <div class="modal-actions">
-                            <button id="btn-copy-log-json" class="btn btn-secondary">Copy JSON</button>
-                            <button id="btn-close-log-detail" class="btn btn-primary">Close</button>
+                            <button id="btn-copy-log-json" class="btn btn-secondary">JSON 복사</button>
+                            <button id="btn-close-log-detail" class="btn btn-primary">닫기</button>
                         </div>
                     </div>
                 </div>
