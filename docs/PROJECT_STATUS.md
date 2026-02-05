@@ -978,6 +978,48 @@ powershell -ExecutionPolicy Bypass -File scripts\build-apk.ps1
 
 ---
 
+---
+
+## Week 21 Day 3 — PC 앱 빌드 성공 + UX 피드백
+
+### 완료
+- tauri-cli v1 설치 (v2는 tauri.conf.json v1 형식과 호환 안 됨)
+- 한글 경로("새 폴더") Vite 크래시 발견 → C:\AUAT로 복사하여 빌드
+- keyring API 수정: delete_credential() → delete_password()
+- std::process::Command import 누락 수정 (commands.rs 상단에 추가)
+- PowerShell 콘솔 창 숨기기: .creation_flags(0x08000000) + #![windows_subsystem = "windows"]
+- BBooster_1.0.0_x64-setup.exe / .msi 빌드 성공
+- PC앱 설치 및 실행 테스트 완료
+
+### UX 피드백 (실사용 테스트에서 발견)
+1. 앱이 http://127.0.0.1:8000/ 로 이동하지만 로컬 서버가 자동 실행되지 않음
+2. 대시보드/소개사이트 디자인이 칙칙함 → 밝은 현대적 한국형 SaaS 디자인으로 변경 필요
+3. 전체 UI가 영어 → 한국어화 필요
+4. 허브형/프리미엄형 구분 UI 없음
+5. TradingView 차트 연동 미구현
+6. 결제 시스템 없음
+
+### 기술 메모
+- Tauri v1 CLI 필수: cargo install tauri-cli --version "^1"
+- Windows 빌드 시 한글 경로 금지 (Vite 크래시)
+- Visual Studio 2022 Build Tools + VC++ 워크로드 필수
+- 빌드 작업 경로: C:\AUAT (한글 없는 경로)
+
+### VPS 현황
+- IP: 76.13.180.30
+- http://76.13.180.30 → 소개 사이트
+- http://76.13.180.30/dashboard → 웹 대시보드
+- http://76.13.180.30/docs → API 문서
+- http://76.13.180.30/terms.html → 이용약관
+- http://76.13.180.30/privacy.html → 개인정보처리방침
+- http://76.13.180.30/risk.html → 투자위험고지
+
+### 산출물
+- BBooster_1.0.0_x64-setup.exe (NSIS)
+- BBooster_1.0.0_x64_en-US.msi (MSI)
+
+---
+
 # 11) NEXT ACTION — v16 (앱 빌드 준비 완료)
 
 1) **PC 앱 빌드**: Rust 설치 후 `pc-app/scripts/build.ps1` 실행
