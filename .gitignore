@@ -49,6 +49,17 @@ package-lock.json
 target/
 Cargo.lock
 
+# --- Flutter / Dart ---
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+pubspec.lock
+*.iml
+android/.gradle/
+android/local.properties
+
 # --- DB files (keep txt configs; ignore local db artifacts if any) ---
 *.sqlite
 *.sqlite3

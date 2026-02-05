@@ -1,6 +1,19 @@
 # BBooster Mobile App
 
-Flutter 기반 Android/iOS 앱 (v0.1)
+Flutter 기반 Android 앱 (v0.1) — 큐브시스템 (QUBE System)
+
+## Quick Start (Windows)
+
+```powershell
+# 1. Flutter 설치 후 셋업
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+
+# 2. 개발 모드 실행
+flutter run
+
+# 3. APK 빌드
+powershell -ExecutionPolicy Bypass -File scripts\build-apk.ps1
+```
 
 ## Features (v0.1)
 
@@ -13,14 +26,15 @@ Flutter 기반 Android/iOS 앱 (v0.1)
 
 - [Flutter SDK](https://flutter.dev/docs/get-started/install) 3.0+
 - Android Studio or VS Code with Flutter extension
-- Android SDK (for Android build)
-- Xcode (for iOS build, macOS only)
+- Android SDK (API 21+)
+- Java JDK 11+
 
-## Setup
+## Manual Setup
 
 ```bash
 # 1. Flutter 설치 확인
 flutter --version
+flutter doctor
 
 # 2. 의존성 설치
 cd mobile-app
@@ -47,27 +61,65 @@ flutter build apk --release
 
 ```
 mobile-app/
-├── lib/
-│   ├── main.dart              # App entry point
-│   ├── providers/
-│   │   └── app_state.dart     # State management
-│   ├── services/
-│   │   └── api_service.dart   # API client
-│   ├── screens/
-│   │   ├── home_screen.dart   # Main dashboard
+├── scripts/                 # 빌드 스크립트
+│   ├── setup.ps1            # Flutter 셋업
+│   └── build-apk.ps1        # APK 빌드
+├── android/                 # Android 네이티브
+│   ├── app/
+│   │   ├── build.gradle
+│   │   └── src/main/
+│   │       ├── AndroidManifest.xml
+│   │       ├── kotlin/...   # MainActivity.kt
+│   │       └── res/         # 아이콘, 스타일
+│   ├── build.gradle
+│   └── settings.gradle
+├── assets/                  # 앱 에셋
+│   └── logo.png
+├── lib/                     # Dart 소스코드
+│   ├── main.dart            # App entry point
+│   ├── models/              # 데이터 모델
+│   │   ├── timeline_event.dart
+│   │   └── connector_status.dart
+│   ├── providers/           # 상태 관리
+│   │   └── app_state.dart
+│   ├── services/            # API 클라이언트
+│   │   └── api_service.dart
+│   ├── screens/             # 화면
+│   │   ├── home_screen.dart
 │   │   └── settings_screen.dart
-│   └── widgets/
-│       ├── status_card.dart   # Status indicator
-│       ├── estop_button.dart  # E-STOP control
-│       └── event_list.dart    # Order list
-├── pubspec.yaml               # Dependencies
+│   └── widgets/             # UI 컴포넌트
+│       ├── status_card.dart
+│       ├── estop_button.dart
+│       └── event_list.dart
+├── pubspec.yaml             # Dependencies
+├── analysis_options.yaml    # Lint rules
 └── README.md
 ```
+
+## Dependencies
+
+| Package | Version | Description |
+|---------|---------|-------------|
+| http | ^1.1.0 | HTTP client |
+| flutter_secure_storage | ^9.0.0 | Secure token storage |
+| provider | ^6.1.0 | State management |
+| webview_flutter | ^4.4.0 | TradingView charts |
+| pull_to_refresh | ^2.0.0 | Pull to refresh |
 
 ## Permissions
 
 v0.1은 최소 권한으로 동작:
 - `INTERNET`: 서버 통신
+
+## API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| /health | GET | 서버 헬스체크 |
+| /api/diag/home | GET | 홈 데이터 |
+| /api/system/estop | GET | E-STOP 상태 |
+| /api/system/estop | POST | E-STOP 설정 |
+| /api/timeline | GET | 타임라인 |
 
 ## Security Notes
 
@@ -88,3 +140,4 @@ v0.1은 최소 권한으로 동작:
 - Push Notification
 - 오프라인 캐시
 - TradingView 차트 WebView
+- iOS 지원
