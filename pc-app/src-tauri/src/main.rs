@@ -3,7 +3,7 @@
     windows_subsystem = "windows"
 )]
 
-use std::process::{Child, Command};
+use std::process::Child;
 use std::sync::Mutex;
 use tauri::{
     CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu,
