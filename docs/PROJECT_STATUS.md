@@ -761,6 +761,36 @@ Day 5: SSOT/APPENDIX 증거 최종 정리 + 릴리즈 태그(1.0) 준비 — DON
 
 ---
 
+# 10) 최근 업데이트 (2026-02-05)
+
+## 웹 대시보드 라우팅 수정 — DONE
+- 문제: `http://서버IP:8000/` 접속 시 `{"detail":"Not Found"}` 반환
+- 해결: app/main.py에 라우트 추가
+  - `GET /` → index.html 렌더링
+  - `GET /ui` → index.html 렌더링
+  - Jinja2Templates 활성화
+- 커밋: `fix: 웹 대시보드 라우팅 추가`
+
+## 브랜드명 통일 — DONE
+- 변경 내용:
+  - `QUBE (Quint Booster Engine)` → `큐브시스템 (Quint Booster Engine System)`
+  - `QUBE` 단독 표기 → `큐브시스템` 또는 `QUBE System`
+  - `© 2026 QUBE` → `© 2026 QUBE System (큐브시스템)`
+- 적용 파일:
+  - landing/index.html (히어로 배지, 푸터)
+  - landing/terms.html (제1조 회사명, 푸터)
+  - landing/privacy.html (서두 회사명, 푸터)
+  - landing/risk.html (푸터)
+- 커밋: `chore: 브랜드명 큐브시스템으로 통일`
+
+## 법적 페이지 디자인 통일 — DONE
+- landing/index.html과 동일한 다크 테마 적용
+- 고정 헤더 + 네비게이션 (홈으로 버튼)
+- 동일한 CSS 변수 사용 (--red, --red2 등)
+- 푸터 링크 active 상태 표시
+
+---
+
 # 8) 프로젝트 파일 구조 (최종)
 
 ```
