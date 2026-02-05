@@ -1647,3 +1647,102 @@ GET /api/system/estop
 - [x] scripts/smoke_test.ps1 생성
 - [x] 스모크 테스트 10/10 PASS
 - [x] Gate PASS 실측 기록
+
+---
+
+# 2026-02-05 — Week D (PC 앱 + 모바일 앱 완성)
+
+## STEP 2-7: PC 앱 Tauri 완성
+
+### 커밋 이력
+```
+ab40c1f feat: PC 앱 Tauri 프로젝트 초기화
+a1e6dbd feat: PC 앱 메인 화면 (STEP 3)
+773a063 feat: PC 앱 계좌/API 키 등록 화면 (STEP 4)
+ccbf3d2 feat: PC 앱 전략/템플릿 + 시스템 설정 화면 (STEP 5)
+7ab416e feat: PC 앱 Logs 화면 + 빌드 준비 (STEP 6)
+2109b0d feat: PC 앱 빌드 스크립트 및 환경 준비 (STEP 7)
+```
+
+### 생성된 파일
+- pc-app/src-tauri/src/main.rs (엔트리포인트, 시스템 트레이)
+- pc-app/src-tauri/src/commands.rs (Tauri 커맨드 30개+)
+- pc-app/src-tauri/src/crypto.rs (AES-256-GCM 암호화)
+- pc-app/src-tauri/tauri.conf.json (앱 설정)
+- pc-app/src-tauri/Cargo.toml (Rust 의존성)
+- pc-app/ui/index.html (5페이지 SPA)
+- pc-app/ui/src/main.js (JavaScript 로직)
+- pc-app/ui/src/style.css (다크 테마)
+- pc-app/scripts/setup.ps1 (환경 셋업)
+- pc-app/scripts/build.ps1 (프로덕션 빌드)
+- pc-app/scripts/dev.ps1 (개발 모드)
+- pc-app/scripts/install-rust.ps1 (Rust 설치)
+- pc-app/README.md (Quick Start 가이드)
+
+### 기능 구현
+- Dashboard: 서버 상태, E-STOP, 커넥터 상태, 타임라인
+- Accounts: API 키 등록/수정/삭제, AES-256-GCM 암호화
+- Templates: TradingView 웹훅 템플릿 생성, JSON 복사
+- Settings: E-STOP 제어, 서버 연결 설정
+- Logs: 거래 로그 필터링, CSV 내보내기
+- System Tray: 상태 표시, 서버 시작/정지, 대시보드 열기
+
+---
+
+## STEP 8-11: 모바일 앱 Flutter 완성
+
+### 커밋 이력
+```
+9c3509c feat: 모바일 앱 Flutter 초기화 완료 (STEP 8)
+5a3f16d feat: 모바일 앱 대시보드/타임라인 구현 (STEP 9)
+ef67526 feat: 모바일 앱 E-STOP/차트/설정 강화 (STEP 10)
+c773372 feat: 모바일 앱 APK 빌드 준비 완료 (STEP 11)
+```
+
+### 생성된 파일
+- mobile-app/lib/main.dart (4탭 네비게이션)
+- mobile-app/lib/screens/home_screen.dart (대시보드)
+- mobile-app/lib/screens/timeline_screen.dart (타임라인)
+- mobile-app/lib/screens/chart_screen.dart (TradingView)
+- mobile-app/lib/screens/settings_screen.dart (설정)
+- mobile-app/lib/widgets/estop_button.dart (E-STOP 위젯)
+- mobile-app/lib/widgets/connector_card.dart (커넥터 카드)
+- mobile-app/lib/providers/app_state.dart (상태 관리)
+- mobile-app/lib/services/api_service.dart (API 클라이언트)
+- mobile-app/lib/models/ (데이터 모델)
+- mobile-app/android/app/build.gradle (빌드 설정)
+- mobile-app/android/key.properties.example (서명 템플릿)
+- mobile-app/scripts/setup.ps1 (Flutter 셋업)
+- mobile-app/scripts/build-apk.ps1 (APK 빌드)
+- mobile-app/scripts/create-keystore.ps1 (키스토어 생성)
+- mobile-app/README.md (상세 가이드)
+
+### 기능 구현
+- Dashboard: 서버 상태, 커넥터 상태, 요약 통계
+- E-STOP: 펄스 애니메이션, 사유 입력, 햅틱 피드백
+- Timeline: 필터링 (Status/Exchange), 무한 스크롤
+- Chart: TradingView WebView (5개 심볼)
+- Settings: Quick Connect, 연결 테스트
+
+### APK 빌드 설정
+- 릴리즈 서명: key.properties + keystore
+- ABI 분할: arm64, arm32, x86_64, universal
+- 코드 난독화: proguard-rules.pro
+- Multi-dex: 대형 앱 지원
+
+---
+
+## STEP 12: SSOT 최종 업데이트
+
+### 작업 내용
+- PROJECT_STATUS.md Week D 섹션 추가
+- PC 앱 구조 및 기능 문서화
+- 모바일 앱 구조 및 기능 문서화
+- 빌드 환경 요구사항 정리
+- NEXT ACTION 업데이트
+
+### 완료 상태
+- STEP 2-7 (PC 앱): ✓ 완료
+- STEP 8-11 (모바일 앱): ✓ 완료
+- STEP 12 (SSOT): ✓ 완료
+

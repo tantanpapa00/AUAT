@@ -834,15 +834,160 @@ AUAT/
 
 ---
 
-# 9) NEXT ACTION — v15 (배포 준비 완료)
+# 9) Week D: PC 앱 + 모바일 앱 완성 — DONE (2026-02-05)
 
-1) **도메인 설정**: nginx/bbooster.conf에서 `your-domain.com` → 실제 도메인 교체
-2) **VPS 배포**: nginx/VPS_SETUP.md 가이드 따라 Nginx + SSL 설치
-3) **v1.0 릴리즈**: `git tag v1.0.0 && git push --tags`
-4) **운영 시작**: TradingView 웹훅 연동 테스트
+## STEP 2-7: PC 앱 Tauri 완성 — DONE
+- **STEP 2**: Tauri 프로젝트 초기화 (Rust + Vite)
+- **STEP 3**: 메인 화면 (Dashboard, 사이드바 네비게이션)
+- **STEP 4**: 계좌/API 키 등록 화면 (AES-256-GCM 암호화)
+- **STEP 5**: 전략/템플릿 + 시스템 설정 화면
+- **STEP 6**: Logs 화면 + CSV 내보내기
+- **STEP 7**: 빌드 스크립트 (setup.ps1, build.ps1, dev.ps1)
 
-> **배포 준비 완료!**
-> 도메인 설정 후 VPS에 배포 가능한 상태입니다.
+### PC 앱 구조 (pc-app/)
+```
+pc-app/
+├── scripts/
+│   ├── install-rust.ps1
+│   ├── setup.ps1
+│   ├── dev.ps1
+│   └── build.ps1
+├── src-tauri/
+│   ├── src/
+│   │   ├── main.rs
+│   │   ├── commands.rs
+│   │   └── crypto.rs
+│   ├── icons/
+│   ├── Cargo.toml
+│   └── tauri.conf.json
+├── ui/
+│   ├── index.html
+│   ├── src/
+│   │   ├── main.js
+│   │   └── style.css
+│   ├── package.json
+│   └── vite.config.js
+└── README.md
+```
+
+### PC 앱 기능
+| Page | Features |
+|------|----------|
+| Dashboard | 서버 상태, E-STOP, 커넥터 상태, 타임라인, 최근 이벤트 |
+| Accounts | 거래소 계좌 등록, API 키 관리 (OKX, KIS, Binance, Bybit, Upbit) |
+| Templates | TradingView 웹훅 템플릿 생성, JSON 복사 |
+| Settings | E-STOP 제어, 시스템 상태, 서버 연결 설정 |
+| Logs | 거래 로그 조회, 필터링, CSV 내보내기 |
+
+---
+
+## STEP 8-11: 모바일 앱 Flutter 완성 — DONE
+- **STEP 8**: Flutter 프로젝트 초기화 (Android 빌드 설정)
+- **STEP 9**: 대시보드/타임라인 (4탭 네비게이션, 커넥터 상태)
+- **STEP 10**: E-STOP/차트/설정 (사유 입력, TradingView WebView)
+- **STEP 11**: APK 빌드 준비 (릴리즈 서명, ABI 분할)
+
+### 모바일 앱 구조 (mobile-app/)
+```
+mobile-app/
+├── scripts/
+│   ├── setup.ps1
+│   ├── build-apk.ps1
+│   └── create-keystore.ps1
+├── android/
+│   ├── app/
+│   │   ├── build.gradle
+│   │   ├── proguard-rules.pro
+│   │   └── src/main/
+│   ├── key.properties.example
+│   ├── build.gradle
+│   └── settings.gradle
+├── lib/
+│   ├── main.dart
+│   ├── models/
+│   ├── providers/
+│   │   └── app_state.dart
+│   ├── services/
+│   │   └── api_service.dart
+│   ├── screens/
+│   │   ├── home_screen.dart
+│   │   ├── timeline_screen.dart
+│   │   ├── chart_screen.dart
+│   │   └── settings_screen.dart
+│   └── widgets/
+│       ├── estop_button.dart
+│       ├── connector_card.dart
+│       ├── status_card.dart
+│       └── event_list.dart
+├── assets/
+│   └── logo.png
+├── pubspec.yaml
+├── analysis_options.yaml
+└── README.md
+```
+
+### 모바일 앱 기능
+| Screen | Features |
+|--------|----------|
+| Dashboard | 서버 상태, E-STOP (펄스 애니메이션, 사유 입력), 커넥터 상태, 요약 통계 |
+| Timeline | 주문 이력, Status/Exchange 필터, 통계 (Total/Filled/Failed) |
+| Chart | TradingView WebView (BTC, ETH, SOL, XRP, BNB) |
+| Settings | 서버 URL, Quick Connect, 연결 테스트 |
+
+### APK 빌드 출력
+| File | Architecture | Target |
+|------|--------------|--------|
+| BBooster-v0.1.0-arm64.apk | ARM64 | 최신 기기 (권장) |
+| BBooster-v0.1.0-arm32.apk | ARM32 | 구형 기기 |
+| BBooster-v0.1.0-x64.apk | x86_64 | 에뮬레이터 |
+| BBooster-v0.1.0-universal.apk | All | 모든 기기 |
+
+---
+
+## STEP 12: SSOT 최종 업데이트 — DONE (2026-02-05)
+- PROJECT_STATUS.md Week D 섹션 추가
+- PC 앱 / 모바일 앱 완성 문서화
+- 빌드 환경 요구사항 정리
+
+---
+
+# 10) 빌드 환경 요구사항
+
+## PC 앱 (Tauri)
+- Node.js v18+
+- Rust 1.70+
+- Windows 10/11 (64-bit)
+
+```powershell
+cd pc-app
+powershell -ExecutionPolicy Bypass -File scripts\install-rust.ps1
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+powershell -ExecutionPolicy Bypass -File scripts\build.ps1
+```
+
+## 모바일 앱 (Flutter)
+- Flutter SDK 3.0+
+- Android SDK (API 21+)
+- Java JDK 11+
+
+```powershell
+cd mobile-app
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+powershell -ExecutionPolicy Bypass -File scripts\build-apk.ps1
+```
+
+---
+
+# 11) NEXT ACTION — v16 (앱 빌드 준비 완료)
+
+1) **PC 앱 빌드**: Rust 설치 후 `pc-app/scripts/build.ps1` 실행
+2) **모바일 앱 빌드**: Flutter 설치 후 `mobile-app/scripts/build-apk.ps1` 실행
+3) **도메인 설정**: nginx/bbooster.conf에서 `your-domain.com` → 실제 도메인 교체
+4) **VPS 배포**: nginx/VPS_SETUP.md 가이드 따라 Nginx + SSL 설치
+5) **v1.0 릴리즈**: `git tag v1.0.0 && git push --tags`
+
+> **PC 앱 + 모바일 앱 + 서버 배포 준비 완료!**
+> 환경 설치 후 빌드 및 배포 가능한 상태입니다.
 
 ---
 
