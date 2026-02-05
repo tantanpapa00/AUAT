@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AutoBot Admin</title>
+  <title>BBooster Dashboard</title>
   <style>
     :root{
       --bg:#0b1220;
@@ -192,8 +192,8 @@
 <header>
   <div class="top">
     <div>
-      <h1>AutoBot Admin</h1>
-      <div class="sub">FastAPI + PostgreSQL (local) · 브로커 공통 코어 + 브로커별 어댑터(OKX/키움/한투)</div>
+      <h1>BBooster Dashboard</h1>
+      <div class="sub">QUBE — Quint Booster Engine</div>
     </div>
     <div class="kv">
       <span class="badge" id="healthBadge"><span class="dot"></span><span id="healthText">health: -</span></span>
@@ -206,11 +206,37 @@
     <div class="tab" id="tab-accounts" onclick="showTab('accounts')">👤 계정</div>
     <div class="tab" id="tab-strategies" onclick="showTab('strategies')">🧠 전략</div>
     <div class="tab" id="tab-assets" onclick="showTab('assets')">📦 자산</div>
+    <div class="tab" id="tab-timeline" onclick="showTab('timeline')">📋 타임라인</div>
+    <div class="tab" id="tab-estop" onclick="showTab('estop')">🛑 E-STOP</div>
+    <div class="tab" id="tab-orders" onclick="showTab('orders')">📊 주문내역</div>
+    <div class="tab" id="tab-connectors" onclick="showTab('connectors')">🔌 커넥터</div>
+    <div class="tab" id="tab-premium" onclick="showTab('premium')">⭐ 프리미엄</div>
   </div>
 </header>
 
 <div class="wrap">
-  <div id="panel-home" class="grid2">
+  <div id="panel-home">
+    <!-- Summary Cards -->
+    <div id="summaryCards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;">
+      <div class="card" style="text-align:center;padding:20px;">
+        <div style="font-size:32px;font-weight:800;color:var(--pri);" id="sumActiveAssets">-</div>
+        <div class="hint">활성 자산</div>
+      </div>
+      <div class="card" style="text-align:center;padding:20px;">
+        <div style="font-size:32px;font-weight:800;color:var(--ok);" id="sumTodayOrders">-</div>
+        <div class="hint">오늘 주문</div>
+      </div>
+      <div class="card" style="text-align:center;padding:20px;">
+        <div style="font-size:32px;font-weight:800;color:var(--pri2);" id="sumConnectors">-</div>
+        <div class="hint">커넥터</div>
+      </div>
+      <div class="card" style="text-align:center;padding:20px;">
+        <div style="font-size:32px;font-weight:800;" id="sumEstop">-</div>
+        <div class="hint">E-STOP</div>
+      </div>
+    </div>
+
+    <div class="grid2">
     <div class="card">
       <div class="hd"><b>전광판 (Home)</b><span class="hint">active/last_signal/last_order 등 표시</span></div>
       <div class="bd">
@@ -263,6 +289,7 @@
           </div>
         </div>
       </div>
+    </div>
     </div>
   </div>
 
@@ -331,6 +358,127 @@
       </div>
     </div>
   </div>
+
+  <!-- Timeline Panel -->
+  <div id="panel-timeline" style="display:none;">
+    <div class="card">
+      <div class="hd">
+        <b>📋 타임라인</b>
+        <div class="row-actions">
+          <button class="secondary" onclick="reloadTimeline()">새로고침</button>
+        </div>
+      </div>
+      <div class="bd">
+        <div class="hint" id="timelineMsg"></div>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>시간</th><th>타입</th><th>심볼</th><th>요약</th><th>거래소</th><th>reason_code</th>
+            </tr>
+          </thead>
+          <tbody id="timelineTb"></tbody>
+        </table>
+        <div style="margin-top:12px;display:flex;gap:10px;justify-content:center;">
+          <button class="secondary" id="tlPrev" onclick="timelinePrev()">◀ 이전</button>
+          <span id="tlPage" class="muted">1</span>
+          <button class="secondary" id="tlNext" onclick="timelineNext()">다음 ▶</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- E-STOP Panel -->
+  <div id="panel-estop" style="display:none;">
+    <div class="card">
+      <div class="hd">
+        <b>🛑 E-STOP (긴급 정지)</b>
+      </div>
+      <div class="bd" style="text-align:center;padding:40px 20px;">
+        <div id="estopStatus" style="font-size:48px;margin-bottom:20px;">—</div>
+        <div id="estopLabel" style="font-size:18px;margin-bottom:30px;color:var(--muted);">상태 확인 중...</div>
+        <button id="estopBtn" onclick="toggleEstop()" style="
+          width:200px;height:200px;border-radius:50%;
+          font-size:24px;font-weight:bold;
+          border:4px solid var(--bad);
+          background:rgba(248,113,113,.15);
+          color:var(--bad);
+          cursor:pointer;
+          transition:.2s;
+        ">E-STOP</button>
+        <div class="hint" style="margin-top:30px;">
+          E-STOP을 활성화하면 모든 주문이 즉시 차단됩니다.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Orders Panel -->
+  <div id="panel-orders" style="display:none;">
+    <div class="card">
+      <div class="hd">
+        <b>📊 주문 내역</b>
+        <div class="row-actions">
+          <button class="secondary" onclick="reloadOrders()">새로고침</button>
+        </div>
+      </div>
+      <div class="bd">
+        <div class="hint" id="ordersMsg"></div>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>시간</th><th>심볼</th><th>거래소</th><th>방향</th><th>수량</th><th>체결가</th><th>상태</th>
+            </tr>
+          </thead>
+          <tbody id="ordersTb"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Connectors Panel -->
+  <div id="panel-connectors" style="display:none;">
+    <div class="card">
+      <div class="hd">
+        <b>🔌 커넥터 상태</b>
+        <div class="row-actions">
+          <button class="secondary" onclick="reloadConnectors()">새로고침</button>
+        </div>
+      </div>
+      <div class="bd">
+        <div class="hint" id="connectorsMsg"></div>
+        <div id="connectorsGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:12px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Premium Panel -->
+  <div id="panel-premium" style="display:none;">
+    <div class="card">
+      <div class="hd">
+        <b>⭐ 프리미엄 상태</b>
+        <div class="row-actions">
+          <button class="secondary" onclick="reloadPremium()">새로고침</button>
+        </div>
+      </div>
+      <div class="bd">
+        <div class="box" id="premiumStatus">
+          <div class="hint">로딩 중...</div>
+        </div>
+        <div style="margin-top:16px;">
+          <b>최근 신호</b>
+          <div class="hint" id="premiumMsg"></div>
+          <table style="margin-top:10px;">
+            <thead>
+              <tr>
+                <th>ID</th><th>시간</th><th>심볼</th><th>모드</th><th>방향</th><th>reason_code</th><th>TF</th>
+              </tr>
+            </thead>
+            <tbody id="premiumTb"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Modal -->
@@ -353,18 +501,28 @@
     assets: [],
     modal: null,
     onlyRequired: undefined, // strategy_config 필수만 보기 토글 상태
+    timelinePage: 0,
+    timelineLimit: 20,
+    estopEnabled: false,
   };
 
   function showTab(tab){
     state.tab = tab;
-    for(const id of ["home","accounts","strategies","assets"]){
-      document.getElementById("panel-"+id).style.display = (id===tab) ? "" : "none";
-      document.getElementById("tab-"+id).classList.toggle("active", id===tab);
+    for(const id of ["home","accounts","strategies","assets","timeline","estop","orders","connectors","premium"]){
+      const panel = document.getElementById("panel-"+id);
+      const tabEl = document.getElementById("tab-"+id);
+      if(panel) panel.style.display = (id===tab) ? "" : "none";
+      if(tabEl) tabEl.classList.toggle("active", id===tab);
     }
     if(tab==="home") reloadHome();
     if(tab==="accounts") reloadAccounts();
     if(tab==="strategies") reloadStrategies();
     if(tab==="assets") reloadAssets();
+    if(tab==="timeline") reloadTimeline();
+    if(tab==="estop") reloadEstop();
+    if(tab==="orders") reloadOrders();
+    if(tab==="connectors") reloadConnectors();
+    if(tab==="premium") reloadPremium();
   }
 
   async function api(url, opts={}){
@@ -418,9 +576,26 @@
       document.getElementById("dbInfo").textContent = JSON.stringify(db, null, 2);
 
       const rows = await api("/api/home");
+      const items = rows.items || [];
       const tb = document.getElementById("homeTb");
       tb.innerHTML = "";
-      for(const r of rows.items || []){
+
+      // Summary Cards calculation
+      let activeCount = 0;
+      let todayOrderCount = 0;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      for(const r of items){
+        // Count active assets
+        if(r.is_active) activeCount++;
+
+        // Count today's orders
+        if(r.last_order_at){
+          const orderDate = new Date(r.last_order_at);
+          if(orderDate >= today) todayOrderCount++;
+        }
+
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${r.id}</td>
@@ -438,6 +613,32 @@
         `;
         tb.appendChild(tr);
       }
+
+      // Update Summary Cards
+      document.getElementById("sumActiveAssets").textContent = activeCount;
+      document.getElementById("sumTodayOrders").textContent = todayOrderCount;
+
+      // Load E-STOP status for summary card
+      try{
+        const estopData = await api("/api/system/estop");
+        const estopOn = estopData.estop === true || estopData.value === "1";
+        const sumEstopEl = document.getElementById("sumEstop");
+        sumEstopEl.textContent = estopOn ? "ON" : "OFF";
+        sumEstopEl.style.color = estopOn ? "var(--bad)" : "var(--ok)";
+      }catch(e){
+        document.getElementById("sumEstop").textContent = "-";
+      }
+
+      // Load Connector status (count active accounts as proxy)
+      try{
+        const accounts = await api("/api/accounts");
+        const accList = Array.isArray(accounts) ? accounts : (accounts.items || []);
+        const activeAccounts = accList.filter(a => a.is_active).length;
+        document.getElementById("sumConnectors").textContent = `${activeAccounts}/${accList.length}`;
+      }catch(e){
+        document.getElementById("sumConnectors").textContent = "-";
+      }
+
     }catch(e){
       document.getElementById("homeMsg").textContent = e.message;
     }
@@ -559,6 +760,201 @@
     await api(`/api/assets/${id}`, { method:"DELETE" });
     reloadAssets(); reloadHome();
     setMsg("assets","삭제 완료");
+  }
+
+  // ---------------- Timeline ----------------
+  async function reloadTimeline(){
+    setMsg("timeline");
+    try{
+      const offset = state.timelinePage * state.timelineLimit;
+      const data = await api(`/api/timeline?limit=${state.timelineLimit}&offset=${offset}`);
+      const items = data.items || data || [];
+      const tb = document.getElementById("timelineTb");
+      tb.innerHTML = "";
+      for(const e of items){
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${e.id || "-"}</td>
+          <td class="mono">${escapeHtml(e.created_at || "-")}</td>
+          <td><span class="badge">${escapeHtml(e.event_type || "-")}</span></td>
+          <td class="mono">${escapeHtml(e.symbol || "-")}</td>
+          <td>${escapeHtml(e.summary || "-")}</td>
+          <td>${escapeHtml(e.exchange || "-")}</td>
+          <td class="mono">${escapeHtml(e.reason_code || "-")}</td>
+        `;
+        tb.appendChild(tr);
+      }
+      document.getElementById("tlPage").textContent = state.timelinePage + 1;
+      document.getElementById("tlPrev").disabled = (state.timelinePage === 0);
+      document.getElementById("tlNext").disabled = (items.length < state.timelineLimit);
+    }catch(e){
+      setMsg("timeline", e.message);
+    }
+  }
+  function timelinePrev(){
+    if(state.timelinePage > 0){ state.timelinePage--; reloadTimeline(); }
+  }
+  function timelineNext(){
+    state.timelinePage++; reloadTimeline();
+  }
+
+  // ---------------- E-STOP ----------------
+  async function reloadEstop(){
+    try{
+      const data = await api("/api/system/estop");
+      state.estopEnabled = data.estop === true || data.value === "1";
+      updateEstopUI();
+    }catch(e){
+      document.getElementById("estopLabel").textContent = "상태 조회 실패: " + e.message;
+    }
+  }
+  function updateEstopUI(){
+    const statusEl = document.getElementById("estopStatus");
+    const labelEl = document.getElementById("estopLabel");
+    const btnEl = document.getElementById("estopBtn");
+    if(state.estopEnabled){
+      statusEl.textContent = "🔴";
+      labelEl.textContent = "긴급 정지 활성화됨 - 모든 주문 차단 중";
+      labelEl.style.color = "var(--bad)";
+      btnEl.textContent = "E-STOP 해제";
+      btnEl.style.borderColor = "var(--ok)";
+      btnEl.style.background = "rgba(52,211,153,.15)";
+      btnEl.style.color = "var(--ok)";
+    }else{
+      statusEl.textContent = "🟢";
+      labelEl.textContent = "정상 운영 중";
+      labelEl.style.color = "var(--ok)";
+      btnEl.textContent = "E-STOP";
+      btnEl.style.borderColor = "var(--bad)";
+      btnEl.style.background = "rgba(248,113,113,.15)";
+      btnEl.style.color = "var(--bad)";
+    }
+  }
+  async function toggleEstop(){
+    const newState = !state.estopEnabled;
+    const msg = newState
+      ? "정말 E-STOP을 활성화하시겠습니까?\n모든 주문이 즉시 차단됩니다."
+      : "E-STOP을 해제하시겠습니까?\n주문이 다시 실행됩니다.";
+    if(!confirm(msg)) return;
+    try{
+      await api("/api/system/estop", {
+        method: "POST",
+        body: JSON.stringify({ estop: newState })
+      });
+      state.estopEnabled = newState;
+      updateEstopUI();
+    }catch(e){
+      alert("E-STOP 변경 실패: " + e.message);
+    }
+  }
+
+  // ---------------- Orders ----------------
+  async function reloadOrders(){
+    setMsg("orders");
+    try{
+      const data = await api("/api/home");
+      const items = data.items || [];
+      const tb = document.getElementById("ordersTb");
+      tb.innerHTML = "";
+      for(const r of items){
+        if(!r.last_order_at) continue;
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${r.last_order_id || "-"}</td>
+          <td class="mono">${escapeHtml(r.last_order_at || "-")}</td>
+          <td class="mono">${escapeHtml(r.symbol || "-")}</td>
+          <td>${escapeHtml(r.account_name || "-")}</td>
+          <td>-</td>
+          <td class="mono">${escapeHtml(r.last_filled_qty || "-")}</td>
+          <td class="mono">${escapeHtml(r.last_order_avg_px || "-")}</td>
+          <td><span class="badge ${r.last_order_status==='filled'?'ok':r.last_order_status==='failed'?'bad':'warn'}">${escapeHtml(r.last_order_status || "-")}</span></td>
+        `;
+        tb.appendChild(tr);
+      }
+      if(tb.innerHTML === "") setMsg("orders", "주문 내역이 없습니다.");
+    }catch(e){
+      setMsg("orders", e.message);
+    }
+  }
+
+  // ---------------- Connectors ----------------
+  async function reloadConnectors(){
+    setMsg("connectors");
+    const grid = document.getElementById("connectorsGrid");
+    grid.innerHTML = '<div class="hint">로딩 중...</div>';
+    const exchanges = ["OKX","KIS","BINANCE","BYBIT","UPBIT"];
+    let html = "";
+    for(const ex of exchanges){
+      try{
+        const data = await api(`/api/diag/connector-test?exchange=${ex}`);
+        const ok = data.ok === true;
+        const balance = data.trading ?? data.balance ?? "-";
+        html += `
+          <div class="box">
+            <div class="kv" style="justify-content:space-between;">
+              <b>${ex}</b>
+              <span class="badge ${ok?'ok':'bad'}"><span class="dot"></span>${ok?'연결됨':'끊김'}</span>
+            </div>
+            <div class="hint" style="margin-top:8px;">잔고: ${balance}</div>
+          </div>
+        `;
+      }catch(e){
+        html += `
+          <div class="box">
+            <div class="kv" style="justify-content:space-between;">
+              <b>${ex}</b>
+              <span class="badge bad"><span class="dot"></span>오류</span>
+            </div>
+            <div class="hint" style="margin-top:8px;">${escapeHtml(e.message)}</div>
+          </div>
+        `;
+      }
+    }
+    grid.innerHTML = html;
+    setMsg("connectors");
+  }
+
+  // ---------------- Premium ----------------
+  async function reloadPremium(){
+    setMsg("premium");
+    const statusEl = document.getElementById("premiumStatus");
+    try{
+      const status = await api("/api/premium/status");
+      statusEl.innerHTML = `
+        <div class="kv" style="flex-wrap:wrap;gap:16px;">
+          <div><span class="k">Premium</span> <b class="${status.enabled?'':'muted'}">${status.enabled?'ON':'OFF'}</b></div>
+          <div><span class="k">Modes</span> <span class="mono">${(status.modes||[]).join(', ')||'-'}</span></div>
+          <div><span class="k">Trend</span> ${status.trend_enabled?'✅':'—'}</div>
+          <div><span class="k">MR</span> ${status.mr_enabled?'✅':'—'}</div>
+          <div><span class="k">Custom</span> ${status.custom_enabled?'✅':'—'}</div>
+        </div>
+      `;
+    }catch(e){
+      statusEl.innerHTML = `<div class="err">상태 조회 실패: ${escapeHtml(e.message)}</div>`;
+    }
+
+    try{
+      const signals = await api("/api/premium/signals?limit=20");
+      const items = signals.items || signals || [];
+      const tb = document.getElementById("premiumTb");
+      tb.innerHTML = "";
+      for(const s of items){
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${s.id || "-"}</td>
+          <td class="mono">${escapeHtml(s.created_at || "-")}</td>
+          <td class="mono">${escapeHtml(s.symbol || "-")}</td>
+          <td><span class="badge">${escapeHtml(s.premium_mode || "-")}</span></td>
+          <td>${escapeHtml(s.side || "-")}</td>
+          <td class="mono">${escapeHtml(s.reason_code || "-")}</td>
+          <td>${escapeHtml(s.tf || "-")}</td>
+        `;
+        tb.appendChild(tr);
+      }
+      if(items.length === 0) setMsg("premium", "신호가 없습니다.");
+    }catch(e){
+      setMsg("premium", e.message);
+    }
   }
 
   // ---------------- Modal: CRUD ----------------

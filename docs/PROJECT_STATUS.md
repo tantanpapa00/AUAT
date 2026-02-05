@@ -1,5 +1,5 @@
 # PROJECT_STATUS.md (SSOT)
-- Last updated: 2026-02-04 KST
+- Last updated: 2026-02-05 KST
 - Owner: 기훈(작가님)
 
 > NOTE: 이 파일이 '진실(SSOT)'입니다. 채팅은 인터페이스일 뿐.
@@ -595,13 +595,224 @@ Day 5: SSOT/APPENDIX 증거 최종 정리 + 릴리즈 태그(1.0) 준비 — DON
 
 ---
 
-# 7) NEXT ACTION — v11 (18주 개발 완료)
-1) 릴리즈 태그: git tag v1.0.0 준비 (사용자 승인 후 생성)
-2) 운영 모니터링: RUNBOOK.md 기반 운영 시작
-3) 사용자 온보딩: ONBOARDING.md 배포
+## Week 19: Docker化 + 배포 준비 — IN PROGRESS
+> 목표: 로컬 Docker 환경에서 서버 정상 동작 확인, 배포 기반 마련
 
-> **축하합니다! 18주 개발이 완료되었습니다.**
-> 모든 게이트 테스트 PASS, 문서 정리 완료, 릴리즈 준비 완료.
+### Day 1: Dockerfile + docker-compose 기반 구축 — DONE (2026-02-04)
+- Dockerfile 생성: Python 3.11-slim 기반, requirements.txt 설치, app/ 복사
+- .dockerignore 생성: .env, __pycache__, docs/, scripts/, pc-app/, mobile-app/ 등 제외
+- docker-compose.yml 생성:
+  - db: PostgreSQL 15 (health check 포함)
+  - app: BBooster FastAPI (DB 의존성, health check)
+  - ngrok: 외부 webhook용 (주석처리, 선택 사용)
+- .env.example 생성: DB/App/Exchange 환경변수 템플릿
+- app/db.py 개선:
+  - SQLAlchemy 커넥션 풀 설정 (pool_size=5, max_overflow=10, pool_recycle=1800)
+  - wait_for_db() 함수 추가 (Docker 시작 동기화용 재시도 로직)
+- /api/health 엔드포인트 추가 (Docker health check용)
+- Syntax Gate: PASS
+- Docker 빌드 테스트: PASS
+- docker-compose up: PASS (bbooster-db + bbooster-app 모두 healthy)
+- Health Check 테스트: PASS ({"ok":true,"status":"running"})
+
+### Day 2: 로컬 Docker 테스트 + 회귀 — DONE (2026-02-04)
+- docker-compose up: PASS (db + app 모두 healthy)
+- DB 스키마 초기화: scripts/init_schema.sql 생성 및 실행
+- Health check (/api/health): PASS
+- Smoke Test 10/10: PASS
+- Gate-TV: PASS (Errors=0)
+- Gate-OKX: PASS (order_id=205, okx_order_id=3278079399588225024)
+- Gate-E-STOP: PASS (toggle ON/OFF 정상)
+
+### Day 3: 배포 문서 + ngrok 연동 가이드 — DONE (2026-02-04)
+- docs/DEPLOY.md 생성 (Docker 배포 가이드)
+  - 빠른 시작 가이드 (docker-compose up)
+  - ngrok 연동 방법 (2가지: docker-compose / 별도 실행)
+  - TradingView 웹훅 설정 가이드
+  - 보안 주의사항 (API 키, .env 보호, E-STOP)
+  - 운영 명령어 (백업/복원/업데이트)
+  - 문제 해결 가이드
+  - 프로덕션 체크리스트
+- docker-compose.ngrok.yml 생성 (ngrok 오버라이드)
+- .env.example ngrok 사용법 추가
+
+### Day 4-5: 최종 정리 + 회귀 — DONE (2026-02-04)
+- Smoke Test 10/10: PASS
+- Gate-TV: PASS (Errors=0)
+- Gate-E-STOP: PASS (estop=false, toggle 정상)
+- SSOT 업데이트 완료
+- Week 19 Docker化 완료
+
+---
+
+## Week 19 완료 요약
+- Day 1: Dockerfile + docker-compose 기반 구축
+- Day 2: Docker 테스트 + 회귀 (10/10 PASS)
+- Day 3: DEPLOY.md 배포 가이드 + ngrok 연동
+- Day 4-5: 최종 회귀 PASS
+
+**생성된 파일:**
+- Dockerfile, .dockerignore
+- docker-compose.yml, docker-compose.ngrok.yml
+- .env.example
+- scripts/init_schema.sql, scripts/init_db.py
+- docs/DEPLOY.md
+
+---
+
+## Week 20: 웹 대시보드 개선 + 랜딩 페이지 + 법적 페이지 — DONE (2026-02-04)
+
+### Day 1: 대시보드 5개 탭 추가 — DONE
+- 탭 추가: 타임라인, E-STOP, 주문내역, 커넥터, 프리미엄
+- 각 탭 패널 UI 및 JavaScript 함수 구현:
+  - reloadTimeline(): 페이지네이션 지원
+  - reloadEstop() + toggleEstop(): E-STOP 상태 조회/토글
+  - reloadOrders(): 주문 내역 테이블
+  - reloadConnectors(): 5개 거래소 상태 카드
+  - reloadPremium(): Premium 상태 및 신호 목록
+
+### Day 2: 대시보드 상단 요약 카드 추가 — DONE
+- 4개 요약 카드 HTML 추가:
+  - 활성 자산 (sumActiveAssets)
+  - 오늘 주문 (sumTodayOrders)
+  - 커넥터 상태 (sumConnectors)
+  - E-STOP 상태 (sumEstop)
+- reloadHome() 함수에 카드 값 계산 로직 추가:
+  - 활성 자산: is_active 카운트
+  - 오늘 주문: 당일 last_order_at 카운트
+  - E-STOP: 상태 + 색상 표시 (ON=빨강, OFF=초록)
+  - 커넥터: 활성/전체 계정 수
+
+### Day 3: 랜딩 페이지 생성 — DONE
+- landing/ 폴더 생성
+- landing/index.html 생성:
+  - Hero 섹션: QUBE 브랜딩, CTA 버튼
+  - Features 섹션: 6개 기능 카드
+  - Exchanges 섹션: 지원 거래소 5개
+  - How it works 섹션: 4단계 가이드
+  - CTA 섹션: 대시보드 이동
+  - Footer: 법적 페이지 링크
+
+### Day 4: 법적 페이지 생성 — DONE
+- landing/terms.html: 이용약관 (8개 조항)
+- landing/privacy.html: 개인정보처리방침 (8개 섹션)
+- landing/risk.html: 투자위험고지 (6개 섹션, 경고 박스 포함)
+
+### Day 5: PC/모바일 앱 확인 — DONE
+- pc-app/: Tauri 프로젝트 확인 (main.rs, commands.rs, tauri.conf.json)
+- mobile-app/: Flutter 프로젝트 확인 (main.dart, screens/, services/)
+- 기존 구현 확인 완료
+
+## Week 20 완료 요약
+- Day 1: 대시보드 5개 탭 추가 (타임라인/E-STOP/주문/커넥터/프리미엄)
+- Day 2: 상단 요약 카드 4개 + JavaScript 로직
+- Day 3: 랜딩 페이지 (landing/index.html)
+- Day 4: 법적 페이지 3개 (terms/privacy/risk)
+- Day 5: PC/모바일 앱 기존 구현 확인
+
+**생성된 파일:**
+- landing/index.html (랜딩 페이지)
+- landing/terms.html (이용약관)
+- landing/privacy.html (개인정보처리방침)
+- landing/risk.html (투자위험고지)
+
+**수정된 파일:**
+- app/templates/index.html (5개 탭 + 요약 카드 + JavaScript)
+- docker-compose.yml (ngrok 서비스 직접 포함)
+
+---
+
+# 7) 배포 준비 상태 (PART 1~6) — 2026-02-05 KST
+
+## PART 1: VPS 서버 세팅 — DONE
+- Dockerfile, docker-compose.yml, .dockerignore 생성
+- .env.example 템플릿
+- scripts/init_schema.sql DB 초기화
+- docs/DEPLOY.md 배포 가이드
+
+## PART 2: 웹 대시보드 + 소개사이트 + 법적 페이지 — DONE
+- app/templates/index.html (5개 탭 + 요약 카드)
+- landing/index.html (랜딩 페이지)
+- landing/terms.html (이용약관)
+- landing/privacy.html (개인정보처리방침)
+- landing/risk.html (투자위험고지)
+
+## PART 3: PC 앱 Tauri — DONE
+- pc-app/src-tauri/ (Rust 백엔드: main.rs, commands.rs)
+- pc-app/ui/ (프론트엔드: index.html, main.js, style.css)
+- pc-app/src-tauri/icons/ (앱 아이콘)
+- pc-app/README.md
+
+## PART 4: 모바일 앱 Flutter — DONE
+- mobile-app/lib/main.dart
+- mobile-app/lib/screens/ (home_screen, settings_screen)
+- mobile-app/lib/services/api_service.dart
+- mobile-app/lib/widgets/ (status_card, estop_button, event_list)
+- mobile-app/pubspec.yaml
+
+## PART 5: Nginx + SSL — DONE
+- nginx/nginx.conf (메인 설정)
+- nginx/bbooster.conf (사이트 설정 + 리버스 프록시)
+- nginx/ssl-setup.sh (Let's Encrypt 자동 설정)
+- nginx/VPS_SETUP.md (VPS 설치 가이드)
+
+## PART 6: SSOT 마무리 — DONE (2026-02-05)
+- docs/PROJECT_STATUS.md 최신화
+
+---
+
+# 8) 프로젝트 파일 구조 (최종)
+
+```
+AUAT/
+├── app/                    # FastAPI 백엔드
+│   ├── main.py
+│   ├── db.py
+│   ├── models.py
+│   ├── connectors/         # 거래소 커넥터
+│   │   ├── okx.py
+│   │   ├── kis.py
+│   │   ├── binance.py
+│   │   └── bybit.py
+│   └── templates/
+│       └── index.html      # 웹 대시보드
+├── landing/                # 랜딩 페이지 (정적)
+│   ├── index.html
+│   ├── terms.html
+│   ├── privacy.html
+│   └── risk.html
+├── pc-app/                 # PC 앱 (Tauri)
+│   ├── src-tauri/
+│   └── ui/
+├── mobile-app/             # 모바일 앱 (Flutter)
+│   └── lib/
+├── nginx/                  # Nginx 설정
+│   ├── nginx.conf
+│   ├── bbooster.conf
+│   ├── ssl-setup.sh
+│   └── VPS_SETUP.md
+├── scripts/                # 운영/테스트 스크립트
+├── docs/                   # 문서
+│   ├── PROJECT_STATUS.md   # SSOT (이 문서)
+│   ├── DEPLOY.md
+│   ├── ONBOARDING.md
+│   └── ...
+├── Dockerfile
+├── docker-compose.yml
+└── .env.example
+```
+
+---
+
+# 9) NEXT ACTION — v15 (배포 준비 완료)
+
+1) **도메인 설정**: nginx/bbooster.conf에서 `your-domain.com` → 실제 도메인 교체
+2) **VPS 배포**: nginx/VPS_SETUP.md 가이드 따라 Nginx + SSL 설치
+3) **v1.0 릴리즈**: `git tag v1.0.0 && git push --tags`
+4) **운영 시작**: TradingView 웹훅 연동 테스트
+
+> **배포 준비 완료!**
+> 도메인 설정 후 VPS에 배포 가능한 상태입니다.
 
 ---
 

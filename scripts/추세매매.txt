@@ -1,0 +1,413 @@
+//@version=6
+strategy("Stock Trend Auto v7 (ENTRY: ST+HVI+QQE+WVWMA156 / EXIT: TP1 + SPO Split + ST Flip All + Hard SL)",
+     overlay=true,
+     pyramiding=0,
+     initial_capital=10000000,
+     commission_type=strategy.commission.percent,
+     commission_value=0.015,
+     // strategy()에는 input을 넣을 수 없어서, 주문비중은 qty를 직접 계산합니다.
+     default_qty_type=strategy.fixed,
+     default_qty_value=1,
+     process_orders_on_close=true,
+     margin_long=100,
+     margin_short=100)
+
+//==================================================
+// ✅ 작가님 확정 운영 컨셉(국내 주식 전용)
+// [매수(일봉 실행)]
+//   - Supertrend 상승추세(TradingView 기본: direction < 0)
+//   - HVI(LazyBear) 초록(g_enabled)
+//   - QQE 양수(정의 선택 가능)
+//   - close > HTF(주) VWMA156
+//
+// [매도]
+//   1) ✅ TP1: +X% 도달 시 Y% 우선 매도(예: +21%면 최소 50% 먼저 정리)
+//   2) ✅ 분할매도: SPO signal_dn 발생 시 SELL1~SELL6(옵션: 수익 구간 게이트)
+//   3) ✅ 최종 전량매도: Supertrend 하락 전환(추세전환)
+//   4) ✅ 비상 손절(하드 스탑): -X% 전량 손절
+//==================================================
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Inputs
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src = input.source(close, "Source")
+
+// --- Position sizing (주식용 qty 계산)
+group_pos = "Position"
+posPct   = input.float(100, "Order size (% of equity)", minval=0.1, maxval=100, step=0.5, group=group_pos)
+minQty   = input.float(1, "Min shares (qty)", minval=0, step=1, group=group_pos)
+roundQty = input.bool(true, "Round down qty (정수 수량)", group=group_pos)
+
+// --- Risk (Hard Stop Loss)
+group_risk = "Risk"
+useStopLoss = input.bool(true, "Use hard stop loss", group=group_risk)
+stopLossPct = input.float(7.0, "Stop loss % (from avg price)", minval=0.1, step=0.1, group=group_risk)
+
+// --- TP1 (First take profit)
+group_tp1 = "TP1 (First Take Profit)"
+useTP1        = input.bool(true, "Enable TP1", group=group_tp1)
+tp1ProfitPct  = input.float(21.0, "TP1 profit %", minval=0.1, step=0.1, group=group_tp1)
+// ✅ 최소 50% 먼저 매도하도록 하한 설정
+tp1SellPct    = input.float(50.0, "TP1 sell % of position (min 50%)", minval=50, maxval=100, step=1, group=group_tp1)
+
+// --- HTF Weekly VWMA156 filter
+group_htf = "HTF Filter (Weekly)"
+useWeeklyFilter      = input.bool(true, "Use Weekly VWMA156 filter", group=group_htf)
+weeklyTF             = input.timeframe("W", "HTF timeframe", group=group_htf)
+vwmaLen              = input.int(156, "VWMA Length", minval=1, group=group_htf)
+// 진행 중 주봉(빠름) vs 지난 주 확정값(안정). 작가님은 '늦는 것' 싫어서 기본은 OFF(진행 중 주봉)
+useLastConfirmedHTF  = input.bool(false, "Use LAST confirmed HTF value (stable but slower)", group=group_htf)
+
+// --- Supertrend (TradingView 기본과 동일 판정)
+group_st = "Supertrend"
+stAtrLen = input.int(10,    "ATR Length", minval=1, group=group_st)
+stFactor = input.float(3.0, "Factor",     minval=0.01, step=0.01, group=group_st)
+stInvert = input.bool(false, "Invert ST (반대로 보이면 켜기)", group=group_st)
+
+// --- HVI (LazyBear)
+group_hvi = "HVI (LazyBear)"
+hviLen = input.int(200, "Length", minval=1, group=group_hvi)
+hviDiv = input.float(3.6, "Divisor", minval=0.1, step=0.1, group=group_hvi)
+showHVIPane = input.bool(false, "Show HVI histogram in pane", group=group_hvi)
+
+// --- QQE MOD
+group_primary = "QQE MOD - Primary"
+rsiLengthPrimary     = input.int(6, title="RSI Length", group=group_primary)
+rsiSmoothingPrimary  = input.int(5, title="RSI Smoothing", group=group_primary)
+qqeFactorPrimary     = input.float(3.0, title="QQE Factor", group=group_primary)
+sourcePrimary        = input.source(close, title="RSI Source", group=group_primary)
+
+group_secondary = "QQE MOD - Secondary"
+rsiLengthSecondary    = input.int(6, title="RSI Length", group=group_secondary)
+rsiSmoothingSecondary = input.int(5, title="RSI Smoothing", group=group_secondary)
+qqeFactorSecondary    = input.float(1.61, title="QQE Factor", group=group_secondary)
+thresholdSecondary    = input.float(3.0, title="Threshold", group=group_secondary)
+sourceSecondary       = input.source(close, title="RSI Source", group=group_secondary)
+
+group_bollinger = "QQE MOD - Bollinger"
+bollingerLength     = input.int(50, minval=1, title="Length", group=group_bollinger)
+bollingerMultiplier = input.float(0.35, step=0.1, minval=0.001, maxval=5, title="Multiplier", group=group_bollinger)
+
+group_qqe = "QQE Logic"
+qqePositiveDef = input.string("PrimaryRSI>50", "QQE '양수' 정의",
+     options=["PrimaryRSI>50","SecondaryRSI>50","Secondary>0(hist)","QQE UpState(blue)"], group=group_qqe)
+
+// --- SPO(Smooth Price Oscillator) Sell Timing (우리가 만든 지표의 매도 타이밍)
+group_spo = "SPO Sell Timing (from our Spot Inventory indicator)"
+// ✅ 작가님이 쓰던 조합: len_smooth=4, threshold=1
+spo_len_smooth = input.int(4, "SPO smoothing length", minval=2, group=group_spo)
+spo_threshold  = input.float(1.0, "SPO Threshold", step=0.1, group=group_spo)
+spo_len_std    = input.int(50, "SPO stdev length", minval=10, group=group_spo)
+spo_hma_norm   = input.int(30, "SPO normalize HMA", minval=1, group=group_spo)
+// 체감 빠르게 보려면 false, 확정 신호(안정) 원하면 true
+spo_confirmed  = input.bool(false, "SPO uses confirmed bar only", group=group_spo)
+
+// --- Split sells schedule (SELL1~SELL6)
+group_sell = "Split Sell Schedule (SELL1~SELL6)"
+max_sell_tranches = input.int(6, "Max sell tranches", minval=1, maxval=6, group=group_sell)
+after_max_sell = input.string("cycle", "After max tranche (extend/cycle/stop)", options=["extend","cycle","stop"], group=group_sell)
+
+sell1 = input.float(10.0, "SELL1 % of position", step=0.1, minval=0, maxval=100, group=group_sell)
+sell2 = input.float(20.0, "SELL2 % of position", step=0.1, minval=0, maxval=100, group=group_sell)
+sell3 = input.float(30.0, "SELL3 % of position", step=0.1, minval=0, maxval=100, group=group_sell)
+sell4 = input.float(5.0,  "SELL4 % of position", step=0.1, minval=0, maxval=100, group=group_sell)
+sell5 = input.float(2.5,  "SELL5 % of position", step=0.1, minval=0, maxval=100, group=group_sell)
+sell6 = input.float(1.0,  "SELL6 % of position", step=0.1, minval=0, maxval=100, group=group_sell)
+
+// --- Split sell gate (원본 지표처럼 '수익 구간에서만' 분할매도하도록)
+group_gate = "Split Sell Gate"
+use_profit_gate = input.bool(true, "Only split-sell when in profit", group=group_gate)
+min_profit_pct  = input.float(0.10, "Min profit % from avg price", step=0.01, minval=0, group=group_gate)
+fee_buf_pct     = input.float(0.20, "Fee/slippage buffer % (round trip)", step=0.01, minval=0, group=group_gate)
+
+// --- Safety: 1 bar 1 sell lock
+group_lock = "Order Lock"
+one_sell_per_bar = input.bool(true, "Only one sell action per bar (TP1/SPLIT)", group=group_lock)
+
+// --- Debug
+group_dbg = "Debug"
+showTable = input.bool(true, "Show ON/OFF table (top-right)", group=group_dbg)
+showSpoPlot = input.bool(false, "Plot SPO normalized oscillator (pane)", group=group_dbg)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Position sizing (percent of equity -> qty)
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+cashToUse = strategy.equity * (posPct / 100.0)
+qtyRaw    = cashToUse / close
+qtyCalc   = roundQty ? math.floor(qtyRaw) : qtyRaw
+qtyFinal  = math.max(minQty, qtyCalc)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Supertrend (TradingView 기본 해석)
+// direction < 0 => Up(초록), direction >= 0 => Down(빨강)
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[stLine, stDirRaw] = ta.supertrend(stFactor, stAtrLen)
+stDir  = stInvert ? -stDirRaw : stDirRaw
+
+stBull     = stDir < 0
+stBearFlip = (stDir[1] < 0) and (stDir >= 0)
+
+plot(stBull ? stLine : na, "ST Up",   color=color.new(color.green, 0), style=plot.style_linebr, linewidth=2)
+plot(stBull ? na : stLine, "ST Down", color=color.new(color.red,   0), style=plot.style_linebr, linewidth=2)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Weekly VWMA156 (HTF)
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+vwmaHTF_expr = ta.vwma(src, vwmaLen)
+vwmaHTF = request.security(syminfo.tickerid, weeklyTF,
+     useLastConfirmedHTF ? vwmaHTF_expr[1] : vwmaHTF_expr,
+     barmerge.gaps_off, barmerge.lookahead_off)
+
+htfOk = not useWeeklyFilter ? true : (close > vwmaHTF and not na(vwmaHTF))
+plot(useWeeklyFilter ? vwmaHTF : na, "W VWMA156", color=color.new(color.orange, 0), linewidth=2)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// HVI (LazyBear) — 원본 로직
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+rng    = high - low
+rngAvg = ta.sma(rng, hviLen)
+volA   = ta.sma(volume, hviLen)
+
+high1 = high[1]
+low1  = low[1]
+mid1  = hl2[1]
+
+u1 = mid1 + (high1 - low1) / hviDiv
+d1 = mid1 - (high1 - low1) / hviDiv
+
+r_enabled1 = (rng > rngAvg) and (close < d1) and (volume > volA)
+r_enabled2 = close < mid1
+r_enabled  = r_enabled1 or r_enabled2
+
+g_enabled1 = close > mid1
+g_enabled2 = (rng > rngAvg) and (close > u1) and (volume > volA)
+g_enabled3 = (high > high1) and (rng < rngAvg / 1.5) and (volume < volA)
+g_enabled4 = (low < low1)  and (rng < rngAvg / 1.5) and (volume > volA)
+g_enabled  = g_enabled1 or g_enabled2 or g_enabled3 or g_enabled4
+
+gr_enabled1 = (rng > rngAvg) and (close > d1) and (close < u1) and (volume > volA) and (volume < volA * 1.5) and (volume > volume[1])
+gr_enabled2 = (rng < rngAvg / 1.5) and (volume < volA / 1.5)
+gr_enabled3 = (close > d1) and (close < u1)
+gr_enabled  = gr_enabled1 or gr_enabled2 or gr_enabled3
+
+hviColor = gr_enabled ? color.gray : g_enabled ? color.green : r_enabled ? color.red : color.blue
+plot(showHVIPane ? volume : na, "HVI Volume", style=plot.style_columns, color=hviColor, linewidth=2, display=display.pane)
+
+hviGreen = g_enabled
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// QQE MOD
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+calculateQQE(rsiLength, smoothingFactor, qqeFactor, source) =>
+    wildersLength = rsiLength * 2 - 1
+    rsi = ta.rsi(source, rsiLength)
+    smoothedRsi = ta.ema(rsi, smoothingFactor)
+    atrRsi = math.abs(smoothedRsi[1] - smoothedRsi)
+    smoothedAtrRsi = ta.ema(atrRsi, wildersLength)
+    dynamicAtrRsi = smoothedAtrRsi * qqeFactor
+
+    longBand = 0.0
+    shortBand = 0.0
+    trendDirection = 0
+
+    atrDelta = dynamicAtrRsi
+    newShortBand = smoothedRsi + atrDelta
+    newLongBand  = smoothedRsi - atrDelta
+
+    longBand := smoothedRsi[1] > longBand[1] and smoothedRsi > longBand[1] ? math.max(longBand[1], newLongBand) : newLongBand
+    shortBand := smoothedRsi[1] < shortBand[1] and smoothedRsi < shortBand[1] ? math.min(shortBand[1], newShortBand) : newShortBand
+
+    longBandCross = ta.cross(longBand[1], smoothedRsi)
+
+    if ta.cross(smoothedRsi, shortBand[1])
+        trendDirection := 1
+    else if longBandCross
+        trendDirection := -1
+    else
+        trendDirection := trendDirection[1]
+
+    qqeTrendLine = trendDirection == 1 ? longBand : shortBand
+    [qqeTrendLine, smoothedRsi]
+
+[primaryQQETrendLine, primaryRSI]     = calculateQQE(rsiLengthPrimary, rsiSmoothingPrimary, qqeFactorPrimary, sourcePrimary)
+[secondaryQQETrendLine, secondaryRSI] = calculateQQE(rsiLengthSecondary, rsiSmoothingSecondary, qqeFactorSecondary, sourceSecondary)
+
+bollBasis = ta.sma(primaryQQETrendLine - 50, bollingerLength)
+bollDev   = bollingerMultiplier * ta.stdev(primaryQQETrendLine - 50, bollingerLength)
+bollUpper = bollBasis + bollDev
+
+qqeUpState = (secondaryRSI - 50 > thresholdSecondary) and (primaryRSI - 50 > bollUpper)
+
+qqePos = switch qqePositiveDef
+    "PrimaryRSI>50"        => primaryRSI > 50
+    "SecondaryRSI>50"      => secondaryRSI > 50
+    "Secondary>0(hist)"    => (secondaryRSI - 50) > 0
+    "QQE UpState(blue)"    => qqeUpState
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ✅ SPO(Smooth Price Oscillator) — 우리 지표의 SELL 타이밍(signal_dn) 복제
+// signal_dn = (norm_osc > threshold) and crossover(norm_osc[1], norm_osc)
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+smoother_F(float price, int period) =>
+    float step = 2.0 * math.pi / period
+    float a1 = math.exp(-math.sqrt(2) * math.pi / period)
+    float b1 = 2 * a1 * math.cos(math.sqrt(2) * step / period)
+    float c2 = b1
+    float c3 = -a1 * a1
+    float c1 = 1 - c2 - c3
+    float smoothed = 0.0
+    smoothed := bar_index >= 4 ? c1 * (price + price[1]) / 2 + c2 * smoothed[1] + c3 * smoothed[2] : price
+    smoothed
+
+float line_long  = smoother_F(close, spo_len_smooth * 2)
+float line_short = smoother_F(close, spo_len_smooth)
+float oscillator = line_short - line_long
+
+float stdev_osc  = ta.stdev(oscillator, spo_len_std)
+float denom      = math.max(ta.highest(stdev_osc, spo_len_std), 1e-10)
+float norm_osc   = ta.hma(oscillator / denom, spo_hma_norm)
+
+bool spo_okbar = spo_confirmed ? barstate.isconfirmed : true
+bool spo_signal_dn = spo_okbar and (norm_osc > spo_threshold) and ta.crossover(norm_osc[1], norm_osc)
+
+plot(showSpoPlot ? norm_osc : na, "SPO normalized", display=display.pane)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ENTRY (작가님 조건)
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+buySignal = stBull and hviGreen and qqePos and htfOk
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Split sell stage helpers (SELL1~SELL6)
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+f_getSellPctSingle(stage) =>
+    switch stage
+        0 => sell1
+        1 => sell2
+        2 => sell3
+        3 => sell4
+        4 => sell5
+        5 => sell6
+        => sell6
+
+var int sell_stage = 0
+var int last_sell_bar = na
+
+// ✅ TP1 상태
+var bool tp1_done = false
+
+// 포지션 없으면 리셋
+if strategy.position_size == 0
+    sell_stage := 0
+    last_sell_bar := na
+    tp1_done := false
+
+// 원본처럼: 분할매도는 기본적으로 "수익 구간"에서만 허용(옵션)
+need_pct = min_profit_pct + fee_buf_pct
+sell_ok_price = not use_profit_gate ? true : (strategy.position_size > 0 and close >= strategy.position_avg_price * (1 + need_pct / 100.0))
+
+// 이번 봉에서 매도 액션 가능한가? (TP1/SPLIT 둘 다 공유)
+sell_lock_ok = not one_sell_per_bar ? true : (na(last_sell_bar) or last_sell_bar != bar_index)
+
+// ✅ 분할매도 트리거 = SPO signal_dn
+can_split_sell = strategy.position_size > 0 and spo_signal_dn and sell_ok_price and sell_lock_ok
+
+// ✅ TP1 트리거
+tp1PriceHit = strategy.position_size > 0 and useTP1 and not tp1_done and close >= strategy.position_avg_price * (1 + tp1ProfitPct / 100.0)
+can_tp1_sell = tp1PriceHit and sell_lock_ok
+
+// 최종 전량매도(추세전환)
+exitAllSignal = stBearFlip
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Orders
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+if buySignal and strategy.position_size == 0 and qtyFinal > 0
+    strategy.entry("Long", strategy.long, qty=qtyFinal, comment="ENTRY")
+
+// ✅ 비상 손절(하드 스탑): 포지션 있을 때 항상 갱신
+if useStopLoss and strategy.position_size > 0
+    float stopPrice = strategy.position_avg_price * (1 - stopLossPct / 100.0)
+    strategy.exit("SL", from_entry="Long", stop=stopPrice, comment="HARD SL")
+
+// ✅ TP1 우선 매도 (분할매도보다 우선)
+if can_tp1_sell
+    float tpQty = strategy.position_size * (tp1SellPct / 100.0)
+    tpQty := math.min(tpQty, strategy.position_size)
+    if tpQty > 0
+        strategy.close("Long", qty=tpQty, comment="TP1")
+        tp1_done := true
+        last_sell_bar := bar_index
+
+// 분할매도 실행 (SELL1~SELL6)
+if can_split_sell and not can_tp1_sell
+    int lastStage = math.max(max_sell_tranches - 1, 0)
+    int eff_stage = sell_stage
+
+    // 차수 한계 처리
+    if eff_stage >= max_sell_tranches
+        if after_max_sell == "cycle"
+            eff_stage := 0
+        else
+            eff_stage := lastStage
+
+    // stop 모드에서 max 넘어가면 더 이상 분할매도 금지
+    bool allow_sell_by_stage = true
+    if after_max_sell == "stop" and sell_stage >= max_sell_tranches
+        allow_sell_by_stage := false
+
+    if allow_sell_by_stage
+        float spct = f_getSellPctSingle(eff_stage)
+        if spct > 0
+            float qty_target = strategy.position_size * (spct / 100.0)
+            qty_target := math.min(qty_target, strategy.position_size)
+
+            if qty_target > 0
+                strategy.close("Long", qty=qty_target, comment="SPO SPLIT")
+                last_sell_bar := bar_index
+
+                // 차수 업데이트
+                if after_max_sell == "cycle"
+                    sell_stage := sell_stage >= lastStage ? 0 : sell_stage + 1
+                else
+                    sell_stage := sell_stage >= lastStage ? lastStage : sell_stage + 1
+
+// ✅ 최종 전량매도: Supertrend 하락 전환
+if strategy.position_size > 0 and exitAllSignal
+    strategy.close("Long", comment="EXIT ALL: ST Flip")
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Visuals
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+plotshape(buySignal, title="BUY", style=shape.triangleup, location=location.belowbar, size=size.tiny, text="BUY", color=color.new(color.lime, 0))
+plotshape(can_tp1_sell, title="TP1", style=shape.square, location=location.abovebar, size=size.tiny, text="TP1", color=color.new(color.aqua, 0))
+plotshape(can_split_sell and not can_tp1_sell, title="SPO SPLIT", style=shape.circle, location=location.abovebar, size=size.tiny, text="S", color=color.new(color.orange, 0))
+plotshape(exitAllSignal and strategy.position_size > 0, title="SELL ALL", style=shape.triangledown, location=location.abovebar, size=size.tiny, text="EXIT", color=color.new(color.red, 0))
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Debug Table (확인용: ON/OFF만 봐도 되게)
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+var table t = table.new(position.top_right, 2, 12, border_width=1)
+
+f_row(r, label, val) =>
+    table.cell(t, 0, r, label, text_color=color.white, bgcolor=color.new(color.black, 0))
+    table.cell(t, 1, r, val, text_color=color.white, bgcolor=color.new(color.black, 60))
+
+if showTable and barstate.islast
+    f_row(0, "S(ST Up)", stBull ? "ON" : "OFF")
+    f_row(1, "H(HVI Green)", hviGreen ? "ON" : "OFF")
+    f_row(2, "Q(QQE +)", qqePos ? "ON" : "OFF")
+    f_row(3, "W(Close>W VWMA156)", htfOk ? "ON" : "OFF")
+    f_row(4, "ENTRY", buySignal ? "ON" : "OFF")
+    f_row(5, "TP1 hit", tp1PriceHit ? "ON" : "OFF")
+    f_row(6, "TP1 done", tp1_done ? "YES" : "NO")
+    f_row(7, "SPO dn (split)", spo_signal_dn ? "ON" : "OFF")
+    f_row(8, "Split gate ok", sell_ok_price ? "ON" : "OFF")
+    f_row(9, "Sell stage", str.tostring(sell_stage) + "/" + str.tostring(max_sell_tranches))
+    f_row(10, "EXIT ALL", exitAllSignal ? "ON" : "OFF")
+    f_row(11, "SL %", str.tostring(stopLossPct))
+
+alertcondition(buySignal, "BUY", "BUY: ST Up & HVI Green & QQE+ & Close > Weekly VWMA156")
+alertcondition(can_tp1_sell, "TP1", "TP1: Profit reached, sell % of position")
+alertcondition(can_split_sell and not can_tp1_sell, "SPLIT", "SPLIT SELL: SPO signal_dn fired")
+alertcondition(exitAllSignal, "SELL ALL", "SELL ALL: Supertrend flipped to downtrend")

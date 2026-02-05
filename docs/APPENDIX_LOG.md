@@ -1,6 +1,225 @@
 # APPENDIX_LOG.md
 - PowerShell 출력/실측 원문을 날짜별로 누적(삭제 금지)
 
+# 2026-02-04 — Week 19 Day 1 (Docker化 기반 구축)
+
+## Week 19 Day 1 작업 내용
+
+### 1. Dockerfile 생성
+- 경로: `Dockerfile`
+- 베이스 이미지: Python 3.11-slim
+- 시스템 의존성: libpq-dev (psycopg2)
+- 패키지 설치: requirements.txt 기반
+- 앱 복사: app/ 폴더 전체
+- 포트: 8000
+- Health check: /api/health
+- CMD: uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+### 2. .dockerignore 생성
+- 제외 항목:
+  - .env, *.env (환경변수/시크릿)
+  - __pycache__/, *.py[cod] (파이썬 캐시)
+  - venv/, .venv/ (가상환경)
+  - docs/, scripts/ (문서/스크립트)
+  - pc-app/, mobile-app/, site/, brand/ (클라이언트 앱)
+  - tests/, .git/, logs/ (테스트/VCS/로그)
+
+### 3. docker-compose.yml 생성
+- 서비스 구성:
+  - db: PostgreSQL 15-alpine (health check 포함)
+  - app: BBooster FastAPI (depends_on db)
+  - ngrok: 외부 webhook용 (주석처리)
+- 볼륨: postgres_data (영구 저장)
+- 환경변수: .env 파일에서 로드
+
+### 4. .env.example 생성
+- DB 설정: DB_USER, DB_PASSWORD, DB_NAME, DB_PORT
+- 앱 설정: APP_PORT, TV_SECRET, ESTOP_ENABLED
+- 거래소 키: OKX, Binance, Bybit, Upbit, KIS (주석)
+- ngrok: NGROK_AUTHTOKEN (선택)
+
+### 5. app/db.py 개선
+- SQLAlchemy 커넥션 풀 설정 추가:
+  - pool_pre_ping=True
+  - pool_recycle=1800 (30분)
+  - pool_size=5, max_overflow=10
+- wait_for_db() 함수 추가:
+  - Docker 시작 시 DB 연결 대기
+  - max_retries=30, retry_interval=2.0s
+  - OperationalError 처리
+
+### 6. Syntax Gate
+```powershell
+PS> python -m compileall app -q
+# (출력 없음 = PASS)
+```
+
+### 7. Docker 빌드 테스트
+```powershell
+PS> docker build -t bbooster-app:test .
+# ...
+# Successfully built bbooster-app:test
+```
+
+### 8. docker-compose 테스트
+```powershell
+PS> docker-compose up -d
+# Network auat_default Created
+# Volume auat_postgres_data Created
+# Container bbooster-db Created
+# Container bbooster-app Created
+# Container bbooster-db Started
+# Container bbooster-app Started
+
+PS> docker ps
+# NAMES          STATUS                    PORTS
+# bbooster-app   Up (healthy)              0.0.0.0:8000->8000/tcp
+# bbooster-db    Up (healthy)              0.0.0.0:5432->5432/tcp
+```
+
+### 9. Health Check 테스트
+```powershell
+PS> curl http://localhost:8000/api/health
+# {"ok":true,"status":"running"}
+```
+
+### 10. /api/health 엔드포인트 추가
+- 파일: app/main.py
+- Docker/Kubernetes health check용 간단한 엔드포인트
+- DB 연결 체크 없이 서버 동작 여부만 확인
+
+---
+
+# 2026-02-04 — Week 19 Day 2 (Docker 테스트 + 회귀)
+
+## Week 19 Day 2 작업 내용
+
+### 1. DB 스키마 초기화 스크립트 생성
+- 파일: scripts/init_schema.sql
+- 테이블: system_flags, accounts, strategies, assets, orders, events, tv_events, shortmsgs
+
+### 2. Docker 환경 테스트
+```powershell
+PS> docker-compose up -d
+# Container bbooster-db  Started (healthy)
+# Container bbooster-app Started (healthy)
+```
+
+### 3. Smoke Test 결과
+```
+========================================
+   BBooster Smoke Test (10 cases)
+========================================
+[SMOKE-01: Health Check] PASS
+[SMOKE-02: /tv Webhook] PASS
+[SMOKE-03: E-STOP Toggle] PASS
+[SMOKE-04: Timeline] PASS
+[SMOKE-05: Connector] PASS
+[SMOKE-06: Missing Secret] PASS (expected failure)
+[SMOKE-07: Invalid Secret] PASS (expected failure)
+[SMOKE-08: Invalid Side] PASS (expected failure)
+[SMOKE-09: E-STOP Block] PASS
+[SMOKE-10: 404 Endpoint] PASS
+========================================
+Passed: 10 / 10
+ALL SMOKE TESTS PASSED!
+```
+
+### 4. Gate-TV 결과
+```
+=== TV Template Regression Test (Week8) ===
+Errors: 0
+Warnings: 5
+== TV TEMPLATE REGRESSION PASS ==
+```
+
+### 5. Gate-OKX 결과
+```
+[B] /tv accepted: order_id=205
+[D] recover test: okx_order_id=3278079399588225024
+== DONE ==
+```
+
+### 6. Gate-E-STOP 결과
+```
+E-STOP ON:  {"ok":true,"estop":true,"value":"1"}
+E-STOP OFF: {"ok":true,"estop":false,"value":"0"}
+```
+
+---
+
+# 2026-02-04 — Week 19 Day 3 (배포 문서 + ngrok 가이드)
+
+## Week 19 Day 3 작업 내용
+
+### 1. docs/DEPLOY.md 생성
+배포 가이드 문서 (전체 7개 섹션):
+- §1: 사전 요구사항 (Docker, 시스템 요구사항)
+- §2: 빠른 시작 (clone → .env → up → init → 확인)
+- §3: ngrok 연동 (docker-compose / 별도 실행)
+- §4: 보안 주의사항 (비밀번호, API 키, .env 보호, E-STOP)
+- §5: 운영 명령어 (컨테이너, DB, 업데이트)
+- §6: 문제 해결 (컨테이너, DB, ngrok, webhook)
+- §7: 프로덕션 체크리스트
+
+### 2. docker-compose.ngrok.yml 생성
+ngrok 오버라이드 파일:
+```yaml
+services:
+  ngrok:
+    image: ngrok/ngrok:latest
+    command: http app:8000 --log stdout
+    ports:
+      - "4040:4040"
+```
+
+사용법:
+```bash
+docker-compose -f docker-compose.yml -f docker-compose.ngrok.yml up -d
+```
+
+### 3. .env.example 업데이트
+ngrok 사용법 주석 추가
+
+---
+
+# 2026-02-04 — Week 19 Day 4-5 (최종 정리 + 회귀)
+
+## Week 19 최종 회귀 테스트
+
+### Smoke Test
+```
+Passed: 10 / 10
+ALL SMOKE TESTS PASSED!
+```
+
+### Gate-TV
+```
+Errors: 0
+Warnings: 5
+== TV TEMPLATE REGRESSION PASS ==
+```
+
+### Gate-E-STOP
+```
+{"ok":true,"estop":false,"value":"0","reason":null}
+```
+
+## Week 19 완료 요약
+
+| 항목 | 파일 | 설명 |
+|------|------|------|
+| Dockerfile | Dockerfile | Python 3.11-slim, health check |
+| Compose | docker-compose.yml | PostgreSQL + App |
+| ngrok | docker-compose.ngrok.yml | 외부 webhook용 |
+| 환경변수 | .env.example | 설정 템플릿 |
+| DB 초기화 | scripts/init_schema.sql | 테이블 생성 |
+| 배포 가이드 | docs/DEPLOY.md | 7개 섹션 |
+
+**Week 19 Docker化 완료!**
+
+---
+
 # 2026-02-04 — 18주 개발 완료 (v1.0 릴리즈 준비)
 
 ## 전체 개발 완료 요약

@@ -361,6 +361,17 @@ _poller_loop = _poll_worker_loop
 #     return {"ok": True}
 
 
+# ---- Health Check (Docker/Kubernetes) ----
+@app.get("/api/health")
+def api_health():
+    """
+    Health check endpoint for Docker/Kubernetes.
+    Returns ok=true if server is running.
+    Does NOT check database (use /api/home for full status).
+    """
+    return {"ok": True, "status": "running"}
+
+
 # # ---- Home API (Dashboard) ----
 @app.get("/api/home")
 def api_home():
