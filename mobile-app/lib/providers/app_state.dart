@@ -10,6 +10,10 @@ class AppState extends ChangeNotifier {
   bool _estopActive = false;
   bool get estopActive => _estopActive;
 
+  // E-STOP reason
+  String? _estopReason;
+  String? get estopReason => _estopReason;
+
   // Server URL (configurable)
   String _serverUrl = 'http://192.168.1.100:8000';
   String get serverUrl => _serverUrl;
@@ -55,6 +59,11 @@ class AppState extends ChangeNotifier {
 
   void updateEstopStatus(bool active) {
     _estopActive = active;
+    notifyListeners();
+  }
+
+  void setEstopReason(String? reason) {
+    _estopReason = reason;
     notifyListeners();
   }
 

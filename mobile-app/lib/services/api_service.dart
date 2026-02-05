@@ -37,12 +37,17 @@ class ApiService {
   }
 
   /// Set E-STOP
-  Future<Map<String, dynamic>> setEstop(bool enabled) async {
+  Future<Map<String, dynamic>> setEstop(bool enabled, {String? reason}) async {
+    final body = <String, dynamic>{'estop': enabled};
+    if (reason != null && reason.isNotEmpty) {
+      body['reason'] = reason;
+    }
+
     final response = await http
         .post(
           Uri.parse('$baseUrl/api/system/estop'),
           headers: {'Content-Type': 'application/json'},
-          body: json.encode({'estop': enabled}),
+          body: json.encode(body),
         )
         .timeout(timeout);
 

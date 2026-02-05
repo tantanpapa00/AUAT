@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/timeline_screen.dart';
+import 'screens/chart_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/api_service.dart';
 import 'providers/app_state.dart';
@@ -69,12 +70,14 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _screens = const [
     HomeScreen(),
     TimelineScreen(),
+    ChartScreen(),
     SettingsScreen(),
   ];
 
   final List<String> _titles = const [
     'Dashboard',
     'Timeline',
+    'Chart',
     'Settings',
   ];
 
@@ -158,6 +161,11 @@ class _MainScreenState extends State<MainScreen> {
             icon: Icon(Icons.history_outlined),
             selectedIcon: Icon(Icons.history),
             label: 'Timeline',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.candlestick_chart_outlined),
+            selectedIcon: Icon(Icons.candlestick_chart),
+            label: 'Chart',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),
