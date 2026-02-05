@@ -7,20 +7,20 @@
   <meta name="description" content="BBooster 투자위험고지" />
   <style>
     :root{
-      --bg:#0b1220;
-      --card:#111a2e;
-      --card2:#0d1525;
-      --line:#22304a;
-      --text:#e5e7eb;
-      --muted:#9ca3af;
-      --pri:#60a5fa;
-      --pri2:#93c5fd;
-      --ok:#34d399;
-      --warn:#fbbf24;
-      --bad:#f87171;
+      --bg:#f8fafc;
+      --card:#ffffff;
+      --card2:#f1f5f9;
+      --line:#e2e8f0;
+      --text:#1e293b;
+      --muted:#64748b;
+      --pri:#3b82f6;
+      --pri2:#60a5fa;
+      --ok:#10b981;
+      --warn:#f59e0b;
+      --bad:#ef4444;
       --red:#DC2626;
       --red2:#EF4444;
-      --shadow: 0 10px 40px rgba(0,0,0,.4);
+      --shadow: 0 10px 40px rgba(0,0,0,.08);
       --radius:16px;
       --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", Arial, sans-serif;
     }
@@ -28,9 +28,7 @@
     html{ scroll-behavior:smooth; }
     body{
       font-family:var(--sans);
-      background: radial-gradient(ellipse 1400px 800px at 30% 0%, rgba(220,38,38,.12), transparent 60%),
-                  radial-gradient(ellipse 1200px 700px at 70% 20%, rgba(96,165,250,.12), transparent 55%),
-                  var(--bg);
+      background: linear-gradient(135deg, #fff7ed 0%, #f8fafc 30%, #f0f9ff 70%, #f0fdf4 100%);
       color:var(--text);
       min-height:100vh;
       line-height:1.6;
@@ -40,7 +38,7 @@
     header{
       position:fixed; top:0; left:0; right:0; z-index:100;
       padding:14px 24px;
-      background: rgba(11,18,32,.9);
+      background: rgba(255,255,255,.9);
       backdrop-filter: blur(12px);
       border-bottom:1px solid var(--line);
     }
