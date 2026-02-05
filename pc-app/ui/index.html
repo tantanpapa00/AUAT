@@ -222,23 +222,167 @@
                 </div>
             </main>
 
-            <!-- Templates Page (placeholder) -->
+            <!-- Templates Page -->
             <main class="main page-content" id="page-templates" style="display: none;">
-                <div class="placeholder-page">
-                    <div class="placeholder-icon">📝</div>
-                    <h2>TradingView Templates</h2>
-                    <p>Generate and manage alert templates</p>
-                    <p class="coming-soon">Coming in STEP 5</p>
+                <div class="templates-container">
+                    <!-- Template Generator -->
+                    <section class="card template-generator">
+                        <h2>TradingView Template Generator</h2>
+                        <p class="description">Select assets and generate webhook alert templates for TradingView</p>
+
+                        <div class="template-options">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="template-side">Side</label>
+                                    <select id="template-side">
+                                        <option value="buy">Buy</option>
+                                        <option value="sell">Sell</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="template-qty">Quantity</label>
+                                    <input type="number" id="template-qty" value="1" min="0.001" step="0.001">
+                                </div>
+                                <div class="form-group">
+                                    <label for="template-type">Order Type</label>
+                                    <select id="template-type">
+                                        <option value="market">Market</option>
+                                        <option value="limit">Limit</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="asset-selection">
+                            <div class="asset-selection-header">
+                                <h3>Select Assets</h3>
+                                <button id="btn-refresh-assets" class="btn btn-secondary btn-sm">Refresh</button>
+                            </div>
+                            <div id="assets-list" class="assets-list">
+                                <p class="empty">Loading assets...</p>
+                            </div>
+                        </div>
+
+                        <div class="template-actions">
+                            <button id="btn-generate-templates" class="btn btn-primary" disabled>Generate Templates</button>
+                        </div>
+                    </section>
+
+                    <!-- Generated Templates -->
+                    <section class="card generated-templates">
+                        <h2>Generated Templates</h2>
+                        <div id="templates-result" class="templates-result">
+                            <p class="empty">Select assets and click "Generate Templates" to create webhook JSON</p>
+                        </div>
+                        <div class="template-tip">
+                            <strong>Tip:</strong> Copy the JSON and paste it into TradingView Alert > Message field
+                        </div>
+                    </section>
                 </div>
             </main>
 
-            <!-- Settings Page (placeholder) -->
+            <!-- Settings Page -->
             <main class="main page-content" id="page-settings" style="display: none;">
-                <div class="placeholder-page">
-                    <div class="placeholder-icon">⚙️</div>
-                    <h2>System Settings</h2>
-                    <p>Configure system options and server connection</p>
-                    <p class="coming-soon">Coming in STEP 5</p>
+                <div class="settings-grid">
+                    <!-- E-STOP Control -->
+                    <section class="card settings-estop">
+                        <h2>Emergency Stop (E-STOP)</h2>
+                        <div class="estop-status-box" id="settings-estop-box">
+                            <div class="estop-indicator" id="settings-estop-indicator">
+                                <span class="estop-icon">●</span>
+                                <span class="estop-text" id="settings-estop-text">Checking...</span>
+                            </div>
+                            <div class="estop-info">
+                                <div class="estop-info-row">
+                                    <span class="label">Last Changed:</span>
+                                    <span class="value" id="estop-last-changed">--</span>
+                                </div>
+                                <div class="estop-info-row">
+                                    <span class="label">Reason:</span>
+                                    <span class="value" id="estop-reason">--</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="estop-reason-input">Reason (optional)</label>
+                            <input type="text" id="estop-reason-input" placeholder="e.g., Manual maintenance">
+                        </div>
+                        <div class="button-group">
+                            <button id="settings-btn-estop-on" class="btn btn-danger">E-STOP ON</button>
+                            <button id="settings-btn-estop-off" class="btn btn-success">E-STOP OFF</button>
+                        </div>
+                        <p class="warning-box">When E-STOP is ON, all TradingView webhook orders will be blocked.</p>
+                    </section>
+
+                    <!-- System Status -->
+                    <section class="card settings-system">
+                        <h2>System Status (Read-only)</h2>
+                        <p class="description">These settings are controlled by server environment variables</p>
+                        <div class="system-status-table">
+                            <div class="status-row">
+                                <span class="status-label">DRY_RUN</span>
+                                <span class="status-value" id="sys-dry-run">--</span>
+                                <span class="status-desc">Simulated orders (no real trading)</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-label">ORDER_SUBMIT</span>
+                                <span class="status-value" id="sys-order-submit">--</span>
+                                <span class="status-desc">Order submission enabled</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-label">ORDER_POLL</span>
+                                <span class="status-value" id="sys-order-poll">--</span>
+                                <span class="status-desc">Order status polling enabled</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-label">Server</span>
+                                <span class="status-value" id="sys-server-status">--</span>
+                                <span class="status-desc">Backend server connection</span>
+                            </div>
+                        </div>
+                        <p class="info-text">To change these settings, modify the server's .env file and restart.</p>
+                    </section>
+
+                    <!-- Server Connection -->
+                    <section class="card settings-connection">
+                        <h2>Server Connection</h2>
+                        <div class="form-group">
+                            <label for="server-url">Server URL</label>
+                            <input type="text" id="server-url" value="http://127.0.0.1:8000" placeholder="http://127.0.0.1:8000">
+                        </div>
+                        <div class="connection-status">
+                            <span class="status-dot" id="connection-dot"></span>
+                            <span id="connection-text">Not tested</span>
+                            <span id="connection-ping"></span>
+                        </div>
+                        <div class="button-group">
+                            <button id="btn-test-server" class="btn btn-secondary">Test Connection</button>
+                            <button id="btn-save-settings" class="btn btn-primary">Save Settings</button>
+                        </div>
+                    </section>
+
+                    <!-- App Info -->
+                    <section class="card settings-info">
+                        <h2>Application Info</h2>
+                        <div class="info-table">
+                            <div class="info-row">
+                                <span class="info-label">App Version</span>
+                                <span class="info-value">1.0.0</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Company</span>
+                                <span class="info-value">큐브시스템 (QUBE System)</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Product</span>
+                                <span class="info-value">BBooster — Quint Booster Engine System</span>
+                            </div>
+                        </div>
+                        <div class="button-group">
+                            <button id="btn-open-logs-settings" class="btn btn-secondary">Open Logs Folder</button>
+                            <button id="btn-export-diag-settings" class="btn btn-secondary">Export Diagnostic</button>
+                        </div>
+                    </section>
                 </div>
             </main>
 

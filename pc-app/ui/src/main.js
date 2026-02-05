@@ -81,6 +81,10 @@ function navigateTo(page) {
     // Page-specific initialization
     if (page === 'accounts') {
         loadAccounts();
+    } else if (page === 'templates') {
+        loadTemplateAssets();
+    } else if (page === 'settings') {
+        loadSettingsData();
     }
 }
 
@@ -840,6 +844,344 @@ function showFormMessage(message, type) {
     formMessage.className = `form-message ${type}`;
     formMessage.style.display = 'block';
 }
+
+// =====================================================
+// Templates Page
+// =====================================================
+const templateSide = document.getElementById('template-side');
+const templateQty = document.getElementById('template-qty');
+const templateType = document.getElementById('template-type');
+const assetsList = document.getElementById('assets-list');
+const btnRefreshAssets = document.getElementById('btn-refresh-assets');
+const btnGenerateTemplates = document.getElementById('btn-generate-templates');
+const templatesResult = document.getElementById('templates-result');
+
+let selectedAssets = new Set();
+
+// Load assets for template generation
+async function loadTemplateAssets() {
+    try {
+        const response = await fetch('http://127.0.0.1:8000/api/templates/tradingview/options');
+        const data = await response.json();
+
+        if (data.ok && data.options && data.options.length > 0) {
+            assetsList.innerHTML = data.options.map(asset => `
+                <label class="asset-item" data-asset-id="${asset.asset_id}">
+                    <input type="checkbox" value="${asset.asset_id}">
+                    <div class="asset-info">
+                        <div class="asset-symbol">${asset.symbol}</div>
+                        <div class="asset-meta">${asset.account_name} / ${asset.strategy_name} / ${asset.exchange}</div>
+                    </div>
+                </label>
+            `).join('');
+
+            // Add event listeners
+            assetsList.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                checkbox.addEventListener('change', (e) => {
+                    const assetItem = e.target.closest('.asset-item');
+                    const assetId = parseInt(e.target.value);
+
+                    if (e.target.checked) {
+                        selectedAssets.add(assetId);
+                        assetItem.classList.add('selected');
+                    } else {
+                        selectedAssets.delete(assetId);
+                        assetItem.classList.remove('selected');
+                    }
+
+                    btnGenerateTemplates.disabled = selectedAssets.size === 0;
+                });
+            });
+        } else {
+            assetsList.innerHTML = `
+                <p class="empty">No assets available.</p>
+                <p class="empty">Register accounts and create strategies first.</p>
+            `;
+        }
+    } catch (error) {
+        console.error('Failed to load assets:', error);
+        assetsList.innerHTML = '<p class="empty">Failed to load assets. Check server connection.</p>';
+    }
+}
+
+// Generate templates
+async function generateTemplates() {
+    if (selectedAssets.size === 0) return;
+
+    btnGenerateTemplates.disabled = true;
+    btnGenerateTemplates.textContent = 'Generating...';
+
+    try {
+        const response = await fetch('http://127.0.0.1:8000/api/templates/tradingview/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                asset_ids: Array.from(selectedAssets),
+                side: templateSide.value,
+                qty: parseFloat(templateQty.value),
+                type: templateType.value
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.ok && data.results) {
+            templatesResult.innerHTML = data.results.map(result => {
+                if (!result.ok) {
+                    return `
+                        <div class="template-item error">
+                            <div class="template-item-header">
+                                <span class="template-item-title">${result.symbol} - Error</span>
+                            </div>
+                            <div class="template-item-body">
+                                <p class="error-text">${result.error || 'Unknown error'}</p>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                const templateJson = JSON.stringify(result.template, null, 2);
+                return `
+                    <div class="template-item">
+                        <div class="template-item-header">
+                            <span class="template-item-title">${result.symbol} (${result.account_name})</span>
+                            <button class="btn btn-secondary btn-sm btn-copy" data-template='${templateJson.replace(/'/g, "\\'")}'>
+                                Copy
+                            </button>
+                        </div>
+                        <div class="template-item-body">
+                            <pre class="template-json">${templateJson}</pre>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Add copy event listeners
+            templatesResult.querySelectorAll('.btn-copy').forEach(btn => {
+                btn.addEventListener('click', () => copyTemplateToClipboard(btn));
+            });
+        } else {
+            templatesResult.innerHTML = '<p class="empty">Failed to generate templates</p>';
+        }
+    } catch (error) {
+        console.error('Failed to generate templates:', error);
+        templatesResult.innerHTML = '<p class="empty">Failed to generate templates. Check server connection.</p>';
+    } finally {
+        btnGenerateTemplates.disabled = selectedAssets.size === 0;
+        btnGenerateTemplates.textContent = 'Generate Templates';
+    }
+}
+
+// Copy template to clipboard
+async function copyTemplateToClipboard(btn) {
+    const template = btn.dataset.template;
+    try {
+        await navigator.clipboard.writeText(template);
+        const originalText = btn.textContent;
+        btn.textContent = 'Copied!';
+        btn.classList.add('btn-success');
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.classList.remove('btn-success');
+        }, 2000);
+    } catch (error) {
+        showToast('Failed to copy to clipboard', 'error');
+    }
+}
+
+// Event listeners for Templates page
+btnRefreshAssets?.addEventListener('click', loadTemplateAssets);
+btnGenerateTemplates?.addEventListener('click', generateTemplates);
+
+// =====================================================
+// Settings Page
+// =====================================================
+const settingsEstopBox = document.getElementById('settings-estop-box');
+const settingsEstopIndicator = document.getElementById('settings-estop-indicator');
+const settingsEstopText = document.getElementById('settings-estop-text');
+const estopLastChanged = document.getElementById('estop-last-changed');
+const estopReason = document.getElementById('estop-reason');
+const estopReasonInput = document.getElementById('estop-reason-input');
+const settingsBtnEstopOn = document.getElementById('settings-btn-estop-on');
+const settingsBtnEstopOff = document.getElementById('settings-btn-estop-off');
+
+const sysDryRun = document.getElementById('sys-dry-run');
+const sysOrderSubmit = document.getElementById('sys-order-submit');
+const sysOrderPoll = document.getElementById('sys-order-poll');
+const sysServerStatus = document.getElementById('sys-server-status');
+
+const serverUrl = document.getElementById('server-url');
+const connectionDot = document.getElementById('connection-dot');
+const connectionText = document.getElementById('connection-text');
+const connectionPing = document.getElementById('connection-ping');
+const btnTestServer = document.getElementById('btn-test-server');
+const btnSaveSettings = document.getElementById('btn-save-settings');
+const btnOpenLogsSettings = document.getElementById('btn-open-logs-settings');
+const btnExportDiagSettings = document.getElementById('btn-export-diag-settings');
+
+// Load settings page data
+async function loadSettingsData() {
+    // Load E-STOP status
+    try {
+        const response = await fetch('http://127.0.0.1:8000/api/system/estop');
+        const data = await response.json();
+
+        if (data.estop) {
+            settingsEstopBox.className = 'estop-status-box active';
+            settingsEstopText.textContent = 'E-STOP ACTIVE';
+        } else {
+            settingsEstopBox.className = 'estop-status-box inactive';
+            settingsEstopText.textContent = 'Normal Operation';
+        }
+
+        estopLastChanged.textContent = data.updated_at ? formatDateTime(data.updated_at) : '--';
+        estopReason.textContent = data.reason || '--';
+    } catch (error) {
+        console.error('Failed to load E-STOP status:', error);
+        settingsEstopBox.className = 'estop-status-box inactive';
+        settingsEstopText.textContent = 'Unknown';
+    }
+
+    // Load system status
+    try {
+        const status = await invoke('get_server_status');
+
+        sysDryRun.textContent = status.dry_run ? 'ON' : 'OFF';
+        sysDryRun.className = `status-value ${status.dry_run ? 'on' : 'off'}`;
+
+        sysServerStatus.textContent = status.running ? 'Connected' : 'Disconnected';
+        sysServerStatus.className = `status-value ${status.running ? 'on' : 'error'}`;
+
+        // These are typically from server env, so we show placeholder
+        sysOrderSubmit.textContent = status.running ? 'ON' : '--';
+        sysOrderSubmit.className = `status-value ${status.running ? 'on' : 'off'}`;
+
+        sysOrderPoll.textContent = status.running ? 'ON' : '--';
+        sysOrderPoll.className = `status-value ${status.running ? 'on' : 'off'}`;
+    } catch (error) {
+        console.error('Failed to load system status:', error);
+    }
+}
+
+// E-STOP controls on Settings page
+settingsBtnEstopOn?.addEventListener('click', async () => {
+    const reason = estopReasonInput.value.trim() || 'Manual activation from PC App';
+
+    if (!confirm(`E-STOP을 켜시겠습니까?\n\n사유: ${reason}\n\n모든 주문 전송이 차단됩니다.`)) {
+        return;
+    }
+
+    settingsBtnEstopOn.disabled = true;
+    try {
+        await fetch('http://127.0.0.1:8000/api/system/estop', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ estop: true, reason: reason })
+        });
+        showToast('E-STOP activated', 'warning');
+        estopReasonInput.value = '';
+        loadSettingsData();
+        updateStatus();
+    } catch (error) {
+        showToast('Failed to activate E-STOP', 'error');
+    } finally {
+        settingsBtnEstopOn.disabled = false;
+    }
+});
+
+settingsBtnEstopOff?.addEventListener('click', async () => {
+    settingsBtnEstopOff.disabled = true;
+    try {
+        await fetch('http://127.0.0.1:8000/api/system/estop', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ estop: false, reason: 'Manual deactivation from PC App' })
+        });
+        showToast('E-STOP deactivated', 'success');
+        loadSettingsData();
+        updateStatus();
+    } catch (error) {
+        showToast('Failed to deactivate E-STOP', 'error');
+    } finally {
+        settingsBtnEstopOff.disabled = false;
+    }
+});
+
+// Test server connection
+btnTestServer?.addEventListener('click', async () => {
+    btnTestServer.disabled = true;
+    btnTestServer.textContent = 'Testing...';
+    connectionText.textContent = 'Testing...';
+    connectionDot.className = 'status-dot';
+
+    const url = serverUrl.value.trim();
+    const startTime = Date.now();
+
+    try {
+        const response = await fetch(`${url}/api/diag/home`, {
+            method: 'GET',
+            signal: AbortSignal.timeout(5000)
+        });
+
+        const pingMs = Date.now() - startTime;
+
+        if (response.ok) {
+            connectionDot.className = 'status-dot connected';
+            connectionText.textContent = 'Connected';
+            connectionPing.textContent = `(${pingMs}ms)`;
+            showToast('Connection successful', 'success');
+        } else {
+            throw new Error('Server responded with error');
+        }
+    } catch (error) {
+        connectionDot.className = 'status-dot disconnected';
+        connectionText.textContent = 'Connection failed';
+        connectionPing.textContent = '';
+        showToast('Connection failed', 'error');
+    } finally {
+        btnTestServer.disabled = false;
+        btnTestServer.textContent = 'Test Connection';
+    }
+});
+
+// Save settings
+btnSaveSettings?.addEventListener('click', async () => {
+    const url = serverUrl.value.trim();
+    // In a real implementation, this would save to local storage or Tauri state
+    localStorage.setItem('bbooster_server_url', url);
+    showToast('Settings saved', 'success');
+});
+
+// Load saved server URL
+if (serverUrl) {
+    const savedUrl = localStorage.getItem('bbooster_server_url');
+    if (savedUrl) {
+        serverUrl.value = savedUrl;
+    }
+}
+
+// Settings page buttons
+btnOpenLogsSettings?.addEventListener('click', async () => {
+    try {
+        await invoke('open_logs_folder');
+    } catch (error) {
+        showToast('Failed to open logs folder', 'error');
+    }
+});
+
+btnExportDiagSettings?.addEventListener('click', async () => {
+    btnExportDiagSettings.disabled = true;
+    btnExportDiagSettings.textContent = 'Exporting...';
+    try {
+        await invoke('export_diagnostic');
+        showToast('Diagnostic exported', 'success');
+    } catch (error) {
+        showToast('Failed to export diagnostic', 'error');
+    } finally {
+        btnExportDiagSettings.disabled = false;
+        btnExportDiagSettings.textContent = 'Export Diagnostic';
+    }
+});
 
 // =====================================================
 // Initialize
