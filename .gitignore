@@ -60,6 +60,14 @@ pubspec.lock
 android/.gradle/
 android/local.properties
 
+# --- Android Signing (NEVER COMMIT) ---
+key.properties
+*.jks
+*.keystore
+keystore/
+release/
+*.apk
+
 # --- DB files (keep txt configs; ignore local db artifacts if any) ---
 *.sqlite
 *.sqlite3
