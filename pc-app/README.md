@@ -1,6 +1,6 @@
 # BBooster PC Application
 
-Tauri 기반 Windows 설치형 애플리케이션
+큐브시스템 (QUBE System) — Tauri 기반 Windows 설치형 애플리케이션
 
 ## Prerequisites
 
@@ -54,7 +54,8 @@ pc-app/
 │   ├── icons/           # 앱 아이콘
 │   └── src/
 │       ├── main.rs      # 엔트리포인트
-│       └── commands.rs  # Tauri 커맨드
+│       ├── commands.rs  # Tauri 커맨드
+│       └── crypto.rs    # AES-GCM 암호화
 ├── ui/                  # 프론트엔드
 │   ├── package.json
 │   ├── index.html
@@ -71,7 +72,10 @@ pc-app/
 - E-STOP: 비상 정지 ON/OFF
 - Dashboard: 웹 대시보드 열기
 - Diagnostic: 진단 리포트 zip 내보내기
-- API Key Storage: OS 자격증명 관리자에 암호화 저장
+- API Key Storage: OS 자격증명 관리자에 암호화 저장 (AES-256-GCM)
+- Timeline: 거래 타임라인 조회
+- Connector Status: 거래소 연결 상태 확인
+- Subscription: 구독 정보 조회
 
 ## Tray Menu
 

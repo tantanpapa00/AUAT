@@ -11,6 +11,7 @@ use tauri::{
 };
 
 mod commands;
+mod crypto;
 
 // 서버 프로세스 상태 관리
 struct ServerState {
@@ -73,6 +74,9 @@ fn main() {
             commands::save_api_key,
             commands::get_api_key,
             commands::delete_api_key,
+            commands::fetch_timeline,
+            commands::fetch_connector_status,
+            commands::fetch_subscription,
         ])
         .setup(|app| {
             // 앱 시작 시 서버 자동 시작 (옵션)

@@ -45,7 +45,7 @@
     "bundle": {
       "active": true,
       "category": "Finance",
-      "copyright": "Copyright 2026 BBooster",
+      "copyright": "Copyright 2026 큐브시스템 (QUBE System)",
       "deb": {
         "depends": []
       },
@@ -57,7 +57,7 @@
         "icons/icon.icns",
         "icons/icon.ico"
       ],
-      "identifier": "com.bbooster.app",
+      "identifier": "com.qubesystem.bbooster",
       "longDescription": "BBooster - TradingView webhook to exchange auto-trading tool",
       "macOS": {
         "entitlements": null,
@@ -98,7 +98,7 @@
         "fullscreen": false,
         "height": 800,
         "resizable": true,
-        "title": "BBooster",
+        "title": "BBooster — 큐브시스템",
         "width": 1200,
         "minWidth": 800,
         "minHeight": 600,

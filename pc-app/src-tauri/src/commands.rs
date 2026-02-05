@@ -247,6 +247,108 @@ pub async fn delete_api_key(exchange: String, key_type: String) -> Result<(), St
 }
 
 // =====================================================
+// Timeline & Connector Status
+// =====================================================
+
+#[derive(Serialize, Deserialize)]
+pub struct TimelineEvent {
+    pub id: i64,
+    pub timestamp: String,
+    pub event_type: String,
+    pub message: String,
+    pub exchange: Option<String>,
+    pub symbol: Option<String>,
+}
+
+#[tauri::command]
+pub async fn fetch_timeline(limit: Option<i64>) -> Result<Vec<TimelineEvent>, String> {
+    let client = reqwest::Client::new();
+    let url = format!(
+        "http://127.0.0.1:8000/api/timeline?limit={}",
+        limit.unwrap_or(50)
+    );
+
+    let resp = client
+        .get(&url)
+        .timeout(std::time::Duration::from_secs(5))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let data: Vec<TimelineEvent> = resp.json().await.map_err(|e| e.to_string())?;
+    Ok(data)
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ConnectorStatus {
+    pub exchange: String,
+    pub connected: bool,
+    pub last_ping: Option<String>,
+    pub error: Option<String>,
+}
+
+#[tauri::command]
+pub async fn fetch_connector_status() -> Result<Vec<ConnectorStatus>, String> {
+    let client = reqwest::Client::new();
+    let resp = client
+        .get("http://127.0.0.1:8000/api/connectors/status")
+        .timeout(std::time::Duration::from_secs(5))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let data: Vec<ConnectorStatus> = resp.json().await.map_err(|e| e.to_string())?;
+    Ok(data)
+}
+
+// =====================================================
+// Subscription Info
+// =====================================================
+
+#[derive(Serialize, Deserialize)]
+pub struct SubscriptionInfo {
+    pub plan: String,
+    pub status: String,
+    pub expires_at: Option<String>,
+    pub features: Vec<String>,
+}
+
+#[tauri::command]
+pub async fn fetch_subscription() -> Result<SubscriptionInfo, String> {
+    let client = reqwest::Client::new();
+    let resp = client
+        .get("http://127.0.0.1:8000/api/subscription")
+        .timeout(std::time::Duration::from_secs(5))
+        .send()
+        .await;
+
+    match resp {
+        Ok(r) => {
+            if r.status().is_success() {
+                r.json().await.map_err(|e| e.to_string())
+            } else {
+                // Default free plan if endpoint not available
+                Ok(SubscriptionInfo {
+                    plan: "Free".to_string(),
+                    status: "active".to_string(),
+                    expires_at: None,
+                    features: vec!["basic".to_string()],
+                })
+            }
+        }
+        Err(_) => {
+            // Default free plan if server not running
+            Ok(SubscriptionInfo {
+                plan: "Free".to_string(),
+                status: "active".to_string(),
+                expires_at: None,
+                features: vec!["basic".to_string()],
+            })
+        }
+    }
+}
+
+// =====================================================
 // Helper Functions
 // =====================================================
 
