@@ -172,7 +172,275 @@ from .crud_accounts import (
 from .pine_parser import parse_pine_inputs
 
 
-app = FastAPI(title="AutoBot Admin v0.1")
+app = FastAPI(title="BBooster API v1.0")
+
+
+# =========================
+# [AUTH_V1] Google OAuth + JWT 인증
+# =========================
+from starlette.middleware.sessions import SessionMiddleware
+from starlette.responses import RedirectResponse
+from app.auth import (
+    oauth, get_or_create_user_from_google, create_tokens_for_user,
+    verify_token, get_current_user, get_current_user_optional, get_admin_user,
+    UserResponse, TokenResponse, GOOGLE_CLIENT_ID, is_public_path
+)
+from app.models import User
+
+# 세션 미들웨어 (OAuth 콜백용)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("JWT_SECRET_KEY", "bbooster-secret-key-change-in-production"),
+)
+
+
+@app.get("/api/auth/google/login")
+async def auth_google_login(request: Request):
+    """구글 로그인 URL 반환"""
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=500, detail="Google OAuth가 설정되지 않았습니다")
+
+    # 콜백 URL 생성
+    redirect_uri = request.url_for("auth_google_callback")
+    # 실제 환경에서는 도메인 기반 URL 사용
+    base_url = os.getenv("BASE_URL", "")
+    if base_url:
+        redirect_uri = f"{base_url}/api/auth/google/callback"
+
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+
+@app.get("/api/auth/google/callback")
+async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
+    """구글 OAuth 콜백 처리"""
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=500, detail="Google OAuth가 설정되지 않았습니다")
+
+    try:
+        token = await oauth.google.authorize_access_token(request)
+        user_info = token.get("userinfo")
+
+        if not user_info:
+            raise HTTPException(status_code=400, detail="사용자 정보를 가져올 수 없습니다")
+
+        # 사용자 생성 또는 조회
+        user = get_or_create_user_from_google(
+            db=db,
+            google_id=user_info.get("sub"),
+            email=user_info.get("email"),
+            name=user_info.get("name"),
+            picture=user_info.get("picture"),
+        )
+
+        # JWT 토큰 생성
+        tokens = create_tokens_for_user(user)
+
+        # 클라이언트로 리다이렉트 (토큰 포함)
+        frontend_url = os.getenv("FRONTEND_URL", "/")
+        redirect_url = f"{frontend_url}?access_token={tokens.access_token}&refresh_token={tokens.refresh_token}"
+
+        return RedirectResponse(url=redirect_url)
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"OAuth 인증 실패: {str(e)}")
+
+
+@app.post("/api/auth/refresh", response_model=TokenResponse)
+async def auth_refresh(request: Request, db: Session = Depends(get_db)):
+    """리프레시 토큰으로 새 액세스 토큰 발급"""
+    try:
+        body = await request.json()
+        refresh_token = body.get("refresh_token")
+    except Exception:
+        raise HTTPException(status_code=400, detail="refresh_token이 필요합니다")
+
+    if not refresh_token:
+        raise HTTPException(status_code=400, detail="refresh_token이 필요합니다")
+
+    token_data = verify_token(refresh_token, expected_type="refresh")
+    if not token_data or not token_data.user_id:
+        raise HTTPException(status_code=401, detail="유효하지 않은 리프레시 토큰입니다")
+
+    user = db.query(User).filter(User.id == token_data.user_id).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="사용자를 찾을 수 없습니다")
+
+    return create_tokens_for_user(user)
+
+
+@app.get("/api/auth/me", response_model=UserResponse)
+async def auth_me(current_user: User = Depends(get_current_user)):
+    """현재 로그인 사용자 정보"""
+    return UserResponse(
+        id=current_user.id,
+        email=current_user.email,
+        name=current_user.name,
+        picture=current_user.picture,
+        role=current_user.role,
+        plan=current_user.plan,
+        plan_expires_at=current_user.plan_expires_at,
+        created_at=current_user.created_at,
+    )
+
+
+@app.post("/api/auth/logout")
+async def auth_logout():
+    """로그아웃 (클라이언트에서 토큰 삭제)"""
+    # JWT는 stateless이므로 서버에서 할 작업 없음
+    # 클라이언트에서 토큰을 삭제해야 함
+    return {"ok": True, "message": "로그아웃되었습니다. 클라이언트에서 토큰을 삭제하세요."}
+
+
+# =========================
+# [ADMIN_V1] 관리자 전용 API
+# =========================
+from typing import List
+
+@app.get("/api/admin/users")
+async def admin_list_users(
+    limit: int = Query(default=50, le=200),
+    offset: int = Query(default=0, ge=0),
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+):
+    """전체 사용자 목록 (관리자 전용)"""
+    users = db.query(User).order_by(User.created_at.desc()).offset(offset).limit(limit).all()
+    total = db.query(User).count()
+
+    return {
+        "ok": True,
+        "users": [
+            {
+                "id": u.id,
+                "email": u.email,
+                "name": u.name,
+                "role": u.role,
+                "plan": u.plan,
+                "last_login_at": u.last_login_at.isoformat() if u.last_login_at else None,
+                "created_at": u.created_at.isoformat() if u.created_at else None,
+            }
+            for u in users
+        ],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+@app.get("/api/admin/stats")
+async def admin_stats(
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+):
+    """관리자 통계 (관리자 전용)"""
+    # 사용자 통계
+    total_users = db.query(User).count()
+    admin_users = db.query(User).filter(User.role == "admin").count()
+
+    # 플랜별 통계
+    free_users = db.query(User).filter(User.plan == "free").count()
+    hub_users = db.query(User).filter(User.plan == "hub").count()
+    premium_users = db.query(User).filter(User.plan == "premium").count()
+
+    # 계정 통계
+    try:
+        total_accounts = db.execute(text("SELECT COUNT(*) FROM accounts")).scalar() or 0
+        active_accounts = db.execute(text("SELECT COUNT(*) FROM accounts WHERE is_active = true")).scalar() or 0
+    except Exception:
+        total_accounts = 0
+        active_accounts = 0
+
+    # 주문 통계
+    try:
+        total_orders = db.execute(text("SELECT COUNT(*) FROM orders")).scalar() or 0
+        today_orders = db.execute(text(
+            "SELECT COUNT(*) FROM orders WHERE created_at >= CURRENT_DATE"
+        )).scalar() or 0
+    except Exception:
+        total_orders = 0
+        today_orders = 0
+
+    return {
+        "ok": True,
+        "users": {
+            "total": total_users,
+            "admin": admin_users,
+            "by_plan": {
+                "free": free_users,
+                "hub": hub_users,
+                "premium": premium_users,
+            },
+        },
+        "accounts": {
+            "total": total_accounts,
+            "active": active_accounts,
+        },
+        "orders": {
+            "total": total_orders,
+            "today": today_orders,
+        },
+    }
+
+
+@app.put("/api/admin/users/{user_id}/role")
+async def admin_update_user_role(
+    user_id: int,
+    request: Request,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+):
+    """사용자 역할 변경 (관리자 전용)"""
+    try:
+        body = await request.json()
+        new_role = body.get("role")
+    except Exception:
+        raise HTTPException(status_code=400, detail="role이 필요합니다")
+
+    if new_role not in ("admin", "user"):
+        raise HTTPException(status_code=400, detail="role은 admin 또는 user여야 합니다")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
+
+    user.role = new_role
+    db.commit()
+
+    return {"ok": True, "user_id": user_id, "new_role": new_role}
+
+
+@app.put("/api/admin/users/{user_id}/plan")
+async def admin_update_user_plan(
+    user_id: int,
+    request: Request,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+):
+    """사용자 플랜 변경 (관리자 전용)"""
+    try:
+        body = await request.json()
+        new_plan = body.get("plan")
+        expires_at = body.get("expires_at")  # ISO format string or null
+    except Exception:
+        raise HTTPException(status_code=400, detail="plan이 필요합니다")
+
+    if new_plan not in ("free", "hub", "premium"):
+        raise HTTPException(status_code=400, detail="plan은 free, hub, premium 중 하나여야 합니다")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
+
+    user.plan = new_plan
+    if expires_at:
+        from datetime import datetime as dt
+        user.plan_expires_at = dt.fromisoformat(expires_at.replace("Z", "+00:00"))
+    else:
+        user.plan_expires_at = None
+
+    db.commit()
+
+    return {"ok": True, "user_id": user_id, "new_plan": new_plan, "expires_at": expires_at}
 
 
 # =========================

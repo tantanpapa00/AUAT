@@ -10,6 +10,24 @@ CREATE TABLE IF NOT EXISTS system_flags (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Users (Google OAuth)
+CREATE TABLE IF NOT EXISTS users (
+    id BIGSERIAL PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE,
+    name TEXT,
+    picture TEXT,
+    role TEXT NOT NULL DEFAULT 'user',
+    google_id TEXT UNIQUE,
+    plan TEXT NOT NULL DEFAULT 'free',
+    plan_expires_at TIMESTAMPTZ,
+    last_login_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id);
+
 -- Accounts
 CREATE TABLE IF NOT EXISTS accounts (
     id BIGSERIAL PRIMARY KEY,

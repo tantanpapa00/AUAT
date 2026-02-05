@@ -26,6 +26,31 @@ class Account(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
 
+class User(Base):
+    """
+    사용자 모델 (Google OAuth)
+    """
+    __tablename__ = "users"
+
+    id = Column(BigInteger, primary_key=True)
+    email = Column(Text, nullable=False, unique=True, index=True)
+    name = Column(Text, nullable=True)
+    picture = Column(Text, nullable=True)  # Google 프로필 사진 URL
+    role = Column(Text, nullable=False, default="user")  # admin, user
+
+    # Google OAuth
+    google_id = Column(Text, nullable=True, unique=True)
+
+    # 구독 정보
+    plan = Column(Text, nullable=False, default="free")  # free, hub, premium
+    plan_expires_at = Column(DateTime(timezone=True), nullable=True)
+
+    # 메타
+    last_login_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
 class Event(Base):
     """
     타임라인 이벤트 모델 (Week 10)
