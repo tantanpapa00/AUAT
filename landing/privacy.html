@@ -4,80 +4,196 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>개인정보처리방침 - BBooster</title>
+  <meta name="description" content="BBooster 개인정보처리방침" />
   <style>
     :root{
       --bg:#0b1220;
       --card:#111a2e;
+      --card2:#0d1525;
       --line:#22304a;
       --text:#e5e7eb;
       --muted:#9ca3af;
       --pri:#60a5fa;
+      --pri2:#93c5fd;
+      --ok:#34d399;
+      --warn:#fbbf24;
+      --bad:#f87171;
+      --red:#DC2626;
+      --red2:#EF4444;
+      --shadow: 0 10px 40px rgba(0,0,0,.4);
+      --radius:16px;
       --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", Arial, sans-serif;
     }
     *{ box-sizing:border-box; margin:0; padding:0; }
+    html{ scroll-behavior:smooth; }
     body{
       font-family:var(--sans);
-      background: var(--bg);
+      background: radial-gradient(ellipse 1400px 800px at 30% 0%, rgba(220,38,38,.12), transparent 60%),
+                  radial-gradient(ellipse 1200px 700px at 70% 20%, rgba(96,165,250,.12), transparent 55%),
+                  var(--bg);
       color:var(--text);
       min-height:100vh;
-      line-height:1.7;
+      line-height:1.6;
     }
+
+    /* Header */
     header{
-      padding:20px 24px;
+      position:fixed; top:0; left:0; right:0; z-index:100;
+      padding:14px 24px;
+      background: rgba(11,18,32,.9);
+      backdrop-filter: blur(12px);
       border-bottom:1px solid var(--line);
-      background: rgba(17,26,46,.7);
     }
     .header-inner{
-      max-width:900px; margin:0 auto;
-      display:flex; align-items:center; justify-content:space-between;
+      max-width:1200px; margin:0 auto;
+      display:flex; align-items:center; justify-content:space-between; gap:20px;
     }
     .logo{
-      font-size:18px; font-weight:900;
-      color:var(--text); text-decoration:none;
+      font-size:22px; font-weight:900; letter-spacing:.5px;
+      color:var(--text);
+      text-decoration:none;
     }
-    .logo span{ color:var(--pri); }
+    .logo span{ color:var(--red2); }
+    nav{ display:flex; gap:20px; align-items:center; }
     nav a{
-      color:var(--muted); text-decoration:none; font-size:14px;
-      margin-left:20px;
+      color:var(--muted); text-decoration:none; font-weight:600; font-size:14px;
+      transition:.15s;
     }
     nav a:hover{ color:var(--text); }
-    main{
-      max-width:900px; margin:0 auto;
-      padding:48px 24px;
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center; gap:8px;
+      padding:10px 22px; border-radius:999px;
+      font-weight:700; font-size:14px;
+      text-decoration:none; cursor:pointer; border:none;
+      transition:.2s;
     }
-    h1{
-      font-size:2rem; font-weight:800; margin-bottom:12px;
+    .btn-primary{
+      background: linear-gradient(135deg, var(--red), var(--red2));
+      color:#fff;
+      box-shadow: 0 4px 20px rgba(220,38,38,.35);
     }
-    .updated{
-      color:var(--muted); font-size:.9rem; margin-bottom:32px;
+    .btn-primary:hover{ filter:brightness(1.1); transform:translateY(-1px); }
+
+    /* Content */
+    .content{
+      max-width:900px;
+      margin:0 auto;
+      padding:120px 24px 80px;
     }
-    h2{
-      font-size:1.2rem; font-weight:700; margin:32px 0 12px;
-      color:var(--pri);
+    .content h1{
+      font-size:2.2rem;
+      font-weight:800;
+      margin-bottom:12px;
+      color:var(--text);
     }
-    p, ul, ol{
-      margin-bottom:16px; color:var(--text);
+    .content .subtitle{
+      color:var(--muted);
+      margin-bottom:48px;
+      font-size:1rem;
     }
-    ul, ol{ padding-left:24px; }
-    li{ margin-bottom:8px; }
+    .content h2{
+      font-size:1.3rem;
+      font-weight:700;
+      margin:40px 0 16px;
+      color:var(--text);
+      padding-bottom:8px;
+      border-bottom:1px solid var(--line);
+    }
+    .content h3{
+      font-size:1.1rem;
+      font-weight:600;
+      margin:24px 0 12px;
+      color:var(--pri2);
+    }
+    .content p{
+      color:var(--muted);
+      margin-bottom:16px;
+      line-height:1.8;
+    }
+    .content ul, .content ol{
+      color:var(--muted);
+      margin:0 0 16px 24px;
+      line-height:1.8;
+    }
+    .content li{
+      margin-bottom:8px;
+    }
+    .content strong{
+      color:var(--text);
+    }
+    .highlight-box{
+      background: rgba(220,38,38,.1);
+      border:1px solid rgba(220,38,38,.3);
+      border-radius: var(--radius);
+      padding:20px 24px;
+      margin:24px 0;
+    }
+    .highlight-box p{
+      margin:0;
+      color:var(--text);
+    }
+    .info-box{
+      background: rgba(96,165,250,.1);
+      border:1px solid rgba(96,165,250,.3);
+      border-radius: var(--radius);
+      padding:20px 24px;
+      margin:24px 0;
+    }
+    .info-box p{
+      margin:0;
+      color:var(--text);
+    }
     table{
-      width:100%; border-collapse:collapse; margin:16px 0;
+      width:100%;
+      border-collapse:collapse;
+      margin:16px 0;
     }
     th, td{
-      border:1px solid var(--line);
-      padding:12px;
+      padding:12px 16px;
       text-align:left;
-      font-size:.9rem;
+      border-bottom:1px solid var(--line);
     }
     th{
-      background: rgba(17,26,46,.8);
-      color:var(--pri);
+      color:var(--text);
+      font-weight:600;
+      background: rgba(17,26,46,.6);
     }
+    td{
+      color:var(--muted);
+    }
+
+    /* Footer */
     footer{
-      padding:32px 24px;
+      padding:40px 24px;
       border-top:1px solid var(--line);
       text-align:center;
+    }
+    .footer-inner{
+      max-width:1100px; margin:0 auto;
+      display:flex; flex-direction:column; gap:16px; align-items:center;
+    }
+    .footer-brand{
+      font-size:1.1rem; font-weight:800; color:var(--text);
+    }
+    .footer-brand span{ color:var(--red2); font-weight:600; }
+    .footer-links{
+      display:flex; gap:24px; flex-wrap:wrap; justify-content:center;
+    }
+    .footer-links a{
+      color:var(--muted); text-decoration:none; font-size:.9rem;
+      transition:.15s;
+    }
+    .footer-links a:hover{ color:var(--text); }
+    .footer-links a.active{ color:var(--red2); }
+    .footer-copy{
       color:var(--muted); font-size:.85rem;
+    }
+
+    @media (max-width: 768px){
+      nav{ display:none; }
+      .content h1{ font-size:1.8rem; }
+      table{ font-size:.9rem; }
+      th, td{ padding:8px 12px; }
     }
   </style>
 </head>
@@ -85,123 +201,187 @@
 
 <header>
   <div class="header-inner">
-    <a href="/" class="logo">B<span>Booster</span></a>
+    <a href="index.html" class="logo">B<span>Booster</span></a>
     <nav>
-      <a href="/">Home</a>
-      <a href="/terms.html">Terms</a>
-      <a href="/risk.html">Risk</a>
+      <a href="index.html#products">제품</a>
+      <a href="index.html#exchanges">거래소</a>
+      <a href="index.html#features">기능</a>
+      <a href="index.html#pricing">가격</a>
+      <a href="index.html#faq">FAQ</a>
     </nav>
+    <a href="index.html" class="btn btn-primary">홈으로</a>
   </div>
 </header>
 
-<main>
+<main class="content">
   <h1>개인정보처리방침</h1>
-  <p class="updated">최종 수정일: 2026년 2월 4일</p>
+  <p class="subtitle">시행일: 2026년 1월 1일 | 최종 수정일: 2026년 2월 5일</p>
 
   <p>
-    BBooster(이하 "서비스")는 이용자의 개인정보를 중요시하며,
-    「개인정보 보호법」 등 관련 법령을 준수하고 있습니다.
-    본 개인정보처리방침은 서비스가 수집하는 개인정보의 항목, 수집 및 이용목적,
-    보유 및 이용기간, 제3자 제공 등에 관한 사항을 안내합니다.
+    큐브시스템(이하 "회사")은 정보통신망 이용촉진 및 정보보호 등에 관한 법률, 개인정보보호법 등 관련 법령에 따라 이용자의 개인정보를 보호하고 이와 관련한 고충을 신속하게 처리하기 위하여 다음과 같이 개인정보처리방침을 수립합니다.
   </p>
 
-  <h2>1. 수집하는 개인정보 항목</h2>
+  <h2>제1조 (수집하는 개인정보)</h2>
+  <p>회사는 서비스 제공을 위해 최소한의 개인정보만을 수집합니다:</p>
+
+  <h3>1.1 필수 수집 항목</h3>
   <table>
-    <thead>
-      <tr>
-        <th>구분</th>
-        <th>수집 항목</th>
-        <th>수집 방법</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>필수</td>
-        <td>거래소 API 키, API 시크릿, API 패스프레이즈</td>
-        <td>이용자 직접 입력</td>
-      </tr>
-      <tr>
-        <td>자동 수집</td>
-        <td>웹훅 요청 로그, IP 주소, 접속 시간</td>
-        <td>서비스 이용 시 자동 생성</td>
-      </tr>
-      <tr>
-        <td>선택</td>
-        <td>계정 이름, 전략 이름, 메모</td>
-        <td>이용자 직접 입력</td>
-      </tr>
-    </tbody>
+    <tr>
+      <th>항목</th>
+      <th>수집 목적</th>
+    </tr>
+    <tr>
+      <td>이메일 주소</td>
+      <td>계정 생성, 로그인, 중요 공지 발송</td>
+    </tr>
+    <tr>
+      <td>거래소 API 키</td>
+      <td>거래소 연동 및 주문 실행</td>
+    </tr>
   </table>
 
-  <h2>2. 개인정보의 수집 및 이용 목적</h2>
+  <h3>1.2 자동 수집 항목</h3>
+  <table>
+    <tr>
+      <th>항목</th>
+      <th>수집 목적</th>
+    </tr>
+    <tr>
+      <td>접속 로그 (IP, 접속 시간)</td>
+      <td>보안 및 부정 이용 방지</td>
+    </tr>
+    <tr>
+      <td>서비스 이용 기록</td>
+      <td>서비스 개선 및 통계 분석</td>
+    </tr>
+  </table>
+
+  <div class="info-box">
+    <p><strong>API 키 관련 안내:</strong> 회사는 <strong>출금(Withdraw) 권한이 없는</strong> API 키만 사용하도록 강력히 권장합니다. 출금 권한이 있는 API 키는 등록을 거부할 수 있습니다.</p>
+  </div>
+
+  <h2>제2조 (개인정보의 처리 목적)</h2>
+  <p>회사는 수집한 개인정보를 다음의 목적으로만 처리합니다:</p>
+  <ol>
+    <li><strong>서비스 제공</strong>: 회원 가입, 로그인, 서비스 이용</li>
+    <li><strong>주문 실행</strong>: 거래소 API를 통한 매매 주문 전달</li>
+    <li><strong>고객 지원</strong>: 문의 응대, 불만 처리, 공지사항 전달</li>
+    <li><strong>서비스 개선</strong>: 이용 통계 분석, 신규 기능 개발</li>
+    <li><strong>보안</strong>: 부정 이용 방지, 보안 위협 대응</li>
+  </ol>
+
+  <h2>제3조 (개인정보의 보유 및 파기)</h2>
+  <h3>3.1 보유 기간</h3>
+  <table>
+    <tr>
+      <th>항목</th>
+      <th>보유 기간</th>
+    </tr>
+    <tr>
+      <td>계정 정보 (이메일)</td>
+      <td>회원 탈퇴 후 30일</td>
+    </tr>
+    <tr>
+      <td>거래소 API 키</td>
+      <td>회원 탈퇴 즉시 삭제</td>
+    </tr>
+    <tr>
+      <td>접속 로그</td>
+      <td>3개월</td>
+    </tr>
+    <tr>
+      <td>거래 기록</td>
+      <td>회원 탈퇴 후 30일</td>
+    </tr>
+  </table>
+
+  <h3>3.2 파기 절차 및 방법</h3>
   <ul>
-    <li>거래소 API 연동을 통한 자동 매매 서비스 제공</li>
-    <li>웹훅 수신 및 주문 실행</li>
-    <li>서비스 이용 기록 관리 및 문제 해결</li>
-    <li>서비스 개선 및 통계 분석</li>
+    <li>전자적 파일 형태: 복구 불가능한 방법으로 영구 삭제</li>
+    <li>API 키: 암호화 키와 함께 즉시 영구 삭제</li>
   </ul>
 
-  <h2>3. 개인정보의 보유 및 이용 기간</h2>
-  <p>
-    이용자의 개인정보는 서비스 이용 기간 동안 보유하며,
-    이용자가 계정을 삭제하거나 서비스 탈퇴를 요청하는 경우 지체 없이 파기합니다.
-    단, 관련 법령에 따라 보존이 필요한 경우 해당 기간 동안 보관합니다.
-  </p>
-  <ul>
-    <li>거래 관련 기록: 5년 (전자상거래 등에서의 소비자보호에 관한 법률)</li>
-    <li>접속 로그: 3개월 (통신비밀보호법)</li>
-  </ul>
-
-  <h2>4. 개인정보의 제3자 제공</h2>
-  <p>
-    서비스는 이용자의 개인정보를 원칙적으로 외부에 제공하지 않습니다.
-    다만, 다음의 경우에는 예외로 합니다:
-  </p>
-  <ul>
+  <h2>제4조 (개인정보의 제3자 제공)</h2>
+  <p>회사는 이용자의 개인정보를 제3자에게 제공하지 않습니다. 단, 다음의 경우는 예외로 합니다:</p>
+  <ol>
     <li>이용자가 사전에 동의한 경우</li>
-    <li>법령의 규정에 의거하거나 수사 목적으로 법령에 정해진 절차와 방법에 따라 수사기관의 요구가 있는 경우</li>
-  </ul>
+    <li>법령에 의하여 제공이 요구되는 경우</li>
+    <li>서비스 제공을 위해 필요한 범위 내에서 거래소에 주문을 전달하는 경우 (API 키 사용)</li>
+  </ol>
 
-  <h2>5. 개인정보의 안전성 확보 조치</h2>
+  <div class="highlight-box">
+    <p><strong>명확히 하면:</strong> 회사는 이용자의 API 키를 이용하여 거래소에 주문만 전달합니다. 개인정보 자체를 거래소에 제공하지 않으며, API 키를 제3자에게 공유하지 않습니다.</p>
+  </div>
+
+  <h2>제5조 (API 키 보안)</h2>
+  <p>회사는 이용자의 API 키를 다음과 같이 안전하게 보호합니다:</p>
   <ul>
-    <li>API 키 등 민감 정보의 암호화 저장</li>
-    <li>SSL/TLS를 통한 데이터 전송 암호화</li>
-    <li>접근 권한 관리 및 로그 기록</li>
-    <li>정기적인 보안 점검</li>
+    <li><strong>암호화 저장</strong>: AES-256 암호화 알고리즘으로 암호화하여 저장</li>
+    <li><strong>전송 보안</strong>: TLS 1.2 이상의 암호화 통신으로 전송</li>
+    <li><strong>접근 제한</strong>: 주문 실행 시에만 복호화하여 사용</li>
+    <li><strong>로그 제외</strong>: API 키는 로그에 기록되지 않음</li>
+    <li><strong>권한 제한</strong>: 출금 권한이 없는 API 키만 권장</li>
   </ul>
 
-  <h2>6. 이용자의 권리</h2>
+  <h2>제6조 (이용자의 권리)</h2>
   <p>이용자는 언제든지 다음의 권리를 행사할 수 있습니다:</p>
+  <ol>
+    <li><strong>개인정보 열람 요구</strong>: 본인의 개인정보 처리 현황 확인</li>
+    <li><strong>개인정보 정정 요구</strong>: 부정확한 정보의 정정 요청</li>
+    <li><strong>개인정보 삭제 요구</strong>: 회원 탈퇴를 통한 개인정보 삭제</li>
+    <li><strong>처리 정지 요구</strong>: 개인정보 처리의 정지 요청</li>
+  </ol>
+  <p>권리 행사는 서비스 내 설정 메뉴 또는 고객센터를 통해 가능합니다.</p>
+
+  <h2>제7조 (쿠키의 사용)</h2>
+  <p>회사는 서비스 제공을 위해 쿠키를 사용할 수 있습니다:</p>
   <ul>
-    <li>개인정보 열람 요구</li>
-    <li>개인정보 정정 및 삭제 요구</li>
-    <li>개인정보 처리정지 요구</li>
-    <li>계정 삭제 및 서비스 탈퇴</li>
+    <li><strong>필수 쿠키</strong>: 로그인 유지, 세션 관리</li>
+    <li><strong>분석 쿠키</strong>: 서비스 이용 통계 (익명화)</li>
   </ul>
+  <p>이용자는 브라우저 설정을 통해 쿠키 저장을 거부할 수 있습니다.</p>
 
-  <h2>7. 개인정보 보호책임자</h2>
+  <h2>제8조 (개인정보 보호책임자)</h2>
+  <p>회사는 개인정보 처리에 관한 업무를 총괄하는 개인정보 보호책임자를 다음과 같이 지정합니다:</p>
+  <table>
+    <tr>
+      <th>구분</th>
+      <th>내용</th>
+    </tr>
+    <tr>
+      <td>직책</td>
+      <td>개인정보 보호책임자</td>
+    </tr>
+    <tr>
+      <td>이메일</td>
+      <td>privacy@qube.com</td>
+    </tr>
+  </table>
+
+  <h2>제9조 (개인정보처리방침의 변경)</h2>
   <p>
-    개인정보 처리에 관한 업무를 총괄해서 책임지고,
-    개인정보 처리와 관련한 이용자의 불만처리 및 피해구제 등을 위하여
-    개인정보 보호책임자를 지정하고 있습니다.
-  </p>
-  <ul>
-    <li>개인정보 보호책임자: 운영팀</li>
-    <li>연락처: 서비스 내 문의</li>
-  </ul>
-
-  <h2>8. 개인정보처리방침의 변경</h2>
-  <p>
-    본 개인정보처리방침은 법령, 정책 또는 보안기술의 변경에 따라 내용이 추가, 삭제 및 수정될 수 있습니다.
-    변경 시에는 서비스 내 공지사항을 통해 안내합니다.
+    본 개인정보처리방침은 관련 법령 또는 회사 정책의 변경에 따라 변경될 수 있습니다. 변경 시 서비스 내 공지사항을 통해 최소 7일 전에 안내합니다.
   </p>
 
-  <h2>부칙</h2>
-  <p>본 개인정보처리방침은 2026년 2월 4일부터 시행합니다.</p>
+  <div class="info-box">
+    <p><strong>문의:</strong> 개인정보 관련 문의는 privacy@qube.com 으로 연락해 주시기 바랍니다.</p>
+  </div>
 </main>
 
 <footer>
-  &copy; 2026 BBooster. All rights reserved.
+  <div class="footer-inner">
+    <div class="footer-brand">
+      큐브시스템 <span>Quint Booster Engine System</span>
+    </div>
+    <div class="footer-links">
+      <a href="terms.html">이용약관</a>
+      <a href="privacy.html" class="active">개인정보처리방침</a>
+      <a href="risk.html">투자위험고지</a>
+    </div>
+    <div class="footer-copy">
+      &copy; 2026 QUBE System (큐브시스템). All rights reserved.
+    </div>
+  </div>
 </footer>
 
 </body>

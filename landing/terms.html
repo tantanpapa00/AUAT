@@ -4,67 +4,165 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>이용약관 - BBooster</title>
+  <meta name="description" content="BBooster 이용약관" />
   <style>
     :root{
       --bg:#0b1220;
       --card:#111a2e;
+      --card2:#0d1525;
       --line:#22304a;
       --text:#e5e7eb;
       --muted:#9ca3af;
       --pri:#60a5fa;
+      --pri2:#93c5fd;
+      --ok:#34d399;
+      --warn:#fbbf24;
+      --bad:#f87171;
+      --red:#DC2626;
+      --red2:#EF4444;
+      --shadow: 0 10px 40px rgba(0,0,0,.4);
+      --radius:16px;
       --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", Arial, sans-serif;
     }
     *{ box-sizing:border-box; margin:0; padding:0; }
+    html{ scroll-behavior:smooth; }
     body{
       font-family:var(--sans);
-      background: var(--bg);
+      background: radial-gradient(ellipse 1400px 800px at 30% 0%, rgba(220,38,38,.12), transparent 60%),
+                  radial-gradient(ellipse 1200px 700px at 70% 20%, rgba(96,165,250,.12), transparent 55%),
+                  var(--bg);
       color:var(--text);
       min-height:100vh;
-      line-height:1.7;
+      line-height:1.6;
     }
+
+    /* Header */
     header{
-      padding:20px 24px;
+      position:fixed; top:0; left:0; right:0; z-index:100;
+      padding:14px 24px;
+      background: rgba(11,18,32,.9);
+      backdrop-filter: blur(12px);
       border-bottom:1px solid var(--line);
-      background: rgba(17,26,46,.7);
     }
     .header-inner{
-      max-width:900px; margin:0 auto;
-      display:flex; align-items:center; justify-content:space-between;
+      max-width:1200px; margin:0 auto;
+      display:flex; align-items:center; justify-content:space-between; gap:20px;
     }
     .logo{
-      font-size:18px; font-weight:900;
-      color:var(--text); text-decoration:none;
+      font-size:22px; font-weight:900; letter-spacing:.5px;
+      color:var(--text);
+      text-decoration:none;
     }
-    .logo span{ color:var(--pri); }
+    .logo span{ color:var(--red2); }
+    nav{ display:flex; gap:20px; align-items:center; }
     nav a{
-      color:var(--muted); text-decoration:none; font-size:14px;
-      margin-left:20px;
+      color:var(--muted); text-decoration:none; font-weight:600; font-size:14px;
+      transition:.15s;
     }
     nav a:hover{ color:var(--text); }
-    main{
-      max-width:900px; margin:0 auto;
-      padding:48px 24px;
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center; gap:8px;
+      padding:10px 22px; border-radius:999px;
+      font-weight:700; font-size:14px;
+      text-decoration:none; cursor:pointer; border:none;
+      transition:.2s;
     }
-    h1{
-      font-size:2rem; font-weight:800; margin-bottom:12px;
+    .btn-primary{
+      background: linear-gradient(135deg, var(--red), var(--red2));
+      color:#fff;
+      box-shadow: 0 4px 20px rgba(220,38,38,.35);
     }
-    .updated{
-      color:var(--muted); font-size:.9rem; margin-bottom:32px;
+    .btn-primary:hover{ filter:brightness(1.1); transform:translateY(-1px); }
+
+    /* Content */
+    .content{
+      max-width:900px;
+      margin:0 auto;
+      padding:120px 24px 80px;
     }
-    h2{
-      font-size:1.2rem; font-weight:700; margin:32px 0 12px;
-      color:var(--pri);
+    .content h1{
+      font-size:2.2rem;
+      font-weight:800;
+      margin-bottom:12px;
+      color:var(--text);
     }
-    p, ul, ol{
-      margin-bottom:16px; color:var(--text);
+    .content .subtitle{
+      color:var(--muted);
+      margin-bottom:48px;
+      font-size:1rem;
     }
-    ul, ol{ padding-left:24px; }
-    li{ margin-bottom:8px; }
+    .content h2{
+      font-size:1.3rem;
+      font-weight:700;
+      margin:40px 0 16px;
+      color:var(--text);
+      padding-bottom:8px;
+      border-bottom:1px solid var(--line);
+    }
+    .content h3{
+      font-size:1.1rem;
+      font-weight:600;
+      margin:24px 0 12px;
+      color:var(--pri2);
+    }
+    .content p{
+      color:var(--muted);
+      margin-bottom:16px;
+      line-height:1.8;
+    }
+    .content ul, .content ol{
+      color:var(--muted);
+      margin:0 0 16px 24px;
+      line-height:1.8;
+    }
+    .content li{
+      margin-bottom:8px;
+    }
+    .content strong{
+      color:var(--text);
+    }
+    .highlight-box{
+      background: rgba(220,38,38,.1);
+      border:1px solid rgba(220,38,38,.3);
+      border-radius: var(--radius);
+      padding:20px 24px;
+      margin:24px 0;
+    }
+    .highlight-box p{
+      margin:0;
+      color:var(--text);
+    }
+
+    /* Footer */
     footer{
-      padding:32px 24px;
+      padding:40px 24px;
       border-top:1px solid var(--line);
       text-align:center;
+    }
+    .footer-inner{
+      max-width:1100px; margin:0 auto;
+      display:flex; flex-direction:column; gap:16px; align-items:center;
+    }
+    .footer-brand{
+      font-size:1.1rem; font-weight:800; color:var(--text);
+    }
+    .footer-brand span{ color:var(--red2); font-weight:600; }
+    .footer-links{
+      display:flex; gap:24px; flex-wrap:wrap; justify-content:center;
+    }
+    .footer-links a{
+      color:var(--muted); text-decoration:none; font-size:.9rem;
+      transition:.15s;
+    }
+    .footer-links a:hover{ color:var(--text); }
+    .footer-links a.active{ color:var(--red2); }
+    .footer-copy{
       color:var(--muted); font-size:.85rem;
+    }
+
+    @media (max-width: 768px){
+      nav{ display:none; }
+      .content h1{ font-size:1.8rem; }
     }
   </style>
 </head>
@@ -72,83 +170,142 @@
 
 <header>
   <div class="header-inner">
-    <a href="/" class="logo">B<span>Booster</span></a>
+    <a href="index.html" class="logo">B<span>Booster</span></a>
     <nav>
-      <a href="/">Home</a>
-      <a href="/privacy.html">Privacy</a>
-      <a href="/risk.html">Risk</a>
+      <a href="index.html#products">제품</a>
+      <a href="index.html#exchanges">거래소</a>
+      <a href="index.html#features">기능</a>
+      <a href="index.html#pricing">가격</a>
+      <a href="index.html#faq">FAQ</a>
     </nav>
+    <a href="index.html" class="btn btn-primary">홈으로</a>
   </div>
 </header>
 
-<main>
+<main class="content">
   <h1>이용약관</h1>
-  <p class="updated">최종 수정일: 2026년 2월 4일</p>
+  <p class="subtitle">시행일: 2026년 1월 1일 | 최종 수정일: 2026년 2월 5일</p>
 
   <h2>제1조 (목적)</h2>
   <p>
-    본 약관은 BBooster(이하 "서비스")가 제공하는 자동 매매 관련 서비스의 이용조건 및 절차,
-    회사와 이용자의 권리, 의무, 책임사항과 기타 필요한 사항을 규정함을 목적으로 합니다.
+    본 약관은 큐브시스템(이하 "회사")이 제공하는 BBooster 자동매매 브릿지/허브 소프트웨어 서비스(이하 "서비스")의 이용조건 및 절차, 회사와 이용자의 권리, 의무, 책임사항 및 기타 필요한 사항을 규정함을 목적으로 합니다.
   </p>
 
-  <h2>제2조 (용어의 정의)</h2>
+  <h2>제2조 (서비스의 정의)</h2>
+  <p>BBooster는 다음과 같은 자동매매 브릿지/허브 소프트웨어 서비스입니다:</p>
   <ul>
-    <li><b>"서비스"</b>란 BBooster가 제공하는 TradingView 웹훅 기반 자동 매매 시스템 및 관련 기능을 의미합니다.</li>
-    <li><b>"이용자"</b>란 본 약관에 따라 서비스를 이용하는 자를 의미합니다.</li>
-    <li><b>"API 키"</b>란 거래소 연동을 위해 이용자가 등록하는 접근 인증 정보를 의미합니다.</li>
+    <li><strong>허브형(Hub)</strong>: TradingView에서 발생하는 웹훅 신호를 수신하여 연동된 거래소에 주문을 전달하는 주문 중계 서비스</li>
+    <li><strong>프리미엄형(Premium)</strong>: 회사가 제공하는 내장 전략 엔진을 통해 추세/역추세/커스텀 규칙 기반 주문을 실행하는 서비스</li>
   </ul>
+  <div class="highlight-box">
+    <p><strong>중요:</strong> 본 서비스는 주문 중계 도구일 뿐이며, 투자 자문, 투자 추천, 자산 관리 서비스가 아닙니다. 모든 투자 판단과 결정은 이용자 본인의 책임입니다.</p>
+  </div>
 
-  <h2>제3조 (약관의 효력 및 변경)</h2>
+  <h2>제3조 (이용자 자격)</h2>
+  <p>본 서비스를 이용하려면 다음 조건을 충족해야 합니다:</p>
   <ol>
-    <li>본 약관은 서비스 화면에 게시하거나 기타의 방법으로 이용자에게 공지함으로써 효력이 발생합니다.</li>
-    <li>회사는 필요한 경우 관련 법령을 위반하지 않는 범위에서 본 약관을 변경할 수 있으며, 변경된 약관은 제1항과 같은 방법으로 공지합니다.</li>
-    <li>이용자가 변경된 약관에 동의하지 않는 경우 서비스 이용을 중단하고 탈퇴할 수 있습니다.</li>
+    <li>만 19세 이상의 성인</li>
+    <li>본인 명의의 거래소 계좌 보유자</li>
+    <li>본인 명의의 API 키 사용자</li>
+    <li>해당 국가/지역에서 암호화폐 또는 주식 거래가 합법적으로 허용된 자</li>
+    <li>본 약관 및 투자위험고지에 동의한 자</li>
   </ol>
 
-  <h2>제4조 (서비스의 제공)</h2>
-  <p>회사는 다음과 같은 서비스를 제공합니다:</p>
+  <h2>제4조 (서비스 범위 및 한계)</h2>
+  <h3>4.1 서비스가 제공하는 것</h3>
   <ul>
-    <li>TradingView 웹훅 수신 및 처리</li>
-    <li>거래소 API를 통한 자동 주문 실행</li>
-    <li>전략 관리 및 모니터링 대시보드</li>
+    <li>TradingView 웹훅 신호 수신 및 거래소 주문 전달</li>
+    <li>내장 전략 엔진을 통한 주문 실행 (Premium)</li>
+    <li>거래 기록 및 타임라인 조회</li>
     <li>E-STOP 긴급 정지 기능</li>
-    <li>기타 회사가 정하는 서비스</li>
+    <li>포지션 사이징 및 안전 가드 기능</li>
+  </ul>
+  <h3>4.2 서비스가 제공하지 않는 것</h3>
+  <ul>
+    <li>투자 조언, 추천, 자문</li>
+    <li>수익 보장</li>
+    <li>손실 보전</li>
+    <li>거래소 계정 관리 (출금 등)</li>
   </ul>
 
-  <h2>제5조 (이용자의 의무)</h2>
+  <h2>제5조 (금지 행위)</h2>
+  <p>이용자는 다음 행위를 해서는 안 됩니다:</p>
   <ol>
-    <li>이용자는 본 약관 및 관계 법령을 준수하여야 합니다.</li>
-    <li>이용자는 자신의 API 키를 안전하게 관리하여야 하며, 제3자에게 노출되지 않도록 주의하여야 합니다.</li>
-    <li>이용자는 자신의 거래 활동에 대해 전적인 책임을 집니다.</li>
-    <li>이용자는 서비스를 불법적인 목적으로 사용해서는 안 됩니다.</li>
+    <li>서비스의 역공학(reverse engineering), 디컴파일, 디스어셈블</li>
+    <li>서비스의 무단 복제, 수정, 배포, 재판매</li>
+    <li>타인의 계정, API 키를 도용하여 서비스 이용</li>
+    <li>서비스를 이용한 불법 행위 (자금 세탁, 시세 조종 등)</li>
+    <li>서비스 시스템에 대한 해킹, DDoS 공격 등 보안 위협 행위</li>
+    <li>허위 정보를 이용한 계정 생성</li>
+    <li>서비스 이용 중 얻은 정보의 상업적 이용</li>
   </ol>
 
-  <h2>제6조 (면책조항)</h2>
-  <ol>
-    <li>회사는 이용자의 투자 결정이나 거래 결과에 대해 책임지지 않습니다.</li>
-    <li>회사는 천재지변, 전쟁, 기간통신사업자의 서비스 중지, 거래소 API 장애 등 불가항력으로 인한 서비스 중단에 대해 책임지지 않습니다.</li>
-    <li>회사는 이용자가 등록한 API 키의 보안 및 관리에 대해 책임지지 않습니다.</li>
-    <li>자동 매매 시스템의 특성상 시스템 오류, 네트워크 지연, 거래소 장애 등으로 인해 의도치 않은 결과가 발생할 수 있으며, 이에 대해 회사는 책임지지 않습니다.</li>
-  </ol>
-
-  <h2>제7조 (서비스 이용의 제한)</h2>
+  <h2>제6조 (면책 조항)</h2>
+  <h3>6.1 투자 손실</h3>
   <p>
-    회사는 이용자가 본 약관을 위반하거나 서비스의 정상적인 운영을 방해하는 경우,
-    사전 통지 없이 서비스 이용을 제한하거나 계정을 정지시킬 수 있습니다.
+    회사는 이용자가 서비스를 이용하여 발생한 투자 손실에 대해 어떠한 책임도 지지 않습니다. 모든 투자 결정은 이용자 본인의 판단과 책임 하에 이루어집니다.
+  </p>
+  <h3>6.2 시스템 장애</h3>
+  <p>
+    회사는 천재지변, 전쟁, 테러, 정전, 네트워크 장애, 서버 장애 등 불가항력적 사유로 인한 서비스 중단 및 이로 인한 손해에 대해 책임지지 않습니다.
+  </p>
+  <h3>6.3 거래소 장애</h3>
+  <p>
+    회사는 연동된 거래소(OKX, 한국투자증권, Binance, Bybit, Upbit 등)의 시스템 장애, 점검, API 변경, 서비스 중단 등으로 인한 주문 실패 또는 지연에 대해 책임지지 않습니다.
+  </p>
+  <h3>6.4 TradingView 장애</h3>
+  <p>
+    회사는 TradingView의 시스템 장애, 웹훅 지연, 서비스 변경 등으로 인한 신호 전달 실패에 대해 책임지지 않습니다.
   </p>
 
-  <h2>제8조 (분쟁 해결)</h2>
+  <h2>제7조 (환불 정책)</h2>
+  <p>유료 서비스의 환불은 다음과 같이 적용됩니다:</p>
+  <ul>
+    <li>결제 후 7일 이내, 서비스 미이용 시: 전액 환불</li>
+    <li>결제 후 7일 이내, 서비스 이용 시: 이용 일수 차감 후 환불</li>
+    <li>결제 후 7일 경과: 환불 불가</li>
+  </ul>
+  <p>단, 회사의 귀책사유로 인한 서비스 이용 불가 시에는 전액 환불합니다.</p>
+
+  <h2>제8조 (서비스 변경 및 중단)</h2>
   <p>
-    본 약관과 관련하여 분쟁이 발생한 경우, 양 당사자는 원만한 해결을 위해 노력하며,
-    합의가 이루어지지 않는 경우 관할 법원에 소를 제기할 수 있습니다.
+    회사는 운영상, 기술상의 필요에 따라 서비스의 전부 또는 일부를 변경하거나 중단할 수 있습니다. 서비스 변경 또는 중단 시 최소 30일 전에 서비스 내 공지사항을 통해 안내합니다.
   </p>
 
-  <h2>부칙</h2>
-  <p>본 약관은 2026년 2월 4일부터 시행합니다.</p>
+  <h2>제9조 (개인정보 보호)</h2>
+  <p>
+    회사의 개인정보 처리에 관한 사항은 별도의 <a href="privacy.html" style="color:var(--pri);">개인정보처리방침</a>에 따릅니다.
+  </p>
+
+  <h2>제10조 (분쟁 해결)</h2>
+  <p>
+    본 약관과 관련하여 발생하는 모든 분쟁은 대한민국 법률에 따라 해석되며, 관련 소송의 관할법원은 회사의 본사 소재지를 관할하는 법원으로 합니다.
+  </p>
+
+  <h2>제11조 (약관의 효력 및 변경)</h2>
+  <p>
+    본 약관은 서비스 화면에 게시하거나 기타의 방법으로 이용자에게 공지함으로써 효력을 발생합니다. 회사는 필요한 경우 관련 법령을 위배하지 않는 범위에서 본 약관을 변경할 수 있으며, 변경 시 적용일자 및 변경사유를 명시하여 최소 7일 전에 공지합니다.
+  </p>
+
+  <div class="highlight-box">
+    <p><strong>문의:</strong> 본 약관에 대한 문의사항은 고객센터 또는 이메일(support@qube.com)로 연락해 주시기 바랍니다.</p>
+  </div>
 </main>
 
 <footer>
-  &copy; 2026 BBooster. All rights reserved.
+  <div class="footer-inner">
+    <div class="footer-brand">
+      큐브시스템 <span>Quint Booster Engine System</span>
+    </div>
+    <div class="footer-links">
+      <a href="terms.html" class="active">이용약관</a>
+      <a href="privacy.html">개인정보처리방침</a>
+      <a href="risk.html">투자위험고지</a>
+    </div>
+    <div class="footer-copy">
+      &copy; 2026 QUBE System (큐브시스템). All rights reserved.
+    </div>
+  </div>
 </footer>
 
 </body>

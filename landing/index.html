@@ -3,12 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>BBooster - QUBE Trading Automation</title>
-  <meta name="description" content="BBooster QUBE - TradingView 웹훅 기반 자동 매매 시스템. OKX, KIS, Binance, Bybit, Upbit 지원." />
+  <title>BBooster - TradingView 자동매매 허브</title>
+  <meta name="description" content="BBooster - TradingView 신호를 실시간으로 실행하는 자동매매 허브. OKX, KIS, Binance, Bybit, Upbit 지원." />
   <style>
     :root{
       --bg:#0b1220;
       --card:#111a2e;
+      --card2:#0d1525;
       --line:#22304a;
       --text:#e5e7eb;
       --muted:#9ca3af;
@@ -17,6 +18,8 @@
       --ok:#34d399;
       --warn:#fbbf24;
       --bad:#f87171;
+      --red:#DC2626;
+      --red2:#EF4444;
       --shadow: 0 10px 40px rgba(0,0,0,.4);
       --radius:16px;
       --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", Arial, sans-serif;
@@ -25,8 +28,8 @@
     html{ scroll-behavior:smooth; }
     body{
       font-family:var(--sans);
-      background: radial-gradient(ellipse 1400px 800px at 30% 0%, rgba(96,165,250,.18), transparent 60%),
-                  radial-gradient(ellipse 1200px 700px at 70% 20%, rgba(52,211,153,.12), transparent 55%),
+      background: radial-gradient(ellipse 1400px 800px at 30% 0%, rgba(220,38,38,.12), transparent 60%),
+                  radial-gradient(ellipse 1200px 700px at 70% 20%, rgba(96,165,250,.12), transparent 55%),
                   var(--bg);
       color:var(--text);
       min-height:100vh;
@@ -36,8 +39,8 @@
     /* Header */
     header{
       position:fixed; top:0; left:0; right:0; z-index:100;
-      padding:16px 24px;
-      background: rgba(11,18,32,.85);
+      padding:14px 24px;
+      background: rgba(11,18,32,.9);
       backdrop-filter: blur(12px);
       border-bottom:1px solid var(--line);
     }
@@ -46,12 +49,12 @@
       display:flex; align-items:center; justify-content:space-between; gap:20px;
     }
     .logo{
-      font-size:20px; font-weight:900; letter-spacing:.5px;
+      font-size:22px; font-weight:900; letter-spacing:.5px;
       color:var(--text);
       text-decoration:none;
     }
-    .logo span{ color:var(--pri); }
-    nav{ display:flex; gap:24px; align-items:center; }
+    .logo span{ color:var(--red2); }
+    nav{ display:flex; gap:20px; align-items:center; }
     nav a{
       color:var(--muted); text-decoration:none; font-weight:600; font-size:14px;
       transition:.15s;
@@ -59,15 +62,15 @@
     nav a:hover{ color:var(--text); }
     .btn{
       display:inline-flex; align-items:center; justify-content:center; gap:8px;
-      padding:10px 20px; border-radius:999px;
+      padding:10px 22px; border-radius:999px;
       font-weight:700; font-size:14px;
       text-decoration:none; cursor:pointer; border:none;
       transition:.2s;
     }
     .btn-primary{
-      background: linear-gradient(135deg, var(--pri), #3b82f6);
+      background: linear-gradient(135deg, var(--red), var(--red2));
       color:#fff;
-      box-shadow: 0 4px 20px rgba(96,165,250,.35);
+      box-shadow: 0 4px 20px rgba(220,38,38,.35);
     }
     .btn-primary:hover{ filter:brightness(1.1); transform:translateY(-1px); }
     .btn-secondary{
@@ -77,134 +80,278 @@
     }
     .btn-secondary:hover{ background: rgba(148,163,184,.2); }
 
-    /* Hero */
-    .hero{
-      padding:140px 24px 80px;
-      text-align:center;
-    }
-    .hero-inner{ max-width:900px; margin:0 auto; }
-    .hero h1{
-      font-size:clamp(2.5rem, 6vw, 4rem);
-      font-weight:900;
-      line-height:1.15;
-      margin-bottom:20px;
-      background: linear-gradient(135deg, var(--text) 20%, var(--pri) 50%, var(--ok) 80%);
-      -webkit-background-clip:text; background-clip:text;
-      -webkit-text-fill-color:transparent;
-    }
-    .hero p{
-      font-size:1.2rem; color:var(--muted);
-      max-width:650px; margin:0 auto 32px;
-    }
-    .hero-actions{ display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
-
-    /* Features */
-    .features{
-      padding:80px 24px;
-      background: rgba(17,26,46,.5);
-    }
-    .features-inner{ max-width:1100px; margin:0 auto; }
+    /* Section common */
+    section{ padding:80px 24px; }
+    .section-inner{ max-width:1100px; margin:0 auto; }
     .section-title{
       text-align:center; font-size:2rem; font-weight:800; margin-bottom:12px;
     }
     .section-subtitle{
-      text-align:center; color:var(--muted); margin-bottom:48px;
+      text-align:center; color:var(--muted); margin-bottom:48px; font-size:1.05rem;
     }
-    .features-grid{
+
+    /* Hero */
+    .hero{
+      padding:150px 24px 100px;
+      text-align:center;
+    }
+    .hero-inner{ max-width:900px; margin:0 auto; }
+    .hero-badge{
+      display:inline-block;
+      padding:6px 16px;
+      background: rgba(220,38,38,.15);
+      border:1px solid rgba(220,38,38,.3);
+      border-radius:999px;
+      font-size:.85rem;
+      color:var(--red2);
+      font-weight:600;
+      margin-bottom:24px;
+    }
+    .hero h1{
+      font-size:clamp(2.5rem, 6vw, 3.8rem);
+      font-weight:900;
+      line-height:1.15;
+      margin-bottom:20px;
+    }
+    .hero h1 .highlight{
+      background: linear-gradient(135deg, var(--red2), var(--pri));
+      -webkit-background-clip:text; background-clip:text;
+      -webkit-text-fill-color:transparent;
+    }
+    .hero p{
+      font-size:1.25rem; color:var(--muted);
+      max-width:650px; margin:0 auto 36px;
+    }
+    .hero-actions{ display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+
+    /* Product Types */
+    .products{ background: rgba(17,26,46,.5); }
+    .products-grid{
       display:grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap:24px;
+      grid-template-columns: repeat(2, 1fr);
+      gap:28px;
     }
-    .feature-card{
+    @media (max-width: 768px){ .products-grid{ grid-template-columns: 1fr; } }
+    .product-card{
       background: rgba(17,26,46,.7);
       border:1px solid var(--line);
       border-radius: var(--radius);
-      padding:28px 24px;
+      padding:36px 32px;
       box-shadow: var(--shadow);
       transition:.2s;
     }
-    .feature-card:hover{
+    .product-card:hover{
       transform:translateY(-4px);
-      border-color: rgba(96,165,250,.35);
+      border-color: rgba(220,38,38,.35);
     }
-    .feature-icon{
-      font-size:2.5rem; margin-bottom:16px;
+    .product-card.premium{
+      border-color: rgba(220,38,38,.4);
+      background: linear-gradient(135deg, rgba(220,38,38,.08), rgba(17,26,46,.7));
     }
-    .feature-card h3{
-      font-size:1.15rem; font-weight:700; margin-bottom:10px;
+    .product-badge{
+      display:inline-block;
+      padding:4px 12px;
+      border-radius:999px;
+      font-size:.75rem;
+      font-weight:700;
+      margin-bottom:16px;
     }
-    .feature-card p{
-      color:var(--muted); font-size:.95rem;
+    .product-badge.hub{ background: rgba(96,165,250,.2); color:var(--pri); }
+    .product-badge.premium{ background: rgba(220,38,38,.2); color:var(--red2); }
+    .product-card h3{
+      font-size:1.4rem; font-weight:800; margin-bottom:12px;
+    }
+    .product-card p{
+      color:var(--muted); font-size:.95rem; line-height:1.7;
+    }
+    .product-features{
+      margin-top:20px;
+      display:flex; flex-direction:column; gap:8px;
+    }
+    .product-features li{
+      list-style:none;
+      display:flex; align-items:center; gap:10px;
+      font-size:.9rem; color:var(--text);
+    }
+    .product-features li::before{
+      content:"";
+      width:6px; height:6px;
+      background:var(--ok);
+      border-radius:50%;
     }
 
     /* Exchanges */
-    .exchanges{
-      padding:80px 24px;
-    }
     .exchanges-inner{ max-width:900px; margin:0 auto; text-align:center; }
     .exchange-logos{
-      display:flex; justify-content:center; gap:40px; flex-wrap:wrap;
+      display:flex; justify-content:center; gap:20px; flex-wrap:wrap;
       margin-top:32px;
     }
     .exchange-item{
       display:flex; flex-direction:column; align-items:center; gap:10px;
-      padding:20px 28px;
+      padding:24px 32px;
       background: rgba(17,26,46,.6);
       border:1px solid var(--line);
       border-radius: var(--radius);
-      min-width:120px;
+      min-width:130px;
+      transition:.2s;
+    }
+    .exchange-item:hover{
+      border-color: rgba(96,165,250,.35);
+      transform:translateY(-2px);
     }
     .exchange-item span{
-      font-size:2rem;
+      font-size:2.2rem;
     }
     .exchange-item b{
       font-size:.9rem; color:var(--muted);
     }
 
-    /* How it works */
-    .how{
-      padding:80px 24px;
-      background: rgba(17,26,46,.4);
-    }
-    .how-inner{ max-width:1000px; margin:0 auto; }
-    .how-steps{
+    /* Features */
+    .features{ background: rgba(17,26,46,.4); }
+    .features-grid{
       display:grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap:28px;
-      margin-top:40px;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap:20px;
     }
-    .step{
-      text-align:center;
-      padding:24px 20px;
+    .feature-card{
       background: rgba(17,26,46,.6);
       border:1px solid var(--line);
       border-radius: var(--radius);
+      padding:24px;
+      display:flex; align-items:flex-start; gap:16px;
+      transition:.2s;
     }
-    .step-num{
-      display:inline-flex; align-items:center; justify-content:center;
-      width:48px; height:48px;
-      background: linear-gradient(135deg, var(--pri), #3b82f6);
-      border-radius:50%;
-      font-size:1.3rem; font-weight:800; color:#fff;
-      margin-bottom:16px;
+    .feature-card:hover{
+      border-color: rgba(220,38,38,.3);
     }
-    .step h4{
-      font-size:1.05rem; margin-bottom:8px;
+    .feature-icon{
+      font-size:1.8rem;
+      flex-shrink:0;
     }
-    .step p{
-      font-size:.9rem; color:var(--muted);
+    .feature-card h3{
+      font-size:1rem; font-weight:700; margin-bottom:6px;
+    }
+    .feature-card p{
+      color:var(--muted); font-size:.9rem;
+    }
+
+    /* Pricing */
+    .pricing-grid{
+      display:grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap:24px;
+    }
+    @media (max-width: 900px){ .pricing-grid{ grid-template-columns: 1fr; } }
+    .price-card{
+      background: rgba(17,26,46,.7);
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      padding:32px 28px;
+      text-align:center;
+      transition:.2s;
+    }
+    .price-card:hover{
+      transform:translateY(-4px);
+    }
+    .price-card.featured{
+      border-color: rgba(220,38,38,.5);
+      background: linear-gradient(180deg, rgba(220,38,38,.1), rgba(17,26,46,.7));
+      position:relative;
+    }
+    .price-card.featured::before{
+      content:"BEST";
+      position:absolute;
+      top:-12px; left:50%; transform:translateX(-50%);
+      padding:4px 14px;
+      background: linear-gradient(135deg, var(--red), var(--red2));
+      border-radius:999px;
+      font-size:.7rem;
+      font-weight:800;
+      color:#fff;
+    }
+    .price-name{
+      font-size:1.3rem; font-weight:800; margin-bottom:8px;
+    }
+    .price-amount{
+      font-size:2rem; font-weight:900; margin-bottom:4px;
+    }
+    .price-period{
+      font-size:.85rem; color:var(--muted); margin-bottom:24px;
+    }
+    .price-features{
+      text-align:left;
+      margin-bottom:28px;
+    }
+    .price-features li{
+      list-style:none;
+      padding:8px 0;
+      border-bottom:1px solid rgba(34,48,74,.5);
+      font-size:.9rem;
+      color:var(--text);
+      display:flex; align-items:center; gap:10px;
+    }
+    .price-features li:last-child{ border-bottom:none; }
+    .price-features .check{ color:var(--ok); }
+    .price-features .cross{ color:var(--muted); opacity:.5; }
+
+    /* FAQ */
+    .faq{ background: rgba(17,26,46,.5); }
+    .faq-list{
+      max-width:800px;
+      margin:0 auto;
+      display:flex; flex-direction:column; gap:16px;
+    }
+    .faq-item{
+      background: rgba(17,26,46,.6);
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      overflow:hidden;
+    }
+    .faq-q{
+      padding:20px 24px;
+      font-weight:700;
+      font-size:1rem;
+      cursor:pointer;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      transition:.15s;
+    }
+    .faq-q:hover{ background: rgba(96,165,250,.05); }
+    .faq-q::after{
+      content:"+";
+      font-size:1.4rem;
+      color:var(--muted);
+      transition:.2s;
+    }
+    .faq-item.open .faq-q::after{
+      transform:rotate(45deg);
+    }
+    .faq-a{
+      padding:0 24px;
+      max-height:0;
+      overflow:hidden;
+      transition: max-height .3s ease, padding .3s ease;
+    }
+    .faq-item.open .faq-a{
+      padding:0 24px 20px;
+      max-height:300px;
+    }
+    .faq-a p{
+      color:var(--muted);
+      font-size:.95rem;
+      line-height:1.7;
     }
 
     /* CTA */
     .cta{
-      padding:80px 24px;
       text-align:center;
     }
     .cta-inner{
       max-width:700px; margin:0 auto;
-      padding:48px 40px;
-      background: linear-gradient(135deg, rgba(96,165,250,.12), rgba(52,211,153,.08));
-      border:1px solid rgba(96,165,250,.25);
+      padding:56px 40px;
+      background: linear-gradient(135deg, rgba(220,38,38,.12), rgba(96,165,250,.08));
+      border:1px solid rgba(220,38,38,.25);
       border-radius:24px;
     }
     .cta h2{
@@ -224,6 +371,10 @@
       max-width:1100px; margin:0 auto;
       display:flex; flex-direction:column; gap:16px; align-items:center;
     }
+    .footer-brand{
+      font-size:1.1rem; font-weight:800; color:var(--text);
+    }
+    .footer-brand span{ color:var(--red2); font-weight:600; }
     .footer-links{
       display:flex; gap:24px; flex-wrap:wrap; justify-content:center;
     }
@@ -239,9 +390,24 @@
     /* Responsive */
     @media (max-width: 768px){
       nav{ display:none; }
-      .hero h1{ font-size:2.2rem; }
-      .exchange-logos{ gap:20px; }
+      .hero h1{ font-size:2rem; }
+      .hero p{ font-size:1.05rem; }
+      .exchange-logos{ gap:12px; }
+      .exchange-item{ padding:16px 20px; min-width:100px; }
     }
+
+    /* Animation */
+    @keyframes fadeInUp {
+      from { opacity:0; transform:translateY(20px); }
+      to { opacity:1; transform:translateY(0); }
+    }
+    .animate{
+      animation: fadeInUp .6s ease forwards;
+      opacity:0;
+    }
+    .delay-1{ animation-delay:.1s; }
+    .delay-2{ animation-delay:.2s; }
+    .delay-3{ animation-delay:.3s; }
   </style>
 </head>
 <body>
@@ -250,74 +416,81 @@
   <div class="header-inner">
     <a href="/" class="logo">B<span>Booster</span></a>
     <nav>
-      <a href="#features">Features</a>
-      <a href="#exchanges">Exchanges</a>
-      <a href="#how">How it works</a>
+      <a href="#products">제품</a>
+      <a href="#exchanges">거래소</a>
+      <a href="#features">기능</a>
+      <a href="#pricing">가격</a>
+      <a href="#faq">FAQ</a>
     </nav>
-    <div style="display:flex;gap:10px;">
-      <a href="/dashboard" class="btn btn-secondary">Dashboard</a>
-      <a href="/dashboard" class="btn btn-primary">Get Started</a>
-    </div>
+    <a href="#" class="btn btn-primary">시작하기</a>
   </div>
 </header>
 
+<!-- Hero -->
 <section class="hero">
   <div class="hero-inner">
-    <h1>QUBE - Quint Booster Engine</h1>
-    <p>
-      TradingView 웹훅 기반 자동 매매 시스템.
-      전략 설정부터 주문 실행까지, 모든 것을 하나의 플랫폼에서.
+    <div class="hero-badge animate">큐브시스템 - Quint Booster Engine System</div>
+    <h1 class="animate delay-1">
+      TradingView 신호를<br/>
+      <span class="highlight">실시간으로 실행</span>하는<br/>
+      자동매매 허브
+    </h1>
+    <p class="animate delay-2">
+      전략 신호 수신부터 주문 실행까지, 안전하고 투명한 자동매매 시스템.
+      5개 거래소 지원, E-STOP 긴급 정지, 근거 투명 공개.
     </p>
-    <div class="hero-actions">
-      <a href="/dashboard" class="btn btn-primary">대시보드 시작하기</a>
-      <a href="#how" class="btn btn-secondary">작동 방식 보기</a>
+    <div class="hero-actions animate delay-3">
+      <a href="#" class="btn btn-primary">시작하기</a>
+      <a href="#products" class="btn btn-secondary">자세히 보기</a>
     </div>
   </div>
 </section>
 
-<section class="features" id="features">
-  <div class="features-inner">
-    <h2 class="section-title">Why BBooster?</h2>
-    <p class="section-subtitle">강력하고 유연한 자동 매매 솔루션</p>
-    <div class="features-grid">
-      <div class="feature-card">
-        <div class="feature-icon">📡</div>
-        <h3>TradingView Webhook</h3>
-        <p>TradingView 알림과 완벽하게 연동. 전략 시그널을 실시간으로 수신하고 즉시 주문 실행.</p>
+<!-- Product Types -->
+<section class="products" id="products">
+  <div class="section-inner">
+    <h2 class="section-title">제품 소개</h2>
+    <p class="section-subtitle">사용 목적에 맞는 플랜을 선택하세요</p>
+    <div class="products-grid">
+      <div class="product-card">
+        <span class="product-badge hub">HUB</span>
+        <h3>허브형</h3>
+        <p>
+          TradingView에서 직접 전략을 만들고, BBooster가 신호를 받아 자동으로 실행합니다.
+          사이징, 가드, 기록까지 모두 자동화.
+        </p>
+        <ul class="product-features">
+          <li>TradingView 웹훅 연동</li>
+          <li>자동 주문 실행</li>
+          <li>포지션 사이징</li>
+          <li>안전 가드 (E-STOP)</li>
+          <li>거래 기록 및 타임라인</li>
+        </ul>
       </div>
-      <div class="feature-card">
-        <div class="feature-icon">🔌</div>
-        <h3>멀티 거래소 지원</h3>
-        <p>OKX, KIS, Binance, Bybit, Upbit 등 주요 거래소 API 연동. 하나의 전략으로 다양한 거래소에서 실행.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">🛑</div>
-        <h3>E-STOP 긴급 정지</h3>
-        <p>이상 상황 발생 시 원클릭으로 모든 주문 즉시 차단. 웹, PC앱, 모바일 어디서든 제어.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">📊</div>
-        <h3>실시간 모니터링</h3>
-        <p>타임라인, 주문 내역, 커넥터 상태를 한눈에. 모든 거래 활동을 투명하게 추적.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">🧠</div>
-        <h3>전략 관리</h3>
-        <p>PineScript 파라미터 자동 파싱. 설정 해시 기반 버전 관리로 전략 변경 추적.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">🐳</div>
-        <h3>Docker 배포</h3>
-        <p>docker-compose 한 줄로 완벽한 환경 구성. PostgreSQL + App + ngrok 통합 제공.</p>
+      <div class="product-card premium">
+        <span class="product-badge premium">PREMIUM</span>
+        <h3>프리미엄형</h3>
+        <p>
+          BBooster 내장 엔진으로 추세/역추세/커스텀 전략을 실행합니다.
+          모든 매매 근거를 투명하게 공개.
+        </p>
+        <ul class="product-features">
+          <li>내장 전략 엔진 (추세/역추세)</li>
+          <li>커스텀 Rule Builder</li>
+          <li>매매 근거 투명 공개</li>
+          <li>스냅샷 기반 재현 가능</li>
+          <li>15분봉 이상 권장 (슬리피지 최소화)</li>
+        </ul>
       </div>
     </div>
   </div>
 </section>
 
+<!-- Exchanges -->
 <section class="exchanges" id="exchanges">
   <div class="exchanges-inner">
     <h2 class="section-title">지원 거래소</h2>
-    <p class="section-subtitle">주요 글로벌 및 국내 거래소 연동</p>
+    <p class="section-subtitle">국내외 주요 거래소 5곳 지원</p>
     <div class="exchange-logos">
       <div class="exchange-item">
         <span>🔶</span>
@@ -325,7 +498,7 @@
       </div>
       <div class="exchange-item">
         <span>🏦</span>
-        <b>KIS</b>
+        <b>한국투자증권</b>
       </div>
       <div class="exchange-item">
         <span>🟡</span>
@@ -343,56 +516,182 @@
   </div>
 </section>
 
-<section class="how" id="how">
-  <div class="how-inner">
-    <h2 class="section-title">How it works</h2>
-    <p class="section-subtitle">간단한 4단계로 자동 매매 시작</p>
-    <div class="how-steps">
-      <div class="step">
-        <div class="step-num">1</div>
-        <h4>거래소 계정 등록</h4>
-        <p>API 키를 등록하고 거래소 연결을 확인합니다.</p>
+<!-- Features -->
+<section class="features" id="features">
+  <div class="section-inner">
+    <h2 class="section-title">주요 기능</h2>
+    <p class="section-subtitle">안전하고 투명한 자동매매를 위한 핵심 기능</p>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🔌</div>
+        <div>
+          <h3>5개 거래소 지원</h3>
+          <p>OKX, KIS, Binance, Bybit, Upbit 현물 거래 지원</p>
+        </div>
       </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <h4>전략 설정</h4>
-        <p>TradingView 전략 파라미터를 동기화하고 설정을 저장합니다.</p>
+      <div class="feature-card">
+        <div class="feature-icon">📡</div>
+        <div>
+          <h3>TradingView 웹훅 브릿지</h3>
+          <p>TradingView 알림을 실시간으로 수신하고 즉시 주문 실행</p>
+        </div>
       </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <h4>자산 연결</h4>
-        <p>계정과 전략을 심볼에 연결하여 자동 매매 자산을 구성합니다.</p>
+      <div class="feature-card">
+        <div class="feature-icon">🛑</div>
+        <div>
+          <h3>E-STOP 긴급 정지</h3>
+          <p>웹, PC, 모바일 어디서든 원클릭으로 모든 주문 즉시 차단</p>
+        </div>
       </div>
-      <div class="step">
-        <div class="step-num">4</div>
-        <h4>웹훅 설정</h4>
-        <p>TradingView에 웹훅 URL을 등록하면 자동 매매가 시작됩니다.</p>
+      <div class="feature-card">
+        <div class="feature-icon">📋</div>
+        <div>
+          <h3>타임라인/근거 투명 공개</h3>
+          <p>모든 거래의 이유와 근거를 타임라인으로 투명하게 확인</p>
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🧠</div>
+        <div>
+          <h3>커스텀 Rule Builder</h3>
+          <p>MA, BB, RSI, MACD 등 인디케이터로 나만의 규칙 생성</p>
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📱</div>
+        <div>
+          <h3>PC + 모바일 앱</h3>
+          <p>Tauri PC앱과 Flutter 모바일앱으로 어디서든 관리</p>
+        </div>
       </div>
     </div>
   </div>
 </section>
 
+<!-- Pricing -->
+<section class="pricing" id="pricing">
+  <div class="section-inner">
+    <h2 class="section-title">가격</h2>
+    <p class="section-subtitle">목적에 맞는 플랜을 선택하세요</p>
+    <div class="pricing-grid">
+      <div class="price-card">
+        <div class="price-name">Free</div>
+        <div class="price-amount">Coming Soon</div>
+        <div class="price-period">무료 체험</div>
+        <ul class="price-features">
+          <li><span class="check">✓</span> 1개 심볼</li>
+          <li><span class="check">✓</span> TradingView 웹훅</li>
+          <li><span class="check">✓</span> 기본 타임라인</li>
+          <li><span class="cross">-</span> Premium 전략</li>
+          <li><span class="cross">-</span> 커스텀 Rule Builder</li>
+        </ul>
+        <a href="#" class="btn btn-secondary" style="width:100%;">시작하기</a>
+      </div>
+      <div class="price-card featured">
+        <div class="price-name">Hub</div>
+        <div class="price-amount">Coming Soon</div>
+        <div class="price-period">월간 구독</div>
+        <ul class="price-features">
+          <li><span class="check">✓</span> 무제한 심볼</li>
+          <li><span class="check">✓</span> TradingView 웹훅</li>
+          <li><span class="check">✓</span> 전체 타임라인</li>
+          <li><span class="check">✓</span> E-STOP 긴급 정지</li>
+          <li><span class="cross">-</span> Premium 전략</li>
+        </ul>
+        <a href="#" class="btn btn-primary" style="width:100%;">시작하기</a>
+      </div>
+      <div class="price-card">
+        <div class="price-name">Premium</div>
+        <div class="price-amount">Coming Soon</div>
+        <div class="price-period">월간 구독</div>
+        <ul class="price-features">
+          <li><span class="check">✓</span> Hub 기능 전체 포함</li>
+          <li><span class="check">✓</span> 추세/역추세 전략</li>
+          <li><span class="check">✓</span> 커스텀 Rule Builder</li>
+          <li><span class="check">✓</span> 근거 스냅샷 제공</li>
+          <li><span class="check">✓</span> 우선 지원</li>
+        </ul>
+        <a href="#" class="btn btn-secondary" style="width:100%;">시작하기</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="faq" id="faq">
+  <div class="section-inner">
+    <h2 class="section-title">자주 묻는 질문</h2>
+    <p class="section-subtitle">BBooster에 대해 궁금한 점을 확인하세요</p>
+    <div class="faq-list">
+      <div class="faq-item">
+        <div class="faq-q">BBooster는 무엇인가요?</div>
+        <div class="faq-a">
+          <p>BBooster는 TradingView 전략 신호를 받아 거래소에 자동으로 주문을 실행하는 자동매매 허브입니다. 직접 전략을 만들거나, 내장된 Premium 전략을 사용할 수 있습니다.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">어떤 거래소를 지원하나요?</div>
+        <div class="faq-a">
+          <p>현재 OKX, 한국투자증권(KIS), Binance, Bybit, Upbit 5개 거래소의 현물 거래를 지원합니다. 선물(Futures) 거래는 지원하지 않습니다.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">투자 원금 손실 가능성이 있나요?</div>
+        <div class="faq-a">
+          <p>예, 모든 투자에는 원금 손실 위험이 있습니다. BBooster는 자동매매 도구일 뿐, 투자 수익을 보장하지 않습니다. 투자 결정은 본인의 판단과 책임 하에 이루어져야 합니다.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">API 키는 안전한가요?</div>
+        <div class="faq-a">
+          <p>API 키는 암호화되어 저장되며, 출금 권한이 없는 키만 사용하도록 권장합니다. 또한 E-STOP 기능으로 이상 상황 시 즉시 모든 주문을 차단할 수 있습니다.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">수수료가 있나요?</div>
+        <div class="faq-a">
+          <p>BBooster 자체 수수료와 거래소 거래 수수료는 별개입니다. BBooster 이용료는 플랜별로 다르며, 거래소 수수료는 각 거래소 정책에 따릅니다.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
 <section class="cta">
   <div class="cta-inner">
     <h2>지금 시작하세요</h2>
-    <p>Docker로 몇 분 만에 자동 매매 환경을 구축할 수 있습니다.</p>
-    <a href="/dashboard" class="btn btn-primary">대시보드로 이동</a>
+    <p>TradingView 전략을 실시간 자동매매로 전환하세요.</p>
+    <a href="#" class="btn btn-primary">무료로 시작하기</a>
   </div>
 </section>
 
+<!-- Footer -->
 <footer>
   <div class="footer-inner">
+    <div class="footer-brand">
+      큐브시스템 <span>Quint Booster Engine System</span>
+    </div>
     <div class="footer-links">
-      <a href="/terms.html">이용약관</a>
-      <a href="/privacy.html">개인정보처리방침</a>
-      <a href="/risk.html">투자위험고지</a>
-      <a href="/dashboard">Dashboard</a>
+      <a href="terms.html">이용약관</a>
+      <a href="privacy.html">개인정보처리방침</a>
+      <a href="risk.html">투자위험고지</a>
     </div>
     <div class="footer-copy">
-      &copy; 2026 BBooster. All rights reserved.
+      &copy; 2026 QUBE System (큐브시스템). All rights reserved.
     </div>
   </div>
 </footer>
+
+<script>
+  // FAQ accordion
+  document.querySelectorAll('.faq-q').forEach(q => {
+    q.addEventListener('click', () => {
+      const item = q.parentElement;
+      item.classList.toggle('open');
+    });
+  });
+</script>
 
 </body>
 </html>
