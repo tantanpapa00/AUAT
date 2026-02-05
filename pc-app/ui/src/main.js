@@ -1,5 +1,249 @@
 import { invoke } from '@tauri-apps/api/tauri';
+import { open } from '@tauri-apps/api/shell';
 import { API_BASE_URL, CONNECTION_TIMEOUT, MAX_RETRIES } from './config.js';
+
+// =====================================================
+// Authentication State
+// =====================================================
+const auth = {
+    accessToken: null,
+    refreshToken: null,
+    user: null,
+    isHubMode: false, // 허브 모드 (로그인 없이 사용)
+
+    saveTokens(access, refresh) {
+        this.accessToken = access;
+        this.refreshToken = refresh;
+        localStorage.setItem('bbooster_access_token', access || '');
+        localStorage.setItem('bbooster_refresh_token', refresh || '');
+    },
+
+    loadTokens() {
+        this.accessToken = localStorage.getItem('bbooster_access_token') || null;
+        this.refreshToken = localStorage.getItem('bbooster_refresh_token') || null;
+        this.isHubMode = localStorage.getItem('bbooster_hub_mode') === 'true';
+    },
+
+    clearTokens() {
+        this.accessToken = null;
+        this.refreshToken = null;
+        this.user = null;
+        this.isHubMode = false;
+        localStorage.removeItem('bbooster_access_token');
+        localStorage.removeItem('bbooster_refresh_token');
+        localStorage.removeItem('bbooster_hub_mode');
+    },
+
+    setHubMode(enabled) {
+        this.isHubMode = enabled;
+        localStorage.setItem('bbooster_hub_mode', enabled ? 'true' : 'false');
+    },
+
+    isLoggedIn() {
+        return !!this.accessToken || this.isHubMode;
+    }
+};
+
+// =====================================================
+// Login Screen Functions
+// =====================================================
+const loginScreen = document.getElementById('login-screen');
+const btnGoogleLogin = document.getElementById('btn-google-login');
+const btnSkipLogin = document.getElementById('btn-skip-login');
+
+function showLoginScreen() {
+    if (loginScreen) loginScreen.style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+}
+
+function hideLoginScreen() {
+    if (loginScreen) loginScreen.style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+}
+
+// Google 로그인 (브라우저로 열기)
+async function loginWithGoogle() {
+    try {
+        // 브라우저에서 OAuth 로그인 페이지 열기
+        await open(`${API_BASE_URL}/api/auth/google/login`);
+
+        // 사용자에게 안내
+        showToast('브라우저에서 로그인을 완료해주세요', 'info');
+
+        // 로그인 확인 폴링 시작
+        startLoginPolling();
+    } catch (error) {
+        console.error('Google login failed:', error);
+        showToast('로그인 페이지를 열 수 없습니다', 'error');
+    }
+}
+
+// 로그인 완료 폴링 (웹에서 로그인 후 토큰 확인)
+let loginPollingInterval = null;
+function startLoginPolling() {
+    // 이미 폴링 중이면 중지
+    if (loginPollingInterval) clearInterval(loginPollingInterval);
+
+    let attempts = 0;
+    const maxAttempts = 60; // 2분 타임아웃 (2초 간격)
+
+    loginPollingInterval = setInterval(async () => {
+        attempts++;
+
+        // 로컬 스토리지에서 토큰 확인 (웹에서 저장됨)
+        auth.loadTokens();
+        if (auth.accessToken) {
+            clearInterval(loginPollingInterval);
+            loginPollingInterval = null;
+
+            // 사용자 정보 로드
+            await loadUserInfo();
+            hideLoginScreen();
+            showToast('로그인 성공', 'success');
+            checkServerConnection();
+            return;
+        }
+
+        if (attempts >= maxAttempts) {
+            clearInterval(loginPollingInterval);
+            loginPollingInterval = null;
+            showToast('로그인 시간이 초과되었습니다', 'warning');
+        }
+    }, 2000);
+}
+
+// 허브 모드 (로그인 없이 계속)
+function skipLogin() {
+    auth.setHubMode(true);
+    hideLoginScreen();
+    updateUserUI({ name: '허브 모드', plan: 'hub', role: 'user' });
+    showToast('허브 모드로 시작합니다', 'info');
+    checkServerConnection();
+}
+
+// 사용자 정보 로드
+async function loadUserInfo() {
+    if (!auth.accessToken) return;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+            headers: { 'Authorization': `Bearer ${auth.accessToken}` }
+        });
+
+        if (response.ok) {
+            auth.user = await response.json();
+            updateUserUI(auth.user);
+        } else if (response.status === 401) {
+            // 토큰 만료 - 리프레시 시도
+            await refreshAuthToken();
+        }
+    } catch (error) {
+        console.error('Failed to load user info:', error);
+    }
+}
+
+// 토큰 갱신
+async function refreshAuthToken() {
+    if (!auth.refreshToken) {
+        auth.clearTokens();
+        showLoginScreen();
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refresh_token: auth.refreshToken })
+        });
+
+        if (response.ok) {
+            const tokens = await response.json();
+            auth.saveTokens(tokens.access_token, tokens.refresh_token);
+            await loadUserInfo();
+        } else {
+            auth.clearTokens();
+            showLoginScreen();
+        }
+    } catch (error) {
+        console.error('Token refresh failed:', error);
+        auth.clearTokens();
+        showLoginScreen();
+    }
+}
+
+// UI 사용자 정보 업데이트
+function updateUserUI(user) {
+    // 구독 뱃지 업데이트
+    const badge = document.getElementById('subscription-badge');
+    const badgeText = document.getElementById('subscription-text');
+
+    if (user.plan === 'premium') {
+        badge.className = 'subscription-badge premium';
+        badgeText.textContent = '프리미엄';
+    } else if (user.plan === 'hub') {
+        badge.className = 'subscription-badge hub';
+        badgeText.textContent = '허브형';
+    } else {
+        badge.className = 'subscription-badge free';
+        badgeText.textContent = '무료';
+    }
+}
+
+// 로그아웃
+async function logout() {
+    auth.clearTokens();
+    showLoginScreen();
+    showToast('로그아웃되었습니다', 'info');
+}
+
+// 인증 상태 확인 및 초기화
+async function initAuth() {
+    auth.loadTokens();
+
+    if (auth.isHubMode) {
+        // 허브 모드
+        hideLoginScreen();
+        updateUserUI({ name: '허브 모드', plan: 'hub', role: 'user' });
+        return true;
+    }
+
+    if (auth.accessToken) {
+        // 토큰 있음 - 유효성 검사
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+                headers: { 'Authorization': `Bearer ${auth.accessToken}` }
+            });
+
+            if (response.ok) {
+                auth.user = await response.json();
+                updateUserUI(auth.user);
+                hideLoginScreen();
+                return true;
+            } else {
+                // 토큰 무효 - 갱신 시도
+                await refreshAuthToken();
+                if (auth.accessToken) {
+                    hideLoginScreen();
+                    return true;
+                }
+            }
+        } catch (error) {
+            // 서버 연결 실패 - 일단 진행 (허브 모드처럼)
+            console.log('Auth check failed, continuing in offline mode');
+            hideLoginScreen();
+            return true;
+        }
+    }
+
+    // 로그인 필요
+    showLoginScreen();
+    return false;
+}
+
+// 이벤트 리스너
+btnGoogleLogin?.addEventListener('click', loginWithGoogle);
+btnSkipLogin?.addEventListener('click', skipLogin);
 
 // =====================================================
 // Connection State
@@ -1559,14 +1803,22 @@ document.getElementById('payment-modal')?.addEventListener('click', (e) => {
 // =====================================================
 // Initialize
 // =====================================================
-checkServerConnection();
+(async () => {
+    // 인증 상태 확인
+    const isAuthenticated = await initAuth();
 
-// Load subscription status after connection
-setTimeout(() => {
-    if (isConnected) {
-        loadSubscriptionStatus();
+    if (isAuthenticated) {
+        // 로그인 또는 허브 모드 - 서버 연결 확인
+        checkServerConnection();
+
+        // Load subscription status after connection
+        setTimeout(() => {
+            if (isConnected) {
+                loadSubscriptionStatus();
+            }
+        }, 2000);
     }
-}, 2000);
+})();
 
 // Periodic status update (every 5 seconds)
 setInterval(() => {

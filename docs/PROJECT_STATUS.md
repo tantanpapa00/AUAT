@@ -1,5 +1,5 @@
 # PROJECT_STATUS.md (SSOT)
-- Last updated: 2026-02-05 (Day 4 Evening) KST
+- Last updated: 2026-02-05 (Day 5 — Google OAuth 구현) KST
 - Owner: 기훈(작가님)
 
 > NOTE: 이 파일이 '진실(SSOT)'입니다. 채팅은 인터페이스일 뿐.
@@ -1148,6 +1148,98 @@ powershell -ExecutionPolicy Bypass -File scripts\build-apk.ps1
 - 결제 시스템 백엔드 연동 (PG사 API)
 - 모바일 앱(Flutter APK) UX 업데이트 + 빌드
 - HTTPS/도메인 설정 (선택)
+
+---
+
+## Week 21 Day 5 — Google OAuth + 로그인 시스템 구현 (2026-02-05)
+
+### STEP 1: Google OAuth 2.0 + JWT 인증 백엔드 — DONE
+- app/auth.py 생성 (인증 모듈)
+  - OAuth 설정 (authlib, Google OpenID Connect)
+  - JWT 토큰 생성/검증 (python-jose, HS256)
+  - ADMIN_EMAILS 환경변수 기반 관리자 자동 지정
+  - get_current_user, get_admin_user 의존성
+- app/models.py에 User 모델 추가
+  - email, name, picture, role, plan, plan_expires_at
+  - google_id (OAuth 연동)
+- app/main.py에 인증 엔드포인트 추가
+  - GET /api/auth/google/login: Google OAuth 리다이렉트
+  - GET /api/auth/google/callback: OAuth 콜백 처리
+  - GET /api/auth/me: 현재 사용자 정보
+  - POST /api/auth/logout: 로그아웃
+  - POST /api/auth/refresh: 토큰 갱신
+- 관리자 전용 API
+  - GET /api/admin/users: 사용자 목록
+  - GET /api/admin/stats: 통계 (사용자/계정/주문)
+  - PUT /api/admin/users/{id}/role: 역할 변경
+  - PUT /api/admin/users/{id}/plan: 플랜 변경
+- requirements.txt 업데이트
+  - authlib==1.3.0
+  - httpx==0.27.0
+  - python-jose[cryptography]==3.3.0
+  - passlib[bcrypt]==1.7.4
+- .env.example 업데이트
+  - GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+  - JWT_SECRET_KEY
+  - ADMIN_EMAILS
+
+### STEP 2: 웹 대시보드 로그인 UI — DONE
+- app/templates/index.html 수정
+  - 로그인 화면 (loginScreen) 추가
+    - Google 로그인 버튼 (SVG 로고)
+    - 브랜드 로고 + 타이틀
+  - 사용자 메뉴 (userMenu) 추가
+    - 아바타, 이름, 역할 표시
+    - 로그아웃 버튼
+  - 관리자 패널 (panel-admin) 추가
+    - 통계 카드 4개 (전체 사용자, 프리미엄, 활성 계정, 오늘 주문)
+    - 사용자 관리 테이블 (역할/플랜 변경)
+  - 관리자 전용 탭 CSS (.admin-only)
+- JavaScript 인증 로직
+  - auth 객체 (토큰 관리)
+  - loginWithGoogle(): Google OAuth 리다이렉트
+  - logout(): 토큰 삭제 + 로그인 화면
+  - checkAuth(): 페이지 로드 시 인증 확인
+  - updateUserUI(): 사용자 정보 UI 반영
+  - api() 함수에 Authorization 헤더 추가
+  - reloadAdmin(): 관리자 패널 데이터 로드
+
+### STEP 3: PC앱 로그인 화면 — DONE
+- pc-app/ui/index.html 수정
+  - 로그인 화면 (login-screen) 추가
+    - Google 로그인 버튼
+    - "로그인 없이 계속 (허브 모드)" 버튼
+- pc-app/ui/src/style.css 수정
+  - 로그인 화면 스타일 (.login-screen, .login-card)
+  - Google 버튼 스타일 (.google-login-btn)
+  - 허브 모드 버튼 스타일 (.skip-login-btn)
+- pc-app/ui/src/main.js 수정
+  - auth 객체 (토큰/허브모드 관리)
+  - loginWithGoogle(): 브라우저에서 OAuth 열기 (Tauri shell.open)
+  - skipLogin(): 허브 모드로 시작
+  - initAuth(): 인증 상태 확인
+  - loadUserInfo(): 사용자 정보 로드
+  - refreshAuthToken(): 토큰 갱신
+
+### 생성/수정된 파일
+| 파일 | 작업 |
+|------|------|
+| app/auth.py | 신규 생성 |
+| app/models.py | User 모델 추가 |
+| app/main.py | 인증/관리자 엔드포인트 추가 |
+| app/templates/index.html | 로그인 UI + 관리자 패널 |
+| pc-app/ui/index.html | 로그인 화면 추가 |
+| pc-app/ui/src/style.css | 로그인 스타일 추가 |
+| pc-app/ui/src/main.js | 인증 로직 추가 |
+| requirements.txt | authlib, httpx, python-jose 추가 |
+| .env.example | OAuth/JWT 설정 추가 |
+| scripts/init_schema.sql | users 테이블 추가 |
+
+### 남은 작업 (향후)
+- Google Cloud Console에서 OAuth 클라이언트 ID 생성 필요
+- .env에 GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET 설정
+- PC앱 재빌드 (로그인 화면 포함)
+- 모바일 앱 로그인 화면 추가
 
 ---
 
