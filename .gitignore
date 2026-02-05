@@ -40,6 +40,15 @@ Thumbs.db
 .vscode/
 .idea/
 
+# --- Node.js ---
+node_modules/
+dist/
+package-lock.json
+
+# --- Rust / Tauri ---
+target/
+Cargo.lock
+
 # --- DB files (keep txt configs; ignore local db artifacts if any) ---
 *.sqlite
 *.sqlite3

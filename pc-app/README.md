@@ -2,13 +2,31 @@
 
 큐브시스템 (QUBE System) — Tauri 기반 Windows 설치형 애플리케이션
 
+## Quick Start (Windows)
+
+```powershell
+# 1. Rust 설치 (처음 한번만)
+powershell -ExecutionPolicy Bypass -File scripts\install-rust.ps1
+# 설치 후 터미널 재시작 필요!
+
+# 2. 프로젝트 셋업
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+
+# 3. 개발 모드 실행
+powershell -ExecutionPolicy Bypass -File scripts\dev.ps1
+
+# 4. 프로덕션 빌드
+powershell -ExecutionPolicy Bypass -File scripts\build.ps1
+```
+
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) v18+
 - [Rust](https://www.rust-lang.org/tools/install) 1.70+
 - [Tauri CLI](https://tauri.app/v1/guides/getting-started/prerequisites)
+- Windows 10/11 (64-bit)
 
-## Setup
+## Manual Setup
 
 ```bash
 # 1. Install Node dependencies
@@ -24,11 +42,7 @@ cargo build
 
 ```bash
 # UI 개발 서버 + Tauri 앱 실행
-cd ui
-npm run dev
-
-# 다른 터미널에서
-cd ../src-tauri
+cd src-tauri
 cargo tauri dev
 ```
 
@@ -49,6 +63,11 @@ cargo tauri build
 
 ```
 pc-app/
+├── scripts/             # 빌드 스크립트
+│   ├── install-rust.ps1 # Rust 설치
+│   ├── setup.ps1        # 프로젝트 셋업
+│   ├── dev.ps1          # 개발 모드 실행
+│   └── build.ps1        # 프로덕션 빌드
 ├── src-tauri/           # Tauri 백엔드 (Rust)
 │   ├── Cargo.toml       # Rust 의존성
 │   ├── tauri.conf.json  # Tauri 설정
