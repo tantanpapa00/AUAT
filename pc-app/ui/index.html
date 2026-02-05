@@ -7,6 +7,15 @@
     <link rel="stylesheet" href="/src/style.css">
 </head>
 <body>
+    <!-- Loading Overlay for VPS Connection -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <div id="loading-message" class="loading-message">서버 연결 중...</div>
+            <button id="btn-retry-connection" class="btn btn-primary" style="display: none;">재시도</button>
+        </div>
+    </div>
+
     <div id="app">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">

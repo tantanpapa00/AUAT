@@ -39,7 +39,12 @@
       "http": {
         "all": true,
         "request": true,
-        "scope": ["http://127.0.0.1:8000/*", "http://localhost:8000/*"]
+        "scope": [
+          "http://127.0.0.1:8000/*",
+          "http://localhost:8000/*",
+          "http://76.13.180.30:8000/*",
+          "https://*.qubesystem.com/*"
+        ]
       }
     },
     "bundle": {

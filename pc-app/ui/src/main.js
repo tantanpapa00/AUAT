@@ -1,4 +1,11 @@
 import { invoke } from '@tauri-apps/api/tauri';
+import { API_BASE_URL, CONNECTION_TIMEOUT, MAX_RETRIES } from './config.js';
+
+// =====================================================
+// Connection State
+// =====================================================
+let isConnected = false;
+let retryCount = 0;
 
 // =====================================================
 // DOM Elements
@@ -863,7 +870,7 @@ let selectedAssets = new Set();
 // Load assets for template generation
 async function loadTemplateAssets() {
     try {
-        const response = await fetch('http://127.0.0.1:8000/api/templates/tradingview/options');
+        const response = await fetch(`${API_BASE_URL}/api/templates/tradingview/options`);
         const data = await response.json();
 
         if (data.ok && data.options && data.options.length > 0) {
@@ -914,7 +921,7 @@ async function generateTemplates() {
     btnGenerateTemplates.textContent = 'Generating...';
 
     try {
-        const response = await fetch('http://127.0.0.1:8000/api/templates/tradingview/generate', {
+        const response = await fetch(`${API_BASE_URL}/api/templates/tradingview/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1025,7 +1032,7 @@ const btnExportDiagSettings = document.getElementById('btn-export-diag-settings'
 async function loadSettingsData() {
     // Load E-STOP status
     try {
-        const response = await fetch('http://127.0.0.1:8000/api/system/estop');
+        const response = await fetch(`${API_BASE_URL}/api/system/estop`);
         const data = await response.json();
 
         if (data.estop) {
@@ -1075,7 +1082,7 @@ settingsBtnEstopOn?.addEventListener('click', async () => {
 
     settingsBtnEstopOn.disabled = true;
     try {
-        await fetch('http://127.0.0.1:8000/api/system/estop', {
+        await fetch(`${API_BASE_URL}/api/system/estop`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ estop: true, reason: reason })
@@ -1094,7 +1101,7 @@ settingsBtnEstopOn?.addEventListener('click', async () => {
 settingsBtnEstopOff?.addEventListener('click', async () => {
     settingsBtnEstopOff.disabled = true;
     try {
-        await fetch('http://127.0.0.1:8000/api/system/estop', {
+        await fetch(`${API_BASE_URL}/api/system/estop`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ estop: false, reason: 'Manual deactivation from PC App' })
@@ -1154,12 +1161,10 @@ btnSaveSettings?.addEventListener('click', async () => {
     showToast('Settings saved', 'success');
 });
 
-// Load saved server URL
+// Load saved server URL or use default from config
 if (serverUrl) {
     const savedUrl = localStorage.getItem('bbooster_server_url');
-    if (savedUrl) {
-        serverUrl.value = savedUrl;
-    }
+    serverUrl.value = savedUrl || API_BASE_URL;
 }
 
 // Settings page buttons
@@ -1222,7 +1227,7 @@ async function loadLogs() {
         if (status) params.append('status', status);
         if (symbol) params.append('symbol', symbol);
 
-        const response = await fetch(`http://127.0.0.1:8000/api/timeline?${params.toString()}`);
+        const response = await fetch(`${API_BASE_URL}/api/timeline?${params.toString()}`);
         const data = await response.json();
 
         if (Array.isArray(data) && data.length > 0) {
@@ -1356,12 +1361,69 @@ btnExportCsv?.addEventListener('click', async () => {
 });
 
 // =====================================================
+// Connection Check with Loading Screen
+// =====================================================
+async function checkServerConnection() {
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const loadingMessage = document.getElementById('loading-message');
+    const retryBtn = document.getElementById('btn-retry-connection');
+
+    if (loadingOverlay) loadingOverlay.style.display = 'flex';
+    if (loadingMessage) loadingMessage.textContent = '서버 연결 중...';
+    if (retryBtn) retryBtn.style.display = 'none';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/health`, {
+            method: 'GET',
+            signal: AbortSignal.timeout(CONNECTION_TIMEOUT)
+        });
+
+        if (response.ok) {
+            isConnected = true;
+            retryCount = 0;
+            if (loadingOverlay) loadingOverlay.style.display = 'none';
+            updateStatus();
+            return true;
+        }
+        throw new Error('Server not responding');
+    } catch (error) {
+        console.error('Connection failed:', error);
+        isConnected = false;
+        retryCount++;
+
+        if (loadingMessage) {
+            loadingMessage.textContent = '서버에 연결할 수 없습니다.\n네트워크를 확인해주세요.';
+        }
+        if (retryBtn) retryBtn.style.display = 'block';
+
+        // Auto retry
+        if (retryCount < MAX_RETRIES) {
+            if (loadingMessage) {
+                loadingMessage.textContent = `연결 재시도 중... (${retryCount}/${MAX_RETRIES})`;
+            }
+            setTimeout(checkServerConnection, 3000);
+        }
+        return false;
+    }
+}
+
+// Retry button handler
+document.getElementById('btn-retry-connection')?.addEventListener('click', () => {
+    retryCount = 0;
+    checkServerConnection();
+});
+
+// =====================================================
 // Initialize
 // =====================================================
-updateStatus();
+checkServerConnection();
 
 // Periodic status update (every 5 seconds)
-setInterval(updateStatus, 5000);
+setInterval(() => {
+    if (isConnected) {
+        updateStatus();
+    }
+}, 5000);
 
 // Load accounts when page loads if on accounts page
 if (document.querySelector('.nav-item[data-page="accounts"].active')) {
