@@ -8,98 +8,189 @@
 </head>
 <body>
     <div id="app">
-        <header class="header">
-            <div class="logo">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
                 <img src="/src/assets/logo.png" alt="BBooster" height="32">
-                <span>BBooster</span>
+                <span class="brand">BBooster</span>
             </div>
-            <div class="status-indicators">
-                <div class="status-light-group">
-                    <span class="status-light" id="light-server"></span>
-                    <span id="server-status" class="status-text">Server: --</span>
-                </div>
-                <div class="status-light-group">
-                    <span class="status-light" id="light-estop"></span>
-                    <span id="estop-status" class="status-text">E-STOP: --</span>
-                </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-page="dashboard">
+                    <span class="nav-icon">📊</span>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-page="accounts">
+                    <span class="nav-icon">🔑</span>
+                    <span>Accounts</span>
+                </a>
+                <a href="#" class="nav-item" data-page="templates">
+                    <span class="nav-icon">📝</span>
+                    <span>Templates</span>
+                </a>
+                <a href="#" class="nav-item" data-page="settings">
+                    <span class="nav-icon">⚙️</span>
+                    <span>Settings</span>
+                </a>
+                <a href="#" class="nav-item" data-page="logs">
+                    <span class="nav-icon">📋</span>
+                    <span>Logs</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="subscription-badge" id="subscription-badge">Free</div>
             </div>
-        </header>
+        </aside>
 
-        <!-- Week C: Status Overview Panel -->
-        <section class="status-overview">
-            <div class="stat-card">
-                <div class="stat-label">Last Signal</div>
-                <div class="stat-value" id="last-signal">--</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Last Order</div>
-                <div class="stat-value" id="last-order">--</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Last Filled</div>
-                <div class="stat-value" id="last-filled">--</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">System Status</div>
-                <div class="stat-value" id="system-status">--</div>
-            </div>
-        </section>
-
-        <main class="main">
-            <section class="card server-control">
-                <h2>Server Control</h2>
-                <div class="button-group">
-                    <button id="btn-start" class="btn btn-success">Start Server</button>
-                    <button id="btn-stop" class="btn btn-danger">Stop Server</button>
-                    <button id="btn-dashboard" class="btn btn-primary">Open Dashboard</button>
+        <!-- Main Content -->
+        <div class="main-wrapper">
+            <header class="header">
+                <div class="header-title">
+                    <h1 id="page-title">Dashboard</h1>
+                    <span class="header-subtitle">큐브시스템 — Quint Booster Engine System</span>
                 </div>
-            </section>
-
-            <section class="card estop-control">
-                <h2>E-STOP Control</h2>
-                <p class="description">Emergency stop - blocks all new orders</p>
-                <div class="button-group">
-                    <button id="btn-estop-on" class="btn btn-danger">E-STOP ON</button>
-                    <button id="btn-estop-off" class="btn btn-success">E-STOP OFF</button>
+                <div class="status-indicators">
+                    <div class="status-light-group">
+                        <span class="status-light" id="light-server"></span>
+                        <span id="server-status" class="status-text">Server: --</span>
+                    </div>
+                    <div class="status-light-group">
+                        <span class="status-light" id="light-estop"></span>
+                        <span id="estop-status" class="status-text">E-STOP: --</span>
+                    </div>
                 </div>
-            </section>
+            </header>
 
-            <!-- Week C: Order Timeline -->
-            <section class="card order-timeline">
-                <h2>Order Timeline</h2>
-                <div id="timeline-list" class="timeline-list">
-                    <p class="empty">Loading...</p>
+            <!-- Dashboard Page -->
+            <main class="main page-content" id="page-dashboard">
+                <!-- Status Overview Panel -->
+                <section class="status-overview">
+                    <div class="stat-card">
+                        <div class="stat-label">Last Signal</div>
+                        <div class="stat-value" id="last-signal">--</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Last Order</div>
+                        <div class="stat-value" id="last-order">--</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Last Filled</div>
+                        <div class="stat-value" id="last-filled">--</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">System Status</div>
+                        <div class="stat-value" id="system-status">--</div>
+                    </div>
+                </section>
+
+                <div class="dashboard-grid">
+                    <!-- Server Control -->
+                    <section class="card server-control">
+                        <h2>Server Control</h2>
+                        <div class="button-group">
+                            <button id="btn-start" class="btn btn-success">Start Server</button>
+                            <button id="btn-stop" class="btn btn-danger">Stop Server</button>
+                            <button id="btn-dashboard" class="btn btn-primary">Open Dashboard</button>
+                        </div>
+                    </section>
+
+                    <!-- E-STOP Control -->
+                    <section class="card estop-control">
+                        <h2>E-STOP Control</h2>
+                        <p class="description">Emergency stop - blocks all new orders</p>
+                        <div class="button-group">
+                            <button id="btn-estop-on" class="btn btn-danger">E-STOP ON</button>
+                            <button id="btn-estop-off" class="btn btn-success">E-STOP OFF</button>
+                        </div>
+                    </section>
+
+                    <!-- Connector Status -->
+                    <section class="card connector-status">
+                        <h2>Connector Status</h2>
+                        <div id="connector-list" class="connector-list">
+                            <p class="empty">Loading...</p>
+                        </div>
+                    </section>
+
+                    <!-- Order Timeline -->
+                    <section class="card order-timeline">
+                        <h2>Order Timeline</h2>
+                        <div id="timeline-list" class="timeline-list">
+                            <p class="empty">Loading...</p>
+                        </div>
+                    </section>
+
+                    <!-- Recent Events -->
+                    <section class="card recent-events">
+                        <h2>Recent Events</h2>
+                        <div id="events-list" class="events-list">
+                            <p class="empty">Loading...</p>
+                        </div>
+                    </section>
+
+                    <!-- Tools -->
+                    <section class="card tools">
+                        <h2>Tools</h2>
+                        <div class="button-group">
+                            <button id="btn-logs" class="btn btn-secondary">Open Logs Folder</button>
+                            <button id="btn-diagnostic" class="btn btn-secondary">Export Diagnostic</button>
+                        </div>
+                    </section>
+
+                    <!-- Error Guide Panel -->
+                    <section class="card error-guide" id="error-guide" style="display: none;">
+                        <h2>Error Resolution</h2>
+                        <div class="error-content">
+                            <div class="error-message" id="error-message"></div>
+                            <div class="error-solution" id="error-solution"></div>
+                        </div>
+                    </section>
                 </div>
-            </section>
+            </main>
 
-            <section class="card recent-events">
-                <h2>Recent Events</h2>
-                <div id="events-list" class="events-list">
-                    <p class="empty">Loading...</p>
+            <!-- Accounts Page (placeholder) -->
+            <main class="main page-content" id="page-accounts" style="display: none;">
+                <div class="placeholder-page">
+                    <div class="placeholder-icon">🔑</div>
+                    <h2>Accounts & API Keys</h2>
+                    <p>Manage exchange accounts and API keys</p>
+                    <p class="coming-soon">Coming in STEP 4</p>
                 </div>
-            </section>
+            </main>
 
-            <section class="card tools">
-                <h2>Tools</h2>
-                <div class="button-group">
-                    <button id="btn-logs" class="btn btn-secondary">Open Logs Folder</button>
-                    <button id="btn-diagnostic" class="btn btn-secondary">Export Diagnostic</button>
+            <!-- Templates Page (placeholder) -->
+            <main class="main page-content" id="page-templates" style="display: none;">
+                <div class="placeholder-page">
+                    <div class="placeholder-icon">📝</div>
+                    <h2>TradingView Templates</h2>
+                    <p>Generate and manage alert templates</p>
+                    <p class="coming-soon">Coming in STEP 5</p>
                 </div>
-            </section>
+            </main>
 
-            <!-- Week C: Error Guide Panel -->
-            <section class="card error-guide" id="error-guide" style="display: none;">
-                <h2>Error Resolution</h2>
-                <div class="error-content">
-                    <div class="error-message" id="error-message"></div>
-                    <div class="error-solution" id="error-solution"></div>
+            <!-- Settings Page (placeholder) -->
+            <main class="main page-content" id="page-settings" style="display: none;">
+                <div class="placeholder-page">
+                    <div class="placeholder-icon">⚙️</div>
+                    <h2>System Settings</h2>
+                    <p>Configure system options and server connection</p>
+                    <p class="coming-soon">Coming in STEP 5</p>
                 </div>
-            </section>
-        </main>
+            </main>
 
-        <footer class="footer">
-            <p>BBooster v1.0.0 | 큐브시스템 (QUBE System) | <a href="#" id="link-help">Help</a></p>
-        </footer>
+            <!-- Logs Page (placeholder) -->
+            <main class="main page-content" id="page-logs" style="display: none;">
+                <div class="placeholder-page">
+                    <div class="placeholder-icon">📋</div>
+                    <h2>Trade Logs</h2>
+                    <p>View detailed trade history and export CSV</p>
+                    <p class="coming-soon">Coming in STEP 6</p>
+                </div>
+            </main>
+
+            <footer class="footer">
+                <p>BBooster v1.0.0 | 큐브시스템 (QUBE System) | <a href="#" id="link-help">Help</a></p>
+            </footer>
+        </div>
     </div>
 
     <script type="module" src="/src/main.js"></script>

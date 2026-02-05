@@ -7,24 +7,26 @@ const serverStatus = document.getElementById('server-status');
 const estopStatus = document.getElementById('estop-status');
 const eventsList = document.getElementById('events-list');
 
-// Week C: Status lights
+// Status lights
 const lightServer = document.getElementById('light-server');
 const lightEstop = document.getElementById('light-estop');
 
-// Week C: Status overview
+// Status overview
 const lastSignal = document.getElementById('last-signal');
 const lastOrder = document.getElementById('last-order');
 const lastFilled = document.getElementById('last-filled');
-const systemStatus = document.getElementById('system-status');
+const systemStatusEl = document.getElementById('system-status');
 
-// Week C: Timeline
+// Timeline & Connectors
 const timelineList = document.getElementById('timeline-list');
+const connectorList = document.getElementById('connector-list');
 
-// Week C: Error guide
+// Error guide
 const errorGuide = document.getElementById('error-guide');
 const errorMessage = document.getElementById('error-message');
 const errorSolution = document.getElementById('error-solution');
 
+// Buttons
 const btnStart = document.getElementById('btn-start');
 const btnStop = document.getElementById('btn-stop');
 const btnDashboard = document.getElementById('btn-dashboard');
@@ -32,6 +34,50 @@ const btnEstopOn = document.getElementById('btn-estop-on');
 const btnEstopOff = document.getElementById('btn-estop-off');
 const btnLogs = document.getElementById('btn-logs');
 const btnDiagnostic = document.getElementById('btn-diagnostic');
+
+// Navigation
+const navItems = document.querySelectorAll('.nav-item');
+const pageTitle = document.getElementById('page-title');
+const subscriptionBadge = document.getElementById('subscription-badge');
+
+// Page titles mapping
+const pageTitles = {
+    dashboard: 'Dashboard',
+    accounts: 'Accounts & API Keys',
+    templates: 'TradingView Templates',
+    settings: 'System Settings',
+    logs: 'Trade Logs'
+};
+
+// =====================================================
+// Navigation
+// =====================================================
+navItems.forEach(item => {
+    item.addEventListener('click', (e) => {
+        e.preventDefault();
+        const page = item.dataset.page;
+        navigateTo(page);
+    });
+});
+
+function navigateTo(page) {
+    // Update nav active state
+    navItems.forEach(nav => {
+        nav.classList.toggle('active', nav.dataset.page === page);
+    });
+
+    // Update page title
+    pageTitle.textContent = pageTitles[page] || 'Dashboard';
+
+    // Show/hide pages
+    document.querySelectorAll('.page-content').forEach(pageEl => {
+        pageEl.style.display = 'none';
+    });
+    const targetPage = document.getElementById(`page-${page}`);
+    if (targetPage) {
+        targetPage.style.display = 'block';
+    }
+}
 
 // =====================================================
 // Status Update
@@ -46,33 +92,38 @@ async function updateStatus() {
             lightServer.className = 'status-light green';
             btnStart.disabled = true;
             btnStop.disabled = false;
-            systemStatus.textContent = 'Normal';
-            systemStatus.style.color = '#4CAF50';
+            systemStatusEl.textContent = 'Normal';
+            systemStatusEl.style.color = '#22C55E';
         } else {
             serverStatus.textContent = 'Server: Stopped';
             lightServer.className = 'status-light red';
             btnStart.disabled = false;
             btnStop.disabled = true;
-            systemStatus.textContent = 'Offline';
-            systemStatus.style.color = '#f44336';
+            systemStatusEl.textContent = 'Offline';
+            systemStatusEl.style.color = '#EF4444';
         }
 
         // E-STOP status with light
         if (status.estop) {
             estopStatus.textContent = 'E-STOP: ON';
             lightEstop.className = 'status-light red';
-            systemStatus.textContent = 'E-STOP Active';
-            systemStatus.style.color = '#f44336';
+            systemStatusEl.textContent = 'E-STOP Active';
+            systemStatusEl.style.color = '#EF4444';
         } else {
             estopStatus.textContent = 'E-STOP: OFF';
             lightEstop.className = 'status-light green';
         }
 
-        // Load events and timeline if server is running
+        // Load data if server is running
         if (status.running) {
-            await loadEvents();
-            await loadTimeline();
-            await loadStatusOverview();
+            await Promise.all([
+                loadEvents(),
+                loadTimeline(),
+                loadStatusOverview(),
+                loadConnectorStatus(),
+                loadSubscription()
+            ]);
+            hideError();
         }
     } catch (error) {
         console.error('Status update failed:', error);
@@ -93,8 +144,8 @@ async function loadEvents() {
             eventsList.innerHTML = data.recent_events.map(event => `
                 <div class="event-item">
                     <div>
-                        <span class="symbol">${event.symbol}</span>
-                        <span class="type">${event.event_type}</span>
+                        <span class="symbol">${event.symbol || '--'}</span>
+                        <span class="type">${event.event_type || ''}</span>
                     </div>
                     <span class="time">${formatTime(event.created_at)}</span>
                 </div>
@@ -139,14 +190,13 @@ function formatDateTime(isoString) {
 }
 
 // =====================================================
-// Week C: Status Overview
+// Status Overview
 // =====================================================
 async function loadStatusOverview() {
     try {
         const data = await invoke('get_home_data');
 
         if (data.items && data.items.length > 0) {
-            // Find most recent signal/order/filled
             let recentSignal = null;
             let recentOrder = null;
             let recentFilled = null;
@@ -179,39 +229,43 @@ async function loadStatusOverview() {
 }
 
 // =====================================================
-// Week C: Order Timeline
+// Order Timeline (using new Tauri command)
 // =====================================================
 async function loadTimeline() {
     try {
-        const data = await invoke('get_home_data');
-
-        if (data.items && data.items.length > 0) {
-            const timelineItems = data.items
-                .filter(item => item.last_order_at)
-                .sort((a, b) => new Date(b.last_order_at) - new Date(a.last_order_at))
-                .slice(0, 5);
-
-            if (timelineItems.length === 0) {
-                timelineList.innerHTML = '<p class="empty">No recent orders</p>';
-                return;
+        // Try new fetch_timeline command first
+        let timelineData = [];
+        try {
+            timelineData = await invoke('fetch_timeline', { limit: 10 });
+        } catch (e) {
+            // Fallback to get_home_data
+            const data = await invoke('get_home_data');
+            if (data.items) {
+                timelineData = data.items
+                    .filter(item => item.last_order_at)
+                    .map(item => ({
+                        timestamp: item.last_order_at,
+                        event_type: item.last_order_status || 'unknown',
+                        message: item.symbol,
+                        symbol: item.symbol
+                    }));
             }
+        }
 
-            timelineList.innerHTML = timelineItems.map(item => {
-                const status = item.last_order_status || 'unknown';
+        if (timelineData && timelineData.length > 0) {
+            timelineList.innerHTML = timelineData.slice(0, 5).map(event => {
+                const status = event.event_type || 'received';
                 const statusClass = getStatusClass(status);
 
                 return `
                     <div class="timeline-item ${statusClass}">
                         <div class="timeline-content">
                             <div class="timeline-header">
-                                <span class="timeline-symbol">${item.symbol}</span>
+                                <span class="timeline-symbol">${event.symbol || event.message || '--'}</span>
                                 <span class="timeline-status ${statusClass}">${status}</span>
                             </div>
-                            <div class="timeline-details">
-                                ${item.last_okx_order_id ? `Order ID: ${item.last_okx_order_id.slice(-8)}` : ''}
-                                ${item.last_filled_qty ? ` | Filled: ${item.last_filled_qty}` : ''}
-                            </div>
-                            <div class="timeline-time">${formatDateTime(item.last_order_at)}</div>
+                            <div class="timeline-details">${event.message || ''}</div>
+                            <div class="timeline-time">${formatDateTime(event.timestamp)}</div>
                         </div>
                     </div>
                 `;
@@ -231,13 +285,79 @@ function getStatusClass(status) {
         'filled': 'filled',
         'partial': 'partial',
         'failed': 'failed',
-        'received': 'received'
+        'received': 'received',
+        'signal': 'received',
+        'order': 'sent'
     };
     return statusMap[status.toLowerCase()] || 'received';
 }
 
 // =====================================================
-// Week C: Error Guide with Human-readable Messages
+// Connector Status (using new Tauri command)
+// =====================================================
+async function loadConnectorStatus() {
+    try {
+        let connectors = [];
+        try {
+            connectors = await invoke('fetch_connector_status');
+        } catch (e) {
+            // If API not available, show default connectors
+            connectors = [
+                { exchange: 'OKX', connected: false, last_ping: null },
+                { exchange: 'KIS', connected: false, last_ping: null }
+            ];
+        }
+
+        if (connectors && connectors.length > 0) {
+            connectorList.innerHTML = connectors.map(conn => {
+                const statusClass = conn.connected ? 'connected' : 'disconnected';
+                const statusText = conn.connected ? 'Connected' : 'Disconnected';
+                const statusIcon = conn.connected ? '●' : '○';
+
+                return `
+                    <div class="connector-item">
+                        <span class="connector-name">${conn.exchange}</span>
+                        <span class="connector-status ${statusClass}">
+                            ${statusIcon} ${statusText}
+                        </span>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            connectorList.innerHTML = '<p class="empty">No connectors configured</p>';
+        }
+    } catch (error) {
+        console.error('Failed to load connector status:', error);
+        connectorList.innerHTML = '<p class="empty">Failed to load connectors</p>';
+    }
+}
+
+// =====================================================
+// Subscription (using new Tauri command)
+// =====================================================
+async function loadSubscription() {
+    try {
+        const subscription = await invoke('fetch_subscription');
+
+        if (subscription) {
+            subscriptionBadge.textContent = subscription.plan || 'Free';
+
+            // Update badge style based on plan
+            subscriptionBadge.className = 'subscription-badge';
+            if (subscription.plan === 'Pro') {
+                subscriptionBadge.classList.add('pro');
+            } else if (subscription.plan === 'Hub') {
+                subscriptionBadge.classList.add('hub');
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load subscription:', error);
+        subscriptionBadge.textContent = 'Free';
+    }
+}
+
+// =====================================================
+// Error Guide with Human-readable Messages
 // =====================================================
 const ERROR_GUIDES = {
     'CONNECTION_ERROR': {
@@ -367,6 +487,11 @@ btnDashboard.addEventListener('click', async () => {
 });
 
 btnEstopOn.addEventListener('click', async () => {
+    // Confirmation dialog
+    if (!confirm('E-STOP을 켜시겠습니까?\n\n모든 주문 전송이 차단됩니다.')) {
+        return;
+    }
+
     try {
         await invoke('set_estop', { enabled: true });
         showToast('E-STOP activated', 'warning');
@@ -399,7 +524,7 @@ btnDiagnostic.addEventListener('click', async () => {
     btnDiagnostic.textContent = 'Exporting...';
     try {
         const path = await invoke('export_diagnostic');
-        showToast(`Diagnostic exported: ${path}`);
+        showToast(`Diagnostic exported`);
     } catch (error) {
         showToast('Failed to export diagnostic', 'error');
     } finally {
@@ -413,5 +538,5 @@ btnDiagnostic.addEventListener('click', async () => {
 // =====================================================
 updateStatus();
 
-// Periodic status update
+// Periodic status update (every 5 seconds)
 setInterval(updateStatus, 5000);
