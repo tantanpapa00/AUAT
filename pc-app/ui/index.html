@@ -139,6 +139,34 @@
                         </div>
                     </section>
 
+                    <!-- TradingView Chart Widget -->
+                    <section class="card tradingview-chart" style="grid-column: span 2;">
+                        <h2>TradingView 차트</h2>
+                        <div class="chart-controls">
+                            <select id="chart-symbol" class="chart-select">
+                                <option value="BINANCE:BTCUSDT">BTC/USDT</option>
+                                <option value="BINANCE:ETHUSDT">ETH/USDT</option>
+                                <option value="OKX:BTC-USDT-SWAP">BTC 선물 (OKX)</option>
+                                <option value="BITHUMB:BTCKRW">BTC/KRW</option>
+                                <option value="UPBIT:BTCKRW">BTC/KRW (Upbit)</option>
+                            </select>
+                            <select id="chart-interval" class="chart-select">
+                                <option value="1">1분</option>
+                                <option value="5">5분</option>
+                                <option value="15" selected>15분</option>
+                                <option value="60">1시간</option>
+                                <option value="D">일봉</option>
+                            </select>
+                        </div>
+                        <div id="tradingview-widget" class="tradingview-container">
+                            <!-- TradingView Widget BEGIN -->
+                            <div class="tradingview-widget-container" style="height:100%;width:100%">
+                                <div id="tradingview_chart" style="height:calc(100% - 32px);width:100%"></div>
+                            </div>
+                            <!-- TradingView Widget END -->
+                        </div>
+                    </section>
+
                     <!-- Tools -->
                     <section class="card tools">
                         <h2>도구</h2>
@@ -544,6 +572,51 @@
             </footer>
         </div>
     </div>
+
+    <!-- TradingView Widget Script -->
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+    <script type="text/javascript">
+        let tvWidget = null;
+
+        function initTradingViewChart() {
+            const symbol = document.getElementById('chart-symbol')?.value || 'BINANCE:BTCUSDT';
+            const interval = document.getElementById('chart-interval')?.value || '15';
+
+            if (tvWidget) {
+                tvWidget.remove();
+            }
+
+            tvWidget = new TradingView.widget({
+                "autosize": true,
+                "symbol": symbol,
+                "interval": interval,
+                "timezone": "Asia/Seoul",
+                "theme": "dark",
+                "style": "1",
+                "locale": "kr",
+                "toolbar_bg": "#0B1220",
+                "enable_publishing": false,
+                "hide_top_toolbar": false,
+                "hide_legend": false,
+                "save_image": false,
+                "container_id": "tradingview_chart",
+                "studies": [
+                    "RSI@tv-basicstudies",
+                    "MASimple@tv-basicstudies"
+                ]
+            });
+        }
+
+        // Initialize chart when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            // Wait a bit for the page to fully load
+            setTimeout(initTradingViewChart, 1000);
+
+            // Update chart on symbol/interval change
+            document.getElementById('chart-symbol')?.addEventListener('change', initTradingViewChart);
+            document.getElementById('chart-interval')?.addEventListener('change', initTradingViewChart);
+        });
+    </script>
 
     <script type="module" src="/src/main.js"></script>
 </body>

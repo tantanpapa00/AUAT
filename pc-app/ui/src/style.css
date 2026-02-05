@@ -266,6 +266,41 @@ body {
 }
 
 /* =====================================================
+   TradingView Chart Widget
+   ===================================================== */
+.tradingview-chart {
+    min-height: 450px;
+}
+
+.chart-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.chart-select {
+    padding: 8px 12px;
+    background: var(--bg-light);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.chart-select:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.tradingview-container {
+    height: 380px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--bg-light);
+}
+
+/* =====================================================
    Main Wrapper
    ===================================================== */
 .main-wrapper {
