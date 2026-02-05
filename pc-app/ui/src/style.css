@@ -657,6 +657,290 @@ body {
 }
 
 /* =====================================================
+   Accounts Page
+   ===================================================== */
+.accounts-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+}
+
+.accounts-header h2 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.accounts-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 20px;
+}
+
+.account-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    transition: all 0.2s;
+}
+
+.account-card:hover {
+    border-color: var(--primary);
+    box-shadow: 0 4px 20px rgba(220, 38, 38, 0.1);
+}
+
+.account-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
+}
+
+.account-info h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.account-exchange {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.exchange-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.exchange-badge.okx { background: rgba(59, 130, 246, 0.2); color: #3B82F6; }
+.exchange-badge.kis { background: rgba(34, 197, 94, 0.2); color: #22C55E; }
+.exchange-badge.binance { background: rgba(245, 158, 11, 0.2); color: #F59E0B; }
+.exchange-badge.bybit { background: rgba(139, 92, 246, 0.2); color: #8B5CF6; }
+.exchange-badge.upbit { background: rgba(239, 68, 68, 0.2); color: #EF4444; }
+
+.account-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    padding: 4px 10px;
+    border-radius: 12px;
+}
+
+.account-status.active {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--success);
+}
+
+.account-status.inactive {
+    background: rgba(156, 163, 175, 0.15);
+    color: var(--text-muted);
+}
+
+.account-card-body {
+    margin-bottom: 15px;
+}
+
+.account-detail {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+}
+
+.account-detail:last-child {
+    border-bottom: none;
+}
+
+.account-detail-label {
+    color: var(--text-muted);
+}
+
+.account-detail-value {
+    color: var(--text-primary);
+    font-family: 'SF Mono', Consolas, monospace;
+}
+
+.account-card-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.account-card-actions .btn {
+    flex: 1;
+    padding: 8px 12px;
+    font-size: 0.8rem;
+}
+
+/* Modal Styles */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+}
+
+.modal-content {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    width: 90%;
+    max-width: 480px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-content.modal-small {
+    max-width: 400px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+}
+
+.modal-header h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.modal-close:hover {
+    color: var(--text-primary);
+}
+
+.modal-body {
+    padding: 24px;
+}
+
+.modal-body p {
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+}
+
+.modal-body .warning-text {
+    color: var(--danger);
+    font-size: 0.85rem;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 12px;
+    padding: 0 24px 24px;
+    justify-content: flex-end;
+}
+
+/* Form Styles */
+#account-form {
+    padding: 24px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 12px 14px;
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.form-group input::placeholder {
+    color: var(--text-muted);
+}
+
+.form-hint {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 6px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 25px;
+}
+
+.form-actions .btn {
+    flex: 1;
+}
+
+.form-message {
+    margin-top: 15px;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+.form-message.success {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--success);
+}
+
+.form-message.error {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger);
+}
+
+.form-message.loading {
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--info);
+}
+
+/* =====================================================
    Responsive
    ===================================================== */
 @media (max-width: 900px) {

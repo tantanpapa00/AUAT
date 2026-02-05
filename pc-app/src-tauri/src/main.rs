@@ -77,6 +77,13 @@ fn main() {
             commands::fetch_timeline,
             commands::fetch_connector_status,
             commands::fetch_subscription,
+            // Account management
+            commands::save_account_keys,
+            commands::get_account_keys,
+            commands::delete_account_keys,
+            commands::list_local_accounts,
+            commands::fetch_server_accounts,
+            commands::test_account_connection,
         ])
         .setup(|app| {
             // 앱 시작 시 서버 자동 시작 (옵션)

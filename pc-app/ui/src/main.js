@@ -77,6 +77,11 @@ function navigateTo(page) {
     if (targetPage) {
         targetPage.style.display = 'block';
     }
+
+    // Page-specific initialization
+    if (page === 'accounts') {
+        loadAccounts();
+    }
 }
 
 // =====================================================
@@ -534,9 +539,317 @@ btnDiagnostic.addEventListener('click', async () => {
 });
 
 // =====================================================
+// Accounts Page
+// =====================================================
+
+// DOM Elements for Accounts
+const accountsList = document.getElementById('accounts-list');
+const btnAddAccount = document.getElementById('btn-add-account');
+const accountModal = document.getElementById('account-modal');
+const modalTitle = document.getElementById('modal-title');
+const modalClose = document.getElementById('modal-close');
+const accountForm = document.getElementById('account-form');
+const accountName = document.getElementById('account-name');
+const accountExchange = document.getElementById('account-exchange');
+const apiKey = document.getElementById('api-key');
+const apiSecret = document.getElementById('api-secret');
+const apiPassphrase = document.getElementById('api-passphrase');
+const passphraseGroup = document.getElementById('passphrase-group');
+const btnTestConnection = document.getElementById('btn-test-connection');
+const formMessage = document.getElementById('form-message');
+
+// Delete Modal
+const deleteModal = document.getElementById('delete-modal');
+const deleteModalClose = document.getElementById('delete-modal-close');
+const deleteAccountName = document.getElementById('delete-account-name');
+const btnCancelDelete = document.getElementById('btn-cancel-delete');
+const btnConfirmDelete = document.getElementById('btn-confirm-delete');
+
+let editingAccount = null;
+let deletingAccount = null;
+
+// Load accounts when navigating to Accounts page
+async function loadAccounts() {
+    try {
+        // Try to get accounts from server first, then fall back to local
+        let accounts = [];
+        try {
+            accounts = await invoke('fetch_server_accounts');
+        } catch (e) {
+            console.log('Server accounts not available, loading local');
+        }
+
+        // Merge with local accounts
+        const localAccounts = await invoke('list_local_accounts');
+
+        // Combine and deduplicate
+        const accountMap = new Map();
+        for (const acc of [...accounts, ...localAccounts]) {
+            const key = `${acc.name}-${acc.exchange}`;
+            if (!accountMap.has(key)) {
+                accountMap.set(key, acc);
+            }
+        }
+
+        const allAccounts = Array.from(accountMap.values());
+
+        if (allAccounts.length === 0) {
+            accountsList.innerHTML = `
+                <div class="empty-state">
+                    <p class="empty">No accounts registered yet.</p>
+                    <p class="empty">Click "Add Account" to register your first exchange account.</p>
+                </div>
+            `;
+            return;
+        }
+
+        accountsList.innerHTML = allAccounts.map(account => `
+            <div class="account-card" data-name="${account.name}" data-exchange="${account.exchange}">
+                <div class="account-card-header">
+                    <div class="account-info">
+                        <h3>${account.name}</h3>
+                        <div class="account-exchange">
+                            <span class="exchange-badge ${account.exchange.toLowerCase()}">${account.exchange}</span>
+                        </div>
+                    </div>
+                    <div class="account-status ${account.is_active ? 'active' : 'inactive'}">
+                        ${account.is_active ? '● Active' : '○ Inactive'}
+                    </div>
+                </div>
+                <div class="account-card-body">
+                    <div class="account-detail">
+                        <span class="account-detail-label">API Key</span>
+                        <span class="account-detail-value">****${account.has_keys ? '(saved)' : '(not set)'}</span>
+                    </div>
+                    <div class="account-detail">
+                        <span class="account-detail-label">Last Health Check</span>
+                        <span class="account-detail-value">${account.last_health_check ? formatDateTime(account.last_health_check) : '--'}</span>
+                    </div>
+                    <div class="account-detail">
+                        <span class="account-detail-label">Status</span>
+                        <span class="account-detail-value">${account.health_status || '--'}</span>
+                    </div>
+                </div>
+                <div class="account-card-actions">
+                    <button class="btn btn-secondary btn-edit" data-name="${account.name}" data-exchange="${account.exchange}">Edit</button>
+                    <button class="btn btn-secondary btn-test" data-name="${account.name}" data-exchange="${account.exchange}">Test</button>
+                    <button class="btn btn-danger btn-delete" data-name="${account.name}" data-exchange="${account.exchange}">Delete</button>
+                </div>
+            </div>
+        `).join('');
+
+        // Add event listeners to buttons
+        document.querySelectorAll('.btn-edit').forEach(btn => {
+            btn.addEventListener('click', () => openEditModal(btn.dataset.name, btn.dataset.exchange));
+        });
+
+        document.querySelectorAll('.btn-test').forEach(btn => {
+            btn.addEventListener('click', () => testAccountConnection(btn.dataset.name, btn.dataset.exchange, btn));
+        });
+
+        document.querySelectorAll('.btn-delete').forEach(btn => {
+            btn.addEventListener('click', () => openDeleteModal(btn.dataset.name, btn.dataset.exchange));
+        });
+
+    } catch (error) {
+        console.error('Failed to load accounts:', error);
+        accountsList.innerHTML = '<p class="empty">Failed to load accounts</p>';
+    }
+}
+
+// Open Add Account Modal
+function openAddModal() {
+    editingAccount = null;
+    modalTitle.textContent = 'Add Account';
+    accountForm.reset();
+    passphraseGroup.style.display = 'none';
+    formMessage.style.display = 'none';
+    accountName.disabled = false;
+    accountExchange.disabled = false;
+    accountModal.style.display = 'flex';
+}
+
+// Open Edit Account Modal
+async function openEditModal(name, exchange) {
+    editingAccount = { name, exchange };
+    modalTitle.textContent = 'Edit Account';
+    accountName.value = name;
+    accountName.disabled = true;
+    accountExchange.value = exchange;
+    accountExchange.disabled = true;
+
+    // Show passphrase field for OKX
+    passphraseGroup.style.display = exchange === 'OKX' ? 'block' : 'none';
+
+    // Clear sensitive fields
+    apiKey.value = '';
+    apiSecret.value = '';
+    apiPassphrase.value = '';
+
+    formMessage.style.display = 'none';
+    accountModal.style.display = 'flex';
+}
+
+// Close Modal
+function closeModal() {
+    accountModal.style.display = 'none';
+    editingAccount = null;
+}
+
+// Show/hide passphrase based on exchange
+accountExchange.addEventListener('change', () => {
+    passphraseGroup.style.display = accountExchange.value === 'OKX' ? 'block' : 'none';
+});
+
+// Add Account Button
+btnAddAccount.addEventListener('click', openAddModal);
+
+// Close Modal
+modalClose.addEventListener('click', closeModal);
+accountModal.addEventListener('click', (e) => {
+    if (e.target === accountModal) closeModal();
+});
+
+// Test Connection
+btnTestConnection.addEventListener('click', async () => {
+    const exchange = accountExchange.value;
+    const name = accountName.value;
+
+    if (!exchange || !name) {
+        showFormMessage('Please fill in account name and exchange', 'error');
+        return;
+    }
+
+    showFormMessage('Testing connection...', 'loading');
+    btnTestConnection.disabled = true;
+
+    try {
+        const result = await invoke('test_account_connection', {
+            exchange: exchange,
+            accountName: name
+        });
+        showFormMessage(result, 'success');
+    } catch (error) {
+        showFormMessage(`Connection failed: ${error}`, 'error');
+    } finally {
+        btnTestConnection.disabled = false;
+    }
+});
+
+// Save Account
+accountForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const name = accountName.value.trim();
+    const exchange = accountExchange.value;
+    const key = apiKey.value.trim();
+    const secret = apiSecret.value.trim();
+    const passphrase = apiPassphrase.value.trim();
+
+    if (!name || !exchange || !key || !secret) {
+        showFormMessage('Please fill in all required fields', 'error');
+        return;
+    }
+
+    showFormMessage('Saving account...', 'loading');
+
+    try {
+        await invoke('save_account_keys', {
+            accountName: name,
+            exchange: exchange,
+            keys: {
+                api_key: key,
+                api_secret: secret,
+                passphrase: passphrase || null
+            }
+        });
+
+        showFormMessage('Account saved successfully!', 'success');
+        setTimeout(() => {
+            closeModal();
+            loadAccounts();
+        }, 1000);
+    } catch (error) {
+        showFormMessage(`Failed to save: ${error}`, 'error');
+    }
+});
+
+// Test connection from card
+async function testAccountConnection(name, exchange, btn) {
+    const originalText = btn.textContent;
+    btn.textContent = 'Testing...';
+    btn.disabled = true;
+
+    try {
+        await invoke('test_account_connection', {
+            exchange: exchange,
+            accountName: name
+        });
+        showToast(`${name}: Connection successful`, 'success');
+    } catch (error) {
+        showToast(`${name}: ${error}`, 'error');
+    } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
+    }
+}
+
+// Delete Modal
+function openDeleteModal(name, exchange) {
+    deletingAccount = { name, exchange };
+    deleteAccountName.textContent = `${name} (${exchange})`;
+    deleteModal.style.display = 'flex';
+}
+
+function closeDeleteModal() {
+    deleteModal.style.display = 'none';
+    deletingAccount = null;
+}
+
+deleteModalClose.addEventListener('click', closeDeleteModal);
+btnCancelDelete.addEventListener('click', closeDeleteModal);
+deleteModal.addEventListener('click', (e) => {
+    if (e.target === deleteModal) closeDeleteModal();
+});
+
+btnConfirmDelete.addEventListener('click', async () => {
+    if (!deletingAccount) return;
+
+    btnConfirmDelete.disabled = true;
+    btnConfirmDelete.textContent = 'Deleting...';
+
+    try {
+        await invoke('delete_account_keys', {
+            accountName: deletingAccount.name,
+            exchange: deletingAccount.exchange
+        });
+        showToast(`${deletingAccount.name} deleted successfully`);
+        closeDeleteModal();
+        loadAccounts();
+    } catch (error) {
+        showToast(`Failed to delete: ${error}`, 'error');
+    } finally {
+        btnConfirmDelete.disabled = false;
+        btnConfirmDelete.textContent = 'Delete';
+    }
+});
+
+// Form message helper
+function showFormMessage(message, type) {
+    formMessage.textContent = message;
+    formMessage.className = `form-message ${type}`;
+    formMessage.style.display = 'block';
+}
+
+// =====================================================
 // Initialize
 // =====================================================
 updateStatus();
 
 // Periodic status update (every 5 seconds)
 setInterval(updateStatus, 5000);
+
+// Load accounts when page loads if on accounts page
+if (document.querySelector('.nav-item[data-page="accounts"].active')) {
+    loadAccounts();
+}

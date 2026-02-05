@@ -147,13 +147,78 @@
                 </div>
             </main>
 
-            <!-- Accounts Page (placeholder) -->
+            <!-- Accounts Page -->
             <main class="main page-content" id="page-accounts" style="display: none;">
-                <div class="placeholder-page">
-                    <div class="placeholder-icon">🔑</div>
-                    <h2>Accounts & API Keys</h2>
-                    <p>Manage exchange accounts and API keys</p>
-                    <p class="coming-soon">Coming in STEP 4</p>
+                <div class="accounts-header">
+                    <h2>Registered Accounts</h2>
+                    <button id="btn-add-account" class="btn btn-primary">+ Add Account</button>
+                </div>
+
+                <div id="accounts-list" class="accounts-list">
+                    <p class="empty">Loading accounts...</p>
+                </div>
+
+                <!-- Add/Edit Account Modal -->
+                <div id="account-modal" class="modal" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3 id="modal-title">Add Account</h3>
+                            <button class="modal-close" id="modal-close">&times;</button>
+                        </div>
+                        <form id="account-form">
+                            <div class="form-group">
+                                <label for="account-name">Account Name</label>
+                                <input type="text" id="account-name" placeholder="e.g., okx-main" required>
+                                <span class="form-hint">Unique identifier for this account</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="account-exchange">Exchange</label>
+                                <select id="account-exchange" required>
+                                    <option value="">Select Exchange</option>
+                                    <option value="OKX">OKX</option>
+                                    <option value="KIS">KIS (Korea Investment)</option>
+                                    <option value="Binance">Binance</option>
+                                    <option value="Bybit">Bybit</option>
+                                    <option value="Upbit">Upbit</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="api-key">API Key</label>
+                                <input type="password" id="api-key" placeholder="Enter API Key" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="api-secret">API Secret</label>
+                                <input type="password" id="api-secret" placeholder="Enter API Secret" required>
+                            </div>
+                            <div class="form-group" id="passphrase-group" style="display: none;">
+                                <label for="api-passphrase">Passphrase (OKX only)</label>
+                                <input type="password" id="api-passphrase" placeholder="Enter Passphrase">
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" id="btn-test-connection" class="btn btn-secondary">Test Connection</button>
+                                <button type="submit" class="btn btn-primary">Save Account</button>
+                            </div>
+                            <div id="form-message" class="form-message" style="display: none;"></div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Delete Confirmation Modal -->
+                <div id="delete-modal" class="modal" style="display: none;">
+                    <div class="modal-content modal-small">
+                        <div class="modal-header">
+                            <h3>Delete Account</h3>
+                            <button class="modal-close" id="delete-modal-close">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <p>Are you sure you want to delete <strong id="delete-account-name"></strong>?</p>
+                            <p class="warning-text">This will permanently remove all API keys for this account.</p>
+                        </div>
+                        <div class="modal-actions">
+                            <button id="btn-cancel-delete" class="btn btn-secondary">Cancel</button>
+                            <button id="btn-confirm-delete" class="btn btn-danger">Delete</button>
+                        </div>
+                    </div>
                 </div>
             </main>
 

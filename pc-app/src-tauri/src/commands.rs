@@ -247,6 +247,232 @@ pub async fn delete_api_key(exchange: String, key_type: String) -> Result<(), St
 }
 
 // =====================================================
+// Account Management (Full Account Keys)
+// =====================================================
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct AccountKeys {
+    pub api_key: String,
+    pub api_secret: String,
+    pub passphrase: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct AccountInfo {
+    pub id: Option<i64>,
+    pub name: String,
+    pub exchange: String,
+    pub is_active: bool,
+    pub has_keys: bool,
+    pub last_health_check: Option<String>,
+    pub health_status: Option<String>,
+}
+
+#[tauri::command]
+pub async fn save_account_keys(
+    account_name: String,
+    exchange: String,
+    keys: AccountKeys,
+) -> Result<(), String> {
+    let service = format!("bbooster-{}", exchange.to_lowercase());
+
+    // Save API Key
+    let key_entry = keyring::Entry::new(&service, &format!("{}_key", account_name))
+        .map_err(|e| e.to_string())?;
+    key_entry.set_password(&keys.api_key).map_err(|e| e.to_string())?;
+
+    // Save API Secret
+    let secret_entry = keyring::Entry::new(&service, &format!("{}_secret", account_name))
+        .map_err(|e| e.to_string())?;
+    secret_entry.set_password(&keys.api_secret).map_err(|e| e.to_string())?;
+
+    // Save Passphrase (OKX only)
+    if let Some(pass) = keys.passphrase {
+        if !pass.is_empty() {
+            let pass_entry = keyring::Entry::new(&service, &format!("{}_passphrase", account_name))
+                .map_err(|e| e.to_string())?;
+            pass_entry.set_password(&pass).map_err(|e| e.to_string())?;
+        }
+    }
+
+    // Save account to local registry
+    save_account_to_registry(&account_name, &exchange)?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_account_keys(
+    account_name: String,
+    exchange: String,
+) -> Result<AccountKeys, String> {
+    let service = format!("bbooster-{}", exchange.to_lowercase());
+
+    let key_entry = keyring::Entry::new(&service, &format!("{}_key", account_name))
+        .map_err(|e| e.to_string())?;
+    let secret_entry = keyring::Entry::new(&service, &format!("{}_secret", account_name))
+        .map_err(|e| e.to_string())?;
+
+    let api_key = key_entry.get_password().map_err(|e| e.to_string())?;
+    let api_secret = secret_entry.get_password().map_err(|e| e.to_string())?;
+
+    // Passphrase is optional
+    let passphrase = keyring::Entry::new(&service, &format!("{}_passphrase", account_name))
+        .ok()
+        .and_then(|e| e.get_password().ok());
+
+    Ok(AccountKeys {
+        api_key,
+        api_secret,
+        passphrase,
+    })
+}
+
+#[tauri::command]
+pub async fn delete_account_keys(account_name: String, exchange: String) -> Result<(), String> {
+    let service = format!("bbooster-{}", exchange.to_lowercase());
+
+    // Delete all keys
+    for suffix in ["key", "secret", "passphrase"] {
+        if let Ok(entry) = keyring::Entry::new(&service, &format!("{}_{}", account_name, suffix)) {
+            let _ = entry.delete_credential();
+        }
+    }
+
+    // Remove from local registry
+    remove_account_from_registry(&account_name, &exchange)?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn list_local_accounts() -> Result<Vec<AccountInfo>, String> {
+    let accounts = load_account_registry()?;
+    Ok(accounts)
+}
+
+#[tauri::command]
+pub async fn fetch_server_accounts() -> Result<Vec<AccountInfo>, String> {
+    let client = reqwest::Client::new();
+    let resp = client
+        .get("http://127.0.0.1:8000/api/accounts")
+        .timeout(std::time::Duration::from_secs(5))
+        .send()
+        .await;
+
+    match resp {
+        Ok(r) => {
+            if r.status().is_success() {
+                let data: serde_json::Value = r.json().await.map_err(|e| e.to_string())?;
+                let accounts_array = data.get("accounts").and_then(|a| a.as_array());
+
+                if let Some(accounts) = accounts_array {
+                    let result: Vec<AccountInfo> = accounts
+                        .iter()
+                        .filter_map(|a| {
+                            Some(AccountInfo {
+                                id: a.get("id").and_then(|v| v.as_i64()),
+                                name: a.get("name").and_then(|v| v.as_str())?.to_string(),
+                                exchange: a.get("exchange").and_then(|v| v.as_str())?.to_string(),
+                                is_active: a.get("is_active").and_then(|v| v.as_bool()).unwrap_or(false),
+                                has_keys: true,
+                                last_health_check: a.get("last_health_check").and_then(|v| v.as_str()).map(String::from),
+                                health_status: a.get("health_status").and_then(|v| v.as_str()).map(String::from),
+                            })
+                        })
+                        .collect();
+                    Ok(result)
+                } else {
+                    Ok(vec![])
+                }
+            } else {
+                Ok(vec![])
+            }
+        }
+        Err(_) => Ok(vec![]),
+    }
+}
+
+#[tauri::command]
+pub async fn test_account_connection(exchange: String, account_name: String) -> Result<String, String> {
+    let client = reqwest::Client::new();
+    let endpoint = match exchange.to_uppercase().as_str() {
+        "OKX" => format!("http://127.0.0.1:8000/api/diag/okx-preflight?account={}", account_name),
+        "KIS" => format!("http://127.0.0.1:8000/api/diag/kis-preflight?account={}", account_name),
+        _ => return Err(format!("Unknown exchange: {}", exchange)),
+    };
+
+    let resp = client
+        .get(&endpoint)
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if resp.status().is_success() {
+        Ok("Connection successful".to_string())
+    } else {
+        let error_text = resp.text().await.unwrap_or_default();
+        Err(format!("Connection failed: {}", error_text))
+    }
+}
+
+// Local account registry helpers
+fn get_registry_path() -> Result<PathBuf, String> {
+    let data_dir = dirs::data_dir().ok_or("Data directory not found")?;
+    Ok(data_dir.join("BBooster").join("accounts.json"))
+}
+
+fn load_account_registry() -> Result<Vec<AccountInfo>, String> {
+    let path = get_registry_path()?;
+    if !path.exists() {
+        return Ok(vec![]);
+    }
+
+    let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    let accounts: Vec<AccountInfo> = serde_json::from_str(&content).unwrap_or_default();
+    Ok(accounts)
+}
+
+fn save_account_registry(accounts: &[AccountInfo]) -> Result<(), String> {
+    let path = get_registry_path()?;
+
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+
+    let content = serde_json::to_string_pretty(accounts).map_err(|e| e.to_string())?;
+    fs::write(&path, content).map_err(|e| e.to_string())
+}
+
+fn save_account_to_registry(name: &str, exchange: &str) -> Result<(), String> {
+    let mut accounts = load_account_registry()?;
+
+    // Check if already exists
+    let exists = accounts.iter().any(|a| a.name == name && a.exchange == exchange);
+    if !exists {
+        accounts.push(AccountInfo {
+            id: None,
+            name: name.to_string(),
+            exchange: exchange.to_string(),
+            is_active: true,
+            has_keys: true,
+            last_health_check: None,
+            health_status: None,
+        });
+        save_account_registry(&accounts)?;
+    }
+
+    Ok(())
+}
+
+fn remove_account_from_registry(name: &str, exchange: &str) -> Result<(), String> {
+    let mut accounts = load_account_registry()?;
+    accounts.retain(|a| !(a.name == name && a.exchange == exchange));
+    save_account_registry(&accounts)
+}
+
+// =====================================================
 // Timeline & Connector Status
 // =====================================================
 
