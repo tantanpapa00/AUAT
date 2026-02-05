@@ -4,6 +4,12 @@ use std::path::PathBuf;
 use std::process::Command;
 use tauri::AppHandle;
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 // =====================================================
 // Server Management
 // =====================================================
@@ -14,10 +20,14 @@ pub async fn start_server() -> Result<String, String> {
     let python_path = find_python().ok_or("Python not found")?;
     let server_path = get_server_path()?;
 
-    Command::new(&python_path)
-        .args(["-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8000"])
-        .current_dir(&server_path)
-        .spawn()
+    let mut cmd = Command::new(&python_path);
+    cmd.args(["-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8000"])
+        .current_dir(&server_path);
+
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+
+    cmd.spawn()
         .map_err(|e| format!("Failed to start server: {}", e))?;
 
     Ok("Server started".to_string())
@@ -34,6 +44,7 @@ pub async fn stop_server() -> Result<String, String> {
     {
         let _ = Command::new("taskkill")
             .args(["/F", "/IM", "python.exe"])
+            .creation_flags(CREATE_NO_WINDOW)
             .output();
     }
 
@@ -583,7 +594,11 @@ fn find_python() -> Option<String> {
     #[cfg(target_os = "windows")]
     {
         // 1. PATH에서 찾기
-        if let Ok(output) = Command::new("where").arg("python").output() {
+        if let Ok(output) = Command::new("where")
+            .arg("python")
+            .creation_flags(CREATE_NO_WINDOW)
+            .output()
+        {
             if output.status.success() {
                 if let Ok(path) = String::from_utf8(output.stdout) {
                     return Some(path.lines().next()?.trim().to_string());
@@ -599,7 +614,12 @@ fn find_python() -> Option<String> {
             r"C:\Python311\python.exe",
         ];
         for path in paths {
-            if Command::new(path).arg("--version").output().is_ok() {
+            if Command::new(path)
+                .arg("--version")
+                .creation_flags(CREATE_NO_WINDOW)
+                .output()
+                .is_ok()
+            {
                 return Some(path.to_string());
             }
         }
