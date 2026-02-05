@@ -342,12 +342,20 @@ _poller_loop = _poll_worker_loop
 # def _stop_order_poll_worker():
 #     _POLL_STOP.set()
 
-# templates = Jinja2Templates(directory="app/templates")
+# ---- Web Dashboard Templates ----
+templates = Jinja2Templates(directory="app/templates")
 
 
-# @app.get("/", response_class=HTMLResponse)
-# def home(request: Request):
-#     return templates.TemplateResponse("index.html", {"request": request})
+@app.get("/", response_class=HTMLResponse)
+def home(request: Request):
+    """Web Dashboard - Main page"""
+    return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/ui", response_class=HTMLResponse)
+def ui_home(request: Request):
+    """Web Dashboard - Alias for /"""
+    return templates.TemplateResponse("index.html", {"request": request})
 
 
 # @app.get("/db-check")
