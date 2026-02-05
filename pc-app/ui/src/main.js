@@ -85,6 +85,8 @@ function navigateTo(page) {
         loadTemplateAssets();
     } else if (page === 'settings') {
         loadSettingsData();
+    } else if (page === 'logs') {
+        loadLogs();
     }
 }
 
@@ -1180,6 +1182,176 @@ btnExportDiagSettings?.addEventListener('click', async () => {
     } finally {
         btnExportDiagSettings.disabled = false;
         btnExportDiagSettings.textContent = 'Export Diagnostic';
+    }
+});
+
+// =====================================================
+// Logs Page
+// =====================================================
+const logsCount = document.getElementById('logs-count');
+const btnRefreshLogs = document.getElementById('btn-refresh-logs');
+const btnExportCsv = document.getElementById('btn-export-csv');
+const filterExchange = document.getElementById('filter-exchange');
+const filterStatus = document.getElementById('filter-status');
+const filterSymbol = document.getElementById('filter-symbol');
+const filterLimit = document.getElementById('filter-limit');
+const btnApplyFilters = document.getElementById('btn-apply-filters');
+const logsTbody = document.getElementById('logs-tbody');
+
+// Log detail modal
+const logDetailModal = document.getElementById('log-detail-modal');
+const logDetailClose = document.getElementById('log-detail-close');
+const logDetailJson = document.getElementById('log-detail-json');
+const btnCopyLogJson = document.getElementById('btn-copy-log-json');
+const btnCloseLogDetail = document.getElementById('btn-close-log-detail');
+
+let currentLogs = [];
+
+// Load logs
+async function loadLogs() {
+    const exchange = filterExchange?.value || '';
+    const status = filterStatus?.value || '';
+    const symbol = filterSymbol?.value || '';
+    const limit = filterLimit?.value || '100';
+
+    try {
+        // Build query params
+        const params = new URLSearchParams();
+        params.append('limit', limit);
+        if (exchange) params.append('exchange', exchange);
+        if (status) params.append('status', status);
+        if (symbol) params.append('symbol', symbol);
+
+        const response = await fetch(`http://127.0.0.1:8000/api/timeline?${params.toString()}`);
+        const data = await response.json();
+
+        if (Array.isArray(data) && data.length > 0) {
+            currentLogs = data;
+            logsCount.textContent = `${data.length} records`;
+
+            logsTbody.innerHTML = data.map((log, index) => {
+                const time = formatDateTime(log.timestamp || log.created_at);
+                const exchange = log.exchange || '--';
+                const symbol = log.symbol || '--';
+                const side = log.side || '--';
+                const qty = log.qty || log.filled_qty || '--';
+                const status = log.event_type || log.status || 'unknown';
+                const orderId = log.order_id || log.okx_order_id || '--';
+
+                return `
+                    <tr>
+                        <td class="col-time">${time}</td>
+                        <td>${exchange}</td>
+                        <td class="col-symbol">${symbol}</td>
+                        <td class="col-side ${side.toLowerCase()}">${side.toUpperCase()}</td>
+                        <td>${qty}</td>
+                        <td><span class="col-status ${status.toLowerCase()}">${status}</span></td>
+                        <td class="col-orderid">${orderId !== '--' ? orderId.slice(-8) : '--'}</td>
+                        <td>
+                            <button class="btn btn-secondary btn-view-detail" data-index="${index}">View</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            // Add event listeners for view buttons
+            logsTbody.querySelectorAll('.btn-view-detail').forEach(btn => {
+                btn.addEventListener('click', () => showLogDetail(parseInt(btn.dataset.index)));
+            });
+        } else {
+            currentLogs = [];
+            logsCount.textContent = '0 records';
+            logsTbody.innerHTML = '<tr><td colspan="8" class="empty-cell">No logs found</td></tr>';
+        }
+    } catch (error) {
+        console.error('Failed to load logs:', error);
+        logsTbody.innerHTML = '<tr><td colspan="8" class="empty-cell">Failed to load logs. Check server connection.</td></tr>';
+    }
+}
+
+// Show log detail modal
+function showLogDetail(index) {
+    const log = currentLogs[index];
+    if (!log) return;
+
+    logDetailJson.textContent = JSON.stringify(log, null, 2);
+    logDetailModal.style.display = 'flex';
+}
+
+// Close log detail modal
+function closeLogDetailModal() {
+    logDetailModal.style.display = 'none';
+}
+
+logDetailClose?.addEventListener('click', closeLogDetailModal);
+btnCloseLogDetail?.addEventListener('click', closeLogDetailModal);
+logDetailModal?.addEventListener('click', (e) => {
+    if (e.target === logDetailModal) closeLogDetailModal();
+});
+
+// Copy log JSON
+btnCopyLogJson?.addEventListener('click', async () => {
+    try {
+        await navigator.clipboard.writeText(logDetailJson.textContent);
+        showToast('Copied to clipboard', 'success');
+    } catch (error) {
+        showToast('Failed to copy', 'error');
+    }
+});
+
+// Refresh logs
+btnRefreshLogs?.addEventListener('click', loadLogs);
+
+// Apply filters
+btnApplyFilters?.addEventListener('click', loadLogs);
+
+// Export CSV
+btnExportCsv?.addEventListener('click', async () => {
+    if (currentLogs.length === 0) {
+        showToast('No logs to export', 'warning');
+        return;
+    }
+
+    btnExportCsv.disabled = true;
+    btnExportCsv.textContent = 'Exporting...';
+
+    try {
+        // Create CSV content
+        const headers = ['Time', 'Exchange', 'Symbol', 'Side', 'Qty', 'Status', 'Order ID', 'Message'];
+        const rows = currentLogs.map(log => [
+            log.timestamp || log.created_at || '',
+            log.exchange || '',
+            log.symbol || '',
+            log.side || '',
+            log.qty || log.filled_qty || '',
+            log.event_type || log.status || '',
+            log.order_id || log.okx_order_id || '',
+            log.message || ''
+        ]);
+
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        ].join('\n');
+
+        // Create blob and download
+        const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `bbooster_logs_${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        showToast('CSV exported successfully', 'success');
+    } catch (error) {
+        console.error('Failed to export CSV:', error);
+        showToast('Failed to export CSV', 'error');
+    } finally {
+        btnExportCsv.disabled = false;
+        btnExportCsv.textContent = 'Export CSV';
     }
 });
 

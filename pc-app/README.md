@@ -5,7 +5,7 @@
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) v18+
-- [Rust](https://www.rust-lang.org/tools/install)
+- [Rust](https://www.rust-lang.org/tools/install) 1.70+
 - [Tauri CLI](https://tauri.app/v1/guides/getting-started/prerequisites)
 
 ## Setup
@@ -43,6 +43,7 @@ cargo tauri build
 빌드 결과물:
 - `src-tauri/target/release/BBooster.exe` (실행파일)
 - `src-tauri/target/release/bundle/nsis/BBooster_x.x.x_x64-setup.exe` (설치파일)
+- `src-tauri/target/release/bundle/msi/BBooster_x.x.x_x64.msi` (MSI 패키지)
 
 ## Structure
 
@@ -58,24 +59,49 @@ pc-app/
 │       └── crypto.rs    # AES-GCM 암호화
 ├── ui/                  # 프론트엔드
 │   ├── package.json
+│   ├── vite.config.js
 │   ├── index.html
 │   └── src/
 │       ├── main.js
-│       └── style.css
+│       ├── style.css
+│       └── assets/
 └── README.md
 ```
 
+## Pages
+
+| Page | Description |
+|------|-------------|
+| Dashboard | 서버 상태, E-STOP, 커넥터 상태, 타임라인, 최근 이벤트 |
+| Accounts | 거래소 계좌 등록, API 키 관리 (OKX, KIS, Binance, Bybit, Upbit) |
+| Templates | TradingView 웹훅 템플릿 생성기, JSON 복사 |
+| Settings | E-STOP 제어, 시스템 상태, 서버 연결 설정 |
+| Logs | 거래 로그 조회, 필터링, CSV 내보내기 |
+
 ## Features
 
+### Core
 - Server Control: 서버 시작/정지
 - System Tray: 트레이 아이콘 + 메뉴
-- E-STOP: 비상 정지 ON/OFF
+- E-STOP: 비상 정지 ON/OFF (사유 입력)
 - Dashboard: 웹 대시보드 열기
 - Diagnostic: 진단 리포트 zip 내보내기
-- API Key Storage: OS 자격증명 관리자에 암호화 저장 (AES-256-GCM)
+
+### Security
+- API Key Storage: OS 자격증명 관리자 연동
+- AES-256-GCM 암호화 모듈
+- 키 값 UI 마스킹
+
+### Monitoring
 - Timeline: 거래 타임라인 조회
 - Connector Status: 거래소 연결 상태 확인
 - Subscription: 구독 정보 조회
+- Trade Logs: 상세 거래 로그 + CSV 내보내기
+
+### Templates
+- TradingView 웹훅 템플릿 생성
+- 다중 자산 선택
+- 클립보드 복사
 
 ## Tray Menu
 
@@ -87,6 +113,28 @@ pc-app/
 - E-STOP ON/OFF
 - Quit
 
+## Tauri Commands
+
+| Command | Description |
+|---------|-------------|
+| start_server | 서버 시작 |
+| stop_server | 서버 정지 |
+| get_server_status | 서버 상태 조회 |
+| set_estop | E-STOP 설정 |
+| get_home_data | 홈 데이터 조회 |
+| save_account_keys | 계좌 키 저장 |
+| get_account_keys | 계좌 키 조회 |
+| delete_account_keys | 계좌 키 삭제 |
+| list_local_accounts | 로컬 계좌 목록 |
+| fetch_server_accounts | 서버 계좌 목록 |
+| test_account_connection | 연결 테스트 |
+| fetch_timeline | 타임라인 조회 |
+| fetch_connector_status | 커넥터 상태 |
+| fetch_subscription | 구독 정보 |
+| export_diagnostic | 진단 내보내기 |
+| open_dashboard | 대시보드 열기 |
+| open_logs_folder | 로그 폴더 열기 |
+
 ## Icons
 
 아이콘 파일은 `src-tauri/icons/` 폴더에 배치:
@@ -96,5 +144,6 @@ pc-app/
 
 ## Notes
 
-- 서버(autobot)가 `C:\autobot`에 있어야 합니다
-- 또는 빌드 시 서버를 앱과 함께 번들링
+- 서버(AUAT)가 `C:\autobot` 또는 프로젝트 폴더에 있어야 합니다
+- VPS 환경에서는 Docker Compose로 서버 실행
+- 로컬 테스트 시 Python + uvicorn 필요

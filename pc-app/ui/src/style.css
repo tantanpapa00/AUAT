@@ -1329,6 +1329,212 @@ body {
 }
 
 /* =====================================================
+   Logs Page
+   ===================================================== */
+.logs-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.logs-title {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.logs-title h2 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.logs-count {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    padding: 4px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+}
+
+.logs-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.logs-filters {
+    margin-bottom: 20px;
+}
+
+.filters-row {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+
+.filters-row .form-group {
+    flex: 1;
+    min-width: 120px;
+    margin-bottom: 0;
+}
+
+.filter-btn-group {
+    flex: 0 0 auto !important;
+    min-width: auto !important;
+}
+
+.logs-table-container {
+    overflow: hidden;
+}
+
+.table-wrapper {
+    overflow-x: auto;
+}
+
+.logs-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.logs-table th,
+.logs-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+.logs-table th {
+    background: rgba(255, 255, 255, 0.03);
+    font-weight: 600;
+    color: var(--text-primary);
+    position: sticky;
+    top: 0;
+}
+
+.logs-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.logs-table td {
+    color: var(--text-secondary);
+}
+
+.logs-table .col-time {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 0.8rem;
+}
+
+.logs-table .col-symbol {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.logs-table .col-side {
+    font-weight: 600;
+}
+
+.logs-table .col-side.buy {
+    color: var(--success);
+}
+
+.logs-table .col-side.sell {
+    color: var(--danger);
+}
+
+.logs-table .col-status {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    display: inline-block;
+}
+
+.logs-table .col-status.received {
+    background: rgba(59, 130, 246, 0.2);
+    color: var(--info);
+}
+
+.logs-table .col-status.sent {
+    background: rgba(245, 158, 11, 0.2);
+    color: var(--warning);
+}
+
+.logs-table .col-status.filled {
+    background: rgba(34, 197, 94, 0.2);
+    color: var(--success);
+}
+
+.logs-table .col-status.partial {
+    background: rgba(139, 92, 246, 0.2);
+    color: #A78BFA;
+}
+
+.logs-table .col-status.failed {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--danger);
+}
+
+.logs-table .col-orderid {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.btn-view-detail {
+    padding: 4px 10px;
+    font-size: 0.75rem;
+}
+
+.empty-cell {
+    text-align: center !important;
+    color: var(--text-muted);
+    padding: 40px !important;
+}
+
+.modal-large {
+    max-width: 700px;
+}
+
+.log-detail-json {
+    background: var(--bg-dark);
+    padding: 15px;
+    border-radius: 8px;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    overflow-x: auto;
+    white-space: pre-wrap;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+    .filters-row {
+        flex-direction: column;
+    }
+
+    .filters-row .form-group {
+        width: 100%;
+    }
+
+    .logs-table {
+        font-size: 0.8rem;
+    }
+
+    .logs-table th,
+    .logs-table td {
+        padding: 8px 10px;
+    }
+}
+
+/* =====================================================
    Responsive
    ===================================================== */
 @media (max-width: 900px) {

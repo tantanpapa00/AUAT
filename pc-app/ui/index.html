@@ -386,13 +386,104 @@
                 </div>
             </main>
 
-            <!-- Logs Page (placeholder) -->
+            <!-- Logs Page -->
             <main class="main page-content" id="page-logs" style="display: none;">
-                <div class="placeholder-page">
-                    <div class="placeholder-icon">📋</div>
-                    <h2>Trade Logs</h2>
-                    <p>View detailed trade history and export CSV</p>
-                    <p class="coming-soon">Coming in STEP 6</p>
+                <div class="logs-header">
+                    <div class="logs-title">
+                        <h2>Trade Logs</h2>
+                        <span class="logs-count" id="logs-count">0 records</span>
+                    </div>
+                    <div class="logs-actions">
+                        <button id="btn-refresh-logs" class="btn btn-secondary">Refresh</button>
+                        <button id="btn-export-csv" class="btn btn-primary">Export CSV</button>
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <section class="card logs-filters">
+                    <div class="filters-row">
+                        <div class="form-group">
+                            <label for="filter-exchange">Exchange</label>
+                            <select id="filter-exchange">
+                                <option value="">All</option>
+                                <option value="OKX">OKX</option>
+                                <option value="KIS">KIS</option>
+                                <option value="Binance">Binance</option>
+                                <option value="Bybit">Bybit</option>
+                                <option value="Upbit">Upbit</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-status">Status</label>
+                            <select id="filter-status">
+                                <option value="">All</option>
+                                <option value="received">Received</option>
+                                <option value="sent">Sent</option>
+                                <option value="filled">Filled</option>
+                                <option value="partial">Partial</option>
+                                <option value="failed">Failed</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-symbol">Symbol</label>
+                            <input type="text" id="filter-symbol" placeholder="e.g., BTC-USDT">
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-limit">Show</label>
+                            <select id="filter-limit">
+                                <option value="50">50</option>
+                                <option value="100" selected>100</option>
+                                <option value="200">200</option>
+                                <option value="500">500</option>
+                            </select>
+                        </div>
+                        <div class="form-group filter-btn-group">
+                            <label>&nbsp;</label>
+                            <button id="btn-apply-filters" class="btn btn-secondary">Apply</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Logs Table -->
+                <section class="card logs-table-container">
+                    <div class="table-wrapper">
+                        <table class="logs-table" id="logs-table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Exchange</th>
+                                    <th>Symbol</th>
+                                    <th>Side</th>
+                                    <th>Qty</th>
+                                    <th>Status</th>
+                                    <th>Order ID</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody id="logs-tbody">
+                                <tr>
+                                    <td colspan="8" class="empty-cell">Loading logs...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Log Detail Modal -->
+                <div id="log-detail-modal" class="modal" style="display: none;">
+                    <div class="modal-content modal-large">
+                        <div class="modal-header">
+                            <h3>Log Details</h3>
+                            <button class="modal-close" id="log-detail-close">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <pre id="log-detail-json" class="log-detail-json"></pre>
+                        </div>
+                        <div class="modal-actions">
+                            <button id="btn-copy-log-json" class="btn btn-secondary">Copy JSON</button>
+                            <button id="btn-close-log-detail" class="btn btn-primary">Close</button>
+                        </div>
+                    </div>
                 </div>
             </main>
 
