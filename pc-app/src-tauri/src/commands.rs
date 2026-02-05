@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
-use std::process::Command;
 use tauri::AppHandle;
 
 // =====================================================
@@ -242,7 +241,7 @@ pub async fn get_api_key(exchange: String, key_type: String) -> Result<String, S
 pub async fn delete_api_key(exchange: String, key_type: String) -> Result<(), String> {
     let service = format!("bbooster_{}", exchange.to_lowercase());
     let entry = keyring::Entry::new(&service, &key_type).map_err(|e| e.to_string())?;
-    entry.delete_credential().map_err(|e| e.to_string())?;
+    entry.delete_password().map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -335,7 +334,7 @@ pub async fn delete_account_keys(account_name: String, exchange: String) -> Resu
     // Delete all keys
     for suffix in ["key", "secret", "passphrase"] {
         if let Ok(entry) = keyring::Entry::new(&service, &format!("{}_{}", account_name, suffix)) {
-            let _ = entry.delete_credential();
+            let _ = entry.delete_password();
         }
     }
 
