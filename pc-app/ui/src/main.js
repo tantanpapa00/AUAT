@@ -1517,6 +1517,71 @@ document.getElementById('subscription-badge')?.addEventListener('click', () => {
 });
 
 // =====================================================
+// Payment System UI
+// =====================================================
+const PLANS = {
+    hub: { name: '허브형', price: '₩29,000' },
+    premium: { name: '프리미엄', price: '₩99,000' }
+};
+
+let selectedPlan = null;
+
+function openPaymentModal(planType) {
+    selectedPlan = planType;
+    const plan = PLANS[planType];
+    if (!plan) return;
+
+    document.getElementById('selected-plan-name').textContent = plan.name;
+    document.getElementById('selected-plan-price').textContent = plan.price;
+    document.getElementById('payment-modal').style.display = 'flex';
+}
+
+function closePaymentModal() {
+    document.getElementById('payment-modal').style.display = 'none';
+    selectedPlan = null;
+}
+
+async function processPayment() {
+    const email = document.getElementById('payment-email').value;
+    const agreeTerms = document.getElementById('agree-terms').checked;
+    const paymentMethod = document.querySelector('input[name="payment-method"]:checked')?.value;
+
+    if (!email) {
+        showToast('이메일을 입력해주세요.', 'error');
+        return;
+    }
+
+    if (!agreeTerms) {
+        showToast('약관에 동의해주세요.', 'error');
+        return;
+    }
+
+    // In a real implementation, this would integrate with a payment gateway
+    // For now, just show a message that payment processing would happen here
+    showToast(`${PLANS[selectedPlan].name} 플랜 결제 처리 중... (데모)`, 'success');
+
+    // Simulate payment processing
+    setTimeout(() => {
+        showToast('결제 시스템은 추후 연동 예정입니다.', 'warning');
+        closePaymentModal();
+    }, 2000);
+}
+
+// Payment modal event listeners
+document.getElementById('btn-subscribe-hub')?.addEventListener('click', () => openPaymentModal('hub'));
+document.getElementById('btn-subscribe-premium')?.addEventListener('click', () => openPaymentModal('premium'));
+document.getElementById('payment-modal-close')?.addEventListener('click', closePaymentModal);
+document.getElementById('btn-cancel-payment')?.addEventListener('click', closePaymentModal);
+document.getElementById('btn-confirm-payment')?.addEventListener('click', processPayment);
+
+// Close modal on backdrop click
+document.getElementById('payment-modal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'payment-modal') {
+        closePaymentModal();
+    }
+});
+
+// =====================================================
 // Initialize
 // =====================================================
 checkServerConnection();

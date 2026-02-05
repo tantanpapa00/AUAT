@@ -464,6 +464,135 @@
                         </div>
                     </section>
                 </div>
+
+                <!-- Pricing Plans Section -->
+                <section class="card pricing-section" style="margin-top: 20px;">
+                    <h2>요금제 안내</h2>
+                    <p class="description">필요에 맞는 요금제를 선택하세요</p>
+
+                    <div class="pricing-grid">
+                        <!-- Free Plan -->
+                        <div class="pricing-card" id="plan-free">
+                            <div class="pricing-header">
+                                <h3>무료</h3>
+                                <div class="pricing-price">
+                                    <span class="price">₩0</span>
+                                    <span class="period">/월</span>
+                                </div>
+                            </div>
+                            <ul class="pricing-features">
+                                <li><span class="check">✓</span> 기본 자동매매</li>
+                                <li><span class="check">✓</span> TradingView 웹훅</li>
+                                <li><span class="check">✓</span> 1개 계정</li>
+                                <li><span class="cross">✕</span> 프리미엄 신호</li>
+                                <li><span class="cross">✕</span> 클라우드 동기화</li>
+                            </ul>
+                            <button class="btn btn-secondary pricing-btn" disabled>현재 플랜</button>
+                        </div>
+
+                        <!-- Hub Plan -->
+                        <div class="pricing-card" id="plan-hub">
+                            <div class="pricing-header">
+                                <div class="pricing-badge">인기</div>
+                                <h3>허브형</h3>
+                                <div class="pricing-price">
+                                    <span class="price">₩29,000</span>
+                                    <span class="period">/월</span>
+                                </div>
+                            </div>
+                            <ul class="pricing-features">
+                                <li><span class="check">✓</span> 기본 자동매매</li>
+                                <li><span class="check">✓</span> TradingView 웹훅</li>
+                                <li><span class="check">✓</span> 무제한 계정</li>
+                                <li><span class="check">✓</span> 개인 서버 운영</li>
+                                <li><span class="cross">✕</span> 프리미엄 신호</li>
+                            </ul>
+                            <button class="btn btn-primary pricing-btn" id="btn-subscribe-hub">구독하기</button>
+                        </div>
+
+                        <!-- Premium Plan -->
+                        <div class="pricing-card premium" id="plan-premium">
+                            <div class="pricing-header">
+                                <div class="pricing-badge premium">추천</div>
+                                <h3>프리미엄</h3>
+                                <div class="pricing-price">
+                                    <span class="price">₩99,000</span>
+                                    <span class="period">/월</span>
+                                </div>
+                            </div>
+                            <ul class="pricing-features">
+                                <li><span class="check">✓</span> 기본 자동매매</li>
+                                <li><span class="check">✓</span> TradingView 웹훅</li>
+                                <li><span class="check">✓</span> 무제한 계정</li>
+                                <li><span class="check">✓</span> 프리미엄 신호</li>
+                                <li><span class="check">✓</span> 클라우드 동기화</li>
+                                <li><span class="check">✓</span> 우선 지원</li>
+                            </ul>
+                            <button class="btn btn-primary pricing-btn" id="btn-subscribe-premium">구독하기</button>
+                        </div>
+                    </div>
+
+                    <div class="payment-info" style="margin-top: 20px; text-align: center;">
+                        <p class="hint">결제는 카드, 계좌이체, 네이버페이로 가능합니다</p>
+                        <p class="hint">문의: support@qubesystem.com</p>
+                    </div>
+                </section>
+
+                <!-- Payment Modal -->
+                <div id="payment-modal" class="modal" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3 id="payment-modal-title">구독 결제</h3>
+                            <button class="modal-close" id="payment-modal-close">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="payment-summary" id="payment-summary">
+                                <div class="summary-row">
+                                    <span class="label">선택한 플랜:</span>
+                                    <span class="value" id="selected-plan-name">-</span>
+                                </div>
+                                <div class="summary-row">
+                                    <span class="label">월 결제 금액:</span>
+                                    <span class="value" id="selected-plan-price">-</span>
+                                </div>
+                            </div>
+
+                            <div class="form-group" style="margin-top: 20px;">
+                                <label>결제 수단 선택</label>
+                                <div class="payment-methods">
+                                    <label class="payment-method">
+                                        <input type="radio" name="payment-method" value="card" checked>
+                                        <span class="method-label">💳 신용/체크카드</span>
+                                    </label>
+                                    <label class="payment-method">
+                                        <input type="radio" name="payment-method" value="bank">
+                                        <span class="method-label">🏦 계좌이체</span>
+                                    </label>
+                                    <label class="payment-method">
+                                        <input type="radio" name="payment-method" value="naverpay">
+                                        <span class="method-label">💚 네이버페이</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="payment-email">이메일 (영수증 발송용)</label>
+                                <input type="email" id="payment-email" placeholder="your@email.com">
+                            </div>
+
+                            <div class="payment-terms">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="agree-terms">
+                                    <span>이용약관 및 개인정보처리방침에 동의합니다</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="modal-actions">
+                            <button id="btn-cancel-payment" class="btn btn-secondary">취소</button>
+                            <button id="btn-confirm-payment" class="btn btn-primary">결제하기</button>
+                        </div>
+                    </div>
+                </div>
             </main>
 
             <!-- Logs Page -->
