@@ -373,13 +373,25 @@ const pageTitle = document.getElementById('page-title');
 const pageTitles = {
     home: '홈',
     'tv-connect': '트레이딩뷰 연결',
-    symbols: '종목정보',
     'premium-strategy': '프리미엄 전략',
-    'market-overview': '시장현황',
-    'sector-analysis': '업종분석',
-    'stock-ranking': '종목순위',
-    'featured-stocks': '특징주',
-    'market-events': '이벤트일정',
+    // 시장분석
+    'market-kr': '국내시장',
+    'market-us': '해외시장',
+    'market-etf': 'ETF',
+    'market-crypto': '코인시장',
+    // 종목분석
+    'stock-kr': '국내주식',
+    'stock-us': '해외주식',
+    'stock-etf': 'ETF 분석',
+    'stock-crypto': '코인분석',
+    // 기타
+    watchlist: '관심종목',
+    symbols: '종목분석', // legacy
+    'market-overview': '시장현황', // legacy
+    'sector-analysis': '업종분석', // legacy
+    'stock-ranking': '종목순위', // legacy
+    'featured-stocks': '특징주', // legacy
+    'market-events': '이벤트일정', // legacy
     accounts: '계정관리',
     notifications: '알림설정',
     'app-info': '앱정보',
@@ -459,6 +471,19 @@ window.navigateTo = function(page) {
     else if (page === 'tv-connect') loadTVConnectPage();
     else if (page === 'symbols') loadSymbolsPage();
     else if (page === 'premium-strategy') loadPremiumStrategyPage();
+    // 시장분석 (신규)
+    else if (page === 'market-kr') loadMarketKr();
+    else if (page === 'market-us') loadMarketUs();
+    else if (page === 'market-etf') loadMarketEtf();
+    else if (page === 'market-crypto') loadMarketCrypto();
+    // 종목분석 (신규)
+    else if (page === 'stock-kr') loadStockKr();
+    else if (page === 'stock-us') loadStockUs();
+    else if (page === 'stock-etf') loadStockEtf();
+    else if (page === 'stock-crypto') loadStockCrypto();
+    // 관심종목 (신규)
+    else if (page === 'watchlist') loadWatchlist();
+    // 기존 (legacy)
     else if (page === 'market-overview') loadMarketOverview();
     else if (page === 'sector-analysis') loadSectorAnalysis();
     else if (page === 'stock-ranking') loadStockRanking();
@@ -2276,8 +2301,7 @@ document.getElementById('btn-save-account')?.addEventListener('click', async () 
             apiKey: apiKey,
             apiSecret: apiSecret,
             apiPassphrase: passphrase || null,
-            accountNumber: accountNumber || null,
-            accountType: accountType || null
+            accountNumber: accountNumber || null
         });
 
         showToast('계정이 등록되었습니다', 'success');
@@ -3087,6 +3111,280 @@ document.getElementById('watchlist-modal')?.addEventListener('click', (e) => {
         document.getElementById('watchlist-modal').style.display = 'none';
     }
 });
+
+// =====================================================
+// 시장분석 새 페이지 로드 (STEP A)
+// =====================================================
+
+// 국내시장 로드
+async function loadMarketKr() {
+    const restrictionEl = document.getElementById('market-kr-restriction');
+    const contentEl = document.getElementById('market-kr-content');
+    if (!restrictionEl || !contentEl) return;
+
+    const plan = auth.user?.plan || 'free';
+    const role = auth.user?.role || 'user';
+    const isPro = ['pro', 'premium'].includes(plan) || role === 'admin';
+
+    if (!isPro) {
+        restrictionEl.style.display = 'flex';
+        contentEl.style.display = 'none';
+        return;
+    }
+
+    restrictionEl.style.display = 'none';
+    contentEl.style.display = 'block';
+
+    try {
+        const data = await invoke('get_market_overview', { accessToken: auth.accessToken || '' });
+
+        // 지수 카드
+        const indices = data.indices || {};
+        updateIndexCard('kr-index-kospi', indices.kospi);
+        updateIndexCard('kr-index-kosdaq', indices.kosdaq);
+
+        // 시장 신호 (단순화)
+        const kospiChange = data.summary?.kospi_change || 0;
+        const signalEl = document.getElementById('market-signal-kr');
+        if (signalEl) {
+            if (kospiChange > 0.5) {
+                signalEl.innerHTML = '<span class="signal-emoji">🟢</span><span class="signal-text">시장 상태: 매수 적합</span>';
+            } else if (kospiChange < -0.5) {
+                signalEl.innerHTML = '<span class="signal-emoji">🔴</span><span class="signal-text">시장 상태: 매수 부적합</span>';
+            } else {
+                signalEl.innerHTML = '<span class="signal-emoji">🟡</span><span class="signal-text">시장 상태: 중립</span>';
+            }
+        }
+
+        // 투자자 동향
+        if (data.investor) {
+            const { foreign_net, institution_net, individual_net } = data.investor;
+            document.getElementById('kr-investor-foreign').textContent = formatBillions(foreign_net);
+            document.getElementById('kr-investor-institution').textContent = formatBillions(institution_net);
+            document.getElementById('kr-investor-individual').textContent = formatBillions(individual_net);
+        }
+
+    } catch (error) {
+        console.error('Market KR error:', error);
+    }
+}
+
+// 해외시장 로드
+async function loadMarketUs() {
+    const restrictionEl = document.getElementById('market-us-restriction');
+    const contentEl = document.getElementById('market-us-content');
+    if (!restrictionEl || !contentEl) return;
+
+    const plan = auth.user?.plan || 'free';
+    const role = auth.user?.role || 'user';
+    const isPro = ['pro', 'premium'].includes(plan) || role === 'admin';
+
+    if (!isPro) {
+        restrictionEl.style.display = 'flex';
+        contentEl.style.display = 'none';
+        return;
+    }
+
+    restrictionEl.style.display = 'none';
+    contentEl.style.display = 'block';
+
+    try {
+        const data = await invoke('get_market_overview', { accessToken: auth.accessToken || '' });
+
+        // 지수 카드
+        const indices = data.indices || {};
+        updateIndexCard('us-index-sp500', indices.sp500);
+        updateIndexCard('us-index-nasdaq', indices.nasdaq);
+        updateIndexCard('us-index-dow', indices.dow);
+
+        // 주요 종목 표시 (임시 데이터)
+        const stocks = ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA', 'BRK.B'];
+        const tbody = document.getElementById('us-stocks-tbody');
+        if (tbody) {
+            tbody.innerHTML = stocks.map((s, i) => `
+                <tr><td>${s}</td><td>$---</td><td>---%</td><td>---</td></tr>
+            `).join('');
+        }
+
+    } catch (error) {
+        console.error('Market US error:', error);
+    }
+}
+
+// ETF 로드
+async function loadMarketEtf() {
+    const restrictionEl = document.getElementById('market-etf-restriction');
+    const contentEl = document.getElementById('market-etf-content');
+    if (!restrictionEl || !contentEl) return;
+
+    const plan = auth.user?.plan || 'free';
+    const role = auth.user?.role || 'user';
+    const isPro = ['pro', 'premium'].includes(plan) || role === 'admin';
+
+    if (!isPro) {
+        restrictionEl.style.display = 'flex';
+        contentEl.style.display = 'none';
+        return;
+    }
+
+    restrictionEl.style.display = 'none';
+    contentEl.style.display = 'block';
+
+    // ETF 탭 전환 이벤트
+    document.querySelectorAll('#etf-tabs .sub-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('#etf-tabs .sub-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            const tabId = tab.dataset.tab;
+            document.getElementById('etf-kr-section').style.display = tabId === 'etf-kr' ? 'block' : 'none';
+            document.getElementById('etf-us-section').style.display = tabId === 'etf-us' ? 'block' : 'none';
+        });
+    });
+}
+
+// 코인시장 로드
+async function loadMarketCrypto() {
+    const restrictionEl = document.getElementById('market-crypto-restriction');
+    const contentEl = document.getElementById('market-crypto-content');
+    if (!restrictionEl || !contentEl) return;
+
+    const plan = auth.user?.plan || 'free';
+    const role = auth.user?.role || 'user';
+    const isPro = ['pro', 'premium'].includes(plan) || role === 'admin';
+
+    if (!isPro) {
+        restrictionEl.style.display = 'flex';
+        contentEl.style.display = 'none';
+        return;
+    }
+
+    restrictionEl.style.display = 'none';
+    contentEl.style.display = 'block';
+
+    // 코인 목록 임시 데이터
+    const coins = [
+        { name: 'BTC', exchange: '전체', price: '₿1 = $--', change: '--', volume: '--' },
+        { name: 'ETH', exchange: '전체', price: '$--', change: '--', volume: '--' },
+        { name: 'XRP', exchange: '전체', price: '$--', change: '--', volume: '--' },
+        { name: 'SOL', exchange: '전체', price: '$--', change: '--', volume: '--' },
+    ];
+
+    const tbody = document.getElementById('crypto-tbody');
+    if (tbody) {
+        tbody.innerHTML = coins.map(c => `
+            <tr><td>${c.name}</td><td>${c.exchange}</td><td>${c.price}</td><td>${c.change}</td><td>${c.volume}</td></tr>
+        `).join('');
+    }
+}
+
+// =====================================================
+// 종목분석 새 페이지 로드 (STEP A)
+// =====================================================
+
+// 국내주식 분석 로드
+async function loadStockKr() {
+    // 하위 탭 이벤트
+    document.querySelectorAll('#stock-kr-tabs .sub-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('#stock-kr-tabs .sub-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            const tabId = tab.dataset.tab;
+            document.getElementById('stock-kr-rs-section').style.display = tabId === 'rs' ? 'block' : 'none';
+            document.getElementById('stock-kr-high52-section').style.display = tabId === 'high52' ? 'block' : 'none';
+            document.getElementById('stock-kr-valuation-section').style.display = tabId === 'valuation' ? 'block' : 'none';
+            document.getElementById('stock-kr-reports-section').style.display = tabId === 'reports' ? 'block' : 'none';
+        });
+    });
+
+    // 검색 이벤트
+    document.getElementById('btn-stock-kr-search')?.addEventListener('click', () => {
+        const query = document.getElementById('stock-kr-search')?.value?.trim();
+        if (query) searchSymbols(query);
+    });
+}
+
+// 해외주식 분석 로드
+async function loadStockUs() {
+    document.querySelectorAll('#stock-us-tabs .sub-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('#stock-us-tabs .sub-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            const tabId = tab.dataset.tab;
+            document.getElementById('stock-us-rs-section').style.display = tabId === 'us-rs' ? 'block' : 'none';
+            document.getElementById('stock-us-valuation-section').style.display = tabId === 'us-valuation' ? 'block' : 'none';
+        });
+    });
+
+    document.getElementById('btn-stock-us-search')?.addEventListener('click', () => {
+        const query = document.getElementById('stock-us-search')?.value?.trim();
+        if (query) searchSymbols(query);
+    });
+}
+
+// ETF 분석 로드
+async function loadStockEtf() {
+    document.getElementById('btn-stock-etf-search')?.addEventListener('click', () => {
+        const query = document.getElementById('stock-etf-search')?.value?.trim();
+        if (query) searchSymbols(query);
+    });
+}
+
+// 코인 분석 로드
+async function loadStockCrypto() {
+    document.getElementById('btn-stock-crypto-search')?.addEventListener('click', () => {
+        const query = document.getElementById('stock-crypto-search')?.value?.trim();
+        if (query) searchSymbols(query);
+    });
+}
+
+// =====================================================
+// 관심종목 페이지 로드 (STEP A)
+// =====================================================
+
+async function loadWatchlist() {
+    try {
+        const result = await invoke('get_watchlist_items', {
+            accessToken: auth.accessToken || '',
+            groupId: 'default'
+        });
+
+        const items = result.items || [];
+        const tbody = document.getElementById('watchlist-tbody');
+        const countEl = document.getElementById('watchlist-count');
+
+        if (countEl) countEl.textContent = items.length;
+
+        if (tbody) {
+            if (items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">관심종목이 없습니다. 종목분석에서 ⭐ 버튼을 눌러 추가하세요.</td></tr>';
+            } else {
+                tbody.innerHTML = items.map(item => `
+                    <tr>
+                        <td>${item.name || item.symbol}</td>
+                        <td>${item.price || '-'}</td>
+                        <td class="${item.change >= 0 ? 'profit' : 'loss'}">${item.change >= 0 ? '+' : ''}${item.change || 0}%</td>
+                        <td>${item.volume || '-'}</td>
+                        <td>${item.memo || '-'}</td>
+                        <td><button class="btn btn-sm btn-danger" data-id="${item.id}">삭제</button></td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+    } catch (error) {
+        console.error('Watchlist error:', error);
+    }
+}
+
+// 유틸리티 함수
+function formatBillions(value) {
+    if (value == null) return '-';
+    const absVal = Math.abs(value);
+    if (absVal >= 1e12) return `${(value / 1e12).toFixed(1)}조`;
+    if (absVal >= 1e8) return `${(value / 1e8).toFixed(0)}억`;
+    if (absVal >= 1e4) return `${(value / 1e4).toFixed(0)}만`;
+    return value.toLocaleString();
+}
 
 // =====================================================
 // Initialize App

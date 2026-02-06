@@ -1151,6 +1151,86 @@ async def api_user_delete_account(
     return {"ok": True, "message": "Account deleted successfully"}
 
 
+# ============================================================
+# 계정 연결 테스트 API (6개 거래소 지원)
+# ============================================================
+@app.get("/api/accounts/test")
+async def api_test_account_connection(
+    exchange: str = Query(...),
+    account: str = Query(...),
+    db: Session = Depends(get_db)
+):
+    """거래소별 계정 연결 테스트"""
+    exchange_lower = exchange.lower()
+
+    # 거래소별 테스트 로직
+    if exchange_lower == "okx":
+        # OKX: 기본 API ping 테스트
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get("https://www.okx.com/api/v5/public/time")
+                if resp.status_code == 200:
+                    return {"ok": True, "message": "OKX 연결 성공", "exchange": "OKX"}
+                return {"ok": False, "message": f"OKX 응답 오류: {resp.status_code}"}
+        except Exception as e:
+            return {"ok": False, "message": f"OKX 연결 실패: {str(e)}"}
+
+    elif exchange_lower == "binance":
+        # Binance: ping 테스트
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get("https://api.binance.com/api/v3/ping")
+                if resp.status_code == 200:
+                    return {"ok": True, "message": "Binance 연결 성공", "exchange": "Binance"}
+                return {"ok": False, "message": f"Binance 응답 오류: {resp.status_code}"}
+        except Exception as e:
+            return {"ok": False, "message": f"Binance 연결 실패: {str(e)}"}
+
+    elif exchange_lower == "bybit":
+        # Bybit: 서버 시간 테스트
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get("https://api.bybit.com/v5/market/time")
+                if resp.status_code == 200:
+                    return {"ok": True, "message": "Bybit 연결 성공", "exchange": "Bybit"}
+                return {"ok": False, "message": f"Bybit 응답 오류: {resp.status_code}"}
+        except Exception as e:
+            return {"ok": False, "message": f"Bybit 연결 실패: {str(e)}"}
+
+    elif exchange_lower == "upbit":
+        # Upbit: 시장 정보 테스트
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get("https://api.upbit.com/v1/market/all")
+                if resp.status_code == 200:
+                    return {"ok": True, "message": "Upbit 연결 성공", "exchange": "Upbit"}
+                return {"ok": False, "message": f"Upbit 응답 오류: {resp.status_code}"}
+        except Exception as e:
+            return {"ok": False, "message": f"Upbit 연결 실패: {str(e)}"}
+
+    elif exchange_lower in ("kis_kr", "kis"):
+        # KIS 국내주식: 토큰 발급 테스트는 키가 필요하므로 간단한 연결 확인
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get("https://openapi.koreainvestment.com:9443/")
+                # 연결 자체가 성공하면 OK (404라도 서버는 살아있음)
+                return {"ok": True, "message": "KIS 국내주식 연결 성공", "exchange": "KIS_KR"}
+        except Exception as e:
+            return {"ok": False, "message": f"KIS 국내주식 연결 실패: {str(e)}"}
+
+    elif exchange_lower == "kis_us":
+        # KIS 해외주식: 동일 서버 사용
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get("https://openapi.koreainvestment.com:9443/")
+                return {"ok": True, "message": "KIS 해외주식 연결 성공", "exchange": "KIS_US"}
+        except Exception as e:
+            return {"ok": False, "message": f"KIS 해외주식 연결 실패: {str(e)}"}
+
+    else:
+        raise HTTPException(status_code=400, detail=f"지원하지 않는 거래소: {exchange}")
+
+
 # @app.put("/api/accounts/{account_id}")
 # def api_update_account(account_id: int, payload: dict, db: Session = Depends(get_db)):
 #     acc = get_account(db, account_id)

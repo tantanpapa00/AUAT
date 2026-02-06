@@ -432,24 +432,30 @@ pub async fn fetch_server_accounts() -> Result<Vec<AccountInfo>, String> {
 #[tauri::command]
 pub async fn test_account_connection(exchange: String, account_name: String) -> Result<String, String> {
     let client = reqwest::Client::new();
+
+    // 거래소별 테스트 엔드포인트 매핑
     let endpoint = match exchange.to_uppercase().as_str() {
-        "OKX" => format!("https://qube-system.com/api/diag/okx-preflight?account={}", account_name),
-        "KIS" => format!("https://qube-system.com/api/diag/kis-preflight?account={}", account_name),
-        _ => return Err(format!("Unknown exchange: {}", exchange)),
+        "OKX" => format!("{}/api/accounts/test?exchange=okx&account={}", VPS_SERVER_URL, account_name),
+        "BINANCE" => format!("{}/api/accounts/test?exchange=binance&account={}", VPS_SERVER_URL, account_name),
+        "BYBIT" => format!("{}/api/accounts/test?exchange=bybit&account={}", VPS_SERVER_URL, account_name),
+        "UPBIT" => format!("{}/api/accounts/test?exchange=upbit&account={}", VPS_SERVER_URL, account_name),
+        "KIS_KR" | "KIS" => format!("{}/api/accounts/test?exchange=kis_kr&account={}", VPS_SERVER_URL, account_name),
+        "KIS_US" => format!("{}/api/accounts/test?exchange=kis_us&account={}", VPS_SERVER_URL, account_name),
+        _ => return Err(format!("지원하지 않는 거래소: {}", exchange)),
     };
 
     let resp = client
         .get(&endpoint)
-        .timeout(std::time::Duration::from_secs(10))
+        .timeout(std::time::Duration::from_secs(15))
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
 
     if resp.status().is_success() {
-        Ok("Connection successful".to_string())
+        Ok("연결 성공".to_string())
     } else {
         let error_text = resp.text().await.unwrap_or_default();
-        Err(format!("Connection failed: {}", error_text))
+        Err(format!("연결 실패: {}", error_text))
     }
 }
 
@@ -519,6 +525,7 @@ pub struct RegisterApiKeyRequest {
     pub api_key: String,
     pub api_secret: String,
     pub api_passphrase: Option<String>,
+    pub account_number: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -536,6 +543,7 @@ pub async fn register_api_key(
     api_key: String,
     api_secret: String,
     api_passphrase: Option<String>,
+    account_number: Option<String>,
 ) -> Result<RegisterApiKeyResponse, String> {
     let client = reqwest::Client::new();
     let url = format!("{}/api/user/accounts", VPS_SERVER_URL);
@@ -546,6 +554,7 @@ pub async fn register_api_key(
         "api_key": api_key,
         "api_secret": api_secret,
         "api_passphrase": api_passphrase,
+        "account_number": account_number,
         "is_active": true
     });
 
