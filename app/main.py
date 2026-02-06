@@ -789,14 +789,26 @@ templates = Jinja2Templates(directory="app/templates")
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
-    """Web Dashboard - Main page"""
-    return templates.TemplateResponse("index.html", {"request": request})
+    """Homepage - Service introduction, pricing, download"""
+    return templates.TemplateResponse("home.html", {"request": request})
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page(request: Request):
+    """Login/Register page"""
+    return templates.TemplateResponse("login.html", {"request": request})
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard(request: Request):
+    """Web Dashboard - Main app (requires authentication)"""
+    return templates.TemplateResponse("dashboard.html", {"request": request})
 
 
 @app.get("/ui", response_class=HTMLResponse)
 def ui_home(request: Request):
-    """Web Dashboard - Alias for /"""
-    return templates.TemplateResponse("index.html", {"request": request})
+    """Web Dashboard - Alias for /dashboard"""
+    return templates.TemplateResponse("dashboard.html", {"request": request})
 
 
 # @app.get("/db-check")

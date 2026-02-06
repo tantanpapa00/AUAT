@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BBooster - 자동매매의 새로운 기준</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #3b82f6;
+      --primary-dark: #2563eb;
+      --primary-light: #60a5fa;
+      --secondary: #10b981;
+      --accent: #f59e0b;
+      --danger: #ef4444;
+      --bg: #ffffff;
+      --bg-alt: #f8fafc;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --shadow: 0 4px 20px rgba(0,0,0,0.08);
+      --shadow-lg: 0 10px 40px rgba(0,0,0,0.12);
+      --radius: 12px;
+      --radius-lg: 20px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    a { color: inherit; text-decoration: none; }
+
+    /* Header */
+    .header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      z-index: 1000;
+      padding: 0 24px;
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 24px;
+      font-weight: 900;
+    }
+    .header-logo .b { color: var(--primary); }
+    .header-logo .booster { color: var(--danger); }
+    .header-nav {
+      display: flex;
+      gap: 32px;
+    }
+    .header-nav a {
+      font-weight: 500;
+      color: var(--text-muted);
+      transition: color 0.2s;
+    }
+    .header-nav a:hover { color: var(--primary); }
+    .header-actions {
+      display: flex;
+      gap: 12px;
+    }
+    .btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn-outline:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: white;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(59,130,246,0.4);
+    }
+    .btn-secondary {
+      background: var(--secondary);
+      color: white;
+    }
+
+    /* Hero Section */
+    .hero {
+      padding: 160px 24px 100px;
+      text-align: center;
+      background: linear-gradient(180deg, #f0f9ff 0%, #ffffff 100%);
+    }
+    .hero-title {
+      font-size: 48px;
+      font-weight: 900;
+      margin-bottom: 20px;
+      line-height: 1.2;
+    }
+    .hero-title .highlight {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero-subtitle {
+      font-size: 20px;
+      color: var(--text-muted);
+      max-width: 600px;
+      margin: 0 auto 40px;
+    }
+    .hero-cta {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .hero-cta .btn {
+      padding: 14px 32px;
+      font-size: 16px;
+    }
+
+    /* Container */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Section */
+    .section {
+      padding: 100px 0;
+    }
+    .section-title {
+      font-size: 36px;
+      font-weight: 800;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .section-subtitle {
+      font-size: 18px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-bottom: 60px;
+    }
+
+    /* Service Cards */
+    .service-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 32px;
+    }
+    @media (max-width: 900px) {
+      .service-grid { grid-template-columns: 1fr; }
+    }
+    .service-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 40px 32px;
+      text-align: center;
+      transition: all 0.3s;
+    }
+    .service-card:hover {
+      transform: translateY(-8px);
+      box-shadow: var(--shadow-lg);
+      border-color: var(--primary-light);
+    }
+    .service-icon {
+      width: 72px;
+      height: 72px;
+      background: linear-gradient(135deg, var(--primary-light), var(--primary));
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      margin: 0 auto 24px;
+    }
+    .service-card h3 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .service-card p {
+      color: var(--text-muted);
+      font-size: 15px;
+    }
+
+    /* Pricing Section */
+    #pricing {
+      background: var(--bg-alt);
+    }
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+    @media (max-width: 900px) {
+      .pricing-grid { grid-template-columns: 1fr; }
+    }
+    .pricing-card {
+      background: var(--bg);
+      border: 2px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 40px 32px;
+      text-align: center;
+      position: relative;
+      transition: all 0.3s;
+    }
+    .pricing-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-lg);
+    }
+    .pricing-card.popular {
+      border-color: var(--primary);
+      transform: scale(1.05);
+    }
+    .pricing-card.popular:hover {
+      transform: scale(1.05) translateY(-4px);
+    }
+    .popular-badge {
+      position: absolute;
+      top: -14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: white;
+      padding: 6px 20px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .pricing-name {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .pricing-price {
+      font-size: 40px;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+    .pricing-price .currency { font-size: 20px; }
+    .pricing-price .period {
+      font-size: 16px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .pricing-features {
+      list-style: none;
+      text-align: left;
+      margin: 24px 0;
+    }
+    .pricing-features li {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .pricing-features li:last-child { border-bottom: none; }
+    .pricing-features li.included::before {
+      content: "✓";
+      color: var(--secondary);
+      font-weight: 700;
+    }
+    .pricing-features li.not-included {
+      color: var(--text-muted);
+    }
+    .pricing-features li.not-included::before {
+      content: "—";
+      color: var(--text-muted);
+    }
+    .pricing-btn {
+      width: 100%;
+      padding: 14px;
+      margin-top: 16px;
+    }
+
+    /* Download Section */
+    #download {
+      text-align: center;
+    }
+    .download-cards {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .download-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 40px;
+      min-width: 280px;
+    }
+    .download-card .icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+    .download-card h4 {
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+    .download-card p {
+      color: var(--text-muted);
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+    .download-card .btn {
+      width: 100%;
+    }
+    .download-card.disabled {
+      opacity: 0.6;
+    }
+    .download-card.disabled .btn {
+      cursor: not-allowed;
+    }
+
+    /* Footer */
+    .footer {
+      background: var(--text);
+      color: rgba(255,255,255,0.8);
+      padding: 60px 24px 30px;
+    }
+    .footer-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 40px;
+    }
+    .footer-brand .logo {
+      font-size: 24px;
+      font-weight: 900;
+      color: white;
+      margin-bottom: 12px;
+    }
+    .footer-brand .logo .b { color: var(--primary-light); }
+    .footer-brand p {
+      font-size: 14px;
+      max-width: 300px;
+    }
+    .footer-links h5 {
+      color: white;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+    .footer-links a {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 10px;
+      opacity: 0.8;
+      transition: opacity 0.2s;
+    }
+    .footer-links a:hover { opacity: 1; }
+    .footer-bottom {
+      max-width: 1200px;
+      margin: 40px auto 0;
+      padding-top: 24px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-size: 13px;
+      opacity: 0.7;
+    }
+
+    /* Animation */
+    .fade-in {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: all 0.6s ease;
+    }
+    .fade-in.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Mobile Menu */
+    .mobile-menu-btn {
+      display: none;
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+    }
+    @media (max-width: 768px) {
+      .header-nav { display: none; }
+      .mobile-menu-btn { display: block; }
+      .hero-title { font-size: 32px; }
+      .hero-subtitle { font-size: 16px; }
+      .section-title { font-size: 28px; }
+      .pricing-card.popular { transform: none; }
+      .pricing-card.popular:hover { transform: translateY(-4px); }
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text);
+      color: white;
+      padding: 14px 28px;
+      border-radius: 8px;
+      font-size: 14px;
+      z-index: 9999;
+      animation: slideUp 0.3s ease;
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <a href="/" class="header-logo">
+      <span class="b">B</span><span class="booster">Booster</span>
+    </a>
+    <nav class="header-nav">
+      <a href="#service">서비스 소개</a>
+      <a href="#pricing">요금제</a>
+      <a href="#download">다운로드</a>
+    </nav>
+    <div class="header-actions" id="headerActions">
+      <a href="/login" class="btn btn-outline">로그인</a>
+      <a href="/login?register=true" class="btn btn-primary">회원가입</a>
+    </div>
+    <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <h1 class="hero-title">
+      자동매매의 새로운 기준,<br>
+      <span class="highlight">BBooster</span>
+    </h1>
+    <p class="hero-subtitle">
+      트레이딩뷰 연동부터 AI 전략까지,<br>
+      한 곳에서 관리하세요
+    </p>
+    <div class="hero-cta">
+      <a href="/login?register=true" class="btn btn-primary">무료로 시작하기</a>
+      <a href="#service" class="btn btn-outline">서비스 알아보기</a>
+    </div>
+  </section>
+
+  <!-- Service Section -->
+  <section class="section" id="service">
+    <div class="container">
+      <h2 class="section-title fade-in">강력한 자동매매 솔루션</h2>
+      <p class="section-subtitle fade-in">
+        복잡한 자동매매를 간단하게. BBooster가 도와드립니다.
+      </p>
+      <div class="service-grid">
+        <div class="service-card fade-in">
+          <div class="service-icon">📊</div>
+          <h3>트레이딩뷰 연동</h3>
+          <p>TradingView 알림을 실시간으로 받아 자동으로 주문을 실행합니다. 복잡한 설정 없이 웹훅 URL만 등록하세요.</p>
+        </div>
+        <div class="service-card fade-in">
+          <div class="service-icon">🤖</div>
+          <h3>AI 프리미엄 전략</h3>
+          <p>추세/역추세/커스텀 전략을 백테스팅하고 자동으로 실행합니다. 데이터 기반의 투자 결정을 내리세요.</p>
+        </div>
+        <div class="service-card fade-in">
+          <div class="service-icon">💼</div>
+          <h3>통합 자산관리</h3>
+          <p>국내주식, 해외주식, 암호화폐를 한 화면에서 관리합니다. 포트폴리오 현황을 실시간으로 확인하세요.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing Section -->
+  <section class="section" id="pricing">
+    <div class="container">
+      <h2 class="section-title fade-in">합리적인 요금제</h2>
+      <p class="section-subtitle fade-in">
+        나에게 맞는 플랜을 선택하세요
+      </p>
+      <div class="pricing-grid">
+        <!-- Free -->
+        <div class="pricing-card fade-in">
+          <div class="pricing-name">무료</div>
+          <div class="pricing-price">
+            <span class="currency">₩</span>0
+            <span class="period">/월</span>
+          </div>
+          <ul class="pricing-features">
+            <li class="included">트레이딩뷰 웹훅 연동 1개</li>
+            <li class="included">기본 대시보드</li>
+            <li class="included">OKX 거래소 연결</li>
+            <li class="not-included">심볼정보 검색</li>
+            <li class="not-included">AI 전략 + 백테스팅</li>
+            <li class="not-included">우선 지원</li>
+          </ul>
+          <a href="/login?register=true" class="btn btn-outline pricing-btn">시작하기</a>
+        </div>
+
+        <!-- Hub -->
+        <div class="pricing-card popular fade-in">
+          <div class="popular-badge">추천</div>
+          <div class="pricing-name">허브</div>
+          <div class="pricing-price">
+            <span class="currency">₩</span>29,900
+            <span class="period">/월</span>
+          </div>
+          <ul class="pricing-features">
+            <li class="included">트레이딩뷰 웹훅 연동 5개</li>
+            <li class="included">고급 대시보드</li>
+            <li class="included">OKX + KIS 연결</li>
+            <li class="included">심볼정보 검색</li>
+            <li class="not-included">AI 전략 + 백테스팅</li>
+            <li class="included">이메일 지원</li>
+          </ul>
+          <button class="btn btn-primary pricing-btn" onclick="showToast('결제 시스템 준비 중입니다')">구독하기</button>
+        </div>
+
+        <!-- Premium -->
+        <div class="pricing-card fade-in">
+          <div class="pricing-name">프리미엄</div>
+          <div class="pricing-price">
+            <span class="currency">₩</span>59,900
+            <span class="period">/월</span>
+          </div>
+          <ul class="pricing-features">
+            <li class="included">무제한 웹훅 연동</li>
+            <li class="included">프리미엄 대시보드</li>
+            <li class="included">모든 거래소 연결</li>
+            <li class="included">심볼정보 검색</li>
+            <li class="included">AI 전략 + 백테스팅</li>
+            <li class="included">우선 지원</li>
+          </ul>
+          <button class="btn btn-primary pricing-btn" onclick="showToast('결제 시스템 준비 중입니다')">구독하기</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Download Section -->
+  <section class="section" id="download">
+    <div class="container">
+      <h2 class="section-title fade-in">지금 바로 시작하세요</h2>
+      <p class="section-subtitle fade-in">
+        PC앱을 다운로드하고 더 강력한 기능을 사용해보세요
+      </p>
+      <div class="download-cards">
+        <div class="download-card fade-in">
+          <div class="icon">🖥️</div>
+          <h4>Windows PC</h4>
+          <p>Windows 10 이상 지원</p>
+          <a href="https://github.com/tantanpapa00/AUAT/releases" target="_blank" class="btn btn-primary">다운로드</a>
+        </div>
+        <div class="download-card disabled fade-in">
+          <div class="icon">📱</div>
+          <h4>모바일 앱</h4>
+          <p>Android / iOS</p>
+          <button class="btn btn-outline" onclick="showToast('모바일 앱 준비 중입니다')">준비 중</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-brand">
+        <div class="logo"><span class="b">B</span>Booster</div>
+        <p>큐브시스템 (QUBE System)<br>자동매매의 새로운 기준</p>
+      </div>
+      <div class="footer-links">
+        <h5>서비스</h5>
+        <a href="#service">서비스 소개</a>
+        <a href="#pricing">요금제</a>
+        <a href="#download">다운로드</a>
+      </div>
+      <div class="footer-links">
+        <h5>법적 고지</h5>
+        <a href="/terms" target="_blank">이용약관</a>
+        <a href="/privacy" target="_blank">개인정보처리방침</a>
+      </div>
+      <div class="footer-links">
+        <h5>고객지원</h5>
+        <a href="mailto:support@qube-system.com">support@qube-system.com</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 QUBE System. All rights reserved.</span>
+      <span>투자에 대한 책임은 투자자 본인에게 있습니다.</span>
+    </div>
+  </footer>
+
+  <script>
+    // Check login status and update header
+    function checkLoginStatus() {
+      const token = localStorage.getItem('bbooster_access_token');
+      const actions = document.getElementById('headerActions');
+      if (token) {
+        actions.innerHTML = `
+          <a href="/dashboard" class="btn btn-primary">대시보드</a>
+        `;
+      }
+    }
+
+    // Mobile menu toggle
+    function toggleMobileMenu() {
+      const nav = document.querySelector('.header-nav');
+      nav.style.display = nav.style.display === 'flex' ? 'none' : 'flex';
+    }
+
+    // Toast notification
+    function showToast(message) {
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    // Smooth scroll
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function(e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+
+    // Fade-in animation on scroll
+    const observerOptions = {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, observerOptions);
+
+    document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+    // Initialize
+    checkLoginStatus();
+  </script>
+</body>
+</html>

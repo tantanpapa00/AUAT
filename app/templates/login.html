@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>로그인 - BBooster</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #3b82f6;
+      --primary-dark: #2563eb;
+      --primary-light: #60a5fa;
+      --secondary: #10b981;
+      --danger: #ef4444;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --shadow: 0 4px 20px rgba(0,0,0,0.08);
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #f0f9ff 0%, #f8fafc 50%, #f0fdf4 100%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .login-container {
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      margin-bottom: 24px;
+      transition: color 0.2s;
+    }
+    .back-link:hover { color: var(--primary); }
+
+    .login-card {
+      background: var(--card);
+      border-radius: 20px;
+      padding: 48px 40px;
+      box-shadow: var(--shadow);
+    }
+
+    .login-logo {
+      text-align: center;
+      font-size: 32px;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+    .login-logo .b { color: var(--primary); }
+    .login-logo .booster { color: var(--danger); }
+
+    .login-title {
+      text-align: center;
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .login-subtitle {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 14px;
+      margin-bottom: 32px;
+    }
+
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 24px;
+    }
+    .tab {
+      flex: 1;
+      padding: 12px;
+      text-align: center;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: all 0.2s;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+    .form-label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+    .form-input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 15px;
+      font-family: inherit;
+      transition: all 0.2s;
+      background: var(--bg);
+    }
+    .form-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    .form-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: white;
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(59,130,246,0.4);
+    }
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      margin: 24px 0;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .divider span {
+      padding: 0 16px;
+    }
+
+    .btn-google {
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .btn-google:hover {
+      background: var(--bg);
+      border-color: var(--text-muted);
+    }
+
+    .error-message {
+      background: #fef2f2;
+      color: var(--danger);
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    .error-message.show { display: block; }
+
+    .success-message {
+      background: #f0fdf4;
+      color: var(--secondary);
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    .success-message.show { display: block; }
+
+    .form-panel {
+      display: none;
+    }
+    .form-panel.active { display: block; }
+
+    .password-hint {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text);
+      color: white;
+      padding: 14px 28px;
+      border-radius: 8px;
+      font-size: 14px;
+      z-index: 9999;
+      animation: slideUp 0.3s ease;
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <a href="/" class="back-link">← 홈으로</a>
+
+    <div class="login-card">
+      <div class="login-logo">
+        <span class="b">B</span><span class="booster">Booster</span>
+      </div>
+      <div class="login-title" id="pageTitle">로그인</div>
+      <div class="login-subtitle">자동매매 시스템</div>
+
+      <div class="tabs">
+        <div class="tab active" data-tab="login" onclick="switchTab('login')">로그인</div>
+        <div class="tab" data-tab="register" onclick="switchTab('register')">회원가입</div>
+      </div>
+
+      <!-- Login Form -->
+      <div class="form-panel active" id="loginPanel">
+        <div class="error-message" id="loginError"></div>
+        <form onsubmit="handleLogin(event)">
+          <div class="form-group">
+            <label class="form-label">이메일</label>
+            <input type="email" class="form-input" id="loginEmail" placeholder="example@email.com" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">비밀번호</label>
+            <input type="password" class="form-input" id="loginPassword" placeholder="비밀번호 입력" required minlength="6">
+          </div>
+          <button type="submit" class="btn btn-primary" id="loginBtn">로그인</button>
+        </form>
+
+        <div class="divider"><span>또는</span></div>
+
+        <button class="btn-google" onclick="loginWithGoogle()">
+          <svg width="18" height="18" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+          Google로 로그인
+        </button>
+      </div>
+
+      <!-- Register Form -->
+      <div class="form-panel" id="registerPanel">
+        <div class="error-message" id="registerError"></div>
+        <div class="success-message" id="registerSuccess"></div>
+        <form onsubmit="handleRegister(event)">
+          <div class="form-group">
+            <label class="form-label">이름 (선택)</label>
+            <input type="text" class="form-input" id="registerName" placeholder="홍길동">
+          </div>
+          <div class="form-group">
+            <label class="form-label">이메일</label>
+            <input type="email" class="form-input" id="registerEmail" placeholder="example@email.com" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">비밀번호</label>
+            <input type="password" class="form-input" id="registerPassword" placeholder="비밀번호 입력" required minlength="6">
+            <p class="password-hint">6자 이상 입력하세요</p>
+          </div>
+          <div class="form-group">
+            <label class="form-label">비밀번호 확인</label>
+            <input type="password" class="form-input" id="registerPasswordConfirm" placeholder="비밀번호 다시 입력" required minlength="6">
+          </div>
+          <button type="submit" class="btn btn-primary" id="registerBtn">회원가입</button>
+        </form>
+
+        <div class="divider"><span>또는</span></div>
+
+        <button class="btn-google" onclick="loginWithGoogle()">
+          <svg width="18" height="18" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+          Google로 회원가입
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Check if already logged in
+    function checkAuth() {
+      const token = localStorage.getItem('bbooster_access_token');
+      if (token) {
+        window.location.href = '/dashboard';
+      }
+    }
+
+    // Check URL params for register tab
+    function checkUrlParams() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('register') === 'true') {
+        switchTab('register');
+      }
+
+      // Check for OAuth callback tokens
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+      if (accessToken && refreshToken) {
+        localStorage.setItem('bbooster_access_token', accessToken);
+        localStorage.setItem('bbooster_refresh_token', refreshToken);
+        window.location.href = '/dashboard';
+      }
+    }
+
+    // Switch tabs
+    function switchTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.form-panel').forEach(p => p.classList.remove('active'));
+
+      document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
+      document.getElementById(tab === 'login' ? 'loginPanel' : 'registerPanel').classList.add('active');
+      document.getElementById('pageTitle').textContent = tab === 'login' ? '로그인' : '회원가입';
+
+      // Clear errors
+      document.getElementById('loginError').classList.remove('show');
+      document.getElementById('registerError').classList.remove('show');
+      document.getElementById('registerSuccess').classList.remove('show');
+    }
+
+    // Login handler
+    async function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const btn = document.getElementById('loginBtn');
+      const errorEl = document.getElementById('loginError');
+
+      btn.disabled = true;
+      btn.textContent = '로그인 중...';
+      errorEl.classList.remove('show');
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.access_token) {
+          localStorage.setItem('bbooster_access_token', data.access_token);
+          localStorage.setItem('bbooster_refresh_token', data.refresh_token);
+          window.location.href = '/dashboard';
+        } else {
+          errorEl.textContent = data.detail || '로그인에 실패했습니다';
+          errorEl.classList.add('show');
+        }
+      } catch (error) {
+        errorEl.textContent = '서버 연결에 실패했습니다';
+        errorEl.classList.add('show');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '로그인';
+      }
+    }
+
+    // Register handler
+    async function handleRegister(e) {
+      e.preventDefault();
+      const name = document.getElementById('registerName').value.trim();
+      const email = document.getElementById('registerEmail').value.trim();
+      const password = document.getElementById('registerPassword').value;
+      const passwordConfirm = document.getElementById('registerPasswordConfirm').value;
+      const btn = document.getElementById('registerBtn');
+      const errorEl = document.getElementById('registerError');
+      const successEl = document.getElementById('registerSuccess');
+
+      // Validation
+      if (password !== passwordConfirm) {
+        errorEl.textContent = '비밀번호가 일치하지 않습니다';
+        errorEl.classList.add('show');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = '회원가입 중...';
+      errorEl.classList.remove('show');
+      successEl.classList.remove('show');
+
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, name: name || null })
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.access_token) {
+          localStorage.setItem('bbooster_access_token', data.access_token);
+          localStorage.setItem('bbooster_refresh_token', data.refresh_token);
+          window.location.href = '/dashboard';
+        } else {
+          errorEl.textContent = data.detail || '회원가입에 실패했습니다';
+          errorEl.classList.add('show');
+        }
+      } catch (error) {
+        errorEl.textContent = '서버 연결에 실패했습니다';
+        errorEl.classList.add('show');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '회원가입';
+      }
+    }
+
+    // Google login
+    function loginWithGoogle() {
+      window.location.href = '/api/auth/google/login';
+    }
+
+    // Toast
+    function showToast(message) {
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    // Initialize
+    checkAuth();
+    checkUrlParams();
+  </script>
+</body>
+</html>
