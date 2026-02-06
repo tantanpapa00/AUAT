@@ -10,6 +10,7 @@ KIS Open API 연동 모듈
 
 import os
 import io
+import re
 import zipfile
 import httpx
 import asyncio
