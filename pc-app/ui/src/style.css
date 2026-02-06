@@ -4994,3 +4994,466 @@ body {
     border-radius: 6px;
     color: var(--text-primary);
 }
+
+/* =====================================================
+   STEP B: 종목 상세 모달 + 캔들차트
+   ===================================================== */
+
+.stock-detail-modal {
+    max-width: 900px;
+    width: 95%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.stock-header-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.stock-header-info h2 {
+    margin: 0;
+    font-size: 1.4rem;
+}
+
+.stock-code, .stock-market {
+    font-size: 0.85rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--bg-light);
+    color: var(--text-secondary);
+}
+
+.stock-detail-body {
+    padding: 0;
+}
+
+.stock-price-section {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+}
+
+.current-price {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.price-change {
+    font-size: 1.2rem;
+    margin-top: 4px;
+}
+
+.price-meta {
+    display: flex;
+    gap: 20px;
+    margin-top: 12px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.price-meta strong {
+    color: var(--text-primary);
+}
+
+/* Chart Section */
+.chart-section {
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--border);
+}
+
+.chart-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.chart-period-btns, .chart-type-btns {
+    display: flex;
+    gap: 5px;
+}
+
+.period-btn, .type-btn {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    border: 1px solid var(--border);
+    background: var(--bg-light);
+    color: var(--text-secondary);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.period-btn:hover, .type-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--primary);
+}
+
+.period-btn.active, .type-btn.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+
+.candle-chart-container {
+    height: 350px;
+    background: var(--bg-card2);
+    border-radius: 8px;
+}
+
+/* Info Tabs */
+.stock-info-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+}
+
+.info-tab {
+    flex: 1;
+    padding: 12px;
+    font-size: 0.95rem;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.info-tab:hover {
+    color: var(--text-primary);
+}
+
+.info-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+.info-content {
+    padding: 20px;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.info-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.info-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.stock-detail-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 15px 20px;
+    border-top: 1px solid var(--border);
+}
+
+/* =====================================================
+   검색 자동완성
+   ===================================================== */
+
+.search-with-autocomplete {
+    position: relative;
+}
+
+.search-input-wrapper {
+    position: relative;
+    flex: 1;
+}
+
+.search-autocomplete {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 0 0 8px 8px;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 100;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+
+.autocomplete-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 15px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+}
+
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+.autocomplete-item:hover {
+    background: var(--bg-light);
+}
+
+.autocomplete-stock-name {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.autocomplete-stock-code {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-left: 8px;
+}
+
+.autocomplete-price {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.autocomplete-change {
+    margin-left: 8px;
+    font-size: 0.85rem;
+}
+
+.autocomplete-change.profit {
+    color: var(--success);
+}
+
+.autocomplete-change.loss {
+    color: var(--danger);
+}
+
+/* 최근 검색 */
+.recent-searches {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    font-size: 0.85rem;
+}
+
+.recent-label {
+    color: var(--text-muted);
+}
+
+.recent-items {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.recent-item {
+    padding: 4px 10px;
+    background: var(--bg-light);
+    border: 1px solid var(--border);
+    border-radius: 15px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.85rem;
+}
+
+.recent-item:hover {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+
+/* 미리보기 섹션 */
+.chart-preview-section {
+    padding: 15px 20px;
+}
+
+.preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.preview-stock-info h3 {
+    font-size: 1.1rem;
+    margin: 0;
+}
+
+.preview-code {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-left: 8px;
+}
+
+.preview-chart-container {
+    height: 200px;
+    background: var(--bg-card2);
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.preview-quick-info {
+    display: flex;
+    gap: 20px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.preview-quick-info strong {
+    color: var(--text-primary);
+}
+
+/* 클릭 가능한 테이블 행 */
+.data-table tbody tr.clickable {
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.data-table tbody tr.clickable:hover {
+    background: var(--bg-light);
+}
+
+/* RS 점수 색상 */
+.rs-score {
+    font-weight: 600;
+}
+
+.rs-high {
+    color: var(--success);
+}
+
+.rs-mid {
+    color: var(--warning);
+}
+
+.rs-low {
+    color: var(--danger);
+}
+
+/* 테마 태그 */
+.theme-tag {
+    display: inline-block;
+    padding: 3px 8px;
+    font-size: 0.75rem;
+    background: var(--bg-light);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text-secondary);
+}
+
+/* 테마 필터 버튼 */
+.etf-theme-filter {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+}
+
+.theme-btn {
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    background: var(--bg-light);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.theme-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--primary);
+}
+
+.theme-btn.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+
+/* 거래소 필터 버튼 */
+.exchange-filter {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.filter-btn {
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    background: var(--bg-light);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.filter-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--primary);
+}
+
+.filter-btn.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+
+/* 거래소 뱃지 색상 */
+.exchange-badge.okx {
+    background: #0052FF;
+    color: white;
+}
+
+.exchange-badge.binance {
+    background: #F0B90B;
+    color: #1E2329;
+}
+
+.exchange-badge.bybit {
+    background: #F7A600;
+    color: white;
+}
+
+.exchange-badge.upbit {
+    background: #093687;
+    color: white;
+}
+
+/* 반응형: 모달 */
+@media (max-width: 768px) {
+    .stock-detail-modal {
+        width: 100%;
+        max-width: 100%;
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+    }
+
+    .candle-chart-container {
+        height: 250px;
+    }
+
+    .info-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .price-meta {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+}

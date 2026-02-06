@@ -3283,6 +3283,10 @@ async function loadMarketCrypto() {
 
 // 국내주식 분석 로드
 async function loadStockKr() {
+    // 검색 자동완성 초기화
+    initSearchAutocomplete('stock-kr-search', 'stock-kr-autocomplete', 'kr');
+    renderRecentSearches();
+
     // 하위 탭 이벤트
     document.querySelectorAll('#stock-kr-tabs .sub-tab').forEach(tab => {
         tab.addEventListener('click', () => {
@@ -3296,15 +3300,90 @@ async function loadStockKr() {
         });
     });
 
-    // 검색 이벤트
+    // 검색 버튼 이벤트
     document.getElementById('btn-stock-kr-search')?.addEventListener('click', () => {
         const query = document.getElementById('stock-kr-search')?.value?.trim();
-        if (query) searchSymbols(query);
+        if (query) {
+            // 자동완성의 첫 번째 항목 클릭 시뮬레이션
+            const firstItem = document.querySelector('#stock-kr-autocomplete .autocomplete-item');
+            if (firstItem) {
+                firstItem.click();
+            } else {
+                searchSymbols(query);
+            }
+        }
     });
+
+    // RS 데이터 로드
+    await loadRsData();
+
+    // 테이블 행 클릭 이벤트 (종목 상세 열기)
+    document.querySelectorAll('#rs-tbody tr, #high52-tbody tr, #valuation-tbody tr').forEach(row => {
+        row.classList.add('clickable');
+        row.addEventListener('click', () => {
+            const symbol = row.dataset?.symbol;
+            if (symbol) {
+                openStockDetail(symbol, 'kis_kr');
+            }
+        });
+    });
+}
+
+// RS 데이터 로드 (API 연동)
+async function loadRsData() {
+    const tbody = document.getElementById('rs-tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">RS 데이터 로딩 중...</td></tr>';
+
+    try {
+        // 실제 API 연동 시 활성화
+        // const result = await invoke('get_rs_ranking', { accessToken: auth.accessToken || '' });
+
+        // 샘플 데이터 (테스트용)
+        const sampleData = [
+            { rank: 1, symbol: '005930', name: '삼성전자', price: '87,000', change: '+2.35%', rs_total: 98, rs_1m: 95, rs_3m: 97, rs_6m: 99, market_cap: '518조' },
+            { rank: 2, symbol: '000660', name: 'SK하이닉스', price: '215,000', change: '+3.85%', rs_total: 96, rs_1m: 98, rs_3m: 94, rs_6m: 95, market_cap: '156조' },
+            { rank: 3, symbol: '035720', name: '카카오', price: '52,300', change: '+1.55%', rs_total: 94, rs_1m: 92, rs_3m: 95, rs_6m: 93, market_cap: '23조' },
+            { rank: 4, symbol: '005380', name: '현대차', price: '245,000', change: '-0.81%', rs_total: 92, rs_1m: 88, rs_3m: 93, rs_6m: 94, market_cap: '52조' },
+            { rank: 5, symbol: '068270', name: '셀트리온', price: '182,500', change: '+4.29%', rs_total: 91, rs_1m: 94, rs_3m: 89, rs_6m: 90, market_cap: '25조' },
+        ];
+
+        tbody.innerHTML = sampleData.map(s => {
+            const changeClass = s.change.startsWith('+') ? 'profit' : 'loss';
+            const rsClass = s.rs_total >= 90 ? 'rs-high' : (s.rs_total >= 70 ? 'rs-mid' : 'rs-low');
+            return `
+                <tr class="clickable" data-symbol="${s.symbol}">
+                    <td>${s.rank}</td>
+                    <td><strong>${s.name}</strong></td>
+                    <td>${s.price}</td>
+                    <td class="${changeClass}">${s.change}</td>
+                    <td class="rs-score ${rsClass}">${s.rs_total}</td>
+                    <td>${s.rs_1m}</td>
+                    <td>${s.rs_3m}</td>
+                    <td>${s.rs_6m}</td>
+                    <td>${s.market_cap}</td>
+                </tr>
+            `;
+        }).join('');
+
+        // 클릭 이벤트 바인딩
+        tbody.querySelectorAll('tr.clickable').forEach(row => {
+            row.addEventListener('click', () => {
+                const symbol = row.dataset.symbol;
+                if (symbol) openStockDetail(symbol, 'kis_kr');
+            });
+        });
+
+    } catch (error) {
+        console.error('RS 데이터 로드 실패:', error);
+        tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">데이터를 불러올 수 없습니다</td></tr>';
+    }
 }
 
 // 해외주식 분석 로드
 async function loadStockUs() {
+    // 탭 이벤트
     document.querySelectorAll('#stock-us-tabs .sub-tab').forEach(tab => {
         tab.addEventListener('click', () => {
             document.querySelectorAll('#stock-us-tabs .sub-tab').forEach(t => t.classList.remove('active'));
@@ -3315,25 +3394,236 @@ async function loadStockUs() {
         });
     });
 
+    // 검색 이벤트
+    const searchInput = document.getElementById('stock-us-search');
+    searchInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            const query = searchInput.value.trim();
+            if (query) searchUsStock(query);
+        }
+    });
+
     document.getElementById('btn-stock-us-search')?.addEventListener('click', () => {
         const query = document.getElementById('stock-us-search')?.value?.trim();
-        if (query) searchSymbols(query);
+        if (query) searchUsStock(query);
+    });
+
+    // 샘플 데이터 로드
+    await loadUsRsData();
+}
+
+async function searchUsStock(query) {
+    try {
+        const result = await invoke('search_symbols', {
+            accessToken: auth.accessToken || '',
+            query: query,
+            exchange: 'kis_us'
+        });
+        const symbols = result.symbols || result || [];
+        if (symbols.length > 0) {
+            openStockDetail(symbols[0].symbol, 'kis_us');
+        } else {
+            showToast('검색 결과가 없습니다', 'warning');
+        }
+    } catch (error) {
+        showToast('검색 실패', 'error');
+    }
+}
+
+async function loadUsRsData() {
+    const tbody = document.getElementById('us-rs-tbody');
+    if (!tbody) return;
+
+    const sampleData = [
+        { rank: 1, symbol: 'NVDA', name: 'NVIDIA Corp', price: '$875.28', change: '+4.21%', rs_total: 99, rs_1m: 98, rs_3m: 99 },
+        { rank: 2, symbol: 'AAPL', name: 'Apple Inc', price: '$195.89', change: '+1.23%', rs_total: 95, rs_1m: 92, rs_3m: 96 },
+        { rank: 3, symbol: 'MSFT', name: 'Microsoft Corp', price: '$428.50', change: '+0.85%', rs_total: 94, rs_1m: 93, rs_3m: 95 },
+        { rank: 4, symbol: 'GOOGL', name: 'Alphabet Inc', price: '$175.98', change: '+2.15%', rs_total: 92, rs_1m: 94, rs_3m: 91 },
+        { rank: 5, symbol: 'AMZN', name: 'Amazon.com Inc', price: '$185.63', change: '+1.78%', rs_total: 91, rs_1m: 89, rs_3m: 92 },
+    ];
+
+    tbody.innerHTML = sampleData.map(s => {
+        const changeClass = s.change.startsWith('+') ? 'profit' : 'loss';
+        const rsClass = s.rs_total >= 90 ? 'rs-high' : (s.rs_total >= 70 ? 'rs-mid' : 'rs-low');
+        return `
+            <tr class="clickable" data-symbol="${s.symbol}">
+                <td>${s.rank}</td>
+                <td><strong>${s.name}</strong> <span style="color:var(--text-muted)">${s.symbol}</span></td>
+                <td>${s.price}</td>
+                <td class="${changeClass}">${s.change}</td>
+                <td class="rs-score ${rsClass}">${s.rs_total}</td>
+                <td>${s.rs_1m}</td>
+                <td>${s.rs_3m}</td>
+            </tr>
+        `;
+    }).join('');
+
+    tbody.querySelectorAll('tr.clickable').forEach(row => {
+        row.addEventListener('click', () => {
+            const symbol = row.dataset.symbol;
+            if (symbol) openStockDetail(symbol, 'kis_us');
+        });
     });
 }
 
 // ETF 분석 로드
 async function loadStockEtf() {
+    const searchInput = document.getElementById('stock-etf-search');
+    searchInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            const query = searchInput.value.trim();
+            if (query) searchEtf(query);
+        }
+    });
+
     document.getElementById('btn-stock-etf-search')?.addEventListener('click', () => {
         const query = document.getElementById('stock-etf-search')?.value?.trim();
-        if (query) searchSymbols(query);
+        if (query) searchEtf(query);
+    });
+
+    // 테마 필터 이벤트
+    document.querySelectorAll('#stock-etf-theme .theme-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#stock-etf-theme .theme-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            loadEtfData(btn.dataset.theme);
+        });
+    });
+
+    await loadEtfData('all');
+}
+
+async function searchEtf(query) {
+    try {
+        const result = await invoke('search_symbols', {
+            accessToken: auth.accessToken || '',
+            query: query,
+            exchange: 'kis_kr'
+        });
+        const symbols = (result.symbols || result || []).filter(s =>
+            s.name?.includes('ETF') || s.symbol?.includes('ETF')
+        );
+        if (symbols.length > 0) {
+            openStockDetail(symbols[0].symbol, 'kis_kr');
+        }
+    } catch (error) {
+        showToast('검색 실패', 'error');
+    }
+}
+
+async function loadEtfData(theme = 'all') {
+    const tbody = document.getElementById('stock-etf-tbody');
+    if (!tbody) return;
+
+    const sampleData = [
+        { symbol: '069500', name: 'KODEX 200', price: '42,850', change: '+0.82%', nav: '25.5조', volume: '1,234억', theme: '대표' },
+        { symbol: '229200', name: 'KODEX 코스닥150', price: '12,340', change: '+1.54%', nav: '3.2조', volume: '456억', theme: '코스닥' },
+        { symbol: '305720', name: 'KODEX 2차전지산업', price: '18,650', change: '+2.31%', nav: '2.1조', volume: '892억', theme: '2차전지' },
+        { symbol: '381170', name: 'TIGER AI코리아', price: '11,280', change: '+3.45%', nav: '1.5조', volume: '567억', theme: 'AI' },
+        { symbol: '091160', name: 'KODEX 반도체', price: '35,200', change: '+1.87%', nav: '4.8조', volume: '2,345억', theme: '반도체' },
+    ];
+
+    const filtered = theme === 'all' ? sampleData : sampleData.filter(s => s.theme === theme);
+
+    tbody.innerHTML = filtered.map(s => {
+        const changeClass = s.change.startsWith('+') ? 'profit' : 'loss';
+        return `
+            <tr class="clickable" data-symbol="${s.symbol}">
+                <td><strong>${s.name}</strong></td>
+                <td>${s.price}</td>
+                <td class="${changeClass}">${s.change}</td>
+                <td>${s.nav}</td>
+                <td>${s.volume}</td>
+                <td><span class="theme-tag">${s.theme}</span></td>
+            </tr>
+        `;
+    }).join('') || '<tr><td colspan="6" class="empty-cell">해당 테마의 ETF가 없습니다</td></tr>';
+
+    tbody.querySelectorAll('tr.clickable').forEach(row => {
+        row.addEventListener('click', () => {
+            const symbol = row.dataset.symbol;
+            if (symbol) openStockDetail(symbol, 'kis_kr');
+        });
     });
 }
 
 // 코인 분석 로드
 async function loadStockCrypto() {
+    const searchInput = document.getElementById('stock-crypto-search');
+    searchInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            const query = searchInput.value.trim();
+            if (query) searchCrypto(query);
+        }
+    });
+
     document.getElementById('btn-stock-crypto-search')?.addEventListener('click', () => {
         const query = document.getElementById('stock-crypto-search')?.value?.trim();
-        if (query) searchSymbols(query);
+        if (query) searchCrypto(query);
+    });
+
+    // 거래소 필터 이벤트
+    document.querySelectorAll('#stock-crypto-exchange .filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#stock-crypto-exchange .filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            loadCryptoData(btn.dataset.exchange);
+        });
+    });
+
+    await loadCryptoData('all');
+}
+
+async function searchCrypto(query) {
+    try {
+        const result = await invoke('search_symbols', {
+            accessToken: auth.accessToken || '',
+            query: query,
+            exchange: 'binance'
+        });
+        const symbols = result.symbols || result || [];
+        if (symbols.length > 0) {
+            openStockDetail(symbols[0].symbol, symbols[0].exchange || 'binance');
+        }
+    } catch (error) {
+        showToast('검색 실패', 'error');
+    }
+}
+
+async function loadCryptoData(exchange = 'all') {
+    const tbody = document.getElementById('stock-crypto-tbody');
+    if (!tbody) return;
+
+    const sampleData = [
+        { symbol: 'BTC-USDT', name: 'Bitcoin', exchange: 'binance', price: '$97,450', change: '+2.34%', volume: '$45.2B', marketCap: '$1.92T' },
+        { symbol: 'ETH-USDT', name: 'Ethereum', exchange: 'binance', price: '$3,456', change: '+3.12%', volume: '$18.5B', marketCap: '$415B' },
+        { symbol: 'SOL-USDT', name: 'Solana', exchange: 'okx', price: '$198.50', change: '+5.67%', volume: '$4.2B', marketCap: '$92B' },
+        { symbol: 'BTC-KRW', name: '비트코인', exchange: 'upbit', price: '₩142,350,000', change: '+2.15%', volume: '₩1.2조', marketCap: '-' },
+        { symbol: 'XRP-USDT', name: 'Ripple', exchange: 'bybit', price: '$2.45', change: '-1.23%', volume: '$2.8B', marketCap: '$138B' },
+    ];
+
+    const filtered = exchange === 'all' ? sampleData : sampleData.filter(s => s.exchange === exchange);
+
+    tbody.innerHTML = filtered.map(s => {
+        const changeClass = s.change.startsWith('+') ? 'profit' : 'loss';
+        return `
+            <tr class="clickable" data-symbol="${s.symbol}" data-exchange="${s.exchange}">
+                <td><strong>${s.name}</strong> <span style="color:var(--text-muted)">${s.symbol}</span></td>
+                <td><span class="exchange-badge ${s.exchange}">${s.exchange.toUpperCase()}</span></td>
+                <td>${s.price}</td>
+                <td class="${changeClass}">${s.change}</td>
+                <td>${s.volume}</td>
+                <td>${s.marketCap}</td>
+            </tr>
+        `;
+    }).join('') || '<tr><td colspan="6" class="empty-cell">해당 거래소의 코인이 없습니다</td></tr>';
+
+    tbody.querySelectorAll('tr.clickable').forEach(row => {
+        row.addEventListener('click', () => {
+            const symbol = row.dataset.symbol;
+            const exchange = row.dataset.exchange;
+            if (symbol) openStockDetail(symbol, exchange);
+        });
     });
 }
 
@@ -3385,6 +3675,441 @@ function formatBillions(value) {
     if (absVal >= 1e4) return `${(value / 1e4).toFixed(0)}만`;
     return value.toLocaleString();
 }
+
+// =====================================================
+// STEP B: 캔들차트 + 검색 자동완성
+// =====================================================
+
+// 캔들차트 인스턴스
+let detailChart = null;
+let previewChart = null;
+let currentStockData = null;
+
+// 최근 검색 관리
+const MAX_RECENT_SEARCHES = 5;
+
+function getRecentSearches() {
+    try {
+        return JSON.parse(localStorage.getItem('bbooster_recent_searches') || '[]');
+    } catch {
+        return [];
+    }
+}
+
+function addRecentSearch(symbol, name) {
+    const recent = getRecentSearches();
+    const existing = recent.findIndex(r => r.symbol === symbol);
+    if (existing > -1) recent.splice(existing, 1);
+    recent.unshift({ symbol, name });
+    if (recent.length > MAX_RECENT_SEARCHES) recent.pop();
+    localStorage.setItem('bbooster_recent_searches', JSON.stringify(recent));
+    renderRecentSearches();
+}
+
+function renderRecentSearches() {
+    const container = document.getElementById('recent-items-kr');
+    if (!container) return;
+
+    const recent = getRecentSearches();
+    if (recent.length === 0) {
+        document.getElementById('recent-searches-kr')?.style.setProperty('display', 'none');
+        return;
+    }
+
+    document.getElementById('recent-searches-kr')?.style.setProperty('display', 'flex');
+    container.innerHTML = recent.map(r => `
+        <span class="recent-item" data-symbol="${r.symbol}">${r.name || r.symbol}</span>
+    `).join('');
+
+    container.querySelectorAll('.recent-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const symbol = item.dataset.symbol;
+            openStockDetail(symbol, 'kis_kr');
+        });
+    });
+}
+
+// 검색 자동완성
+let autocompleteTimeout = null;
+
+function initSearchAutocomplete(inputId, autocompleteId, market = 'kr') {
+    const input = document.getElementById(inputId);
+    const autocomplete = document.getElementById(autocompleteId);
+    if (!input || !autocomplete) return;
+
+    input.addEventListener('input', () => {
+        const query = input.value.trim();
+        if (autocompleteTimeout) clearTimeout(autocompleteTimeout);
+
+        if (query.length < 1) {
+            autocomplete.style.display = 'none';
+            return;
+        }
+
+        autocompleteTimeout = setTimeout(async () => {
+            try {
+                const exchange = market === 'kr' ? 'kis_kr' : (market === 'us' ? 'kis_us' : null);
+                const result = await invoke('search_symbols', {
+                    accessToken: auth.accessToken || '',
+                    query: query,
+                    exchange: exchange
+                });
+
+                const symbols = result.symbols || result || [];
+                if (symbols.length === 0) {
+                    autocomplete.style.display = 'none';
+                    return;
+                }
+
+                autocomplete.innerHTML = symbols.slice(0, 8).map(s => {
+                    const changeClass = (s.change || 0) >= 0 ? 'profit' : 'loss';
+                    return `
+                        <div class="autocomplete-item" data-symbol="${s.symbol}" data-exchange="${s.exchange}">
+                            <div>
+                                <span class="autocomplete-stock-name">${s.name || s.symbol}</span>
+                                <span class="autocomplete-stock-code">${s.symbol}</span>
+                            </div>
+                            <div>
+                                <span class="autocomplete-price">${s.price_formatted || '-'}</span>
+                                <span class="autocomplete-change ${changeClass}">${s.change_formatted || ''}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                autocomplete.style.display = 'block';
+
+                autocomplete.querySelectorAll('.autocomplete-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        const symbol = item.dataset.symbol;
+                        const exchange = item.dataset.exchange;
+                        const name = item.querySelector('.autocomplete-stock-name')?.textContent;
+                        input.value = name || symbol;
+                        autocomplete.style.display = 'none';
+                        addRecentSearch(symbol, name);
+                        openStockDetail(symbol, exchange);
+                    });
+                });
+            } catch (error) {
+                console.error('Autocomplete error:', error);
+                autocomplete.style.display = 'none';
+            }
+        }, 200);
+    });
+
+    // 외부 클릭 시 닫기
+    document.addEventListener('click', (e) => {
+        if (!input.contains(e.target) && !autocomplete.contains(e.target)) {
+            autocomplete.style.display = 'none';
+        }
+    });
+
+    // Enter 키 처리
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            const firstItem = autocomplete.querySelector('.autocomplete-item');
+            if (firstItem) {
+                firstItem.click();
+            }
+        } else if (e.key === 'Escape') {
+            autocomplete.style.display = 'none';
+        }
+    });
+}
+
+// 종목 상세 모달 열기
+async function openStockDetail(symbol, exchange) {
+    const modal = document.getElementById('stock-detail-modal');
+    if (!modal) return;
+
+    modal.style.display = 'flex';
+    currentStockData = { symbol, exchange };
+
+    // 로딩 상태
+    document.getElementById('detail-stock-name').textContent = '로딩 중...';
+    document.getElementById('detail-stock-code').textContent = symbol;
+    document.getElementById('detail-stock-market').textContent = exchange?.toUpperCase() || '';
+
+    try {
+        // 종목 상세 정보 가져오기
+        const detail = await invoke('get_symbol_detail', {
+            accessToken: auth.accessToken || '',
+            symbol: symbol,
+            exchange: exchange
+        });
+
+        if (detail) {
+            updateStockDetailUI(detail);
+            initCandleChart(symbol, exchange, '1D');
+        }
+    } catch (error) {
+        console.error('Failed to load stock detail:', error);
+        document.getElementById('detail-stock-name').textContent = symbol;
+        showToast('종목 정보를 불러올 수 없습니다', 'error');
+    }
+}
+
+function updateStockDetailUI(detail) {
+    document.getElementById('detail-stock-name').textContent = detail.name || detail.symbol;
+    document.getElementById('detail-stock-code').textContent = detail.symbol;
+    document.getElementById('detail-stock-market').textContent = detail.market || detail.exchange || '';
+
+    document.getElementById('detail-current-price').textContent = detail.price_formatted || detail.price?.toLocaleString() || '-';
+
+    const changeEl = document.getElementById('detail-price-change');
+    const change = detail.change || 0;
+    const changePercent = detail.change_percent || 0;
+    changeEl.textContent = `${change >= 0 ? '+' : ''}${change.toLocaleString()} (${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%)`;
+    changeEl.className = `price-change ${change >= 0 ? 'profit' : 'loss'}`;
+
+    document.getElementById('detail-open').textContent = detail.open?.toLocaleString() || '-';
+    document.getElementById('detail-high').textContent = detail.high?.toLocaleString() || '-';
+    document.getElementById('detail-low').textContent = detail.low?.toLocaleString() || '-';
+    document.getElementById('detail-volume').textContent = formatVolume(detail.volume) || '-';
+
+    // 종합 정보
+    document.getElementById('detail-market-cap').textContent = formatBillions(detail.market_cap) || '-';
+    document.getElementById('detail-high52').textContent = detail.high52?.toLocaleString() || '-';
+    document.getElementById('detail-low52').textContent = detail.low52?.toLocaleString() || '-';
+    document.getElementById('detail-rs').textContent = detail.rs || '-';
+    document.getElementById('detail-sector1').textContent = detail.sector1 || '-';
+    document.getElementById('detail-sector2').textContent = detail.sector2 || '-';
+
+    // 밸류에이션
+    document.getElementById('detail-per').textContent = detail.per || '-';
+    document.getElementById('detail-per-e1').textContent = detail.per_e1 || '-';
+    document.getElementById('detail-per-e2').textContent = detail.per_e2 || '-';
+    document.getElementById('detail-pbr').textContent = detail.pbr || '-';
+    document.getElementById('detail-psr').textContent = detail.psr || '-';
+    document.getElementById('detail-div-yield').textContent = detail.div_yield ? `${detail.div_yield}%` : '-';
+
+    // 재무
+    document.getElementById('detail-revenue').textContent = formatBillions(detail.revenue) || '-';
+    document.getElementById('detail-operating').textContent = formatBillions(detail.operating_income) || '-';
+    document.getElementById('detail-net-income').textContent = formatBillions(detail.net_income) || '-';
+    document.getElementById('detail-roe').textContent = detail.roe ? `${detail.roe}%` : '-';
+    document.getElementById('detail-debt-ratio').textContent = detail.debt_ratio ? `${detail.debt_ratio}%` : '-';
+    document.getElementById('detail-eps').textContent = detail.eps?.toLocaleString() || '-';
+}
+
+function formatVolume(volume) {
+    if (!volume) return '-';
+    if (volume >= 1e8) return `${(volume / 1e8).toFixed(0)}억`;
+    if (volume >= 1e4) return `${(volume / 1e4).toFixed(0)}만`;
+    return volume.toLocaleString();
+}
+
+// 캔들차트 초기화 (TradingView Lightweight Charts)
+async function initCandleChart(symbol, exchange, period = '1D') {
+    const container = document.getElementById('candle-chart');
+    if (!container) return;
+
+    // 기존 차트 제거
+    container.innerHTML = '';
+
+    // LightweightCharts 사용 가능 확인
+    if (typeof LightweightCharts === 'undefined') {
+        container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);">차트 라이브러리 로딩 중...</div>';
+        return;
+    }
+
+    try {
+        // 차트 생성
+        detailChart = LightweightCharts.createChart(container, {
+            width: container.clientWidth,
+            height: 350,
+            layout: {
+                background: { color: '#0D1525' },
+                textColor: '#9CA3AF'
+            },
+            grid: {
+                vertLines: { color: '#22304A' },
+                horzLines: { color: '#22304A' }
+            },
+            crosshair: {
+                mode: LightweightCharts.CrosshairMode.Normal
+            },
+            rightPriceScale: {
+                borderColor: '#22304A'
+            },
+            timeScale: {
+                borderColor: '#22304A',
+                timeVisible: true,
+                secondsVisible: false
+            }
+        });
+
+        // 캔들스틱 시리즈 추가
+        const candleSeries = detailChart.addCandlestickSeries({
+            upColor: '#22C55E',
+            downColor: '#EF4444',
+            borderUpColor: '#22C55E',
+            borderDownColor: '#EF4444',
+            wickUpColor: '#22C55E',
+            wickDownColor: '#EF4444'
+        });
+
+        // 샘플 데이터 (실제로는 API에서 가져와야 함)
+        const sampleData = generateSampleCandleData(period);
+        candleSeries.setData(sampleData);
+
+        // 거래량 시리즈
+        const volumeSeries = detailChart.addHistogramSeries({
+            color: '#3B82F6',
+            priceFormat: { type: 'volume' },
+            priceScaleId: '',
+            scaleMargins: { top: 0.8, bottom: 0 }
+        });
+
+        const volumeData = sampleData.map(d => ({
+            time: d.time,
+            value: Math.random() * 1e6,
+            color: d.close >= d.open ? '#22C55E44' : '#EF444444'
+        }));
+        volumeSeries.setData(volumeData);
+
+        detailChart.timeScale().fitContent();
+
+        // 리사이즈 핸들러
+        const resizeObserver = new ResizeObserver(() => {
+            detailChart?.resize(container.clientWidth, 350);
+        });
+        resizeObserver.observe(container);
+
+    } catch (error) {
+        console.error('Chart init error:', error);
+        container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);">차트를 불러올 수 없습니다</div>';
+    }
+}
+
+// 샘플 캔들 데이터 생성 (실제 API 연동 전 테스트용)
+function generateSampleCandleData(period) {
+    const data = [];
+    const now = new Date();
+    let numBars = 100;
+    let timeStep = 24 * 60 * 60; // 1 day in seconds
+
+    if (period === '1D') {
+        numBars = 78; // 9:00 ~ 15:30, 5분봉
+        timeStep = 5 * 60;
+    } else if (period === '1W') {
+        numBars = 5;
+        timeStep = 24 * 60 * 60;
+    } else if (period === '1M') {
+        numBars = 22;
+        timeStep = 24 * 60 * 60;
+    } else if (period === '3M') {
+        numBars = 65;
+        timeStep = 24 * 60 * 60;
+    } else if (period === '1Y') {
+        numBars = 250;
+        timeStep = 24 * 60 * 60;
+    }
+
+    let basePrice = 50000 + Math.random() * 50000;
+    let startTime = Math.floor(now.getTime() / 1000) - (numBars * timeStep);
+
+    for (let i = 0; i < numBars; i++) {
+        const time = startTime + (i * timeStep);
+        const volatility = basePrice * 0.02;
+        const open = basePrice + (Math.random() - 0.5) * volatility;
+        const close = open + (Math.random() - 0.5) * volatility;
+        const high = Math.max(open, close) + Math.random() * volatility * 0.5;
+        const low = Math.min(open, close) - Math.random() * volatility * 0.5;
+
+        data.push({
+            time: time,
+            open: Math.round(open),
+            high: Math.round(high),
+            low: Math.round(low),
+            close: Math.round(close)
+        });
+
+        basePrice = close;
+    }
+
+    return data;
+}
+
+// 종목 상세 모달 닫기
+document.getElementById('stock-detail-modal-close')?.addEventListener('click', () => {
+    document.getElementById('stock-detail-modal').style.display = 'none';
+    if (detailChart) {
+        detailChart.remove();
+        detailChart = null;
+    }
+});
+
+// 모달 외부 클릭 닫기
+document.getElementById('stock-detail-modal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'stock-detail-modal') {
+        document.getElementById('stock-detail-modal').style.display = 'none';
+        if (detailChart) {
+            detailChart.remove();
+            detailChart = null;
+        }
+    }
+});
+
+// 차트 기간 탭 이벤트
+document.querySelectorAll('.period-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const period = btn.dataset.period;
+        if (currentStockData) {
+            initCandleChart(currentStockData.symbol, currentStockData.exchange, period);
+        }
+    });
+});
+
+// 차트 타입 탭 이벤트
+document.querySelectorAll('.type-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        // 라인/캔들 전환 로직 (추후 구현)
+    });
+});
+
+// 종목 정보 탭 이벤트
+document.querySelectorAll('.info-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.info-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const tabId = tab.dataset.tab;
+        document.getElementById('info-overview').style.display = tabId === 'overview' ? 'block' : 'none';
+        document.getElementById('info-valuation').style.display = tabId === 'valuation' ? 'block' : 'none';
+        document.getElementById('info-financial').style.display = tabId === 'financial' ? 'block' : 'none';
+    });
+});
+
+// 관심종목 추가 버튼
+document.getElementById('btn-add-to-watchlist')?.addEventListener('click', async () => {
+    if (!currentStockData) return;
+    try {
+        await invoke('add_watchlist_item', {
+            accessToken: auth.accessToken || '',
+            groupId: 'default',
+            symbol: currentStockData.symbol,
+            exchange: currentStockData.exchange
+        });
+        showToast('관심종목에 추가되었습니다', 'success');
+    } catch (error) {
+        showToast('추가 실패: ' + error, 'error');
+    }
+});
+
+// AI 분석 버튼
+document.getElementById('btn-ai-analysis')?.addEventListener('click', () => {
+    if (!currentStockData) return;
+    document.getElementById('stock-detail-modal').style.display = 'none';
+    // AI 분석 모달 열기 (기존 로직 활용)
+    requestAiAnalysis(currentStockData.symbol);
+});
+
+// window에 openStockDetail 노출 (테이블 클릭에서 사용)
+window.openStockDetail = openStockDetail;
 
 // =====================================================
 // Initialize App

@@ -6,6 +6,8 @@
     <title>BBooster — 큐브시스템</title>
     <link rel="stylesheet" href="/src/style.css">
     <script src="/src/lib/chart.min.js"></script>
+    <!-- TradingView Lightweight Charts for candlestick -->
+    <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
     <!-- Login Screen -->
@@ -2085,11 +2087,35 @@
             <!-- ========== 국내주식 분석 페이지 (NEW) ========== -->
             <main class="main page-content" id="page-stock-kr" style="display: none;">
                 <div class="stock-analysis-container">
-                    <!-- 검색바 -->
+                    <!-- 검색바 (자동완성 포함) -->
                     <section class="card search-section">
-                        <div class="search-bar">
-                            <input type="text" id="stock-kr-search" class="search-input" placeholder="종목명 또는 종목코드 검색...">
+                        <div class="search-bar search-with-autocomplete">
+                            <div class="search-input-wrapper">
+                                <input type="text" id="stock-kr-search" class="search-input" placeholder="종목명 또는 종목코드 검색..." autocomplete="off">
+                                <div class="search-autocomplete" id="stock-kr-autocomplete" style="display: none;"></div>
+                            </div>
                             <button class="btn btn-primary" id="btn-stock-kr-search">검색</button>
+                        </div>
+                        <div class="recent-searches" id="recent-searches-kr">
+                            <span class="recent-label">최근 검색:</span>
+                            <div class="recent-items" id="recent-items-kr"></div>
+                        </div>
+                    </section>
+
+                    <!-- 미니 차트 미리보기 -->
+                    <section class="card chart-preview-section" id="stock-kr-preview" style="display: none;">
+                        <div class="preview-header">
+                            <div class="preview-stock-info">
+                                <h3 id="preview-stock-name">-</h3>
+                                <span class="preview-code" id="preview-stock-code">-</span>
+                            </div>
+                            <button class="btn btn-sm btn-primary" id="btn-open-detail">상세보기</button>
+                        </div>
+                        <div class="preview-chart-container" id="preview-chart"></div>
+                        <div class="preview-quick-info">
+                            <span>현재가: <strong id="preview-price">-</strong></span>
+                            <span>등락률: <strong class="profit" id="preview-change">-</strong></span>
+                            <span>RS: <strong id="preview-rs">-</strong></span>
                         </div>
                     </section>
 
@@ -2323,6 +2349,152 @@
         }
     })();
     </script>
+
+    <!-- 종목 상세 모달 (캔들차트 포함) -->
+    <div class="modal-overlay" id="stock-detail-modal" style="display: none;">
+        <div class="modal-content stock-detail-modal">
+            <div class="modal-header">
+                <div class="stock-header-info">
+                    <h2 id="detail-stock-name">삼성전자</h2>
+                    <span class="stock-code" id="detail-stock-code">005930</span>
+                    <span class="stock-market" id="detail-stock-market">KOSPI</span>
+                </div>
+                <button class="modal-close" id="stock-detail-modal-close">&times;</button>
+            </div>
+            <div class="modal-body stock-detail-body">
+                <!-- 가격 정보 -->
+                <div class="stock-price-section">
+                    <div class="current-price" id="detail-current-price">0</div>
+                    <div class="price-change profit" id="detail-price-change">+0 (+0.00%)</div>
+                    <div class="price-meta">
+                        <span>시가: <strong id="detail-open">0</strong></span>
+                        <span>고가: <strong id="detail-high">0</strong></span>
+                        <span>저가: <strong id="detail-low">0</strong></span>
+                        <span>거래량: <strong id="detail-volume">0</strong></span>
+                    </div>
+                </div>
+
+                <!-- 캔들차트 -->
+                <div class="chart-section">
+                    <div class="chart-toolbar">
+                        <div class="chart-period-btns">
+                            <button class="period-btn active" data-period="1D">1일</button>
+                            <button class="period-btn" data-period="1W">1주</button>
+                            <button class="period-btn" data-period="1M">1개월</button>
+                            <button class="period-btn" data-period="3M">3개월</button>
+                            <button class="period-btn" data-period="1Y">1년</button>
+                        </div>
+                        <div class="chart-type-btns">
+                            <button class="type-btn active" data-type="candle">캔들</button>
+                            <button class="type-btn" data-type="line">라인</button>
+                        </div>
+                    </div>
+                    <div class="candle-chart-container" id="candle-chart"></div>
+                </div>
+
+                <!-- 종목 정보 탭 -->
+                <div class="stock-info-tabs">
+                    <button class="info-tab active" data-tab="overview">종합</button>
+                    <button class="info-tab" data-tab="valuation">밸류에이션</button>
+                    <button class="info-tab" data-tab="financial">재무</button>
+                </div>
+
+                <!-- 종합 탭 -->
+                <div class="info-content" id="info-overview">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">시가총액</span>
+                            <span class="info-value" id="detail-market-cap">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">52주 최고</span>
+                            <span class="info-value" id="detail-high52">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">52주 최저</span>
+                            <span class="info-value" id="detail-low52">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">RS 종합</span>
+                            <span class="info-value" id="detail-rs">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">업종(대)</span>
+                            <span class="info-value" id="detail-sector1">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">업종(중)</span>
+                            <span class="info-value" id="detail-sector2">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 밸류에이션 탭 -->
+                <div class="info-content" id="info-valuation" style="display: none;">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">PER</span>
+                            <span class="info-value" id="detail-per">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">PER(E) 2026</span>
+                            <span class="info-value" id="detail-per-e1">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">PER(E) 2027</span>
+                            <span class="info-value" id="detail-per-e2">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">PBR</span>
+                            <span class="info-value" id="detail-pbr">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">PSR</span>
+                            <span class="info-value" id="detail-psr">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">배당수익률</span>
+                            <span class="info-value" id="detail-div-yield">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 재무 탭 -->
+                <div class="info-content" id="info-financial" style="display: none;">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">매출액</span>
+                            <span class="info-value" id="detail-revenue">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">영업이익</span>
+                            <span class="info-value" id="detail-operating">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">순이익</span>
+                            <span class="info-value" id="detail-net-income">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">ROE</span>
+                            <span class="info-value" id="detail-roe">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">부채비율</span>
+                            <span class="info-value" id="detail-debt-ratio">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">EPS</span>
+                            <span class="info-value" id="detail-eps">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer stock-detail-footer">
+                <button class="btn btn-secondary" id="btn-add-to-watchlist">⭐ 관심종목 추가</button>
+                <button class="btn btn-primary" id="btn-ai-analysis">🤖 AI 분석</button>
+            </div>
+        </div>
+    </div>
 
     <!-- AI 분석 모달 -->
     <div class="modal-overlay" id="ai-modal" style="display: none;">
