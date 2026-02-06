@@ -1,5 +1,5 @@
 # PROJECT_STATUS.md (SSOT)
-- Last updated: 2026-02-06 (Day 6 — 대시보드 + PC앱 업그레이드) KST
+- Last updated: 2026-02-06 (Day 9 — 전면 개편 완료 PHASE 4~9) KST
 - Owner: 기훈(작가님)
 
 > NOTE: 이 파일이 '진실(SSOT)'입니다. 채팅은 인터페이스일 뿐.
@@ -28,8 +28,8 @@
 # 2) 개발 환경
 - 작업 폴더: C:\Users\pc\새 폴더\AUAT
 - 로컬 서버: FastAPI(Uvicorn) http://127.0.0.1:8000
-- **VPS 서버: http://76.13.180.30:8000 (운영 중)**
-- Swagger: http://76.13.180.30:8000/docs
+- **VPS 서버: https://qube-system.com (운영 중)**
+- Swagger: https://qube-system.com/docs
 
 ## 운영 루틴
 - STOP: scripts/stop.ps1 또는 Ctrl+C
@@ -1444,10 +1444,90 @@ ccc6373 feat: 웹사이트 홈페이지 + 로그인/회원가입 분리 + 대시
 c502f78 feat: PC앱 홈 페이지 — 포트폴리오 현황 + 차트 + 보유자산
 ```
 
+---
+
+## Week 21 Day 9 — 전면 개편 완료 (PHASE 4~9)
+
+> **날짜**: 2026-02-06
+> **핵심**: PC앱 전체 기능 구현 + 백테스팅 엔진 + 관리자 시스템
+
+### 완료 항목 (PHASE 4~9)
+
+#### PHASE 4: 트레이딩뷰 웹훅 검증
+- `POST /api/webhook/{user_id}`: 웹훅 수신 + 필수 필드 검증
+- 필수 필드: action, symbol, exchange
+- 값 유효성: action은 buy/sell/close, qty > 0, leverage 1-100
+- `webhook_logs` 테이블 자동 생성
+- `GET /api/webhook/logs`: 로그 조회 (JWT 인증)
+- `GET /api/webhook/url`: 웹훅 URL 반환
+- Tauri 커맨드: `get_webhook_logs`, `get_webhook_url`
+
+#### PHASE 5: 심볼정보 페이지
+- `GET /api/symbols/search`: 심볼 검색
+- `GET /api/symbols/{exchange}/{symbol}`: 상세 정보
+- `GET /api/symbols/popular`: 인기 종목 (암호화폐 12종 + 국내주식 10종)
+- Tauri 커맨드: `search_symbols`, `get_symbol_detail`, `get_popular_symbols`
+- 요금제별 접근 제한 (허브 이상)
+
+#### PHASE 6: 프리미엄 전략 + 백테스팅 엔진
+- 신규 파일: `app/backtest.py`
+  - RSI, MACD, SMA, EMA, 볼린저밴드 지표 계산
+  - 역추세 전략 (RSI 과매수/과매도)
+  - 추세 전략 (이동평균 크로스)
+  - 성과 지표: 수익률, CAGR, MDD, 샤프비율, 승률
+- `POST /api/backtest`: 백테스팅 실행
+- `POST /api/strategies`: 전략 저장
+- `GET /api/strategies`: 전략 목록
+- `PUT /api/strategies/{id}/toggle`: 활성화/비활성화
+- `DELETE /api/strategies/{id}`: 전략 삭제
+- Tauri 커맨드: `run_backtest`, `save_strategy`, `get_strategies`, `toggle_strategy`, `delete_strategy`
+
+#### PHASE 7: 관리자 기능 강화
+- `GET /api/admin/users`: 사용자 목록 (검색/필터 지원)
+- `PUT /api/admin/users/{id}/plan`: 요금제 변경
+- `PUT /api/admin/users/{id}/status`: 상태 변경
+- `GET /api/admin/system`: 시스템 상태 (메모리, DB, 웹훅 통계)
+- `GET /api/admin/users/export`: CSV 내보내기
+- Tauri 커맨드: `admin_get_users`, `admin_update_user_plan`, `admin_get_system_status`
+
+#### PHASE 8: API 주소 도메인 통일
+- 모든 `76.13.180.30` → `qube-system.com` 변경
+- `tauri.conf.json` scope 업데이트
+
+### 수정 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `app/main.py` | 웹훅/심볼/백테스트/전략/관리자 API 추가 (약 500줄) |
+| `app/backtest.py` (신규) | 백테스팅 엔진 (약 450줄) |
+| `pc-app/src-tauri/src/commands.rs` | 20+ Tauri 커맨드 추가 |
+| `pc-app/src-tauri/src/main.rs` | 커맨드 등록 + IP→도메인 변경 |
+| `pc-app/ui/src/main.js` | 모든 페이지 기능 구현 |
+| `pc-app/ui/src/style.css` | status-badge 스타일 추가 |
+| `pc-app/src-tauri/tauri.conf.json` | scope 도메인 업데이트 |
+
+### 커밋 이력 (Day 9)
+```
+2d3ab5c feat: 트레이딩뷰 연결 — 웹훅 검증 + 수신 로그 시스템
+4261875 feat: PC앱 심볼정보 페이지 — 검색 + 상세정보 + 미니차트
+e5a09b7 feat: 프리미엄 전략설정 + 백테스팅 엔진 구현
+7aeb903 feat: 설정 페이지 개선 + 관리자 기능 강화 + API 도메인 통일
+```
+
+### 아키텍처 현황
+```
+도메인: https://qube-system.com
+├── Nginx → FastAPI(Docker) → PostgreSQL(Docker)
+├── SSL: Let's Encrypt (자동 갱신)
+└── PC앱: Tauri + Vanilla JS (모든 API는 Tauri invoke)
+```
+
 ### 다음 단계
-1) **PC앱 재빌드**: `npm run tauri build` 후 설치 파일 배포
-2) **거래소 API 연동**: OKX/KIS 실제 잔고 조회 구현
-3) **결제 시스템**: PG사 API 연동 (토스페이먼츠)
+1) **VPS 배포**: git pull → docker compose up
+2) **DB 마이그레이션**: webhook_logs, strategies 테이블 생성
+3) **PC앱 재빌드**: `cargo tauri build`
+4) **실제 거래소 연동**: OKX/KIS API 실제 데이터 연결
+5) **결제 시스템**: PG사 API 연동 (토스페이먼츠)
 
 ---
 
