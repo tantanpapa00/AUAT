@@ -282,14 +282,6 @@ pub async fn get_api_key(exchange: String, key_type: String) -> Result<String, S
     entry.get_password().map_err(|e| e.to_string())
 }
 
-#[tauri::command]
-pub async fn delete_api_key(exchange: String, key_type: String) -> Result<(), String> {
-    let service = format!("bbooster_{}", exchange.to_lowercase());
-    let entry = keyring::Entry::new(&service, &key_type).map_err(|e| e.to_string())?;
-    entry.delete_password().map_err(|e| e.to_string())?;
-    Ok(())
-}
-
 // =====================================================
 // Account Management (Full Account Keys)
 // =====================================================
