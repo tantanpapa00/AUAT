@@ -1545,6 +1545,110 @@ KIS Open API 연동:
 
 ---
 
+## Week 21 Day 11 — 공개 시세 API + 시장분석 + AI 종합분석 + 관심종목
+
+> **날짜**: 2026-02-06
+> **핵심**: KIS 계정 없이도 시세 표시 + Pro 전용 시장분석 메뉴 + AI 리포트 + 관심종목 기능
+
+### 완료 항목
+
+#### STEP 1: 공개 시세 API 연동 (KIS 계정 없이도 표시)
+- **네이버 금융 API** (국내주식):
+  - `get_naver_stock_price()`: 현재가 조회
+  - `get_naver_daily_prices()`: 일봉 60일
+  - KRX 폴백 (네이버 실패 시)
+- **Yahoo Finance API** (해외주식):
+  - `get_yahoo_stock_price()`: 현재가 조회
+  - `get_yahoo_daily_prices()`: 일봉 60일
+- 심볼 상세 API 개선: `data_source` 필드 추가 (KIS/Naver/Yahoo)
+- 프론트엔드: 데이터 출처 배지 표시 (KIS=파랑, Naver=녹색, Yahoo=보라)
+
+#### STEP 2: 시장분석 메뉴 (Pro 이상)
+- **시장 개요 페이지** (`/api/market/overview`):
+  - 주요지수 카드 (KOSPI/KOSDAQ/NASDAQ/S&P500/DOW)
+  - 투자자별 순매수 막대 그래프
+  - 요금제별 기능 차등 (네이버/KIS)
+- **섹터 분석 페이지** (`/api/market/sectors`):
+  - 섹터별 등락률 테이블
+  - 섹터 대장주 목록
+  - 네이버 금융 업종 데이터
+- **종목 랭킹 페이지** (`/api/market/ranking`):
+  - 탭: 거래량 | 상승률 | 하락률 | 시가총액 | 외국인 | 기관
+  - 50개 종목 테이블 (순위/종목명/현재가/등락률/거래량)
+- **주목 종목 페이지** (`/api/market/featured`):
+  - 신고가/신저가/급등주/급락주 카드 섹션
+  - 네이버 52주 신고가/신저가 데이터
+- **일정/이벤트 페이지** (`/api/market/events`):
+  - 탭: 실적발표 | 배당 | IPO | 경제지표
+  - 월별 필터 (기본: 현재월)
+  - 목업 데이터 (실제 API 연동 TODO)
+
+#### STEP 3: AI 종합분석 + 관심종목 (Standard 이상)
+- **AI 분석 리포트**:
+  - `GET /api/ai/usage`: 사용량 조회 (잔여 분석 횟수)
+  - `POST /api/ai/analyze`: AI 분석 요청 (symbol, exchange)
+  - 요금제별 일일 분석 횟수: Starter 0회, Standard 5회, Pro 10회, Premium 20회
+  - 분석 리포트 캐싱 (6시간) → 중복 분석 방지
+  - 템플릿 기반 마크다운 리포트 생성 (실제 Claude API 연동 TODO)
+  - DB 테이블 자동 생성: `ai_reports`
+- **AI 시황 타임라인**:
+  - `GET /api/market/timeline`: 시장 소식 타임라인
+  - 목업 데이터 (실제 뉴스 API 연동 TODO)
+- **관심종목 기능**:
+  - `GET /api/watchlist/groups`: 그룹 목록
+  - `POST /api/watchlist/groups`: 그룹 생성
+  - `PUT /api/watchlist/groups/{id}`: 그룹 수정
+  - `DELETE /api/watchlist/groups/{id}`: 그룹 삭제
+  - `GET /api/watchlist/groups/{id}/items`: 항목 조회
+  - `POST /api/watchlist/items`: 항목 추가
+  - `DELETE /api/watchlist/items/{id}`: 항목 삭제
+  - 요금제별 관심종목 한도: Starter 10개, Standard 50개, Pro 200개, Premium 무제한
+  - DB 테이블 자동 생성: `watchlist_groups`, `watchlist_items`
+- 프론트엔드: 심볼 상세 패널 ★ / 🤖 버튼 추가
+- 모달 UI: AI 분석 결과 팝업, 관심종목 추가 팝업
+
+### 수정/추가 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `app/kis_api.py` | 공개 시세 API 함수 추가 (네이버/Yahoo/KRX) |
+| `app/main.py` | 시장분석/AI/관심종목 15개 엔드포인트 추가 |
+| `pc-app/src-tauri/src/commands.rs` | 11개 Tauri 커맨드 추가 |
+| `pc-app/src-tauri/src/main.rs` | invoke_handler에 새 커맨드 등록 |
+| `pc-app/ui/index.html` | 시장분석 메뉴 5개 페이지 + 모달 UI |
+| `pc-app/ui/src/main.js` | 시장분석/AI/관심종목 핸들러 (~400줄) |
+| `pc-app/ui/src/style.css` | 시장분석 페이지 + 모달 스타일 (~300줄) |
+
+### 커밋 이력 (Day 11)
+```
+f969b57 feat(STEP1): KIS 계정 없이도 시세 표시 — 네이버/Yahoo 공개 API
+26fd316 feat(STEP2): 시장분석 메뉴 — 시장개요/섹터/랭킹/주목종목/이벤트
+03c634a feat(STEP3): AI 종합분석 + 관심종목 — 리포트/타임라인/워치리스트
+```
+
+### 아키텍처 현황
+```
+데이터 소스 우선순위:
+├── KIS 계정 있음 → KIS Open API (풀 데이터)
+├── KIS 계정 없음 + 국내주식 → 네이버 금융 → KRX 폴백
+└── KIS 계정 없음 + 해외주식 → Yahoo Finance
+
+요금제별 기능:
+├── Starter: 기본 기능만 (시장분석/AI 접근 불가)
+├── Standard: AI 5회/일, 관심종목 50개
+├── Pro: 시장분석 + AI 10회/일, 관심종목 200개
+└── Premium: 전체 기능 + AI 20회/일, 관심종목 무제한
+```
+
+### 다음 단계
+1) **VPS 배포**: git pull → docker compose up
+2) **실제 Claude API 연동**: AI 분석 리포트 품질 향상
+3) **뉴스 API 연동**: AI 시황 타임라인 실데이터
+4) **실적/배당 API 연동**: 이벤트 캘린더 실데이터
+5) **PC앱 재빌드**: `cargo tauri build`
+
+---
+
 ## Week 21 Day 9 — 전면 개편 완료 (PHASE 4~9)
 
 > **날짜**: 2026-02-06
