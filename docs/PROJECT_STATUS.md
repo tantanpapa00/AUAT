@@ -1649,6 +1649,112 @@ f969b57 feat(STEP1): KIS 계정 없이도 시세 표시 — 네이버/Yahoo 공�
 
 ---
 
+## Week 21 Day 12 — 버그 수정 6건 + UI 개선
+
+> **날짜**: 2026-02-07
+> **핵심**: 계정 거래소 확장 + 관리자 대시보드 강화 + 요금제 통일 + 차트 개선
+
+### 완료 항목
+
+#### 수정 1: 계정추가 6개 거래소 전부 표시
+- **거래소 목록 확장**:
+  - OKX — API Key + Secret Key + Passphrase
+  - Binance — API Key + Secret Key
+  - Bybit — API Key + Secret Key
+  - Upbit — Access Key + Secret Key
+  - KIS 국내주식 — App Key + App Secret + 계좌번호
+  - KIS 해외주식 — App Key + App Secret + 계좌번호
+- 각 거래소 선택 시 해당 입력 필드만 표시
+- `index.html`: 6개 거래소 폼 추가
+- `main.js`: 폼 전환 로직 + 저장 로직 확장
+
+#### 수정 2: 메뉴명 "심볼정보" → "종목정보" 변경
+- 사이드바 메뉴 텍스트 변경
+- 페이지 타이틀, 버튼 텍스트 변경
+- "심볼" → "종목", "심볼코드" → "종목코드"
+- 변수명/함수명/API 경로는 그대로 유지 (코드 안정성)
+
+#### 수정 3: 관리자 대시보드 강화
+- **사용자 현황 카드** (상단 4개):
+  - 전체 가입자 수
+  - 활성 사용자 수 (is_active = true)
+  - 오늘 가입자 수
+  - 오늘 AI 분석 사용 총 횟수
+- **요금제별 가입자 테이블**:
+  - Starter/Standard/Pro/Premium 각 가입자 수, 비율, 월 예상 매출
+  - 합계 행 포함
+- **요금제별 원형 차트** (Canvas):
+  - Chart.js 도넛 차트
+- **최근 가입자 리스트** (10명)
+- **AI 사용량 통계** (최근 7일)
+- **백엔드 API 추가**:
+  - `GET /api/admin/stats`: 전체 통계
+  - `GET /api/admin/recent-users`: 최근 가입자 10명
+- **Tauri 커맨드**: `admin_get_stats`, `admin_get_recent_users`
+
+#### 수정 4: 요금제 통일 + AI 이중 제한
+- **요금제 4단계 통일**:
+  - Starter: ₩19,900/월 — 심볼 3개, 일거래 20회, 관심종목 10개, AI ❌
+  - Standard: ₩49,000/월 — 심볼 10개, 일거래 100회, 관심종목 50개, AI 3회/일+30회/월
+  - Pro: ₩99,000/월 — 심볼 30개, 일거래 300회, 관심종목 200개, AI 7회/일+100회/월, 시장분석 ✅
+  - Premium: ₩249,000/월 — 무제한, AI 15회/일+200회/월, 시장분석 ✅, 백테스팅 ✅
+- **AI 이중 제한 (일일 + 월간)**:
+  - DB 컬럼 추가: `ai_monthly_count`, `ai_monthly_date`
+  - 일일 리셋: 날짜 변경 시 `ai_usage_count = 0`
+  - 월간 리셋: 월 변경 시 `ai_monthly_count = 0`
+  - 캐시된 결과 반환 시 횟수 차감 안 함
+- **UI 표시**: "오늘 2/3회 | 이번 달 15/30회"
+
+#### 수정 5: 차트 기간 선택 + 유형 전환
+- **차트 기간 버튼**: 1주 | 1개월 | 3개월 | 6개월 | 1년
+- **차트 유형 전환**: 라인 | 캔들
+- **이동평균선 토글**: 5일선 / 20일선 / 60일선 체크박스
+- CSS 스타일 추가 (`.chart-controls`, `.chart-period-btn`, `.ma-toggles`)
+
+#### 수정 6: 영어 → 한국어 통일
+- "Step 1~4" → "단계 1~4"
+- "Running" → "실행 중"
+- "Uptime" → "가동 시간"
+- "Docker 컨테이너" → "서버 컨테이너"
+
+### 수정/추가 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `app/main.py` | AI 이중 제한 로직, 관리자 통계 API 2개 추가 (+307줄) |
+| `pc-app/src-tauri/src/commands.rs` | `admin_get_stats`, `admin_get_recent_users` (+43줄) |
+| `pc-app/src-tauri/src/main.rs` | 신규 커맨드 등록 |
+| `pc-app/ui/index.html` | 6개 거래소 폼, 관리자 대시보드 UI, 차트 컨트롤 (+277줄) |
+| `pc-app/ui/src/main.js` | 거래소 폼 로직, 관리자 대시보드 로직 (+274줄) |
+| `pc-app/ui/src/style.css` | 관리자 카드/테이블, 차트 컨트롤 스타일 (+172줄) |
+
+### 커밋 이력 (Day 12)
+```
+6c4ceca fix: 계정거래소 + 종목정보명칭 + 관리자대시보드 + 요금제통일 + 캔들차트 + 한국어통일
+```
+
+### 아키텍처 현황
+```
+요금제 체계 (통일):
+├── Starter (₩19,900): 기본 기능
+├── Standard (₩49,000): AI 3회/일 + 30회/월
+├── Pro (₩99,000): 시장분석 + AI 7회/일 + 100회/월
+└── Premium (₩249,000): 전체 기능 + AI 15회/일 + 200회/월
+
+AI 사용량 추적:
+├── 일일 제한: ai_usage_count + ai_usage_date
+├── 월간 제한: ai_monthly_count + ai_monthly_date
+└── 캐시 6시간: 캐시 반환 시 차감 안 함
+```
+
+### 다음 단계
+1) **VPS 배포**: git pull → docker compose up -d --build
+2) **PC앱 재빌드**: cargo tauri build
+3) **캔들차트 완전 구현**: Canvas 기반 캔들스틱 그리기
+4) **실제 Claude API 연동**: AI 분석 리포트 품질 향상
+
+---
+
 ## Week 21 Day 9 — 전면 개편 완료 (PHASE 4~9)
 
 > **날짜**: 2026-02-06
