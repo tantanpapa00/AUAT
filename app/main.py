@@ -7276,3 +7276,165 @@ async def get_webhook_url(current_user: User = Depends(get_current_user)):
         "webhook_url": f"{base_url}/api/webhook/{current_user.id}",
         "user_id": current_user.id
     }
+
+
+# =============================================================================
+# [PHASE 5] Symbol Information API
+# =============================================================================
+
+# 인기 암호화폐 목록 (OKX)
+POPULAR_CRYPTO = [
+    {"symbol": "BTC-USDT", "name": "Bitcoin", "exchange": "OKX", "price": 97234.50, "change": 2.34, "volume": 1200000000},
+    {"symbol": "ETH-USDT", "name": "Ethereum", "exchange": "OKX", "price": 3456.78, "change": 1.23, "volume": 890000000},
+    {"symbol": "SOL-USDT", "name": "Solana", "exchange": "OKX", "price": 198.45, "change": -0.89, "volume": 456000000},
+    {"symbol": "XRP-USDT", "name": "Ripple", "exchange": "OKX", "price": 2.87, "change": 3.45, "volume": 234000000},
+    {"symbol": "ADA-USDT", "name": "Cardano", "exchange": "OKX", "price": 1.12, "change": 0.56, "volume": 123000000},
+    {"symbol": "DOGE-USDT", "name": "Dogecoin", "exchange": "OKX", "price": 0.378, "change": -1.23, "volume": 98000000},
+    {"symbol": "AVAX-USDT", "name": "Avalanche", "exchange": "OKX", "price": 38.92, "change": 2.11, "volume": 87000000},
+    {"symbol": "DOT-USDT", "name": "Polkadot", "exchange": "OKX", "price": 7.45, "change": 1.89, "volume": 76000000},
+    {"symbol": "LINK-USDT", "name": "Chainlink", "exchange": "OKX", "price": 23.67, "change": 0.45, "volume": 65000000},
+    {"symbol": "MATIC-USDT", "name": "Polygon", "exchange": "OKX", "price": 0.98, "change": -0.34, "volume": 54000000},
+    {"symbol": "UNI-USDT", "name": "Uniswap", "exchange": "OKX", "price": 12.34, "change": 1.56, "volume": 43000000},
+    {"symbol": "ATOM-USDT", "name": "Cosmos", "exchange": "OKX", "price": 8.76, "change": 2.67, "volume": 32000000},
+]
+
+# 인기 국내주식 목록 (KIS)
+POPULAR_KR_STOCKS = [
+    {"symbol": "005930", "name": "삼성전자", "exchange": "KIS", "price": 72500, "change": 0.83, "volume": 15000000},
+    {"symbol": "000660", "name": "SK하이닉스", "exchange": "KIS", "price": 198000, "change": 1.54, "volume": 3500000},
+    {"symbol": "035420", "name": "NAVER", "exchange": "KIS", "price": 215000, "change": -0.46, "volume": 1200000},
+    {"symbol": "035720", "name": "카카오", "exchange": "KIS", "price": 45800, "change": 0.22, "volume": 2300000},
+    {"symbol": "051910", "name": "LG화학", "exchange": "KIS", "price": 378000, "change": -1.04, "volume": 450000},
+    {"symbol": "006400", "name": "삼성SDI", "exchange": "KIS", "price": 412000, "change": 0.98, "volume": 320000},
+    {"symbol": "068270", "name": "셀트리온", "exchange": "KIS", "price": 178500, "change": 1.71, "volume": 890000},
+    {"symbol": "207940", "name": "삼성바이오로직스", "exchange": "KIS", "price": 812000, "change": 0.37, "volume": 95000},
+    {"symbol": "005380", "name": "현대차", "exchange": "KIS", "price": 235500, "change": -0.21, "volume": 780000},
+    {"symbol": "000270", "name": "기아", "exchange": "KIS", "price": 98700, "change": 0.61, "volume": 1500000},
+]
+
+
+class SymbolInfo(BaseModel):
+    symbol: str
+    name: str
+    exchange: str
+    price: float
+    price_formatted: str
+    change: float
+    change_formatted: str
+    volume: int
+    volume_formatted: str
+    high_24h: Optional[float] = None
+    low_24h: Optional[float] = None
+
+
+def _format_price(price: float, exchange: str) -> str:
+    if exchange.upper() in ["OKX", "BINANCE", "BYBIT"]:
+        return f"${price:,.2f}"
+    else:
+        return f"₩{int(price):,}"
+
+
+def _format_volume(volume: int) -> str:
+    if volume >= 1_000_000_000:
+        return f"{volume / 1_000_000_000:.1f}B"
+    elif volume >= 1_000_000:
+        return f"{volume / 1_000_000:.1f}M"
+    elif volume >= 1_000:
+        return f"{volume / 1_000:.1f}K"
+    return str(volume)
+
+
+def _build_symbol_info(s: dict) -> SymbolInfo:
+    return SymbolInfo(
+        symbol=s["symbol"],
+        name=s["name"],
+        exchange=s["exchange"],
+        price=s["price"],
+        price_formatted=_format_price(s["price"], s["exchange"]),
+        change=s["change"],
+        change_formatted=f"{'+' if s['change'] >= 0 else ''}{s['change']:.2f}%",
+        volume=s["volume"],
+        volume_formatted=_format_volume(s["volume"]),
+        high_24h=s.get("high_24h"),
+        low_24h=s.get("low_24h")
+    )
+
+
+@app.get("/api/symbols/search")
+async def search_symbols(
+    q: str = Query("", description="검색어"),
+    exchange: Optional[str] = Query(None, description="거래소 필터: okx, kis"),
+    current_user: User = Depends(get_current_user_optional)
+):
+    """심볼 검색"""
+    # 요금제 확인 (무료 사용자는 제한)
+    if current_user:
+        plan = getattr(current_user, "plan", "free")
+        role = getattr(current_user, "role", "user")
+        if plan == "free" and role != "admin":
+            return {"symbols": [], "message": "허브 이상 요금제에서 이용 가능합니다"}
+
+    query = q.upper().strip()
+    results = []
+
+    # 거래소별 필터링
+    if exchange and exchange.upper() == "OKX":
+        source = POPULAR_CRYPTO
+    elif exchange and exchange.upper() == "KIS":
+        source = POPULAR_KR_STOCKS
+    else:
+        source = POPULAR_CRYPTO + POPULAR_KR_STOCKS
+
+    # 검색어로 필터링
+    for s in source:
+        if not query or query in s["symbol"].upper() or query in s["name"].upper():
+            results.append(_build_symbol_info(s))
+
+    return {"symbols": results[:20]}
+
+
+@app.get("/api/symbols/{exchange}/{symbol}")
+async def get_symbol_detail(
+    exchange: str,
+    symbol: str,
+    current_user: User = Depends(get_current_user_optional)
+):
+    """심볼 상세 정보"""
+    # 요금제 확인
+    if current_user:
+        plan = getattr(current_user, "plan", "free")
+        role = getattr(current_user, "role", "user")
+        if plan == "free" and role != "admin":
+            raise HTTPException(status_code=403, detail="허브 이상 요금제에서 이용 가능합니다")
+
+    exchange_upper = exchange.upper()
+    symbol_upper = symbol.upper()
+
+    # 데이터 소스 선택
+    source = POPULAR_CRYPTO if exchange_upper == "OKX" else POPULAR_KR_STOCKS
+
+    # 심볼 찾기
+    for s in source:
+        if s["symbol"].upper() == symbol_upper:
+            info = _build_symbol_info(s)
+            # 상세 정보 추가 (더미)
+            return {
+                **info.dict(),
+                "high_24h": s["price"] * 1.03,
+                "low_24h": s["price"] * 0.97,
+                "high_24h_formatted": _format_price(s["price"] * 1.03, exchange_upper),
+                "low_24h_formatted": _format_price(s["price"] * 0.97, exchange_upper),
+            }
+
+    raise HTTPException(status_code=404, detail=f"심볼을 찾을 수 없습니다: {symbol}")
+
+
+@app.get("/api/symbols/popular")
+async def get_popular_symbols(
+    current_user: User = Depends(get_current_user_optional)
+):
+    """인기 종목 목록"""
+    # 인기 종목은 모든 사용자에게 제공 (가격 정보는 요금제에 따라)
+    crypto = [_build_symbol_info(s) for s in POPULAR_CRYPTO[:6]]
+    stocks = [_build_symbol_info(s) for s in POPULAR_KR_STOCKS[:4]]
+    return {"crypto": crypto, "stocks": stocks}

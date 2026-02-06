@@ -1077,6 +1077,9 @@ document.querySelectorAll('.asset-tag').forEach(tag => {
 // =====================================================
 // Symbols Page (PHASE 5)
 // =====================================================
+let currentSymbolExchange = 'all';
+let symbolsData = [];
+
 async function loadSymbolsPage() {
     // Check user plan
     const plan = auth.user?.plan || 'free';
@@ -1088,42 +1091,153 @@ async function loadSymbolsPage() {
     }
 
     document.getElementById('symbols-restriction').style.display = 'none';
-    loadPopularSymbols();
+    await loadPopularSymbols();
 }
 
 async function loadPopularSymbols() {
     const tbody = document.getElementById('symbols-tbody');
     if (!tbody) return;
 
-    // Dummy data for popular symbols
-    const symbols = [
-        { symbol: 'BTC-USDT', name: 'Bitcoin', exchange: 'OKX', price: '$97,234.50', change: '+2.34%', volume: '1.2B' },
-        { symbol: 'ETH-USDT', name: 'Ethereum', exchange: 'OKX', price: '$3,456.78', change: '+1.23%', volume: '890M' },
-        { symbol: 'SOL-USDT', name: 'Solana', exchange: 'OKX', price: '$198.45', change: '-0.89%', volume: '456M' }
-    ];
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">로딩 중...</td></tr>';
+
+    try {
+        let symbols = [];
+        if (auth.accessToken) {
+            const data = await invoke('get_popular_symbols', { accessToken: auth.accessToken });
+            symbols = [...(data.crypto || []), ...(data.stocks || [])];
+        }
+
+        if (symbols.length === 0) {
+            // 더미 데이터
+            symbols = [
+                { symbol: 'BTC-USDT', name: 'Bitcoin', exchange: 'OKX', price_formatted: '$97,234.50', change_formatted: '+2.34%', change: 2.34, volume_formatted: '1.2B' },
+                { symbol: 'ETH-USDT', name: 'Ethereum', exchange: 'OKX', price_formatted: '$3,456.78', change_formatted: '+1.23%', change: 1.23, volume_formatted: '890M' },
+                { symbol: 'SOL-USDT', name: 'Solana', exchange: 'OKX', price_formatted: '$198.45', change_formatted: '-0.89%', change: -0.89, volume_formatted: '456M' }
+            ];
+        }
+
+        symbolsData = symbols;
+        renderSymbolsTable(symbols);
+    } catch (error) {
+        console.error('Failed to load symbols:', error);
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">심볼 로딩 실패</td></tr>';
+    }
+}
+
+async function searchSymbols(query) {
+    const tbody = document.getElementById('symbols-tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">검색 중...</td></tr>';
+
+    try {
+        const exchange = currentSymbolExchange === 'all' ? null : currentSymbolExchange;
+        const symbols = await invoke('search_symbols', {
+            accessToken: auth.accessToken || '',
+            query: query,
+            exchange: exchange
+        });
+
+        symbolsData = symbols || [];
+        renderSymbolsTable(symbolsData);
+    } catch (error) {
+        console.error('Failed to search symbols:', error);
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">검색 실패</td></tr>';
+    }
+}
+
+function renderSymbolsTable(symbols) {
+    const tbody = document.getElementById('symbols-tbody');
+    if (!tbody) return;
+
+    if (!symbols || symbols.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">검색 결과 없음</td></tr>';
+        return;
+    }
 
     tbody.innerHTML = symbols.map(s => `
-        <tr data-symbol="${s.symbol}">
+        <tr data-symbol="${s.symbol}" data-exchange="${s.exchange}" style="cursor: pointer;">
             <td><strong>${s.symbol}</strong></td>
             <td>${s.name}</td>
-            <td><span class="exchange-badge">${s.exchange}</span></td>
-            <td>${s.price}</td>
-            <td class="${s.change.startsWith('+') ? 'profit' : 'loss'}">${s.change}</td>
-            <td>${s.volume}</td>
+            <td><span class="exchange-badge ${s.exchange.toLowerCase()}">${s.exchange}</span></td>
+            <td>${s.price_formatted}</td>
+            <td class="${s.change >= 0 ? 'profit' : 'loss'}">${s.change_formatted}</td>
+            <td>${s.volume_formatted}</td>
         </tr>
     `).join('');
 
-    tbody.querySelectorAll('tr').forEach(row => {
-        row.addEventListener('click', () => showSymbolDetail(row.dataset.symbol));
+    tbody.querySelectorAll('tr[data-symbol]').forEach(row => {
+        row.addEventListener('click', () => showSymbolDetail(row.dataset.symbol, row.dataset.exchange));
     });
 }
 
-function showSymbolDetail(symbol) {
+async function showSymbolDetail(symbol, exchange) {
     const panel = document.getElementById('symbol-detail-panel');
     if (!panel) return;
 
     document.getElementById('detail-symbol-name').textContent = symbol;
+    document.getElementById('detail-exchange').textContent = exchange;
+    document.getElementById('detail-exchange').className = `exchange-badge ${exchange.toLowerCase()}`;
     panel.style.display = 'block';
+
+    try {
+        const detail = await invoke('get_symbol_detail', {
+            accessToken: auth.accessToken || '',
+            symbol: symbol,
+            exchange: exchange
+        });
+
+        document.getElementById('detail-price').textContent = detail.price_formatted || '-';
+        const changeEl = document.getElementById('detail-change');
+        changeEl.textContent = detail.change_formatted || '-';
+        changeEl.className = `price-change ${detail.change >= 0 ? 'profit' : 'loss'}`;
+        document.getElementById('detail-high').textContent = detail.high_24h_formatted || '-';
+        document.getElementById('detail-low').textContent = detail.low_24h_formatted || '-';
+        document.getElementById('detail-volume').textContent = detail.volume_formatted || '-';
+
+        // 미니 차트 (더미)
+        drawMiniChart(detail.price, detail.change);
+    } catch (error) {
+        console.error('Failed to load symbol detail:', error);
+    }
+}
+
+function drawMiniChart(price, change) {
+    const canvas = document.getElementById('mini-chart');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+
+    ctx.clearRect(0, 0, width, height);
+
+    // 더미 차트 데이터
+    const data = [];
+    let value = price * 0.97;
+    for (let i = 0; i < 24; i++) {
+        value += (Math.random() - 0.45) * price * 0.01;
+        data.push(value);
+    }
+    data.push(price);
+
+    const min = Math.min(...data);
+    const max = Math.max(...data);
+    const range = max - min || 1;
+
+    // 라인 그리기
+    ctx.strokeStyle = change >= 0 ? '#22C55E' : '#EF4444';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    data.forEach((v, i) => {
+        const x = (i / (data.length - 1)) * width;
+        const y = height - ((v - min) / range) * height * 0.8 - height * 0.1;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    });
+
+    ctx.stroke();
 }
 
 document.getElementById('btn-close-detail')?.addEventListener('click', () => {
@@ -1137,10 +1251,26 @@ document.getElementById('btn-set-strategy-symbol')?.addEventListener('click', ()
     showToast(`${symbol}으로 전략 설정 페이지로 이동`, 'info');
 });
 
+// Symbol search input
+document.getElementById('symbol-search')?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        const query = e.target.value.trim();
+        if (query) searchSymbols(query);
+        else loadPopularSymbols();
+    }
+});
+
+document.getElementById('btn-symbol-search')?.addEventListener('click', () => {
+    const query = document.getElementById('symbol-search')?.value?.trim() || '';
+    if (query) searchSymbols(query);
+    else loadPopularSymbols();
+});
+
 document.querySelectorAll('.symbol-tag').forEach(tag => {
     tag.addEventListener('click', () => {
-        document.getElementById('symbol-search').value = tag.dataset.symbol;
-        loadPopularSymbols(); // Would search in real implementation
+        const symbol = tag.dataset.symbol;
+        document.getElementById('symbol-search').value = symbol;
+        searchSymbols(symbol);
     });
 });
 
@@ -1148,7 +1278,12 @@ document.querySelectorAll('.filter-tab').forEach(tab => {
     tab.addEventListener('click', () => {
         document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
-        // Filter by exchange
+        currentSymbolExchange = tab.dataset.exchange;
+
+        // 현재 검색어로 재검색
+        const query = document.getElementById('symbol-search')?.value?.trim() || '';
+        if (query) searchSymbols(query);
+        else loadPopularSymbols();
     });
 });
 

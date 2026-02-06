@@ -103,6 +103,10 @@ fn main() {
             // Webhook (PHASE 4)
             commands::get_webhook_logs,
             commands::get_webhook_url,
+            // Symbols (PHASE 5)
+            commands::search_symbols,
+            commands::get_symbol_detail,
+            commands::get_popular_symbols,
         ])
         .setup(|app| {
             // 앱 시작 시 VPS 서버 연결 확인 (로컬 서버 시작 없음)
