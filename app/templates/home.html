@@ -215,21 +215,58 @@
       background: var(--bg-alt);
     }
     .pricing-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 24px;
+      display: flex;
+      gap: 20px;
+      overflow-x: auto;
+      padding: 20px 0;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
     }
-    @media (max-width: 900px) {
-      .pricing-grid { grid-template-columns: 1fr; }
+    .pricing-grid::-webkit-scrollbar {
+      height: 8px;
+    }
+    .pricing-grid::-webkit-scrollbar-track {
+      background: var(--border);
+      border-radius: 4px;
+    }
+    .pricing-grid::-webkit-scrollbar-thumb {
+      background: var(--primary-light);
+      border-radius: 4px;
+    }
+    @media (min-width: 1200px) {
+      .pricing-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        overflow-x: visible;
+      }
+    }
+    @media (max-width: 1199px) and (min-width: 768px) {
+      .pricing-grid {
+        justify-content: flex-start;
+      }
+    }
+    @media (max-width: 767px) {
+      .pricing-grid {
+        flex-direction: column;
+        overflow-x: visible;
+      }
     }
     .pricing-card {
       background: var(--bg);
       border: 2px solid var(--border);
       border-radius: var(--radius-lg);
-      padding: 40px 32px;
+      padding: 32px 24px;
       text-align: center;
       position: relative;
       transition: all 0.3s;
+      min-width: 260px;
+      flex-shrink: 0;
+      scroll-snap-align: start;
+    }
+    @media (min-width: 1200px) {
+      .pricing-card {
+        min-width: auto;
+      }
     }
     .pricing-card:hover {
       transform: translateY(-4px);
@@ -511,39 +548,57 @@
         나에게 맞는 플랜을 선택하세요
       </p>
       <div class="pricing-grid">
-        <!-- Free -->
+        <!-- Starter -->
         <div class="pricing-card fade-in">
-          <div class="pricing-name">무료</div>
+          <div class="pricing-name">스타터</div>
           <div class="pricing-price">
-            <span class="currency">₩</span>0
+            <span class="currency">₩</span>12,900
             <span class="period">/월</span>
           </div>
           <ul class="pricing-features">
-            <li class="included">트레이딩뷰 웹훅 연동 1개</li>
-            <li class="included">기본 대시보드</li>
-            <li class="included">OKX 거래소 연결</li>
-            <li class="not-included">심볼정보 검색</li>
-            <li class="not-included">AI 전략 + 백테스팅</li>
-            <li class="not-included">우선 지원</li>
+            <li class="included">심볼 3개</li>
+            <li class="included">일일 주문 10회</li>
+            <li class="included">트레이딩뷰 연결</li>
+            <li class="included">대시보드</li>
+            <li class="included">웹훅 수신</li>
+            <li class="not-included">커스텀/AI 전략</li>
           </ul>
-          <a href="/login?register=true" class="btn btn-outline pricing-btn">시작하기</a>
+          <button class="btn btn-outline pricing-btn" onclick="showToast('결제 시스템 준비 중입니다')">구독하기</button>
         </div>
 
-        <!-- Hub -->
+        <!-- Basic -->
         <div class="pricing-card popular fade-in">
           <div class="popular-badge">추천</div>
-          <div class="pricing-name">허브</div>
+          <div class="pricing-name">베이직</div>
           <div class="pricing-price">
-            <span class="currency">₩</span>29,900
+            <span class="currency">₩</span>33,000
             <span class="period">/월</span>
           </div>
           <ul class="pricing-features">
-            <li class="included">트레이딩뷰 웹훅 연동 5개</li>
-            <li class="included">고급 대시보드</li>
-            <li class="included">OKX + KIS 연결</li>
-            <li class="included">심볼정보 검색</li>
-            <li class="not-included">AI 전략 + 백테스팅</li>
-            <li class="included">이메일 지원</li>
+            <li class="included">심볼 10개</li>
+            <li class="included">일일 주문 50회</li>
+            <li class="included">트레이딩뷰 연결</li>
+            <li class="included">대시보드</li>
+            <li class="included">웹훅 수신</li>
+            <li class="not-included">커스텀/AI 전략</li>
+          </ul>
+          <button class="btn btn-primary pricing-btn" onclick="showToast('결제 시스템 준비 중입니다')">구독하기</button>
+        </div>
+
+        <!-- Pro -->
+        <div class="pricing-card fade-in">
+          <div class="pricing-name">프로</div>
+          <div class="pricing-price">
+            <span class="currency">₩</span>69,000
+            <span class="period">/월</span>
+          </div>
+          <ul class="pricing-features">
+            <li class="included">심볼 30개</li>
+            <li class="included">일일 주문 200회</li>
+            <li class="included">트레이딩뷰 연결</li>
+            <li class="included">대시보드</li>
+            <li class="included">웹훅 수신</li>
+            <li class="not-included">커스텀/AI 전략</li>
           </ul>
           <button class="btn btn-primary pricing-btn" onclick="showToast('결제 시스템 준비 중입니다')">구독하기</button>
         </div>
@@ -552,16 +607,34 @@
         <div class="pricing-card fade-in">
           <div class="pricing-name">프리미엄</div>
           <div class="pricing-price">
-            <span class="currency">₩</span>59,900
+            <span class="currency">₩</span>189,000
             <span class="period">/월</span>
           </div>
           <ul class="pricing-features">
-            <li class="included">무제한 웹훅 연동</li>
-            <li class="included">프리미엄 대시보드</li>
-            <li class="included">모든 거래소 연결</li>
-            <li class="included">심볼정보 검색</li>
-            <li class="included">AI 전략 + 백테스팅</li>
-            <li class="included">우선 지원</li>
+            <li class="included">심볼 30개</li>
+            <li class="included">일일 주문 200회</li>
+            <li class="included">트레이딩뷰 연결</li>
+            <li class="included">커스텀 전략</li>
+            <li class="included">추세/역추세 전략</li>
+            <li class="included">백테스팅</li>
+          </ul>
+          <button class="btn btn-primary pricing-btn" onclick="showToast('결제 시스템 준비 중입니다')">구독하기</button>
+        </div>
+
+        <!-- Enterprise -->
+        <div class="pricing-card fade-in">
+          <div class="pricing-name">엔터프라이즈</div>
+          <div class="pricing-price">
+            <span class="currency">₩</span>330,000
+            <span class="period">/월</span>
+          </div>
+          <ul class="pricing-features">
+            <li class="included">심볼 무제한</li>
+            <li class="included">일일 주문 무제한</li>
+            <li class="included">트레이딩뷰 연결</li>
+            <li class="included">모든 프리미엄 기능</li>
+            <li class="included">전담 지원</li>
+            <li class="included">API 액세스</li>
           </ul>
           <button class="btn btn-primary pricing-btn" onclick="showToast('결제 시스템 준비 중입니다')">구독하기</button>
         </div>
