@@ -1645,6 +1645,143 @@ pub async fn verify_password(access_token: String, password: String) -> Result<b
 }
 
 // =====================================================
+// Admin API (PHASE 7)
+// =====================================================
+
+#[derive(Serialize, Deserialize)]
+pub struct AdminUser {
+    pub id: i64,
+    pub email: String,
+    pub name: Option<String>,
+    pub role: String,
+    pub plan: String,
+    pub created_at: Option<String>,
+    pub last_login_at: Option<String>,
+    pub is_active: bool,
+}
+
+#[tauri::command]
+pub async fn admin_get_users(
+    access_token: String,
+    search: Option<String>,
+    plan_filter: Option<String>,
+) -> Result<Vec<AdminUser>, String> {
+    let client = reqwest::Client::new();
+    let mut url = format!("{}/api/admin/users?", VPS_SERVER_URL);
+    if let Some(s) = search {
+        url = format!("{}search={}&", url, s);
+    }
+    if let Some(p) = plan_filter {
+        url = format!("{}plan_filter={}&", url, p);
+    }
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await;
+
+    match resp {
+        Ok(r) if r.status().is_success() => {
+            let data: serde_json::Value = r.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+            let users = data.get("users").and_then(|u| u.as_array());
+
+            if let Some(arr) = users {
+                let result: Vec<AdminUser> = arr.iter().filter_map(|u| {
+                    Some(AdminUser {
+                        id: u.get("id")?.as_i64()?,
+                        email: u.get("email")?.as_str()?.to_string(),
+                        name: u.get("name").and_then(|n| n.as_str()).map(String::from),
+                        role: u.get("role")?.as_str()?.to_string(),
+                        plan: u.get("plan")?.as_str()?.to_string(),
+                        created_at: u.get("created_at").and_then(|c| c.as_str()).map(String::from),
+                        last_login_at: u.get("last_login_at").and_then(|l| l.as_str()).map(String::from),
+                        is_active: u.get("is_active").and_then(|a| a.as_bool()).unwrap_or(true),
+                    })
+                }).collect();
+                Ok(result)
+            } else {
+                Ok(vec![])
+            }
+        }
+        Ok(_) => Err("권한이 없습니다".to_string()),
+        Err(e) => Err(format!("네트워크 오류: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn admin_update_user_plan(
+    access_token: String,
+    user_id: i64,
+    plan: String,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/admin/users/{}/plan", VPS_SERVER_URL, user_id);
+
+    let body = serde_json::json!({ "plan": plan });
+
+    let resp = client
+        .put(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .json(&body)
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("요금제 변경 실패".to_string())
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SystemStatus {
+    pub status: String,
+    pub memory_percent: f64,
+    pub db_connected: bool,
+    pub platform: String,
+    pub webhook_total: i64,
+    pub webhook_success: i64,
+    pub webhook_failed: i64,
+}
+
+#[tauri::command]
+pub async fn admin_get_system_status(access_token: String) -> Result<SystemStatus, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/admin/system", VPS_SERVER_URL);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await;
+
+    match resp {
+        Ok(r) if r.status().is_success() => {
+            let data: serde_json::Value = r.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+            let stats = data.get("webhook_stats").cloned().unwrap_or(serde_json::json!({}));
+
+            Ok(SystemStatus {
+                status: data.get("status").and_then(|s| s.as_str()).unwrap_or("unknown").to_string(),
+                memory_percent: data.get("memory_percent").and_then(|m| m.as_f64()).unwrap_or(0.0),
+                db_connected: data.get("db_connected").and_then(|d| d.as_bool()).unwrap_or(false),
+                platform: data.get("platform").and_then(|p| p.as_str()).unwrap_or("").to_string(),
+                webhook_total: stats.get("total").and_then(|t| t.as_i64()).unwrap_or(0),
+                webhook_success: stats.get("success").and_then(|s| s.as_i64()).unwrap_or(0),
+                webhook_failed: stats.get("failed").and_then(|f| f.as_i64()).unwrap_or(0),
+            })
+        }
+        Ok(_) => Err("권한이 없습니다".to_string()),
+        Err(e) => Err(format!("네트워크 오류: {}", e)),
+    }
+}
+
+// =====================================================
 // Helper Functions
 // =====================================================
 

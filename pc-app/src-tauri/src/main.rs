@@ -113,6 +113,10 @@ fn main() {
             commands::get_strategies,
             commands::toggle_strategy,
             commands::delete_strategy,
+            // Admin (PHASE 7)
+            commands::admin_get_users,
+            commands::admin_update_user_plan,
+            commands::admin_get_system_status,
         ])
         .setup(|app| {
             // 앱 시작 시 VPS 서버 연결 확인 (로컬 서버 시작 없음)
@@ -120,12 +124,12 @@ fn main() {
             tauri::async_runtime::spawn(async move {
                 // VPS 서버 연결 상태 확인 (로컬 서버 시작하지 않음)
                 tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-                // VPS: http://76.13.180.30:8000 에 연결 시도
+                // VPS: https://qube-system.com 에 연결 시도
                 // start_server_internal은 더 이상 사용하지 않음
 
                 // 대시보드 자동 열기
                 tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-                let _ = open::that("http://76.13.180.30:8000");
+                let _ = open::that("https://qube-system.com");
             });
             Ok(())
         })
@@ -152,7 +156,7 @@ fn handle_tray_menu(app: &tauri::AppHandle, id: &str) {
             });
         }
         "dashboard" => {
-            let _ = open::that("http://76.13.180.30:8000");
+            let _ = open::that("https://qube-system.com");
         }
         "logs" => {
             if let Some(data_dir) = dirs::data_dir() {

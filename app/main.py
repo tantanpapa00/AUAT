@@ -7653,3 +7653,178 @@ async def delete_strategy(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"전략 삭제 오류: {str(e)}")
+
+
+# =============================================================================
+# [PHASE 7] Admin API — 사용자 관리 + 시스템 상태
+# =============================================================================
+
+@app.get("/api/admin/users")
+async def admin_get_users(
+    search: str = Query("", description="검색어 (이메일, 이름)"),
+    plan_filter: str = Query("", description="요금제 필터"),
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """사용자 목록 (관리자 전용)"""
+    try:
+        base_sql = """
+            SELECT id, email, name, role, plan, created_at, last_login_at, is_active
+            FROM users
+            WHERE 1=1
+        """
+        params = {}
+
+        if search:
+            base_sql += " AND (email ILIKE :search OR name ILIKE :search)"
+            params["search"] = f"%{search}%"
+
+        if plan_filter:
+            base_sql += " AND plan = :plan"
+            params["plan"] = plan_filter
+
+        base_sql += " ORDER BY id ASC"
+
+        rows = db.execute(text(base_sql), params).mappings().all()
+
+        users = []
+        for row in rows:
+            users.append({
+                "id": row["id"],
+                "email": row["email"],
+                "name": row["name"],
+                "role": row["role"],
+                "plan": row["plan"],
+                "created_at": str(row["created_at"]) if row["created_at"] else None,
+                "last_login_at": str(row["last_login_at"]) if row.get("last_login_at") else None,
+                "is_active": row.get("is_active", True)
+            })
+
+        return {"users": users}
+
+    except Exception as e:
+        return {"users": [], "error": str(e)}
+
+
+@app.put("/api/admin/users/{user_id}/plan")
+async def admin_update_user_plan(
+    user_id: int,
+    request: Request,
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """사용자 요금제 변경 (관리자 전용)"""
+    body = await request.json()
+    new_plan = body.get("plan", "free")
+
+    if new_plan not in ["free", "hub", "premium"]:
+        raise HTTPException(status_code=400, detail="잘못된 요금제입니다")
+
+    try:
+        sql = text("UPDATE users SET plan = :plan WHERE id = :user_id")
+        db.execute(sql, {"plan": new_plan, "user_id": user_id})
+        db.commit()
+        return {"ok": True, "plan": new_plan}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/admin/users/{user_id}/status")
+async def admin_update_user_status(
+    user_id: int,
+    request: Request,
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """사용자 상태 변경 (관리자 전용)"""
+    body = await request.json()
+    is_active = body.get("is_active", True)
+
+    try:
+        sql = text("UPDATE users SET is_active = :active WHERE id = :user_id")
+        db.execute(sql, {"active": is_active, "user_id": user_id})
+        db.commit()
+        return {"ok": True, "is_active": is_active}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/admin/system")
+async def admin_get_system_status(
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """시스템 상태 (관리자 전용)"""
+    import psutil
+    import platform
+
+    try:
+        # 메모리 사용량
+        memory = psutil.virtual_memory()
+        memory_percent = memory.percent
+
+        # DB 연결 테스트
+        db_ok = True
+        try:
+            db.execute(text("SELECT 1"))
+        except:
+            db_ok = False
+
+        # 웹훅 통계 (24시간)
+        webhook_stats = {"total": 0, "success": 0, "failed": 0}
+        try:
+            _ensure_webhook_logs_table(db)
+            stats_sql = text("""
+                SELECT status, COUNT(*) as cnt
+                FROM webhook_logs
+                WHERE received_at > NOW() - INTERVAL '24 hours'
+                GROUP BY status
+            """)
+            rows = db.execute(stats_sql).fetchall()
+            for row in rows:
+                webhook_stats["total"] += row[1]
+                if row[0] == "success":
+                    webhook_stats["success"] = row[1]
+                else:
+                    webhook_stats["failed"] += row[1]
+        except:
+            pass
+
+        return {
+            "status": "ok",
+            "memory_percent": memory_percent,
+            "db_connected": db_ok,
+            "platform": platform.system(),
+            "webhook_stats": webhook_stats
+        }
+
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
+@app.get("/api/admin/users/export")
+async def admin_export_users(
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """사용자 CSV 내보내기 (관리자 전용)"""
+    from fastapi.responses import PlainTextResponse
+
+    try:
+        rows = db.execute(text("""
+            SELECT id, email, name, role, plan, created_at
+            FROM users ORDER BY id
+        """)).fetchall()
+
+        csv_lines = ["ID,Email,Name,Role,Plan,Created At"]
+        for row in rows:
+            csv_lines.append(f'{row[0]},"{row[1]}","{row[2] or ""}",{row[3]},{row[4]},{row[5]}')
+
+        return PlainTextResponse(
+            content="\n".join(csv_lines),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=users.csv"}
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

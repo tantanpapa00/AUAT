@@ -1912,31 +1912,89 @@ async function loadAdminUsersPage() {
     const tbody = document.getElementById('users-tbody');
     if (!tbody) return;
 
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">로딩 중...</td></tr>';
+
     try {
-        // Would load from backend
-        tbody.innerHTML = `
-            <tr>
-                <td>1</td>
-                <td>관리자</td>
-                <td>admin@qube-system.com</td>
-                <td><span class="plan-badge premium">프리미엄</span></td>
-                <td>2025-01-01</td>
-                <td>2026-02-06</td>
-                <td><span class="status-badge success">활성</span></td>
-                <td><button class="btn btn-secondary btn-sm">편집</button></td>
-            </tr>
-        `;
+        const users = await invoke('admin_get_users', {
+            accessToken: auth.accessToken || '',
+            search: null,
+            planFilter: null
+        });
+
+        if (!users || users.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">사용자 없음</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = users.map(user => {
+            const planBadgeClass = user.plan === 'premium' ? 'premium' : user.plan === 'hub' ? 'hub' : 'free';
+            const planText = user.plan === 'premium' ? '프리미엄' : user.plan === 'hub' ? '허브' : '무료';
+            const createdAt = user.created_at ? user.created_at.split('T')[0] : '-';
+            const lastLogin = user.last_login_at ? user.last_login_at.split('T')[0] : '-';
+
+            return `
+                <tr data-user-id="${user.id}">
+                    <td>${user.id}</td>
+                    <td>${user.name || '-'}</td>
+                    <td>${user.email}</td>
+                    <td>
+                        <select class="plan-select" data-user-id="${user.id}">
+                            <option value="free" ${user.plan === 'free' ? 'selected' : ''}>무료</option>
+                            <option value="hub" ${user.plan === 'hub' ? 'selected' : ''}>허브</option>
+                            <option value="premium" ${user.plan === 'premium' ? 'selected' : ''}>프리미엄</option>
+                        </select>
+                    </td>
+                    <td>${createdAt}</td>
+                    <td>${lastLogin}</td>
+                    <td><span class="status-badge ${user.is_active ? 'success' : 'error'}">${user.is_active ? '활성' : '비활성'}</span></td>
+                    <td>${user.role === 'admin' ? '<span class="role-badge">관리자</span>' : ''}</td>
+                </tr>
+            `;
+        }).join('');
+
+        // 요금제 변경 이벤트
+        tbody.querySelectorAll('.plan-select').forEach(select => {
+            select.addEventListener('change', async (e) => {
+                const userId = parseInt(e.target.dataset.userId);
+                const newPlan = e.target.value;
+                try {
+                    await invoke('admin_update_user_plan', {
+                        accessToken: auth.accessToken || '',
+                        userId: userId,
+                        plan: newPlan
+                    });
+                    showToast('요금제가 변경되었습니다', 'success');
+                } catch (error) {
+                    showToast('요금제 변경 실패', 'error');
+                    loadAdminUsersPage(); // 롤백
+                }
+            });
+        });
+
     } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">로딩 실패</td></tr>';
+        console.error('Failed to load admin users:', e);
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">로딩 실패 (권한 확인)</td></tr>';
     }
 }
 
 async function loadAdminSystemPage() {
     try {
-        const status = await invoke('get_server_status');
-        document.getElementById('sys-status').textContent = status.running ? '정상' : '오류';
-        document.getElementById('sys-status').className = `system-value ${status.running ? '' : 'error'}`;
+        const status = await invoke('admin_get_system_status', { accessToken: auth.accessToken || '' });
+
+        document.getElementById('sys-status').textContent = status.status === 'ok' ? '정상' : '오류';
+        document.getElementById('sys-status').className = `system-value ${status.status === 'ok' ? '' : 'error'}`;
+
+        document.getElementById('sys-memory').textContent = `${status.memory_percent.toFixed(1)}%`;
+        document.getElementById('sys-db').textContent = status.db_connected ? '정상' : '오류';
+        document.getElementById('sys-db').className = `system-value ${status.db_connected ? '' : 'error'}`;
+
+        // 웹훅 통계
+        document.getElementById('webhook-total').textContent = status.webhook_total;
+        document.getElementById('webhook-success').textContent = status.webhook_success;
+        document.getElementById('webhook-failed').textContent = status.webhook_failed;
+
     } catch (e) {
+        console.error('Failed to load system status:', e);
         document.getElementById('sys-status').textContent = '확인 불가';
     }
 }
