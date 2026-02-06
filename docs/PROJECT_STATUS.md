@@ -1399,4 +1399,56 @@ ccc6373 feat: 웹사이트 홈페이지 + 로그인/회원가입 분리 + 대시
 
 ---
 
+## Week 21 Day 8 — PC앱 홈 페이지 (포트폴리오 대시보드)
+
+### 완료 작업 요약
+
+**PC앱 홈 페이지 구현** — DONE
+- 상단 요약 카드 (4개): 총 자산, 총 수익률, 일간 변동, 활성 전략
+- 수익률 차트: Chart.js 로컬 번들, 기간 선택 (1일/1주/1개월/3개월/1년)
+- 자산 배분 섹션: 도넛 차트 + 범례 + 상세 테이블
+- 보유 자산 목록: 테이블 형태 (자산명, 거래소, 수량, 단가, 손익)
+- 활성 전략 현황: 카드형 (전략명, 자산, 거래소, 상태, 오늘 거래)
+- 긴급 정지 버튼: 플로팅 빨간 원형 버튼 + 펄스 애니메이션
+- 커밋: `feat: PC앱 홈 페이지 — 포트폴리오 현황 + 차트 + 보유자산`
+
+**Tauri 커맨드 추가** — DONE
+- `get_portfolio_summary` → 포트폴리오 요약
+- `get_portfolio_chart` → 수익률 차트 데이터
+- `get_holdings` → 보유 자산 목록
+- `get_active_strategies` → 활성 전략 목록
+- `emergency_stop` → 긴급 정지
+- `verify_password` → 비밀번호 재확인
+
+**백엔드 API 추가** — DONE
+- `GET /api/portfolio/summary` — 포트폴리오 요약
+- `GET /api/portfolio/chart?period=` — 수익률 차트
+- `GET /api/portfolio/holdings` — 보유 자산
+- `GET /api/strategies/active` — 활성 전략
+- `POST /api/system/emergency-stop` — 긴급 정지
+- `POST /api/auth/verify-password` — 비밀번호 검증
+
+### 변경된 파일
+| 파일 | 설명 |
+|------|------|
+| `pc-app/ui/src/lib/chart.min.js` | Chart.js 로컬 번들 (신규) |
+| `pc-app/ui/index.html` | 홈 페이지 HTML 개선 |
+| `pc-app/ui/src/main.js` | 포트폴리오 데이터 로딩 로직 |
+| `pc-app/ui/src/style.css` | 홈 페이지 스타일 (테이블, 카드, 버튼) |
+| `pc-app/src-tauri/src/commands.rs` | 6개 Tauri 커맨드 추가 |
+| `pc-app/src-tauri/src/main.rs` | 커맨드 등록 |
+| `app/main.py` | 6개 백엔드 API 추가 |
+
+### 커밋 이력 (Day 8)
+```
+c502f78 feat: PC앱 홈 페이지 — 포트폴리오 현황 + 차트 + 보유자산
+```
+
+### 다음 단계
+1) **PC앱 재빌드**: `npm run tauri build` 후 설치 파일 배포
+2) **거래소 API 연동**: OKX/KIS 실제 잔고 조회 구현
+3) **결제 시스템**: PG사 API 연동 (토스페이먼츠)
+
+---
+
 [END OF SSOT]
