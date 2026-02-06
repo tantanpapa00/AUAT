@@ -233,10 +233,10 @@
       background: var(--primary-light);
       border-radius: 4px;
     }
-    @media (min-width: 1200px) {
+    @media (min-width: 1000px) {
       .pricing-grid {
         display: grid;
-        grid-template-columns: repeat(5, 1fr);
+        grid-template-columns: repeat(4, 1fr);
         overflow-x: visible;
       }
     }
@@ -556,91 +556,73 @@
       <div class="pricing-grid">
         <!-- Starter -->
         <div class="pricing-card fade-in">
-          <div class="pricing-name">스타터</div>
+          <div class="pricing-name">Starter</div>
           <div class="pricing-price">
-            <span class="currency">₩</span>12,900
+            <span class="currency">₩</span>19,900
             <span class="period">/월</span>
           </div>
           <ul class="pricing-features">
             <li class="included">심볼 3개</li>
-            <li class="included">일일 거래 10회</li>
+            <li class="included">일일 거래 20회</li>
             <li class="included">트레이딩뷰 연결</li>
             <li class="included">대시보드</li>
             <li class="included">웹훅 수신</li>
-            <li class="not-included">커스텀/AI 전략</li>
+            <li class="not-included">고급 전략 기능</li>
           </ul>
           <button class="btn btn-outline pricing-btn" onclick="showToast('결제 시스템 준비 중입니다')">구독하기</button>
         </div>
 
-        <!-- Basic -->
+        <!-- Standard -->
         <div class="pricing-card popular fade-in">
           <div class="popular-badge">추천</div>
-          <div class="pricing-name">베이직</div>
+          <div class="pricing-name">Standard</div>
           <div class="pricing-price">
-            <span class="currency">₩</span>33,000
+            <span class="currency">₩</span>49,000
             <span class="period">/월</span>
           </div>
           <ul class="pricing-features">
             <li class="included">심볼 10개</li>
-            <li class="included">일일 거래 50회</li>
+            <li class="included">일일 거래 100회</li>
             <li class="included">트레이딩뷰 연결</li>
             <li class="included">대시보드</li>
             <li class="included">웹훅 수신</li>
-            <li class="not-included">커스텀/AI 전략</li>
+            <li class="not-included">고급 전략 기능</li>
           </ul>
           <button class="btn btn-primary pricing-btn" onclick="showToast('결제 시스템 준비 중입니다')">구독하기</button>
         </div>
 
         <!-- Pro -->
         <div class="pricing-card fade-in">
-          <div class="pricing-name">프로</div>
+          <div class="pricing-name">Pro</div>
           <div class="pricing-price">
-            <span class="currency">₩</span>69,000
+            <span class="currency">₩</span>99,000
             <span class="period">/월</span>
           </div>
           <ul class="pricing-features">
             <li class="included">심볼 30개</li>
-            <li class="included">일일 거래 200회</li>
+            <li class="included">일일 거래 300회</li>
             <li class="included">트레이딩뷰 연결</li>
             <li class="included">대시보드</li>
             <li class="included">웹훅 수신</li>
-            <li class="not-included">커스텀/AI 전략</li>
+            <li class="not-included">고급 전략 기능</li>
           </ul>
           <button class="btn btn-primary pricing-btn" onclick="showToast('결제 시스템 준비 중입니다')">구독하기</button>
         </div>
 
         <!-- Premium -->
         <div class="pricing-card fade-in">
-          <div class="pricing-name">프리미엄</div>
+          <div class="pricing-name">Premium</div>
           <div class="pricing-price">
-            <span class="currency">₩</span>189,000
-            <span class="period">/월</span>
-          </div>
-          <ul class="pricing-features">
-            <li class="included">심볼 30개</li>
-            <li class="included">일일 거래 200회</li>
-            <li class="included">트레이딩뷰 연결</li>
-            <li class="included">커스텀 전략</li>
-            <li class="included">추세/역추세 전략</li>
-            <li class="included">백테스팅</li>
-          </ul>
-          <button class="btn btn-primary pricing-btn" onclick="showToast('결제 시스템 준비 중입니다')">구독하기</button>
-        </div>
-
-        <!-- Enterprise -->
-        <div class="pricing-card fade-in">
-          <div class="pricing-name">엔터프라이즈</div>
-          <div class="pricing-price">
-            <span class="currency">₩</span>330,000
+            <span class="currency">₩</span>249,000
             <span class="period">/월</span>
           </div>
           <ul class="pricing-features">
             <li class="included">심볼 무제한</li>
             <li class="included">일일 거래 무제한</li>
             <li class="included">트레이딩뷰 연결</li>
-            <li class="included">모든 프리미엄 기능</li>
-            <li class="included">전담 지원</li>
-            <li class="included">API 액세스</li>
+            <li class="included">커스텀/추세/역추세 전략</li>
+            <li class="included">백테스팅</li>
+            <li class="included">모든 고급 기능</li>
           </ul>
           <button class="btn btn-primary pricing-btn" onclick="showToast('결제 시스템 준비 중입니다')">구독하기</button>
         </div>
