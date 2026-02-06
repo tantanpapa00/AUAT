@@ -1649,9 +1649,12 @@ pub async fn verify_password(access_token: String, password: String) -> Result<b
         .map_err(|e| format!("네트워크 오류: {}", e))?;
 
     if resp.status().is_success() {
-        Ok(true)
+        // 응답에서 verified 필드 파싱
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        let verified = data.get("verified").and_then(|v| v.as_bool()).unwrap_or(false);
+        Ok(verified)
     } else {
-        Err("비밀번호가 올바르지 않습니다".to_string())
+        Ok(false)
     }
 }
 

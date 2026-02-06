@@ -7042,15 +7042,18 @@ async def emergency_stop(current_user: User = Depends(get_current_user_optional)
 
 @app.post("/api/auth/verify-password")
 async def verify_password(request: Request, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """비밀번호 재확인"""
-    body = await request.json()
-    password = body.get("password", "")
-    if not password:
-        raise HTTPException(status_code=400, detail="비밀번호를 입력하세요")
-    user = authenticate_user(db, current_user.email, password)
-    if not user:
-        raise HTTPException(status_code=401, detail="비밀번호가 올바르지 않습니다")
-    return {"ok": True}
+    """비밀번호 재확인 — 200으로 verified 필드 반환"""
+    try:
+        body = await request.json()
+        password = body.get("password", "")
+        if not password:
+            return {"verified": False}
+        user = authenticate_user(db, current_user.email, password)
+        if not user:
+            return {"verified": False}
+        return {"verified": True}
+    except Exception:
+        return {"verified": False}
 
 
 # =============================================================================
