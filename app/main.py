@@ -7438,3 +7438,218 @@ async def get_popular_symbols(
     crypto = [_build_symbol_info(s) for s in POPULAR_CRYPTO[:6]]
     stocks = [_build_symbol_info(s) for s in POPULAR_KR_STOCKS[:4]]
     return {"crypto": crypto, "stocks": stocks}
+
+
+# =============================================================================
+# [PHASE 6] Backtest API + Strategy Management
+# =============================================================================
+
+from app.backtest import run_backtest, BacktestRequest, BacktestResult
+
+
+def _ensure_strategies_table(db: Session):
+    """strategies 테이블이 없으면 생성"""
+    create_sql = text("""
+        CREATE TABLE IF NOT EXISTS strategies (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id),
+            name VARCHAR(255),
+            strategy_type VARCHAR(50),
+            exchange VARCHAR(50),
+            symbol VARCHAR(50),
+            params JSONB,
+            order_settings JSONB,
+            is_active BOOLEAN DEFAULT false,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    db.execute(create_sql)
+    db.commit()
+
+
+class BacktestRequestBody(BaseModel):
+    strategy_type: str  # custom, reversal, trend
+    exchange: str
+    symbol: str
+    start_date: str
+    end_date: str
+    initial_capital: float = 10000000
+    params: Optional[dict] = {}
+    order_settings: Optional[dict] = {}
+
+
+@app.post("/api/backtest")
+async def api_run_backtest(
+    request: BacktestRequestBody,
+    current_user: User = Depends(get_current_user_optional)
+):
+    """백테스팅 실행"""
+    # 요금제 확인 (프리미엄 전용)
+    if current_user:
+        plan = getattr(current_user, "plan", "free")
+        role = getattr(current_user, "role", "user")
+        if plan != "premium" and role != "admin":
+            raise HTTPException(status_code=403, detail="프리미엄 요금제에서 이용 가능합니다")
+
+    try:
+        backtest_request = BacktestRequest(
+            strategy_type=request.strategy_type,
+            exchange=request.exchange,
+            symbol=request.symbol,
+            start_date=request.start_date,
+            end_date=request.end_date,
+            initial_capital=request.initial_capital,
+            params=request.params or {},
+            order_settings=request.order_settings or {}
+        )
+
+        result = run_backtest(backtest_request)
+        return result.dict()
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"백테스팅 실행 오류: {str(e)}")
+
+
+class StrategyCreateRequest(BaseModel):
+    name: str
+    strategy_type: str
+    exchange: str
+    symbol: str
+    params: Optional[dict] = {}
+    order_settings: Optional[dict] = {}
+    is_active: bool = False
+
+
+@app.post("/api/strategies")
+async def create_strategy(
+    request: StrategyCreateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """전략 저장"""
+    # 요금제 확인
+    plan = getattr(current_user, "plan", "free")
+    role = getattr(current_user, "role", "user")
+    if plan != "premium" and role != "admin":
+        raise HTTPException(status_code=403, detail="프리미엄 요금제에서 이용 가능합니다")
+
+    try:
+        _ensure_strategies_table(db)
+
+        insert_sql = text("""
+            INSERT INTO strategies (user_id, name, strategy_type, exchange, symbol, params, order_settings, is_active)
+            VALUES (:user_id, :name, :strategy_type, :exchange, :symbol, :params, :order_settings, :is_active)
+            RETURNING id
+        """)
+
+        result = db.execute(insert_sql, {
+            "user_id": current_user.id,
+            "name": request.name,
+            "strategy_type": request.strategy_type,
+            "exchange": request.exchange,
+            "symbol": request.symbol,
+            "params": json.dumps(request.params or {}),
+            "order_settings": json.dumps(request.order_settings or {}),
+            "is_active": request.is_active
+        })
+        db.commit()
+
+        strategy_id = result.fetchone()[0]
+        return {"ok": True, "id": strategy_id, "message": "전략이 저장되었습니다"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"전략 저장 오류: {str(e)}")
+
+
+@app.get("/api/strategies")
+async def get_strategies(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """사용자 전략 목록"""
+    try:
+        _ensure_strategies_table(db)
+
+        sql = text("""
+            SELECT id, name, strategy_type, exchange, symbol, params, order_settings, is_active, created_at
+            FROM strategies
+            WHERE user_id = :user_id
+            ORDER BY created_at DESC
+        """)
+        rows = db.execute(sql, {"user_id": current_user.id}).mappings().all()
+
+        strategies = []
+        for row in rows:
+            strategies.append({
+                "id": row["id"],
+                "name": row["name"],
+                "strategy_type": row["strategy_type"],
+                "exchange": row["exchange"],
+                "symbol": row["symbol"],
+                "params": row["params"] if isinstance(row["params"], dict) else json.loads(row["params"] or "{}"),
+                "order_settings": row["order_settings"] if isinstance(row["order_settings"], dict) else json.loads(row["order_settings"] or "{}"),
+                "is_active": row["is_active"],
+                "created_at": str(row["created_at"])
+            })
+
+        return {"strategies": strategies}
+
+    except Exception as e:
+        return {"strategies": [], "error": str(e)}
+
+
+@app.put("/api/strategies/{strategy_id}/toggle")
+async def toggle_strategy(
+    strategy_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """전략 활성화/비활성화"""
+    try:
+        _ensure_strategies_table(db)
+
+        # 현재 상태 조회
+        sql = text("SELECT is_active FROM strategies WHERE id = :id AND user_id = :user_id")
+        row = db.execute(sql, {"id": strategy_id, "user_id": current_user.id}).mappings().first()
+
+        if not row:
+            raise HTTPException(status_code=404, detail="전략을 찾을 수 없습니다")
+
+        new_active = not row["is_active"]
+
+        update_sql = text("UPDATE strategies SET is_active = :active, updated_at = NOW() WHERE id = :id")
+        db.execute(update_sql, {"active": new_active, "id": strategy_id})
+        db.commit()
+
+        return {"ok": True, "is_active": new_active}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"전략 토글 오류: {str(e)}")
+
+
+@app.delete("/api/strategies/{strategy_id}")
+async def delete_strategy(
+    strategy_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """전략 삭제"""
+    try:
+        _ensure_strategies_table(db)
+
+        sql = text("DELETE FROM strategies WHERE id = :id AND user_id = :user_id")
+        result = db.execute(sql, {"id": strategy_id, "user_id": current_user.id})
+        db.commit()
+
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail="전략을 찾을 수 없습니다")
+
+        return {"ok": True, "message": "전략이 삭제되었습니다"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"전략 삭제 오류: {str(e)}")

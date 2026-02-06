@@ -1310,13 +1310,81 @@ async function loadStrategies() {
     const list = document.getElementById('strategies-list');
     if (!list) return;
 
-    // Dummy - would load from backend
-    list.innerHTML = `
-        <div class="empty-state">
-            <p>설정된 전략이 없습니다.</p>
-            <p>커스텀/역추세/추세 탭에서 전략을 추가하세요.</p>
-        </div>
-    `;
+    list.innerHTML = '<p class="loading">전략 로딩 중...</p>';
+
+    try {
+        let strategies = [];
+        if (auth.accessToken) {
+            strategies = await invoke('get_strategies', { accessToken: auth.accessToken });
+        }
+
+        if (!strategies || strategies.length === 0) {
+            list.innerHTML = `
+                <div class="empty-state">
+                    <p>설정된 전략이 없습니다.</p>
+                    <p>커스텀/역추세/추세 탭에서 전략을 추가하세요.</p>
+                </div>
+            `;
+            return;
+        }
+
+        list.innerHTML = strategies.map(s => `
+            <div class="strategy-card" data-id="${s.id}">
+                <div class="strategy-card-header">
+                    <h4>${s.name}</h4>
+                    <span class="strategy-type-badge ${s.strategy_type}">${s.strategy_type}</span>
+                </div>
+                <div class="strategy-card-body">
+                    <div class="strategy-info">
+                        <span>심볼:</span>
+                        <strong>${s.symbol}</strong>
+                    </div>
+                    <div class="strategy-info">
+                        <span>거래소:</span>
+                        <strong>${s.exchange}</strong>
+                    </div>
+                </div>
+                <div class="strategy-card-actions">
+                    <button class="btn btn-sm ${s.is_active ? 'btn-success' : 'btn-secondary'} btn-toggle-strategy" data-id="${s.id}">
+                        ${s.is_active ? '실행중' : '비활성'}
+                    </button>
+                    <button class="btn btn-sm btn-danger btn-delete-strategy" data-id="${s.id}">삭제</button>
+                </div>
+            </div>
+        `).join('');
+
+        // 이벤트 바인딩
+        list.querySelectorAll('.btn-toggle-strategy').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = parseInt(btn.dataset.id);
+                try {
+                    const result = await invoke('toggle_strategy', { accessToken: auth.accessToken, strategyId: id });
+                    showToast(result.is_active ? '전략 활성화됨' : '전략 비활성화됨', 'success');
+                    loadStrategies();
+                } catch (e) {
+                    showToast('전략 토글 실패', 'error');
+                }
+            });
+        });
+
+        list.querySelectorAll('.btn-delete-strategy').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (!confirm('이 전략을 삭제하시겠습니까?')) return;
+                const id = parseInt(btn.dataset.id);
+                try {
+                    await invoke('delete_strategy', { accessToken: auth.accessToken, strategyId: id });
+                    showToast('전략이 삭제되었습니다', 'success');
+                    loadStrategies();
+                } catch (e) {
+                    showToast('전략 삭제 실패', 'error');
+                }
+            });
+        });
+
+    } catch (error) {
+        console.error('Failed to load strategies:', error);
+        list.innerHTML = '<p class="empty">전략 로딩 실패</p>';
+    }
 }
 
 async function loadExchangeDropdowns() {
@@ -1371,24 +1439,130 @@ document.getElementById('btn-backtest-trend')?.addEventListener('click', runBack
 async function runBacktest() {
     showToast('백테스팅 실행 중...', 'info');
 
-    // Simulate backtest
-    setTimeout(() => {
-        const result = document.getElementById('backtest-result');
-        if (result) {
-            result.style.display = 'block';
+    // 현재 활성 탭에서 설정 수집
+    const activeTab = document.querySelector('.strategy-tab.active')?.dataset.tab || 'custom';
+    let strategyType = activeTab;
+    let exchange = '';
+    let symbol = '';
+    let params = {};
+    let orderSettings = {};
 
-            // Update results
-            document.getElementById('bt-total-return').textContent = '+45.23%';
-            document.getElementById('bt-cagr').textContent = '+8.12%';
-            document.getElementById('bt-mdd').textContent = '-15.67%';
-            document.getElementById('bt-sharpe').textContent = '1.45';
-            document.getElementById('bt-winrate').textContent = '58.3%';
-            document.getElementById('bt-trades').textContent = '42회';
+    if (activeTab === 'reversal') {
+        exchange = document.getElementById('reversal-exchange')?.value || 'OKX';
+        symbol = document.getElementById('reversal-symbol')?.value || 'BTC-USDT';
+        params = {
+            rsi_period: parseInt(document.getElementById('reversal-rsi-period')?.value || 14),
+            overbought: parseInt(document.getElementById('reversal-overbought')?.value || 70),
+            oversold: parseInt(document.getElementById('reversal-oversold')?.value || 30)
+        };
+        orderSettings = {
+            qty_percent: parseFloat(document.getElementById('reversal-qty')?.value || 100),
+            stop_loss: parseFloat(document.getElementById('reversal-sl')?.value) || null,
+            take_profit: parseFloat(document.getElementById('reversal-tp')?.value) || null
+        };
+    } else if (activeTab === 'trend') {
+        exchange = document.getElementById('trend-exchange')?.value || 'OKX';
+        symbol = document.getElementById('trend-symbol')?.value || 'BTC-USDT';
+        params = {
+            short_ma: parseInt(document.getElementById('trend-short-ma')?.value || 20),
+            long_ma: parseInt(document.getElementById('trend-long-ma')?.value || 60)
+        };
+        orderSettings = {
+            qty_percent: parseFloat(document.getElementById('trend-qty')?.value || 100),
+            stop_loss: parseFloat(document.getElementById('trend-sl')?.value) || null,
+            take_profit: parseFloat(document.getElementById('trend-tp')?.value) || null
+        };
+    } else {
+        exchange = document.getElementById('custom-exchange')?.value || 'OKX';
+        symbol = document.getElementById('custom-symbol')?.value || 'BTC-USDT';
+        orderSettings = {
+            qty_percent: parseFloat(document.getElementById('custom-qty')?.value || 100),
+            leverage: parseInt(document.getElementById('custom-leverage')?.value || 1),
+            stop_loss: parseFloat(document.getElementById('custom-sl')?.value) || null,
+            take_profit: parseFloat(document.getElementById('custom-tp')?.value) || null
+        };
+    }
 
-            initBacktestChart();
-        }
+    const startDate = document.getElementById('backtest-start')?.value || '2024-01-01';
+    const endDate = document.getElementById('backtest-end')?.value || '2025-12-31';
+    const initialCapital = parseFloat(document.getElementById('backtest-capital')?.value || 10000000);
+
+    try {
+        const result = await invoke('run_backtest', {
+            accessToken: auth.accessToken || '',
+            strategyType: strategyType,
+            exchange: exchange,
+            symbol: symbol,
+            startDate: startDate,
+            endDate: endDate,
+            initialCapital: initialCapital,
+            params: params,
+            orderSettings: orderSettings
+        });
+
+        displayBacktestResult(result);
         showToast('백테스팅 완료', 'success');
-    }, 2000);
+    } catch (error) {
+        console.error('Backtest failed:', error);
+        showToast('백테스팅 실패: ' + error, 'error');
+    }
+}
+
+function displayBacktestResult(result) {
+    const resultDiv = document.getElementById('backtest-result');
+    if (!resultDiv) return;
+
+    resultDiv.style.display = 'block';
+
+    const summary = result.summary || {};
+    document.getElementById('bt-total-return').textContent = `${summary.total_return >= 0 ? '+' : ''}${summary.total_return || 0}%`;
+    document.getElementById('bt-cagr').textContent = `${summary.cagr >= 0 ? '+' : ''}${summary.cagr || 0}%`;
+    document.getElementById('bt-mdd').textContent = `${summary.max_drawdown || 0}%`;
+    document.getElementById('bt-sharpe').textContent = (summary.sharpe_ratio || 0).toFixed(2);
+    document.getElementById('bt-winrate').textContent = `${summary.win_rate || 0}%`;
+    document.getElementById('bt-trades').textContent = `${summary.total_trades || 0}회`;
+
+    // 차트 업데이트
+    if (result.equity_curve && result.equity_curve.length > 0) {
+        initBacktestChartWithData(result.equity_curve);
+    }
+}
+
+function initBacktestChartWithData(equityCurve) {
+    const ctx = document.getElementById('backtest-chart');
+    if (!ctx) return;
+
+    if (backtestChart) backtestChart.destroy();
+
+    const labels = equityCurve.map(p => p.date);
+    const data = equityCurve.map(p => p.equity);
+
+    backtestChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: '자산',
+                data: data,
+                borderColor: data[data.length - 1] >= data[0] ? '#22C55E' : '#EF4444',
+                fill: false,
+                tension: 0.1,
+                pointRadius: data.length > 100 ? 0 : 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    grid: { color: 'rgba(255,255,255,0.1)' },
+                    ticks: { color: '#9CA3AF', callback: (v) => `₩${(v/1000000).toFixed(0)}M` }
+                },
+                x: { display: false }
+            }
+        }
+    });
 }
 
 function initBacktestChart() {
@@ -1431,9 +1605,68 @@ function initBacktestChart() {
     });
 }
 
-document.getElementById('btn-activate-strategy')?.addEventListener('click', () => {
-    showToast('전략이 활성화되었습니다', 'success');
-    document.querySelectorAll('.strategy-tab')[0].click();
+document.getElementById('btn-activate-strategy')?.addEventListener('click', async () => {
+    const activeTab = document.querySelector('.strategy-tab.active')?.dataset.tab || 'custom';
+    let exchange = '';
+    let symbol = '';
+    let params = {};
+    let orderSettings = {};
+
+    if (activeTab === 'reversal') {
+        exchange = document.getElementById('reversal-exchange')?.value || 'OKX';
+        symbol = document.getElementById('reversal-symbol')?.value || 'BTC-USDT';
+        params = {
+            rsi_period: parseInt(document.getElementById('reversal-rsi-period')?.value || 14),
+            overbought: parseInt(document.getElementById('reversal-overbought')?.value || 70),
+            oversold: parseInt(document.getElementById('reversal-oversold')?.value || 30)
+        };
+        orderSettings = {
+            qty_percent: parseFloat(document.getElementById('reversal-qty')?.value || 100),
+            stop_loss: parseFloat(document.getElementById('reversal-sl')?.value) || null,
+            take_profit: parseFloat(document.getElementById('reversal-tp')?.value) || null
+        };
+    } else if (activeTab === 'trend') {
+        exchange = document.getElementById('trend-exchange')?.value || 'OKX';
+        symbol = document.getElementById('trend-symbol')?.value || 'BTC-USDT';
+        params = {
+            short_ma: parseInt(document.getElementById('trend-short-ma')?.value || 20),
+            long_ma: parseInt(document.getElementById('trend-long-ma')?.value || 60)
+        };
+        orderSettings = {
+            qty_percent: parseFloat(document.getElementById('trend-qty')?.value || 100),
+            stop_loss: parseFloat(document.getElementById('trend-sl')?.value) || null,
+            take_profit: parseFloat(document.getElementById('trend-tp')?.value) || null
+        };
+    } else {
+        exchange = document.getElementById('custom-exchange')?.value || 'OKX';
+        symbol = document.getElementById('custom-symbol')?.value || 'BTC-USDT';
+        orderSettings = {
+            qty_percent: parseFloat(document.getElementById('custom-qty')?.value || 100),
+            leverage: parseInt(document.getElementById('custom-leverage')?.value || 1),
+            stop_loss: parseFloat(document.getElementById('custom-sl')?.value) || null,
+            take_profit: parseFloat(document.getElementById('custom-tp')?.value) || null
+        };
+    }
+
+    const strategyName = `${activeTab} - ${symbol}`;
+
+    try {
+        await invoke('save_strategy', {
+            accessToken: auth.accessToken || '',
+            name: strategyName,
+            strategyType: activeTab,
+            exchange: exchange,
+            symbol: symbol,
+            params: params,
+            orderSettings: orderSettings,
+            isActive: true
+        });
+        showToast('전략이 저장되고 활성화되었습니다', 'success');
+        document.querySelectorAll('.strategy-tab')[0].click();
+        loadStrategies();
+    } catch (error) {
+        showToast('전략 저장 실패: ' + error, 'error');
+    }
 });
 
 // =====================================================

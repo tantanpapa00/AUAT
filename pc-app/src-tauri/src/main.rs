@@ -107,6 +107,12 @@ fn main() {
             commands::search_symbols,
             commands::get_symbol_detail,
             commands::get_popular_symbols,
+            // Backtest & Strategy (PHASE 6)
+            commands::run_backtest,
+            commands::save_strategy,
+            commands::get_strategies,
+            commands::toggle_strategy,
+            commands::delete_strategy,
         ])
         .setup(|app| {
             // 앱 시작 시 VPS 서버 연결 확인 (로컬 서버 시작 없음)
