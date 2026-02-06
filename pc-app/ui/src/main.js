@@ -189,7 +189,7 @@ function showRegisterError(message) {
     if (el) el.textContent = message;
 }
 
-// 이메일 로그인
+// 이메일 로그인 (Tauri invoke 사용 - CORS 우회)
 async function handleEmailLogin() {
     const email = document.getElementById('login-email')?.value?.trim();
     const password = document.getElementById('login-password')?.value;
@@ -206,17 +206,8 @@ async function handleEmailLogin() {
     clearAuthErrors();
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.detail || '로그인 실패');
-        }
+        // Tauri invoke로 Rust에서 HTTP 요청 (CORS 우회)
+        const data = await invoke('login_with_email', { email, password });
 
         // 토큰 저장 및 인증 완료
         auth.saveTokens(data.access_token, data.refresh_token);
@@ -225,7 +216,7 @@ async function handleEmailLogin() {
         showToast('로그인 성공', 'success');
         checkServerConnection();
     } catch (error) {
-        showLoginError(error.message || '로그인에 실패했습니다');
+        showLoginError(error || '로그인에 실패했습니다');
     } finally {
         if (btnEmailLogin) {
             btnEmailLogin.disabled = false;
@@ -234,7 +225,7 @@ async function handleEmailLogin() {
     }
 }
 
-// 이메일 회원가입
+// 이메일 회원가입 (Tauri invoke 사용 - CORS 우회)
 async function handleEmailRegister() {
     const name = document.getElementById('register-name')?.value?.trim();
     const email = document.getElementById('register-email')?.value?.trim();
@@ -263,17 +254,12 @@ async function handleEmailRegister() {
     clearAuthErrors();
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password, name: name || null })
+        // Tauri invoke로 Rust에서 HTTP 요청 (CORS 우회)
+        const data = await invoke('register_with_email', {
+            email,
+            password,
+            name: name || null
         });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.detail || '회원가입 실패');
-        }
 
         // 회원가입 성공 - 자동 로그인
         auth.saveTokens(data.access_token, data.refresh_token);
@@ -282,7 +268,7 @@ async function handleEmailRegister() {
         showToast('회원가입 및 로그인 성공', 'success');
         checkServerConnection();
     } catch (error) {
-        showRegisterError(error.message || '회원가입에 실패했습니다');
+        showRegisterError(error || '회원가입에 실패했습니다');
     } finally {
         if (btnEmailRegister) {
             btnEmailRegister.disabled = false;
@@ -305,24 +291,21 @@ document.getElementById('register-password-confirm')?.addEventListener('keypress
     if (e.key === 'Enter') handleEmailRegister();
 });
 
-// 사용자 정보 로드
+// 사용자 정보 로드 (Tauri invoke 사용 - CORS 우회)
 async function loadUserInfo() {
     if (!auth.accessToken) return;
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
-            headers: { 'Authorization': `Bearer ${auth.accessToken}` }
-        });
-
-        if (response.ok) {
-            auth.user = await response.json();
-            updateUserUI(auth.user);
-        } else if (response.status === 401) {
-            // 토큰 만료 - 리프레시 시도
-            await refreshAuthToken();
-        }
+        // Tauri invoke로 Rust에서 HTTP 요청 (CORS 우회)
+        const user = await invoke('get_user_info', { accessToken: auth.accessToken });
+        auth.user = user;
+        updateUserUI(auth.user);
     } catch (error) {
         console.error('Failed to load user info:', error);
+        // 토큰 만료 가능성 - 리프레시 시도
+        if (String(error).includes('401') || String(error).includes('Unauthorized')) {
+            await refreshAuthToken();
+        }
     }
 }
 
@@ -396,35 +379,27 @@ async function initAuth() {
         return false;
     }
 
-    // 3. 액세스 토큰이 있는 경우 - 유효성 검증
+    // 3. 액세스 토큰이 있는 경우 - 유효성 검증 (Tauri invoke 사용)
     console.log('[initAuth] → 토큰 검증 시도...');
     try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
-            headers: { 'Authorization': `Bearer ${auth.accessToken}` },
-            signal: AbortSignal.timeout(5000) // 5초 타임아웃
-        });
-
-        if (response.ok) {
-            auth.user = await response.json();
-            console.log('[initAuth] → 토큰 유효! 사용자:', auth.user.email);
-            updateUserUI(auth.user);
+        // Tauri invoke로 Rust에서 HTTP 요청 (CORS 우회)
+        const user = await invoke('get_user_info', { accessToken: auth.accessToken });
+        auth.user = user;
+        console.log('[initAuth] → 토큰 유효! 사용자:', auth.user.email);
+        updateUserUI(auth.user);
+        hideLoginScreen();
+        return true;
+    } catch (error) {
+        console.error('[initAuth] → 토큰 검증 실패:', error);
+        // 토큰 만료 가능성 - 리프레시 시도
+        console.log('[initAuth] → 토큰 만료, 갱신 시도...');
+        const refreshed = await tryRefreshToken();
+        if (refreshed) {
+            console.log('[initAuth] → 토큰 갱신 성공!');
             hideLoginScreen();
             return true;
-        } else if (response.status === 401) {
-            // 토큰 만료 - 리프레시 시도
-            console.log('[initAuth] → 토큰 만료, 갱신 시도...');
-            const refreshed = await tryRefreshToken();
-            if (refreshed) {
-                console.log('[initAuth] → 토큰 갱신 성공!');
-                hideLoginScreen();
-                return true;
-            }
-            console.log('[initAuth] → 토큰 갱신 실패');
-        } else {
-            console.log('[initAuth] → 서버 응답 오류:', response.status);
         }
-    } catch (error) {
-        console.error('[initAuth] → 서버 연결 실패:', error.message);
+        console.log('[initAuth] → 토큰 갱신 실패');
     }
 
     // 4. 토큰 검증 실패 - 토큰 삭제하고 로그인 화면 유지
@@ -434,29 +409,21 @@ async function initAuth() {
     return false;
 }
 
-// 토큰 갱신 시도 (별도 함수로 분리)
+// 토큰 갱신 시도 (Tauri invoke 사용 - CORS 우회)
 async function tryRefreshToken() {
     if (!auth.refreshToken) {
         return false;
     }
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refresh_token: auth.refreshToken }),
-            signal: AbortSignal.timeout(5000)
-        });
-
-        if (response.ok) {
-            const tokens = await response.json();
-            auth.saveTokens(tokens.access_token, tokens.refresh_token);
-            await loadUserInfo();
-            console.log('[tryRefreshToken] 토큰 갱신 성공');
-            return true;
-        }
+        // Tauri invoke로 Rust에서 HTTP 요청 (CORS 우회)
+        const tokens = await invoke('refresh_auth_token', { refreshToken: auth.refreshToken });
+        auth.saveTokens(tokens.access_token, tokens.refresh_token);
+        await loadUserInfo();
+        console.log('[tryRefreshToken] 토큰 갱신 성공');
+        return true;
     } catch (error) {
-        console.error('[tryRefreshToken] 토큰 갱신 실패:', error.message);
+        console.error('[tryRefreshToken] 토큰 갱신 실패:', error);
     }
 
     auth.clearTokens();

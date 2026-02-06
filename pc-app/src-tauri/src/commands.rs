@@ -619,6 +619,146 @@ pub async fn fetch_subscription() -> Result<SubscriptionInfo, String> {
 }
 
 // =====================================================
+// Authentication Commands (VPS API 호출)
+// =====================================================
+
+#[derive(Serialize, Deserialize)]
+pub struct AuthTokens {
+    pub access_token: String,
+    pub refresh_token: String,
+    pub token_type: String,
+    pub expires_in: i64,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct UserInfo {
+    pub id: i64,
+    pub email: String,
+    pub name: Option<String>,
+    pub picture: Option<String>,
+    pub role: String,
+    pub plan: String,
+    pub plan_expires_at: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct AuthError {
+    pub detail: String,
+}
+
+#[tauri::command]
+pub async fn login_with_email(email: String, password: String) -> Result<AuthTokens, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/auth/login", VPS_SERVER_URL);
+
+    let body = serde_json::json!({
+        "email": email,
+        "password": password
+    });
+
+    let resp = client
+        .post(&url)
+        .json(&body)
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let tokens: AuthTokens = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(tokens)
+    } else {
+        let error: AuthError = resp.json().await.unwrap_or(AuthError {
+            detail: "로그인 실패".to_string(),
+        });
+        Err(error.detail)
+    }
+}
+
+#[tauri::command]
+pub async fn register_with_email(
+    email: String,
+    password: String,
+    name: Option<String>,
+) -> Result<AuthTokens, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/auth/register", VPS_SERVER_URL);
+
+    let body = serde_json::json!({
+        "email": email,
+        "password": password,
+        "name": name
+    });
+
+    let resp = client
+        .post(&url)
+        .json(&body)
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let tokens: AuthTokens = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(tokens)
+    } else {
+        let error: AuthError = resp.json().await.unwrap_or(AuthError {
+            detail: "회원가입 실패".to_string(),
+        });
+        Err(error.detail)
+    }
+}
+
+#[tauri::command]
+pub async fn get_user_info(access_token: String) -> Result<UserInfo, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/auth/me", VPS_SERVER_URL);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let user: UserInfo = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(user)
+    } else if resp.status().as_u16() == 401 {
+        Err("토큰이 만료되었습니다".to_string())
+    } else {
+        Err("사용자 정보를 가져올 수 없습니다".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn refresh_auth_token(refresh_token: String) -> Result<AuthTokens, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/auth/refresh", VPS_SERVER_URL);
+
+    let body = serde_json::json!({
+        "refresh_token": refresh_token
+    });
+
+    let resp = client
+        .post(&url)
+        .json(&body)
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let tokens: AuthTokens = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(tokens)
+    } else {
+        Err("토큰 갱신 실패".to_string())
+    }
+}
+
+// =====================================================
 // Helper Functions
 // =====================================================
 
