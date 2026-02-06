@@ -194,7 +194,10 @@ from app.kis_api import (
     get_master_cache, refresh_master_cache, StockMaster,
     get_kis_token, get_domestic_price, get_overseas_price,
     get_financial_ratio, get_income_statement, get_invest_opinion,
-    get_investor_trend, get_daily_prices
+    get_investor_trend, get_daily_prices,
+    # 공개 API (KIS 계정 없이도 사용 가능)
+    get_naver_stock_price, get_yahoo_stock_price,
+    get_naver_daily_prices, get_yahoo_daily_prices
 )
 
 # 세션 미들웨어 (OAuth 콜백용)
@@ -8122,6 +8125,64 @@ async def get_symbol_detail(
 
                 # 일봉 데이터 (차트용)
                 daily_data = await get_daily_prices(app_key, app_secret, token.access_token, symbol, market, 60)
+                if daily_data:
+                    response["daily_prices"] = daily_data
+
+        else:
+            # KIS 계정 없음 - 공개 API 사용 (네이버 금융, Yahoo Finance)
+            is_domestic = exchange_lower in ("kis_kr", "kis_kr_etf")
+            market = stock.market if stock else ("KOSPI" if is_domestic else "NASDAQ")
+
+            if is_domestic:
+                # 국내주식: 네이버 금융 API
+                price_data = await get_naver_stock_price(symbol)
+                if price_data:
+                    response["price"] = {
+                        "current": price_data["current"],
+                        "change": price_data["change"],
+                        "change_amount": price_data["change_amount"],
+                        "high": price_data["high"],
+                        "low": price_data["low"],
+                        "open": price_data["open"],
+                        "volume": price_data["volume"],
+                        "current_formatted": f"₩{price_data['current']:,}",
+                        "change_formatted": f"{'+' if price_data['change'] >= 0 else ''}{price_data['change']:.2f}%",
+                        "high_formatted": f"₩{price_data['high']:,}",
+                        "low_formatted": f"₩{price_data['low']:,}",
+                        "volume_formatted": _format_volume(price_data["volume"]),
+                        "market_cap": price_data.get("market_cap", 0),
+                        "market_cap_formatted": _format_korean_number(price_data.get("market_cap", 0)),
+                        "source": price_data.get("source", "naver"),
+                    }
+
+                # 일봉 데이터 (네이버)
+                daily_data = await get_naver_daily_prices(symbol, 60)
+                if daily_data:
+                    response["daily_prices"] = daily_data
+
+            else:
+                # 해외주식: Yahoo Finance API
+                price_data = await get_yahoo_stock_price(symbol, market)
+                if price_data:
+                    response["price"] = {
+                        "current": price_data["current"],
+                        "change": price_data["change"],
+                        "change_amount": price_data["change_amount"],
+                        "high": price_data["high"],
+                        "low": price_data["low"],
+                        "open": price_data["open"],
+                        "volume": price_data["volume"],
+                        "current_formatted": f"${price_data['current']:,.2f}",
+                        "change_formatted": f"{'+' if price_data['change'] >= 0 else ''}{price_data['change']:.2f}%",
+                        "high_formatted": f"${price_data['high']:,.2f}",
+                        "low_formatted": f"${price_data['low']:,.2f}",
+                        "volume_formatted": _format_volume(price_data["volume"]),
+                        "market_cap": price_data.get("market_cap", 0),
+                        "source": price_data.get("source", "yahoo"),
+                    }
+
+                # 일봉 데이터 (Yahoo)
+                daily_data = await get_yahoo_daily_prices(symbol, 60)
                 if daily_data:
                     response["daily_prices"] = daily_data
 

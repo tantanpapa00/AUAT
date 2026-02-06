@@ -782,3 +782,226 @@ async def get_daily_prices(
         print(f"[KIS] Daily prices error: {e}")
 
     return None
+
+
+# =====================================================
+# 공개 API (KIS 계정 없이도 사용 가능)
+# =====================================================
+
+async def get_naver_stock_price(stock_code: str) -> Optional[Dict[str, Any]]:
+    """네이버 금융에서 국내주식 시세 조회 (공개 API)"""
+    # 네이버 금융 시세 API
+    url = f"https://m.stock.naver.com/api/stock/{stock_code}/basic"
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(url, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            })
+            if resp.status_code == 200:
+                data = resp.json()
+
+                # 현재가 정보 추출
+                current = int(data.get("closePrice", "0").replace(",", ""))
+                change_amount = int(data.get("compareToPreviousClosePrice", "0").replace(",", ""))
+                change_rate = float(data.get("fluctuationsRatio", "0"))
+                high = int(data.get("highPrice", "0").replace(",", ""))
+                low = int(data.get("lowPrice", "0").replace(",", ""))
+                open_price = int(data.get("openPrice", "0").replace(",", ""))
+                volume = int(data.get("accumulatedTradingVolume", "0").replace(",", ""))
+                market_cap = int(data.get("marketValue", "0").replace(",", ""))
+
+                return {
+                    "current": current,
+                    "change": change_rate,
+                    "change_amount": change_amount,
+                    "high": high,
+                    "low": low,
+                    "open": open_price,
+                    "volume": volume,
+                    "market_cap": market_cap,
+                    "source": "naver"
+                }
+    except Exception as e:
+        print(f"[Naver] Price error for {stock_code}: {e}")
+
+    # 폴백: KRX API 시도
+    return await get_krx_stock_price(stock_code)
+
+
+async def get_krx_stock_price(stock_code: str) -> Optional[Dict[str, Any]]:
+    """KRX에서 국내주식 시세 조회 (폴백)"""
+    # KRX 시세 데이터
+    url = "http://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd"
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            # KRX API 호출
+            resp = await client.post(url, data={
+                "bld": "dbms/MDC/STAT/standard/MDCSTAT01501",
+                "isuCd": stock_code,
+                "isuCd2": stock_code,
+                "strtDd": datetime.now().strftime("%Y%m%d"),
+                "endDd": datetime.now().strftime("%Y%m%d"),
+            }, headers={
+                "User-Agent": "Mozilla/5.0",
+                "Content-Type": "application/x-www-form-urlencoded"
+            })
+
+            if resp.status_code == 200:
+                data = resp.json()
+                items = data.get("OutBlock_1", [])
+                if items:
+                    item = items[0]
+                    return {
+                        "current": int(item.get("TDD_CLSPRC", "0").replace(",", "")),
+                        "change": float(item.get("FLUC_RT", "0").replace(",", "")),
+                        "change_amount": int(item.get("CMPPREVDD_PRC", "0").replace(",", "")),
+                        "high": int(item.get("TDD_HGPRC", "0").replace(",", "")),
+                        "low": int(item.get("TDD_LWPRC", "0").replace(",", "")),
+                        "open": int(item.get("TDD_OPNPRC", "0").replace(",", "")),
+                        "volume": int(item.get("ACC_TRDVOL", "0").replace(",", "")),
+                        "market_cap": 0,
+                        "source": "krx"
+                    }
+    except Exception as e:
+        print(f"[KRX] Price error for {stock_code}: {e}")
+
+    return None
+
+
+async def get_yahoo_stock_price(symbol: str, exchange: str = "NASDAQ") -> Optional[Dict[str, Any]]:
+    """Yahoo Finance에서 해외주식 시세 조회 (공개 API)"""
+    # Yahoo Finance v8 API
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(url, params={
+                "interval": "1d",
+                "range": "1d"
+            }, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            })
+
+            if resp.status_code == 200:
+                data = resp.json()
+                result = data.get("chart", {}).get("result", [])
+
+                if result:
+                    meta = result[0].get("meta", {})
+                    indicators = result[0].get("indicators", {})
+                    quote = indicators.get("quote", [{}])[0]
+
+                    current = meta.get("regularMarketPrice", 0)
+                    prev_close = meta.get("previousClose", current)
+                    change_amount = current - prev_close
+                    change_rate = (change_amount / prev_close * 100) if prev_close else 0
+
+                    # 오늘 데이터
+                    high_list = quote.get("high", [])
+                    low_list = quote.get("low", [])
+                    open_list = quote.get("open", [])
+                    volume_list = quote.get("volume", [])
+
+                    return {
+                        "current": current,
+                        "change": round(change_rate, 2),
+                        "change_amount": round(change_amount, 2),
+                        "high": high_list[-1] if high_list else current,
+                        "low": low_list[-1] if low_list else current,
+                        "open": open_list[-1] if open_list else current,
+                        "volume": volume_list[-1] if volume_list else 0,
+                        "market_cap": meta.get("marketCap", 0),
+                        "source": "yahoo"
+                    }
+    except Exception as e:
+        print(f"[Yahoo] Price error for {symbol}: {e}")
+
+    return None
+
+
+async def get_yahoo_daily_prices(symbol: str, days: int = 60) -> Optional[List[Dict[str, Any]]]:
+    """Yahoo Finance에서 일봉 데이터 조회"""
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url, params={
+                "interval": "1d",
+                "range": "3mo"  # 약 60 거래일
+            }, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            })
+
+            if resp.status_code == 200:
+                data = resp.json()
+                result = data.get("chart", {}).get("result", [])
+
+                if result:
+                    timestamps = result[0].get("timestamp", [])
+                    indicators = result[0].get("indicators", {})
+                    quote = indicators.get("quote", [{}])[0]
+
+                    opens = quote.get("open", [])
+                    highs = quote.get("high", [])
+                    lows = quote.get("low", [])
+                    closes = quote.get("close", [])
+                    volumes = quote.get("volume", [])
+
+                    results = []
+                    for i in range(min(len(timestamps), days)):
+                        idx = len(timestamps) - days + i
+                        if idx >= 0 and idx < len(timestamps):
+                            dt = datetime.fromtimestamp(timestamps[idx])
+                            results.append({
+                                "date": dt.strftime("%Y%m%d"),
+                                "open": opens[idx] if idx < len(opens) and opens[idx] else 0,
+                                "high": highs[idx] if idx < len(highs) and highs[idx] else 0,
+                                "low": lows[idx] if idx < len(lows) and lows[idx] else 0,
+                                "close": closes[idx] if idx < len(closes) and closes[idx] else 0,
+                                "volume": volumes[idx] if idx < len(volumes) and volumes[idx] else 0,
+                            })
+
+                    return results[-days:] if len(results) > days else results
+    except Exception as e:
+        print(f"[Yahoo] Daily prices error for {symbol}: {e}")
+
+    return None
+
+
+async def get_naver_daily_prices(stock_code: str, days: int = 60) -> Optional[List[Dict[str, Any]]]:
+    """네이버 금융에서 국내주식 일봉 데이터 조회"""
+    url = f"https://m.stock.naver.com/api/stock/{stock_code}/price"
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url, params={
+                "pageSize": days,
+                "page": 1
+            }, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            })
+
+            if resp.status_code == 200:
+                data = resp.json()
+                items = data if isinstance(data, list) else data.get("priceInfos", [])
+
+                results = []
+                for item in items[:days]:
+                    results.append({
+                        "date": item.get("localDate", "").replace("-", ""),
+                        "open": int(item.get("openPrice", "0").replace(",", "") if isinstance(item.get("openPrice"), str) else item.get("openPrice", 0)),
+                        "high": int(item.get("highPrice", "0").replace(",", "") if isinstance(item.get("highPrice"), str) else item.get("highPrice", 0)),
+                        "low": int(item.get("lowPrice", "0").replace(",", "") if isinstance(item.get("lowPrice"), str) else item.get("lowPrice", 0)),
+                        "close": int(item.get("closePrice", "0").replace(",", "") if isinstance(item.get("closePrice"), str) else item.get("closePrice", 0)),
+                        "volume": int(item.get("accumulatedTradingVolume", "0").replace(",", "") if isinstance(item.get("accumulatedTradingVolume"), str) else item.get("accumulatedTradingVolume", 0)),
+                    })
+
+                # 날짜 순 정렬 (오래된 것부터)
+                results.reverse()
+                return results
+    except Exception as e:
+        print(f"[Naver] Daily prices error for {stock_code}: {e}")
+
+    return None

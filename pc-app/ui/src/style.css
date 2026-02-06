@@ -3454,6 +3454,30 @@ body {
     border-bottom: 1px solid var(--border);
 }
 
+.data-source {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--bg-light);
+    color: var(--text-muted);
+    margin-left: auto;
+}
+
+.data-source.naver {
+    background: #03c75a20;
+    color: #03c75a;
+}
+
+.data-source.yahoo {
+    background: #6001d220;
+    color: #6001d2;
+}
+
+.data-source.kis {
+    background: #e8430020;
+    color: #e84300;
+}
+
 /* Detail tabs */
 .detail-tabs {
     display: flex;

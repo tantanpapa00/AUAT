@@ -1273,6 +1273,8 @@ async function showSymbolDetail(symbol, exchange) {
     document.getElementById('detail-low').textContent = '-';
     document.getElementById('detail-volume').textContent = '-';
     document.getElementById('detail-market-cap').textContent = '-';
+    const sourceEl = document.getElementById('detail-source');
+    if (sourceEl) sourceEl.style.display = 'none';
 
     try {
         const detail = await invoke('get_symbol_detail', {
@@ -1305,6 +1307,31 @@ async function showSymbolDetail(symbol, exchange) {
             document.getElementById('detail-low').textContent = detail.price.low_formatted || '-';
             document.getElementById('detail-volume').textContent = detail.price.volume_formatted || '-';
             document.getElementById('detail-market-cap').textContent = detail.price.market_cap_formatted || '-';
+
+            // 데이터 출처 표시
+            const sourceEl = document.getElementById('detail-source');
+            if (sourceEl) {
+                const source = detail.price.source || (detail.has_kis_account ? 'kis' : '');
+                if (source === 'naver') {
+                    sourceEl.textContent = '네이버 금융';
+                    sourceEl.className = 'data-source naver';
+                    sourceEl.style.display = 'inline-block';
+                } else if (source === 'yahoo') {
+                    sourceEl.textContent = 'Yahoo Finance';
+                    sourceEl.className = 'data-source yahoo';
+                    sourceEl.style.display = 'inline-block';
+                } else if (source === 'kis' || detail.has_kis_account) {
+                    sourceEl.textContent = 'KIS API';
+                    sourceEl.className = 'data-source kis';
+                    sourceEl.style.display = 'inline-block';
+                } else if (source === 'krx') {
+                    sourceEl.textContent = 'KRX';
+                    sourceEl.className = 'data-source naver';
+                    sourceEl.style.display = 'inline-block';
+                } else {
+                    sourceEl.style.display = 'none';
+                }
+            }
         }
 
         // 일봉 차트 그리기
