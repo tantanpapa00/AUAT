@@ -1252,6 +1252,10 @@ async function showSymbolDetail(symbol, exchange) {
     const panel = document.getElementById('symbol-detail-panel');
     if (!panel) return;
 
+    // 현재 심볼 정보 저장 (AI/관심종목 버튼용)
+    currentDetailSymbol = symbol;
+    currentDetailExchange = exchange;
+
     const isKIS = exchange.toLowerCase().startsWith('kis');
 
     // 기본 정보 초기화
@@ -2708,6 +2712,164 @@ document.querySelectorAll('.event-tab').forEach(tab => {
         tab.classList.add('active');
         loadMarketEvents(tab.dataset.type);
     });
+});
+
+// =====================================================
+// AI 분석 + 관심종목 (STEP 3)
+// =====================================================
+
+let currentDetailSymbol = null;
+let currentDetailExchange = null;
+
+// AI 분석 버튼 클릭
+document.getElementById('btn-ai-analysis')?.addEventListener('click', async () => {
+    if (!currentSymbolData) {
+        showToast('종목을 먼저 선택하세요', 'error');
+        return;
+    }
+
+    const modal = document.getElementById('ai-modal');
+    const loadingEl = document.getElementById('ai-loading');
+    const reportEl = document.getElementById('ai-report');
+    const errorEl = document.getElementById('ai-error');
+    const usageEl = document.getElementById('ai-usage');
+
+    modal.style.display = 'flex';
+    loadingEl.style.display = 'block';
+    reportEl.style.display = 'none';
+    errorEl.style.display = 'none';
+
+    try {
+        const result = await invoke('request_ai_analysis', {
+            accessToken: auth.accessToken || '',
+            symbol: currentSymbolData.basic?.symbol || currentDetailSymbol,
+            exchange: currentSymbolData.basic?.exchange || currentDetailExchange
+        });
+
+        loadingEl.style.display = 'none';
+
+        if (result.success) {
+            reportEl.innerHTML = markdownToHtml(result.report || '');
+            reportEl.style.display = 'block';
+            usageEl.textContent = `남은 분석: ${result.remaining_count}/${result.max_count}회`;
+        } else {
+            errorEl.textContent = result.error || 'AI 분석에 실패했습니다';
+            errorEl.style.display = 'block';
+        }
+    } catch (error) {
+        loadingEl.style.display = 'none';
+        errorEl.textContent = error.toString();
+        errorEl.style.display = 'block';
+    }
+});
+
+// 간단한 마크다운 변환
+function markdownToHtml(md) {
+    return md
+        .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+        .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+        .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/^- (.*$)/gim, '<li>$1</li>')
+        .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
+        .replace(/^---$/gim, '<hr>')
+        .replace(/\n/g, '<br>');
+}
+
+// AI 모달 닫기
+document.getElementById('ai-modal-close')?.addEventListener('click', () => {
+    document.getElementById('ai-modal').style.display = 'none';
+});
+
+document.getElementById('ai-modal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'ai-modal') {
+        document.getElementById('ai-modal').style.display = 'none';
+    }
+});
+
+// 관심종목 추가 버튼 클릭
+document.getElementById('btn-add-watchlist')?.addEventListener('click', async () => {
+    if (!currentSymbolData) {
+        showToast('종목을 먼저 선택하세요', 'error');
+        return;
+    }
+
+    const modal = document.getElementById('watchlist-modal');
+    const groupsList = document.getElementById('watchlist-groups-list');
+
+    modal.style.display = 'flex';
+    groupsList.innerHTML = '<div class="loading">로딩 중...</div>';
+
+    try {
+        const data = await invoke('get_watchlist_groups', { accessToken: auth.accessToken || '' });
+        const groups = data.groups || [];
+
+        groupsList.innerHTML = groups.map(g => `
+            <div class="watchlist-group-item" data-group-id="${g.id}">
+                <span class="group-name">${g.name}</span>
+            </div>
+        `).join('') || '<div class="empty">그룹이 없습니다</div>';
+
+        // 그룹 클릭 이벤트
+        groupsList.querySelectorAll('.watchlist-group-item').forEach(item => {
+            item.addEventListener('click', async () => {
+                const groupId = parseInt(item.dataset.groupId);
+                await addToWatchlist(groupId);
+            });
+        });
+    } catch (error) {
+        groupsList.innerHTML = '<div class="error">그룹 로딩 실패</div>';
+    }
+});
+
+async function addToWatchlist(groupId) {
+    try {
+        await invoke('add_watchlist_item', {
+            accessToken: auth.accessToken || '',
+            groupId: groupId,
+            symbol: currentSymbolData.basic?.symbol || currentDetailSymbol,
+            exchange: currentSymbolData.basic?.exchange || currentDetailExchange
+        });
+        showToast('관심종목에 추가되었습니다', 'success');
+        document.getElementById('watchlist-modal').style.display = 'none';
+    } catch (error) {
+        showToast(error.toString(), 'error');
+    }
+}
+
+// 새 그룹 생성
+document.getElementById('btn-create-group')?.addEventListener('click', async () => {
+    const nameInput = document.getElementById('new-group-name');
+    const name = nameInput.value.trim();
+    if (!name) {
+        showToast('그룹 이름을 입력하세요', 'error');
+        return;
+    }
+
+    try {
+        await invoke('create_watchlist_group', {
+            accessToken: auth.accessToken || '',
+            name: name
+        });
+        nameInput.value = '';
+        showToast('그룹이 생성되었습니다', 'success');
+        // 목록 새로고침
+        document.getElementById('btn-add-watchlist').click();
+    } catch (error) {
+        showToast(error.toString(), 'error');
+    }
+});
+
+// 관심종목 모달 닫기
+document.getElementById('watchlist-modal-close')?.addEventListener('click', () => {
+    document.getElementById('watchlist-modal').style.display = 'none';
+});
+
+document.getElementById('watchlist-modal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'watchlist-modal') {
+        document.getElementById('watchlist-modal').style.display = 'none';
+    }
 });
 
 // =====================================================

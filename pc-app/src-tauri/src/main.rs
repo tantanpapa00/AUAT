@@ -123,6 +123,16 @@ fn main() {
             commands::get_stock_ranking,
             commands::get_featured_stocks,
             commands::get_market_events,
+            // AI + Watchlist (STEP 3)
+            commands::get_ai_usage,
+            commands::request_ai_analysis,
+            commands::get_market_timeline,
+            commands::get_watchlist_groups,
+            commands::create_watchlist_group,
+            commands::delete_watchlist_group,
+            commands::get_watchlist_items,
+            commands::add_watchlist_item,
+            commands::remove_watchlist_item,
         ])
         .setup(|app| {
             // 앱 시작 시 VPS 서버 연결 확인 (로컬 서버 시작 없음)

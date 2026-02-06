@@ -1900,6 +1900,235 @@ pub async fn get_market_events(
 }
 
 // =====================================================
+// AI Analysis + Watchlist (STEP 3)
+// =====================================================
+
+#[tauri::command]
+pub async fn get_ai_usage(access_token: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/ai/usage", VPS_SERVER_URL);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else {
+        Err("AI 사용량 조회 실패".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn request_ai_analysis(
+    access_token: String,
+    symbol: String,
+    exchange: String,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/ai/analyze", VPS_SERVER_URL);
+
+    let body = serde_json::json!({
+        "symbol": symbol,
+        "exchange": exchange
+    });
+
+    let resp = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .timeout(std::time::Duration::from_secs(60))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else if resp.status().as_u16() == 403 {
+        Err("AI 종합분석은 Standard 이상에서 이용 가능합니다".to_string())
+    } else {
+        Err("AI 분석 요청 실패".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn get_market_timeline(access_token: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/market/timeline", VPS_SERVER_URL);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else {
+        Err("시황 타임라인 조회 실패".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn get_watchlist_groups(access_token: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/watchlist/groups", VPS_SERVER_URL);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else {
+        Err("관심종목 그룹 조회 실패".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn create_watchlist_group(
+    access_token: String,
+    name: String,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/watchlist/groups", VPS_SERVER_URL);
+
+    let body = serde_json::json!({ "name": name });
+
+    let resp = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else {
+        Err("그룹 생성 실패".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn delete_watchlist_group(
+    access_token: String,
+    group_id: i64,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/watchlist/groups/{}", VPS_SERVER_URL, group_id);
+
+    let resp = client
+        .delete(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else {
+        Err("그룹 삭제 실패".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn get_watchlist_items(
+    access_token: String,
+    group_id: i64,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/watchlist/groups/{}/items", VPS_SERVER_URL, group_id);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else {
+        Err("관심종목 조회 실패".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn add_watchlist_item(
+    access_token: String,
+    group_id: i64,
+    symbol: String,
+    exchange: String,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/watchlist/items", VPS_SERVER_URL);
+
+    let body = serde_json::json!({
+        "group_id": group_id,
+        "symbol": symbol,
+        "exchange": exchange
+    });
+
+    let resp = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else if resp.status().as_u16() == 400 {
+        let err: serde_json::Value = resp.json().await.unwrap_or_default();
+        Err(err.get("detail").and_then(|d| d.as_str()).unwrap_or("추가 실패").to_string())
+    } else {
+        Err("관심종목 추가 실패".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn remove_watchlist_item(
+    access_token: String,
+    item_id: i64,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/watchlist/items/{}", VPS_SERVER_URL, item_id);
+
+    let resp = client
+        .delete(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else {
+        Err("관심종목 삭제 실패".to_string())
+    }
+}
+
+// =====================================================
 // Helper Functions
 // =====================================================
 

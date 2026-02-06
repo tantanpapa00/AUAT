@@ -4584,3 +4584,241 @@ body {
 .featured-item .change.loss {
     color: var(--danger);
 }
+
+/* =====================================================
+   AI 분석 + 관심종목 스타일 (STEP 3)
+   ===================================================== */
+
+/* 버튼 아이콘 */
+.btn-icon {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    font-size: 1.2rem;
+    background: var(--bg-light);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-icon:hover {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+
+.btn-icon.ai-btn {
+    background: linear-gradient(135deg, #8b5cf6, #6366f1);
+    border: none;
+    color: white;
+}
+
+.btn-icon.ai-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+}
+
+.detail-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* 모달 */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: var(--card-bg);
+    border-radius: 16px;
+    max-width: 90%;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+}
+
+.modal-close:hover {
+    background: var(--bg-light);
+    color: var(--text-primary);
+}
+
+.modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.modal-footer {
+    padding: 15px 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* AI 보고서 모달 */
+.ai-report-modal {
+    width: 700px;
+}
+
+.ai-loading {
+    text-align: center;
+    padding: 40px;
+}
+
+.ai-loading .loading-spinner {
+    width: 40px;
+    height: 40px;
+    margin: 0 auto 15px;
+}
+
+.ai-report {
+    font-size: 0.9rem;
+    line-height: 1.7;
+}
+
+.ai-report h1 {
+    font-size: 1.3rem;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--primary);
+}
+
+.ai-report h2 {
+    font-size: 1.1rem;
+    margin: 25px 0 10px;
+    color: var(--primary);
+}
+
+.ai-report h3 {
+    font-size: 1rem;
+    margin: 15px 0 8px;
+}
+
+.ai-report p {
+    margin: 8px 0;
+}
+
+.ai-report ul {
+    margin: 8px 0;
+    padding-left: 20px;
+}
+
+.ai-report hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 20px 0;
+}
+
+.ai-report em {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.ai-usage {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.ai-error {
+    text-align: center;
+    color: var(--danger);
+    padding: 20px;
+}
+
+/* 관심종목 모달 */
+.watchlist-modal {
+    width: 400px;
+}
+
+.watchlist-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.watchlist-group-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    background: var(--bg-light);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.watchlist-group-item:hover {
+    background: var(--primary);
+    color: white;
+}
+
+.watchlist-group-item .group-name {
+    font-weight: 500;
+}
+
+.watchlist-group-item .group-count {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.watchlist-group-item:hover .group-count {
+    color: rgba(255,255,255,0.7);
+}
+
+.new-group-form {
+    display: flex;
+    gap: 10px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border);
+}
+
+.new-group-form input {
+    flex: 1;
+    padding: 8px 12px;
+    background: var(--bg-light);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+}

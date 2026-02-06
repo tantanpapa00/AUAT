@@ -8515,6 +8515,645 @@ async def get_market_events(
 
 
 # =============================================================================
+# [STEP 3] AI 분석 + 관심종목
+# =============================================================================
+
+# 요금제별 AI 사용 제한
+AI_LIMITS = {
+    "starter": 0,
+    "standard": 5,
+    "pro": 10,
+    "premium": 20,
+}
+
+# 요금제별 관심종목 제한
+WATCHLIST_LIMITS = {
+    "starter": 10,
+    "standard": 50,
+    "pro": 200,
+    "premium": 99999,
+}
+
+
+def _ensure_ai_tables(db: Session):
+    """AI/관심종목 테이블 생성"""
+    sqls = [
+        """
+        DO $$ BEGIN
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_usage_count INTEGER DEFAULT 0;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_usage_date DATE;
+        EXCEPTION WHEN others THEN NULL;
+        END $$;
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS ai_reports (
+            id SERIAL PRIMARY KEY,
+            symbol VARCHAR(50),
+            exchange VARCHAR(50),
+            report_text TEXT,
+            data_snapshot JSONB,
+            created_at TIMESTAMP DEFAULT NOW(),
+            expires_at TIMESTAMP
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS market_timeline (
+            id SERIAL PRIMARY KEY,
+            created_at TIMESTAMP DEFAULT NOW(),
+            market_status VARCHAR(20),
+            kospi_change DECIMAL(5,2),
+            kosdaq_change DECIMAL(5,2),
+            summary TEXT,
+            leading_sectors JSONB,
+            lagging_sectors JSONB,
+            featured_stocks JSONB,
+            keywords JSONB
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS watchlist_groups (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id),
+            name VARCHAR(100),
+            sort_order INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS watchlist_items (
+            id SERIAL PRIMARY KEY,
+            group_id INTEGER REFERENCES watchlist_groups(id) ON DELETE CASCADE,
+            user_id INTEGER REFERENCES users(id),
+            symbol VARCHAR(50),
+            exchange VARCHAR(50),
+            added_at TIMESTAMP DEFAULT NOW()
+        )
+        """
+    ]
+    for sql in sqls:
+        try:
+            db.execute(text(sql))
+            db.commit()
+        except Exception:
+            db.rollback()
+
+
+def _check_standard_plan(user: Optional[User]) -> bool:
+    """Standard 이상 요금제 체크 (AI 분석용)"""
+    if not user:
+        return False
+    role = getattr(user, "role", "user")
+    plan = getattr(user, "plan", "free")
+    if role == "admin":
+        return True
+    return plan in ("standard", "pro", "premium")
+
+
+def _get_ai_limit(user: User) -> int:
+    """요금제별 AI 사용 제한"""
+    role = getattr(user, "role", "user")
+    if role == "admin":
+        return 99999
+    plan = getattr(user, "plan", "free")
+    return AI_LIMITS.get(plan, 0)
+
+
+def _get_watchlist_limit(user: User) -> int:
+    """요금제별 관심종목 제한"""
+    role = getattr(user, "role", "user")
+    if role == "admin":
+        return 99999
+    plan = getattr(user, "plan", "free")
+    return WATCHLIST_LIMITS.get(plan, 10)
+
+
+@app.get("/api/ai/usage")
+async def get_ai_usage(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """AI 사용량 조회"""
+    _ensure_ai_tables(db)
+
+    max_count = _get_ai_limit(current_user)
+    plan = getattr(current_user, "plan", "free")
+
+    # 오늘 사용량 조회
+    try:
+        result = db.execute(
+            text("SELECT ai_usage_count, ai_usage_date FROM users WHERE id = :uid"),
+            {"uid": current_user.id}
+        )
+        row = result.fetchone()
+        if row:
+            usage_count = row[0] or 0
+            usage_date = row[1]
+            today = datetime.now(KST).date()
+            if usage_date != today:
+                # 새 날짜면 리셋
+                usage_count = 0
+        else:
+            usage_count = 0
+    except Exception:
+        usage_count = 0
+
+    return {
+        "used": usage_count,
+        "max": max_count,
+        "plan": plan,
+        "remaining": max(0, max_count - usage_count),
+    }
+
+
+class AIAnalyzeRequest(BaseModel):
+    symbol: str
+    exchange: str
+
+
+@app.post("/api/ai/analyze")
+async def request_ai_analysis(
+    request: AIAnalyzeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """AI 종합분석 요청"""
+    _ensure_ai_tables(db)
+
+    if not _check_standard_plan(current_user):
+        raise HTTPException(status_code=403, detail="AI 종합분석은 Standard 이상에서 이용 가능합니다")
+
+    max_count = _get_ai_limit(current_user)
+    today = datetime.now(KST).date()
+
+    # 사용량 체크
+    try:
+        result = db.execute(
+            text("SELECT ai_usage_count, ai_usage_date FROM users WHERE id = :uid"),
+            {"uid": current_user.id}
+        )
+        row = result.fetchone()
+        usage_count = row[0] or 0 if row else 0
+        usage_date = row[1] if row else None
+
+        if usage_date != today:
+            usage_count = 0
+            db.execute(
+                text("UPDATE users SET ai_usage_count = 0, ai_usage_date = :today WHERE id = :uid"),
+                {"uid": current_user.id, "today": today}
+            )
+            db.commit()
+
+        if usage_count >= max_count:
+            return {
+                "success": False,
+                "error": "오늘의 AI 분석 횟수를 모두 사용했습니다",
+                "remaining_count": 0,
+                "max_count": max_count,
+            }
+    except Exception as e:
+        print(f"AI usage check error: {e}")
+
+    # 캐시 확인 (1시간 이내)
+    try:
+        cache_result = db.execute(
+            text("""
+                SELECT report_text, data_snapshot FROM ai_reports
+                WHERE symbol = :sym AND exchange = :ex AND expires_at > NOW()
+                ORDER BY created_at DESC LIMIT 1
+            """),
+            {"sym": request.symbol, "ex": request.exchange}
+        )
+        cache_row = cache_result.fetchone()
+        if cache_row:
+            return {
+                "success": True,
+                "report": cache_row[0],
+                "cached": True,
+                "remaining_count": max_count - usage_count,
+                "max_count": max_count,
+            }
+    except Exception:
+        pass
+
+    # 종목 데이터 수집
+    symbol_data = {
+        "symbol": request.symbol,
+        "exchange": request.exchange,
+        "name": request.symbol,
+        "current_price": 0,
+        "change": 0,
+    }
+
+    # 마스터에서 이름 조회
+    master = get_master_cache()
+    stock = master.get_stock(request.symbol)
+    if stock:
+        symbol_data["name"] = stock.name
+        symbol_data["market"] = stock.market
+
+    # 시세 조회 (공개 API)
+    is_domestic = request.exchange.lower() in ("kis_kr", "kis_kr_etf")
+    if is_domestic:
+        price_data = await get_naver_stock_price(request.symbol)
+    else:
+        price_data = await get_yahoo_stock_price(request.symbol)
+
+    if price_data:
+        symbol_data.update({
+            "current_price": price_data.get("current", 0),
+            "change": price_data.get("change", 0),
+            "high": price_data.get("high", 0),
+            "low": price_data.get("low", 0),
+            "volume": price_data.get("volume", 0),
+        })
+
+    # AI 보고서 생성 (간단 템플릿 기반)
+    report = _generate_simple_report(symbol_data)
+
+    # 사용량 증가
+    try:
+        db.execute(
+            text("UPDATE users SET ai_usage_count = ai_usage_count + 1 WHERE id = :uid"),
+            {"uid": current_user.id}
+        )
+        db.commit()
+        usage_count += 1
+    except Exception:
+        db.rollback()
+
+    # 캐시 저장
+    try:
+        expires = datetime.now(timezone.utc) + timedelta(hours=1)
+        db.execute(
+            text("""
+                INSERT INTO ai_reports (symbol, exchange, report_text, data_snapshot, expires_at)
+                VALUES (:sym, :ex, :report, :data, :expires)
+            """),
+            {
+                "sym": request.symbol,
+                "ex": request.exchange,
+                "report": report,
+                "data": json.dumps(symbol_data),
+                "expires": expires
+            }
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+
+    return {
+        "success": True,
+        "report": report,
+        "cached": False,
+        "remaining_count": max_count - usage_count,
+        "max_count": max_count,
+    }
+
+
+def _generate_simple_report(data: dict) -> str:
+    """간단 템플릿 기반 보고서 생성"""
+    name = data.get("name", data.get("symbol", "종목"))
+    symbol = data.get("symbol", "")
+    price = data.get("current_price", 0)
+    change = data.get("change", 0)
+    high = data.get("high", 0)
+    low = data.get("low", 0)
+    volume = data.get("volume", 0)
+    market = data.get("market", "")
+
+    trend = "상승" if change > 0 else ("하락" if change < 0 else "보합")
+    trend_emoji = "📈" if change > 0 else ("📉" if change < 0 else "➡️")
+
+    report = f"""# {name} ({symbol}) 종합분석 보고서
+
+## 1. 핵심 요약
+
+{trend_emoji} **{name}**은(는) 현재 **{trend}** 추세를 보이고 있습니다.
+- 현재가: ₩{price:,} ({'+' if change >= 0 else ''}{change:.2f}%)
+- 금일 고가: ₩{high:,} / 저가: ₩{low:,}
+- 거래량: {volume:,}주
+
+## 2. 기술적 분석
+
+### 가격 위치
+- 금일 변동폭: ₩{high - low:,}
+- 고가 대비: {((price - high) / high * 100) if high else 0:.1f}%
+- 저가 대비: {((price - low) / low * 100) if low else 0:.1f}%
+
+### 추세 분석
+현재 {trend} 추세에 있으며, {'추가 상승 여력이 있어 보입니다.' if change > 2 else ('지지선 확인이 필요합니다.' if change < -2 else '횡보 구간으로 판단됩니다.')}
+
+## 3. 종합 의견
+
+### 시나리오별 전망
+
+**📈 상승 시나리오**
+- 단기 저항선 돌파 시 추가 상승 가능
+- 목표가: 현재가 대비 +5~10%
+
+**➡️ 횡보 시나리오**
+- 현 가격대에서 박스권 형성 가능
+- 거래량 증가 여부 주시 필요
+
+**📉 조정 시나리오**
+- 지지선 이탈 시 추가 하락 가능
+- 손절가: 현재가 대비 -3~5%
+
+---
+
+⚠️ **면책조항**: 본 보고서는 투자 참고용으로 작성되었으며, 투자 결정에 대한 책임은 투자자 본인에게 있습니다. 과거 실적이 미래 수익을 보장하지 않습니다.
+
+_BBooster AI 분석 시스템에서 생성됨_
+"""
+    return report
+
+
+@app.get("/api/market/timeline")
+async def get_market_timeline(
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """시황 타임라인 조회"""
+    _ensure_ai_tables(db)
+
+    # 최근 10개 타임라인 조회
+    try:
+        result = db.execute(
+            text("""
+                SELECT created_at, market_status, kospi_change, kosdaq_change,
+                       summary, leading_sectors, lagging_sectors, featured_stocks, keywords
+                FROM market_timeline
+                ORDER BY created_at DESC
+                LIMIT 10
+            """)
+        )
+        rows = result.fetchall()
+
+        timeline = []
+        for row in rows:
+            timeline.append({
+                "time": row[0].strftime("%H:%M") if row[0] else "",
+                "date": row[0].strftime("%Y-%m-%d") if row[0] else "",
+                "status": row[1],
+                "kospi_change": float(row[2]) if row[2] else 0,
+                "kosdaq_change": float(row[3]) if row[3] else 0,
+                "summary": row[4],
+                "leading_sectors": row[5] or [],
+                "lagging_sectors": row[6] or [],
+                "featured_stocks": row[7] or [],
+                "keywords": row[8] or [],
+            })
+
+        return {"timeline": timeline}
+    except Exception as e:
+        print(f"Timeline query error: {e}")
+        return {"timeline": []}
+
+
+# 관심종목 그룹 API
+@app.get("/api/watchlist/groups")
+async def get_watchlist_groups(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """관심종목 그룹 목록"""
+    _ensure_ai_tables(db)
+
+    try:
+        result = db.execute(
+            text("""
+                SELECT id, name, sort_order, created_at FROM watchlist_groups
+                WHERE user_id = :uid ORDER BY sort_order, id
+            """),
+            {"uid": current_user.id}
+        )
+        rows = result.fetchall()
+
+        groups = [{"id": r[0], "name": r[1], "sort_order": r[2]} for r in rows]
+
+        # 기본 그룹 없으면 생성
+        if not groups:
+            db.execute(
+                text("INSERT INTO watchlist_groups (user_id, name, sort_order) VALUES (:uid, '전체', 0)"),
+                {"uid": current_user.id}
+            )
+            db.commit()
+            groups = [{"id": 1, "name": "전체", "sort_order": 0}]
+
+        return {"groups": groups, "limit": _get_watchlist_limit(current_user)}
+    except Exception as e:
+        print(f"Watchlist groups error: {e}")
+        return {"groups": [], "limit": 10}
+
+
+class WatchlistGroupRequest(BaseModel):
+    name: str
+
+
+@app.post("/api/watchlist/groups")
+async def create_watchlist_group(
+    request: WatchlistGroupRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """관심종목 그룹 생성"""
+    _ensure_ai_tables(db)
+
+    try:
+        # 그룹 개수 제한 (10개)
+        count_result = db.execute(
+            text("SELECT COUNT(*) FROM watchlist_groups WHERE user_id = :uid"),
+            {"uid": current_user.id}
+        )
+        count = count_result.scalar() or 0
+        if count >= 10:
+            raise HTTPException(status_code=400, detail="그룹은 최대 10개까지 생성 가능합니다")
+
+        result = db.execute(
+            text("""
+                INSERT INTO watchlist_groups (user_id, name, sort_order)
+                VALUES (:uid, :name, :order) RETURNING id
+            """),
+            {"uid": current_user.id, "name": request.name, "order": count}
+        )
+        group_id = result.scalar()
+        db.commit()
+
+        return {"success": True, "group_id": group_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/watchlist/groups/{group_id}")
+async def update_watchlist_group(
+    group_id: int,
+    request: WatchlistGroupRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """관심종목 그룹 이름 변경"""
+    try:
+        db.execute(
+            text("UPDATE watchlist_groups SET name = :name WHERE id = :gid AND user_id = :uid"),
+            {"name": request.name, "gid": group_id, "uid": current_user.id}
+        )
+        db.commit()
+        return {"success": True}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/watchlist/groups/{group_id}")
+async def delete_watchlist_group(
+    group_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """관심종목 그룹 삭제"""
+    try:
+        # 기본 그룹(전체)은 삭제 불가
+        result = db.execute(
+            text("SELECT name FROM watchlist_groups WHERE id = :gid AND user_id = :uid"),
+            {"gid": group_id, "uid": current_user.id}
+        )
+        row = result.fetchone()
+        if row and row[0] == "전체":
+            raise HTTPException(status_code=400, detail="기본 그룹은 삭제할 수 없습니다")
+
+        db.execute(
+            text("DELETE FROM watchlist_groups WHERE id = :gid AND user_id = :uid"),
+            {"gid": group_id, "uid": current_user.id}
+        )
+        db.commit()
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/watchlist/groups/{group_id}/items")
+async def get_watchlist_items(
+    group_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """그룹 내 관심종목 조회"""
+    try:
+        result = db.execute(
+            text("""
+                SELECT id, symbol, exchange, added_at FROM watchlist_items
+                WHERE group_id = :gid AND user_id = :uid
+                ORDER BY added_at DESC
+            """),
+            {"gid": group_id, "uid": current_user.id}
+        )
+        rows = result.fetchall()
+
+        items = []
+        for row in rows:
+            item = {
+                "id": row[0],
+                "symbol": row[1],
+                "exchange": row[2],
+                "added_at": row[3].isoformat() if row[3] else "",
+                "name": row[1],
+                "price": 0,
+                "change": 0,
+            }
+            # 마스터에서 이름 조회
+            master = get_master_cache()
+            stock = master.get_stock(row[1])
+            if stock:
+                item["name"] = stock.name
+            items.append(item)
+
+        return {"items": items}
+    except Exception as e:
+        print(f"Watchlist items error: {e}")
+        return {"items": []}
+
+
+class WatchlistItemRequest(BaseModel):
+    group_id: int
+    symbol: str
+    exchange: str
+
+
+@app.post("/api/watchlist/items")
+async def add_watchlist_item(
+    request: WatchlistItemRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """관심종목 추가"""
+    _ensure_ai_tables(db)
+
+    limit = _get_watchlist_limit(current_user)
+
+    try:
+        # 총 개수 확인
+        count_result = db.execute(
+            text("SELECT COUNT(*) FROM watchlist_items WHERE user_id = :uid"),
+            {"uid": current_user.id}
+        )
+        count = count_result.scalar() or 0
+        if count >= limit:
+            raise HTTPException(status_code=400, detail=f"관심종목은 최대 {limit}개까지 추가 가능합니다")
+
+        # 중복 확인
+        dup_result = db.execute(
+            text("""
+                SELECT id FROM watchlist_items
+                WHERE group_id = :gid AND user_id = :uid AND symbol = :sym AND exchange = :ex
+            """),
+            {"gid": request.group_id, "uid": current_user.id, "sym": request.symbol, "ex": request.exchange}
+        )
+        if dup_result.fetchone():
+            raise HTTPException(status_code=400, detail="이미 추가된 종목입니다")
+
+        db.execute(
+            text("""
+                INSERT INTO watchlist_items (group_id, user_id, symbol, exchange)
+                VALUES (:gid, :uid, :sym, :ex)
+            """),
+            {"gid": request.group_id, "uid": current_user.id, "sym": request.symbol, "ex": request.exchange}
+        )
+        db.commit()
+
+        return {"success": True, "count": count + 1, "limit": limit}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/watchlist/items/{item_id}")
+async def remove_watchlist_item(
+    item_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """관심종목 삭제"""
+    try:
+        db.execute(
+            text("DELETE FROM watchlist_items WHERE id = :iid AND user_id = :uid"),
+            {"iid": item_id, "uid": current_user.id}
+        )
+        db.commit()
+        return {"success": True}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
 # [PHASE 6] Backtest API + Strategy Management
 # =============================================================================
 
