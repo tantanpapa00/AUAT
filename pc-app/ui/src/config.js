@@ -2,11 +2,8 @@
 // BBooster PC App Configuration
 // =====================================================
 
-// API 서버 URL 설정
-// 로컬 개발: "http://127.0.0.1:8000"
-// VPS 서버: "http://76.13.180.30:8000"
-// 도메인 사용 시: "https://api.yourdomain.com"
-export const API_BASE_URL = "http://76.13.180.30:8000";
+// API 서버 URL 설정 (PHASE 8: 도메인으로 변경)
+export const API_BASE_URL = "https://qube-system.com";
 
 // 연결 설정
 export const CONNECTION_TIMEOUT = 5000; // 5초

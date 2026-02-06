@@ -14,7 +14,7 @@ const CREATE_NO_WINDOW: u32 = 0x08000000;
 // Server Management (VPS 연결 방식 - 로컬 서버 시작 불필요)
 // =====================================================
 
-const VPS_SERVER_URL: &str = "http://76.13.180.30:8000";
+const VPS_SERVER_URL: &str = "https://qube-system.com";
 
 #[tauri::command]
 pub async fn start_server() -> Result<String, String> {
@@ -99,7 +99,7 @@ pub async fn check_server_health() -> Result<HealthCheckResult, String> {
 pub async fn get_server_status() -> Result<ServerStatus, String> {
     let client = reqwest::Client::new();
     match client
-        .get("http://76.13.180.30:8000/api/diag/home")
+        .get("https://qube-system.com/api/diag/home")
         .timeout(std::time::Duration::from_secs(3))
         .send()
         .await
@@ -141,7 +141,7 @@ pub struct ServerStatus {
 
 #[tauri::command]
 pub async fn open_dashboard() -> Result<(), String> {
-    open::that("http://76.13.180.30:8000").map_err(|e| e.to_string())
+    open::that("https://qube-system.com").map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -232,7 +232,7 @@ pub async fn set_estop(enabled: bool) -> Result<bool, String> {
 pub async fn set_estop_api(enabled: bool) -> Result<bool, String> {
     let client = reqwest::Client::new();
     let url = format!(
-        "http://76.13.180.30:8000/api/system/estop?value={}",
+        "https://qube-system.com/api/system/estop?value={}",
         if enabled { "1" } else { "0" }
     );
 
@@ -253,7 +253,7 @@ pub async fn set_estop_api(enabled: bool) -> Result<bool, String> {
 pub async fn get_home_data() -> Result<serde_json::Value, String> {
     let client = reqwest::Client::new();
     let resp = client
-        .get("http://76.13.180.30:8000/api/diag/home")
+        .get("https://qube-system.com/api/diag/home")
         .timeout(std::time::Duration::from_secs(5))
         .send()
         .await
@@ -391,7 +391,7 @@ pub async fn list_local_accounts() -> Result<Vec<AccountInfo>, String> {
 pub async fn fetch_server_accounts() -> Result<Vec<AccountInfo>, String> {
     let client = reqwest::Client::new();
     let resp = client
-        .get("http://76.13.180.30:8000/api/accounts")
+        .get("https://qube-system.com/api/accounts")
         .timeout(std::time::Duration::from_secs(5))
         .send()
         .await;
@@ -433,8 +433,8 @@ pub async fn fetch_server_accounts() -> Result<Vec<AccountInfo>, String> {
 pub async fn test_account_connection(exchange: String, account_name: String) -> Result<String, String> {
     let client = reqwest::Client::new();
     let endpoint = match exchange.to_uppercase().as_str() {
-        "OKX" => format!("http://76.13.180.30:8000/api/diag/okx-preflight?account={}", account_name),
-        "KIS" => format!("http://76.13.180.30:8000/api/diag/kis-preflight?account={}", account_name),
+        "OKX" => format!("https://qube-system.com/api/diag/okx-preflight?account={}", account_name),
+        "KIS" => format!("https://qube-system.com/api/diag/kis-preflight?account={}", account_name),
         _ => return Err(format!("Unknown exchange: {}", exchange)),
     };
 
@@ -667,7 +667,7 @@ pub struct TimelineEvent {
 pub async fn fetch_timeline(limit: Option<i64>) -> Result<Vec<TimelineEvent>, String> {
     let client = reqwest::Client::new();
     let url = format!(
-        "http://76.13.180.30:8000/api/timeline?limit={}",
+        "https://qube-system.com/api/timeline?limit={}",
         limit.unwrap_or(50)
     );
 
@@ -694,7 +694,7 @@ pub struct ConnectorStatus {
 pub async fn fetch_connector_status() -> Result<Vec<ConnectorStatus>, String> {
     let client = reqwest::Client::new();
     let resp = client
-        .get("http://76.13.180.30:8000/api/connectors/status")
+        .get("https://qube-system.com/api/connectors/status")
         .timeout(std::time::Duration::from_secs(5))
         .send()
         .await
@@ -720,7 +720,7 @@ pub struct SubscriptionInfo {
 pub async fn fetch_subscription() -> Result<SubscriptionInfo, String> {
     let client = reqwest::Client::new();
     let resp = client
-        .get("http://76.13.180.30:8000/api/subscription")
+        .get("https://qube-system.com/api/subscription")
         .timeout(std::time::Duration::from_secs(5))
         .send()
         .await;
