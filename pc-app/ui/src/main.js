@@ -1221,6 +1221,8 @@ async function loadTVConnectPage() {
     loadWebhookLogs();
     loadUserWebhookUrl();
     updateTVWizardUI(1);
+    // [BUG FIX 3] 자동완성 초기화
+    initTVAssetAutocomplete();
 }
 
 async function loadExchangeSelection() {
@@ -1410,6 +1412,255 @@ document.querySelectorAll('.asset-tag').forEach(tag => {
         showToast(`${selectedSymbol} 선택됨`, 'info');
     });
 });
+
+// =====================================================
+// [BUG FIX 3] 자동완성 초기화 - 4곳에 적용
+// =====================================================
+
+// 자동완성 인스턴스 저장
+let tvAssetAutocomplete = null;
+let customSymbolAutocomplete = null;
+let reversalSymbolAutocomplete = null;
+let trendSymbolAutocomplete = null;
+let stockKrAutocomplete = null;
+let watchlistAddAutocomplete = null;
+
+// 1. TV Connect Step 2: 자산 선택 자동완성
+function initTVAssetAutocomplete() {
+    const input = document.getElementById('asset-search-input');
+    if (!input || tvAssetAutocomplete) return;
+
+    tvAssetAutocomplete = createSymbolAutocomplete(input, (symbol) => {
+        if (symbol) {
+            selectedSymbol = symbol.code;
+            document.getElementById('btn-tv-next-2').disabled = false;
+            // 자산 리스트에 선택된 종목 표시
+            const listEl = document.getElementById('tv-asset-list');
+            if (listEl) {
+                listEl.innerHTML = `
+                    <div class="selected-asset-card">
+                        <span class="asset-name">${symbol.name}</span>
+                        <span class="asset-code">(${symbol.code})</span>
+                        <span class="asset-market">${symbol.market || symbol.exchange}</span>
+                    </div>
+                `;
+            }
+            showToast(`${symbol.name} (${symbol.code}) 선택됨`, 'success');
+        } else {
+            selectedSymbol = null;
+            document.getElementById('btn-tv-next-2').disabled = true;
+            const listEl = document.getElementById('tv-asset-list');
+            if (listEl) listEl.innerHTML = '<p class="empty">자산을 검색하세요</p>';
+        }
+    }, { exchange: 'all', showBadge: false });
+}
+
+// 2. Premium Strategy: 커스텀 전략 종목 선택
+function initCustomSymbolAutocomplete() {
+    const input = document.getElementById('custom-symbol');
+    if (!input || customSymbolAutocomplete) return;
+
+    customSymbolAutocomplete = createSymbolAutocomplete(input, (symbol) => {
+        if (symbol) {
+            input.dataset.selectedCode = symbol.code;
+            input.dataset.selectedExchange = symbol.exchange;
+        } else {
+            delete input.dataset.selectedCode;
+            delete input.dataset.selectedExchange;
+        }
+    }, { exchange: 'all', showBadge: true });
+}
+
+// 3. Premium Strategy: 역추세 전략 종목 선택
+function initReversalSymbolAutocomplete() {
+    const input = document.getElementById('reversal-symbol');
+    if (!input || reversalSymbolAutocomplete) return;
+
+    reversalSymbolAutocomplete = createSymbolAutocomplete(input, (symbol) => {
+        if (symbol) {
+            input.dataset.selectedCode = symbol.code;
+            input.dataset.selectedExchange = symbol.exchange;
+        } else {
+            delete input.dataset.selectedCode;
+            delete input.dataset.selectedExchange;
+        }
+    }, { exchange: 'all', showBadge: true });
+}
+
+// 4. Premium Strategy: 추세 전략 종목 선택
+function initTrendSymbolAutocomplete() {
+    const input = document.getElementById('trend-symbol');
+    if (!input || trendSymbolAutocomplete) return;
+
+    trendSymbolAutocomplete = createSymbolAutocomplete(input, (symbol) => {
+        if (symbol) {
+            input.dataset.selectedCode = symbol.code;
+            input.dataset.selectedExchange = symbol.exchange;
+        } else {
+            delete input.dataset.selectedCode;
+            delete input.dataset.selectedExchange;
+        }
+    }, { exchange: 'all', showBadge: true });
+}
+
+// 5. Stock KR: 종목 검색 자동완성
+function initStockKrAutocomplete() {
+    const input = document.getElementById('stock-kr-search');
+    if (!input || stockKrAutocomplete) return;
+
+    stockKrAutocomplete = createSymbolAutocomplete(input, (symbol) => {
+        if (symbol) {
+            // 미니 차트 프리뷰 표시
+            showStockKrPreview(symbol);
+        } else {
+            hideStockKrPreview();
+        }
+    }, { exchange: 'kis_kr', showBadge: false });
+}
+
+// Stock KR 프리뷰 표시
+async function showStockKrPreview(symbol) {
+    const preview = document.getElementById('stock-kr-preview');
+    if (!preview) return;
+
+    document.getElementById('preview-stock-name').textContent = symbol.name;
+    document.getElementById('preview-stock-code').textContent = symbol.code;
+    preview.style.display = 'block';
+
+    try {
+        const detail = await invokeWithTimeout('get_symbol_detail', {
+            accessToken: auth.accessToken || '',
+            symbol: symbol.code,
+            exchange: 'KIS_KR'
+        }, 5000);
+
+        if (detail) {
+            const priceEl = document.getElementById('preview-price');
+            const changeEl = document.getElementById('preview-change');
+            const rsEl = document.getElementById('preview-rs');
+
+            if (priceEl) priceEl.textContent = detail.price_formatted || detail.price || '-';
+            if (changeEl) {
+                const change = detail.change || 0;
+                changeEl.textContent = (change >= 0 ? '+' : '') + change.toFixed(2) + '%';
+                changeEl.className = change >= 0 ? 'positive' : 'negative';
+            }
+            if (rsEl) rsEl.textContent = detail.rs_total || '-';
+        }
+    } catch (e) {
+        console.error('Failed to load stock preview:', e);
+    }
+}
+
+function hideStockKrPreview() {
+    const preview = document.getElementById('stock-kr-preview');
+    if (preview) preview.style.display = 'none';
+}
+
+// 6. Watchlist: 종목 추가 모달 자동완성
+let watchlistAddModal = null;
+let watchlistAddSelectedSymbol = null;
+
+function showWatchlistAddModal() {
+    // 기존 모달이 없으면 생성
+    if (!watchlistAddModal) {
+        watchlistAddModal = document.createElement('div');
+        watchlistAddModal.className = 'modal';
+        watchlistAddModal.id = 'watchlist-add-modal';
+        watchlistAddModal.innerHTML = `
+            <div class="modal-content" style="max-width: 400px;">
+                <div class="modal-header">
+                    <h3>종목 추가</h3>
+                    <button class="close-btn" id="close-watchlist-add-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>종목 검색</label>
+                        <input type="text" id="watchlist-add-search" class="form-input" placeholder="종목명 또는 종목코드 검색..." autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>메모 (선택)</label>
+                        <input type="text" id="watchlist-add-memo" class="form-input" placeholder="메모 입력">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" id="btn-cancel-watchlist-add">취소</button>
+                    <button class="btn btn-primary" id="btn-confirm-watchlist-add" disabled>추가</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(watchlistAddModal);
+
+        // 이벤트 바인딩
+        document.getElementById('close-watchlist-add-modal').addEventListener('click', hideWatchlistAddModal);
+        document.getElementById('btn-cancel-watchlist-add').addEventListener('click', hideWatchlistAddModal);
+        document.getElementById('btn-confirm-watchlist-add').addEventListener('click', confirmWatchlistAdd);
+
+        // 자동완성 초기화
+        const searchInput = document.getElementById('watchlist-add-search');
+        watchlistAddAutocomplete = createSymbolAutocomplete(searchInput, (symbol) => {
+            watchlistAddSelectedSymbol = symbol;
+            document.getElementById('btn-confirm-watchlist-add').disabled = !symbol;
+        }, { exchange: 'all', showBadge: true });
+    }
+
+    watchlistAddSelectedSymbol = null;
+    document.getElementById('watchlist-add-search').value = '';
+    document.getElementById('watchlist-add-memo').value = '';
+    document.getElementById('btn-confirm-watchlist-add').disabled = true;
+    watchlistAddModal.style.display = 'flex';
+}
+
+function hideWatchlistAddModal() {
+    if (watchlistAddModal) {
+        watchlistAddModal.style.display = 'none';
+    }
+}
+
+async function confirmWatchlistAdd() {
+    if (!watchlistAddSelectedSymbol) {
+        showToast('종목을 선택해주세요', 'warning');
+        return;
+    }
+
+    const memo = document.getElementById('watchlist-add-memo')?.value || '';
+    const group = document.querySelector('.group-tab.active')?.dataset.group || 'default';
+
+    try {
+        await invokeWithTimeout('add_watchlist_item', {
+            accessToken: auth.accessToken || '',
+            groupName: group,
+            symbol: watchlistAddSelectedSymbol.code,
+            exchange: watchlistAddSelectedSymbol.exchange,
+            memo: memo
+        }, 5000);
+
+        showToast(`${watchlistAddSelectedSymbol.name} 관심종목에 추가됨`, 'success');
+        hideWatchlistAddModal();
+        loadWatchlistItems(group); // 리스트 새로고침
+    } catch (e) {
+        showToast('종목 추가 실패: ' + e, 'error');
+    }
+}
+
+// Watchlist 종목 추가 버튼 이벤트
+document.getElementById('btn-add-watchlist-item')?.addEventListener('click', showWatchlistAddModal);
+
+// 페이지 로드 시 자동완성 초기화
+function initAllAutocompletes() {
+    initTVAssetAutocomplete();
+    initStockKrAutocomplete();
+}
+
+// TV Connect 페이지 로드 시 자동완성 초기화
+const originalLoadTVConnectPage = typeof loadTVConnectPage === 'function' ? loadTVConnectPage : null;
+
+// Premium Strategy 페이지 로드 시 자동완성 초기화
+function initPremiumStrategyAutocomplete() {
+    initCustomSymbolAutocomplete();
+    initReversalSymbolAutocomplete();
+    initTrendSymbolAutocomplete();
+}
 
 // =====================================================
 // Symbols Page (PHASE 5) — Real Exchange API Integration
@@ -2013,6 +2264,8 @@ async function loadPremiumStrategyPage() {
 
     document.getElementById('premium-restriction').style.display = 'none';
     loadStrategies();
+    // [BUG FIX 3] 자동완성 초기화
+    initPremiumStrategyAutocomplete();
     loadExchangeDropdowns();
 }
 

@@ -340,6 +340,60 @@ def get_master_cache() -> KISMasterCache:
     return _master_cache
 
 
+async def search_symbols(query: str, exchange: str = None, category: str = None) -> list:
+    """종목 마스터 캐시에서 종목 검색 (공개 API)"""
+    cache = get_master_cache()
+
+    # 캐시가 유효하지 않으면 갱신
+    if not cache.is_valid():
+        await refresh_master_cache()
+
+    results = []
+    query_lower = query.lower() if query else ""
+
+    for key, stock in cache.stocks.items():
+        # 종목명 또는 종목코드에 query 포함
+        if not query_lower or query_lower in stock.name.lower() or query_lower in stock.code.lower():
+            # exchange 필터
+            if exchange and exchange.lower() != 'all':
+                ex_lower = exchange.lower()
+                # KIS_KR → KOSPI/KOSDAQ, KIS_US → NYSE/NASDAQ/AMEX
+                if ex_lower == 'kis_kr':
+                    if stock.market not in ('KOSPI', 'KOSDAQ'):
+                        continue
+                elif ex_lower == 'kis_kr_etf':
+                    if stock.market not in ('KOSPI', 'KOSDAQ') or not stock.is_etf:
+                        continue
+                elif ex_lower == 'kis_us':
+                    if stock.market not in ('NYSE', 'NASDAQ', 'AMEX'):
+                        continue
+                elif ex_lower == 'kis_us_etf':
+                    if stock.market not in ('NYSE', 'NASDAQ', 'AMEX') or not stock.is_etf:
+                        continue
+                elif stock.market.lower() != ex_lower:
+                    continue
+
+            # category 필터 (stock/etf)
+            if category and category.lower() != 'all':
+                if category.lower() == 'etf' and not stock.is_etf:
+                    continue
+                elif category.lower() == 'stock' and stock.is_etf:
+                    continue
+
+            results.append({
+                "code": stock.code,
+                "name": stock.name,
+                "market": stock.market,
+                "exchange": stock.market.lower(),
+                "is_etf": stock.is_etf,
+            })
+
+        if len(results) >= 50:
+            break
+
+    return results
+
+
 # =====================================================
 # KIS API 호출 함수들
 # =====================================================
