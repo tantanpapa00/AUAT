@@ -4165,32 +4165,34 @@ async function loadRsData() {
     tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">RS 데이터 로딩 중...</td></tr>';
 
     try {
-        // 실제 API 연동 시 활성화
-        // const result = await invoke('get_rs_ranking', { accessToken: auth.accessToken || '' });
+        const result = await invoke('get_analysis_rs', {
+            accessToken: auth.accessToken || '',
+            market: 'kospi'
+        });
 
-        // 샘플 데이터 (테스트용)
-        const sampleData = [
-            { rank: 1, symbol: '005930', name: '삼성전자', price: '87,000', change: '+2.35%', rs_total: 98, rs_1m: 95, rs_3m: 97, rs_6m: 99, market_cap: '518조' },
-            { rank: 2, symbol: '000660', name: 'SK하이닉스', price: '215,000', change: '+3.85%', rs_total: 96, rs_1m: 98, rs_3m: 94, rs_6m: 95, market_cap: '156조' },
-            { rank: 3, symbol: '035720', name: '카카오', price: '52,300', change: '+1.55%', rs_total: 94, rs_1m: 92, rs_3m: 95, rs_6m: 93, market_cap: '23조' },
-            { rank: 4, symbol: '005380', name: '현대차', price: '245,000', change: '-0.81%', rs_total: 92, rs_1m: 88, rs_3m: 93, rs_6m: 94, market_cap: '52조' },
-            { rank: 5, symbol: '068270', name: '셀트리온', price: '182,500', change: '+4.29%', rs_total: 91, rs_1m: 94, rs_3m: 89, rs_6m: 90, market_cap: '25조' },
-        ];
+        const stocks = result?.stocks || [];
+        if (stocks.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">데이터가 없습니다</td></tr>';
+            return;
+        }
 
-        tbody.innerHTML = sampleData.map(s => {
-            const changeClass = s.change.startsWith('+') ? 'profit' : 'loss';
+        tbody.innerHTML = stocks.map((s, idx) => {
+            const changeVal = s.change || 0;
+            const changeClass = changeVal >= 0 ? 'profit' : 'loss';
+            const changeStr = changeVal >= 0 ? `+${changeVal.toFixed(2)}%` : `${changeVal.toFixed(2)}%`;
             const rsClass = s.rs_total >= 90 ? 'rs-high' : (s.rs_total >= 70 ? 'rs-mid' : 'rs-low');
+            const priceStr = s.price ? s.price.toLocaleString() : '-';
             return `
-                <tr class="clickable" data-symbol="${s.symbol}">
-                    <td>${s.rank}</td>
+                <tr class="clickable" data-symbol="${s.code}">
+                    <td>${idx + 1}</td>
                     <td><strong>${s.name}</strong></td>
-                    <td>${s.price}</td>
-                    <td class="${changeClass}">${s.change}</td>
-                    <td class="rs-score ${rsClass}">${s.rs_total}</td>
-                    <td>${s.rs_1m}</td>
-                    <td>${s.rs_3m}</td>
-                    <td>${s.rs_6m}</td>
-                    <td>${s.market_cap}</td>
+                    <td>${priceStr}</td>
+                    <td class="${changeClass}">${changeStr}</td>
+                    <td class="rs-score ${rsClass}">${s.rs_total || '-'}</td>
+                    <td>${s.rs_1m || '-'}</td>
+                    <td>${s.rs_3m || '-'}</td>
+                    <td>${s.rs_6m || '-'}</td>
+                    <td>-</td>
                 </tr>
             `;
         }).join('');

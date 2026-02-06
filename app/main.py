@@ -8072,8 +8072,9 @@ async def search_symbols(
 async def _get_kis_credentials(db: Session, user_id: int) -> Optional[tuple]:
     """사용자의 KIS API 인증정보 조회"""
     try:
+        # KIS 계정은 'kis', 'KIS', 'kis_kr', 'KIS_KR', 'kis_us', 'KIS_US' 등으로 저장될 수 있음
         result = db.execute(
-            text("SELECT api_key, api_secret FROM accounts WHERE user_id = :uid AND exchange = 'kis' AND is_active = true LIMIT 1"),
+            text("SELECT api_key, api_secret FROM accounts WHERE user_id = :uid AND LOWER(exchange) LIKE 'kis%' AND is_active = true LIMIT 1"),
             {"uid": user_id}
         )
         row = result.fetchone()
