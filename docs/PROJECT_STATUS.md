@@ -1,5 +1,5 @@
 # PROJECT_STATUS.md (SSOT)
-- Last updated: 2026-02-06 (Day 9 — 전면 개편 완료 PHASE 4~9) KST
+- Last updated: 2026-02-06 (Day 10 — KIS API 연동 + 심볼정보 강화) KST
 - Owner: 기훈(작가님)
 
 > NOTE: 이 파일이 '진실(SSOT)'입니다. 채팅은 인터페이스일 뿐.
@@ -1443,6 +1443,105 @@ ccc6373 feat: 웹사이트 홈페이지 + 로그인/회원가입 분리 + 대시
 ```
 c502f78 feat: PC앱 홈 페이지 — 포트폴리오 현황 + 차트 + 보유자산
 ```
+
+---
+
+## Week 21 Day 10 — KIS API 연동 + 심볼정보 대폭 강화
+
+> **날짜**: 2026-02-06
+> **핵심**: 실제 거래소 API 연동 + KIS 종목 마스터 + 미니 종목보고서 UI
+
+### 완료 항목
+
+#### 1. 심볼정보 실제 거래소 API 연동
+- OKX/Binance/Bybit/Upbit 거래소 API 연동
+- 심볼 목록 1시간 캐싱 (TTL)
+- 실시간 가격 조회 (ticker API)
+- 거래량 상위 10개 인기 종목 조회
+- 프론트엔드: 검색 디바운스 300ms, 로딩 스피너
+
+#### 2. verify-password API 수정
+- 기존: 실패 시 401 반환 (프론트엔드에서 에러 처리 필요)
+- 변경: 200 + `{"verified": true/false}` 반환
+- Tauri 커맨드: `verified` 필드 파싱하여 bool 반환
+
+#### 3. KIS Open API 연동 모듈 (`app/kis_api.py` 신규)
+- **종목 마스터 파일 다운로드**:
+  - KOSPI: `kospi_code.mst.zip`
+  - KOSDAQ: `kosdaq_code.mst.zip`
+  - NASDAQ: `nasmst.cod.zip`
+  - NYSE: `nysmst.cod.zip`
+  - AMEX: `amsmst.cod.zip`
+  - 1일 캐싱 + 폴백 하드코딩 (다운로드 실패 시)
+- **KIS API 함수**:
+  - `get_kis_token()`: OAuth2 토큰 발급
+  - `get_domestic_price()`: 국내주식 현재가
+  - `get_overseas_price()`: 해외주식 현재가
+  - `get_financial_ratio()`: 재무비율 (PER/PBR/ROE/부채비율)
+  - `get_income_statement()`: 손익계산서 (4분기)
+  - `get_invest_opinion()`: 투자의견 (컨센서스/목표가)
+  - `get_investor_trend()`: 투자자 매매동향 (5일)
+  - `get_daily_prices()`: 일봉 데이터 (60일)
+
+#### 4. 심볼 상세 API 강화 (`/api/symbols/{exchange}/{symbol}`)
+- 응답 구조 개편 (미니 종목보고서 형태):
+```json
+{
+  "basic": { "name", "symbol", "market", "is_etf", "sector" },
+  "price": { "current", "change", "high", "low", "volume", "market_cap" },
+  "financial": { "per", "pbr", "roe", "debt_ratio", "income_statement" },
+  "opinion": { "consensus", "target_price", "analyst_count", "buy/hold/sell" },
+  "investor": [{ "date", "foreign_net", "institution_net", "individual_net" }],
+  "daily_prices": [{ "date", "close", "volume" }],
+  "has_kis_account": true/false
+}
+```
+
+#### 5. 거래소 탭 확장 (9개)
+```
+전체 | OKX | Binance | Bybit | Upbit | 국내주식 | 국내ETF | 해외주식 | 해외ETF
+```
+
+#### 6. 심볼 상세 패널 3탭 UI
+- **시세 탭**: 고가/저가/거래량/시가총액, 60일 차트, 투자자 순매수 막대그래프
+- **재무 탭**: PER/PBR/ROE/부채비율 카드, 손익 추이 차트 (4분기)
+- **투자의견 탭**: 컨센서스 도넛차트, 목표가, 애널리스트 수
+- KIS 계정 미등록 시 안내 메시지 표시
+
+### 수정/추가 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `app/kis_api.py` (신규) | KIS Open API 연동 모듈 (784줄) |
+| `app/main.py` | KIS 모듈 연동, 심볼 API 강화, startup 이벤트 |
+| `pc-app/src-tauri/src/commands.rs` | SymbolDetail JSON 전달, ETF 카테고리 추가 |
+| `pc-app/ui/index.html` | 심볼 상세 패널 3탭 UI, 거래소 탭 9개 |
+| `pc-app/ui/src/main.js` | 차트 그리기 함수, 탭 전환 로직 (300줄 추가) |
+| `pc-app/ui/src/style.css` | 재무카드, 컨센서스배지, 도넛차트 스타일 (200줄) |
+
+### 커밋 이력 (Day 10)
+```
+206ccd4 feat: 심볼정보 실제 거래소 API 연동 — 전체 심볼 목록 + 실시간 가격
+7f77607 fix: verify-password API 수정 — 계정관리 비밀번호 재확인
+8bf482f feat: KIS API 연동 — 종목 마스터 + 재무제표 + 투자의견 + 매매동향
+```
+
+### 아키텍처 현황
+```
+KIS Open API 연동:
+├── 종목 마스터: 서버 시작 시 백그라운드 다운로드 (1일 캐싱)
+├── 실시간 API: 사용자 KIS 계정 등록 시에만 호출
+└── 폴백: 다운로드 실패 시 하드코딩 목록 사용
+
+심볼 데이터 소스:
+├── OKX/Binance/Bybit/Upbit: 각 거래소 REST API
+└── KIS 국내/해외: 종목 마스터 파일 + KIS 시세 API
+```
+
+### 다음 단계
+1) **VPS 배포**: git pull → docker compose up
+2) **KIS 계정 연동 테스트**: 사용자 KIS 계정으로 재무/투자의견 조회 확인
+3) **PC앱 재빌드**: `cargo tauri build`
 
 ---
 
