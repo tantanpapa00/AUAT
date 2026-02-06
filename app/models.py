@@ -28,7 +28,7 @@ class Account(Base):
 
 class User(Base):
     """
-    사용자 모델 (Google OAuth)
+    사용자 모델 (이메일/비밀번호 + Google OAuth)
     """
     __tablename__ = "users"
 
@@ -37,6 +37,9 @@ class User(Base):
     name = Column(Text, nullable=True)
     picture = Column(Text, nullable=True)  # Google 프로필 사진 URL
     role = Column(Text, nullable=False, default="user")  # admin, user
+
+    # 이메일/비밀번호 인증
+    password_hash = Column(Text, nullable=True)  # bcrypt 해시 (자체 로그인용)
 
     # Google OAuth
     google_id = Column(Text, nullable=True, unique=True)

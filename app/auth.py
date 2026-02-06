@@ -1,10 +1,12 @@
 """
 BBooster 인증 모듈
+- 이메일/비밀번호 로그인 (자체 회원가입)
 - Google OAuth 2.0 로그인
 - JWT 기반 세션 관리
 - 관리자 자동 지정
 """
 import os
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from functools import wraps
@@ -12,9 +14,18 @@ from functools import wraps
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy.orm import Session
 from authlib.integrations.starlette_client import OAuth
+
+# bcrypt for password hashing
+try:
+    import bcrypt
+    BCRYPT_AVAILABLE = True
+except ImportError:
+    BCRYPT_AVAILABLE = False
+    # Fallback: use hashlib (less secure but works)
+    import hashlib
 
 from app.db import get_db
 from app.models import User
@@ -28,6 +39,9 @@ JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "bbooster-secret-key-change-in-prod
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24시간
 REFRESH_TOKEN_EXPIRE_DAYS = 30
+
+# 개발/테스트용: SKIP_AUTH=true 면 인증 우회
+SKIP_AUTH = os.getenv("SKIP_AUTH", "").lower() in ("true", "1", "yes")
 
 # 관리자 이메일 목록 (쉼표로 구분)
 ADMIN_EMAILS = [
@@ -81,6 +95,40 @@ class TokenData(BaseModel):
     role: Optional[str] = None
 
 
+class RegisterRequest(BaseModel):
+    """회원가입 요청"""
+    email: str
+    password: str
+    name: Optional[str] = None
+
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v):
+        # 간단한 이메일 검증
+        email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_regex, v):
+            raise ValueError('유효한 이메일 주소를 입력하세요')
+        return v.lower()
+
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, v):
+        if len(v) < 6:
+            raise ValueError('비밀번호는 최소 6자 이상이어야 합니다')
+        return v
+
+
+class LoginRequest(BaseModel):
+    """로그인 요청"""
+    email: str
+    password: str
+
+    @field_validator('email')
+    @classmethod
+    def normalize_email(cls, v):
+        return v.lower().strip()
+
+
 # =====================================================
 # JWT 토큰 생성/검증
 # =====================================================
@@ -129,6 +177,98 @@ def create_tokens_for_user(user: User) -> TokenResponse:
 
 
 # =====================================================
+# 비밀번호 해싱 (bcrypt)
+# =====================================================
+def hash_password(password: str) -> str:
+    """비밀번호 해시 생성"""
+    if BCRYPT_AVAILABLE:
+        salt = bcrypt.gensalt()
+        return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+    else:
+        # Fallback: SHA256 (bcrypt 미설치 시)
+        return hashlib.sha256(password.encode('utf-8')).hexdigest()
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """비밀번호 검증"""
+    if not hashed_password:
+        return False
+    if BCRYPT_AVAILABLE:
+        try:
+            return bcrypt.checkpw(
+                plain_password.encode('utf-8'),
+                hashed_password.encode('utf-8')
+            )
+        except Exception:
+            return False
+    else:
+        # Fallback: SHA256
+        return hashlib.sha256(plain_password.encode('utf-8')).hexdigest() == hashed_password
+
+
+# =====================================================
+# 자체 회원가입/로그인
+# =====================================================
+def register_user(
+    db: Session,
+    email: str,
+    password: str,
+    name: Optional[str] = None,
+) -> User:
+    """이메일/비밀번호로 회원가입"""
+    email = email.lower().strip()
+
+    # 이메일 중복 체크
+    existing = db.query(User).filter(User.email == email).first()
+    if existing:
+        raise ValueError("이미 등록된 이메일입니다")
+
+    # 관리자 이메일인지 확인
+    role = "admin" if email in ADMIN_EMAILS else "user"
+
+    # 사용자 생성
+    new_user = User(
+        email=email,
+        name=name or email.split("@")[0],  # 이름 없으면 이메일 앞부분 사용
+        password_hash=hash_password(password),
+        role=role,
+        plan="free",
+        last_login_at=datetime.now(timezone.utc),
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user
+
+
+def authenticate_user(
+    db: Session,
+    email: str,
+    password: str,
+) -> Optional[User]:
+    """이메일/비밀번호로 로그인 인증"""
+    email = email.lower().strip()
+    user = db.query(User).filter(User.email == email).first()
+
+    if not user:
+        return None
+
+    # 비밀번호 확인 (password_hash가 있는 경우에만)
+    if not user.password_hash:
+        # Google OAuth로만 가입한 사용자
+        return None
+
+    if not verify_password(password, user.password_hash):
+        return None
+
+    # 마지막 로그인 시간 업데이트
+    user.last_login_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+# =====================================================
 # 인증 의존성
 # =====================================================
 security = HTTPBearer(auto_error=False)
@@ -139,6 +279,21 @@ async def get_current_user_optional(
     db: Session = Depends(get_db),
 ) -> Optional[User]:
     """현재 사용자 가져오기 (선택적 - 인증 없어도 None 반환)"""
+    # SKIP_AUTH 모드: 개발용 사용자 반환
+    if SKIP_AUTH:
+        dev_user = db.query(User).filter(User.email == "dev@localhost").first()
+        if not dev_user:
+            dev_user = User(
+                email="dev@localhost",
+                name="개발자",
+                role="admin",
+                plan="premium",
+            )
+            db.add(dev_user)
+            db.commit()
+            db.refresh(dev_user)
+        return dev_user
+
     if not credentials:
         return None
 
@@ -155,6 +310,23 @@ async def get_current_user(
     db: Session = Depends(get_db),
 ) -> User:
     """현재 사용자 가져오기 (필수 - 인증 없으면 401)"""
+    # SKIP_AUTH 모드: 개발/테스트용 우회
+    if SKIP_AUTH:
+        # 더미 사용자 반환 (개발용)
+        dev_user = db.query(User).filter(User.email == "dev@localhost").first()
+        if not dev_user:
+            # 개발용 사용자 자동 생성
+            dev_user = User(
+                email="dev@localhost",
+                name="개발자",
+                role="admin",
+                plan="premium",
+            )
+            db.add(dev_user)
+            db.commit()
+            db.refresh(dev_user)
+        return dev_user
+
     if not credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -246,6 +418,8 @@ PUBLIC_PATHS = [
     "/redoc",
     "/openapi.json",
     "/api/health",
+    "/api/auth/register",      # 자체 회원가입
+    "/api/auth/login",         # 자체 로그인
     "/api/auth/google/login",
     "/api/auth/google/callback",
     "/api/auth/refresh",

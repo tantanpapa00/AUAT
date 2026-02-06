@@ -14,8 +14,36 @@
                 <img src="/src/assets/logo.png" alt="BBooster" height="64" onerror="this.style.display='none'">
                 <span class="login-brand">B<span class="accent">Booster</span></span>
             </div>
-            <h2 class="login-title">대시보드 로그인</h2>
+            <h2 class="login-title" id="login-title">로그인</h2>
             <p class="login-subtitle">큐브시스템 — Quint Booster Engine System</p>
+
+            <!-- 이메일 로그인 폼 -->
+            <div id="email-login-form" class="auth-form">
+                <input type="email" class="auth-input" id="login-email" placeholder="이메일" required>
+                <input type="password" class="auth-input" id="login-password" placeholder="비밀번호" required minlength="6">
+                <button type="button" class="auth-submit-btn" id="btn-email-login">로그인</button>
+                <div class="auth-error" id="login-error"></div>
+                <div class="auth-toggle">
+                    계정이 없으신가요? <a id="show-register">회원가입</a>
+                </div>
+            </div>
+
+            <!-- 회원가입 폼 -->
+            <div id="email-register-form" class="auth-form" style="display:none;">
+                <input type="text" class="auth-input" id="register-name" placeholder="이름 (선택)">
+                <input type="email" class="auth-input" id="register-email" placeholder="이메일" required>
+                <input type="password" class="auth-input" id="register-password" placeholder="비밀번호 (6자 이상)" required minlength="6">
+                <input type="password" class="auth-input" id="register-password-confirm" placeholder="비밀번호 확인" required minlength="6">
+                <button type="button" class="auth-submit-btn" id="btn-email-register">회원가입</button>
+                <div class="auth-error" id="register-error"></div>
+                <div class="auth-toggle">
+                    이미 계정이 있으신가요? <a id="show-login">로그인</a>
+                </div>
+            </div>
+
+            <div class="login-divider">
+                <span>또는</span>
+            </div>
 
             <button class="google-login-btn" id="btn-google-login">
                 <svg width="20" height="20" viewBox="0 0 24 24">

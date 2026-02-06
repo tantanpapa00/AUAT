@@ -183,7 +183,9 @@ from starlette.responses import RedirectResponse
 from app.auth import (
     oauth, get_or_create_user_from_google, create_tokens_for_user,
     verify_token, get_current_user, get_current_user_optional, get_admin_user,
-    UserResponse, TokenResponse, GOOGLE_CLIENT_ID, is_public_path
+    UserResponse, TokenResponse, RegisterRequest, LoginRequest,
+    GOOGLE_CLIENT_ID, SKIP_AUTH, is_public_path,
+    register_user, authenticate_user
 )
 from app.models import User
 
@@ -243,6 +245,54 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"OAuth 인증 실패: {str(e)}")
+
+
+# =========================
+# [AUTH_V2] 자체 회원가입/로그인 (이메일+비밀번호)
+# =========================
+@app.post("/api/auth/register", response_model=TokenResponse)
+async def auth_register(request: RegisterRequest, db: Session = Depends(get_db)):
+    """이메일/비밀번호로 회원가입"""
+    try:
+        user = register_user(
+            db=db,
+            email=request.email,
+            password=request.password,
+            name=request.name,
+        )
+        # 회원가입 성공 후 바로 토큰 발급
+        return create_tokens_for_user(user)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"회원가입 실패: {str(e)}")
+
+
+@app.post("/api/auth/login", response_model=TokenResponse)
+async def auth_login(request: LoginRequest, db: Session = Depends(get_db)):
+    """이메일/비밀번호로 로그인"""
+    user = authenticate_user(
+        db=db,
+        email=request.email,
+        password=request.password,
+    )
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="이메일 또는 비밀번호가 올바르지 않습니다"
+        )
+    return create_tokens_for_user(user)
+
+
+@app.get("/api/auth/status")
+async def auth_status():
+    """인증 시스템 상태 확인 (개발용)"""
+    return {
+        "ok": True,
+        "skip_auth": SKIP_AUTH,
+        "google_oauth_enabled": bool(GOOGLE_CLIENT_ID),
+        "email_auth_enabled": True,
+    }
 
 
 @app.post("/api/auth/refresh", response_model=TokenResponse)

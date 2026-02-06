@@ -121,6 +121,165 @@ function skipLogin() {
     checkServerConnection();
 }
 
+// =====================================================
+// Email Login/Register Functions
+// =====================================================
+const emailLoginForm = document.getElementById('email-login-form');
+const emailRegisterForm = document.getElementById('email-register-form');
+const loginTitle = document.getElementById('login-title');
+const showRegisterLink = document.getElementById('show-register');
+const showLoginLink = document.getElementById('show-login');
+const btnEmailLogin = document.getElementById('btn-email-login');
+const btnEmailRegister = document.getElementById('btn-email-register');
+
+// 폼 전환
+function showEmailLoginForm() {
+    if (emailLoginForm) emailLoginForm.style.display = 'flex';
+    if (emailRegisterForm) emailRegisterForm.style.display = 'none';
+    if (loginTitle) loginTitle.textContent = '로그인';
+    clearAuthErrors();
+}
+
+function showEmailRegisterForm() {
+    if (emailLoginForm) emailLoginForm.style.display = 'none';
+    if (emailRegisterForm) emailRegisterForm.style.display = 'flex';
+    if (loginTitle) loginTitle.textContent = '회원가입';
+    clearAuthErrors();
+}
+
+function clearAuthErrors() {
+    const loginError = document.getElementById('login-error');
+    const registerError = document.getElementById('register-error');
+    if (loginError) loginError.textContent = '';
+    if (registerError) registerError.textContent = '';
+}
+
+function showLoginError(message) {
+    const el = document.getElementById('login-error');
+    if (el) el.textContent = message;
+}
+
+function showRegisterError(message) {
+    const el = document.getElementById('register-error');
+    if (el) el.textContent = message;
+}
+
+// 이메일 로그인
+async function handleEmailLogin() {
+    const email = document.getElementById('login-email')?.value?.trim();
+    const password = document.getElementById('login-password')?.value;
+
+    if (!email || !password) {
+        showLoginError('이메일과 비밀번호를 입력하세요');
+        return;
+    }
+
+    if (btnEmailLogin) {
+        btnEmailLogin.disabled = true;
+        btnEmailLogin.textContent = '로그인 중...';
+    }
+    clearAuthErrors();
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.detail || '로그인 실패');
+        }
+
+        // 토큰 저장 및 인증 완료
+        auth.saveTokens(data.access_token, data.refresh_token);
+        await loadUserInfo();
+        hideLoginScreen();
+        showToast('로그인 성공', 'success');
+        checkServerConnection();
+    } catch (error) {
+        showLoginError(error.message || '로그인에 실패했습니다');
+    } finally {
+        if (btnEmailLogin) {
+            btnEmailLogin.disabled = false;
+            btnEmailLogin.textContent = '로그인';
+        }
+    }
+}
+
+// 이메일 회원가입
+async function handleEmailRegister() {
+    const name = document.getElementById('register-name')?.value?.trim();
+    const email = document.getElementById('register-email')?.value?.trim();
+    const password = document.getElementById('register-password')?.value;
+    const passwordConfirm = document.getElementById('register-password-confirm')?.value;
+
+    if (!email || !password) {
+        showRegisterError('이메일과 비밀번호를 입력하세요');
+        return;
+    }
+
+    if (password !== passwordConfirm) {
+        showRegisterError('비밀번호가 일치하지 않습니다');
+        return;
+    }
+
+    if (password.length < 6) {
+        showRegisterError('비밀번호는 6자 이상이어야 합니다');
+        return;
+    }
+
+    if (btnEmailRegister) {
+        btnEmailRegister.disabled = true;
+        btnEmailRegister.textContent = '회원가입 중...';
+    }
+    clearAuthErrors();
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password, name: name || null })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.detail || '회원가입 실패');
+        }
+
+        // 회원가입 성공 - 자동 로그인
+        auth.saveTokens(data.access_token, data.refresh_token);
+        await loadUserInfo();
+        hideLoginScreen();
+        showToast('회원가입 및 로그인 성공', 'success');
+        checkServerConnection();
+    } catch (error) {
+        showRegisterError(error.message || '회원가입에 실패했습니다');
+    } finally {
+        if (btnEmailRegister) {
+            btnEmailRegister.disabled = false;
+            btnEmailRegister.textContent = '회원가입';
+        }
+    }
+}
+
+// 이메일 로그인/회원가입 이벤트 리스너
+showRegisterLink?.addEventListener('click', showEmailRegisterForm);
+showLoginLink?.addEventListener('click', showEmailLoginForm);
+btnEmailLogin?.addEventListener('click', handleEmailLogin);
+btnEmailRegister?.addEventListener('click', handleEmailRegister);
+
+// Enter 키로 로그인/회원가입
+document.getElementById('login-password')?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') handleEmailLogin();
+});
+document.getElementById('register-password-confirm')?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') handleEmailRegister();
+});
+
 // 사용자 정보 로드
 async function loadUserInfo() {
     if (!auth.accessToken) return;

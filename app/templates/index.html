@@ -286,6 +286,8 @@
       cursor: pointer;
       transition: all .2s;
       box-shadow: 0 2px 8px rgba(0,0,0,.08);
+      width: 100%;
+      justify-content: center;
     }
     .google-btn:hover {
       background: var(--card2);
@@ -295,6 +297,88 @@
     .google-btn img {
       width: 20px;
       height: 20px;
+    }
+    /* 이메일 로그인 폼 스타일 */
+    .login-divider {
+      display: flex;
+      align-items: center;
+      margin: 24px 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .login-divider::before,
+    .login-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--line);
+    }
+    .login-divider span {
+      padding: 0 16px;
+    }
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .login-input {
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      font-size: 14px;
+      outline: none;
+      transition: all .2s;
+      background: white;
+    }
+    .login-input:focus {
+      border-color: var(--pri);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    .login-input::placeholder {
+      color: var(--muted);
+    }
+    .login-submit {
+      padding: 14px 28px;
+      background: var(--pri);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .login-submit:hover {
+      background: #2563eb;
+      transform: translateY(-2px);
+    }
+    .login-submit:disabled {
+      background: var(--muted);
+      cursor: not-allowed;
+      transform: none;
+    }
+    .login-toggle {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .login-toggle a {
+      color: var(--pri);
+      cursor: pointer;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .login-toggle a:hover {
+      text-decoration: underline;
+    }
+    .login-error {
+      color: var(--bad);
+      font-size: 13px;
+      margin-top: 8px;
+      display: none;
+    }
+    .login-error.show {
+      display: block;
     }
 
     /* 사용자 메뉴 스타일 */
@@ -359,8 +443,39 @@
 <div class="login-screen" id="loginScreen">
   <div class="login-card">
     <div class="login-logo">B<span>Booster</span></div>
-    <div class="login-title">대시보드 로그인</div>
+    <div class="login-title" id="loginTitle">로그인</div>
     <div class="login-subtitle">큐브시스템 — Quint Booster Engine System</div>
+
+    <!-- 이메일 로그인 폼 -->
+    <div id="loginForm">
+      <form class="login-form" onsubmit="handleEmailLogin(event)">
+        <input type="email" class="login-input" id="loginEmail" placeholder="이메일" required>
+        <input type="password" class="login-input" id="loginPassword" placeholder="비밀번호" required minlength="6">
+        <button type="submit" class="login-submit" id="loginSubmitBtn">로그인</button>
+      </form>
+      <div class="login-error" id="loginError"></div>
+      <div class="login-toggle">
+        계정이 없으신가요? <a onclick="showRegisterForm()">회원가입</a>
+      </div>
+    </div>
+
+    <!-- 회원가입 폼 -->
+    <div id="registerForm" style="display:none;">
+      <form class="login-form" onsubmit="handleEmailRegister(event)">
+        <input type="text" class="login-input" id="registerName" placeholder="이름 (선택)">
+        <input type="email" class="login-input" id="registerEmail" placeholder="이메일" required>
+        <input type="password" class="login-input" id="registerPassword" placeholder="비밀번호 (6자 이상)" required minlength="6">
+        <input type="password" class="login-input" id="registerPasswordConfirm" placeholder="비밀번호 확인" required minlength="6">
+        <button type="submit" class="login-submit" id="registerSubmitBtn">회원가입</button>
+      </form>
+      <div class="login-error" id="registerError"></div>
+      <div class="login-toggle">
+        이미 계정이 있으신가요? <a onclick="showLoginForm()">로그인</a>
+      </div>
+    </div>
+
+    <div class="login-divider"><span>또는</span></div>
+
     <button class="google-btn" onclick="loginWithGoogle()">
       <svg width="20" height="20" viewBox="0 0 24 24">
         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -370,9 +485,6 @@
       </svg>
       Google로 로그인
     </button>
-    <div style="margin-top:24px;color:var(--muted);font-size:12px;">
-      로그인하여 대시보드에 접근하세요
-    </div>
   </div>
 </div>
 
@@ -788,6 +900,125 @@
   // Google 로그인
   function loginWithGoogle() {
     window.location.href = '/api/auth/google/login';
+  }
+
+  // 로그인/회원가입 폼 전환
+  function showLoginForm() {
+    document.getElementById('loginForm').style.display = 'block';
+    document.getElementById('registerForm').style.display = 'none';
+    document.getElementById('loginTitle').textContent = '로그인';
+    document.getElementById('loginError').classList.remove('show');
+  }
+
+  function showRegisterForm() {
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('registerForm').style.display = 'block';
+    document.getElementById('loginTitle').textContent = '회원가입';
+    document.getElementById('registerError').classList.remove('show');
+  }
+
+  // 로그인 에러 표시
+  function showLoginError(message) {
+    const el = document.getElementById('loginError');
+    el.textContent = message;
+    el.classList.add('show');
+  }
+
+  function showRegisterError(message) {
+    const el = document.getElementById('registerError');
+    el.textContent = message;
+    el.classList.add('show');
+  }
+
+  // 이메일 로그인
+  async function handleEmailLogin(e) {
+    e.preventDefault();
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const btn = document.getElementById('loginSubmitBtn');
+
+    if (!email || !password) {
+      showLoginError('이메일과 비밀번호를 입력하세요');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '로그인 중...';
+    document.getElementById('loginError').classList.remove('show');
+
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || '로그인 실패');
+      }
+
+      auth.saveTokens(data.access_token, data.refresh_token);
+      await checkAuth();
+    } catch (err) {
+      showLoginError(err.message || '로그인에 실패했습니다');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '로그인';
+    }
+  }
+
+  // 이메일 회원가입
+  async function handleEmailRegister(e) {
+    e.preventDefault();
+    const name = document.getElementById('registerName').value.trim();
+    const email = document.getElementById('registerEmail').value.trim();
+    const password = document.getElementById('registerPassword').value;
+    const passwordConfirm = document.getElementById('registerPasswordConfirm').value;
+    const btn = document.getElementById('registerSubmitBtn');
+
+    if (!email || !password) {
+      showRegisterError('이메일과 비밀번호를 입력하세요');
+      return;
+    }
+
+    if (password !== passwordConfirm) {
+      showRegisterError('비밀번호가 일치하지 않습니다');
+      return;
+    }
+
+    if (password.length < 6) {
+      showRegisterError('비밀번호는 6자 이상이어야 합니다');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '회원가입 중...';
+    document.getElementById('registerError').classList.remove('show');
+
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, name: name || null })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || '회원가입 실패');
+      }
+
+      // 회원가입 성공 - 자동 로그인
+      auth.saveTokens(data.access_token, data.refresh_token);
+      await checkAuth();
+    } catch (err) {
+      showRegisterError(err.message || '회원가입에 실패했습니다');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '회원가입';
+    }
   }
 
   // 로그아웃
