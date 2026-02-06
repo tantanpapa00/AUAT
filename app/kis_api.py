@@ -275,10 +275,11 @@ async def download_and_parse_master(market: str, url: str) -> Dict[str, StockMas
     return {}
 
 
-async def refresh_master_cache():
+async def refresh_master_cache(force: bool = False):
     """종목 마스터 캐시 갱신"""
     async with _master_cache._lock:
-        if _master_cache.is_valid():
+        # 종목 수가 100개 미만이면 강제 갱신 (fallback만 로드된 경우)
+        if not force and _master_cache.is_valid() and len(_master_cache.stocks) > 100:
             return  # 아직 유효함
 
         print("[KIS] Refreshing master cache...")
