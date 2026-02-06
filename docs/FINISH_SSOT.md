@@ -1,5 +1,5 @@
 # FINISH_SSOT.md (완성품 전용 SSOT / COPY-PASTE)
-- Last updated: 2026-02-04 KST
+- Last updated: 2026-02-07 KST
 - Owner: 기훈(작가님)
 
 > 이 문서는 "완성품(외관+내관+도로+조경)" 제작만을 위한 SSOT이다.
@@ -152,6 +152,56 @@
   - Gate + 스모크 전부 PASS
   - 사이트 다운로드 링크 실제 파일 연결 + SHA-256 실제값 게시
   - "외부 배포(공개)" 여부는 이 시점에 결정
+
+---
+
+# 4.5) 일일 진행 로그 (Daily Progress)
+
+## Day 6 (2026-02-06) — DONE ✅
+- **대시보드 + PC앱 업그레이드**
+  - [x] 웹사이트 홈페이지 + 로그인/회원가입 분리
+  - [x] 대시보드 개편
+  - [x] 구독 플랜 페이지
+  - [x] 관리자 대시보드 개선
+  - [x] 템플릿 생성 마법사 형식 UI 개선
+- Commit: `ccc6373`, `7b6db4e`, `bbcf813`
+
+## Day 7 (2026-02-07) — DONE ✅
+- **STEP B: 종목분석 개편**
+  - [x] RS(상대강도) 분석 기능
+  - [x] 52주 신고가 분석
+  - [x] 밸류에이션 분석 (PER/PBR)
+  - [x] TradingView Lightweight Charts 캔들차트 구현
+  - [x] 검색 자동완성 개선 (4개 위치)
+
+- **10개 버그 수정**
+  - [x] 종목 자동완성 + 선택 검증 (웹훅 템플릿/백테스트/전략/포트폴리오)
+  - [x] 종목 상세 모달 [object Object] 수정
+  - [x] 시장분석 KR/US/ETF/Crypto 데이터 로딩 문제
+  - [x] 종목분석 RS/52주신고가/밸류에이션 수정
+  - [x] Admin/일반 사용자 구분 표시
+  - [x] ETF 페이지 StockEasy 수준 개선
+  - [x] 마스터 데이터 재시도 로직 (5초/10초/30초 간격)
+  - [x] 전체 API 타임아웃 + 에러 처리 (10초)
+  - [x] 네이버 금융 스크래핑 모듈 추가 (app/naver_finance.py)
+  - [x] Yahoo Finance 모듈 추가 (app/yahoo_finance.py)
+
+- **새로운 파일**
+  - `app/naver_finance.py` — 네이버 금융 웹 스크래핑 (KOSPI/KOSDAQ/ETF/RS분석)
+  - `app/yahoo_finance.py` — Yahoo Finance API 연동 (미국지수/종목/암호화폐)
+
+- **새로운 API 엔드포인트**
+  - `GET /api/market/etf` — ETF 목록 (섹터별 분류)
+  - `GET /api/market/crypto` — 암호화폐 시세
+  - `GET /api/analysis/rs` — 상대강도(RS) 분석
+  - `GET /api/analysis/new-high` — 52주 신고가 종목
+  - `GET /api/analysis/valuation` — 밸류에이션 분석
+
+- **Tauri 커맨드 추가**
+  - `get_market_etf`, `get_market_crypto`
+  - `get_analysis_rs`, `get_analysis_new_high`, `get_analysis_valuation`
+
+- Commits: `30000d6` (STEP B), `63339d4` (10 bug fixes)
 
 ---
 
