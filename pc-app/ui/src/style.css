@@ -32,9 +32,31 @@ body {
     line-height: 1.5;
 }
 
+/* #app 기본 스타일 - display는 JS에서 제어 */
 #app {
-    display: flex;
     min-height: 100vh;
+}
+
+#app[style*="flex"] {
+    display: flex !important;
+}
+
+/* 로그아웃 버튼 */
+.btn-logout {
+    margin-left: 16px;
+    padding: 8px 16px;
+    font-size: 13px;
+    background: transparent;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-logout:hover {
+    background: var(--danger);
+    color: white;
 }
 
 /* =====================================================

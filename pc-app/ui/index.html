@@ -7,8 +7,8 @@
     <link rel="stylesheet" href="/src/style.css">
 </head>
 <body>
-    <!-- Login Screen -->
-    <div id="login-screen" class="login-screen">
+    <!-- Login Screen (기본 표시) -->
+    <div id="login-screen" class="login-screen" style="display: flex;">
         <div class="login-card">
             <div class="login-logo">
                 <img src="/src/assets/logo.png" alt="BBooster" height="64" onerror="this.style.display='none'">
@@ -76,7 +76,8 @@
         </div>
     </div>
 
-    <div id="app" style="display: none;">
+    <!-- 대시보드 (기본 숨김 - 로그인 후 표시) -->
+    <div id="app" style="display: none !important;">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="sidebar-header">
@@ -129,6 +130,9 @@
                         <span class="status-light" id="light-estop"></span>
                         <span id="estop-status" class="status-text">긴급정지: --</span>
                     </div>
+                    <button id="btn-logout" class="btn btn-secondary btn-logout" title="로그아웃">
+                        로그아웃
+                    </button>
                 </div>
             </header>
 
@@ -805,6 +809,31 @@
             document.getElementById('chart-symbol')?.addEventListener('change', initTradingViewChart);
             document.getElementById('chart-interval')?.addEventListener('change', initTradingViewChart);
         });
+    </script>
+
+    <!-- 인라인 스크립트: main.js 로드 전에 즉시 실행하여 로그인 화면 제어 -->
+    <script>
+    (function() {
+        'use strict';
+        var token = localStorage.getItem('bbooster_access_token');
+        var hub = localStorage.getItem('bbooster_hub_mode');
+        var app = document.getElementById('app');
+        var login = document.getElementById('login-screen');
+
+        console.log('[Inline] 토큰:', token ? '있음' : '없음', '허브모드:', hub);
+
+        if (!token && hub !== 'true') {
+            // 토큰도 없고 허브 모드도 아님 → 로그인 화면 표시
+            console.log('[Inline] → 로그인 화면 표시');
+            if (login) login.style.cssText = 'display: flex !important';
+            if (app) app.style.cssText = 'display: none !important';
+        } else {
+            // 토큰 있거나 허브 모드 → 대시보드 표시 (main.js에서 검증)
+            console.log('[Inline] → 대시보드 표시 (검증 예정)');
+            if (login) login.style.cssText = 'display: none !important';
+            if (app) app.style.cssText = 'display: flex !important';
+        }
+    })();
     </script>
 
     <script type="module" src="/src/main.js"></script>

@@ -55,20 +55,20 @@ const btnSkipLogin = document.getElementById('btn-skip-login');
 // 앱 시작 시 기본 상태 설정 (로그인 화면 표시, 앱 숨김)
 function ensureLoginScreenVisible() {
     console.log('[UI] 로그인 화면 강제 표시');
-    if (loginScreen) loginScreen.style.display = 'flex';
-    if (appElement) appElement.style.display = 'none';
+    if (loginScreen) loginScreen.style.cssText = 'display: flex !important';
+    if (appElement) appElement.style.cssText = 'display: none !important';
 }
 
 function showLoginScreen() {
     console.log('[UI] showLoginScreen 호출');
-    if (loginScreen) loginScreen.style.display = 'flex';
-    if (appElement) appElement.style.display = 'none';
+    if (loginScreen) loginScreen.style.cssText = 'display: flex !important';
+    if (appElement) appElement.style.cssText = 'display: none !important';
 }
 
 function hideLoginScreen() {
     console.log('[UI] hideLoginScreen 호출 - 대시보드 표시');
-    if (loginScreen) loginScreen.style.display = 'none';
-    if (appElement) appElement.style.display = 'flex';
+    if (loginScreen) loginScreen.style.cssText = 'display: none !important';
+    if (appElement) appElement.style.cssText = 'display: flex !important';
 }
 
 // 앱 로드 시 즉시 로그인 화면 표시 (가장 먼저 실행)
@@ -352,12 +352,19 @@ function updateUserUI(user) {
     }
 }
 
-// 로그아웃
-async function logout() {
-    auth.clearTokens();
-    showLoginScreen();
-    showToast('로그아웃되었습니다', 'info');
+// 로그아웃 (완전 초기화)
+function logout() {
+    console.log('[Logout] 로그아웃 실행');
+    // 모든 인증 관련 데이터 삭제
+    localStorage.removeItem('bbooster_access_token');
+    localStorage.removeItem('bbooster_refresh_token');
+    localStorage.removeItem('bbooster_hub_mode');
+    // 페이지 새로고침 (인라인 스크립트가 로그인 화면 표시)
+    window.location.reload();
 }
+
+// 로그아웃 버튼 이벤트
+document.getElementById('btn-logout')?.addEventListener('click', logout);
 
 // 인증 상태 확인 및 초기화
 async function initAuth() {
