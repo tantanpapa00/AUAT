@@ -1329,4 +1329,74 @@ bbcf813 feat: 템플릿 생성 마법사 형식 UI 개선
 
 ---
 
+## Week 21 Day 7 — 웹사이트 전면 개편 + PC앱 사이드바 재구성
+
+### 완료 작업 요약
+
+**PHASE 1: 웹사이트 홈페이지 분리** — DONE
+- 홈페이지(/)와 대시보드(/dashboard) 완전 분리
+- 로그인/회원가입 페이지 별도 분리 (/login, /register)
+- 홈페이지 구성: Hero 섹션 + 기능 소개 + 요금제 + FAQ + Footer
+- 대시보드: 로그인 후 /dashboard 리디렉션
+- 커밋: `feat: 웹사이트 홈페이지 + 로그인/회원가입 분리 + 대시보드 개편`
+
+**PHASE 2: PC앱 사이드바 완전 재구성** — DONE
+- 접이식 사이드바 (240px ↔ 60px)
+- 아코디언 서브메뉴 구조
+- 사이드바 메뉴 구성:
+  - 홈 (대시보드)
+  - 전략설정 (아코디언): TV 연결, 템플릿 관리, 주문 설정
+  - 설정 (아코디언): 계정/API, 알림 설정
+  - 관리자 (admin 전용, 아코디언): 사용자 관리, 시스템 로그
+- URL 해시 기반 네비게이션 (#home, #tv-connect, #template, 등)
+- 사이드바 상태 localStorage 저장
+- 커밋: `feat: PC앱 사이드바 재구성 + 아코디언 메뉴`
+
+**요금제 구조 변경** — DONE
+- 5개 → 4개 요금제로 간소화
+- Starter (₩19,900/월): 1개 거래소, 일 5회 거래
+- Standard (₩49,000/월, 추천): 3개 거래소, 일 20회 거래
+- Pro (₩99,000/월): 5개 거래소, 일 50회 거래
+- Premium (₩249,000/월): 무제한 거래소, 무제한 거래
+- 커밋: `feat: 요금제 4개로 변경`
+
+**도메인 연결** — DONE
+- 도메인: https://qube-system.com
+- SSL 인증서 적용 완료
+- VPS 서버 배포 완료
+
+### 변경된 파일
+| 파일 | 설명 |
+|------|------|
+| `app/templates/home.html` | 홈페이지 (Hero + 기능 + 요금제 + FAQ) |
+| `app/templates/login.html` | 로그인 페이지 |
+| `app/templates/register.html` | 회원가입 페이지 |
+| `app/templates/index.html` | 대시보드 (로그인 후) |
+| `pc-app/ui/index.html` | 접이식 사이드바 + 아코디언 메뉴 |
+| `pc-app/ui/src/main.js` | 사이드바 토글 + 아코디언 + 해시 네비게이션 |
+| `pc-app/ui/src/style.css` | 사이드바 스타일 (collapsed/expanded) |
+
+### 커밋 이력 (Day 7)
+```
+c3fe6fe feat: 요금제 4개로 변경
+37c2345 feat: PC앱 사이드바 재구성 + 아코디언 메뉴
+ccc6373 feat: 웹사이트 홈페이지 + 로그인/회원가입 분리 + 대시보드 개편
+```
+
+### 운영 중인 서비스 (업데이트)
+| 서비스 | URL |
+|--------|-----|
+| 홈페이지 | https://qube-system.com |
+| 로그인 | https://qube-system.com/login |
+| 대시보드 | https://qube-system.com/dashboard |
+| API 문서 | https://qube-system.com/docs |
+
+### 다음 단계
+1) **PC앱 재빌드**: `npm run tauri build` 후 설치 파일 배포
+2) **결제 시스템**: PG사 API 연동 (토스페이먼츠)
+3) **모바일 앱**: Flutter 환경 설정 후 APK 빌드
+4) **마케팅 페이지**: SEO 최적화 + 소셜 미리보기
+
+---
+
 [END OF SSOT]
