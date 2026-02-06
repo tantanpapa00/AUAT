@@ -5434,6 +5434,293 @@ body {
     color: white;
 }
 
+/* [BUG FIX 5] Admin 배지 스타일 */
+.subscription-badge.admin {
+    background: linear-gradient(135deg, #7C3AED, #EC4899);
+    color: white;
+    font-weight: 600;
+}
+
+/* [BUG FIX 1] 자동완성 컴포넌트 스타일 */
+.autocomplete-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+
+.autocomplete-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 300px;
+    overflow-y: auto;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 200;
+}
+
+.autocomplete-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+}
+
+.autocomplete-item:hover,
+.autocomplete-item.highlighted {
+    background: var(--bg-light);
+}
+
+.autocomplete-item .symbol-name {
+    font-weight: 500;
+}
+
+.autocomplete-item .symbol-code {
+    color: var(--text-muted);
+    margin-left: 6px;
+    font-size: 0.85rem;
+}
+
+.autocomplete-item .symbol-market {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    padding: 2px 6px;
+    background: var(--bg-light);
+    border-radius: 4px;
+}
+
+.autocomplete-no-result {
+    padding: 15px;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.selected-symbol-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: var(--primary);
+    color: white;
+    border-radius: 15px;
+    font-size: 0.85rem;
+}
+
+.selected-symbol-badge .badge-close {
+    cursor: pointer;
+    opacity: 0.7;
+}
+
+.selected-symbol-badge .badge-close:hover {
+    opacity: 1;
+}
+
+/* 로딩/에러 상태 */
+.loading-state, .error-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.error-state p {
+    margin-bottom: 15px;
+}
+
+/* [BUG FIX 6] ETF 섹터 지도 */
+.etf-sector-map {
+    margin-bottom: 20px;
+}
+
+.sector-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    margin-top: 15px;
+}
+
+.sector-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 15px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.sector-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-2px);
+}
+
+.sector-card .sector-name {
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 4px;
+}
+
+.sector-card .sector-etf-info {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+
+.sector-card .sector-change {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.sector-card .sector-count {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+/* 코인 요약 카드 */
+.crypto-summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.crypto-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 15px;
+    text-align: center;
+}
+
+.crypto-card .card-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+
+.crypto-card .card-value {
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+/* 시장 분석 그리드 */
+.market-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.market-grid.us-grid {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+/* 지수 카드 */
+.index-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 15px;
+}
+
+.index-card .index-name {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.index-card .index-value {
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+.index-card .index-change {
+    font-size: 0.95rem;
+    margin-top: 4px;
+}
+
+/* 시장 신호 */
+.market-signal {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.market-signal .signal-emoji {
+    font-size: 1.4rem;
+}
+
+.market-signal .signal-text {
+    font-weight: 500;
+}
+
+/* 투자자 그리드 */
+.investor-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.investor-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.investor-item .label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.investor-item .value {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+/* 섹터 리스트 */
+.sector-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.sector-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    background: var(--bg-light);
+    border-radius: 6px;
+}
+
+.sector-item .sector-name {
+    font-weight: 500;
+}
+
+.sector-item .sector-change {
+    font-weight: 600;
+}
+
 /* 반응형: 모달 */
 @media (max-width: 768px) {
     .stock-detail-modal {
@@ -5455,5 +5742,17 @@ body {
     .price-meta {
         flex-wrap: wrap;
         gap: 10px;
+    }
+
+    .market-grid.us-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .investor-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .sector-cards-grid {
+        grid-template-columns: repeat(2, 1fr);
     }
 }

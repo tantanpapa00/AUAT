@@ -2181,6 +2181,126 @@ pub async fn remove_watchlist_item(
 }
 
 // =====================================================
+// [BUG FIX 3] 시장분석 개선 API
+// =====================================================
+
+#[tauri::command]
+pub async fn get_market_etf(
+    access_token: String,
+    sector: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let sector_param = sector.unwrap_or_else(|| "all".to_string());
+    let url = format!("{}/api/market/etf?sector={}", VPS_SERVER_URL, sector_param);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else {
+        Err("ETF 데이터 조회 실패".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn get_market_crypto(
+    access_token: String,
+    exchange: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let exchange_param = exchange.unwrap_or_else(|| "all".to_string());
+    let url = format!("{}/api/market/crypto?exchange={}", VPS_SERVER_URL, exchange_param);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else {
+        Err("코인 데이터 조회 실패".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn get_analysis_rs(
+    access_token: String,
+    market: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let market_param = market.unwrap_or_else(|| "all".to_string());
+    let url = format!("{}/api/analysis/rs?market={}", VPS_SERVER_URL, market_param);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else {
+        Err("RS 데이터 조회 실패".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn get_analysis_new_high(access_token: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/analysis/new-high", VPS_SERVER_URL);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else {
+        Err("52주 신고가 데이터 조회 실패".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn get_analysis_valuation(
+    access_token: String,
+    market: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let market_param = market.unwrap_or_else(|| "all".to_string());
+    let url = format!("{}/api/analysis/valuation?market={}", VPS_SERVER_URL, market_param);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else {
+        Err("밸류에이션 데이터 조회 실패".to_string())
+    }
+}
+
+// =====================================================
 // Helper Functions
 // =====================================================
 

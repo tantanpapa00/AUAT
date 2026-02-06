@@ -45,6 +45,292 @@ const auth = {
 };
 
 // =====================================================
+// [BUG FIX 8] 공통 유틸리티 - 타임아웃 + 에러 처리
+// =====================================================
+
+/**
+ * Tauri invoke 래퍼 - 타임아웃 + 에러 처리
+ * @param {string} command - Tauri 명령어
+ * @param {object} args - 인자
+ * @param {number} timeout - 타임아웃 (ms)
+ * @returns {Promise<any>}
+ */
+async function invokeWithTimeout(command, args = {}, timeout = 10000) {
+    try {
+        const result = await Promise.race([
+            invoke(command, args),
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('TIMEOUT')), timeout)
+            )
+        ]);
+        return result;
+    } catch (e) {
+        console.error(`[${command}] Error:`, e);
+        if (e.message === 'TIMEOUT') {
+            throw new Error('요청 시간이 초과되었습니다');
+        }
+        throw e;
+    }
+}
+
+/**
+ * 로딩 상태 표시 + 타임아웃 자동 에러 전환
+ * @param {HTMLElement} element - 로딩 표시할 요소
+ * @param {number} maxTime - 최대 대기 시간 (ms)
+ */
+function showLoadingWithTimeout(element, maxTime = 15000) {
+    if (!element) return null;
+    element.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+
+    const timeoutId = setTimeout(() => {
+        if (element.innerHTML.includes('로딩 중')) {
+            element.innerHTML = `
+                <div class="error-state">
+                    <p>데이터를 불러올 수 없습니다</p>
+                    <button class="btn btn-sm btn-primary retry-btn">다시 시도</button>
+                </div>
+            `;
+        }
+    }, maxTime);
+
+    return timeoutId;
+}
+
+/**
+ * 에러 상태 표시
+ * @param {HTMLElement} element
+ * @param {string} message
+ * @param {Function} retryFn - 다시 시도 콜백
+ */
+function showErrorState(element, message = '데이터를 불러올 수 없습니다', retryFn = null) {
+    if (!element) return;
+    element.innerHTML = `
+        <div class="error-state">
+            <p>${message}</p>
+            ${retryFn ? '<button class="btn btn-sm btn-primary retry-btn">다시 시도</button>' : ''}
+        </div>
+    `;
+    if (retryFn) {
+        element.querySelector('.retry-btn')?.addEventListener('click', retryFn);
+    }
+}
+
+// =====================================================
+// [BUG FIX 1] 종목 검색 자동완성 공통 컴포넌트
+// =====================================================
+
+/**
+ * 종목 자동완성 컴포넌트 생성
+ * @param {HTMLInputElement} inputElement - 검색 입력 필드
+ * @param {Function} onSelect - 종목 선택 시 콜백 ({code, name, exchange, market})
+ * @param {object} options - 옵션 {exchange, category, showBadge}
+ * @returns {object} - 컴포넌트 인스턴스
+ */
+function createSymbolAutocomplete(inputElement, onSelect, options = {}) {
+    if (!inputElement) return null;
+
+    const {
+        exchange = 'all',
+        category = 'all',
+        showBadge = true,
+        maxResults = 10
+    } = options;
+
+    // 상태
+    let selectedSymbol = null;
+    let dropdownVisible = false;
+    let highlightedIndex = -1;
+    let debounceTimer = null;
+
+    // 드롭다운 생성
+    const wrapper = document.createElement('div');
+    wrapper.className = 'autocomplete-wrapper';
+    inputElement.parentNode.insertBefore(wrapper, inputElement);
+    wrapper.appendChild(inputElement);
+
+    const dropdown = document.createElement('div');
+    dropdown.className = 'autocomplete-dropdown';
+    dropdown.style.display = 'none';
+    wrapper.appendChild(dropdown);
+
+    // 선택 배지 (입력 필드 옆)
+    const badge = document.createElement('span');
+    badge.className = 'selected-symbol-badge';
+    badge.style.display = 'none';
+    wrapper.appendChild(badge);
+
+    // 검색 함수
+    async function search(query) {
+        if (!query || query.length < 1) {
+            hideDropdown();
+            return;
+        }
+
+        try {
+            const result = await invokeWithTimeout('search_symbols', {
+                accessToken: auth.accessToken || '',
+                query: query,
+                exchange: exchange !== 'all' ? exchange : null
+            }, 5000);
+
+            const symbols = result?.symbols || result || [];
+
+            if (symbols.length === 0) {
+                showNoResults();
+                return;
+            }
+
+            renderDropdown(symbols.slice(0, maxResults));
+        } catch (error) {
+            console.error('Symbol search error:', error);
+            showNoResults();
+        }
+    }
+
+    // 드롭다운 렌더링
+    function renderDropdown(symbols) {
+        dropdown.innerHTML = symbols.map((s, idx) => `
+            <div class="autocomplete-item ${idx === highlightedIndex ? 'highlighted' : ''}"
+                 data-code="${s.symbol || s.code}"
+                 data-name="${s.name}"
+                 data-exchange="${s.exchange}"
+                 data-market="${s.market || ''}">
+                <span class="symbol-name">${s.name}</span>
+                <span class="symbol-code">(${s.symbol || s.code})</span>
+                <span class="symbol-market">${s.market || s.exchange}</span>
+            </div>
+        `).join('');
+
+        dropdown.querySelectorAll('.autocomplete-item').forEach((item, idx) => {
+            item.addEventListener('click', () => selectItem(idx));
+            item.addEventListener('mouseenter', () => {
+                highlightedIndex = idx;
+                updateHighlight();
+            });
+        });
+
+        showDropdown();
+    }
+
+    function showNoResults() {
+        dropdown.innerHTML = '<div class="autocomplete-no-result">검색 결과가 없습니다</div>';
+        showDropdown();
+    }
+
+    function showDropdown() {
+        dropdown.style.display = 'block';
+        dropdownVisible = true;
+    }
+
+    function hideDropdown() {
+        dropdown.style.display = 'none';
+        dropdownVisible = false;
+        highlightedIndex = -1;
+    }
+
+    function updateHighlight() {
+        dropdown.querySelectorAll('.autocomplete-item').forEach((item, idx) => {
+            item.classList.toggle('highlighted', idx === highlightedIndex);
+        });
+    }
+
+    function selectItem(idx) {
+        const items = dropdown.querySelectorAll('.autocomplete-item');
+        if (idx >= 0 && idx < items.length) {
+            const item = items[idx];
+            selectedSymbol = {
+                code: item.dataset.code,
+                name: item.dataset.name,
+                exchange: item.dataset.exchange,
+                market: item.dataset.market
+            };
+
+            inputElement.value = selectedSymbol.name;
+            hideDropdown();
+
+            // 배지 표시
+            if (showBadge) {
+                badge.innerHTML = `${selectedSymbol.name} ${selectedSymbol.code} <span class="badge-close">✕</span>`;
+                badge.style.display = 'inline-flex';
+                badge.querySelector('.badge-close').addEventListener('click', clearSelection);
+            }
+
+            // 콜백 호출
+            if (onSelect) {
+                onSelect(selectedSymbol);
+            }
+        }
+    }
+
+    function clearSelection() {
+        selectedSymbol = null;
+        inputElement.value = '';
+        badge.style.display = 'none';
+        if (onSelect) {
+            onSelect(null);
+        }
+    }
+
+    // 이벤트 바인딩
+    inputElement.addEventListener('input', (e) => {
+        const query = e.target.value.trim();
+
+        // 선택 해제
+        if (selectedSymbol && query !== selectedSymbol.name) {
+            selectedSymbol = null;
+            badge.style.display = 'none';
+        }
+
+        // 디바운스 (200ms)
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => search(query), 200);
+    });
+
+    inputElement.addEventListener('keydown', (e) => {
+        if (!dropdownVisible) return;
+
+        const items = dropdown.querySelectorAll('.autocomplete-item');
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            highlightedIndex = Math.min(highlightedIndex + 1, items.length - 1);
+            updateHighlight();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            highlightedIndex = Math.max(highlightedIndex - 1, 0);
+            updateHighlight();
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (highlightedIndex >= 0) {
+                selectItem(highlightedIndex);
+            } else if (items.length > 0) {
+                selectItem(0);
+            }
+        } else if (e.key === 'Escape') {
+            hideDropdown();
+        }
+    });
+
+    // 외부 클릭 시 닫기
+    document.addEventListener('click', (e) => {
+        if (!wrapper.contains(e.target)) {
+            hideDropdown();
+        }
+    });
+
+    // 반환 인터페이스
+    return {
+        getSelected: () => selectedSymbol,
+        isValid: () => !!selectedSymbol,
+        clear: clearSelection,
+        destroy: () => {
+            wrapper.parentNode.insertBefore(inputElement, wrapper);
+            wrapper.remove();
+        }
+    };
+}
+
+// =====================================================
 // DOM Elements
 // =====================================================
 const loginScreen = document.getElementById('login-screen');
@@ -272,34 +558,49 @@ function updateUserUI(user) {
     const userName = document.getElementById('user-name');
     const userAvatar = document.getElementById('user-avatar');
 
-    // Update user name
+    const isAdmin = user.role === 'admin';
+
+    // Update user name (admin 표시 포함)
     if (userName) {
-        userName.textContent = user.name || user.email?.split('@')[0] || '사용자';
+        const displayName = user.name || user.email?.split('@')[0] || '사용자';
+        userName.textContent = isAdmin ? `${displayName} (Admin)` : displayName;
     }
 
-    // Update avatar (first letter or emoji)
+    // Update avatar (first letter or emoji, admin은 특별 표시)
     if (userAvatar) {
-        const name = user.name || user.email || '사용자';
-        userAvatar.textContent = name.charAt(0).toUpperCase();
+        if (isAdmin) {
+            userAvatar.textContent = '👑';
+        } else {
+            const name = user.name || user.email || '사용자';
+            userAvatar.textContent = name.charAt(0).toUpperCase();
+        }
     }
 
     // Update subscription badge
-    const planDisplayMap = {
-        'premium': { class: 'premium', text: 'Premium' },
-        'pro': { class: 'pro', text: 'Pro' },
-        'standard': { class: 'standard', text: 'Standard' },
-        'hub': { class: 'standard', text: 'Standard' },
-        'starter': { class: 'starter', text: 'Starter' },
-        'free': { class: 'starter', text: 'Starter' },
-    };
-    const planInfo = planDisplayMap[user.plan] || planDisplayMap['starter'];
-    if (badge) badge.className = `subscription-badge ${planInfo.class}`;
-    if (badgeText) badgeText.textContent = planInfo.text;
+    // [BUG FIX 5] admin이면 Admin 배지, 아니면 요금제 배지
+    if (isAdmin) {
+        if (badge) badge.className = 'subscription-badge admin';
+        if (badgeText) badgeText.textContent = 'Admin';
+    } else {
+        const planDisplayMap = {
+            'premium': { class: 'premium', text: 'Premium' },
+            'pro': { class: 'pro', text: 'Pro' },
+            'standard': { class: 'standard', text: 'Standard' },
+            'hub': { class: 'standard', text: 'Standard' },
+            'starter': { class: 'starter', text: 'Starter' },
+            'free': { class: 'starter', text: 'Starter' },
+        };
+        const planInfo = planDisplayMap[user.plan] || planDisplayMap['starter'];
+        if (badge) badge.className = `subscription-badge ${planInfo.class}`;
+        if (badgeText) badgeText.textContent = planInfo.text;
+    }
 
     // Show admin menu if admin
-    if (user.role === 'admin') {
+    if (isAdmin) {
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
         document.getElementById('admin-menu-group')?.style.setProperty('display', 'block');
+    } else {
+        document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
     }
 }
 
@@ -3134,17 +3435,47 @@ async function loadMarketKr() {
 
     restrictionEl.style.display = 'none';
     contentEl.style.display = 'block';
+    contentEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
 
     try {
-        const data = await invoke('get_market_overview', { accessToken: auth.accessToken || '' });
+        // [BUG FIX 3] 타임아웃 적용
+        const data = await invokeWithTimeout('get_market_overview', {
+            accessToken: auth.accessToken || ''
+        }, 10000);
+
+        if (!data) {
+            contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button class="btn btn-sm btn-primary" onclick="loadMarketKr()">다시 시도</button></div>';
+            return;
+        }
+
+        // 지수 카드 + 투자자 동향 UI 렌더링
+        contentEl.innerHTML = `
+            <div class="market-grid">
+                <div class="index-card" id="kr-index-kospi"></div>
+                <div class="index-card" id="kr-index-kosdaq"></div>
+            </div>
+            <div class="market-signal" id="market-signal-kr"></div>
+            <div class="investor-section card">
+                <h3>투자자별 순매수</h3>
+                <div class="investor-grid">
+                    <div class="investor-item"><span class="label">외국인</span><span class="value" id="kr-investor-foreign">-</span></div>
+                    <div class="investor-item"><span class="label">기관</span><span class="value" id="kr-investor-institution">-</span></div>
+                    <div class="investor-item"><span class="label">개인</span><span class="value" id="kr-investor-individual">-</span></div>
+                </div>
+            </div>
+            <div class="sector-section card">
+                <h3>주도 섹터 TOP 5</h3>
+                <div class="sector-list" id="kr-sector-list"></div>
+            </div>
+        `;
 
         // 지수 카드
         const indices = data.indices || {};
         updateIndexCard('kr-index-kospi', indices.kospi);
         updateIndexCard('kr-index-kosdaq', indices.kosdaq);
 
-        // 시장 신호 (단순화)
-        const kospiChange = data.summary?.kospi_change || 0;
+        // 시장 신호
+        const kospiChange = indices.kospi?.change_percent || data.summary?.kospi_change || 0;
         const signalEl = document.getElementById('market-signal-kr');
         if (signalEl) {
             if (kospiChange > 0.5) {
@@ -3157,15 +3488,32 @@ async function loadMarketKr() {
         }
 
         // 투자자 동향
-        if (data.investor) {
-            const { foreign_net, institution_net, individual_net } = data.investor;
-            document.getElementById('kr-investor-foreign').textContent = formatBillions(foreign_net);
-            document.getElementById('kr-investor-institution').textContent = formatBillions(institution_net);
-            document.getElementById('kr-investor-individual').textContent = formatBillions(individual_net);
+        const investor = data.investor || {};
+        document.getElementById('kr-investor-foreign').textContent = formatBillions(investor.foreign || investor.foreign_net || 0);
+        document.getElementById('kr-investor-institution').textContent = formatBillions(investor.institution || investor.institution_net || 0);
+        document.getElementById('kr-investor-individual').textContent = formatBillions(investor.individual || investor.individual_net || 0);
+
+        // 섹터 리스트
+        const sectors = data.sectors || [];
+        const sectorListEl = document.getElementById('kr-sector-list');
+        if (sectorListEl) {
+            if (sectors.length > 0) {
+                sectorListEl.innerHTML = sectors.slice(0, 5).map(s => `
+                    <div class="sector-item">
+                        <span class="sector-name">${s.name}</span>
+                        <span class="sector-change ${(s.change_percent || 0) >= 0 ? 'profit' : 'loss'}">
+                            ${(s.change_percent || 0) >= 0 ? '+' : ''}${(s.change_percent || 0).toFixed(2)}%
+                        </span>
+                    </div>
+                `).join('');
+            } else {
+                sectorListEl.innerHTML = '<div class="empty-state">섹터 데이터 없음</div>';
+            }
         }
 
     } catch (error) {
         console.error('Market KR error:', error);
+        contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button class="btn btn-sm btn-primary" onclick="loadMarketKr()">다시 시도</button></div>';
     }
 }
 
@@ -3187,31 +3535,74 @@ async function loadMarketUs() {
 
     restrictionEl.style.display = 'none';
     contentEl.style.display = 'block';
+    contentEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
 
     try {
-        const data = await invoke('get_market_overview', { accessToken: auth.accessToken || '' });
+        // [BUG FIX 3] Yahoo Finance API 직접 호출
+        const data = await invokeWithTimeout('get_market_overview', {
+            accessToken: auth.accessToken || ''
+        }, 10000);
+
+        if (!data) {
+            contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button class="btn btn-sm btn-primary" onclick="loadMarketUs()">다시 시도</button></div>';
+            return;
+        }
+
+        // UI 렌더링
+        contentEl.innerHTML = `
+            <div class="market-grid us-grid">
+                <div class="index-card" id="us-index-sp500"></div>
+                <div class="index-card" id="us-index-nasdaq"></div>
+                <div class="index-card" id="us-index-dow"></div>
+            </div>
+            <div class="us-stocks-section card">
+                <h3>주요 종목</h3>
+                <table class="data-table">
+                    <thead><tr><th>종목</th><th>현재가</th><th>등락률</th><th>거래량</th></tr></thead>
+                    <tbody id="us-stocks-tbody"></tbody>
+                </table>
+            </div>
+        `;
 
         // 지수 카드
         const indices = data.indices || {};
-        updateIndexCard('us-index-sp500', indices.sp500);
-        updateIndexCard('us-index-nasdaq', indices.nasdaq);
-        updateIndexCard('us-index-dow', indices.dow);
+        updateIndexCard('us-index-sp500', indices.sp500 || indices['^GSPC']);
+        updateIndexCard('us-index-nasdaq', indices.nasdaq || indices['^IXIC']);
+        updateIndexCard('us-index-dow', indices.dow || indices['^DJI']);
 
-        // 주요 종목 표시 (임시 데이터)
-        const stocks = ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA', 'BRK.B'];
+        // 주요 종목 표시
+        const topStocks = data.top_stocks || [];
         const tbody = document.getElementById('us-stocks-tbody');
         if (tbody) {
-            tbody.innerHTML = stocks.map((s, i) => `
-                <tr><td>${s}</td><td>$---</td><td>---%</td><td>---</td></tr>
-            `).join('');
+            if (topStocks.length > 0) {
+                tbody.innerHTML = topStocks.slice(0, 10).map(s => {
+                    const changeClass = (s.change_percent || 0) >= 0 ? 'profit' : 'loss';
+                    return `
+                        <tr class="clickable" data-symbol="${s.symbol}" data-exchange="kis_us">
+                            <td><strong>${s.symbol}</strong> <span class="text-muted">${s.name || ''}</span></td>
+                            <td>$${(s.price || 0).toLocaleString()}</td>
+                            <td class="${changeClass}">${(s.change_percent || 0) >= 0 ? '+' : ''}${(s.change_percent || 0).toFixed(2)}%</td>
+                            <td>${formatVolume(s.volume || 0)}</td>
+                        </tr>
+                    `;
+                }).join('');
+
+                // 클릭 이벤트
+                tbody.querySelectorAll('tr.clickable').forEach(row => {
+                    row.addEventListener('click', () => openStockDetail(row.dataset.symbol, 'kis_us'));
+                });
+            } else {
+                tbody.innerHTML = '<tr><td colspan="4" class="empty-cell">데이터 없음</td></tr>';
+            }
         }
 
     } catch (error) {
         console.error('Market US error:', error);
+        contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button class="btn btn-sm btn-primary" onclick="loadMarketUs()">다시 시도</button></div>';
     }
 }
 
-// ETF 로드
+// [BUG FIX 6] ETF 로드 - 스탁이지 수준 개선
 async function loadMarketEtf() {
     const restrictionEl = document.getElementById('market-etf-restriction');
     const contentEl = document.getElementById('market-etf-content');
@@ -3229,17 +3620,115 @@ async function loadMarketEtf() {
 
     restrictionEl.style.display = 'none';
     contentEl.style.display = 'block';
+    contentEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
 
-    // ETF 탭 전환 이벤트
-    document.querySelectorAll('#etf-tabs .sub-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            document.querySelectorAll('#etf-tabs .sub-tab').forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            const tabId = tab.dataset.tab;
-            document.getElementById('etf-kr-section').style.display = tabId === 'etf-kr' ? 'block' : 'none';
-            document.getElementById('etf-us-section').style.display = tabId === 'etf-us' ? 'block' : 'none';
-        });
-    });
+    try {
+        const data = await invokeWithTimeout('get_market_etf', {
+            accessToken: auth.accessToken || '',
+            sector: 'all'
+        }, 10000);
+
+        if (!data || !data.success) {
+            contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button class="btn btn-sm btn-primary" onclick="loadMarketEtf()">다시 시도</button></div>';
+            return;
+        }
+
+        // 섹터별 ETF 지도 UI
+        const sectors = data.sector_summary || [];
+        const etfs = data.etfs || [];
+        const topVolume = data.top_volume || [];
+
+        contentEl.innerHTML = `
+            <div class="etf-sector-map">
+                <h3>섹터별 ETF 지도</h3>
+                <div class="sector-cards-grid" id="etf-sector-cards"></div>
+            </div>
+            <div class="etf-detail-section card" id="etf-sector-detail" style="display:none;">
+                <h3 id="etf-detail-title">섹터 상세</h3>
+                <table class="data-table">
+                    <thead><tr><th>ETF명</th><th>코드</th><th>현재가</th><th>등락률</th><th>거래대금</th></tr></thead>
+                    <tbody id="etf-detail-tbody"></tbody>
+                </table>
+            </div>
+            <div class="etf-flow-section card">
+                <h3>거래대금 상위 ETF</h3>
+                <table class="data-table">
+                    <thead><tr><th>ETF명</th><th>현재가</th><th>등락률</th><th>거래대금</th></tr></thead>
+                    <tbody id="etf-top-volume-tbody"></tbody>
+                </table>
+            </div>
+        `;
+
+        // 섹터 카드 렌더링
+        const sectorCardsEl = document.getElementById('etf-sector-cards');
+        if (sectorCardsEl) {
+            sectorCardsEl.innerHTML = sectors.map(s => {
+                const changeClass = s.avg_change >= 0 ? 'profit' : 'loss';
+                const arrow = s.avg_change >= 0 ? '▲' : '▼';
+                return `
+                    <div class="sector-card" data-sector="${s.sector}">
+                        <div class="sector-name">${s.sector}</div>
+                        <div class="sector-etf-info">${s.top_etf}</div>
+                        <div class="sector-change ${changeClass}">${arrow} ${Math.abs(s.avg_change).toFixed(2)}%</div>
+                        <div class="sector-count">${s.count}개 ETF</div>
+                    </div>
+                `;
+            }).join('');
+
+            // 섹터 카드 클릭 이벤트
+            sectorCardsEl.querySelectorAll('.sector-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const sector = card.dataset.sector;
+                    const filtered = etfs.filter(e => e.sector === sector);
+                    showEtfSectorDetail(sector, filtered);
+                });
+            });
+        }
+
+        // 거래대금 상위 ETF
+        const topVolumeEl = document.getElementById('etf-top-volume-tbody');
+        if (topVolumeEl) {
+            topVolumeEl.innerHTML = topVolume.slice(0, 10).map(e => {
+                const changeClass = (e.change_percent || 0) >= 0 ? 'profit' : 'loss';
+                return `
+                    <tr class="clickable" data-code="${e.code}">
+                        <td><strong>${e.name}</strong></td>
+                        <td>${(e.price || 0).toLocaleString()}</td>
+                        <td class="${changeClass}">${(e.change_percent || 0) >= 0 ? '+' : ''}${(e.change_percent || 0).toFixed(2)}%</td>
+                        <td>${formatBillions(e.volume || 0)}</td>
+                    </tr>
+                `;
+            }).join('') || '<tr><td colspan="4" class="empty-cell">데이터 없음</td></tr>';
+        }
+
+    } catch (error) {
+        console.error('Market ETF error:', error);
+        contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button class="btn btn-sm btn-primary" onclick="loadMarketEtf()">다시 시도</button></div>';
+    }
+}
+
+function showEtfSectorDetail(sector, etfs) {
+    const detailEl = document.getElementById('etf-sector-detail');
+    const titleEl = document.getElementById('etf-detail-title');
+    const tbody = document.getElementById('etf-detail-tbody');
+
+    if (!detailEl || !tbody) return;
+
+    titleEl.textContent = `${sector} 섹터 ETF`;
+    detailEl.style.display = 'block';
+
+    tbody.innerHTML = etfs.map(e => {
+        const changeClass = (e.change_percent || 0) >= 0 ? 'profit' : 'loss';
+        return `
+            <tr class="clickable" data-code="${e.code}">
+                <td><strong>${e.name}</strong></td>
+                <td>${e.code}</td>
+                <td>${(e.price || 0).toLocaleString()}</td>
+                <td class="${changeClass}">${(e.change_percent || 0) >= 0 ? '+' : ''}${(e.change_percent || 0).toFixed(2)}%</td>
+                <td>${formatBillions(e.volume || 0)}</td>
+            </tr>
+        `;
+    }).join('') || '<tr><td colspan="5" class="empty-cell">해당 섹터의 ETF가 없습니다</td></tr>';
 }
 
 // 코인시장 로드
@@ -3260,21 +3749,107 @@ async function loadMarketCrypto() {
 
     restrictionEl.style.display = 'none';
     contentEl.style.display = 'block';
+    contentEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
 
-    // 코인 목록 임시 데이터
-    const coins = [
-        { name: 'BTC', exchange: '전체', price: '₿1 = $--', change: '--', volume: '--' },
-        { name: 'ETH', exchange: '전체', price: '$--', change: '--', volume: '--' },
-        { name: 'XRP', exchange: '전체', price: '$--', change: '--', volume: '--' },
-        { name: 'SOL', exchange: '전체', price: '$--', change: '--', volume: '--' },
-    ];
+    try {
+        // [BUG FIX 3] 거래소 API 직접 연동
+        const data = await invokeWithTimeout('get_market_crypto', {
+            accessToken: auth.accessToken || '',
+            exchange: 'all'
+        }, 10000);
 
-    const tbody = document.getElementById('crypto-tbody');
-    if (tbody) {
-        tbody.innerHTML = coins.map(c => `
-            <tr><td>${c.name}</td><td>${c.exchange}</td><td>${c.price}</td><td>${c.change}</td><td>${c.volume}</td></tr>
-        `).join('');
+        if (!data || !data.success) {
+            contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button class="btn btn-sm btn-primary" onclick="loadMarketCrypto()">다시 시도</button></div>';
+            return;
+        }
+
+        // UI 렌더링
+        const globalData = data.global || {};
+        const kimchi = data.kimchi_premium;
+        const coins = data.coins || [];
+
+        contentEl.innerHTML = `
+            <div class="crypto-summary-cards">
+                <div class="crypto-card">
+                    <div class="card-label">BTC 도미넌스</div>
+                    <div class="card-value">${globalData.btc_dominance || '-'}%</div>
+                </div>
+                <div class="crypto-card">
+                    <div class="card-label">ETH 도미넌스</div>
+                    <div class="card-value">${globalData.eth_dominance || '-'}%</div>
+                </div>
+                <div class="crypto-card">
+                    <div class="card-label">김치 프리미엄</div>
+                    <div class="card-value ${kimchi >= 0 ? 'profit' : 'loss'}">${kimchi !== null ? (kimchi >= 0 ? '+' : '') + kimchi.toFixed(2) + '%' : '-'}</div>
+                </div>
+                <div class="crypto-card">
+                    <div class="card-label">총 시가총액</div>
+                    <div class="card-value">$${formatBillions(globalData.total_market_cap || 0)}</div>
+                </div>
+            </div>
+            <div class="exchange-filter crypto-exchange-filter">
+                <button class="filter-btn active" data-exchange="all">전체</button>
+                <button class="filter-btn" data-exchange="binance">Binance</button>
+                <button class="filter-btn" data-exchange="upbit">Upbit</button>
+            </div>
+            <div class="crypto-list-section card">
+                <h3>코인 시세</h3>
+                <table class="data-table">
+                    <thead><tr><th>코인</th><th>거래소</th><th>현재가</th><th>24h 등락률</th><th>거래량</th></tr></thead>
+                    <tbody id="crypto-tbody"></tbody>
+                </table>
+            </div>
+        `;
+
+        // 거래소 필터 이벤트
+        contentEl.querySelectorAll('.crypto-exchange-filter .filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                contentEl.querySelectorAll('.crypto-exchange-filter .filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const exchange = btn.dataset.exchange;
+                renderCryptoTable(exchange === 'all' ? coins : coins.filter(c => c.exchange === exchange));
+            });
+        });
+
+        // 테이블 렌더링
+        renderCryptoTable(coins);
+
+    } catch (error) {
+        console.error('Market Crypto error:', error);
+        contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button class="btn btn-sm btn-primary" onclick="loadMarketCrypto()">다시 시도</button></div>';
     }
+}
+
+function renderCryptoTable(coins) {
+    const tbody = document.getElementById('crypto-tbody');
+    if (!tbody) return;
+
+    if (coins.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">데이터 없음</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = coins.slice(0, 30).map(c => {
+        const changeClass = (c.change_percent || 0) >= 0 ? 'profit' : 'loss';
+        const priceStr = c.exchange === 'upbit' && c.symbol?.includes('KRW')
+            ? `₩${(c.price || 0).toLocaleString()}`
+            : `$${(c.price || 0).toLocaleString()}`;
+
+        return `
+            <tr class="clickable" data-symbol="${c.symbol}" data-exchange="${c.exchange}">
+                <td><strong>${c.symbol}</strong></td>
+                <td><span class="exchange-badge ${c.exchange}">${c.exchange?.toUpperCase()}</span></td>
+                <td>${priceStr}</td>
+                <td class="${changeClass}">${(c.change_percent || 0) >= 0 ? '+' : ''}${(c.change_percent || 0).toFixed(2)}%</td>
+                <td>${formatBillions(c.volume || 0)}</td>
+            </tr>
+        `;
+    }).join('');
+
+    // 클릭 이벤트
+    tbody.querySelectorAll('tr.clickable').forEach(row => {
+        row.addEventListener('click', () => openStockDetail(row.dataset.symbol, row.dataset.exchange));
+    });
 }
 
 // =====================================================
@@ -3825,50 +4400,127 @@ async function openStockDetail(symbol, exchange) {
     modal.style.display = 'flex';
     currentStockData = { symbol, exchange };
 
-    // 로딩 상태
-    document.getElementById('detail-stock-name').textContent = '로딩 중...';
-    document.getElementById('detail-stock-code').textContent = symbol;
-    document.getElementById('detail-stock-market').textContent = exchange?.toUpperCase() || '';
+    // 로딩 상태 초기화
+    const nameEl = document.getElementById('detail-stock-name');
+    const codeEl = document.getElementById('detail-stock-code');
+    const marketEl = document.getElementById('detail-stock-market');
+
+    if (nameEl) nameEl.textContent = '로딩 중...';
+    if (codeEl) codeEl.textContent = symbol || '';
+    if (marketEl) marketEl.textContent = exchange?.toUpperCase() || '';
 
     try {
-        // 종목 상세 정보 가져오기
-        const detail = await invoke('get_symbol_detail', {
+        // [BUG FIX 2] 종목 상세 정보 - 타임아웃 적용
+        const response = await invokeWithTimeout('get_symbol_detail', {
             accessToken: auth.accessToken || '',
             symbol: symbol,
             exchange: exchange
-        });
+        }, 10000);
 
-        if (detail) {
+        // [BUG FIX 2] 응답 파싱 - 다양한 형태 처리
+        let detail = null;
+        if (response) {
+            // response가 직접 데이터인 경우
+            if (typeof response === 'object' && response.name) {
+                detail = response;
+            }
+            // response.data 형태인 경우
+            else if (response.data && typeof response.data === 'object') {
+                detail = response.data;
+            }
+            // response가 문자열인 경우 (JSON 파싱 시도)
+            else if (typeof response === 'string') {
+                try {
+                    detail = JSON.parse(response);
+                    if (detail.data) detail = detail.data;
+                } catch {
+                    detail = null;
+                }
+            }
+        }
+
+        if (detail && typeof detail === 'object' && detail.name) {
             updateStockDetailUI(detail);
             initCandleChart(symbol, exchange, '1D');
+        } else {
+            // 기본값 설정
+            if (nameEl) nameEl.textContent = symbol || '-';
+            showToast('종목 정보를 불러올 수 없습니다', 'warning');
         }
     } catch (error) {
         console.error('Failed to load stock detail:', error);
-        document.getElementById('detail-stock-name').textContent = symbol;
+        if (nameEl) nameEl.textContent = symbol || '-';
         showToast('종목 정보를 불러올 수 없습니다', 'error');
     }
 }
 
+/**
+ * [BUG FIX 2] 종목 상세 UI 업데이트 - 안전한 데이터 접근
+ */
 function updateStockDetailUI(detail) {
-    document.getElementById('detail-stock-name').textContent = detail.name || detail.symbol;
-    document.getElementById('detail-stock-code').textContent = detail.symbol;
-    document.getElementById('detail-stock-market').textContent = detail.market || detail.exchange || '';
+    // 안전한 값 추출 함수
+    const safeString = (val) => {
+        if (val === null || val === undefined) return '-';
+        if (typeof val === 'object') return JSON.stringify(val) === '{}' ? '-' : String(val);
+        return String(val);
+    };
 
-    document.getElementById('detail-current-price').textContent = detail.price_formatted || detail.price?.toLocaleString() || '-';
+    const safeNumber = (val) => {
+        if (val === null || val === undefined || val === '') return 0;
+        const num = parseFloat(val);
+        return isNaN(num) ? 0 : num;
+    };
 
+    const formatPrice = (val) => {
+        const num = safeNumber(val);
+        if (num === 0) return '-';
+        return num.toLocaleString();
+    };
+
+    // 기본 정보
+    const nameEl = document.getElementById('detail-stock-name');
+    const codeEl = document.getElementById('detail-stock-code');
+    const marketEl = document.getElementById('detail-stock-market');
+
+    if (nameEl) nameEl.textContent = safeString(detail.name) || safeString(detail.symbol) || '-';
+    if (codeEl) codeEl.textContent = safeString(detail.symbol) || safeString(detail.code) || '-';
+    if (marketEl) marketEl.textContent = safeString(detail.market) || safeString(detail.exchange) || '-';
+
+    // 가격 정보
+    const priceEl = document.getElementById('detail-current-price');
+    const price = safeNumber(detail.price) || safeNumber(detail.current_price);
+    if (priceEl) priceEl.textContent = price > 0 ? formatPrice(price) : '-';
+
+    // 등락률
     const changeEl = document.getElementById('detail-price-change');
-    const change = detail.change || 0;
-    const changePercent = detail.change_percent || 0;
-    changeEl.textContent = `${change >= 0 ? '+' : ''}${change.toLocaleString()} (${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%)`;
-    changeEl.className = `price-change ${change >= 0 ? 'profit' : 'loss'}`;
+    if (changeEl) {
+        const change = safeNumber(detail.change);
+        const changePercent = safeNumber(detail.change_percent) || safeNumber(detail.changePercent);
 
-    document.getElementById('detail-open').textContent = detail.open?.toLocaleString() || '-';
-    document.getElementById('detail-high').textContent = detail.high?.toLocaleString() || '-';
-    document.getElementById('detail-low').textContent = detail.low?.toLocaleString() || '-';
-    document.getElementById('detail-volume').textContent = formatVolume(detail.volume) || '-';
+        if (change !== 0 || changePercent !== 0) {
+            const sign = change >= 0 ? '+' : '';
+            changeEl.textContent = `${sign}${change.toLocaleString()} (${sign}${changePercent.toFixed(2)}%)`;
+            changeEl.className = `price-change ${change >= 0 ? 'profit' : 'loss'}`;
+        } else {
+            changeEl.textContent = '-';
+            changeEl.className = 'price-change';
+        }
+    }
+
+    // 시가/고가/저가/거래량
+    const openEl = document.getElementById('detail-open');
+    const highEl = document.getElementById('detail-high');
+    const lowEl = document.getElementById('detail-low');
+    const volumeEl = document.getElementById('detail-volume');
+
+    if (openEl) openEl.textContent = formatPrice(detail.open);
+    if (highEl) highEl.textContent = formatPrice(detail.high);
+    if (lowEl) lowEl.textContent = formatPrice(detail.low);
+    if (volumeEl) volumeEl.textContent = formatVolume(safeNumber(detail.volume)) || '-';
 
     // 종합 정보
-    document.getElementById('detail-market-cap').textContent = formatBillions(detail.market_cap) || '-';
+    const marketCapEl = document.getElementById('detail-market-cap');
+    if (marketCapEl) marketCapEl.textContent = formatBillions(safeNumber(detail.market_cap)) || '-';
     document.getElementById('detail-high52').textContent = detail.high52?.toLocaleString() || '-';
     document.getElementById('detail-low52').textContent = detail.low52?.toLocaleString() || '-';
     document.getElementById('detail-rs').textContent = detail.rs || '-';

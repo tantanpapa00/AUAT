@@ -135,6 +135,12 @@ fn main() {
             commands::get_watchlist_items,
             commands::add_watchlist_item,
             commands::remove_watchlist_item,
+            // [BUG FIX 3] 시장분석 개선 API
+            commands::get_market_etf,
+            commands::get_market_crypto,
+            commands::get_analysis_rs,
+            commands::get_analysis_new_high,
+            commands::get_analysis_valuation,
         ])
         .setup(|app| {
             // 앱 시작 시 VPS 서버 연결 확인 (로컬 서버 시작 없음)
