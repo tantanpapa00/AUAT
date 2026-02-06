@@ -48,18 +48,43 @@ const auth = {
 // Login Screen Functions
 // =====================================================
 const loginScreen = document.getElementById('login-screen');
+const appElement = document.getElementById('app');
 const btnGoogleLogin = document.getElementById('btn-google-login');
 const btnSkipLogin = document.getElementById('btn-skip-login');
 
-function showLoginScreen() {
+// 앱 시작 시 기본 상태 설정 (로그인 화면 표시, 앱 숨김)
+function ensureLoginScreenVisible() {
+    console.log('[UI] 로그인 화면 강제 표시');
     if (loginScreen) loginScreen.style.display = 'flex';
-    document.getElementById('app').style.display = 'none';
+    if (appElement) appElement.style.display = 'none';
+}
+
+function showLoginScreen() {
+    console.log('[UI] showLoginScreen 호출');
+    if (loginScreen) loginScreen.style.display = 'flex';
+    if (appElement) appElement.style.display = 'none';
 }
 
 function hideLoginScreen() {
+    console.log('[UI] hideLoginScreen 호출 - 대시보드 표시');
     if (loginScreen) loginScreen.style.display = 'none';
-    document.getElementById('app').style.display = 'flex';
+    if (appElement) appElement.style.display = 'flex';
 }
+
+// 앱 로드 시 즉시 로그인 화면 표시 (가장 먼저 실행)
+ensureLoginScreenVisible();
+
+// 디버그용: Ctrl+Shift+L 로 인증 데이터 초기화
+document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && e.key === 'L') {
+        console.log('[Debug] 인증 데이터 초기화');
+        localStorage.removeItem('bbooster_access_token');
+        localStorage.removeItem('bbooster_refresh_token');
+        localStorage.removeItem('bbooster_hub_mode');
+        alert('인증 데이터가 초기화되었습니다. 앱을 다시 시작합니다.');
+        window.location.reload();
+    }
+});
 
 // Google 로그인 (브라우저로 열기)
 async function loginWithGoogle() {
@@ -336,11 +361,14 @@ async function logout() {
 
 // 인증 상태 확인 및 초기화
 async function initAuth() {
-    console.log('[initAuth] 앱 시작 - 인증 상태 확인');
+    console.log('[initAuth] ========== 인증 시작 ==========');
+
+    // 먼저 로그인 화면이 보이는지 확인 (방어적 코드)
+    ensureLoginScreenVisible();
 
     // 저장된 토큰 로드
     auth.loadTokens();
-    console.log('[initAuth] 토큰 로드 완료:', {
+    console.log('[initAuth] 저장된 상태:', {
         hasAccessToken: !!auth.accessToken,
         hasRefreshToken: !!auth.refreshToken,
         isHubMode: auth.isHubMode
@@ -348,49 +376,54 @@ async function initAuth() {
 
     // 1. 허브 모드인 경우 - 로그인 없이 진행
     if (auth.isHubMode) {
-        console.log('[initAuth] 허브 모드 - 대시보드로 이동');
+        console.log('[initAuth] → 허브 모드 감지 - 대시보드로 이동');
         hideLoginScreen();
         updateUserUI({ name: '허브 모드', plan: 'hub', role: 'user' });
         return true;
     }
 
-    // 2. 액세스 토큰이 있는 경우 - 유효성 검증
-    if (auth.accessToken) {
-        console.log('[initAuth] 토큰 검증 시도...');
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
-                headers: { 'Authorization': `Bearer ${auth.accessToken}` },
-                signal: AbortSignal.timeout(5000) // 5초 타임아웃
-            });
-
-            if (response.ok) {
-                auth.user = await response.json();
-                console.log('[initAuth] 토큰 유효 - 로그인 성공:', auth.user.email);
-                updateUserUI(auth.user);
-                hideLoginScreen();
-                return true;
-            } else if (response.status === 401) {
-                // 토큰 만료 - 리프레시 시도
-                console.log('[initAuth] 토큰 만료 - 갱신 시도');
-                const refreshed = await tryRefreshToken();
-                if (refreshed) {
-                    hideLoginScreen();
-                    return true;
-                }
-            }
-            // 토큰 무효 - 로그인 화면으로
-            console.log('[initAuth] 토큰 무효 - 로그인 필요');
-            auth.clearTokens();
-        } catch (error) {
-            console.error('[initAuth] 서버 연결 실패:', error.message);
-            // 서버 연결 실패 시에도 로그인 화면 유지 (중요!)
-            // 오프라인 모드로 자동 진입하지 않음
-        }
+    // 2. 액세스 토큰이 없는 경우 - 바로 로그인 화면
+    if (!auth.accessToken) {
+        console.log('[initAuth] → 토큰 없음 - 로그인 화면 유지');
+        // 이미 ensureLoginScreenVisible()에서 표시됨
+        return false;
     }
 
-    // 3. 토큰 없거나 검증 실패 - 로그인 화면 표시
-    console.log('[initAuth] 로그인 필요 - 로그인 화면 표시');
-    showLoginScreen();
+    // 3. 액세스 토큰이 있는 경우 - 유효성 검증
+    console.log('[initAuth] → 토큰 검증 시도...');
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+            headers: { 'Authorization': `Bearer ${auth.accessToken}` },
+            signal: AbortSignal.timeout(5000) // 5초 타임아웃
+        });
+
+        if (response.ok) {
+            auth.user = await response.json();
+            console.log('[initAuth] → 토큰 유효! 사용자:', auth.user.email);
+            updateUserUI(auth.user);
+            hideLoginScreen();
+            return true;
+        } else if (response.status === 401) {
+            // 토큰 만료 - 리프레시 시도
+            console.log('[initAuth] → 토큰 만료, 갱신 시도...');
+            const refreshed = await tryRefreshToken();
+            if (refreshed) {
+                console.log('[initAuth] → 토큰 갱신 성공!');
+                hideLoginScreen();
+                return true;
+            }
+            console.log('[initAuth] → 토큰 갱신 실패');
+        } else {
+            console.log('[initAuth] → 서버 응답 오류:', response.status);
+        }
+    } catch (error) {
+        console.error('[initAuth] → 서버 연결 실패:', error.message);
+    }
+
+    // 4. 토큰 검증 실패 - 토큰 삭제하고 로그인 화면 유지
+    console.log('[initAuth] → 인증 실패 - 토큰 삭제, 로그인 화면 유지');
+    auth.clearTokens();
+    // ensureLoginScreenVisible()이 이미 호출되었으므로 추가 호출 불필요
     return false;
 }
 
@@ -1986,16 +2019,22 @@ document.getElementById('payment-modal')?.addEventListener('click', (e) => {
 // Initialize
 // =====================================================
 (async () => {
+    console.log('='.repeat(50));
     console.log('[Init] BBooster PC App 시작');
     console.log('[Init] API 서버:', API_BASE_URL);
+    console.log('[Init] 현재 localStorage 상태:');
+    console.log('  - access_token:', localStorage.getItem('bbooster_access_token') ? '있음' : '없음');
+    console.log('  - refresh_token:', localStorage.getItem('bbooster_refresh_token') ? '있음' : '없음');
+    console.log('  - hub_mode:', localStorage.getItem('bbooster_hub_mode'));
+    console.log('='.repeat(50));
 
-    // 1. 먼저 인증 상태 확인 (로그인 화면 또는 대시보드 결정)
+    // 1. 인증 상태 확인 (로그인 화면 또는 대시보드 결정)
     const isAuthenticated = await initAuth();
-    console.log('[Init] 인증 결과:', isAuthenticated ? '인증됨' : '로그인 필요');
+    console.log('[Init] 최종 인증 결과:', isAuthenticated ? '✓ 인증됨' : '✗ 로그인 필요');
 
     // 2. 인증된 경우에만 서버 연결 체크 및 데이터 로드
     if (isAuthenticated) {
-        // 서버 연결 확인
+        console.log('[Init] 서버 연결 체크 시작...');
         checkServerConnection();
 
         // 구독 상태 로드 (연결 후)
@@ -2005,8 +2044,8 @@ document.getElementById('payment-modal')?.addEventListener('click', (e) => {
             }
         }, 2000);
     } else {
-        // 로그인 화면에서 대기 - showLoginScreen()은 initAuth에서 호출됨
-        console.log('[Init] 로그인 대기 중...');
+        console.log('[Init] 로그인 화면에서 사용자 입력 대기 중...');
+        // 로그인 화면이 이미 ensureLoginScreenVisible()에서 표시됨
     }
 })();
 
