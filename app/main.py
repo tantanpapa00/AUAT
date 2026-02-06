@@ -190,6 +190,12 @@ from app.auth import (
     register_user, authenticate_user
 )
 from app.models import User
+from app.kis_api import (
+    get_master_cache, refresh_master_cache, StockMaster,
+    get_kis_token, get_domestic_price, get_overseas_price,
+    get_financial_ratio, get_income_statement, get_invest_opinion,
+    get_investor_trend, get_daily_prices
+)
 
 # 세션 미들웨어 (OAuth 콜백용)
 app.add_middleware(
@@ -784,6 +790,15 @@ _poller_loop = _poll_worker_loop
 # @app.on_event("shutdown")
 # def _stop_order_poll_worker():
 #     _POLL_STOP.set()
+
+
+# KIS 종목 마스터 초기화 (앱 시작 시 백그라운드에서 로드)
+@app.on_event("startup")
+async def _startup_kis_master():
+    """앱 시작 시 KIS 종목 마스터 캐시 갱신"""
+    import asyncio
+    asyncio.create_task(refresh_master_cache())
+
 
 # ---- Web Dashboard Templates ----
 templates = Jinja2Templates(directory="app/templates")
@@ -7849,10 +7864,10 @@ def _build_symbol_info(s: dict) -> SymbolInfo:
 @app.get("/api/symbols/search")
 async def search_symbols(
     q: str = Query("", description="검색어"),
-    exchange: Optional[str] = Query(None, description="거래소 필터: okx, binance, bybit, upbit, kis_kr, kis_us"),
+    exchange: Optional[str] = Query(None, description="거래소 필터"),
     current_user: User = Depends(get_current_user_optional)
 ):
-    """심볼 검색 — 실제 거래소 API 연동"""
+    """심볼 검색 — 거래소 API + KIS 종목 마스터"""
     # 요금제 확인 (무료 사용자는 제한)
     if current_user:
         plan = getattr(current_user, "plan", "free")
@@ -7860,46 +7875,97 @@ async def search_symbols(
         if plan == "free" and role != "admin":
             return {"symbols": [], "message": "허브 이상 요금제에서 이용 가능합니다"}
 
-    query = q.upper().strip()
+    query = q.strip()
     results = []
+    ex_lower = exchange.lower() if exchange else None
 
-    # 거래소 목록 결정
-    if exchange:
-        exchanges = [exchange.lower()]
-    else:
-        exchanges = ["okx", "binance", "bybit", "upbit", "kis_kr", "kis_us"]
+    # KIS 마스터 캐시에서 검색 (국내/해외 주식)
+    if not ex_lower or ex_lower.startswith("kis"):
+        master = get_master_cache()
+        if not master.is_valid():
+            await refresh_master_cache()
 
-    # 각 거래소에서 심볼 가져와서 검색
-    for ex in exchanges:
-        symbols = await _get_cached_symbols(ex)
-        for s in symbols:
-            sym = s.get("symbol", "").upper()
-            name = s.get("name", "").upper()
-            if not query or query in sym or query in name:
-                results.append({
-                    "symbol": s["symbol"],
-                    "name": s.get("name", s["symbol"]),
-                    "exchange": s["exchange"],
-                    "price": 0,
-                    "change": 0,
-                    "volume": 0,
-                })
-                if len(results) >= 50:
-                    break
-        if len(results) >= 50:
-            break
+        kis_results = master.search(query, market=ex_lower, limit=30)
+        for stock in kis_results:
+            # 마켓 기반 exchange 결정
+            if stock.market in ("KOSPI", "KOSDAQ"):
+                ex_name = "KIS_KR_ETF" if stock.is_etf else "KIS_KR"
+            else:
+                ex_name = "KIS_US_ETF" if stock.is_etf else "KIS_US"
 
-    # SymbolInfo로 변환
-    return {"symbols": [_build_symbol_info(r) for r in results]}
+            results.append({
+                "symbol": stock.code,
+                "name": stock.name,
+                "exchange": ex_name,
+                "market": stock.market,
+                "is_etf": stock.is_etf,
+                "price": 0,
+                "change": 0,
+                "volume": 0,
+            })
+
+    # 암호화폐 거래소 검색
+    crypto_exchanges = ["okx", "binance", "bybit", "upbit"]
+    if not ex_lower or ex_lower in crypto_exchanges:
+        for ex in crypto_exchanges:
+            if ex_lower and ex != ex_lower:
+                continue
+            symbols = await _get_cached_symbols(ex)
+            for s in symbols:
+                sym = s.get("symbol", "").upper()
+                name = s.get("name", "").upper()
+                if not query or query.upper() in sym or query.upper() in name:
+                    results.append({
+                        "symbol": s["symbol"],
+                        "name": s.get("name", s["symbol"]),
+                        "exchange": s["exchange"],
+                        "price": 0,
+                        "change": 0,
+                        "volume": 0,
+                    })
+                    if len(results) >= 50:
+                        break
+            if len(results) >= 50:
+                break
+
+    # SymbolInfo로 변환 (최대 50개)
+    return {"symbols": [_build_symbol_info(r) for r in results[:50]]}
+
+
+async def _get_kis_credentials(db: Session, user_id: int) -> Optional[tuple]:
+    """사용자의 KIS API 인증정보 조회"""
+    try:
+        result = db.execute(
+            text("SELECT api_key, api_secret FROM accounts WHERE user_id = :uid AND exchange = 'kis' AND is_active = true LIMIT 1"),
+            {"uid": user_id}
+        )
+        row = result.fetchone()
+        if row:
+            return (row[0], row[1])
+    except Exception:
+        pass
+    return None
+
+
+def _format_korean_number(value: int) -> str:
+    """한국식 숫자 포맷 (억, 조)"""
+    if value >= 1_000_000_000_000:
+        return f"{value / 1_000_000_000_000:.1f}조"
+    elif value >= 100_000_000:
+        return f"{value / 100_000_000:.1f}억"
+    elif value >= 10000:
+        return f"{value / 10000:.1f}만"
+    return f"{value:,}"
 
 
 @app.get("/api/symbols/{exchange}/{symbol}")
 async def get_symbol_detail(
     exchange: str,
     symbol: str,
-    current_user: User = Depends(get_current_user_optional)
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
 ):
-    """심볼 상세 정보 — 실시간 가격 조회"""
+    """심볼 상세 정보 — 미니 종목보고서"""
     # 요금제 확인
     if current_user:
         plan = getattr(current_user, "plan", "free")
@@ -7908,59 +7974,195 @@ async def get_symbol_detail(
             raise HTTPException(status_code=403, detail="허브 이상 요금제에서 이용 가능합니다")
 
     exchange_lower = exchange.lower()
+    is_kis = exchange_lower.startswith("kis")
 
-    # 실시간 가격 조회
-    ticker = None
-    if exchange_lower == "okx":
-        ticker = await _fetch_okx_ticker(symbol)
-    elif exchange_lower == "binance":
-        ticker = await _fetch_binance_ticker(symbol)
-    elif exchange_lower == "bybit":
-        ticker = await _fetch_bybit_ticker(symbol)
-    elif exchange_lower == "upbit":
-        ticker = await _fetch_upbit_ticker(symbol)
-
-    # 캐시에서 심볼 이름 가져오기
-    symbols = await _get_cached_symbols(exchange_lower)
-    name = symbol
-    for s in symbols:
-        if s["symbol"].upper() == symbol.upper():
-            name = s.get("name", symbol)
-            break
-
-    if ticker:
-        info = _build_symbol_info({
+    # 기본 응답 구조
+    response = {
+        "basic": {
             "symbol": symbol,
-            "name": name,
+            "name": symbol,
             "exchange": exchange.upper(),
-            "price": ticker["price"],
-            "change": ticker["change"],
-            "volume": ticker["volume"],
-            "high_24h": ticker["high_24h"],
-            "low_24h": ticker["low_24h"],
-        })
-        return {
-            **info.dict(),
-            "high_24h_formatted": _format_price(ticker["high_24h"], exchange),
-            "low_24h_formatted": _format_price(ticker["low_24h"], exchange),
-        }
-    else:
-        # 실시간 조회 실패 시 기본값 반환
-        return {
-            "symbol": symbol,
-            "name": name,
-            "exchange": exchange.upper(),
-            "price": 0,
-            "price_formatted": "N/A",
+            "market": "",
+            "is_etf": False,
+            "sector": "",
+        },
+        "price": {
+            "current": 0,
             "change": 0,
-            "change_formatted": "N/A",
+            "change_amount": 0,
+            "high": 0,
+            "low": 0,
+            "open": 0,
             "volume": 0,
+            "current_formatted": "N/A",
+            "change_formatted": "N/A",
+            "high_formatted": "N/A",
+            "low_formatted": "N/A",
             "volume_formatted": "N/A",
-            "high_24h": None,
-            "low_24h": None,
-            "high_24h_formatted": "N/A",
-            "low_24h_formatted": "N/A",
-        }
+        },
+        "financial": None,  # KIS 국내주식만
+        "opinion": None,    # KIS 국내주식만
+        "investor": None,   # KIS 국내주식만
+        "daily_prices": [], # 차트용
+        "has_kis_account": False,
+    }
+
+    # KIS 종목 (국내/해외 주식)
+    if is_kis:
+        master = get_master_cache()
+        stock = master.get_stock(symbol)
+        if stock:
+            response["basic"]["name"] = stock.name
+            response["basic"]["market"] = stock.market
+            response["basic"]["is_etf"] = stock.is_etf
+
+        # KIS 계정 확인
+        kis_creds = None
+        if current_user:
+            kis_creds = await _get_kis_credentials(db, current_user.id)
+
+        if kis_creds:
+            response["has_kis_account"] = True
+            app_key, app_secret = kis_creds
+
+            # KIS 토큰 발급
+            token = await get_kis_token(app_key, app_secret)
+            if token:
+                is_domestic = exchange_lower in ("kis_kr", "kis_kr_etf")
+                market = stock.market if stock else ("KOSPI" if is_domestic else "NASDAQ")
+
+                if is_domestic:
+                    # 국내주식 현재가
+                    price_data = await get_domestic_price(app_key, app_secret, token.access_token, symbol)
+                    if price_data:
+                        response["price"] = {
+                            "current": price_data["current"],
+                            "change": price_data["change"],
+                            "change_amount": price_data["change_amount"],
+                            "high": price_data["high"],
+                            "low": price_data["low"],
+                            "open": price_data["open"],
+                            "volume": price_data["volume"],
+                            "current_formatted": f"₩{price_data['current']:,}",
+                            "change_formatted": f"{'+' if price_data['change'] >= 0 else ''}{price_data['change']:.2f}%",
+                            "high_formatted": f"₩{price_data['high']:,}",
+                            "low_formatted": f"₩{price_data['low']:,}",
+                            "volume_formatted": _format_volume(price_data["volume"]),
+                            "per": price_data.get("per", 0),
+                            "pbr": price_data.get("pbr", 0),
+                            "market_cap": price_data.get("market_cap", 0),
+                            "market_cap_formatted": _format_korean_number(price_data.get("market_cap", 0) * 100000000),
+                        }
+
+                    # 재무비율
+                    fin_data = await get_financial_ratio(app_key, app_secret, token.access_token, symbol)
+                    if fin_data:
+                        response["financial"] = {
+                            "per": fin_data.get("per", 0),
+                            "pbr": fin_data.get("pbr", 0),
+                            "roe": fin_data.get("roe", 0),
+                            "roa": fin_data.get("roa", 0),
+                            "debt_ratio": fin_data.get("debt_ratio", 0),
+                            "operating_margin": fin_data.get("operating_margin", 0),
+                            "net_margin": fin_data.get("net_margin", 0),
+                        }
+
+                    # 손익계산서
+                    income_data = await get_income_statement(app_key, app_secret, token.access_token, symbol)
+                    if income_data and response["financial"]:
+                        response["financial"]["income_statement"] = [
+                            {
+                                "period": item["period"],
+                                "revenue": item["revenue"],
+                                "revenue_formatted": _format_korean_number(item["revenue"]),
+                                "operating_profit": item["operating_profit"],
+                                "operating_profit_formatted": _format_korean_number(item["operating_profit"]),
+                                "net_income": item["net_income"],
+                                "net_income_formatted": _format_korean_number(item["net_income"]),
+                            }
+                            for item in income_data
+                        ]
+
+                    # 투자의견
+                    opinion_data = await get_invest_opinion(app_key, app_secret, token.access_token, symbol)
+                    if opinion_data:
+                        response["opinion"] = {
+                            "consensus": opinion_data.get("consensus", "N/A"),
+                            "target_price": opinion_data.get("target_price", 0),
+                            "target_price_formatted": f"₩{opinion_data.get('target_price', 0):,}",
+                            "analyst_count": opinion_data.get("analyst_count", 0),
+                            "buy_count": opinion_data.get("buy_count", 0),
+                            "hold_count": opinion_data.get("hold_count", 0),
+                            "sell_count": opinion_data.get("sell_count", 0),
+                        }
+
+                    # 투자자 매매동향
+                    investor_data = await get_investor_trend(app_key, app_secret, token.access_token, symbol)
+                    if investor_data:
+                        response["investor"] = investor_data
+
+                else:
+                    # 해외주식 현재가
+                    price_data = await get_overseas_price(app_key, app_secret, token.access_token, market, symbol)
+                    if price_data:
+                        response["price"] = {
+                            "current": price_data["current"],
+                            "change": price_data["change"],
+                            "change_amount": price_data["change_amount"],
+                            "high": price_data["high"],
+                            "low": price_data["low"],
+                            "open": price_data["open"],
+                            "volume": price_data["volume"],
+                            "current_formatted": f"${price_data['current']:,.2f}",
+                            "change_formatted": f"{'+' if price_data['change'] >= 0 else ''}{price_data['change']:.2f}%",
+                            "high_formatted": f"${price_data['high']:,.2f}",
+                            "low_formatted": f"${price_data['low']:,.2f}",
+                            "volume_formatted": _format_volume(price_data["volume"]),
+                        }
+
+                # 일봉 데이터 (차트용)
+                daily_data = await get_daily_prices(app_key, app_secret, token.access_token, symbol, market, 60)
+                if daily_data:
+                    response["daily_prices"] = daily_data
+
+    # 암호화폐 거래소
+    else:
+        ticker = None
+        if exchange_lower == "okx":
+            ticker = await _fetch_okx_ticker(symbol)
+        elif exchange_lower == "binance":
+            ticker = await _fetch_binance_ticker(symbol)
+        elif exchange_lower == "bybit":
+            ticker = await _fetch_bybit_ticker(symbol)
+        elif exchange_lower == "upbit":
+            ticker = await _fetch_upbit_ticker(symbol)
+
+        # 캐시에서 심볼 이름 가져오기
+        symbols = await _get_cached_symbols(exchange_lower)
+        for s in symbols:
+            if s["symbol"].upper() == symbol.upper():
+                response["basic"]["name"] = s.get("name", symbol)
+                break
+
+        if ticker:
+            is_krw = exchange_lower == "upbit"
+            fmt = "₩" if is_krw else "$"
+            response["price"] = {
+                "current": ticker["price"],
+                "change": ticker["change"],
+                "change_amount": 0,
+                "high": ticker["high_24h"],
+                "low": ticker["low_24h"],
+                "open": 0,
+                "volume": ticker["volume"],
+                "current_formatted": f"{fmt}{ticker['price']:,.2f}" if not is_krw else f"₩{int(ticker['price']):,}",
+                "change_formatted": f"{'+' if ticker['change'] >= 0 else ''}{ticker['change']:.2f}%",
+                "high_formatted": f"{fmt}{ticker['high_24h']:,.2f}" if not is_krw else f"₩{int(ticker['high_24h']):,}",
+                "low_formatted": f"{fmt}{ticker['low_24h']:,.2f}" if not is_krw else f"₩{int(ticker['low_24h']):,}",
+                "volume_formatted": _format_volume(ticker["volume"]),
+            }
+
+    return response
 
 
 @app.get("/api/symbols/popular")
@@ -7970,34 +8172,51 @@ async def get_popular_symbols(
 ):
     """인기 종목 목록 — 거래량 상위 10개"""
     result = {}
+    ex_lower = exchange.lower() if exchange else None
 
-    # 조회할 거래소 목록
-    if exchange:
-        exchanges = [exchange.lower()]
-    else:
-        exchanges = ["okx", "binance", "bybit", "upbit"]
+    # 암호화폐 거래소
+    crypto_exchanges = ["okx", "binance", "bybit", "upbit"]
+    if not ex_lower or ex_lower in crypto_exchanges:
+        tasks = []
+        for ex in crypto_exchanges:
+            if ex_lower and ex != ex_lower:
+                continue
+            tasks.append((ex, _fetch_popular_with_volume(ex, 10)))
 
-    # 각 거래소별 인기 종목 조회 (병렬)
-    tasks = []
-    for ex in exchanges:
-        if ex in ["kis_kr", "kis_us"]:
-            continue  # KIS는 실시간 조회 불가
-        tasks.append((ex, _fetch_popular_with_volume(ex, 10)))
+        for ex, task in tasks:
+            try:
+                popular = await task
+                if popular:
+                    result[ex] = [_build_symbol_info(s) for s in popular]
+            except Exception as e:
+                print(f"[{ex}] Popular fetch error: {e}")
+                result[ex] = []
 
-    for ex, task in tasks:
-        try:
-            popular = await task
-            if popular:
-                result[ex] = [_build_symbol_info(s) for s in popular]
-        except Exception as e:
-            print(f"[{ex}] Popular fetch error: {e}")
-            result[ex] = []
+    # KIS 종목 (마스터 캐시 사용)
+    kis_exchanges = ["kis_kr", "kis_kr_etf", "kis_us", "kis_us_etf"]
+    if not ex_lower or ex_lower in kis_exchanges:
+        master = get_master_cache()
+        if not master.is_valid():
+            await refresh_master_cache()
 
-    # KIS 종목은 하드코딩 목록 반환
-    if not exchange or exchange.lower() == "kis_kr":
-        result["kis_kr"] = [_build_symbol_info({**s, "price": 0, "change": 0, "volume": 0}) for s in KIS_KR_STOCKS[:10]]
-    if not exchange or exchange.lower() == "kis_us":
-        result["kis_us"] = [_build_symbol_info({**s, "price": 0, "change": 0, "volume": 0}) for s in KIS_US_STOCKS[:10]]
+        for kis_ex in kis_exchanges:
+            if ex_lower and kis_ex != ex_lower:
+                continue
+
+            popular_stocks = master.get_popular(market=kis_ex, limit=10)
+            result[kis_ex] = [
+                _build_symbol_info({
+                    "symbol": s.code,
+                    "name": s.name,
+                    "exchange": kis_ex.upper(),
+                    "market": s.market,
+                    "is_etf": s.is_etf,
+                    "price": 0,
+                    "change": 0,
+                    "volume": 0,
+                })
+                for s in popular_stocks
+            ]
 
     return result
 

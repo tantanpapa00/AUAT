@@ -1146,14 +1146,17 @@ async function loadPopularSymbols() {
             if (data.bybit) allSymbols = allSymbols.concat(data.bybit);
             if (data.upbit) allSymbols = allSymbols.concat(data.upbit);
             if (data.kis_kr) allSymbols = allSymbols.concat(data.kis_kr);
+            if (data.kis_kr_etf) allSymbols = allSymbols.concat(data.kis_kr_etf);
             if (data.kis_us) allSymbols = allSymbols.concat(data.kis_us);
+            if (data.kis_us_etf) allSymbols = allSymbols.concat(data.kis_us_etf);
 
             // 현재 선택된 거래소만 필터
             if (currentSymbolExchange !== 'all') {
-                allSymbols = allSymbols.filter(s =>
-                    s.exchange.toLowerCase() === currentSymbolExchange.toLowerCase() ||
-                    s.exchange.toLowerCase().replace('_', '') === currentSymbolExchange.toLowerCase().replace('_', '')
-                );
+                allSymbols = allSymbols.filter(s => {
+                    const exLower = s.exchange.toLowerCase().replace(/_/g, '-');
+                    const filterLower = currentSymbolExchange.toLowerCase().replace(/_/g, '-');
+                    return exLower === filterLower;
+                });
             }
         }
 
@@ -1233,14 +1236,34 @@ function renderSymbolsTable(symbols) {
     });
 }
 
+let currentSymbolData = null;
+
 async function showSymbolDetail(symbol, exchange) {
     const panel = document.getElementById('symbol-detail-panel');
     if (!panel) return;
 
+    const isKIS = exchange.toLowerCase().startsWith('kis');
+
+    // 기본 정보 초기화
     document.getElementById('detail-symbol-name').textContent = symbol;
     const exchangeDisplay = exchange.replace('_', ' ').toUpperCase();
     document.getElementById('detail-exchange').textContent = exchangeDisplay;
     document.getElementById('detail-exchange').className = `exchange-badge ${exchange.toLowerCase().replace('_', '-')}`;
+    document.getElementById('detail-market').style.display = 'none';
+    document.getElementById('detail-etf-badge').style.display = 'none';
+
+    // 탭 초기화 (시세 탭 활성화)
+    document.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector('.detail-tab[data-tab="price"]')?.classList.add('active');
+    document.querySelectorAll('.detail-tab-content').forEach(c => c.style.display = 'none');
+    document.getElementById('detail-tab-price').style.display = 'block';
+
+    // KIS 탭 표시/숨김
+    const finTab = document.querySelector('.detail-tab[data-tab="financial"]');
+    const opTab = document.querySelector('.detail-tab[data-tab="opinion"]');
+    if (finTab) finTab.style.display = isKIS ? 'inline-block' : 'none';
+    if (opTab) opTab.style.display = isKIS ? 'inline-block' : 'none';
+
     panel.style.display = 'block';
 
     // 로딩 상태 표시
@@ -1249,6 +1272,7 @@ async function showSymbolDetail(symbol, exchange) {
     document.getElementById('detail-high').textContent = '-';
     document.getElementById('detail-low').textContent = '-';
     document.getElementById('detail-volume').textContent = '-';
+    document.getElementById('detail-market-cap').textContent = '-';
 
     try {
         const detail = await invoke('get_symbol_detail', {
@@ -1257,39 +1281,162 @@ async function showSymbolDetail(symbol, exchange) {
             exchange: exchange
         });
 
-        document.getElementById('detail-price').textContent = detail.price_formatted || 'N/A';
-        const changeEl = document.getElementById('detail-change');
-        changeEl.textContent = detail.change_formatted || 'N/A';
-        changeEl.className = `price-change ${(detail.change || 0) >= 0 ? 'profit' : 'loss'}`;
-        document.getElementById('detail-high').textContent = detail.high_24h_formatted || 'N/A';
-        document.getElementById('detail-low').textContent = detail.low_24h_formatted || 'N/A';
-        document.getElementById('detail-volume').textContent = detail.volume_formatted || 'N/A';
+        currentSymbolData = detail;
 
-        // 미니 차트 그리기
-        if (detail.price && detail.price > 0) {
-            drawMiniChart(detail.price, detail.change || 0);
+        // 기본 정보
+        if (detail.basic) {
+            document.getElementById('detail-symbol-name').textContent = detail.basic.name || symbol;
+            if (detail.basic.market) {
+                document.getElementById('detail-market').textContent = detail.basic.market;
+                document.getElementById('detail-market').style.display = 'inline-block';
+            }
+            if (detail.basic.is_etf) {
+                document.getElementById('detail-etf-badge').style.display = 'inline-block';
+            }
         }
+
+        // 가격 정보
+        if (detail.price) {
+            document.getElementById('detail-price').textContent = detail.price.current_formatted || 'N/A';
+            const changeEl = document.getElementById('detail-change');
+            changeEl.textContent = detail.price.change_formatted || 'N/A';
+            changeEl.className = `price-change ${(detail.price.change || 0) >= 0 ? 'profit' : 'loss'}`;
+            document.getElementById('detail-high').textContent = detail.price.high_formatted || '-';
+            document.getElementById('detail-low').textContent = detail.price.low_formatted || '-';
+            document.getElementById('detail-volume').textContent = detail.price.volume_formatted || '-';
+            document.getElementById('detail-market-cap').textContent = detail.price.market_cap_formatted || '-';
+        }
+
+        // 일봉 차트 그리기
+        if (detail.daily_prices && detail.daily_prices.length > 0) {
+            drawDailyChart(detail.daily_prices, detail.price?.change || 0);
+        } else if (detail.price?.current) {
+            drawSimulatedChart(detail.price.current, detail.price?.change || 0);
+        }
+
+        // 투자자 동향 (국내주식만)
+        if (detail.investor && detail.investor.length > 0) {
+            document.getElementById('investor-trend-section').style.display = 'block';
+            drawInvestorChart(detail.investor);
+        } else {
+            document.getElementById('investor-trend-section').style.display = 'none';
+        }
+
+        // 재무 탭 (국내주식만)
+        if (isKIS) {
+            if (detail.has_kis_account && detail.financial) {
+                document.getElementById('financial-notice').style.display = 'none';
+                document.getElementById('financial-content').style.display = 'block';
+                document.getElementById('fin-per').textContent = detail.financial.per?.toFixed(2) || '-';
+                document.getElementById('fin-pbr').textContent = detail.financial.pbr?.toFixed(2) || '-';
+                document.getElementById('fin-roe').textContent = (detail.financial.roe?.toFixed(2) || '-') + '%';
+                document.getElementById('fin-debt').textContent = (detail.financial.debt_ratio?.toFixed(1) || '-') + '%';
+
+                if (detail.financial.income_statement) {
+                    drawIncomeChart(detail.financial.income_statement);
+                }
+            } else {
+                document.getElementById('financial-notice').style.display = 'block';
+                document.getElementById('financial-content').style.display = 'none';
+            }
+
+            // 투자의견 탭
+            if (detail.has_kis_account && detail.opinion) {
+                document.getElementById('opinion-notice').style.display = 'none';
+                document.getElementById('opinion-content').style.display = 'block';
+                document.getElementById('consensus-badge').textContent = detail.opinion.consensus || '-';
+                document.getElementById('consensus-badge').className = `consensus-badge ${detail.opinion.consensus === '매수' ? 'buy' : (detail.opinion.consensus === '매도' ? 'sell' : 'hold')}`;
+                document.getElementById('target-price').textContent = detail.opinion.target_price_formatted || '-';
+                document.getElementById('analyst-count').textContent = detail.opinion.analyst_count || 0;
+                document.getElementById('buy-count').textContent = detail.opinion.buy_count || 0;
+                document.getElementById('hold-count').textContent = detail.opinion.hold_count || 0;
+                document.getElementById('sell-count').textContent = detail.opinion.sell_count || 0;
+
+                drawOpinionChart(detail.opinion);
+            } else {
+                document.getElementById('opinion-notice').style.display = 'block';
+                document.getElementById('opinion-content').style.display = 'none';
+            }
+        }
+
     } catch (error) {
         console.error('Failed to load symbol detail:', error);
         document.getElementById('detail-price').textContent = '조회 실패';
     }
 }
 
-function drawMiniChart(price, change) {
+// 상세 탭 전환
+document.querySelectorAll('.detail-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const tabName = tab.dataset.tab;
+        document.querySelectorAll('.detail-tab-content').forEach(c => c.style.display = 'none');
+        document.getElementById(`detail-tab-${tabName}`).style.display = 'block';
+    });
+});
+
+function drawDailyChart(dailyPrices, change) {
     const canvas = document.getElementById('mini-chart');
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
     const width = canvas.width;
     const height = canvas.height;
-
     ctx.clearRect(0, 0, width, height);
 
-    // 시뮬레이션 차트 데이터 (24시간 추이)
+    const prices = dailyPrices.map(d => d.close).reverse();
+    if (prices.length === 0) return;
+
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    const range = max - min || 1;
+
+    // 배경 그라데이션
+    const gradient = ctx.createLinearGradient(0, 0, 0, height);
+    gradient.addColorStop(0, change >= 0 ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)');
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.moveTo(0, height);
+
+    prices.forEach((p, i) => {
+        const x = (i / (prices.length - 1)) * width;
+        const y = height - ((p - min) / range) * height * 0.8 - height * 0.1;
+        ctx.lineTo(x, y);
+    });
+    ctx.lineTo(width, height);
+    ctx.closePath();
+    ctx.fill();
+
+    // 라인 그리기
+    ctx.strokeStyle = change >= 0 ? '#22C55E' : '#EF4444';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    prices.forEach((p, i) => {
+        const x = (i / (prices.length - 1)) * width;
+        const y = height - ((p - min) / range) * height * 0.8 - height * 0.1;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+}
+
+function drawSimulatedChart(price, change) {
+    const canvas = document.getElementById('mini-chart');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    ctx.clearRect(0, 0, width, height);
+
+    // 시뮬레이션 데이터
     const data = [];
     let value = price * 0.97;
-    for (let i = 0; i < 24; i++) {
-        value += (Math.random() - 0.45) * price * 0.01;
+    for (let i = 0; i < 60; i++) {
+        value += (Math.random() - 0.45) * price * 0.005;
         data.push(value);
     }
     data.push(price);
@@ -1298,19 +1445,131 @@ function drawMiniChart(price, change) {
     const max = Math.max(...data);
     const range = max - min || 1;
 
-    // 라인 그리기
     ctx.strokeStyle = change >= 0 ? '#22C55E' : '#EF4444';
     ctx.lineWidth = 2;
     ctx.beginPath();
-
     data.forEach((v, i) => {
         const x = (i / (data.length - 1)) * width;
         const y = height - ((v - min) / range) * height * 0.8 - height * 0.1;
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
     });
-
     ctx.stroke();
+}
+
+function drawInvestorChart(investorData) {
+    const canvas = document.getElementById('investor-chart');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    ctx.clearRect(0, 0, width, height);
+
+    const barWidth = width / (investorData.length * 4);
+    const maxVal = Math.max(...investorData.flatMap(d => [Math.abs(d.foreign_net), Math.abs(d.institution_net), Math.abs(d.individual_net)])) || 1;
+
+    investorData.reverse().forEach((d, i) => {
+        const baseX = i * (barWidth * 4) + barWidth / 2;
+
+        // 외국인
+        const fH = (d.foreign_net / maxVal) * (height / 2 - 10);
+        ctx.fillStyle = '#3B82F6';
+        ctx.fillRect(baseX, height / 2 - (fH > 0 ? fH : 0), barWidth * 0.8, Math.abs(fH) || 2);
+
+        // 기관
+        const iH = (d.institution_net / maxVal) * (height / 2 - 10);
+        ctx.fillStyle = '#F59E0B';
+        ctx.fillRect(baseX + barWidth, height / 2 - (iH > 0 ? iH : 0), barWidth * 0.8, Math.abs(iH) || 2);
+
+        // 개인
+        const pH = (d.individual_net / maxVal) * (height / 2 - 10);
+        ctx.fillStyle = '#EF4444';
+        ctx.fillRect(baseX + barWidth * 2, height / 2 - (pH > 0 ? pH : 0), barWidth * 0.8, Math.abs(pH) || 2);
+    });
+
+    // 중앙선
+    ctx.strokeStyle = '#4B5563';
+    ctx.beginPath();
+    ctx.moveTo(0, height / 2);
+    ctx.lineTo(width, height / 2);
+    ctx.stroke();
+}
+
+function drawIncomeChart(incomeData) {
+    const canvas = document.getElementById('income-chart');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    ctx.clearRect(0, 0, width, height);
+
+    const data = incomeData.reverse();
+    const barWidth = width / (data.length * 4);
+    const maxVal = Math.max(...data.flatMap(d => [d.revenue, d.operating_profit, d.net_income])) || 1;
+
+    data.forEach((d, i) => {
+        const baseX = i * (barWidth * 4) + barWidth / 2;
+        const bH = (d.revenue / maxVal) * (height - 30);
+        const oH = (d.operating_profit / maxVal) * (height - 30);
+        const nH = (d.net_income / maxVal) * (height - 30);
+
+        ctx.fillStyle = '#3B82F6';
+        ctx.fillRect(baseX, height - 20 - bH, barWidth * 0.8, bH);
+
+        ctx.fillStyle = '#22C55E';
+        ctx.fillRect(baseX + barWidth, height - 20 - oH, barWidth * 0.8, oH);
+
+        ctx.fillStyle = '#F59E0B';
+        ctx.fillRect(baseX + barWidth * 2, height - 20 - nH, barWidth * 0.8, nH);
+
+        // 기간 라벨
+        ctx.fillStyle = '#9CA3AF';
+        ctx.font = '10px sans-serif';
+        ctx.fillText(d.period, baseX, height - 5);
+    });
+}
+
+function drawOpinionChart(opinion) {
+    const canvas = document.getElementById('opinion-chart');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const radius = Math.min(width, height) / 2 - 10;
+
+    ctx.clearRect(0, 0, width, height);
+
+    const total = (opinion.buy_count || 0) + (opinion.hold_count || 0) + (opinion.sell_count || 0);
+    if (total === 0) return;
+
+    const slices = [
+        { value: opinion.buy_count || 0, color: '#22C55E' },
+        { value: opinion.hold_count || 0, color: '#F59E0B' },
+        { value: opinion.sell_count || 0, color: '#EF4444' },
+    ];
+
+    let startAngle = -Math.PI / 2;
+    slices.forEach(slice => {
+        const sliceAngle = (slice.value / total) * 2 * Math.PI;
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle);
+        ctx.closePath();
+        ctx.fillStyle = slice.color;
+        ctx.fill();
+        startAngle += sliceAngle;
+    });
+
+    // 중앙 원 (도넛 효과)
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius * 0.5, 0, 2 * Math.PI);
+    ctx.fillStyle = '#1F2937';
+    ctx.fill();
 }
 
 document.getElementById('btn-close-detail')?.addEventListener('click', () => {

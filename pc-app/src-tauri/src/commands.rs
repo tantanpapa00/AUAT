@@ -1277,57 +1277,27 @@ pub async fn search_symbols(
     }
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct SymbolDetail {
-    pub symbol: String,
-    pub name: String,
-    pub exchange: String,
-    pub price: f64,
-    pub price_formatted: String,
-    pub change: f64,
-    pub change_formatted: String,
-    pub volume: i64,
-    pub volume_formatted: String,
-    pub high_24h: f64,
-    pub low_24h: f64,
-    pub high_24h_formatted: String,
-    pub low_24h_formatted: String,
-}
-
+/// 심볼 상세 정보 (미니 종목보고서) — JSON 전달
 #[tauri::command]
 pub async fn get_symbol_detail(
     access_token: String,
     symbol: String,
     exchange: String,
-) -> Result<SymbolDetail, String> {
+) -> Result<serde_json::Value, String> {
     let client = reqwest::Client::new();
     let url = format!("{}/api/symbols/{}/{}", VPS_SERVER_URL, exchange, symbol);
 
     let resp = client
         .get(&url)
         .header("Authorization", format!("Bearer {}", access_token))
-        .timeout(std::time::Duration::from_secs(10))
+        .timeout(std::time::Duration::from_secs(15))
         .send()
         .await
         .map_err(|e| format!("네트워크 오류: {}", e))?;
 
     if resp.status().is_success() {
         let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
-        Ok(SymbolDetail {
-            symbol: data.get("symbol").and_then(|s| s.as_str()).unwrap_or("").to_string(),
-            name: data.get("name").and_then(|n| n.as_str()).unwrap_or("").to_string(),
-            exchange: data.get("exchange").and_then(|e| e.as_str()).unwrap_or("").to_string(),
-            price: data.get("price").and_then(|p| p.as_f64()).unwrap_or(0.0),
-            price_formatted: data.get("price_formatted").and_then(|p| p.as_str()).unwrap_or("").to_string(),
-            change: data.get("change").and_then(|c| c.as_f64()).unwrap_or(0.0),
-            change_formatted: data.get("change_formatted").and_then(|c| c.as_str()).unwrap_or("").to_string(),
-            volume: data.get("volume").and_then(|v| v.as_i64()).unwrap_or(0),
-            volume_formatted: data.get("volume_formatted").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            high_24h: data.get("high_24h").and_then(|h| h.as_f64()).unwrap_or(0.0),
-            low_24h: data.get("low_24h").and_then(|l| l.as_f64()).unwrap_or(0.0),
-            high_24h_formatted: data.get("high_24h_formatted").and_then(|h| h.as_str()).unwrap_or("").to_string(),
-            low_24h_formatted: data.get("low_24h_formatted").and_then(|l| l.as_str()).unwrap_or("").to_string(),
-        })
+        Ok(data)
     } else {
         Err("심볼 정보를 가져올 수 없습니다".to_string())
     }
@@ -1347,7 +1317,11 @@ pub struct PopularSymbols {
     #[serde(default)]
     pub kis_kr: Vec<SymbolInfo>,
     #[serde(default)]
+    pub kis_kr_etf: Vec<SymbolInfo>,
+    #[serde(default)]
     pub kis_us: Vec<SymbolInfo>,
+    #[serde(default)]
+    pub kis_us_etf: Vec<SymbolInfo>,
 }
 
 fn parse_symbol_list(data: &serde_json::Value, key: &str) -> Vec<SymbolInfo> {
@@ -1401,7 +1375,9 @@ pub async fn get_popular_symbols(
                 bybit: parse_symbol_list(&data, "bybit"),
                 upbit: parse_symbol_list(&data, "upbit"),
                 kis_kr: parse_symbol_list(&data, "kis_kr"),
+                kis_kr_etf: parse_symbol_list(&data, "kis_kr_etf"),
                 kis_us: parse_symbol_list(&data, "kis_us"),
+                kis_us_etf: parse_symbol_list(&data, "kis_us_etf"),
             })
         }
         Ok(_) | Err(_) => Ok(PopularSymbols::default()),

@@ -566,8 +566,10 @@
                             <button class="filter-tab" data-exchange="binance">Binance</button>
                             <button class="filter-tab" data-exchange="bybit">Bybit</button>
                             <button class="filter-tab" data-exchange="upbit">Upbit</button>
-                            <button class="filter-tab" data-exchange="kis_kr">KIS 국내</button>
-                            <button class="filter-tab" data-exchange="kis_us">KIS 해외</button>
+                            <button class="filter-tab" data-exchange="kis_kr">국내주식</button>
+                            <button class="filter-tab" data-exchange="kis_kr_etf">국내ETF</button>
+                            <button class="filter-tab" data-exchange="kis_us">해외주식</button>
+                            <button class="filter-tab" data-exchange="kis_us_etf">해외ETF</button>
                         </div>
                         <div class="popular-symbols">
                             <span class="label">인기 종목:</span>
@@ -597,39 +599,125 @@
                         </table>
                     </section>
 
-                    <!-- 심볼 상세 정보 패널 -->
+                    <!-- 심볼 상세 정보 패널 (미니 종목보고서) -->
                     <section class="card symbol-detail-panel" id="symbol-detail-panel" style="display: none;">
                         <div class="symbol-detail-header">
                             <div class="symbol-info">
                                 <h2 id="detail-symbol-name">BTC-USDT</h2>
-                                <span class="exchange-badge" id="detail-exchange">OKX</span>
+                                <div class="symbol-badges">
+                                    <span class="exchange-badge" id="detail-market">KOSPI</span>
+                                    <span class="exchange-badge" id="detail-exchange">OKX</span>
+                                    <span class="etf-badge" id="detail-etf-badge" style="display: none;">ETF</span>
+                                </div>
                             </div>
                             <button class="btn btn-secondary" id="btn-close-detail">닫기</button>
                         </div>
-                        <div class="symbol-detail-body">
-                            <div class="detail-price">
-                                <span class="current-price" id="detail-price">$0.00</span>
-                                <span class="price-change profit" id="detail-change">+0.00%</span>
-                            </div>
+
+                        <!-- 현재가 헤더 -->
+                        <div class="detail-price-header">
+                            <span class="current-price" id="detail-price">₩0</span>
+                            <span class="price-change profit" id="detail-change">+0.00%</span>
+                        </div>
+
+                        <!-- 상세 탭 -->
+                        <div class="detail-tabs">
+                            <button class="detail-tab active" data-tab="price">시세</button>
+                            <button class="detail-tab" data-tab="financial">재무</button>
+                            <button class="detail-tab" data-tab="opinion">투자의견</button>
+                        </div>
+
+                        <!-- 시세 탭 -->
+                        <div class="detail-tab-content" id="detail-tab-price">
                             <div class="detail-stats">
                                 <div class="stat-item">
-                                    <span class="stat-label">24h 고가</span>
-                                    <span class="stat-value" id="detail-high">$0.00</span>
+                                    <span class="stat-label">고가</span>
+                                    <span class="stat-value" id="detail-high">-</span>
                                 </div>
                                 <div class="stat-item">
-                                    <span class="stat-label">24h 저가</span>
-                                    <span class="stat-value" id="detail-low">$0.00</span>
+                                    <span class="stat-label">저가</span>
+                                    <span class="stat-value" id="detail-low">-</span>
                                 </div>
                                 <div class="stat-item">
                                     <span class="stat-label">거래량</span>
-                                    <span class="stat-value" id="detail-volume">0</span>
+                                    <span class="stat-value" id="detail-volume">-</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">시가총액</span>
+                                    <span class="stat-value" id="detail-market-cap">-</span>
                                 </div>
                             </div>
                             <div class="mini-chart-container">
-                                <canvas id="mini-chart"></canvas>
+                                <h4>60일 차트</h4>
+                                <canvas id="mini-chart" width="400" height="200"></canvas>
                             </div>
-                            <button class="btn btn-primary" id="btn-set-strategy-symbol">이 종목으로 전략 설정</button>
+                            <div class="investor-trend" id="investor-trend-section" style="display: none;">
+                                <h4>투자자별 순매수 (최근 5일)</h4>
+                                <canvas id="investor-chart" width="400" height="150"></canvas>
+                            </div>
                         </div>
+
+                        <!-- 재무 탭 -->
+                        <div class="detail-tab-content" id="detail-tab-financial" style="display: none;">
+                            <div class="kis-notice" id="financial-notice" style="display: none;">
+                                <p>KIS 계정을 등록하면 재무제표를 확인할 수 있습니다.</p>
+                                <button class="btn btn-primary btn-sm" onclick="navigateTo('account-manage')">계정 등록하기</button>
+                            </div>
+                            <div class="financial-content" id="financial-content">
+                                <div class="financial-cards">
+                                    <div class="fin-card">
+                                        <span class="fin-label">PER</span>
+                                        <span class="fin-value" id="fin-per">-</span>
+                                    </div>
+                                    <div class="fin-card">
+                                        <span class="fin-label">PBR</span>
+                                        <span class="fin-value" id="fin-pbr">-</span>
+                                    </div>
+                                    <div class="fin-card">
+                                        <span class="fin-label">ROE</span>
+                                        <span class="fin-value" id="fin-roe">-</span>
+                                    </div>
+                                    <div class="fin-card">
+                                        <span class="fin-label">부채비율</span>
+                                        <span class="fin-value" id="fin-debt">-</span>
+                                    </div>
+                                </div>
+                                <div class="income-chart-container">
+                                    <h4>손익 추이 (최근 4분기)</h4>
+                                    <canvas id="income-chart" width="400" height="180"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 투자의견 탭 -->
+                        <div class="detail-tab-content" id="detail-tab-opinion" style="display: none;">
+                            <div class="kis-notice" id="opinion-notice" style="display: none;">
+                                <p>KIS 계정을 등록하면 투자의견을 확인할 수 있습니다.</p>
+                                <button class="btn btn-primary btn-sm" onclick="navigateTo('account-manage')">계정 등록하기</button>
+                            </div>
+                            <div class="opinion-content" id="opinion-content">
+                                <div class="consensus-section">
+                                    <div class="consensus-badge" id="consensus-badge">매수</div>
+                                    <div class="target-price">
+                                        <span class="label">목표가</span>
+                                        <span class="value" id="target-price">₩0</span>
+                                    </div>
+                                    <div class="analyst-count">
+                                        <span>분석가 <strong id="analyst-count">0</strong>명</span>
+                                    </div>
+                                </div>
+                                <div class="opinion-chart-container">
+                                    <h4>투자의견 분포</h4>
+                                    <canvas id="opinion-chart" width="200" height="200"></canvas>
+                                </div>
+                                <div class="opinion-breakdown">
+                                    <div class="opinion-item buy"><span>매수</span><span id="buy-count">0</span></div>
+                                    <div class="opinion-item hold"><span>중립</span><span id="hold-count">0</span></div>
+                                    <div class="opinion-item sell"><span>매도</span><span id="sell-count">0</span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-primary" id="btn-set-strategy-symbol">이 종목으로 전략 설정</button>
                     </section>
 
                     <!-- 접근 제한 안내 -->

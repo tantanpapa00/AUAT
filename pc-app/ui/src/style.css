@@ -3420,9 +3420,212 @@ body {
 }
 
 .mini-chart-container {
-    height: 120px;
     margin-bottom: 20px;
 }
+
+.mini-chart-container h4 {
+    margin: 0 0 10px 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+/* Symbol badges */
+.symbol-badges {
+    display: flex;
+    gap: 8px;
+}
+
+.etf-badge {
+    background: rgba(139, 92, 246, 0.2);
+    color: #8B5CF6;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* Detail price header */
+.detail-price-header {
+    display: flex;
+    align-items: baseline;
+    gap: 15px;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--border);
+}
+
+/* Detail tabs */
+.detail-tabs {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+}
+
+.detail-tab {
+    padding: 8px 16px;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.detail-tab:hover {
+    background: var(--bg-light);
+    color: var(--text-primary);
+}
+
+.detail-tab.active {
+    background: var(--primary);
+    color: white;
+}
+
+.detail-tab-content {
+    min-height: 200px;
+}
+
+/* Investor trend section */
+.investor-trend {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border);
+}
+
+.investor-trend h4 {
+    margin: 0 0 10px 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+/* KIS notice */
+.kis-notice {
+    text-align: center;
+    padding: 40px 20px;
+    background: var(--bg-light);
+    border-radius: 12px;
+}
+
+.kis-notice p {
+    margin: 0 0 15px 0;
+    color: var(--text-muted);
+}
+
+/* Financial cards */
+.financial-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.fin-card {
+    background: var(--bg-light);
+    border-radius: 12px;
+    padding: 15px;
+    text-align: center;
+}
+
+.fin-card .fin-label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+}
+
+.fin-card .fin-value {
+    display: block;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.income-chart-container h4 {
+    margin: 0 0 10px 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+/* Consensus section */
+.consensus-section {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+    margin-bottom: 25px;
+}
+
+.consensus-badge {
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.consensus-badge.buy {
+    background: rgba(34, 197, 94, 0.2);
+    color: #22C55E;
+}
+
+.consensus-badge.hold {
+    background: rgba(245, 158, 11, 0.2);
+    color: #F59E0B;
+}
+
+.consensus-badge.sell {
+    background: rgba(239, 68, 68, 0.2);
+    color: #EF4444;
+}
+
+.target-price .label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.target-price .value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.analyst-count {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.opinion-chart-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.opinion-chart-container h4 {
+    margin: 0 0 10px 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.opinion-breakdown {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+}
+
+.opinion-item {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 0.9rem;
+}
+
+.opinion-item.buy span:first-child { color: #22C55E; }
+.opinion-item.hold span:first-child { color: #F59E0B; }
+.opinion-item.sell span:first-child { color: #EF4444; }
 
 .access-restriction {
     position: absolute;
