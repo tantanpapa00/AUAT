@@ -8518,18 +8518,32 @@ async def get_market_events(
 # [STEP 3] AI 분석 + 관심종목
 # =============================================================================
 
-# 요금제별 AI 사용 제한
-AI_LIMITS = {
+# 요금제별 AI 사용 제한 (일일)
+AI_DAILY_LIMITS = {
     "starter": 0,
-    "standard": 5,
-    "pro": 10,
-    "premium": 20,
+    "free": 0,
+    "standard": 3,
+    "hub": 3,
+    "pro": 7,
+    "premium": 15,
+}
+
+# 요금제별 AI 사용 제한 (월간)
+AI_MONTHLY_LIMITS = {
+    "starter": 0,
+    "free": 0,
+    "standard": 30,
+    "hub": 30,
+    "pro": 100,
+    "premium": 200,
 }
 
 # 요금제별 관심종목 제한
 WATCHLIST_LIMITS = {
     "starter": 10,
+    "free": 10,
     "standard": 50,
+    "hub": 50,
     "pro": 200,
     "premium": 99999,
 }
@@ -8542,6 +8556,8 @@ def _ensure_ai_tables(db: Session):
         DO $$ BEGIN
             ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_usage_count INTEGER DEFAULT 0;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_usage_date DATE;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_monthly_count INTEGER DEFAULT 0;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_monthly_date VARCHAR(7);
         EXCEPTION WHEN others THEN NULL;
         END $$;
         """,
@@ -8609,13 +8625,22 @@ def _check_standard_plan(user: Optional[User]) -> bool:
     return plan in ("standard", "pro", "premium")
 
 
-def _get_ai_limit(user: User) -> int:
-    """요금제별 AI 사용 제한"""
+def _get_ai_daily_limit(user: User) -> int:
+    """요금제별 AI 일일 사용 제한"""
     role = getattr(user, "role", "user")
     if role == "admin":
         return 99999
     plan = getattr(user, "plan", "free")
-    return AI_LIMITS.get(plan, 0)
+    return AI_DAILY_LIMITS.get(plan, 0)
+
+
+def _get_ai_monthly_limit(user: User) -> int:
+    """요금제별 AI 월간 사용 제한"""
+    role = getattr(user, "role", "user")
+    if role == "admin":
+        return 99999
+    plan = getattr(user, "plan", "free")
+    return AI_MONTHLY_LIMITS.get(plan, 0)
 
 
 def _get_watchlist_limit(user: User) -> int:
@@ -8632,36 +8657,51 @@ async def get_ai_usage(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """AI 사용량 조회"""
+    """AI 사용량 조회 (일일 + 월간)"""
     _ensure_ai_tables(db)
 
-    max_count = _get_ai_limit(current_user)
+    daily_max = _get_ai_daily_limit(current_user)
+    monthly_max = _get_ai_monthly_limit(current_user)
     plan = getattr(current_user, "plan", "free")
+    today = datetime.now(KST).date()
+    this_month = today.strftime("%Y-%m")
 
-    # 오늘 사용량 조회
+    daily_count = 0
+    monthly_count = 0
+
     try:
         result = db.execute(
-            text("SELECT ai_usage_count, ai_usage_date FROM users WHERE id = :uid"),
+            text("SELECT ai_usage_count, ai_usage_date, ai_monthly_count, ai_monthly_date FROM users WHERE id = :uid"),
             {"uid": current_user.id}
         )
         row = result.fetchone()
         if row:
-            usage_count = row[0] or 0
             usage_date = row[1]
-            today = datetime.now(KST).date()
-            if usage_date != today:
-                # 새 날짜면 리셋
-                usage_count = 0
-        else:
-            usage_count = 0
-    except Exception:
-        usage_count = 0
+            monthly_date = row[3] or ""
+
+            # 일일 리셋
+            if usage_date == today:
+                daily_count = row[0] or 0
+            else:
+                daily_count = 0
+
+            # 월간 리셋
+            if monthly_date == this_month:
+                monthly_count = row[2] or 0
+            else:
+                monthly_count = 0
+
+    except Exception as e:
+        print(f"AI usage query error: {e}")
 
     return {
-        "used": usage_count,
-        "max": max_count,
+        "daily_used": daily_count,
+        "daily_max": daily_max,
+        "daily_remaining": max(0, daily_max - daily_count),
+        "monthly_used": monthly_count,
+        "monthly_max": monthly_max,
+        "monthly_remaining": max(0, monthly_max - monthly_count),
         "plan": plan,
-        "remaining": max(0, max_count - usage_count),
     }
 
 
@@ -8682,34 +8722,70 @@ async def request_ai_analysis(
     if not _check_standard_plan(current_user):
         raise HTTPException(status_code=403, detail="AI 종합분석은 Standard 이상에서 이용 가능합니다")
 
-    max_count = _get_ai_limit(current_user)
+    daily_max = _get_ai_daily_limit(current_user)
+    monthly_max = _get_ai_monthly_limit(current_user)
     today = datetime.now(KST).date()
+    this_month = today.strftime("%Y-%m")
 
-    # 사용량 체크
+    daily_count = 0
+    monthly_count = 0
+
+    # 사용량 체크 및 리셋
     try:
         result = db.execute(
-            text("SELECT ai_usage_count, ai_usage_date FROM users WHERE id = :uid"),
+            text("SELECT ai_usage_count, ai_usage_date, ai_monthly_count, ai_monthly_date FROM users WHERE id = :uid"),
             {"uid": current_user.id}
         )
         row = result.fetchone()
-        usage_count = row[0] or 0 if row else 0
-        usage_date = row[1] if row else None
 
-        if usage_date != today:
-            usage_count = 0
-            db.execute(
-                text("UPDATE users SET ai_usage_count = 0, ai_usage_date = :today WHERE id = :uid"),
-                {"uid": current_user.id, "today": today}
-            )
+        if row:
+            usage_date = row[1]
+            monthly_date = row[3] or ""
+
+            # 일일 리셋
+            if usage_date != today:
+                daily_count = 0
+                db.execute(
+                    text("UPDATE users SET ai_usage_count = 0, ai_usage_date = :today WHERE id = :uid"),
+                    {"uid": current_user.id, "today": today}
+                )
+            else:
+                daily_count = row[0] or 0
+
+            # 월간 리셋
+            if monthly_date != this_month:
+                monthly_count = 0
+                db.execute(
+                    text("UPDATE users SET ai_monthly_count = 0, ai_monthly_date = :month WHERE id = :uid"),
+                    {"uid": current_user.id, "month": this_month}
+                )
+            else:
+                monthly_count = row[2] or 0
+
             db.commit()
 
-        if usage_count >= max_count:
+        # 일일 제한 체크
+        if daily_count >= daily_max:
             return {
                 "success": False,
-                "error": "오늘의 AI 분석 횟수를 모두 사용했습니다",
-                "remaining_count": 0,
-                "max_count": max_count,
+                "error": "오늘의 AI 분석 횟수를 모두 사용했습니다. 내일 다시 이용해주세요.",
+                "daily_used": daily_count,
+                "daily_max": daily_max,
+                "monthly_used": monthly_count,
+                "monthly_max": monthly_max,
             }
+
+        # 월간 제한 체크
+        if monthly_count >= monthly_max:
+            return {
+                "success": False,
+                "error": "이번 달 AI 분석 횟수를 모두 사용했습니다. 다음 달에 이용해주세요.",
+                "daily_used": daily_count,
+                "daily_max": daily_max,
+                "monthly_used": monthly_count,
+                "monthly_max": monthly_max,
+            }
+
     except Exception as e:
         print(f"AI usage check error: {e}")
 
@@ -8725,12 +8801,15 @@ async def request_ai_analysis(
         )
         cache_row = cache_result.fetchone()
         if cache_row:
+            # 캐시된 결과 반환 시 횟수 차감 안 함
             return {
                 "success": True,
                 "report": cache_row[0],
                 "cached": True,
-                "remaining_count": max_count - usage_count,
-                "max_count": max_count,
+                "daily_used": daily_count,
+                "daily_max": daily_max,
+                "monthly_used": monthly_count,
+                "monthly_max": monthly_max,
             }
     except Exception:
         pass
@@ -8770,20 +8849,24 @@ async def request_ai_analysis(
     # AI 보고서 생성 (간단 템플릿 기반)
     report = _generate_simple_report(symbol_data)
 
-    # 사용량 증가
+    # 사용량 증가 (일일 + 월간)
     try:
         db.execute(
-            text("UPDATE users SET ai_usage_count = ai_usage_count + 1 WHERE id = :uid"),
+            text("""UPDATE users SET
+                ai_usage_count = ai_usage_count + 1,
+                ai_monthly_count = ai_monthly_count + 1
+                WHERE id = :uid"""),
             {"uid": current_user.id}
         )
         db.commit()
-        usage_count += 1
+        daily_count += 1
+        monthly_count += 1
     except Exception:
         db.rollback()
 
-    # 캐시 저장
+    # 캐시 저장 (6시간)
     try:
-        expires = datetime.now(timezone.utc) + timedelta(hours=1)
+        expires = datetime.now(timezone.utc) + timedelta(hours=6)
         db.execute(
             text("""
                 INSERT INTO ai_reports (symbol, exchange, report_text, data_snapshot, expires_at)
@@ -8805,8 +8888,10 @@ async def request_ai_analysis(
         "success": True,
         "report": report,
         "cached": False,
-        "remaining_count": max_count - usage_count,
-        "max_count": max_count,
+        "daily_used": daily_count,
+        "daily_max": daily_max,
+        "monthly_used": monthly_count,
+        "monthly_max": monthly_max,
     }
 
 
@@ -9428,9 +9513,11 @@ async def admin_update_user_plan(
 ):
     """사용자 요금제 변경 (관리자 전용)"""
     body = await request.json()
-    new_plan = body.get("plan", "free")
+    new_plan = body.get("plan", "starter")
 
-    if new_plan not in ["free", "hub", "premium"]:
+    # 새 요금제 (starter, standard, pro, premium) 또는 레거시 (free, hub)
+    valid_plans = ["starter", "standard", "pro", "premium", "free", "hub"]
+    if new_plan not in valid_plans:
         raise HTTPException(status_code=400, detail="잘못된 요금제입니다")
 
     try:
@@ -9541,3 +9628,121 @@ async def admin_export_users(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/admin/stats")
+async def admin_get_stats(
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """관리자 대시보드 통계 (전체 가입자, 활성 사용자, 오늘 가입자, AI 사용량)"""
+    try:
+        today = datetime.now(KST).date()
+        today_str = today.strftime("%Y-%m-%d")
+        this_month = today.strftime("%Y-%m")
+
+        # 전체 가입자 수
+        total_users = db.execute(text("SELECT COUNT(*) FROM users")).scalar() or 0
+
+        # 활성 사용자 수
+        active_users = db.execute(text("SELECT COUNT(*) FROM users WHERE is_active = true")).scalar() or 0
+
+        # 오늘 가입자 수
+        today_signups = db.execute(
+            text("SELECT COUNT(*) FROM users WHERE DATE(created_at) = :today"),
+            {"today": today_str}
+        ).scalar() or 0
+
+        # 오늘 AI 분석 총 횟수
+        today_ai = db.execute(
+            text("SELECT SUM(ai_usage_count) FROM users WHERE ai_usage_date = :today"),
+            {"today": today_str}
+        ).scalar() or 0
+
+        # 요금제별 가입자 수
+        plan_sql = text("""
+            SELECT plan, COUNT(*) as cnt
+            FROM users
+            GROUP BY plan
+        """)
+        plan_rows = db.execute(plan_sql).fetchall()
+        plan_counts = {
+            "starter": 0,
+            "standard": 0,
+            "pro": 0,
+            "premium": 0,
+            "free": 0,
+            "hub": 0
+        }
+        for row in plan_rows:
+            plan_name = row[0] or "free"
+            plan_counts[plan_name] = row[1]
+
+        # 요금제 가격 (월)
+        plan_prices = {
+            "starter": 19900,
+            "standard": 49000,
+            "pro": 99000,
+            "premium": 249000,
+            "free": 0,
+            "hub": 0
+        }
+
+        # AI 사용량 (최근 7일)
+        ai_usage_7days = []
+        for i in range(7):
+            d = today - timedelta(days=i)
+            d_str = d.strftime("%Y-%m-%d")
+            count = db.execute(
+                text("SELECT SUM(ai_usage_count) FROM users WHERE ai_usage_date = :d"),
+                {"d": d_str}
+            ).scalar() or 0
+            ai_usage_7days.append({
+                "date": d_str,
+                "count": count,
+                "tokens": count * 2000  # 추정 토큰
+            })
+
+        return {
+            "total_users": total_users,
+            "active_users": active_users,
+            "today_signups": today_signups,
+            "today_ai": today_ai,
+            "plan_counts": plan_counts,
+            "plan_prices": plan_prices,
+            "ai_usage_7days": ai_usage_7days
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/api/admin/recent-users")
+async def admin_get_recent_users(
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """최근 가입자 10명"""
+    try:
+        rows = db.execute(text("""
+            SELECT id, email, name, plan, created_at, is_active
+            FROM users
+            ORDER BY created_at DESC
+            LIMIT 10
+        """)).mappings().all()
+
+        users = []
+        for row in rows:
+            users.append({
+                "id": row["id"],
+                "email": row["email"],
+                "name": row["name"],
+                "plan": row["plan"],
+                "created_at": str(row["created_at"]) if row["created_at"] else None,
+                "is_active": row.get("is_active", True)
+            })
+
+        return {"users": users}
+
+    except Exception as e:
+        return {"users": [], "error": str(e)}

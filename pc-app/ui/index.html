@@ -110,10 +110,10 @@
                     </div>
                 </div>
 
-                <!-- 심볼정보 -->
+                <!-- 종목정보 -->
                 <a href="#" class="nav-item" data-page="symbols">
                     <span class="nav-icon">🔍</span>
-                    <span class="nav-text">심볼정보</span>
+                    <span class="nav-text">종목정보</span>
                 </a>
 
                 <!-- 시장분석 (아코디언) - Pro 이상 -->
@@ -431,7 +431,7 @@
 
                     <!-- Step 1: 거래소 선택 -->
                     <section class="wizard-content card" id="tv-step-1">
-                        <h2>Step 1. 거래소 선택</h2>
+                        <h2>단계 1. 거래소 선택</h2>
                         <p class="step-description">등록된 거래소 계정 중 사용할 거래소를 선택하세요.</p>
                         <div class="exchange-selection" id="exchange-selection">
                             <p class="empty">등록된 계정 로딩 중...</p>
@@ -444,10 +444,10 @@
 
                     <!-- Step 2: 자산 선택 -->
                     <section class="wizard-content card" id="tv-step-2" style="display: none;">
-                        <h2>Step 2. 자산 선택</h2>
+                        <h2>단계 2. 자산 선택</h2>
                         <p class="step-description">거래할 자산을 검색하고 선택하세요.</p>
                         <div class="asset-search">
-                            <input type="text" id="asset-search-input" class="search-input" placeholder="심볼 검색 (예: BTC, 삼성전자)">
+                            <input type="text" id="asset-search-input" class="search-input" placeholder="종목 검색 (예: BTC, 삼성전자)">
                             <div class="popular-assets">
                                 <span class="popular-label">인기:</span>
                                 <button class="asset-tag" data-symbol="BTC-USDT">BTC</button>
@@ -466,7 +466,7 @@
 
                     <!-- Step 3: 매매 설정 -->
                     <section class="wizard-content card" id="tv-step-3" style="display: none;">
-                        <h2>Step 3. 매매 설정</h2>
+                        <h2>단계 3. 매매 설정</h2>
                         <p class="step-description">웹훅 신호 수신 시 실행할 주문 설정을 구성하세요.</p>
                         <div class="order-settings-grid">
                             <div class="setting-card">
@@ -522,7 +522,7 @@
 
                     <!-- Step 4: 템플릿 확인 -->
                     <section class="wizard-content card" id="tv-step-4" style="display: none;">
-                        <h2>Step 4. 템플릿 확인</h2>
+                        <h2>단계 4. 템플릿 확인</h2>
                         <p class="step-description">생성된 JSON을 TradingView 웹훅 메시지에 붙여넣으세요.</p>
 
                         <div class="template-preview">
@@ -582,13 +582,13 @@
                 </div>
             </main>
 
-            <!-- ========== 심볼정보 페이지 (PHASE 5) ========== -->
+            <!-- ========== 종목정보 페이지 (PHASE 5) ========== -->
             <main class="main page-content" id="page-symbols" style="display: none;">
                 <div class="symbols-container">
                     <!-- 검색 영역 -->
                     <section class="card search-section">
                         <div class="search-bar">
-                            <input type="text" id="symbol-search" class="search-input" placeholder="종목명 또는 심볼코드 검색...">
+                            <input type="text" id="symbol-search" class="search-input" placeholder="종목명 또는 종목코드 검색...">
                             <button class="btn btn-primary" id="btn-symbol-search">검색</button>
                         </div>
                         <div class="exchange-filter-tabs">
@@ -611,12 +611,12 @@
                         </div>
                     </section>
 
-                    <!-- 심볼 목록 -->
+                    <!-- 종목 목록 -->
                     <section class="card symbols-list-section">
                         <table class="symbols-table" id="symbols-table">
                             <thead>
                                 <tr>
-                                    <th>심볼</th>
+                                    <th>종목코드</th>
                                     <th>이름</th>
                                     <th>거래소</th>
                                     <th>현재가</th>
@@ -625,12 +625,12 @@
                                 </tr>
                             </thead>
                             <tbody id="symbols-tbody">
-                                <tr><td colspan="6" class="empty-cell">심볼을 검색하세요</td></tr>
+                                <tr><td colspan="6" class="empty-cell">종목을 검색하세요</td></tr>
                             </tbody>
                         </table>
                     </section>
 
-                    <!-- 심볼 상세 정보 패널 (미니 종목보고서) -->
+                    <!-- 종목 상세 정보 패널 (미니 종목보고서) -->
                     <section class="card symbol-detail-panel" id="symbol-detail-panel" style="display: none;">
                         <div class="symbol-detail-header">
                             <div class="symbol-info">
@@ -683,8 +683,25 @@
                                 </div>
                             </div>
                             <div class="mini-chart-container">
-                                <h4>60일 차트</h4>
+                                <div class="chart-controls">
+                                    <div class="chart-period-btns">
+                                        <button class="chart-period-btn" data-period="1w">1주</button>
+                                        <button class="chart-period-btn active" data-period="1m">1개월</button>
+                                        <button class="chart-period-btn" data-period="3m">3개월</button>
+                                        <button class="chart-period-btn" data-period="6m">6개월</button>
+                                        <button class="chart-period-btn" data-period="1y">1년</button>
+                                    </div>
+                                    <div class="chart-type-btns">
+                                        <button class="chart-type-btn active" data-type="line">라인</button>
+                                        <button class="chart-type-btn" data-type="candle">캔들</button>
+                                    </div>
+                                </div>
                                 <canvas id="mini-chart" width="400" height="200"></canvas>
+                                <div class="ma-toggles">
+                                    <label><input type="checkbox" id="ma5-toggle"> 5일선</label>
+                                    <label><input type="checkbox" id="ma20-toggle"> 20일선</label>
+                                    <label><input type="checkbox" id="ma60-toggle"> 60일선</label>
+                                </div>
                             </div>
                             <div class="investor-trend" id="investor-trend-section" style="display: none;">
                                 <h4>투자자별 순매수 (최근 5일)</h4>
@@ -760,7 +777,7 @@
                     <div class="access-restriction" id="symbols-restriction" style="display: none;">
                         <div class="restriction-content">
                             <span class="restriction-icon">🔒</span>
-                            <h3>심볼정보는 허브 이상 요금제에서 이용 가능합니다</h3>
+                            <h3>종목정보는 허브 이상 요금제에서 이용 가능합니다</h3>
                             <p>허브 또는 프리미엄 요금제로 업그레이드하여 모든 기능을 이용하세요.</p>
                             <button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 확인</button>
                         </div>
@@ -1058,7 +1075,7 @@
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label>심볼</label>
+                                    <label>종목</label>
                                     <input type="text" id="custom-symbol" class="form-input" placeholder="예: BTC-USDT">
                                 </div>
                             </div>
@@ -1181,7 +1198,7 @@
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label>심볼</label>
+                                    <label>종목</label>
                                     <input type="text" id="reversal-symbol" class="form-input" placeholder="예: BTC-USDT">
                                 </div>
                             </div>
@@ -1232,7 +1249,7 @@
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label>심볼</label>
+                                    <label>종목</label>
                                     <input type="text" id="trend-symbol" class="form-input" placeholder="예: BTC-USDT">
                                 </div>
                             </div>
@@ -1311,60 +1328,125 @@
                             <select id="account-exchange" class="form-select">
                                 <option value="">거래소 선택</option>
                                 <option value="OKX">OKX</option>
-                                <option value="KIS">한국투자증권 (KIS)</option>
+                                <option value="BINANCE">Binance</option>
+                                <option value="BYBIT">Bybit</option>
+                                <option value="UPBIT">Upbit</option>
+                                <option value="KIS_KR">KIS 국내주식</option>
+                                <option value="KIS_US">KIS 해외주식</option>
                             </select>
                         </div>
 
-                        <!-- OKX 폼 -->
-                        <div id="okx-form" style="display: none;">
+                        <!-- OKX 폼 (API Key + Secret Key + Passphrase) -->
+                        <div id="okx-form" class="exchange-form" style="display: none;">
                             <div class="form-group">
                                 <label>계정 별칭</label>
                                 <input type="text" id="okx-alias" class="form-input" placeholder="예: 내 OKX 메인">
                             </div>
                             <div class="form-group">
                                 <label>API Key</label>
-                                <input type="password" id="okx-api-key" class="form-input">
+                                <input type="password" id="okx-api-key" class="form-input" placeholder="API 키를 입력하세요">
                             </div>
                             <div class="form-group">
                                 <label>Secret Key</label>
-                                <input type="password" id="okx-secret" class="form-input">
+                                <input type="password" id="okx-secret" class="form-input" placeholder="Secret 키를 입력하세요">
                             </div>
                             <div class="form-group">
                                 <label>Passphrase</label>
-                                <input type="password" id="okx-passphrase" class="form-input">
+                                <input type="password" id="okx-passphrase" class="form-input" placeholder="Passphrase를 입력하세요">
                             </div>
                         </div>
 
-                        <!-- KIS 폼 -->
-                        <div id="kis-form" style="display: none;">
+                        <!-- Binance 폼 (API Key + Secret Key) -->
+                        <div id="binance-form" class="exchange-form" style="display: none;">
                             <div class="form-group">
                                 <label>계정 별칭</label>
-                                <input type="text" id="kis-alias" class="form-input" placeholder="예: 한투 주식계좌">
+                                <input type="text" id="binance-alias" class="form-input" placeholder="예: 내 Binance 메인">
+                            </div>
+                            <div class="form-group">
+                                <label>API Key</label>
+                                <input type="password" id="binance-api-key" class="form-input" placeholder="API 키를 입력하세요">
+                            </div>
+                            <div class="form-group">
+                                <label>Secret Key</label>
+                                <input type="password" id="binance-secret" class="form-input" placeholder="Secret 키를 입력하세요">
+                            </div>
+                        </div>
+
+                        <!-- Bybit 폼 (API Key + Secret Key) -->
+                        <div id="bybit-form" class="exchange-form" style="display: none;">
+                            <div class="form-group">
+                                <label>계정 별칭</label>
+                                <input type="text" id="bybit-alias" class="form-input" placeholder="예: 내 Bybit 메인">
+                            </div>
+                            <div class="form-group">
+                                <label>API Key</label>
+                                <input type="password" id="bybit-api-key" class="form-input" placeholder="API 키를 입력하세요">
+                            </div>
+                            <div class="form-group">
+                                <label>Secret Key</label>
+                                <input type="password" id="bybit-secret" class="form-input" placeholder="Secret 키를 입력하세요">
+                            </div>
+                        </div>
+
+                        <!-- Upbit 폼 (Access Key + Secret Key) -->
+                        <div id="upbit-form" class="exchange-form" style="display: none;">
+                            <div class="form-group">
+                                <label>계정 별칭</label>
+                                <input type="text" id="upbit-alias" class="form-input" placeholder="예: 내 Upbit 메인">
+                            </div>
+                            <div class="form-group">
+                                <label>Access Key</label>
+                                <input type="password" id="upbit-access-key" class="form-input" placeholder="Access 키를 입력하세요">
+                            </div>
+                            <div class="form-group">
+                                <label>Secret Key</label>
+                                <input type="password" id="upbit-secret" class="form-input" placeholder="Secret 키를 입력하세요">
+                            </div>
+                        </div>
+
+                        <!-- KIS 국내주식 폼 (App Key + App Secret + 계좌번호) -->
+                        <div id="kis-kr-form" class="exchange-form" style="display: none;">
+                            <div class="form-group">
+                                <label>계정 별칭</label>
+                                <input type="text" id="kis-kr-alias" class="form-input" placeholder="예: 한투 국내주식">
                             </div>
                             <div class="form-group">
                                 <label>App Key</label>
-                                <input type="password" id="kis-app-key" class="form-input">
+                                <input type="password" id="kis-kr-app-key" class="form-input" placeholder="App Key를 입력하세요">
                             </div>
                             <div class="form-group">
                                 <label>App Secret</label>
-                                <input type="password" id="kis-app-secret" class="form-input">
+                                <input type="password" id="kis-kr-app-secret" class="form-input" placeholder="App Secret을 입력하세요">
                             </div>
                             <div class="form-group">
-                                <label>계좌번호</label>
-                                <input type="text" id="kis-account-number" class="form-input" placeholder="00000000-00">
+                                <label>계좌번호 (앞8자리-뒤2자리)</label>
+                                <input type="text" id="kis-kr-account-number" class="form-input" placeholder="예: 12345678-01">
+                            </div>
+                        </div>
+
+                        <!-- KIS 해외주식 폼 (App Key + App Secret + 계좌번호) -->
+                        <div id="kis-us-form" class="exchange-form" style="display: none;">
+                            <div class="form-group">
+                                <label>계정 별칭</label>
+                                <input type="text" id="kis-us-alias" class="form-input" placeholder="예: 한투 해외주식">
                             </div>
                             <div class="form-group">
-                                <label>계좌 구분</label>
-                                <select id="kis-account-type" class="form-select">
-                                    <option value="01">위탁 (01)</option>
-                                    <option value="03">종합매매 (03)</option>
-                                </select>
+                                <label>App Key</label>
+                                <input type="password" id="kis-us-app-key" class="form-input" placeholder="App Key를 입력하세요">
+                            </div>
+                            <div class="form-group">
+                                <label>App Secret</label>
+                                <input type="password" id="kis-us-app-secret" class="form-input" placeholder="App Secret을 입력하세요">
+                            </div>
+                            <div class="form-group">
+                                <label>계좌번호 (앞8자리-뒤2자리)</label>
+                                <input type="text" id="kis-us-account-number" class="form-input" placeholder="예: 12345678-01">
                             </div>
                         </div>
 
                         <div class="form-actions">
                             <button class="btn btn-secondary" id="btn-cancel-account">취소</button>
-                            <button class="btn btn-primary" id="btn-save-account">등록</button>
+                            <button class="btn btn-primary" id="btn-save-account">저장</button>
                         </div>
                     </div>
 
@@ -1472,7 +1554,7 @@
                                 <div class="price">₩29,900/월</div>
                                 <ul>
                                     <li>TV 연동 5개</li>
-                                    <li>심볼정보</li>
+                                    <li>종목정보</li>
                                     <li>알림 기능</li>
                                 </ul>
                                 <button class="btn btn-primary btn-sm" id="btn-upgrade-hub">구독하기</button>
@@ -1495,15 +1577,120 @@
             <!-- ========== 관리자 - 사용자관리 (PHASE 7) ========== -->
             <main class="main page-content" id="page-admin-users" style="display: none;">
                 <div class="admin-users-container">
+                    <!-- 사용자 현황 카드 -->
+                    <section class="admin-stats-cards">
+                        <div class="admin-stat-card">
+                            <div class="stat-icon">👥</div>
+                            <div class="stat-content">
+                                <div class="stat-label">전체 가입자</div>
+                                <div class="stat-value" id="admin-total-users">0</div>
+                            </div>
+                        </div>
+                        <div class="admin-stat-card">
+                            <div class="stat-icon">✅</div>
+                            <div class="stat-content">
+                                <div class="stat-label">활성 사용자</div>
+                                <div class="stat-value" id="admin-active-users">0</div>
+                            </div>
+                        </div>
+                        <div class="admin-stat-card">
+                            <div class="stat-icon">📅</div>
+                            <div class="stat-content">
+                                <div class="stat-label">오늘 가입자</div>
+                                <div class="stat-value" id="admin-today-signups">0</div>
+                            </div>
+                        </div>
+                        <div class="admin-stat-card">
+                            <div class="stat-icon">🤖</div>
+                            <div class="stat-content">
+                                <div class="stat-label">오늘 AI 분석</div>
+                                <div class="stat-value" id="admin-today-ai">0</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 요금제별 가입자 & 원형 차트 -->
+                    <div class="admin-grid">
+                        <section class="card">
+                            <h3>요금제별 가입자 현황</h3>
+                            <table class="admin-plan-table">
+                                <thead>
+                                    <tr>
+                                        <th>요금제</th>
+                                        <th>가입자 수</th>
+                                        <th>비율</th>
+                                        <th>월 예상 매출</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-plan-tbody">
+                                    <tr><td>Starter ₩19,900</td><td id="plan-starter-count">0</td><td id="plan-starter-pct">0%</td><td id="plan-starter-revenue">₩0</td></tr>
+                                    <tr><td>Standard ₩49,000</td><td id="plan-standard-count">0</td><td id="plan-standard-pct">0%</td><td id="plan-standard-revenue">₩0</td></tr>
+                                    <tr><td>Pro ₩99,000</td><td id="plan-pro-count">0</td><td id="plan-pro-pct">0%</td><td id="plan-pro-revenue">₩0</td></tr>
+                                    <tr><td>Premium ₩249,000</td><td id="plan-premium-count">0</td><td id="plan-premium-pct">0%</td><td id="plan-premium-revenue">₩0</td></tr>
+                                    <tr class="total-row"><td><strong>합계</strong></td><td id="plan-total-count"><strong>0</strong></td><td><strong>100%</strong></td><td id="plan-total-revenue"><strong>₩0</strong></td></tr>
+                                </tbody>
+                            </table>
+                        </section>
+                        <section class="card">
+                            <h3>요금제별 분포</h3>
+                            <div class="plan-chart-container">
+                                <canvas id="admin-plan-chart" width="200" height="200"></canvas>
+                            </div>
+                            <div class="plan-legend">
+                                <div class="legend-item"><span class="legend-color" style="background:#3B82F6"></span>Starter</div>
+                                <div class="legend-item"><span class="legend-color" style="background:#22C55E"></span>Standard</div>
+                                <div class="legend-item"><span class="legend-color" style="background:#F59E0B"></span>Pro</div>
+                                <div class="legend-item"><span class="legend-color" style="background:#EF4444"></span>Premium</div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- 최근 가입자 리스트 -->
+                    <section class="card">
+                        <h3>최근 가입자 (10명)</h3>
+                        <table class="admin-table" id="recent-users-table">
+                            <thead>
+                                <tr>
+                                    <th>이름/이메일</th>
+                                    <th>가입일</th>
+                                    <th>요금제</th>
+                                    <th>상태</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recent-users-tbody">
+                                <tr><td colspan="4" class="empty-cell">로딩 중...</td></tr>
+                            </tbody>
+                        </table>
+                    </section>
+
+                    <!-- AI 사용량 통계 -->
+                    <section class="card">
+                        <h3>AI 사용량 (최근 7일)</h3>
+                        <table class="admin-table" id="ai-usage-table">
+                            <thead>
+                                <tr>
+                                    <th>날짜</th>
+                                    <th>AI 분석 횟수</th>
+                                    <th>추정 토큰 사용량</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ai-usage-tbody">
+                                <tr><td colspan="3" class="empty-cell">로딩 중...</td></tr>
+                            </tbody>
+                        </table>
+                    </section>
+
+                    <!-- 사용자 관리 테이블 -->
                     <div class="admin-header">
                         <h2>사용자 관리</h2>
                         <div class="admin-actions">
                             <input type="text" id="user-search" class="search-input" placeholder="이메일 또는 이름 검색">
                             <select id="user-plan-filter" class="form-select">
                                 <option value="">전체 요금제</option>
-                                <option value="free">무료</option>
-                                <option value="hub">허브</option>
-                                <option value="premium">프리미엄</option>
+                                <option value="starter">Starter</option>
+                                <option value="standard">Standard</option>
+                                <option value="pro">Pro</option>
+                                <option value="premium">Premium</option>
                             </select>
                             <button class="btn btn-secondary" id="btn-export-users">CSV 내보내기</button>
                         </div>
@@ -1544,7 +1731,7 @@
                         </div>
                         <div class="system-card">
                             <div class="system-icon">⏱️</div>
-                            <div class="system-label">Uptime</div>
+                            <div class="system-label">가동 시간</div>
                             <div class="system-value" id="sys-uptime">--</div>
                         </div>
                         <div class="system-card">
@@ -1585,15 +1772,15 @@
                     </section>
 
                     <section class="card">
-                        <h3>Docker 컨테이너 상태</h3>
+                        <h3>서버 컨테이너 상태</h3>
                         <div class="container-status" id="container-status">
                             <div class="container-item">
                                 <span class="container-name">bbooster-app</span>
-                                <span class="container-state running">Running</span>
+                                <span class="container-state running">실행 중</span>
                             </div>
                             <div class="container-item">
                                 <span class="container-name">bbooster-db</span>
-                                <span class="container-state running">Running</span>
+                                <span class="container-state running">실행 중</span>
                             </div>
                         </div>
                     </section>

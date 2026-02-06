@@ -1771,6 +1771,49 @@ pub async fn admin_get_system_status(access_token: String) -> Result<SystemStatu
     }
 }
 
+// Admin Stats (관리자 대시보드 통계)
+#[tauri::command]
+pub async fn admin_get_stats(access_token: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/admin/stats", VPS_SERVER_URL);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await;
+
+    match resp {
+        Ok(r) if r.status().is_success() => {
+            r.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+        }
+        Ok(_) => Err("권한이 없습니다".to_string()),
+        Err(e) => Err(format!("네트워크 오류: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn admin_get_recent_users(access_token: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/admin/recent-users", VPS_SERVER_URL);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await;
+
+    match resp {
+        Ok(r) if r.status().is_success() => {
+            r.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+        }
+        Ok(_) => Err("권한이 없습니다".to_string()),
+        Err(e) => Err(format!("네트워크 오류: {}", e)),
+    }
+}
+
 // =====================================================
 // Market Analysis (STEP 2)
 // =====================================================

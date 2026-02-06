@@ -284,16 +284,17 @@ function updateUserUI(user) {
     }
 
     // Update subscription badge
-    if (user.plan === 'premium') {
-        if (badge) badge.className = 'subscription-badge premium';
-        if (badgeText) badgeText.textContent = '프리미엄';
-    } else if (user.plan === 'hub') {
-        if (badge) badge.className = 'subscription-badge hub';
-        if (badgeText) badgeText.textContent = '허브';
-    } else {
-        if (badge) badge.className = 'subscription-badge free';
-        if (badgeText) badgeText.textContent = '무료';
-    }
+    const planDisplayMap = {
+        'premium': { class: 'premium', text: 'Premium' },
+        'pro': { class: 'pro', text: 'Pro' },
+        'standard': { class: 'standard', text: 'Standard' },
+        'hub': { class: 'standard', text: 'Standard' },
+        'starter': { class: 'starter', text: 'Starter' },
+        'free': { class: 'starter', text: 'Starter' },
+    };
+    const planInfo = planDisplayMap[user.plan] || planDisplayMap['starter'];
+    if (badge) badge.className = `subscription-badge ${planInfo.class}`;
+    if (badgeText) badgeText.textContent = planInfo.text;
 
     // Show admin menu if admin
     if (user.role === 'admin') {
@@ -372,7 +373,7 @@ const pageTitle = document.getElementById('page-title');
 const pageTitles = {
     home: '홈',
     'tv-connect': '트레이딩뷰 연결',
-    symbols: '심볼정보',
+    symbols: '종목정보',
     'premium-strategy': '프리미엄 전략',
     'market-overview': '시장현황',
     'sector-analysis': '업종분석',
@@ -1719,7 +1720,7 @@ async function loadStrategies() {
                 </div>
                 <div class="strategy-card-body">
                     <div class="strategy-info">
-                        <span>심볼:</span>
+                        <span>종목:</span>
                         <strong>${s.symbol}</strong>
                     </div>
                     <div class="strategy-info">
@@ -2187,8 +2188,21 @@ document.getElementById('btn-cancel-account')?.addEventListener('click', () => {
 
 document.getElementById('account-exchange')?.addEventListener('change', (e) => {
     const exchange = e.target.value;
-    document.getElementById('okx-form').style.display = exchange === 'OKX' ? 'block' : 'none';
-    document.getElementById('kis-form').style.display = exchange === 'KIS' ? 'block' : 'none';
+    // 모든 거래소 폼 숨김
+    document.querySelectorAll('.exchange-form').forEach(form => form.style.display = 'none');
+    // 선택된 거래소 폼만 표시
+    const formMap = {
+        'OKX': 'okx-form',
+        'BINANCE': 'binance-form',
+        'BYBIT': 'bybit-form',
+        'UPBIT': 'upbit-form',
+        'KIS_KR': 'kis-kr-form',
+        'KIS_US': 'kis-us-form'
+    };
+    const formId = formMap[exchange];
+    if (formId) {
+        document.getElementById(formId).style.display = 'block';
+    }
 });
 
 document.getElementById('btn-save-account')?.addEventListener('click', async () => {
@@ -2206,18 +2220,48 @@ document.getElementById('btn-save-account')?.addEventListener('click', async () 
         apiKey = document.getElementById('okx-api-key').value;
         apiSecret = document.getElementById('okx-secret').value;
         passphrase = document.getElementById('okx-passphrase').value;
-
         if (!name || !apiKey || !apiSecret || !passphrase) {
             showToast('모든 필드를 입력하세요', 'error');
             return;
         }
-    } else if (exchange === 'KIS') {
-        name = document.getElementById('kis-alias').value;
-        apiKey = document.getElementById('kis-app-key').value;
-        apiSecret = document.getElementById('kis-app-secret').value;
-        accountNumber = document.getElementById('kis-account-number').value;
-        accountType = document.getElementById('kis-account-type').value;
-
+    } else if (exchange === 'BINANCE') {
+        name = document.getElementById('binance-alias').value;
+        apiKey = document.getElementById('binance-api-key').value;
+        apiSecret = document.getElementById('binance-secret').value;
+        if (!name || !apiKey || !apiSecret) {
+            showToast('모든 필드를 입력하세요', 'error');
+            return;
+        }
+    } else if (exchange === 'BYBIT') {
+        name = document.getElementById('bybit-alias').value;
+        apiKey = document.getElementById('bybit-api-key').value;
+        apiSecret = document.getElementById('bybit-secret').value;
+        if (!name || !apiKey || !apiSecret) {
+            showToast('모든 필드를 입력하세요', 'error');
+            return;
+        }
+    } else if (exchange === 'UPBIT') {
+        name = document.getElementById('upbit-alias').value;
+        apiKey = document.getElementById('upbit-access-key').value;
+        apiSecret = document.getElementById('upbit-secret').value;
+        if (!name || !apiKey || !apiSecret) {
+            showToast('모든 필드를 입력하세요', 'error');
+            return;
+        }
+    } else if (exchange === 'KIS_KR') {
+        name = document.getElementById('kis-kr-alias').value;
+        apiKey = document.getElementById('kis-kr-app-key').value;
+        apiSecret = document.getElementById('kis-kr-app-secret').value;
+        accountNumber = document.getElementById('kis-kr-account-number').value;
+        if (!name || !apiKey || !apiSecret || !accountNumber) {
+            showToast('모든 필드를 입력하세요', 'error');
+            return;
+        }
+    } else if (exchange === 'KIS_US') {
+        name = document.getElementById('kis-us-alias').value;
+        apiKey = document.getElementById('kis-us-app-key').value;
+        apiSecret = document.getElementById('kis-us-app-secret').value;
+        accountNumber = document.getElementById('kis-us-account-number').value;
         if (!name || !apiKey || !apiSecret || !accountNumber) {
             showToast('모든 필드를 입력하세요', 'error');
             return;
@@ -2238,6 +2282,9 @@ document.getElementById('btn-save-account')?.addEventListener('click', async () 
 
         showToast('계정이 등록되었습니다', 'success');
         document.getElementById('account-form-section').style.display = 'none';
+        // 폼 초기화
+        document.querySelectorAll('.exchange-form input').forEach(input => input.value = '');
+        document.getElementById('account-exchange').value = '';
         loadAccountsList();
     } catch (error) {
         showToast('등록 실패: ' + error, 'error');
@@ -2291,7 +2338,169 @@ document.getElementById('btn-upgrade-premium')?.addEventListener('click', () => 
 // =====================================================
 // Admin Pages (PHASE 7)
 // =====================================================
+let adminPlanChart = null;
+
 async function loadAdminUsersPage() {
+    // 대시보드 통계 로드
+    await loadAdminStats();
+    // 최근 가입자 로드
+    await loadRecentUsers();
+    // AI 사용량 로드
+    await loadAiUsageStats();
+    // 사용자 목록 로드
+    await loadUsersList();
+}
+
+async function loadAdminStats() {
+    try {
+        const stats = await invoke('admin_get_stats', { accessToken: auth.accessToken || '' });
+
+        // 상단 카드 업데이트
+        document.getElementById('admin-total-users').textContent = stats.total_users || 0;
+        document.getElementById('admin-active-users').textContent = stats.active_users || 0;
+        document.getElementById('admin-today-signups').textContent = stats.today_signups || 0;
+        document.getElementById('admin-today-ai').textContent = stats.today_ai || 0;
+
+        // 요금제별 테이블 업데이트
+        const planCounts = stats.plan_counts || {};
+        const planPrices = stats.plan_prices || {};
+        const total = (planCounts.starter || 0) + (planCounts.standard || 0) + (planCounts.pro || 0) + (planCounts.premium || 0);
+
+        // Starter
+        const starterCount = planCounts.starter || planCounts.free || 0;
+        document.getElementById('plan-starter-count').textContent = starterCount;
+        document.getElementById('plan-starter-pct').textContent = total > 0 ? Math.round(starterCount / total * 100) + '%' : '0%';
+        document.getElementById('plan-starter-revenue').textContent = '₩' + (starterCount * 19900).toLocaleString();
+
+        // Standard
+        const standardCount = planCounts.standard || planCounts.hub || 0;
+        document.getElementById('plan-standard-count').textContent = standardCount;
+        document.getElementById('plan-standard-pct').textContent = total > 0 ? Math.round(standardCount / total * 100) + '%' : '0%';
+        document.getElementById('plan-standard-revenue').textContent = '₩' + (standardCount * 49000).toLocaleString();
+
+        // Pro
+        const proCount = planCounts.pro || 0;
+        document.getElementById('plan-pro-count').textContent = proCount;
+        document.getElementById('plan-pro-pct').textContent = total > 0 ? Math.round(proCount / total * 100) + '%' : '0%';
+        document.getElementById('plan-pro-revenue').textContent = '₩' + (proCount * 99000).toLocaleString();
+
+        // Premium
+        const premiumCount = planCounts.premium || 0;
+        document.getElementById('plan-premium-count').textContent = premiumCount;
+        document.getElementById('plan-premium-pct').textContent = total > 0 ? Math.round(premiumCount / total * 100) + '%' : '0%';
+        document.getElementById('plan-premium-revenue').textContent = '₩' + (premiumCount * 249000).toLocaleString();
+
+        // 합계
+        const totalRevenue = (starterCount * 19900) + (standardCount * 49000) + (proCount * 99000) + (premiumCount * 249000);
+        document.getElementById('plan-total-count').innerHTML = '<strong>' + total + '</strong>';
+        document.getElementById('plan-total-revenue').innerHTML = '<strong>₩' + totalRevenue.toLocaleString() + '</strong>';
+
+        // 원형 차트 그리기
+        drawAdminPlanChart([starterCount, standardCount, proCount, premiumCount]);
+
+    } catch (e) {
+        console.error('Failed to load admin stats:', e);
+    }
+}
+
+function drawAdminPlanChart(data) {
+    const canvas = document.getElementById('admin-plan-chart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    if (adminPlanChart) adminPlanChart.destroy();
+
+    adminPlanChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Starter', 'Standard', 'Pro', 'Premium'],
+            datasets: [{
+                data: data,
+                backgroundColor: ['#3B82F6', '#22C55E', '#F59E0B', '#EF4444'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            cutout: '60%',
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+
+async function loadRecentUsers() {
+    const tbody = document.getElementById('recent-users-tbody');
+    if (!tbody) return;
+
+    try {
+        const result = await invoke('admin_get_recent_users', { accessToken: auth.accessToken || '' });
+        const users = result.users || [];
+
+        if (users.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="empty-cell">최근 가입자 없음</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = users.map(user => {
+            const planText = getPlanDisplayName(user.plan);
+            const createdAt = user.created_at ? user.created_at.split('T')[0] : '-';
+            return `
+                <tr>
+                    <td><strong>${user.name || '-'}</strong><br><small>${user.email}</small></td>
+                    <td>${createdAt}</td>
+                    <td><span class="plan-badge ${user.plan}">${planText}</span></td>
+                    <td><span class="status-badge ${user.is_active ? 'success' : 'error'}">${user.is_active ? '활성' : '비활성'}</span></td>
+                </tr>
+            `;
+        }).join('');
+
+    } catch (e) {
+        console.error('Failed to load recent users:', e);
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-cell">로딩 실패</td></tr>';
+    }
+}
+
+function getPlanDisplayName(plan) {
+    const names = {
+        'starter': 'Starter',
+        'standard': 'Standard',
+        'pro': 'Pro',
+        'premium': 'Premium',
+        'free': 'Starter',
+        'hub': 'Standard'
+    };
+    return names[plan] || plan;
+}
+
+async function loadAiUsageStats() {
+    const tbody = document.getElementById('ai-usage-tbody');
+    if (!tbody) return;
+
+    try {
+        const stats = await invoke('admin_get_stats', { accessToken: auth.accessToken || '' });
+        const aiData = stats.ai_usage_7days || [];
+
+        if (aiData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="empty-cell">데이터 없음</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = aiData.map(d => `
+            <tr>
+                <td>${d.date}</td>
+                <td>${d.count}회</td>
+                <td>~${d.tokens.toLocaleString()} 토큰</td>
+            </tr>
+        `).join('');
+
+    } catch (e) {
+        console.error('Failed to load AI usage stats:', e);
+        tbody.innerHTML = '<tr><td colspan="3" class="empty-cell">로딩 실패</td></tr>';
+    }
+}
+
+async function loadUsersList() {
     const tbody = document.getElementById('users-tbody');
     if (!tbody) return;
 
@@ -2310,8 +2519,7 @@ async function loadAdminUsersPage() {
         }
 
         tbody.innerHTML = users.map(user => {
-            const planBadgeClass = user.plan === 'premium' ? 'premium' : user.plan === 'hub' ? 'hub' : 'free';
-            const planText = user.plan === 'premium' ? '프리미엄' : user.plan === 'hub' ? '허브' : '무료';
+            const planText = getPlanDisplayName(user.plan);
             const createdAt = user.created_at ? user.created_at.split('T')[0] : '-';
             const lastLogin = user.last_login_at ? user.last_login_at.split('T')[0] : '-';
 
@@ -2322,9 +2530,10 @@ async function loadAdminUsersPage() {
                     <td>${user.email}</td>
                     <td>
                         <select class="plan-select" data-user-id="${user.id}">
-                            <option value="free" ${user.plan === 'free' ? 'selected' : ''}>무료</option>
-                            <option value="hub" ${user.plan === 'hub' ? 'selected' : ''}>허브</option>
-                            <option value="premium" ${user.plan === 'premium' ? 'selected' : ''}>프리미엄</option>
+                            <option value="starter" ${user.plan === 'starter' || user.plan === 'free' ? 'selected' : ''}>Starter</option>
+                            <option value="standard" ${user.plan === 'standard' || user.plan === 'hub' ? 'selected' : ''}>Standard</option>
+                            <option value="pro" ${user.plan === 'pro' ? 'selected' : ''}>Pro</option>
+                            <option value="premium" ${user.plan === 'premium' ? 'selected' : ''}>Premium</option>
                         </select>
                     </td>
                     <td>${createdAt}</td>
@@ -2349,7 +2558,7 @@ async function loadAdminUsersPage() {
                     showToast('요금제가 변경되었습니다', 'success');
                 } catch (error) {
                     showToast('요금제 변경 실패', 'error');
-                    loadAdminUsersPage(); // 롤백
+                    loadUsersList(); // 롤백
                 }
             });
         });
@@ -2751,10 +2960,17 @@ document.getElementById('btn-ai-analysis')?.addEventListener('click', async () =
         if (result.success) {
             reportEl.innerHTML = markdownToHtml(result.report || '');
             reportEl.style.display = 'block';
-            usageEl.textContent = `남은 분석: ${result.remaining_count}/${result.max_count}회`;
+            // 일일/월간 사용량 표시
+            const dailyRemain = (result.daily_max || 0) - (result.daily_used || 0);
+            const monthlyRemain = (result.monthly_max || 0) - (result.monthly_used || 0);
+            usageEl.textContent = `오늘 ${result.daily_used}/${result.daily_max}회 | 이번 달 ${result.monthly_used}/${result.monthly_max}회`;
         } else {
             errorEl.textContent = result.error || 'AI 분석에 실패했습니다';
             errorEl.style.display = 'block';
+            // 제한 초과 시에도 사용량 표시
+            if (result.daily_max !== undefined) {
+                usageEl.textContent = `오늘 ${result.daily_used}/${result.daily_max}회 | 이번 달 ${result.monthly_used}/${result.monthly_max}회`;
+            }
         }
     } catch (error) {
         loadingEl.style.display = 'none';

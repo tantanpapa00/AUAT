@@ -117,6 +117,8 @@ fn main() {
             commands::admin_get_users,
             commands::admin_update_user_plan,
             commands::admin_get_system_status,
+            commands::admin_get_stats,
+            commands::admin_get_recent_users,
             // Market Analysis (STEP 2)
             commands::get_market_overview,
             commands::get_market_sectors,
