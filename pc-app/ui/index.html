@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BBooster — 큐브시스템</title>
     <link rel="stylesheet" href="/src/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/src/lib/chart.min.js"></script>
 </head>
 <body>
     <!-- Login Screen -->
@@ -219,7 +219,7 @@
                         <div class="summary-icon">⚡</div>
                         <div class="summary-content">
                             <div class="summary-label">활성 전략</div>
-                            <div class="summary-value" id="active-strategies">0개</div>
+                            <div class="summary-value" id="active-strategies-count">0개</div>
                         </div>
                     </div>
                 </section>
@@ -241,7 +241,7 @@
                             <canvas id="profit-chart"></canvas>
                         </div>
                         <div class="chart-summary" id="chart-summary">
-                            기간 수익률: <span class="profit">+0.00%</span>
+                            기간 수익률: <span class="profit" id="period-profit">+0.00%</span>
                         </div>
                     </section>
 
@@ -256,55 +256,119 @@
                                 <div class="legend-item">
                                     <span class="legend-color" style="background:#3B82F6"></span>
                                     <span class="legend-label">국내주식</span>
-                                    <span class="legend-value">0%</span>
+                                    <span class="legend-value" id="alloc-domestic">0%</span>
                                 </div>
                                 <div class="legend-item">
                                     <span class="legend-color" style="background:#8B5CF6"></span>
                                     <span class="legend-label">해외주식</span>
-                                    <span class="legend-value">0%</span>
+                                    <span class="legend-value" id="alloc-foreign">0%</span>
                                 </div>
                                 <div class="legend-item">
                                     <span class="legend-color" style="background:#F59E0B"></span>
                                     <span class="legend-label">암호화폐</span>
-                                    <span class="legend-value">0%</span>
+                                    <span class="legend-value" id="alloc-crypto">0%</span>
                                 </div>
                                 <div class="legend-item">
                                     <span class="legend-color" style="background:#6B7280"></span>
                                     <span class="legend-label">현금</span>
-                                    <span class="legend-value">100%</span>
+                                    <span class="legend-value" id="alloc-cash">100%</span>
                                 </div>
                             </div>
+                        </div>
+                        <!-- 자산 배분 테이블 -->
+                        <div class="allocation-table-wrapper">
+                            <table class="allocation-table">
+                                <thead>
+                                    <tr>
+                                        <th>자산유형</th>
+                                        <th>평가금액</th>
+                                        <th>비중</th>
+                                        <th>수익률</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="allocation-tbody">
+                                    <tr>
+                                        <td>국내주식</td>
+                                        <td id="alloc-domestic-value">₩0</td>
+                                        <td id="alloc-domestic-pct">0%</td>
+                                        <td class="profit" id="alloc-domestic-profit">+0.00%</td>
+                                    </tr>
+                                    <tr>
+                                        <td>해외주식</td>
+                                        <td id="alloc-foreign-value">$0</td>
+                                        <td id="alloc-foreign-pct">0%</td>
+                                        <td class="profit" id="alloc-foreign-profit">+0.00%</td>
+                                    </tr>
+                                    <tr>
+                                        <td>암호화폐</td>
+                                        <td id="alloc-crypto-value">$0</td>
+                                        <td id="alloc-crypto-pct">0%</td>
+                                        <td class="profit" id="alloc-crypto-profit">+0.00%</td>
+                                    </tr>
+                                    <tr>
+                                        <td>현금</td>
+                                        <td id="alloc-cash-value">₩0</td>
+                                        <td id="alloc-cash-pct">100%</td>
+                                        <td>-</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </section>
 
                     <!-- 보유 자산 목록 -->
                     <section class="card holdings-section">
-                        <h2>보유 자산</h2>
-                        <div class="holdings-list" id="holdings-list">
-                            <div class="empty-state">
-                                <p>연결된 계정이 없습니다.</p>
-                                <p>설정 → 계정관리에서 거래소를 연결하세요.</p>
-                                <button class="btn btn-primary" onclick="navigateTo('accounts')">계정 연결하기</button>
-                            </div>
+                        <div class="card-header">
+                            <h2>보유 자산</h2>
+                            <button class="btn btn-secondary btn-sm" id="btn-refresh-holdings">새로고침</button>
+                        </div>
+                        <div class="holdings-table-wrapper" id="holdings-list">
+                            <table class="holdings-table">
+                                <thead>
+                                    <tr>
+                                        <th>자산명</th>
+                                        <th>거래소</th>
+                                        <th>보유수량</th>
+                                        <th>평균단가</th>
+                                        <th>현재가</th>
+                                        <th>평가손익</th>
+                                        <th>수익률</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="holdings-tbody">
+                                    <tr class="empty-row">
+                                        <td colspan="7">
+                                            <div class="empty-state">
+                                                <p>연결된 계정이 없습니다.</p>
+                                                <p>설정 → 계정관리에서 거래소를 연결하세요.</p>
+                                                <button class="btn btn-primary" onclick="navigateTo('accounts')">계정 연결하기</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </section>
 
                     <!-- 활성 전략 현황 -->
                     <section class="card strategies-section">
-                        <h2>활성 전략</h2>
-                        <div class="active-strategies" id="active-strategies-list">
+                        <div class="card-header">
+                            <h2>활성 전략</h2>
+                            <button class="btn btn-secondary btn-sm" id="btn-refresh-strategies">새로고침</button>
+                        </div>
+                        <div class="active-strategies-grid" id="active-strategies-list">
                             <div class="empty-state">
                                 <p>활성 전략이 없습니다.</p>
-                                <p>프리미엄 전략에서 전략을 추가하세요.</p>
-                                <button class="btn btn-primary" onclick="navigateTo('premium-strategy')">전략 추가하기</button>
+                                <p>전략설정에서 전략을 추가하세요.</p>
+                                <button class="btn btn-primary" onclick="navigateTo('tv-connect')">전략 추가하기</button>
                             </div>
                         </div>
                     </section>
                 </div>
 
                 <!-- 긴급 정지 버튼 -->
-                <button class="emergency-stop-btn" id="btn-emergency-stop" title="긴급 정지">
-                    🛑 긴급 정지
+                <button class="emergency-stop-btn" id="btn-emergency-stop" title="긴급 정지 - 모든 자동매매 즉시 중단">
+                    🛑
                 </button>
             </main>
 

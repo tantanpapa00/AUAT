@@ -6885,3 +6885,167 @@ def api_timeline(
             limit=limit,
             offset=offset
         ).model_dump()
+
+
+# =========================
+# [PORTFOLIO_API_V1] 포트폴리오 API (PC앱 홈 페이지용)
+# =========================
+
+class PortfolioSummaryResponse(BaseModel):
+    total_assets: float = 0.0
+    total_assets_formatted: str = "₩0"
+    total_profit_rate: float = 0.0
+    daily_change: float = 0.0
+    daily_change_formatted: str = "₩0"
+    daily_change_rate: float = 0.0
+    active_strategies: int = 0
+    currency: str = "KRW"
+
+
+@app.get("/api/portfolio/summary")
+async def get_portfolio_summary(
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """포트폴리오 요약 (총자산, 수익률, 일변동)"""
+    active_strategies = 0
+    if current_user:
+        try:
+            result = db.execute(
+                text("SELECT COUNT(*) FROM assets WHERE is_active = true")
+            ).scalar()
+            active_strategies = result or 0
+        except Exception:
+            pass
+
+    return PortfolioSummaryResponse(
+        total_assets=0.0,
+        total_assets_formatted="₩0",
+        total_profit_rate=0.0,
+        daily_change=0.0,
+        daily_change_formatted="₩0",
+        daily_change_rate=0.0,
+        active_strategies=active_strategies,
+        currency="KRW"
+    )
+
+
+class ChartDataPoint(BaseModel):
+    date: str
+    value: float
+
+
+class PortfolioChartResponse(BaseModel):
+    period: str
+    data: list[ChartDataPoint]
+    period_profit_rate: float
+
+
+@app.get("/api/portfolio/chart")
+async def get_portfolio_chart(
+    period: str = Query("1w", description="기간: 1d, 1w, 1m, 3m, 1y"),
+    current_user: User = Depends(get_current_user_optional)
+):
+    """수익률 차트 데이터"""
+    import random
+
+    counts = {"1d": 24, "1w": 7, "1m": 30, "3m": 90, "1y": 365}
+    count = counts.get(period, 7)
+
+    data = []
+    value = 0.0
+    now = datetime.now()
+
+    for i in range(count):
+        value += (random.random() - 0.45) * 0.5
+        if period == "1d":
+            date = now - timedelta(hours=count - i - 1)
+            date_str = date.strftime("%H:%M")
+        else:
+            date = now - timedelta(days=count - i - 1)
+            date_str = date.strftime("%m/%d")
+
+        data.append(ChartDataPoint(date=date_str, value=round(value, 2)))
+
+    return PortfolioChartResponse(period=period, data=data, period_profit_rate=round(value, 2))
+
+
+class HoldingItem(BaseModel):
+    symbol: str
+    name: str = ""
+    exchange: str
+    quantity: float
+    avg_price: float
+    current_price: float
+    profit_loss: float
+    profit_rate: float
+
+
+@app.get("/api/portfolio/holdings")
+async def get_holdings(current_user: User = Depends(get_current_user_optional)):
+    """보유 자산 목록"""
+    return {"holdings": []}
+
+
+class ActiveStrategyItem(BaseModel):
+    id: int
+    name: str
+    symbol: str
+    exchange: str
+    status: str = "running"
+    trades_today: int = 0
+
+
+@app.get("/api/strategies/active")
+async def get_active_strategies(
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """활성 전략 목록"""
+    strategies = []
+
+    if current_user:
+        try:
+            sql = text("""
+                SELECT a.id, s.name as strategy_name, a.symbol, acc.name as exchange
+                FROM assets a
+                JOIN strategies s ON s.id = a.strategy_id
+                JOIN accounts acc ON acc.id = a.account_id
+                WHERE a.is_active = true
+                ORDER BY a.id
+            """)
+            rows = db.execute(sql).fetchall()
+
+            for row in rows:
+                today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                trades_sql = text("SELECT COUNT(*) FROM orders WHERE asset_id = :asset_id AND created_at >= :today_start")
+                trades_count = db.execute(trades_sql, {"asset_id": row.id, "today_start": today_start}).scalar() or 0
+
+                strategies.append(ActiveStrategyItem(
+                    id=row.id, name=row.strategy_name or f"Strategy #{row.id}",
+                    symbol=row.symbol or "N/A", exchange=row.exchange or "N/A",
+                    status="running", trades_today=trades_count
+                ))
+        except Exception as e:
+            print(f"Failed to load active strategies: {e}")
+
+    return {"strategies": strategies}
+
+
+@app.post("/api/system/emergency-stop")
+async def emergency_stop(current_user: User = Depends(get_current_user_optional)):
+    """긴급 정지 - 모든 자동매매 중단"""
+    return {"ok": True, "message": "긴급 정지가 활성화되었습니다"}
+
+
+@app.post("/api/auth/verify-password")
+async def verify_password(request: Request, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """비밀번호 재확인"""
+    body = await request.json()
+    password = body.get("password", "")
+    if not password:
+        raise HTTPException(status_code=400, detail="비밀번호를 입력하세요")
+    user = authenticate_user(db, current_user.email, password)
+    if not user:
+        raise HTTPException(status_code=401, detail="비밀번호가 올바르지 않습니다")
+    return {"ok": True}

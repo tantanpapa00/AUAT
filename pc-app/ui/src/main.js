@@ -546,34 +546,117 @@ function updateServerStatus(connected) {
 }
 
 // =====================================================
-// Home Page (PHASE 3)
+// Home Page (PHASE 3) - Portfolio Dashboard
 // =====================================================
 let profitChart = null;
 let allocationChart = null;
+let currentPeriod = '1w';
 
 async function loadHomePage() {
-    // Initialize charts
-    initProfitChart();
-    initAllocationChart();
-
-    // Load data (dummy for now)
+    // Load server status
     try {
         const status = await invoke('get_server_status');
         updateServerStatus(status.running);
     } catch (e) {
         console.error('Failed to get server status:', e);
     }
+
+    // Load portfolio data
+    await loadPortfolioSummary();
+    await loadPortfolioChart(currentPeriod);
+    await loadHoldings();
+    await loadActiveStrategies();
+
+    // Initialize charts
+    initAllocationChart();
 }
 
-function initProfitChart() {
+async function loadPortfolioSummary() {
+    try {
+        if (!auth.accessToken) {
+            updateSummaryCards({ total_assets_formatted: '₩0', total_profit_rate: 0, daily_change_formatted: '₩0', daily_change_rate: 0, active_strategies: 0 });
+            return;
+        }
+
+        const summary = await invoke('get_portfolio_summary', { accessToken: auth.accessToken });
+        updateSummaryCards(summary);
+    } catch (e) {
+        console.error('Failed to load portfolio summary:', e);
+        updateSummaryCards({ total_assets_formatted: '₩0', total_profit_rate: 0, daily_change_formatted: '₩0', daily_change_rate: 0, active_strategies: 0 });
+    }
+}
+
+function updateSummaryCards(summary) {
+    const totalAssets = document.getElementById('total-assets');
+    const totalProfit = document.getElementById('total-profit');
+    const dailyChange = document.getElementById('daily-change');
+    const activeStrategies = document.getElementById('active-strategies-count');
+
+    if (totalAssets) totalAssets.textContent = summary.total_assets_formatted || '₩0';
+
+    if (totalProfit) {
+        const rate = summary.total_profit_rate || 0;
+        totalProfit.textContent = (rate >= 0 ? '+' : '') + rate.toFixed(2) + '%';
+        totalProfit.className = 'summary-value ' + (rate >= 0 ? 'profit' : 'loss');
+    }
+
+    if (dailyChange) {
+        const change = summary.daily_change_formatted || '₩0';
+        const rate = summary.daily_change_rate || 0;
+        dailyChange.textContent = `${change} (${rate >= 0 ? '+' : ''}${rate.toFixed(2)}%)`;
+        dailyChange.className = 'summary-value ' + (rate >= 0 ? 'profit' : 'loss');
+    }
+
+    if (activeStrategies) activeStrategies.textContent = (summary.active_strategies || 0) + '개';
+}
+
+async function loadPortfolioChart(period) {
+    currentPeriod = period;
+
+    try {
+        let chartData;
+        if (auth.accessToken) {
+            chartData = await invoke('get_portfolio_chart', { accessToken: auth.accessToken, period });
+        } else {
+            // Dummy data for non-logged in users
+            chartData = generateDummyChartData(period);
+        }
+
+        updateProfitChart(chartData);
+    } catch (e) {
+        console.error('Failed to load chart data:', e);
+        updateProfitChart(generateDummyChartData(period));
+    }
+}
+
+function generateDummyChartData(period) {
+    const counts = { '1d': 24, '1w': 7, '1m': 30, '3m': 90, '1y': 12 };
+    const count = counts[period] || 7;
+    const data = [];
+    let value = 0;
+
+    for (let i = 0; i < count; i++) {
+        value += (Math.random() - 0.45) * 0.5;
+        const date = new Date();
+        date.setDate(date.getDate() - (count - i - 1));
+        data.push({
+            date: (date.getMonth() + 1) + '/' + date.getDate(),
+            value: Math.round(value * 100) / 100
+        });
+    }
+
+    return { period, data, period_profit_rate: value };
+}
+
+function updateProfitChart(chartData) {
     const ctx = document.getElementById('profit-chart');
     if (!ctx) return;
 
     if (profitChart) profitChart.destroy();
 
-    // Dummy data
-    const labels = ['1/1', '1/2', '1/3', '1/4', '1/5', '1/6', '1/7'];
-    const data = [0, 1.2, 0.8, 2.1, 1.8, 2.5, 3.2];
+    const labels = chartData.data.map(d => d.date);
+    const values = chartData.data.map(d => d.value);
+    const isPositive = chartData.period_profit_rate >= 0;
 
     profitChart = new Chart(ctx, {
         type: 'line',
@@ -581,56 +664,182 @@ function initProfitChart() {
             labels: labels,
             datasets: [{
                 label: '수익률 (%)',
-                data: data,
-                borderColor: '#22C55E',
-                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                data: values,
+                borderColor: isPositive ? '#00C853' : '#FF1744',
+                backgroundColor: isPositive ? 'rgba(0, 200, 83, 0.1)' : 'rgba(255, 23, 68, 0.1)',
                 fill: true,
-                tension: 0.4
+                tension: 0.4,
+                pointRadius: values.length > 30 ? 0 : 3,
+                pointHoverRadius: 5
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
-            },
+            interaction: { intersect: false, mode: 'index' },
+            plugins: { legend: { display: false } },
             scales: {
                 y: {
                     grid: { color: 'rgba(255,255,255,0.1)' },
-                    ticks: { color: '#9CA3AF' }
+                    ticks: { color: '#9CA3AF', callback: (v) => v + '%' }
                 },
                 x: {
                     grid: { display: false },
-                    ticks: { color: '#9CA3AF' }
+                    ticks: { color: '#9CA3AF', maxRotation: 0 }
                 }
             }
         }
     });
+
+    // Update period profit display
+    const periodProfit = document.getElementById('period-profit');
+    if (periodProfit) {
+        const rate = chartData.period_profit_rate || 0;
+        periodProfit.textContent = (rate >= 0 ? '+' : '') + rate.toFixed(2) + '%';
+        periodProfit.className = rate >= 0 ? 'profit' : 'loss';
+    }
 }
 
-function initAllocationChart() {
+function initAllocationChart(allocData) {
     const ctx = document.getElementById('allocation-chart');
     if (!ctx) return;
 
     if (allocationChart) allocationChart.destroy();
+
+    // Default allocation (all cash)
+    const data = allocData || [0, 0, 0, 100];
 
     allocationChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels: ['국내주식', '해외주식', '암호화폐', '현금'],
             datasets: [{
-                data: [0, 0, 0, 100],
-                backgroundColor: ['#3B82F6', '#8B5CF6', '#F59E0B', '#6B7280']
+                data: data,
+                backgroundColor: ['#3B82F6', '#8B5CF6', '#F59E0B', '#6B7280'],
+                borderWidth: 0
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
-            }
+            cutout: '65%',
+            plugins: { legend: { display: false } }
         }
     });
+}
+
+async function loadHoldings() {
+    const tbody = document.getElementById('holdings-tbody');
+    if (!tbody) return;
+
+    try {
+        let holdings = [];
+        if (auth.accessToken) {
+            holdings = await invoke('get_holdings', { accessToken: auth.accessToken });
+        }
+
+        if (holdings.length === 0) {
+            tbody.innerHTML = `
+                <tr class="empty-row">
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <p>연결된 계정이 없습니다.</p>
+                            <p>설정 → 계정관리에서 거래소를 연결하세요.</p>
+                            <button class="btn btn-primary" onclick="navigateTo('accounts')">계정 연결하기</button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        // Sort by profit rate (highest first)
+        holdings.sort((a, b) => b.profit_rate - a.profit_rate);
+
+        tbody.innerHTML = holdings.map(h => `
+            <tr>
+                <td><strong>${h.symbol}</strong><br><small>${h.name}</small></td>
+                <td><span class="exchange-badge">${h.exchange}</span></td>
+                <td>${formatNumber(h.quantity)}</td>
+                <td>${formatCurrency(h.avg_price, h.exchange)}</td>
+                <td>${formatCurrency(h.current_price, h.exchange)}</td>
+                <td class="${h.profit_loss >= 0 ? 'profit' : 'loss'}">${formatCurrency(h.profit_loss, h.exchange)}</td>
+                <td class="${h.profit_rate >= 0 ? 'profit' : 'loss'}">${h.profit_rate >= 0 ? '+' : ''}${h.profit_rate.toFixed(2)}%</td>
+            </tr>
+        `).join('');
+
+    } catch (e) {
+        console.error('Failed to load holdings:', e);
+    }
+}
+
+async function loadActiveStrategies() {
+    const container = document.getElementById('active-strategies-list');
+    if (!container) return;
+
+    try {
+        let strategies = [];
+        if (auth.accessToken) {
+            strategies = await invoke('get_active_strategies', { accessToken: auth.accessToken });
+        }
+
+        if (strategies.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <p>활성 전략이 없습니다.</p>
+                    <p>전략설정에서 전략을 추가하세요.</p>
+                    <button class="btn btn-primary" onclick="navigateTo('tv-connect')">전략 추가하기</button>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = strategies.map(s => `
+            <div class="strategy-card">
+                <div class="strategy-card-header">
+                    <h4>${s.name}</h4>
+                    <span class="strategy-status ${s.status === 'running' ? 'running' : 'stopped'}">
+                        ${s.status === 'running' ? '실행중' : '정지'}
+                    </span>
+                </div>
+                <div class="strategy-card-body">
+                    <div class="strategy-info">
+                        <span class="strategy-info-label">대상 자산</span>
+                        <span class="strategy-info-value">${s.symbol}</span>
+                    </div>
+                    <div class="strategy-info">
+                        <span class="strategy-info-label">거래소</span>
+                        <span class="strategy-info-value">${s.exchange}</span>
+                    </div>
+                    <div class="strategy-trades-today">
+                        오늘 거래: <strong>${s.trades_today}회</strong>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+    } catch (e) {
+        console.error('Failed to load active strategies:', e);
+    }
+}
+
+// Utility functions for formatting
+function formatNumber(num) {
+    if (num === null || num === undefined) return '0';
+    return num.toLocaleString('ko-KR', { maximumFractionDigits: 8 });
+}
+
+function formatCurrency(value, exchange) {
+    if (value === null || value === undefined) return '-';
+    const isCrypto = ['OKX', 'BINANCE', 'BYBIT'].includes(exchange?.toUpperCase());
+    const isKRW = ['KIS', 'KIWOOM'].includes(exchange?.toUpperCase());
+
+    if (isCrypto) {
+        return '$' + value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    } else if (isKRW) {
+        return '₩' + Math.round(value).toLocaleString('ko-KR');
+    }
+    return value.toLocaleString('ko-KR', { minimumFractionDigits: 2 });
 }
 
 // Period tabs
@@ -638,17 +847,26 @@ document.querySelectorAll('.period-tab').forEach(tab => {
     tab.addEventListener('click', () => {
         document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
-        // Reload chart with new period data
+        loadPortfolioChart(tab.dataset.period);
     });
 });
 
+// Refresh buttons
+document.getElementById('btn-refresh-holdings')?.addEventListener('click', loadHoldings);
+document.getElementById('btn-refresh-strategies')?.addEventListener('click', loadActiveStrategies);
+
 // Emergency stop button
 document.getElementById('btn-emergency-stop')?.addEventListener('click', async () => {
-    if (!confirm('긴급 정지를 실행하시겠습니까?\n\n모든 주문 전송이 즉시 차단됩니다.')) return;
+    if (!confirm('모든 자동매매를 즉시 정지하시겠습니까?\n\n모든 활성 전략이 중단됩니다.')) return;
 
     try {
-        await invoke('set_estop', { enabled: true });
+        if (auth.accessToken) {
+            await invoke('emergency_stop', { accessToken: auth.accessToken });
+        } else {
+            await invoke('set_estop', { enabled: true });
+        }
         showToast('긴급 정지가 활성화되었습니다', 'warning');
+        loadActiveStrategies(); // Refresh strategies
     } catch (error) {
         showToast('긴급 정지 실패: ' + error, 'error');
     }

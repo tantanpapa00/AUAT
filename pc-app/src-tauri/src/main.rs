@@ -93,6 +93,13 @@ fn main() {
             // API Key registration (VPS)
             commands::register_api_key,
             commands::get_accounts_list,
+            // Portfolio & Home Page
+            commands::get_portfolio_summary,
+            commands::get_portfolio_chart,
+            commands::get_holdings,
+            commands::get_active_strategies,
+            commands::emergency_stop,
+            commands::verify_password,
         ])
         .setup(|app| {
             // 앱 시작 시 VPS 서버 연결 확인 (로컬 서버 시작 없음)

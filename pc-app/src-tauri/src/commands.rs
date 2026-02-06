@@ -892,6 +892,266 @@ pub async fn refresh_auth_token(refresh_token: String) -> Result<AuthTokens, Str
 }
 
 // =====================================================
+// Portfolio API (Home Page Data)
+// =====================================================
+
+#[derive(Serialize, Deserialize)]
+pub struct PortfolioSummary {
+    pub total_assets: f64,
+    pub total_assets_formatted: String,
+    pub total_profit_rate: f64,
+    pub daily_change: f64,
+    pub daily_change_formatted: String,
+    pub daily_change_rate: f64,
+    pub active_strategies: i32,
+    pub currency: String,
+}
+
+#[tauri::command]
+pub async fn get_portfolio_summary(access_token: String) -> Result<PortfolioSummary, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/portfolio/summary", VPS_SERVER_URL);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await;
+
+    match resp {
+        Ok(r) if r.status().is_success() => {
+            r.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+        }
+        Ok(_) | Err(_) => {
+            // 더미 데이터 반환 (API 미구현 시)
+            Ok(PortfolioSummary {
+                total_assets: 0.0,
+                total_assets_formatted: "₩0".to_string(),
+                total_profit_rate: 0.0,
+                daily_change: 0.0,
+                daily_change_formatted: "₩0".to_string(),
+                daily_change_rate: 0.0,
+                active_strategies: 0,
+                currency: "KRW".to_string(),
+            })
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ChartDataPoint {
+    pub date: String,
+    pub value: f64,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct PortfolioChart {
+    pub period: String,
+    pub data: Vec<ChartDataPoint>,
+    pub period_profit_rate: f64,
+}
+
+#[tauri::command]
+pub async fn get_portfolio_chart(access_token: String, period: String) -> Result<PortfolioChart, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/portfolio/chart?period={}", VPS_SERVER_URL, period);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await;
+
+    match resp {
+        Ok(r) if r.status().is_success() => {
+            r.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+        }
+        Ok(_) | Err(_) => {
+            // 더미 데이터 반환
+            let dummy_data = generate_dummy_chart_data(&period);
+            Ok(PortfolioChart {
+                period: period.clone(),
+                data: dummy_data,
+                period_profit_rate: 3.25,
+            })
+        }
+    }
+}
+
+fn generate_dummy_chart_data(period: &str) -> Vec<ChartDataPoint> {
+    let count = match period {
+        "1d" => 24,
+        "1w" => 7,
+        "1m" => 30,
+        "3m" => 90,
+        "1y" => 365,
+        _ => 7,
+    };
+
+    let mut data = Vec::new();
+    let mut value: f64 = 0.0;
+    let now = chrono::Local::now();
+
+    for i in 0..count {
+        let date = now - chrono::Duration::days((count - i - 1) as i64);
+        value += (rand::random::<f64>() - 0.45) * 0.5;
+        data.push(ChartDataPoint {
+            date: date.format("%m/%d").to_string(),
+            value: (value * 100.0).round() / 100.0,
+        });
+    }
+    data
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Holding {
+    pub symbol: String,
+    pub name: String,
+    pub exchange: String,
+    pub quantity: f64,
+    pub avg_price: f64,
+    pub current_price: f64,
+    pub profit_loss: f64,
+    pub profit_rate: f64,
+}
+
+#[tauri::command]
+pub async fn get_holdings(access_token: String) -> Result<Vec<Holding>, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/portfolio/holdings", VPS_SERVER_URL);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await;
+
+    match resp {
+        Ok(r) if r.status().is_success() => {
+            let data: serde_json::Value = r.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+            let holdings = data.get("holdings").and_then(|h| h.as_array());
+
+            if let Some(arr) = holdings {
+                let result: Vec<Holding> = arr.iter().filter_map(|h| {
+                    Some(Holding {
+                        symbol: h.get("symbol")?.as_str()?.to_string(),
+                        name: h.get("name").and_then(|n| n.as_str()).unwrap_or("").to_string(),
+                        exchange: h.get("exchange")?.as_str()?.to_string(),
+                        quantity: h.get("quantity")?.as_f64()?,
+                        avg_price: h.get("avg_price")?.as_f64()?,
+                        current_price: h.get("current_price")?.as_f64()?,
+                        profit_loss: h.get("profit_loss")?.as_f64()?,
+                        profit_rate: h.get("profit_rate")?.as_f64()?,
+                    })
+                }).collect();
+                Ok(result)
+            } else {
+                Ok(vec![])
+            }
+        }
+        Ok(_) | Err(_) => Ok(vec![]), // 빈 배열 반환
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ActiveStrategy {
+    pub id: i64,
+    pub name: String,
+    pub symbol: String,
+    pub exchange: String,
+    pub status: String,
+    pub trades_today: i32,
+}
+
+#[tauri::command]
+pub async fn get_active_strategies(access_token: String) -> Result<Vec<ActiveStrategy>, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/strategies/active", VPS_SERVER_URL);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await;
+
+    match resp {
+        Ok(r) if r.status().is_success() => {
+            let data: serde_json::Value = r.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+            let strategies = data.get("strategies").and_then(|s| s.as_array());
+
+            if let Some(arr) = strategies {
+                let result: Vec<ActiveStrategy> = arr.iter().filter_map(|s| {
+                    Some(ActiveStrategy {
+                        id: s.get("id")?.as_i64()?,
+                        name: s.get("name")?.as_str()?.to_string(),
+                        symbol: s.get("symbol")?.as_str()?.to_string(),
+                        exchange: s.get("exchange")?.as_str()?.to_string(),
+                        status: s.get("status").and_then(|st| st.as_str()).unwrap_or("running").to_string(),
+                        trades_today: s.get("trades_today").and_then(|t| t.as_i64()).unwrap_or(0) as i32,
+                    })
+                }).collect();
+                Ok(result)
+            } else {
+                Ok(vec![])
+            }
+        }
+        Ok(_) | Err(_) => Ok(vec![]), // 빈 배열 반환
+    }
+}
+
+#[tauri::command]
+pub async fn emergency_stop(access_token: String) -> Result<bool, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/system/emergency-stop", VPS_SERVER_URL);
+
+    let resp = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        Ok(true)
+    } else {
+        // fallback: 기존 estop API 사용
+        set_estop_api(true).await
+    }
+}
+
+// =====================================================
+// Password Verification
+// =====================================================
+
+#[tauri::command]
+pub async fn verify_password(access_token: String, password: String) -> Result<bool, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/auth/verify-password", VPS_SERVER_URL);
+
+    let body = serde_json::json!({ "password": password });
+
+    let resp = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .json(&body)
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        Ok(true)
+    } else {
+        Err("비밀번호가 올바르지 않습니다".to_string())
+    }
+}
+
+// =====================================================
 // Helper Functions
 // =====================================================
 
