@@ -301,32 +301,10 @@ async function loadUserInfo() {
     }
 }
 
-// 토큰 갱신
+// 토큰 갱신 (로그인 후 사용)
 async function refreshAuthToken() {
-    if (!auth.refreshToken) {
-        auth.clearTokens();
-        showLoginScreen();
-        return;
-    }
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refresh_token: auth.refreshToken })
-        });
-
-        if (response.ok) {
-            const tokens = await response.json();
-            auth.saveTokens(tokens.access_token, tokens.refresh_token);
-            await loadUserInfo();
-        } else {
-            auth.clearTokens();
-            showLoginScreen();
-        }
-    } catch (error) {
-        console.error('Token refresh failed:', error);
-        auth.clearTokens();
+    const success = await tryRefreshToken();
+    if (!success) {
         showLoginScreen();
     }
 }
@@ -358,45 +336,90 @@ async function logout() {
 
 // 인증 상태 확인 및 초기화
 async function initAuth() {
-    auth.loadTokens();
+    console.log('[initAuth] 앱 시작 - 인증 상태 확인');
 
+    // 저장된 토큰 로드
+    auth.loadTokens();
+    console.log('[initAuth] 토큰 로드 완료:', {
+        hasAccessToken: !!auth.accessToken,
+        hasRefreshToken: !!auth.refreshToken,
+        isHubMode: auth.isHubMode
+    });
+
+    // 1. 허브 모드인 경우 - 로그인 없이 진행
     if (auth.isHubMode) {
-        // 허브 모드
+        console.log('[initAuth] 허브 모드 - 대시보드로 이동');
         hideLoginScreen();
         updateUserUI({ name: '허브 모드', plan: 'hub', role: 'user' });
         return true;
     }
 
+    // 2. 액세스 토큰이 있는 경우 - 유효성 검증
     if (auth.accessToken) {
-        // 토큰 있음 - 유효성 검사
+        console.log('[initAuth] 토큰 검증 시도...');
         try {
             const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
-                headers: { 'Authorization': `Bearer ${auth.accessToken}` }
+                headers: { 'Authorization': `Bearer ${auth.accessToken}` },
+                signal: AbortSignal.timeout(5000) // 5초 타임아웃
             });
 
             if (response.ok) {
                 auth.user = await response.json();
+                console.log('[initAuth] 토큰 유효 - 로그인 성공:', auth.user.email);
                 updateUserUI(auth.user);
                 hideLoginScreen();
                 return true;
-            } else {
-                // 토큰 무효 - 갱신 시도
-                await refreshAuthToken();
-                if (auth.accessToken) {
+            } else if (response.status === 401) {
+                // 토큰 만료 - 리프레시 시도
+                console.log('[initAuth] 토큰 만료 - 갱신 시도');
+                const refreshed = await tryRefreshToken();
+                if (refreshed) {
                     hideLoginScreen();
                     return true;
                 }
             }
+            // 토큰 무효 - 로그인 화면으로
+            console.log('[initAuth] 토큰 무효 - 로그인 필요');
+            auth.clearTokens();
         } catch (error) {
-            // 서버 연결 실패 - 일단 진행 (허브 모드처럼)
-            console.log('Auth check failed, continuing in offline mode');
-            hideLoginScreen();
-            return true;
+            console.error('[initAuth] 서버 연결 실패:', error.message);
+            // 서버 연결 실패 시에도 로그인 화면 유지 (중요!)
+            // 오프라인 모드로 자동 진입하지 않음
         }
     }
 
-    // 로그인 필요
+    // 3. 토큰 없거나 검증 실패 - 로그인 화면 표시
+    console.log('[initAuth] 로그인 필요 - 로그인 화면 표시');
     showLoginScreen();
+    return false;
+}
+
+// 토큰 갱신 시도 (별도 함수로 분리)
+async function tryRefreshToken() {
+    if (!auth.refreshToken) {
+        return false;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refresh_token: auth.refreshToken }),
+            signal: AbortSignal.timeout(5000)
+        });
+
+        if (response.ok) {
+            const tokens = await response.json();
+            auth.saveTokens(tokens.access_token, tokens.refresh_token);
+            await loadUserInfo();
+            console.log('[tryRefreshToken] 토큰 갱신 성공');
+            return true;
+        }
+    } catch (error) {
+        console.error('[tryRefreshToken] 토큰 갱신 실패:', error.message);
+    }
+
+    auth.clearTokens();
     return false;
 }
 
@@ -1963,19 +1986,27 @@ document.getElementById('payment-modal')?.addEventListener('click', (e) => {
 // Initialize
 // =====================================================
 (async () => {
-    // 인증 상태 확인
-    const isAuthenticated = await initAuth();
+    console.log('[Init] BBooster PC App 시작');
+    console.log('[Init] API 서버:', API_BASE_URL);
 
+    // 1. 먼저 인증 상태 확인 (로그인 화면 또는 대시보드 결정)
+    const isAuthenticated = await initAuth();
+    console.log('[Init] 인증 결과:', isAuthenticated ? '인증됨' : '로그인 필요');
+
+    // 2. 인증된 경우에만 서버 연결 체크 및 데이터 로드
     if (isAuthenticated) {
-        // 로그인 또는 허브 모드 - 서버 연결 확인
+        // 서버 연결 확인
         checkServerConnection();
 
-        // Load subscription status after connection
+        // 구독 상태 로드 (연결 후)
         setTimeout(() => {
             if (isConnected) {
                 loadSubscriptionStatus();
             }
         }, 2000);
+    } else {
+        // 로그인 화면에서 대기 - showLoginScreen()은 initAuth에서 호출됨
+        console.log('[Init] 로그인 대기 중...');
     }
 })();
 
