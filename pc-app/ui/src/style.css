@@ -4269,3 +4269,318 @@ body {
     background: rgba(239, 68, 68, 0.2);
     color: var(--danger);
 }
+
+/* =====================================================
+   시장분석 페이지 스타일 (STEP 2)
+   ===================================================== */
+
+.market-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* 지수 카드 */
+.index-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.index-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 15px;
+    text-align: center;
+}
+
+.index-card .index-name {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+}
+
+.index-card .index-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.index-card .index-change {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-top: 5px;
+}
+
+.index-card .index-change.profit {
+    color: var(--success);
+}
+
+.index-card .index-change.loss {
+    color: var(--danger);
+}
+
+/* 시장 요약 */
+.market-summary h3 {
+    margin: 0 0 10px 0;
+    font-size: 1.1rem;
+}
+
+.market-summary p {
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.6;
+}
+
+/* 투자자 동향 바 */
+.investor-section h3 {
+    margin: 0 0 15px 0;
+}
+
+.investor-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.investor-bar-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.investor-bar-item .label {
+    width: 50px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.investor-bar-item .bar-container {
+    flex: 1;
+    height: 24px;
+    background: var(--bg-light);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.investor-bar-item .bar {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.investor-bar-item .bar.foreign {
+    background: linear-gradient(90deg, #3b82f6, #60a5fa);
+}
+
+.investor-bar-item .bar.institution {
+    background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+}
+
+.investor-bar-item .bar.individual {
+    background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.investor-bar-item .bar.negative {
+    background: linear-gradient(90deg, #ef4444, #f87171);
+}
+
+.investor-bar-item .value {
+    width: 100px;
+    text-align: right;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.investor-bar-item .value.profit {
+    color: var(--success);
+}
+
+.investor-bar-item .value.loss {
+    color: var(--danger);
+}
+
+.kis-hint {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: var(--bg-light);
+    border-radius: 6px;
+}
+
+/* 업종 리더 */
+.sector-leaders {
+    display: flex;
+    gap: 30px;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: var(--bg-light);
+    border-radius: 8px;
+}
+
+.leader-section {
+    flex: 1;
+}
+
+.leader-label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--success);
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.leader-label.lagging {
+    color: var(--danger);
+}
+
+.leader-section div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.sector-tag {
+    display: inline-block;
+    padding: 4px 10px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 0.8rem;
+}
+
+.sector-tag.positive {
+    border-color: var(--success);
+    color: var(--success);
+}
+
+.sector-tag.negative {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+/* 데이터 테이블 */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.data-table th {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    background: var(--bg-light);
+}
+
+.data-table tbody tr:hover {
+    background: var(--bg-light);
+    cursor: pointer;
+}
+
+.data-table .profit {
+    color: var(--success);
+}
+
+.data-table .loss {
+    color: var(--danger);
+}
+
+/* 랭킹 탭 */
+.ranking-tabs,
+.event-tabs {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.ranking-tab,
+.event-tab {
+    padding: 8px 16px;
+    background: var(--bg-light);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.ranking-tab:hover,
+.event-tab:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.ranking-tab.active,
+.event-tab.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+
+.market-filter {
+    margin-bottom: 15px;
+}
+
+.market-filter select {
+    padding: 8px 12px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+}
+
+/* 특징주 그리드 */
+.featured-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.featured-section h3 {
+    margin: 0 0 10px 0;
+    font-size: 1rem;
+}
+
+.featured-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.featured-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 10px;
+    background: var(--bg-light);
+    border-radius: 6px;
+    font-size: 0.85rem;
+}
+
+.featured-item .name {
+    font-weight: 500;
+}
+
+.featured-item .change {
+    font-weight: 600;
+}
+
+.featured-item .change.profit {
+    color: var(--success);
+}
+
+.featured-item .change.loss {
+    color: var(--danger);
+}

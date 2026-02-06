@@ -197,7 +197,13 @@ from app.kis_api import (
     get_investor_trend, get_daily_prices,
     # 공개 API (KIS 계정 없이도 사용 가능)
     get_naver_stock_price, get_yahoo_stock_price,
-    get_naver_daily_prices, get_yahoo_daily_prices
+    get_naver_daily_prices, get_yahoo_daily_prices,
+    # 시장분석 API
+    get_index_price, get_volume_rank, get_fluctuation_rank,
+    get_investor_daily, get_market_cap_rank, get_foreign_net_rank,
+    get_institution_net_rank, get_naver_index, get_yahoo_index,
+    get_naver_sector_list, get_naver_volume_rank, get_naver_fluctuation_rank,
+    SECTOR_CODES
 )
 
 # 세션 미들웨어 (OAuth 콜백용)
@@ -8280,6 +8286,232 @@ async def get_popular_symbols(
             ]
 
     return result
+
+
+# =============================================================================
+# [STEP 2] 시장분석 API (Pro 이상)
+# =============================================================================
+
+def _check_pro_plan(user: Optional[User]) -> bool:
+    """Pro 이상 요금제 체크"""
+    if not user:
+        return False
+    role = getattr(user, "role", "user")
+    plan = getattr(user, "plan", "free")
+    if role == "admin":
+        return True
+    return plan in ("pro", "premium")
+
+
+@app.get("/api/market/overview")
+async def get_market_overview(
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """시장현황 — 지수 + 투자자 동향"""
+    if not _check_pro_plan(current_user):
+        raise HTTPException(status_code=403, detail="Pro 이상 요금제에서 이용 가능합니다")
+
+    # 공개 API로 지수 데이터 조회 (항상)
+    kr_indices = await get_naver_index()
+    us_indices = await get_yahoo_index()
+
+    # 투자자 동향 (KIS 계정 있을 때)
+    investor_data = None
+    kis_creds = None
+    if current_user:
+        kis_creds = await _get_kis_credentials(db, current_user.id)
+        if kis_creds:
+            app_key, app_secret = kis_creds
+            token = await get_kis_token(app_key, app_secret)
+            if token:
+                investor_data = await get_investor_daily(app_key, app_secret, token.access_token)
+
+    # 시황 요약 생성 (규칙 기반)
+    kospi_change = kr_indices.get("kospi", {}).get("change", 0)
+    kosdaq_change = kr_indices.get("kosdaq", {}).get("change", 0)
+
+    if kospi_change > 1:
+        market_status = "강세"
+        market_emoji = "🟢"
+    elif kospi_change < -1:
+        market_status = "약세"
+        market_emoji = "🔴"
+    else:
+        market_status = "보합"
+        market_emoji = "🟡"
+
+    summary = {
+        "status": market_status,
+        "emoji": market_emoji,
+        "kospi_change": kospi_change,
+        "kosdaq_change": kosdaq_change,
+    }
+
+    return {
+        "indices": {
+            **kr_indices,
+            **us_indices
+        },
+        "investor": investor_data,
+        "summary": summary,
+        "has_kis_account": kis_creds is not None,
+    }
+
+
+@app.get("/api/market/sectors")
+async def get_market_sectors(
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """업종별 현황"""
+    if not _check_pro_plan(current_user):
+        raise HTTPException(status_code=403, detail="Pro 이상 요금제에서 이용 가능합니다")
+
+    # 네이버 공개 API로 업종 데이터 조회
+    sectors = await get_naver_sector_list()
+
+    # 등락률 순 정렬
+    sectors_sorted = sorted(sectors, key=lambda x: x.get("change", 0), reverse=True)
+
+    return {
+        "sectors": sectors_sorted,
+        "leading": sectors_sorted[:3] if len(sectors_sorted) >= 3 else sectors_sorted,
+        "lagging": sectors_sorted[-3:] if len(sectors_sorted) >= 3 else [],
+    }
+
+
+@app.get("/api/market/ranking")
+async def get_stock_ranking(
+    ranking_type: str = Query("volume", description="순위 유형: volume, rise, fall, market_cap, foreign_buy, foreign_sell, institution_buy, institution_sell"),
+    market: str = Query("all", description="시장: all, kospi, kosdaq"),
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """종목 순위"""
+    if not _check_pro_plan(current_user):
+        raise HTTPException(status_code=403, detail="Pro 이상 요금제에서 이용 가능합니다")
+
+    # 시장 코드 변환
+    market_code = "J" if market == "all" else ("0" if market == "kospi" else "1")
+
+    # KIS 계정 확인
+    kis_creds = None
+    if current_user:
+        kis_creds = await _get_kis_credentials(db, current_user.id)
+
+    results = []
+
+    if kis_creds:
+        app_key, app_secret = kis_creds
+        token = await get_kis_token(app_key, app_secret)
+        if token:
+            if ranking_type == "volume":
+                results = await get_volume_rank(app_key, app_secret, token.access_token, market_code, 50) or []
+            elif ranking_type == "rise":
+                results = await get_fluctuation_rank(app_key, app_secret, token.access_token, market_code, True, 50) or []
+            elif ranking_type == "fall":
+                results = await get_fluctuation_rank(app_key, app_secret, token.access_token, market_code, False, 50) or []
+            elif ranking_type == "market_cap":
+                results = await get_market_cap_rank(app_key, app_secret, token.access_token, market_code, 50) or []
+            elif ranking_type == "foreign_buy":
+                results = await get_foreign_net_rank(app_key, app_secret, token.access_token, True, 30) or []
+            elif ranking_type == "foreign_sell":
+                results = await get_foreign_net_rank(app_key, app_secret, token.access_token, False, 30) or []
+            elif ranking_type == "institution_buy":
+                results = await get_institution_net_rank(app_key, app_secret, token.access_token, True, 30) or []
+            elif ranking_type == "institution_sell":
+                results = await get_institution_net_rank(app_key, app_secret, token.access_token, False, 30) or []
+
+    # KIS 계정 없으면 네이버 공개 API 사용
+    if not results:
+        if ranking_type == "volume":
+            results = await get_naver_volume_rank(50)
+        elif ranking_type in ("rise", "fall"):
+            results = await get_naver_fluctuation_rank(ranking_type == "rise", 50)
+
+    return {
+        "ranking_type": ranking_type,
+        "market": market,
+        "stocks": results,
+        "has_kis_account": kis_creds is not None,
+    }
+
+
+@app.get("/api/market/featured")
+async def get_featured_stocks(
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """특징주 — 신고가, 급등/급락, 상한가/하한가"""
+    if not _check_pro_plan(current_user):
+        raise HTTPException(status_code=403, detail="Pro 이상 요금제에서 이용 가능합니다")
+
+    # 공개 API로 급등/급락 조회
+    rise_stocks = await get_naver_fluctuation_rank(True, 20)
+    fall_stocks = await get_naver_fluctuation_rank(False, 20)
+
+    # 상한가 (30% 이상)
+    upper_limit = [s for s in rise_stocks if s.get("change", 0) >= 29.5]
+
+    # 하한가 (-30% 이하)
+    lower_limit = [s for s in fall_stocks if s.get("change", 0) <= -29.5]
+
+    # 급등주 (10% 이상)
+    surge_stocks = [s for s in rise_stocks if 10 <= s.get("change", 0) < 29.5]
+
+    # 급락주 (-10% 이하)
+    plunge_stocks = [s for s in fall_stocks if -29.5 < s.get("change", 0) <= -10]
+
+    return {
+        "upper_limit": upper_limit,
+        "lower_limit": lower_limit,
+        "surge": surge_stocks[:10],
+        "plunge": plunge_stocks[:10],
+        "rise_top": rise_stocks[:10],
+        "fall_top": fall_stocks[:10],
+    }
+
+
+@app.get("/api/market/events")
+async def get_market_events(
+    event_type: str = Query("all", description="이벤트 유형: all, dividend, ipo, rights, bonus, meeting, split"),
+    month: str = Query(None, description="월 필터: YYYY-MM"),
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """이벤트 일정 — 배당, 공모주, 증자 등"""
+    if not _check_pro_plan(current_user):
+        raise HTTPException(status_code=403, detail="Pro 이상 요금제에서 이용 가능합니다")
+
+    # KIS 계정 필요 안내
+    kis_creds = None
+    if current_user:
+        kis_creds = await _get_kis_credentials(db, current_user.id)
+
+    if not kis_creds:
+        return {
+            "events": [],
+            "message": "이벤트 일정은 KIS 계정 등록 시 이용 가능합니다.",
+            "has_kis_account": False,
+        }
+
+    # TODO: KIS 예탁원 API 연동 필요
+    # 현재는 샘플 데이터 반환
+    sample_events = [
+        {"type": "dividend", "stock_name": "삼성전자", "code": "005930", "date": "2026-03-15", "amount": 1444, "yield": 2.1},
+        {"type": "dividend", "stock_name": "SK하이닉스", "code": "000660", "date": "2026-03-20", "amount": 1200, "yield": 0.8},
+        {"type": "ipo", "stock_name": "테크스타", "date_start": "2026-02-10", "date_end": "2026-02-11", "price": 25000},
+    ]
+
+    # 이벤트 유형 필터
+    if event_type != "all":
+        sample_events = [e for e in sample_events if e.get("type") == event_type]
+
+    return {
+        "events": sample_events,
+        "has_kis_account": True,
+    }
 
 
 # =============================================================================

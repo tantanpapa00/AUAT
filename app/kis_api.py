@@ -1005,3 +1005,597 @@ async def get_naver_daily_prices(stock_code: str, days: int = 60) -> Optional[Li
         print(f"[Naver] Daily prices error for {stock_code}: {e}")
 
     return None
+
+
+# =====================================================
+# 시장분석 API (STEP 2)
+# =====================================================
+
+# 업종 코드 매핑
+SECTOR_CODES = {
+    "0001": "코스피",
+    "1001": "코스닥",
+    "0002": "대형주",
+    "0003": "중형주",
+    "0004": "소형주",
+    "0005": "음식료업",
+    "0006": "섬유의복",
+    "0007": "종이목재",
+    "0008": "화학",
+    "0009": "의약품",
+    "0010": "비금속광물",
+    "0011": "철강금속",
+    "0012": "기계",
+    "0013": "전기전자",
+    "0014": "의료정밀",
+    "0015": "운수장비",
+    "0016": "유통업",
+    "0017": "전기가스업",
+    "0018": "건설업",
+    "0019": "운수창고",
+    "0020": "통신업",
+    "0021": "금융업",
+    "0022": "은행",
+    "0024": "증권",
+    "0025": "보험",
+    "0026": "서비스업",
+    "0027": "제조업",
+}
+
+
+async def get_index_price(
+    app_key: str,
+    app_secret: str,
+    access_token: str,
+    index_code: str = "0001",  # 코스피
+    is_mock: bool = False
+) -> Optional[Dict[str, Any]]:
+    """업종별 현재지수 조회"""
+    base_url = KIS_MOCK_URL if is_mock else KIS_REAL_URL
+    url = f"{base_url}/uapi/domestic-stock/v1/quotations/inquire-index-price"
+
+    headers = {
+        "Content-Type": "application/json; charset=utf-8",
+        "authorization": f"Bearer {access_token}",
+        "appkey": app_key,
+        "appsecret": app_secret,
+        "tr_id": "FHPUP02100000",
+    }
+
+    params = {
+        "FID_COND_MRKT_DIV_CODE": "U",
+        "FID_INPUT_ISCD": index_code,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url, headers=headers, params=params)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("rt_cd") == "0":
+                    output = data.get("output", {})
+                    return {
+                        "index_code": index_code,
+                        "name": SECTOR_CODES.get(index_code, ""),
+                        "current": float(output.get("bstp_nmix_prpr", 0)),
+                        "change": float(output.get("bstp_nmix_prdy_ctrt", 0)),
+                        "change_amount": float(output.get("bstp_nmix_prdy_vrss", 0)),
+                        "high": float(output.get("bstp_nmix_hgpr", 0)),
+                        "low": float(output.get("bstp_nmix_lwpr", 0)),
+                        "volume": int(output.get("acml_vol", 0)),
+                        "value": int(output.get("acml_tr_pbmn", 0)),
+                    }
+    except Exception as e:
+        print(f"[KIS] Index price error: {e}")
+
+    return None
+
+
+async def get_volume_rank(
+    app_key: str,
+    app_secret: str,
+    access_token: str,
+    market: str = "J",  # J: 전체, 0: 코스피, 1: 코스닥
+    limit: int = 30,
+    is_mock: bool = False
+) -> Optional[List[Dict[str, Any]]]:
+    """거래량 순위 조회"""
+    base_url = KIS_MOCK_URL if is_mock else KIS_REAL_URL
+    url = f"{base_url}/uapi/domestic-stock/v1/quotations/volume-rank"
+
+    headers = {
+        "Content-Type": "application/json; charset=utf-8",
+        "authorization": f"Bearer {access_token}",
+        "appkey": app_key,
+        "appsecret": app_secret,
+        "tr_id": "FHPST01710000",
+    }
+
+    params = {
+        "FID_COND_MRKT_DIV_CODE": market,
+        "FID_COND_SCR_DIV_CODE": "20101",
+        "FID_INPUT_ISCD": "0000",
+        "FID_DIV_CLS_CODE": "0",
+        "FID_BLNG_CLS_CODE": "0",
+        "FID_TRGT_CLS_CODE": "111111111",
+        "FID_TRGT_EXLS_CLS_CODE": "000000",
+        "FID_INPUT_PRICE_1": "",
+        "FID_INPUT_PRICE_2": "",
+        "FID_VOL_CNT": "",
+        "FID_INPUT_DATE_1": "",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url, headers=headers, params=params)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("rt_cd") == "0":
+                    output = data.get("output", [])
+                    results = []
+                    for item in output[:limit]:
+                        results.append({
+                            "rank": int(item.get("data_rank", 0)),
+                            "code": item.get("stck_shrn_iscd", ""),
+                            "name": item.get("hts_kor_isnm", ""),
+                            "current": int(item.get("stck_prpr", 0)),
+                            "change": float(item.get("prdy_ctrt", 0)),
+                            "change_amount": int(item.get("prdy_vrss", 0)),
+                            "volume": int(item.get("acml_vol", 0)),
+                            "value": int(item.get("acml_tr_pbmn", 0)),
+                            "market_cap": int(item.get("stck_avls", 0)),
+                        })
+                    return results
+    except Exception as e:
+        print(f"[KIS] Volume rank error: {e}")
+
+    return None
+
+
+async def get_fluctuation_rank(
+    app_key: str,
+    app_secret: str,
+    access_token: str,
+    market: str = "J",
+    is_rise: bool = True,  # True: 상승률, False: 하락률
+    limit: int = 30,
+    is_mock: bool = False
+) -> Optional[List[Dict[str, Any]]]:
+    """등락률 순위 조회"""
+    base_url = KIS_MOCK_URL if is_mock else KIS_REAL_URL
+    url = f"{base_url}/uapi/domestic-stock/v1/ranking/fluctuation"
+
+    headers = {
+        "Content-Type": "application/json; charset=utf-8",
+        "authorization": f"Bearer {access_token}",
+        "appkey": app_key,
+        "appsecret": app_secret,
+        "tr_id": "FHPST01700000",
+    }
+
+    params = {
+        "fid_cond_mrkt_div_code": market,
+        "fid_cond_scr_div_code": "20170",
+        "fid_input_iscd": "0000",
+        "fid_rank_sort_cls_code": "0" if is_rise else "1",
+        "fid_input_cnt_1": "0",
+        "fid_prc_cls_code": "0",
+        "fid_input_price_1": "",
+        "fid_input_price_2": "",
+        "fid_vol_cnt": "",
+        "fid_trgt_cls_code": "0",
+        "fid_trgt_exls_cls_code": "0",
+        "fid_div_cls_code": "0",
+        "fid_rsfl_rate1": "",
+        "fid_rsfl_rate2": "",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url, headers=headers, params=params)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("rt_cd") == "0":
+                    output = data.get("output", [])
+                    results = []
+                    for i, item in enumerate(output[:limit]):
+                        results.append({
+                            "rank": i + 1,
+                            "code": item.get("stck_shrn_iscd", ""),
+                            "name": item.get("hts_kor_isnm", ""),
+                            "current": int(item.get("stck_prpr", 0)),
+                            "change": float(item.get("prdy_ctrt", 0)),
+                            "change_amount": int(item.get("prdy_vrss", 0)),
+                            "volume": int(item.get("acml_vol", 0)),
+                        })
+                    return results
+    except Exception as e:
+        print(f"[KIS] Fluctuation rank error: {e}")
+
+    return None
+
+
+async def get_investor_daily(
+    app_key: str,
+    app_secret: str,
+    access_token: str,
+    market: str = "0001",  # 코스피
+    is_mock: bool = False
+) -> Optional[Dict[str, Any]]:
+    """투자자별 매매동향 (일별)"""
+    base_url = KIS_MOCK_URL if is_mock else KIS_REAL_URL
+    url = f"{base_url}/uapi/domestic-stock/v1/quotations/inquire-daily-trade"
+
+    headers = {
+        "Content-Type": "application/json; charset=utf-8",
+        "authorization": f"Bearer {access_token}",
+        "appkey": app_key,
+        "appsecret": app_secret,
+        "tr_id": "FHPTJ04400000",
+    }
+
+    params = {
+        "FID_COND_MRKT_DIV_CODE": "J",
+        "FID_INPUT_ISCD": market,
+        "FID_INPUT_DATE_1": datetime.now().strftime("%Y%m%d"),
+        "FID_INPUT_DATE_2": datetime.now().strftime("%Y%m%d"),
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url, headers=headers, params=params)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("rt_cd") == "0":
+                    output = data.get("output", [])
+                    if output:
+                        item = output[0]
+                        return {
+                            "date": item.get("stck_bsop_date", ""),
+                            "foreign_buy": int(item.get("frgn_pure_buy_qty", 0)),
+                            "foreign_sell": int(item.get("frgn_pure_sll_qty", 0)),
+                            "foreign_net": int(item.get("frgn_ntby_qty", 0)),
+                            "institution_buy": int(item.get("orgn_pure_buy_qty", 0)),
+                            "institution_sell": int(item.get("orgn_pure_sll_qty", 0)),
+                            "institution_net": int(item.get("orgn_ntby_qty", 0)),
+                            "individual_net": int(item.get("prsn_ntby_qty", 0)),
+                        }
+    except Exception as e:
+        print(f"[KIS] Investor daily error: {e}")
+
+    return None
+
+
+async def get_market_cap_rank(
+    app_key: str,
+    app_secret: str,
+    access_token: str,
+    market: str = "J",
+    limit: int = 50,
+    is_mock: bool = False
+) -> Optional[List[Dict[str, Any]]]:
+    """시가총액 순위 조회"""
+    base_url = KIS_MOCK_URL if is_mock else KIS_REAL_URL
+    url = f"{base_url}/uapi/domestic-stock/v1/ranking/market-cap"
+
+    headers = {
+        "Content-Type": "application/json; charset=utf-8",
+        "authorization": f"Bearer {access_token}",
+        "appkey": app_key,
+        "appsecret": app_secret,
+        "tr_id": "FHPST01740000",
+    }
+
+    params = {
+        "fid_cond_mrkt_div_code": market,
+        "fid_cond_scr_div_code": "20174",
+        "fid_input_iscd": "0000",
+        "fid_div_cls_code": "0",
+        "fid_trgt_cls_code": "0",
+        "fid_trgt_exls_cls_code": "0",
+        "fid_input_price_1": "",
+        "fid_input_price_2": "",
+        "fid_vol_cnt": "",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url, headers=headers, params=params)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("rt_cd") == "0":
+                    output = data.get("output", [])
+                    results = []
+                    for i, item in enumerate(output[:limit]):
+                        results.append({
+                            "rank": i + 1,
+                            "code": item.get("mksc_shrn_iscd", ""),
+                            "name": item.get("hts_kor_isnm", ""),
+                            "current": int(item.get("stck_prpr", 0)),
+                            "change": float(item.get("prdy_ctrt", 0)),
+                            "market_cap": int(item.get("stck_avls", 0)),
+                            "per": float(item.get("per", 0) or 0),
+                        })
+                    return results
+    except Exception as e:
+        print(f"[KIS] Market cap rank error: {e}")
+
+    return None
+
+
+async def get_foreign_net_rank(
+    app_key: str,
+    app_secret: str,
+    access_token: str,
+    is_buy: bool = True,  # True: 순매수, False: 순매도
+    limit: int = 30,
+    is_mock: bool = False
+) -> Optional[List[Dict[str, Any]]]:
+    """외인 순매수/순매도 순위"""
+    base_url = KIS_MOCK_URL if is_mock else KIS_REAL_URL
+    url = f"{base_url}/uapi/domestic-stock/v1/quotations/foreign-institution-total"
+
+    headers = {
+        "Content-Type": "application/json; charset=utf-8",
+        "authorization": f"Bearer {access_token}",
+        "appkey": app_key,
+        "appsecret": app_secret,
+        "tr_id": "FHPTJ04010000",
+    }
+
+    params = {
+        "FID_COND_MRKT_DIV_CODE": "V",
+        "FID_COND_SCR_DIV_CODE": "16449",
+        "FID_INPUT_ISCD": "0000",
+        "FID_DIV_CLS_CODE": "1" if is_buy else "2",  # 1: 순매수, 2: 순매도
+        "FID_RANK_SORT_CLS_CODE": "0",
+        "FID_ETC_CLS_CODE": "",
+        "FID_INPUT_DATE_1": datetime.now().strftime("%Y%m%d"),
+        "FID_INPUT_DATE_2": datetime.now().strftime("%Y%m%d"),
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url, headers=headers, params=params)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("rt_cd") == "0":
+                    output = data.get("output", [])
+                    results = []
+                    for i, item in enumerate(output[:limit]):
+                        results.append({
+                            "rank": i + 1,
+                            "code": item.get("stck_shrn_iscd", ""),
+                            "name": item.get("hts_kor_isnm", ""),
+                            "current": int(item.get("stck_prpr", 0)),
+                            "change": float(item.get("prdy_ctrt", 0)),
+                            "foreign_net_qty": int(item.get("frgn_ntby_qty", 0)),
+                            "foreign_net_amt": int(item.get("frgn_ntby_tr_pbmn", 0)),
+                        })
+                    return results
+    except Exception as e:
+        print(f"[KIS] Foreign net rank error: {e}")
+
+    return None
+
+
+async def get_institution_net_rank(
+    app_key: str,
+    app_secret: str,
+    access_token: str,
+    is_buy: bool = True,
+    limit: int = 30,
+    is_mock: bool = False
+) -> Optional[List[Dict[str, Any]]]:
+    """기관 순매수/순매도 순위"""
+    base_url = KIS_MOCK_URL if is_mock else KIS_REAL_URL
+    url = f"{base_url}/uapi/domestic-stock/v1/quotations/foreign-institution-total"
+
+    headers = {
+        "Content-Type": "application/json; charset=utf-8",
+        "authorization": f"Bearer {access_token}",
+        "appkey": app_key,
+        "appsecret": app_secret,
+        "tr_id": "FHPTJ04010000",
+    }
+
+    params = {
+        "FID_COND_MRKT_DIV_CODE": "V",
+        "FID_COND_SCR_DIV_CODE": "16449",
+        "FID_INPUT_ISCD": "0001",
+        "FID_DIV_CLS_CODE": "1" if is_buy else "2",
+        "FID_RANK_SORT_CLS_CODE": "1",  # 기관
+        "FID_ETC_CLS_CODE": "",
+        "FID_INPUT_DATE_1": datetime.now().strftime("%Y%m%d"),
+        "FID_INPUT_DATE_2": datetime.now().strftime("%Y%m%d"),
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url, headers=headers, params=params)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("rt_cd") == "0":
+                    output = data.get("output", [])
+                    results = []
+                    for i, item in enumerate(output[:limit]):
+                        results.append({
+                            "rank": i + 1,
+                            "code": item.get("stck_shrn_iscd", ""),
+                            "name": item.get("hts_kor_isnm", ""),
+                            "current": int(item.get("stck_prpr", 0)),
+                            "change": float(item.get("prdy_ctrt", 0)),
+                            "institution_net_qty": int(item.get("orgn_ntby_qty", 0)),
+                            "institution_net_amt": int(item.get("orgn_ntby_tr_pbmn", 0)),
+                        })
+                    return results
+    except Exception as e:
+        print(f"[KIS] Institution net rank error: {e}")
+
+    return None
+
+
+# 공개 API로 지수 데이터 가져오기 (네이버 금융)
+async def get_naver_index() -> Dict[str, Any]:
+    """네이버 금융에서 주요 지수 조회 (공개)"""
+    indices = {}
+
+    # 코스피
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(
+                "https://m.stock.naver.com/api/index/KOSPI/basic",
+                headers={"User-Agent": "Mozilla/5.0"}
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                indices["kospi"] = {
+                    "name": "코스피",
+                    "current": float(data.get("closePrice", "0").replace(",", "")),
+                    "change": float(data.get("fluctuationsRatio", 0)),
+                    "change_amount": float(data.get("compareToPreviousClosePrice", "0").replace(",", "")),
+                }
+    except Exception as e:
+        print(f"[Naver] KOSPI index error: {e}")
+
+    # 코스닥
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(
+                "https://m.stock.naver.com/api/index/KOSDAQ/basic",
+                headers={"User-Agent": "Mozilla/5.0"}
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                indices["kosdaq"] = {
+                    "name": "코스닥",
+                    "current": float(data.get("closePrice", "0").replace(",", "")),
+                    "change": float(data.get("fluctuationsRatio", 0)),
+                    "change_amount": float(data.get("compareToPreviousClosePrice", "0").replace(",", "")),
+                }
+    except Exception as e:
+        print(f"[Naver] KOSDAQ index error: {e}")
+
+    return indices
+
+
+async def get_yahoo_index() -> Dict[str, Any]:
+    """Yahoo Finance에서 해외 지수 조회 (공개)"""
+    indices = {}
+    symbols = {
+        "nasdaq": ("^IXIC", "나스닥"),
+        "sp500": ("^GSPC", "S&P 500"),
+        "dow": ("^DJI", "다우존스"),
+    }
+
+    for key, (symbol, name) in symbols.items():
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.get(
+                    f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}",
+                    params={"interval": "1d", "range": "1d"},
+                    headers={"User-Agent": "Mozilla/5.0"}
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    result = data.get("chart", {}).get("result", [])
+                    if result:
+                        meta = result[0].get("meta", {})
+                        current = meta.get("regularMarketPrice", 0)
+                        prev = meta.get("previousClose", current)
+                        change = ((current - prev) / prev * 100) if prev else 0
+
+                        indices[key] = {
+                            "name": name,
+                            "current": round(current, 2),
+                            "change": round(change, 2),
+                            "change_amount": round(current - prev, 2),
+                        }
+        except Exception as e:
+            print(f"[Yahoo] {key} index error: {e}")
+
+    return indices
+
+
+async def get_naver_sector_list() -> List[Dict[str, Any]]:
+    """네이버 금융에서 업종별 현황 (공개)"""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                "https://m.stock.naver.com/api/index/KOSPI/all",
+                headers={"User-Agent": "Mozilla/5.0"}
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                sectors = data.get("sectors", [])
+                results = []
+                for sector in sectors:
+                    results.append({
+                        "code": sector.get("code", ""),
+                        "name": sector.get("sectorName", ""),
+                        "current": float(sector.get("closePrice", "0").replace(",", "")),
+                        "change": float(sector.get("fluctuationsRatio", 0)),
+                        "volume": int(sector.get("accumulatedTradingVolume", "0").replace(",", "") if sector.get("accumulatedTradingVolume") else 0),
+                    })
+                return results
+    except Exception as e:
+        print(f"[Naver] Sector list error: {e}")
+
+    return []
+
+
+async def get_naver_volume_rank(limit: int = 50) -> List[Dict[str, Any]]:
+    """네이버 금융에서 거래량 순위 (공개)"""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                "https://m.stock.naver.com/api/stocks/volume/KOSPI?page=1&pageSize=50",
+                headers={"User-Agent": "Mozilla/5.0"}
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                stocks = data.get("stocks", [])
+                results = []
+                for i, stock in enumerate(stocks[:limit]):
+                    results.append({
+                        "rank": i + 1,
+                        "code": stock.get("itemCode", ""),
+                        "name": stock.get("stockName", ""),
+                        "current": int(stock.get("closePrice", "0").replace(",", "")),
+                        "change": float(stock.get("fluctuationsRatio", 0)),
+                        "volume": int(stock.get("accumulatedTradingVolume", "0").replace(",", "")),
+                    })
+                return results
+    except Exception as e:
+        print(f"[Naver] Volume rank error: {e}")
+
+    return []
+
+
+async def get_naver_fluctuation_rank(is_rise: bool = True, limit: int = 50) -> List[Dict[str, Any]]:
+    """네이버 금융에서 등락률 순위 (공개)"""
+    try:
+        endpoint = "rise" if is_rise else "fall"
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"https://m.stock.naver.com/api/stocks/{endpoint}/KOSPI?page=1&pageSize=50",
+                headers={"User-Agent": "Mozilla/5.0"}
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                stocks = data.get("stocks", [])
+                results = []
+                for i, stock in enumerate(stocks[:limit]):
+                    results.append({
+                        "rank": i + 1,
+                        "code": stock.get("itemCode", ""),
+                        "name": stock.get("stockName", ""),
+                        "current": int(stock.get("closePrice", "0").replace(",", "")),
+                        "change": float(stock.get("fluctuationsRatio", 0)),
+                        "volume": int(stock.get("accumulatedTradingVolume", "0").replace(",", "") if stock.get("accumulatedTradingVolume") else 0),
+                    })
+                return results
+    except Exception as e:
+        print(f"[Naver] Fluctuation rank error: {e}")
+
+    return []

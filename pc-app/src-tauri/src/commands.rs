@@ -1772,6 +1772,134 @@ pub async fn admin_get_system_status(access_token: String) -> Result<SystemStatu
 }
 
 // =====================================================
+// Market Analysis (STEP 2)
+// =====================================================
+
+#[tauri::command]
+pub async fn get_market_overview(access_token: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/market/overview", VPS_SERVER_URL);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else if resp.status().as_u16() == 403 {
+        Err("Pro 이상 요금제에서 이용 가능합니다".to_string())
+    } else {
+        Err("시장 현황을 가져올 수 없습니다".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn get_market_sectors(access_token: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/market/sectors", VPS_SERVER_URL);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else if resp.status().as_u16() == 403 {
+        Err("Pro 이상 요금제에서 이용 가능합니다".to_string())
+    } else {
+        Err("업종 현황을 가져올 수 없습니다".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn get_stock_ranking(
+    access_token: String,
+    ranking_type: String,
+    market: String,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let url = format!(
+        "{}/api/market/ranking?ranking_type={}&market={}",
+        VPS_SERVER_URL, ranking_type, market
+    );
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else if resp.status().as_u16() == 403 {
+        Err("Pro 이상 요금제에서 이용 가능합니다".to_string())
+    } else {
+        Err("종목 순위를 가져올 수 없습니다".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn get_featured_stocks(access_token: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/market/featured", VPS_SERVER_URL);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else if resp.status().as_u16() == 403 {
+        Err("Pro 이상 요금제에서 이용 가능합니다".to_string())
+    } else {
+        Err("특징주를 가져올 수 없습니다".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn get_market_events(
+    access_token: String,
+    event_type: String,
+    month: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let mut url = format!("{}/api/market/events?event_type={}", VPS_SERVER_URL, event_type);
+    if let Some(m) = month {
+        url.push_str(&format!("&month={}", m));
+    }
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else if resp.status().as_u16() == 403 {
+        Err("Pro 이상 요금제에서 이용 가능합니다".to_string())
+    } else {
+        Err("이벤트 일정을 가져올 수 없습니다".to_string())
+    }
+}
+
+// =====================================================
 // Helper Functions
 // =====================================================
 

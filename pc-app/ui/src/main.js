@@ -374,6 +374,11 @@ const pageTitles = {
     'tv-connect': '트레이딩뷰 연결',
     symbols: '심볼정보',
     'premium-strategy': '프리미엄 전략',
+    'market-overview': '시장현황',
+    'sector-analysis': '업종분석',
+    'stock-ranking': '종목순위',
+    'featured-stocks': '특징주',
+    'market-events': '이벤트일정',
     accounts: '계정관리',
     notifications: '알림설정',
     'app-info': '앱정보',
@@ -453,6 +458,11 @@ window.navigateTo = function(page) {
     else if (page === 'tv-connect') loadTVConnectPage();
     else if (page === 'symbols') loadSymbolsPage();
     else if (page === 'premium-strategy') loadPremiumStrategyPage();
+    else if (page === 'market-overview') loadMarketOverview();
+    else if (page === 'sector-analysis') loadSectorAnalysis();
+    else if (page === 'stock-ranking') loadStockRanking();
+    else if (page === 'featured-stocks') loadFeaturedStocks();
+    else if (page === 'market-events') loadMarketEvents();
     else if (page === 'accounts') loadAccountsPage();
     else if (page === 'app-info') loadAppInfoPage();
     else if (page === 'admin-users') loadAdminUsersPage();
@@ -2369,6 +2379,336 @@ async function loadAdminSystemPage() {
 }
 
 document.getElementById('btn-export-users')?.addEventListener('click', () => showToast('CSV 내보내기 준비 중', 'info'));
+
+// =====================================================
+// 시장분석 기능 (STEP 2)
+// =====================================================
+
+let currentRankingType = 'volume';
+let currentEventType = 'all';
+
+async function loadMarketOverview() {
+    const restrictionEl = document.getElementById('market-restriction');
+    const contentEl = document.getElementById('market-overview-content');
+    if (!restrictionEl || !contentEl) return;
+
+    try {
+        const data = await invoke('get_market_overview', { accessToken: auth.accessToken || '' });
+
+        restrictionEl.style.display = 'none';
+        contentEl.style.display = 'block';
+
+        // 지수 표시
+        const indices = data.indices || {};
+        updateIndexCard('index-kospi', indices.kospi);
+        updateIndexCard('index-kosdaq', indices.kosdaq);
+        updateIndexCard('index-nasdaq', indices.nasdaq);
+        updateIndexCard('index-sp500', indices.sp500);
+        updateIndexCard('index-dow', indices.dow);
+
+        // 시황 요약
+        const summary = data.summary || {};
+        document.getElementById('market-status-emoji').textContent = summary.emoji || '🟡';
+        document.getElementById('market-status-text').textContent = summary.status || '-';
+
+        const kospiChange = summary.kospi_change || 0;
+        const kosdaqChange = summary.kosdaq_change || 0;
+        document.getElementById('market-summary-text').textContent =
+            `코스피 ${kospiChange >= 0 ? '+' : ''}${kospiChange.toFixed(2)}%, ` +
+            `코스닥 ${kosdaqChange >= 0 ? '+' : ''}${kosdaqChange.toFixed(2)}%`;
+
+        // 투자자 동향
+        if (data.investor) {
+            updateInvestorBars(data.investor);
+            document.getElementById('investor-kis-hint').style.display = 'none';
+        } else {
+            document.getElementById('investor-kis-hint').style.display = data.has_kis_account ? 'none' : 'block';
+        }
+
+    } catch (error) {
+        console.error('Market overview error:', error);
+        if (error.toString().includes('Pro')) {
+            restrictionEl.style.display = 'flex';
+            contentEl.style.display = 'none';
+        }
+    }
+}
+
+function updateIndexCard(cardId, data) {
+    const card = document.getElementById(cardId);
+    if (!card || !data) return;
+
+    const valueEl = card.querySelector('.index-value');
+    const changeEl = card.querySelector('.index-change');
+
+    valueEl.textContent = data.current?.toLocaleString() || '-';
+    const change = data.change || 0;
+    changeEl.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
+    changeEl.className = `index-change ${change >= 0 ? 'profit' : 'loss'}`;
+}
+
+function updateInvestorBars(investor) {
+    const maxVal = Math.max(
+        Math.abs(investor.foreign_net || 0),
+        Math.abs(investor.institution_net || 0),
+        Math.abs(investor.individual_net || 0)
+    ) || 1;
+
+    updateInvestorBar('foreign', investor.foreign_net || 0, maxVal);
+    updateInvestorBar('institution', investor.institution_net || 0, maxVal);
+    updateInvestorBar('individual', investor.individual_net || 0, maxVal);
+}
+
+function updateInvestorBar(type, value, maxVal) {
+    const bar = document.getElementById(`bar-${type}`);
+    const valueEl = document.getElementById(`investor-${type}`);
+    if (!bar || !valueEl) return;
+
+    const pct = Math.min(Math.abs(value) / maxVal * 100, 100);
+    bar.style.width = `${pct}%`;
+    bar.classList.toggle('negative', value < 0);
+
+    const formatted = formatKoreanNumber(Math.abs(value));
+    valueEl.textContent = `${value >= 0 ? '+' : '-'}${formatted}`;
+    valueEl.className = `value ${value >= 0 ? 'profit' : 'loss'}`;
+}
+
+function formatKoreanNumber(num) {
+    if (num >= 100000000) return (num / 100000000).toFixed(1) + '억';
+    if (num >= 10000) return (num / 10000).toFixed(1) + '만';
+    return num.toLocaleString();
+}
+
+async function loadSectorAnalysis() {
+    const restrictionEl = document.getElementById('sector-restriction');
+    const leadingEl = document.getElementById('leading-sectors');
+    const laggingEl = document.getElementById('lagging-sectors');
+    const tbody = document.getElementById('sector-tbody');
+    if (!tbody) return;
+
+    try {
+        const data = await invoke('get_market_sectors', { accessToken: auth.accessToken || '' });
+
+        if (restrictionEl) restrictionEl.style.display = 'none';
+
+        // 주도/부진 업종
+        if (leadingEl && data.leading) {
+            leadingEl.innerHTML = data.leading.map(s =>
+                `<span class="sector-tag positive">${s.name} +${s.change?.toFixed(2)}%</span>`
+            ).join('');
+        }
+        if (laggingEl && data.lagging) {
+            laggingEl.innerHTML = data.lagging.map(s =>
+                `<span class="sector-tag negative">${s.name} ${s.change?.toFixed(2)}%</span>`
+            ).join('');
+        }
+
+        // 테이블
+        const sectors = data.sectors || [];
+        tbody.innerHTML = sectors.map(s => `
+            <tr>
+                <td>${s.name || '-'}</td>
+                <td>${s.current?.toLocaleString() || '-'}</td>
+                <td class="${(s.change || 0) >= 0 ? 'profit' : 'loss'}">${s.change >= 0 ? '+' : ''}${s.change?.toFixed(2) || 0}%</td>
+            </tr>
+        `).join('') || '<tr><td colspan="3" class="empty-cell">데이터 없음</td></tr>';
+
+    } catch (error) {
+        console.error('Sector analysis error:', error);
+        if (error.toString().includes('Pro') && restrictionEl) {
+            restrictionEl.style.display = 'flex';
+        }
+    }
+}
+
+async function loadStockRanking(rankingType = 'volume', market = 'all') {
+    const restrictionEl = document.getElementById('ranking-restriction');
+    const tbody = document.getElementById('ranking-tbody');
+    const headerEl = document.getElementById('ranking-extra-header');
+    if (!tbody) return;
+
+    currentRankingType = rankingType;
+
+    // 헤더 업데이트
+    const headers = {
+        volume: '거래량', rise: '등락률', fall: '등락률',
+        market_cap: '시가총액', foreign_buy: '외인순매수', foreign_sell: '외인순매도',
+        institution_buy: '기관순매수', institution_sell: '기관순매도'
+    };
+    if (headerEl) headerEl.textContent = headers[rankingType] || '거래량';
+
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">로딩 중...</td></tr>';
+
+    try {
+        const data = await invoke('get_stock_ranking', {
+            accessToken: auth.accessToken || '',
+            rankingType: rankingType,
+            market: market
+        });
+
+        if (restrictionEl) restrictionEl.style.display = 'none';
+
+        const stocks = data.stocks || [];
+        tbody.innerHTML = stocks.map(s => {
+            let extraValue = '';
+            if (rankingType === 'volume') extraValue = formatKoreanNumber(s.volume || 0);
+            else if (rankingType === 'market_cap') extraValue = formatKoreanNumber((s.market_cap || 0) * 100000000);
+            else if (rankingType.includes('foreign')) extraValue = formatKoreanNumber(Math.abs(s.foreign_net_qty || 0));
+            else if (rankingType.includes('institution')) extraValue = formatKoreanNumber(Math.abs(s.institution_net_qty || 0));
+            else extraValue = `${s.change >= 0 ? '+' : ''}${s.change?.toFixed(2)}%`;
+
+            return `
+                <tr onclick="showSymbolDetail('${s.code}', 'kis_kr')">
+                    <td>${s.rank || '-'}</td>
+                    <td>${s.name || '-'}</td>
+                    <td>₩${(s.current || 0).toLocaleString()}</td>
+                    <td class="${(s.change || 0) >= 0 ? 'profit' : 'loss'}">${s.change >= 0 ? '+' : ''}${s.change?.toFixed(2) || 0}%</td>
+                    <td>${extraValue}</td>
+                </tr>
+            `;
+        }).join('') || '<tr><td colspan="5" class="empty-cell">데이터 없음</td></tr>';
+
+    } catch (error) {
+        console.error('Stock ranking error:', error);
+        if (error.toString().includes('Pro') && restrictionEl) {
+            restrictionEl.style.display = 'flex';
+        }
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">데이터를 불러올 수 없습니다</td></tr>';
+    }
+}
+
+async function loadFeaturedStocks() {
+    const restrictionEl = document.getElementById('featured-restriction');
+
+    try {
+        const data = await invoke('get_featured_stocks', { accessToken: auth.accessToken || '' });
+
+        if (restrictionEl) restrictionEl.style.display = 'none';
+
+        // 상한가/하한가/급등/급락
+        updateFeaturedList('upper-limit-list', data.upper_limit || []);
+        updateFeaturedList('lower-limit-list', data.lower_limit || []);
+        updateFeaturedList('surge-list', data.surge || []);
+        updateFeaturedList('plunge-list', data.plunge || []);
+
+        // 상승/하락 TOP 10
+        updateFeaturedTable('rise-top-tbody', data.rise_top || []);
+        updateFeaturedTable('fall-top-tbody', data.fall_top || []);
+
+    } catch (error) {
+        console.error('Featured stocks error:', error);
+        if (error.toString().includes('Pro') && restrictionEl) {
+            restrictionEl.style.display = 'flex';
+        }
+    }
+}
+
+function updateFeaturedList(containerId, stocks) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    if (stocks.length === 0) {
+        container.innerHTML = '<div class="featured-item"><span class="name">-</span></div>';
+        return;
+    }
+
+    container.innerHTML = stocks.slice(0, 5).map(s => `
+        <div class="featured-item" onclick="showSymbolDetail('${s.code}', 'kis_kr')">
+            <span class="name">${s.name || '-'}</span>
+            <span class="change ${(s.change || 0) >= 0 ? 'profit' : 'loss'}">${s.change >= 0 ? '+' : ''}${s.change?.toFixed(2)}%</span>
+        </div>
+    `).join('');
+}
+
+function updateFeaturedTable(tbodyId, stocks) {
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody) return;
+
+    tbody.innerHTML = stocks.map(s => `
+        <tr onclick="showSymbolDetail('${s.code}', 'kis_kr')">
+            <td>${s.rank || '-'}</td>
+            <td>${s.name || '-'}</td>
+            <td>₩${(s.current || 0).toLocaleString()}</td>
+            <td class="${(s.change || 0) >= 0 ? 'profit' : 'loss'}">${s.change >= 0 ? '+' : ''}${s.change?.toFixed(2)}%</td>
+        </tr>
+    `).join('') || '<tr><td colspan="4" class="empty-cell">-</td></tr>';
+}
+
+async function loadMarketEvents(eventType = 'all') {
+    const restrictionEl = document.getElementById('events-restriction');
+    const kisNotice = document.getElementById('events-kis-notice');
+    const tbody = document.getElementById('events-tbody');
+    if (!tbody) return;
+
+    currentEventType = eventType;
+    tbody.innerHTML = '<tr><td colspan="4" class="empty-cell">로딩 중...</td></tr>';
+
+    try {
+        const data = await invoke('get_market_events', {
+            accessToken: auth.accessToken || '',
+            eventType: eventType,
+            month: null
+        });
+
+        if (restrictionEl) restrictionEl.style.display = 'none';
+
+        if (!data.has_kis_account && kisNotice) {
+            kisNotice.style.display = 'block';
+            tbody.innerHTML = '<tr><td colspan="4" class="empty-cell">KIS 계정 등록 필요</td></tr>';
+            return;
+        }
+
+        if (kisNotice) kisNotice.style.display = 'none';
+
+        const events = data.events || [];
+        const typeLabels = { dividend: '배당', ipo: '공모주', rights: '유상증자', bonus: '무상증자' };
+
+        tbody.innerHTML = events.map(e => {
+            let detail = '';
+            if (e.type === 'dividend') detail = `${e.amount?.toLocaleString()}원 (${e.yield}%)`;
+            else if (e.type === 'ipo') detail = `공모가 ${e.price?.toLocaleString()}원`;
+            else detail = '-';
+
+            return `
+                <tr>
+                    <td>${typeLabels[e.type] || e.type}</td>
+                    <td>${e.stock_name || '-'}</td>
+                    <td>${e.date || e.date_start || '-'}</td>
+                    <td>${detail}</td>
+                </tr>
+            `;
+        }).join('') || '<tr><td colspan="4" class="empty-cell">예정된 이벤트 없음</td></tr>';
+
+    } catch (error) {
+        console.error('Market events error:', error);
+        if (error.toString().includes('Pro') && restrictionEl) {
+            restrictionEl.style.display = 'flex';
+        }
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-cell">데이터를 불러올 수 없습니다</td></tr>';
+    }
+}
+
+// 시장분석 탭 이벤트
+document.querySelectorAll('.ranking-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.ranking-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const marketSelect = document.getElementById('ranking-market-filter');
+        loadStockRanking(tab.dataset.type, marketSelect?.value || 'all');
+    });
+});
+
+document.getElementById('ranking-market-filter')?.addEventListener('change', (e) => {
+    loadStockRanking(currentRankingType, e.target.value);
+});
+
+document.querySelectorAll('.event-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.event-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        loadMarketEvents(tab.dataset.type);
+    });
+});
 
 // =====================================================
 // Initialize App

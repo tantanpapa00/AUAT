@@ -117,6 +117,12 @@ fn main() {
             commands::admin_get_users,
             commands::admin_update_user_plan,
             commands::admin_get_system_status,
+            // Market Analysis (STEP 2)
+            commands::get_market_overview,
+            commands::get_market_sectors,
+            commands::get_stock_ranking,
+            commands::get_featured_stocks,
+            commands::get_market_events,
         ])
         .setup(|app| {
             // 앱 시작 시 VPS 서버 연결 확인 (로컬 서버 시작 없음)

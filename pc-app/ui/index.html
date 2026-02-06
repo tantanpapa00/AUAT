@@ -116,6 +116,37 @@
                     <span class="nav-text">심볼정보</span>
                 </a>
 
+                <!-- 시장분석 (아코디언) - Pro 이상 -->
+                <div class="nav-group">
+                    <a href="#" class="nav-item nav-parent" data-group="market">
+                        <span class="nav-icon">📈</span>
+                        <span class="nav-text">시장분석</span>
+                        <span class="nav-arrow">▼</span>
+                    </a>
+                    <div class="nav-submenu" id="submenu-market">
+                        <a href="#" class="nav-item nav-child" data-page="market-overview">
+                            <span class="nav-icon">🌐</span>
+                            <span class="nav-text">시장현황</span>
+                        </a>
+                        <a href="#" class="nav-item nav-child" data-page="sector-analysis">
+                            <span class="nav-icon">🏭</span>
+                            <span class="nav-text">업종분석</span>
+                        </a>
+                        <a href="#" class="nav-item nav-child" data-page="stock-ranking">
+                            <span class="nav-icon">🏆</span>
+                            <span class="nav-text">종목순위</span>
+                        </a>
+                        <a href="#" class="nav-item nav-child" data-page="featured-stocks">
+                            <span class="nav-icon">⭐</span>
+                            <span class="nav-text">특징주</span>
+                        </a>
+                        <a href="#" class="nav-item nav-child" data-page="market-events">
+                            <span class="nav-icon">📅</span>
+                            <span class="nav-text">이벤트일정</span>
+                        </a>
+                    </div>
+                </div>
+
                 <!-- 설정 (아코디언) -->
                 <div class="nav-group">
                     <a href="#" class="nav-item nav-parent" data-group="settings">
@@ -730,6 +761,262 @@
                             <button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 확인</button>
                         </div>
                     </div>
+                </div>
+            </main>
+
+            <!-- ========== 시장현황 페이지 (STEP 2) ========== -->
+            <main class="main page-content" id="page-market-overview" style="display: none;">
+                <div class="market-container">
+                    <!-- Pro 이상 요금제 필요 안내 -->
+                    <div class="access-restriction" id="market-restriction" style="display: none;">
+                        <div class="restriction-content">
+                            <span class="restriction-icon">🔒</span>
+                            <h3>시장분석은 Pro 이상 요금제에서 이용 가능합니다</h3>
+                            <button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 업그레이드</button>
+                        </div>
+                    </div>
+
+                    <div id="market-overview-content">
+                        <!-- 지수 카드 -->
+                        <section class="index-cards">
+                            <div class="index-card" id="index-kospi">
+                                <div class="index-name">코스피</div>
+                                <div class="index-value">-</div>
+                                <div class="index-change">-</div>
+                            </div>
+                            <div class="index-card" id="index-kosdaq">
+                                <div class="index-name">코스닥</div>
+                                <div class="index-value">-</div>
+                                <div class="index-change">-</div>
+                            </div>
+                            <div class="index-card" id="index-nasdaq">
+                                <div class="index-name">나스닥</div>
+                                <div class="index-value">-</div>
+                                <div class="index-change">-</div>
+                            </div>
+                            <div class="index-card" id="index-sp500">
+                                <div class="index-name">S&P 500</div>
+                                <div class="index-value">-</div>
+                                <div class="index-change">-</div>
+                            </div>
+                            <div class="index-card" id="index-dow">
+                                <div class="index-name">다우존스</div>
+                                <div class="index-value">-</div>
+                                <div class="index-change">-</div>
+                            </div>
+                        </section>
+
+                        <!-- 시황 요약 -->
+                        <section class="card market-summary">
+                            <h3><span id="market-status-emoji">🟡</span> 시장 상태: <span id="market-status-text">-</span></h3>
+                            <p id="market-summary-text">데이터를 불러오는 중...</p>
+                        </section>
+
+                        <!-- 투자자 동향 -->
+                        <section class="card investor-section">
+                            <h3>투자자별 매매동향</h3>
+                            <div class="investor-bars" id="investor-bars">
+                                <div class="investor-bar-item">
+                                    <span class="label">외국인</span>
+                                    <div class="bar-container">
+                                        <div class="bar foreign" id="bar-foreign"></div>
+                                    </div>
+                                    <span class="value" id="investor-foreign">-</span>
+                                </div>
+                                <div class="investor-bar-item">
+                                    <span class="label">기관</span>
+                                    <div class="bar-container">
+                                        <div class="bar institution" id="bar-institution"></div>
+                                    </div>
+                                    <span class="value" id="investor-institution">-</span>
+                                </div>
+                                <div class="investor-bar-item">
+                                    <span class="label">개인</span>
+                                    <div class="bar-container">
+                                        <div class="bar individual" id="bar-individual"></div>
+                                    </div>
+                                    <span class="value" id="investor-individual">-</span>
+                                </div>
+                            </div>
+                            <p class="kis-hint" id="investor-kis-hint" style="display: none;">KIS 계정을 등록하면 상세 데이터를 볼 수 있습니다.</p>
+                        </section>
+                    </div>
+                </div>
+            </main>
+
+            <!-- ========== 업종분석 페이지 (STEP 2) ========== -->
+            <main class="main page-content" id="page-sector-analysis" style="display: none;">
+                <div class="market-container">
+                    <div class="access-restriction" id="sector-restriction" style="display: none;">
+                        <div class="restriction-content">
+                            <span class="restriction-icon">🔒</span>
+                            <h3>시장분석은 Pro 이상 요금제에서 이용 가능합니다</h3>
+                            <button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 업그레이드</button>
+                        </div>
+                    </div>
+
+                    <section class="card">
+                        <h3>업종별 현황</h3>
+                        <div class="sector-leaders">
+                            <div class="leader-section">
+                                <span class="leader-label">주도 업종</span>
+                                <div id="leading-sectors"></div>
+                            </div>
+                            <div class="leader-section">
+                                <span class="leader-label lagging">부진 업종</span>
+                                <div id="lagging-sectors"></div>
+                            </div>
+                        </div>
+                        <table class="data-table" id="sector-table">
+                            <thead>
+                                <tr>
+                                    <th>업종명</th>
+                                    <th>현재</th>
+                                    <th>등락률</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sector-tbody">
+                                <tr><td colspan="3" class="empty-cell">데이터 로딩 중...</td></tr>
+                            </tbody>
+                        </table>
+                    </section>
+                </div>
+            </main>
+
+            <!-- ========== 종목순위 페이지 (STEP 2) ========== -->
+            <main class="main page-content" id="page-stock-ranking" style="display: none;">
+                <div class="market-container">
+                    <div class="access-restriction" id="ranking-restriction" style="display: none;">
+                        <div class="restriction-content">
+                            <span class="restriction-icon">🔒</span>
+                            <h3>시장분석은 Pro 이상 요금제에서 이용 가능합니다</h3>
+                            <button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 업그레이드</button>
+                        </div>
+                    </div>
+
+                    <section class="card">
+                        <div class="ranking-tabs">
+                            <button class="ranking-tab active" data-type="volume">거래량</button>
+                            <button class="ranking-tab" data-type="rise">상승률</button>
+                            <button class="ranking-tab" data-type="fall">하락률</button>
+                            <button class="ranking-tab" data-type="market_cap">시가총액</button>
+                            <button class="ranking-tab" data-type="foreign_buy">외인순매수</button>
+                            <button class="ranking-tab" data-type="institution_buy">기관순매수</button>
+                        </div>
+                        <div class="market-filter">
+                            <select id="ranking-market-filter">
+                                <option value="all">전체</option>
+                                <option value="kospi">코스피</option>
+                                <option value="kosdaq">코스닥</option>
+                            </select>
+                        </div>
+                        <table class="data-table" id="ranking-table">
+                            <thead>
+                                <tr>
+                                    <th>순위</th>
+                                    <th>종목명</th>
+                                    <th>현재가</th>
+                                    <th>등락률</th>
+                                    <th id="ranking-extra-header">거래량</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ranking-tbody">
+                                <tr><td colspan="5" class="empty-cell">데이터 로딩 중...</td></tr>
+                            </tbody>
+                        </table>
+                    </section>
+                </div>
+            </main>
+
+            <!-- ========== 특징주 페이지 (STEP 2) ========== -->
+            <main class="main page-content" id="page-featured-stocks" style="display: none;">
+                <div class="market-container">
+                    <div class="access-restriction" id="featured-restriction" style="display: none;">
+                        <div class="restriction-content">
+                            <span class="restriction-icon">🔒</span>
+                            <h3>시장분석은 Pro 이상 요금제에서 이용 가능합니다</h3>
+                            <button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 업그레이드</button>
+                        </div>
+                    </div>
+
+                    <div class="featured-grid">
+                        <section class="card featured-section">
+                            <h3>🔺 상한가</h3>
+                            <div class="featured-list" id="upper-limit-list">-</div>
+                        </section>
+                        <section class="card featured-section">
+                            <h3>🔻 하한가</h3>
+                            <div class="featured-list" id="lower-limit-list">-</div>
+                        </section>
+                        <section class="card featured-section">
+                            <h3>🚀 급등주</h3>
+                            <div class="featured-list" id="surge-list">-</div>
+                        </section>
+                        <section class="card featured-section">
+                            <h3>📉 급락주</h3>
+                            <div class="featured-list" id="plunge-list">-</div>
+                        </section>
+                    </div>
+
+                    <section class="card">
+                        <h3>상승률 TOP 10</h3>
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>순위</th><th>종목명</th><th>현재가</th><th>등락률</th></tr>
+                            </thead>
+                            <tbody id="rise-top-tbody"></tbody>
+                        </table>
+                    </section>
+
+                    <section class="card">
+                        <h3>하락률 TOP 10</h3>
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>순위</th><th>종목명</th><th>현재가</th><th>등락률</th></tr>
+                            </thead>
+                            <tbody id="fall-top-tbody"></tbody>
+                        </table>
+                    </section>
+                </div>
+            </main>
+
+            <!-- ========== 이벤트일정 페이지 (STEP 2) ========== -->
+            <main class="main page-content" id="page-market-events" style="display: none;">
+                <div class="market-container">
+                    <div class="access-restriction" id="events-restriction" style="display: none;">
+                        <div class="restriction-content">
+                            <span class="restriction-icon">🔒</span>
+                            <h3>시장분석은 Pro 이상 요금제에서 이용 가능합니다</h3>
+                            <button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 업그레이드</button>
+                        </div>
+                    </div>
+
+                    <section class="card">
+                        <div class="event-tabs">
+                            <button class="event-tab active" data-type="all">전체</button>
+                            <button class="event-tab" data-type="dividend">배당</button>
+                            <button class="event-tab" data-type="ipo">공모주</button>
+                            <button class="event-tab" data-type="rights">유상증자</button>
+                            <button class="event-tab" data-type="bonus">무상증자</button>
+                        </div>
+                        <div class="kis-notice" id="events-kis-notice" style="display: none;">
+                            <p>이벤트 일정은 KIS 계정 등록 시 이용 가능합니다.</p>
+                            <button class="btn btn-primary btn-sm" onclick="navigateTo('accounts')">계정 등록하기</button>
+                        </div>
+                        <table class="data-table" id="events-table">
+                            <thead>
+                                <tr>
+                                    <th>유형</th>
+                                    <th>종목명</th>
+                                    <th>일자</th>
+                                    <th>상세</th>
+                                </tr>
+                            </thead>
+                            <tbody id="events-tbody">
+                                <tr><td colspan="4" class="empty-cell">데이터 로딩 중...</td></tr>
+                            </tbody>
+                        </table>
+                    </section>
                 </div>
             </main>
 
