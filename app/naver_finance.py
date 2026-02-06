@@ -143,27 +143,36 @@ async def get_investor_trend() -> Dict[str, Any]:
 
 
 async def get_sector_ranking() -> List[Dict[str, Any]]:
-    """업종별 등락률 TOP 10 (모바일 API)"""
+    """업종별 등락률 TOP 10 (모바일 API - 업종 지수 기반)"""
     try:
         async with httpx.AsyncClient(timeout=TIMEOUT) as client:
+            # 업종 지수 조회 (KOSPI 섹터)
             resp = await client.get(
-                "https://m.stock.naver.com/api/stocks/up?menu=UPJONG",
+                "https://m.stock.naver.com/api/index/KOSPI/all",
                 headers=HEADERS
             )
             if resp.status_code != 200:
                 raise Exception(f"HTTP {resp.status_code}")
 
             data = resp.json()
-            stocks = data.get("stocks", [])
+            sectors_data = data.get("sectors", [])
 
             sectors = []
-            for stock in stocks[:10]:
+            for sector in sectors_data:
+                name = sector.get("sectorName", "")
+                if not name:
+                    continue
                 sectors.append({
-                    "name": stock.get("stockName", ""),
-                    "change_percent": _safe_float(stock.get("fluctuationsRatio")),
+                    "code": sector.get("code", ""),
+                    "name": name,
+                    "current": _safe_float(sector.get("closePrice")),
+                    "change": _safe_float(sector.get("compareToPreviousClosePrice")),
+                    "change_percent": _safe_float(sector.get("fluctuationsRatio")),
                 })
 
-            return sectors
+            # 등락률 순 정렬
+            sectors.sort(key=lambda x: x["change_percent"], reverse=True)
+            return sectors[:10]
     except Exception as e:
         print(f"[NaverFinance] 업종 순위 조회 실패: {e}")
         return []

@@ -140,6 +140,20 @@ _master_cache = KISMasterCache()
 _token_cache: Dict[str, KISToken] = {}  # user_id -> token
 
 
+def _clean_stock_name(name: str) -> str:
+    """종목명에서 쓰레기 데이터 제거"""
+    if not name:
+        return ""
+    # 1. 기본 strip
+    name = name.strip()
+    # 2. 연속 공백 이후 부분 제거 (예: "삼성화재                ST100210025000" → "삼성화재")
+    name = re.sub(r'\s{2,}.*', '', name)
+    # 3. 숫자+영문 조합 패턴 제거 (예: "ST100210025000")
+    name = re.sub(r'[A-Z]{2,}\d+.*$', '', name)
+    # 4. 최종 strip
+    return name.strip()
+
+
 def _parse_kospi_kosdaq_master(content: bytes, market: str) -> Dict[str, StockMaster]:
     """KOSPI/KOSDAQ 종목 마스터 파싱"""
     stocks = {}
@@ -158,7 +172,12 @@ def _parse_kospi_kosdaq_master(content: bytes, market: str) -> Dict[str, StockMa
                 # 실제 마스터 형식에 따라 조정 필요
                 # 간단히 종목코드 6자리 + 종목명 파싱
                 code = code[:6] if len(code) >= 6 else code
-                name = line[21:71].strip() if len(line) > 71 else line[21:].strip()
+                raw_name = line[21:71] if len(line) > 71 else line[21:]
+                # 종목명 정리 (쓰레기 데이터 제거)
+                name = _clean_stock_name(raw_name)
+
+                if not name:
+                    continue
 
                 # ETF 여부 (종목코드로 추정: 1로 시작하면 ETF가 많음)
                 is_etf = code.startswith("1") or code.startswith("3") or "ETF" in name.upper()
