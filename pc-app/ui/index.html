@@ -76,61 +76,102 @@
     <!-- 대시보드 -->
     <div id="app" style="display: none !important;">
         <!-- Sidebar Navigation - 새 구조 -->
-        <aside class="sidebar">
+        <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <img src="/src/assets/logo.png" alt="BBooster" height="32">
+                <img src="/src/assets/logo.png" alt="BBooster" height="32" class="sidebar-logo-img">
                 <span class="brand">BBooster</span>
+                <button class="sidebar-toggle" id="sidebar-toggle" title="사이드바 접기/펴기">
+                    <span class="toggle-icon">◀</span>
+                </button>
             </div>
             <nav class="sidebar-nav">
+                <!-- 홈 -->
                 <a href="#" class="nav-item active" data-page="home">
                     <span class="nav-icon">🏠</span>
-                    <span>홈</span>
+                    <span class="nav-text">홈</span>
                 </a>
-                <a href="#" class="nav-item" data-page="tv-connect">
-                    <span class="nav-icon">📡</span>
-                    <span>TV 전략연결</span>
-                </a>
+
+                <!-- 전략설정 (아코디언) -->
+                <div class="nav-group">
+                    <a href="#" class="nav-item nav-parent" data-group="strategy">
+                        <span class="nav-icon">📊</span>
+                        <span class="nav-text">전략설정</span>
+                        <span class="nav-arrow">▼</span>
+                    </a>
+                    <div class="nav-submenu" id="submenu-strategy">
+                        <a href="#" class="nav-item nav-child" data-page="tv-connect">
+                            <span class="nav-icon">📡</span>
+                            <span class="nav-text">트레이딩뷰 연결</span>
+                        </a>
+                        <a href="#" class="nav-item nav-child" data-page="premium-strategy">
+                            <span class="nav-icon">🎯</span>
+                            <span class="nav-text">프리미엄 전략</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- 심볼정보 -->
                 <a href="#" class="nav-item" data-page="symbols">
-                    <span class="nav-icon">📊</span>
-                    <span>심볼정보</span>
-                </a>
-                <a href="#" class="nav-item" data-page="premium-strategy">
-                    <span class="nav-icon">🎯</span>
-                    <span>프리미엄 전략</span>
+                    <span class="nav-icon">🔍</span>
+                    <span class="nav-text">심볼정보</span>
                 </a>
 
-                <div class="nav-divider"></div>
-                <div class="nav-section-title">설정</div>
+                <!-- 설정 (아코디언) -->
+                <div class="nav-group">
+                    <a href="#" class="nav-item nav-parent" data-group="settings">
+                        <span class="nav-icon">⚙️</span>
+                        <span class="nav-text">설정</span>
+                        <span class="nav-arrow">▼</span>
+                    </a>
+                    <div class="nav-submenu" id="submenu-settings">
+                        <a href="#" class="nav-item nav-child" data-page="accounts">
+                            <span class="nav-icon">🔑</span>
+                            <span class="nav-text">계정관리</span>
+                        </a>
+                        <a href="#" class="nav-item nav-child" data-page="notifications">
+                            <span class="nav-icon">🔔</span>
+                            <span class="nav-text">알림설정</span>
+                        </a>
+                        <a href="#" class="nav-item nav-child" data-page="app-info">
+                            <span class="nav-icon">ℹ️</span>
+                            <span class="nav-text">앱정보</span>
+                        </a>
+                    </div>
+                </div>
 
-                <a href="#" class="nav-item" data-page="accounts">
-                    <span class="nav-icon">🔑</span>
-                    <span>계정관리</span>
-                </a>
-                <a href="#" class="nav-item" data-page="notifications">
-                    <span class="nav-icon">🔔</span>
-                    <span>알림설정</span>
-                </a>
-                <a href="#" class="nav-item" data-page="app-info">
-                    <span class="nav-icon">ℹ️</span>
-                    <span>앱정보</span>
-                </a>
-
-                <!-- 관리자 전용 -->
-                <div class="nav-divider admin-only" style="display:none;"></div>
-                <a href="#" class="nav-item admin-only" data-page="admin-users" style="display:none;">
-                    <span class="nav-icon">👥</span>
-                    <span>사용자관리</span>
-                </a>
-                <a href="#" class="nav-item admin-only" data-page="admin-system" style="display:none;">
-                    <span class="nav-icon">🖥️</span>
-                    <span>시스템상태</span>
-                </a>
+                <!-- 관리자 (아코디언) -->
+                <div class="nav-group admin-only" id="admin-menu-group" style="display:none;">
+                    <a href="#" class="nav-item nav-parent" data-group="admin">
+                        <span class="nav-icon">🛡️</span>
+                        <span class="nav-text">관리자</span>
+                        <span class="nav-arrow">▼</span>
+                    </a>
+                    <div class="nav-submenu" id="submenu-admin">
+                        <a href="#" class="nav-item nav-child" data-page="admin-users">
+                            <span class="nav-icon">👥</span>
+                            <span class="nav-text">사용자관리</span>
+                        </a>
+                        <a href="#" class="nav-item nav-child" data-page="admin-system">
+                            <span class="nav-icon">🖥️</span>
+                            <span class="nav-text">시스템상태</span>
+                        </a>
+                    </div>
+                </div>
             </nav>
             <div class="sidebar-footer">
-                <div class="subscription-badge free" id="subscription-badge" title="구독 정보 보기">
-                    <span class="badge-icon">⭐</span>
-                    <span id="subscription-text">무료</span>
+                <div class="user-info-section">
+                    <div class="user-avatar" id="user-avatar">👤</div>
+                    <div class="user-details">
+                        <span class="user-name" id="user-name">사용자</span>
+                        <span class="subscription-badge free" id="subscription-badge">
+                            <span id="subscription-text">무료</span>
+                        </span>
+                    </div>
                 </div>
+                <button class="logout-btn" id="sidebar-logout-btn" title="로그아웃">
+                    <span class="nav-icon">🚪</span>
+                    <span class="nav-text">로그아웃</span>
+                </button>
             </div>
         </aside>
 
@@ -146,9 +187,6 @@
                         <span class="status-light" id="light-server"></span>
                         <span id="server-status" class="status-text">서버: --</span>
                     </div>
-                    <button id="btn-logout" class="btn btn-secondary btn-logout" title="로그아웃">
-                        로그아웃
-                    </button>
                 </div>
             </header>
 

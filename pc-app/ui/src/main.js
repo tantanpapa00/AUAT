@@ -269,16 +269,36 @@ async function refreshAuthToken() {
 function updateUserUI(user) {
     const badge = document.getElementById('subscription-badge');
     const badgeText = document.getElementById('subscription-text');
+    const userName = document.getElementById('user-name');
+    const userAvatar = document.getElementById('user-avatar');
 
+    // Update user name
+    if (userName) {
+        userName.textContent = user.name || user.email?.split('@')[0] || '사용자';
+    }
+
+    // Update avatar (first letter or emoji)
+    if (userAvatar) {
+        const name = user.name || user.email || '사용자';
+        userAvatar.textContent = name.charAt(0).toUpperCase();
+    }
+
+    // Update subscription badge
     if (user.plan === 'premium') {
         if (badge) badge.className = 'subscription-badge premium';
         if (badgeText) badgeText.textContent = '프리미엄';
     } else if (user.plan === 'hub') {
         if (badge) badge.className = 'subscription-badge hub';
-        if (badgeText) badgeText.textContent = '허브형';
+        if (badgeText) badgeText.textContent = '허브';
     } else {
         if (badge) badge.className = 'subscription-badge free';
         if (badgeText) badgeText.textContent = '무료';
+    }
+
+    // Show admin menu if admin
+    if (user.role === 'admin') {
+        document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
+        document.getElementById('admin-menu-group')?.style.setProperty('display', 'block');
     }
 }
 
@@ -288,8 +308,6 @@ function logout() {
     localStorage.removeItem('bbooster_hub_mode');
     window.location.reload();
 }
-
-document.getElementById('btn-logout')?.addEventListener('click', logout);
 
 async function initAuth() {
     ensureLoginScreenVisible();
@@ -344,14 +362,16 @@ btnGoogleLogin?.addEventListener('click', loginWithGoogle);
 btnSkipLogin?.addEventListener('click', skipLogin);
 
 // =====================================================
-// Navigation - New Structure
+// Navigation - New Collapsible Sidebar Structure
 // =====================================================
-const navItems = document.querySelectorAll('.nav-item');
+const sidebar = document.getElementById('sidebar');
+const sidebarToggle = document.getElementById('sidebar-toggle');
+const mainWrapper = document.querySelector('.main-wrapper');
 const pageTitle = document.getElementById('page-title');
 
 const pageTitles = {
     home: '홈',
-    'tv-connect': 'TV 전략연결',
+    'tv-connect': '트레이딩뷰 연결',
     symbols: '심볼정보',
     'premium-strategy': '프리미엄 전략',
     accounts: '계정관리',
@@ -361,21 +381,62 @@ const pageTitles = {
     'admin-system': '시스템상태'
 };
 
-navItems.forEach(item => {
+// Sidebar Toggle (Collapse/Expand)
+sidebarToggle?.addEventListener('click', () => {
+    sidebar.classList.toggle('collapsed');
+    if (mainWrapper) {
+        mainWrapper.style.marginLeft = sidebar.classList.contains('collapsed') ? '60px' : '240px';
+    }
+    localStorage.setItem('sidebar_collapsed', sidebar.classList.contains('collapsed'));
+});
+
+// Restore sidebar state
+if (localStorage.getItem('sidebar_collapsed') === 'true') {
+    sidebar?.classList.add('collapsed');
+    if (mainWrapper) mainWrapper.style.marginLeft = '60px';
+}
+
+// Accordion Submenu Toggle
+document.querySelectorAll('.nav-parent').forEach(parent => {
+    parent.addEventListener('click', (e) => {
+        e.preventDefault();
+        const group = parent.closest('.nav-group');
+        if (group) {
+            // Close other groups
+            document.querySelectorAll('.nav-group').forEach(g => {
+                if (g !== group) g.classList.remove('open');
+            });
+            group.classList.toggle('open');
+        }
+    });
+});
+
+// Nav Item Click (Page Navigation)
+document.querySelectorAll('.nav-item[data-page]').forEach(item => {
     item.addEventListener('click', (e) => {
         e.preventDefault();
         const page = item.dataset.page;
-        navigateTo(page);
+        if (page) navigateTo(page);
     });
 });
 
 window.navigateTo = function(page) {
-    navItems.forEach(nav => {
+    // Update active state
+    document.querySelectorAll('.nav-item').forEach(nav => {
         nav.classList.toggle('active', nav.dataset.page === page);
     });
 
+    // Open parent group if navigating to submenu item
+    const activeItem = document.querySelector(`.nav-item[data-page="${page}"]`);
+    if (activeItem) {
+        const parentGroup = activeItem.closest('.nav-group');
+        if (parentGroup) parentGroup.classList.add('open');
+    }
+
+    // Update page title
     if (pageTitle) pageTitle.textContent = pageTitles[page] || page;
 
+    // Show target page
     document.querySelectorAll('.page-content').forEach(pageEl => {
         pageEl.style.display = 'none';
     });
@@ -383,6 +444,9 @@ window.navigateTo = function(page) {
     if (targetPage) {
         targetPage.style.display = 'block';
     }
+
+    // Update URL hash
+    window.location.hash = page;
 
     // Page-specific initialization
     if (page === 'home') loadHomePage();
@@ -394,6 +458,17 @@ window.navigateTo = function(page) {
     else if (page === 'admin-users') loadAdminUsersPage();
     else if (page === 'admin-system') loadAdminSystemPage();
 };
+
+// Handle URL hash navigation
+window.addEventListener('hashchange', () => {
+    const hash = window.location.hash.slice(1);
+    if (hash && pageTitles[hash]) {
+        navigateTo(hash);
+    }
+});
+
+// Sidebar Logout Button
+document.getElementById('sidebar-logout-btn')?.addEventListener('click', logout);
 
 // =====================================================
 // Toast Notifications
