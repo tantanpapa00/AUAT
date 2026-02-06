@@ -342,6 +342,113 @@ async def auth_logout():
 
 
 # =========================
+# [DASHBOARD_V1] 대시보드 API (수익률 중심)
+# =========================
+import random
+from datetime import date
+
+@app.get("/api/dashboard/summary")
+async def dashboard_summary(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """대시보드 요약 데이터 (총 자산, 수익률, 오늘 수익)"""
+    try:
+        # 활성 자산 수
+        active_assets = db.execute(text(
+            "SELECT COUNT(*) FROM assets WHERE is_active = true AND COALESCE(soft_deleted, 0) = 0"
+        )).scalar() or 0
+    except Exception:
+        active_assets = 0
+
+    # 실제 거래 데이터가 없으므로 더미 데이터 반환
+    # 실제 연동 시 거래소 API에서 잔고/수익률 조회 필요
+    return {
+        "ok": True,
+        "total_assets": 10000000 + random.randint(-100000, 100000),  # 더미
+        "total_profit_pct": round(random.uniform(-5, 15), 2),  # 더미
+        "daily_change_pct": round(random.uniform(-3, 5), 2),  # 더미
+        "today_profit": random.randint(-50000, 100000),  # 더미
+        "active_assets": active_assets,
+    }
+
+
+@app.get("/api/dashboard/chart")
+async def dashboard_chart(
+    period: str = Query(default="daily", regex="^(daily|weekly|monthly)$"),
+    current_user: User = Depends(get_current_user),
+):
+    """수익률 차트 데이터"""
+    # 실제 거래 데이터가 없으므로 더미 데이터 반환
+    if period == "daily":
+        labels = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00"]
+        values = [round(random.uniform(-2, 5), 2) for _ in range(8)]
+    elif period == "weekly":
+        labels = ["월", "화", "수", "목", "금", "토", "일"]
+        values = [round(random.uniform(-3, 8), 2) for _ in range(7)]
+    else:  # monthly
+        labels = [f"{i+1}주" for i in range(4)]
+        values = [round(random.uniform(-5, 15), 2) for _ in range(4)]
+
+    return {
+        "ok": True,
+        "period": period,
+        "labels": labels,
+        "values": values,
+    }
+
+
+@app.get("/api/dashboard/assets")
+async def dashboard_assets(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """자산별 성과 데이터"""
+    assets = []
+
+    try:
+        # assets 테이블에서 활성 자산 조회
+        rows = db.execute(text("""
+            SELECT a.id, a.symbol, a.market, acc.exchange
+            FROM assets a
+            JOIN accounts acc ON acc.id = a.account_id
+            WHERE a.is_active = true AND COALESCE(a.soft_deleted, 0) = 0
+            ORDER BY a.id
+            LIMIT 20
+        """)).mappings().all()
+
+        for row in rows:
+            # 실제 거래 데이터가 없으므로 더미 수익률 생성
+            assets.append({
+                "symbol": row["symbol"],
+                "exchange": row["exchange"],
+                "profit_pct": round(random.uniform(-10, 20), 2),  # 더미
+                "quantity": round(random.uniform(0.1, 10), 4),  # 더미
+                "value": random.randint(100000, 1000000),  # 더미
+            })
+    except Exception as e:
+        # assets 테이블이 없거나 오류 시 더미 데이터
+        pass
+
+    # 자산이 없으면 샘플 데이터 표시
+    if not assets:
+        sample_symbols = ["BTC-USDT", "ETH-USDT", "SOL-USDT", "삼성전자", "SK하이닉스"]
+        for sym in sample_symbols:
+            assets.append({
+                "symbol": sym,
+                "exchange": "OKX" if "USDT" in sym else "KIS",
+                "profit_pct": round(random.uniform(-10, 20), 2),
+                "quantity": round(random.uniform(0.1, 10), 4),
+                "value": random.randint(100000, 1000000),
+            })
+
+    return {
+        "ok": True,
+        "assets": assets,
+    }
+
+
+# =========================
 # [ADMIN_V1] 관리자 전용 API
 # =========================
 from typing import List

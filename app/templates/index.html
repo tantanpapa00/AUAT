@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>BBooster Dashboard</title>
+  <title>BBooster 대시보드</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    :root{
-      /* 밝은 테마 색상 */
+    :root {
       --bg: #f8fafc;
       --card: #ffffff;
       --card2: #f1f5f9;
@@ -18,223 +18,366 @@
       --ok: #10b981;
       --warn: #f59e0b;
       --bad: #ef4444;
-      --w: #f97316;
       --shadow: 0 4px 20px rgba(0,0,0,.08);
       --radius: 16px;
-      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", Arial, sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
     }
-    *{ box-sizing:border-box; }
-    body{
-      margin:0;
-      font-family:var(--sans);
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--sans);
       background: linear-gradient(135deg, #f0f9ff 0%, #f8fafc 50%, #f0fdf4 100%);
-      color:var(--text);
+      color: var(--text);
       min-height: 100vh;
     }
-    header{
-      padding:20px 24px;
-      border-bottom:1px solid var(--line);
-      background: rgba(255,255,255,.85);
+
+    /* 네비게이션 바 */
+    .navbar {
+      background: rgba(255,255,255,.95);
       backdrop-filter: blur(12px);
-      position: sticky; top:0; z-index: 20;
+      border-bottom: 1px solid var(--line);
+      padding: 0 24px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
     }
-    header .top{
-      display:flex; align-items:center; justify-content:space-between; gap:12px;
-      max-width:1200px; margin:0 auto;
+    .navbar-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text);
     }
-    h1{ margin:0; font-size:18px; font-weight:800; letter-spacing:.2px; color: var(--text); }
-    .sub{ color:var(--muted); font-size:12px; margin-top:2px; }
-    .wrap{ max-width:1200px; margin:0 auto; padding:18px 24px 60px; }
-    .tabs{ display:flex; gap:10px; margin:16px 0 14px; flex-wrap:wrap; }
-    .tab{
-      padding:10px 14px; border-radius:999px;
-      border:1px solid var(--line);
-      background: var(--card);
-      cursor:pointer; font-weight:700; font-size:13px;
-      color:var(--muted);
-      transition: all .2s ease;
-      display:flex; align-items:center; gap:8px;
-      box-shadow: 0 1px 3px rgba(0,0,0,.05);
-    }
-    .tab:hover{
-      border-color: var(--pri2);
+    .navbar-brand .logo {
+      font-size: 24px;
+      font-weight: 900;
       color: var(--pri);
-      transform: translateY(-1px);
     }
-    .tab.active{
-      background: linear-gradient(135deg, var(--pri), var(--pri2));
+    .navbar-brand .logo span { color: var(--bad); }
+    .navbar-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .navbar-user {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .user-info {
+      text-align: right;
+    }
+    .user-name {
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .user-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      margin-left: 4px;
+    }
+    .user-badge.admin {
+      background: linear-gradient(135deg, #ef4444, #f97316);
+      color: white;
+    }
+    .user-badge.premium {
+      background: linear-gradient(135deg, #8b5cf6, #a855f7);
+      color: white;
+    }
+    .user-badge.free {
+      background: var(--card2);
+      color: var(--muted);
+    }
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--text);
+      transition: all .2s;
+    }
+    .btn:hover {
+      background: var(--card2);
+    }
+    .btn-primary {
+      background: var(--pri);
       border-color: var(--pri);
       color: white;
-      box-shadow: 0 4px 12px rgba(59,130,246,.25);
     }
-    .pill{ display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid var(--line); font-size:12px; background: var(--card2); }
-    .pill.on{ background:#dcfce7; border-color:#86efac; color:#166534; }
-    .pill.off{ background:#fef3c7; border-color:#fcd34d; color:#92400e; }
-    .grid2{ display:grid; grid-template-columns: 1.2fr .8fr; gap:14px; align-items:start; }
-    @media (max-width: 980px){ .grid2{ grid-template-columns: 1fr; } }
-    .card{
+    .btn-primary:hover {
+      background: #2563eb;
+    }
+    .btn-danger {
+      background: var(--bad);
+      border-color: var(--bad);
+      color: white;
+    }
+    .btn-danger:hover {
+      background: #dc2626;
+    }
+
+    /* 메인 컨텐츠 */
+    .main-content {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    /* 카드 */
+    .card {
       background: var(--card);
-      border:1px solid var(--line);
+      border: 1px solid var(--line);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
-      overflow:hidden;
+      overflow: hidden;
     }
-    .card .hd{
-      padding:14px 14px 10px;
-      border-bottom:1px solid var(--line);
+    .card-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--line);
       background: var(--card2);
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
-    .card .hd b{ font-size:13px; color: var(--text); }
-    .card .bd{ padding:14px; }
-    .hint{ color:var(--muted); font-size:12px; line-height:1.45; }
-    .mono{ font-family: var(--mono); }
-    .muted{ color: var(--muted); }
-    button{
-      border:1px solid var(--pri);
-      background: linear-gradient(135deg, var(--pri), var(--pri2));
-      color: white;
-      padding:9px 16px;
-      border-radius: 10px;
+    .card-header h3 {
+      font-size: 15px;
       font-weight: 700;
-      cursor:pointer;
-      transition: all .2s ease;
-      box-shadow: 0 2px 8px rgba(59,130,246,.2);
     }
-    button:hover{
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(59,130,246,.3);
+    .card-body {
+      padding: 20px;
     }
-    button.secondary{
-      border-color: var(--line);
-      background: var(--card);
-      color: var(--text);
-      box-shadow: 0 1px 3px rgba(0,0,0,.05);
-    }
-    button.secondary:hover{
-      background: var(--card2);
-      border-color: var(--muted);
-    }
-    button.danger{
-      border-color: var(--bad);
-      background: linear-gradient(135deg, #ef4444, #f87171);
-      color: white;
-      box-shadow: 0 2px 8px rgba(239,68,68,.2);
-    }
-    input, select, textarea{
-      width:100%;
-      background: var(--card);
-      border:1px solid var(--line);
-      color: var(--text);
-      padding:10px 12px;
-      border-radius: 10px;
-      outline:none;
-      font-family: var(--sans);
-      transition: border-color .2s, box-shadow .2s;
-    }
-    input:focus, select:focus, textarea:focus{
-      border-color: var(--pri);
-      box-shadow: 0 0 0 3px rgba(59,130,246,.1);
-    }
-    textarea.mono{ font-family: var(--mono); font-size:12px; line-height:1.4; height:140px; }
-    .row-actions{ display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
-    table{ width:100%; border-collapse: collapse; }
-    th, td{ border-bottom:1px solid var(--line); padding:12px 10px; font-size:13px; vertical-align:top; }
-    th{ color: var(--muted); text-align:left; font-weight:700; font-size:12px; background: var(--card2); }
-    tr:hover td{ background: rgba(59,130,246,.04); }
-    .kv{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-    .kv .k{ color: var(--muted); font-size:12px; font-weight: 600; }
-    .okmsg{ color: var(--ok); font-size:12px; margin-top:8px; font-weight: 600; }
-    .err{ color: var(--bad); font-size:12px; white-space:pre-wrap; margin-top:8px; font-weight: 500; }
-    .badge{
-      display:inline-flex; align-items:center; gap:6px;
-      padding:4px 12px; border-radius:999px;
-      border:1px solid var(--line);
-      background: var(--card2);
-      font-size:12px; color: var(--muted);
-      font-weight: 600;
-    }
-    .badge .dot{ width:8px; height:8px; border-radius:99px; background: var(--muted); }
-    .badge.ok{ background: #dcfce7; border-color: #86efac; color: #166534; }
-    .badge.ok .dot{ background: var(--ok); }
-    .badge.bad{ background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
-    .badge.bad .dot{ background: var(--bad); }
-    .badge.warn{ background: #fef3c7; border-color: #fcd34d; color: #92400e; }
-    .badge.warn .dot{ background: var(--warn); }
-    .modal-backdrop{
-      position:fixed; inset:0; background: rgba(15,23,42,.4);
-      display:none; align-items:center; justify-content:center;
-      z-index: 50;
-      padding:18px;
-      backdrop-filter: blur(4px);
-    }
-    .modal{
-      width:min(980px, 100%);
-      background: var(--card);
-      border:1px solid var(--line);
-      border-radius: 20px;
-      box-shadow: 0 20px 60px rgba(0,0,0,.15);
-      overflow:hidden;
-    }
-    .modal .hd{
-      padding:16px 20px;
-      border-bottom:1px solid var(--line);
-      background: var(--card2);
-      display:flex; justify-content:space-between; align-items:center; gap:10px;
-    }
-    .modal .hd b{ font-size:15px; color: var(--text); }
-    .modal .bd{ padding:16px 20px; max-height: 72vh; overflow:auto; }
-    .modal .ft{
-      padding:14px 20px;
-      border-top:1px solid var(--line);
-      background: var(--card2);
-      display:flex; justify-content:flex-end; gap:10px;
-    }
-    .grid{
-      display:grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap:12px;
-      margin-top: 12px;
-    }
-    @media (max-width: 760px){ .grid{ grid-template-columns: 1fr; } }
-    .field label{
-      display:block;
-      font-size:12px;
-      color: var(--muted);
-      margin-bottom: 6px;
-      font-weight:700;
-    }
-    .group-hd{
-      margin-top:18px;
-      padding-top:16px;
-      border-top:1px solid var(--line);
-    }
-    .box{
-      border:1px solid var(--line);
-      border-radius: 12px;
-      padding:14px;
-      background: var(--card2);
-    }
-    .right{ text-align:right; }
 
-    /* Summary Cards 스타일 개선 */
-    #summaryCards .card{
-      background: linear-gradient(135deg, var(--card) 0%, var(--card2) 100%);
+    /* 요약 카드 그리드 */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 1024px) {
+      .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 640px) {
+      .summary-grid { grid-template-columns: 1fr; }
+    }
+    .summary-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 24px;
+      text-align: center;
       transition: transform .2s, box-shadow .2s;
     }
-    #summaryCards .card:hover{
-      transform: translateY(-2px);
-      box-shadow: 0 8px 30px rgba(0,0,0,.1);
+    .summary-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 40px rgba(0,0,0,.12);
+    }
+    .summary-value {
+      font-size: 36px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .summary-value.positive { color: var(--ok); }
+    .summary-value.negative { color: var(--bad); }
+    .summary-value.neutral { color: var(--pri); }
+    .summary-label {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .summary-change {
+      font-size: 12px;
+      margin-top: 8px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+    .summary-change.up {
+      background: #dcfce7;
+      color: #166534;
+    }
+    .summary-change.down {
+      background: #fee2e2;
+      color: #991b1b;
     }
 
-    /* 스크롤바 스타일 */
-    ::-webkit-scrollbar { width: 8px; height: 8px; }
-    ::-webkit-scrollbar-track { background: var(--card2); border-radius: 4px; }
-    ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+    /* 차트 섹션 */
+    .chart-section {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 1024px) {
+      .chart-section { grid-template-columns: 1fr; }
+    }
+    .chart-container {
+      height: 300px;
+      position: relative;
+    }
+    .chart-tabs {
+      display: flex;
+      gap: 8px;
+    }
+    .chart-tab {
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--muted);
+    }
+    .chart-tab.active {
+      background: var(--pri);
+      border-color: var(--pri);
+      color: white;
+    }
 
-    /* 로그인 화면 스타일 */
+    /* 자산별 성과 */
+    .assets-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    .asset-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
+      transition: all .2s;
+    }
+    .asset-card:hover {
+      border-color: var(--pri2);
+    }
+    .asset-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .asset-symbol {
+      font-size: 16px;
+      font-weight: 700;
+      font-family: var(--mono);
+    }
+    .asset-exchange {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--card2);
+      color: var(--muted);
+    }
+    .asset-profit {
+      font-size: 24px;
+      font-weight: 800;
+    }
+    .asset-profit.positive { color: var(--ok); }
+    .asset-profit.negative { color: var(--bad); }
+    .asset-details {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* 거래 내역 테이블 */
+    .trades-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .trades-table th,
+    .trades-table td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      font-size: 13px;
+    }
+    .trades-table th {
+      background: var(--card2);
+      font-weight: 700;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .trades-table tr:hover td {
+      background: rgba(59,130,246,.04);
+    }
+    .trade-side {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .trade-side.buy {
+      background: #dcfce7;
+      color: #166534;
+    }
+    .trade-side.sell {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .trade-status {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .trade-status.filled {
+      background: #dcfce7;
+      color: #166534;
+    }
+    .trade-status.failed {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .trade-status.pending {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    /* 긴급 정지 버튼 */
+    .estop-float {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 1000;
+    }
+    .estop-btn {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      border: 4px solid #fca5a5;
+      color: white;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 8px 30px rgba(239,68,68,.4);
+      transition: all .2s;
+    }
+    .estop-btn:hover {
+      transform: scale(1.1);
+      box-shadow: 0 12px 40px rgba(239,68,68,.5);
+    }
+    .estop-btn.active {
+      background: linear-gradient(135deg, #10b981, #059669);
+      border-color: #6ee7b7;
+      box-shadow: 0 8px 30px rgba(16,185,129,.4);
+    }
+
+    /* 로그인 화면 */
     .login-screen {
       position: fixed;
       inset: 0;
@@ -264,7 +407,6 @@
     .login-title {
       font-size: 24px;
       font-weight: 700;
-      color: var(--text);
       margin-bottom: 8px;
     }
     .login-subtitle {
@@ -272,33 +414,40 @@
       font-size: 14px;
       margin-bottom: 32px;
     }
-    .google-btn {
-      display: inline-flex;
-      align-items: center;
+    .login-form {
+      display: flex;
+      flex-direction: column;
       gap: 12px;
-      padding: 14px 28px;
-      background: white;
+    }
+    .login-input {
+      padding: 14px 16px;
       border: 1px solid var(--line);
+      border-radius: 12px;
+      font-size: 14px;
+      outline: none;
+      transition: all .2s;
+    }
+    .login-input:focus {
+      border-color: var(--pri);
+      box-shadow: 0 0 0 3px rgba(59,130,246,.1);
+    }
+    .login-submit {
+      padding: 14px;
+      background: var(--pri);
+      color: white;
+      border: none;
       border-radius: 12px;
       font-size: 15px;
       font-weight: 600;
-      color: var(--text);
       cursor: pointer;
-      transition: all .2s;
-      box-shadow: 0 2px 8px rgba(0,0,0,.08);
-      width: 100%;
-      justify-content: center;
     }
-    .google-btn:hover {
-      background: var(--card2);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 16px rgba(0,0,0,.12);
+    .login-submit:hover {
+      background: #2563eb;
     }
-    .google-btn img {
-      width: 20px;
-      height: 20px;
+    .login-submit:disabled {
+      background: var(--muted);
+      cursor: not-allowed;
     }
-    /* 이메일 로그인 폼 스타일 */
     .login-divider {
       display: flex;
       align-items: center;
@@ -313,49 +462,23 @@
       height: 1px;
       background: var(--line);
     }
-    .login-divider span {
-      padding: 0 16px;
-    }
-    .login-form {
+    .login-divider span { padding: 0 16px; }
+    .google-btn {
       display: flex;
-      flex-direction: column;
+      align-items: center;
+      justify-content: center;
       gap: 12px;
-    }
-    .login-input {
-      padding: 14px 16px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      font-size: 14px;
-      outline: none;
-      transition: all .2s;
+      padding: 14px;
       background: white;
-    }
-    .login-input:focus {
-      border-color: var(--pri);
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-    }
-    .login-input::placeholder {
-      color: var(--muted);
-    }
-    .login-submit {
-      padding: 14px 28px;
-      background: var(--pri);
-      color: white;
-      border: none;
+      border: 1px solid var(--line);
       border-radius: 12px;
       font-size: 15px;
       font-weight: 600;
       cursor: pointer;
       transition: all .2s;
     }
-    .login-submit:hover {
-      background: #2563eb;
-      transform: translateY(-2px);
-    }
-    .login-submit:disabled {
-      background: var(--muted);
-      cursor: not-allowed;
-      transform: none;
+    .google-btn:hover {
+      background: var(--card2);
     }
     .login-toggle {
       margin-top: 16px;
@@ -368,73 +491,78 @@
       text-decoration: none;
       font-weight: 600;
     }
-    .login-toggle a:hover {
-      text-decoration: underline;
-    }
     .login-error {
       color: var(--bad);
       font-size: 13px;
       margin-top: 8px;
       display: none;
     }
-    .login-error.show {
-      display: block;
-    }
+    .login-error.show { display: block; }
 
-    /* 사용자 메뉴 스타일 */
-    .user-menu {
-      display: flex;
-      align-items: center;
-      gap: 12px;
+    /* 관리자 패널 */
+    .admin-section {
+      margin-top: 24px;
     }
-    .user-avatar {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      border: 2px solid var(--line);
-      object-fit: cover;
+    .admin-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
     }
-    .user-info {
-      text-align: right;
+    @media (max-width: 768px) {
+      .admin-stats { grid-template-columns: repeat(2, 1fr); }
     }
-    .user-name {
-      font-size: 14px;
-      font-weight: 700;
-      color: var(--text);
-    }
-    .user-role {
-      font-size: 11px;
-      color: var(--muted);
-    }
-    .admin-badge {
-      display: inline-block;
-      background: linear-gradient(135deg, #ef4444, #f97316);
-      color: white;
-      padding: 2px 8px;
-      border-radius: 999px;
-      font-size: 10px;
-      font-weight: 700;
-      margin-left: 6px;
-    }
-    .logout-btn {
-      padding: 8px 14px;
-      font-size: 12px;
-      background: var(--card2);
-      border: 1px solid var(--line);
-      color: var(--muted);
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all .2s;
-    }
-    .logout-btn:hover {
+    .admin-stat {
       background: var(--card);
-      color: var(--bad);
-      border-color: var(--bad);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+    }
+    .admin-stat-value {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--pri);
+    }
+    .admin-stat-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
     }
 
-    /* 관리자 전용 탭 */
+    /* 빈 상태 */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+    .empty-state-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    /* 토스트 */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      z-index: 2000;
+      animation: slideUp .3s ease;
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+
+    /* 관리자 전용 */
     .admin-only { display: none; }
-    body.is-admin .admin-only { display: flex; }
+    body.is-admin .admin-only { display: block; }
   </style>
 </head>
 <body>
@@ -444,9 +572,8 @@
   <div class="login-card">
     <div class="login-logo">B<span>Booster</span></div>
     <div class="login-title" id="loginTitle">로그인</div>
-    <div class="login-subtitle">큐브시스템 — Quint Booster Engine System</div>
+    <div class="login-subtitle">자동매매 시스템</div>
 
-    <!-- 이메일 로그인 폼 -->
     <div id="loginForm">
       <form class="login-form" onsubmit="handleEmailLogin(event)">
         <input type="email" class="login-input" id="loginEmail" placeholder="이메일" required>
@@ -459,13 +586,12 @@
       </div>
     </div>
 
-    <!-- 회원가입 폼 -->
     <div id="registerForm" style="display:none;">
       <form class="login-form" onsubmit="handleEmailRegister(event)">
         <input type="text" class="login-input" id="registerName" placeholder="이름 (선택)">
         <input type="email" class="login-input" id="registerEmail" placeholder="이메일" required>
         <input type="password" class="login-input" id="registerPassword" placeholder="비밀번호 (6자 이상)" required minlength="6">
-        <input type="password" class="login-input" id="registerPasswordConfirm" placeholder="비밀번호 확인" required minlength="6">
+        <input type="password" class="login-input" id="registerPasswordConfirm" placeholder="비밀번호 확인" required>
         <button type="submit" class="login-submit" id="registerSubmitBtn">회원가입</button>
       </form>
       <div class="login-error" id="registerError"></div>
@@ -490,357 +616,169 @@
 
 <!-- 메인 대시보드 -->
 <div id="mainApp" style="display:none;">
-<header>
-  <div class="top">
-    <div>
-      <h1>BBooster Dashboard</h1>
-      <div class="sub">큐브시스템 — Quint Booster Engine System</div>
+  <!-- 네비게이션 바 -->
+  <nav class="navbar">
+    <a href="/landing" class="navbar-brand">
+      <div class="logo">B<span>Booster</span></div>
+    </a>
+    <div class="navbar-title">대시보드</div>
+    <div class="navbar-user">
+      <div class="user-info">
+        <span class="user-name" id="userName">-</span>
+        <span class="user-badge free" id="userBadge">무료</span>
+      </div>
+      <a href="#" class="btn admin-only" id="adminPanelLink" onclick="showAdminPanel()">관리자 패널</a>
+      <button class="btn" onclick="logout()">로그아웃</button>
     </div>
-    <div class="kv">
-      <span class="badge" id="healthBadge"><span class="dot"></span><span id="healthText">health: -</span></span>
-      <div class="user-menu" id="userMenu">
-        <div class="user-info">
-          <div class="user-name" id="userName">-</div>
-          <div class="user-role" id="userRole">-</div>
-        </div>
-        <img class="user-avatar" id="userAvatar" src="https://via.placeholder.com/36" alt="avatar" />
-        <button class="logout-btn" onclick="logout()">로그아웃</button>
-      </div>
-    </div>
-  </div>
+  </nav>
 
-  <div class="tabs">
-    <div class="tab active" id="tab-home" onclick="showTab('home')">🏠 홈</div>
-    <div class="tab" id="tab-accounts" onclick="showTab('accounts')">👤 계정</div>
-    <div class="tab" id="tab-strategies" onclick="showTab('strategies')">🧠 전략</div>
-    <div class="tab" id="tab-assets" onclick="showTab('assets')">📦 자산</div>
-    <div class="tab" id="tab-timeline" onclick="showTab('timeline')">📋 타임라인</div>
-    <div class="tab" id="tab-estop" onclick="showTab('estop')">🛑 E-STOP</div>
-    <div class="tab" id="tab-orders" onclick="showTab('orders')">📊 주문내역</div>
-    <div class="tab" id="tab-connectors" onclick="showTab('connectors')">🔌 커넥터</div>
-    <div class="tab" id="tab-premium" onclick="showTab('premium')">⭐ 프리미엄</div>
-    <div class="tab admin-only" id="tab-admin" onclick="showTab('admin')">👑 관리자</div>
-  </div>
-</header>
-
-<div class="wrap">
-  <div id="panel-home">
-    <!-- Summary Cards -->
-    <div id="summaryCards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;">
-      <div class="card" style="text-align:center;padding:20px;">
-        <div style="font-size:32px;font-weight:800;color:var(--pri);" id="sumActiveAssets">-</div>
-        <div class="hint">활성 자산</div>
+  <div class="main-content">
+    <!-- 요약 카드 -->
+    <div class="summary-grid">
+      <div class="summary-card">
+        <div class="summary-value neutral" id="totalAssets">₩0</div>
+        <div class="summary-label">총 자산</div>
       </div>
-      <div class="card" style="text-align:center;padding:20px;">
-        <div style="font-size:32px;font-weight:800;color:var(--ok);" id="sumTodayOrders">-</div>
-        <div class="hint">오늘 주문</div>
+      <div class="summary-card">
+        <div class="summary-value positive" id="totalProfit">+0%</div>
+        <div class="summary-label">총 수익률</div>
+        <div class="summary-change up" id="profitChange">전일 대비 +0%</div>
       </div>
-      <div class="card" style="text-align:center;padding:20px;">
-        <div style="font-size:32px;font-weight:800;color:var(--pri2);" id="sumConnectors">-</div>
-        <div class="hint">커넥터</div>
+      <div class="summary-card">
+        <div class="summary-value" id="todayProfit">₩0</div>
+        <div class="summary-label">오늘 수익</div>
       </div>
-      <div class="card" style="text-align:center;padding:20px;">
-        <div style="font-size:32px;font-weight:800;" id="sumEstop">-</div>
-        <div class="hint">E-STOP</div>
+      <div class="summary-card">
+        <div class="summary-value neutral" id="activeAssets">0</div>
+        <div class="summary-label">활성 자산</div>
       </div>
     </div>
 
-    <div class="grid2">
-    <div class="card">
-      <div class="hd"><b>전광판 (Home)</b><span class="hint">active/last_signal/last_order 등 표시</span></div>
-      <div class="bd">
-        <div class="hint" id="homeMsg"></div>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>계정</th>
-              <th>전략</th>
-              <th>심볼</th>
-              <th>시장</th>
-              <th>활성</th>
-              <th>last_signal</th>
-              <th>last_order_status</th>
-              <th>filled_qty</th>
-              <th>avg_px</th>
-              <th>okx_order_id</th>
-              <th>last_order</th>
-            </tr>
-          </thead>
-          <tbody id="homeTb"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="hd"><b>상태</b><span class="hint">서버/DB</span></div>
-      <div class="bd">
-        <div class="box">
-          <div class="kv">
-            <span class="k">Server</span><span id="serverInfo" class="mono muted">-</span>
-          </div>
-          <div class="kv" style="margin-top:10px;">
-            <span class="k">DB</span><span id="dbInfo" class="mono muted">-</span>
+    <!-- 차트 섹션 -->
+    <div class="chart-section">
+      <div class="card">
+        <div class="card-header">
+          <h3>수익률 추이</h3>
+          <div class="chart-tabs">
+            <button class="chart-tab active" onclick="loadChart('daily')">일간</button>
+            <button class="chart-tab" onclick="loadChart('weekly')">주간</button>
+            <button class="chart-tab" onclick="loadChart('monthly')">월간</button>
           </div>
         </div>
-
-        <div class="box" style="margin-top:12px;">
-          <b>Week2 Input Sync</b>
-          <div class="hint" style="margin-top:8px;">
-            전략 → 설정 → signal_params 자동 폼 렌더링 → config 저장 → config_hash 생성 → TradingView 템플릿 출력
+        <div class="card-body">
+          <div class="chart-container">
+            <canvas id="profitChart"></canvas>
           </div>
         </div>
+      </div>
 
-        <div class="box" style="margin-top:12px;">
-          <b>Week3~ 멀티 브로커 확장</b>
-          <div class="hint" style="margin-top:8px;">
-            공통 코어(webhook_events/order_requests 저장) + 주문엔진 코어 + 브로커 어댑터(OKX/키움/한투)
+      <div class="card">
+        <div class="card-header">
+          <h3>자산별 수익률</h3>
+        </div>
+        <div class="card-body">
+          <div class="chart-container">
+            <canvas id="assetChart"></canvas>
           </div>
         </div>
       </div>
     </div>
-    </div>
-  </div>
 
-  <div id="panel-accounts" style="display:none;">
-    <div class="card">
-      <div class="hd">
-        <b>Accounts</b>
-        <div class="row-actions">
-          <button onclick="openModal('account','create')">+ 추가</button>
+    <!-- 자산별 성과 -->
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="card-header">
+        <h3>자산별 성과</h3>
+        <button class="btn" onclick="loadAssets()">새로고침</button>
+      </div>
+      <div class="card-body">
+        <div class="assets-grid" id="assetsGrid">
+          <div class="empty-state">
+            <div class="empty-state-icon">📊</div>
+            <div>자산 데이터를 불러오는 중...</div>
+          </div>
         </div>
       </div>
-      <div class="bd">
-        <div class="hint" id="accountsMsg"></div>
-        <table>
+    </div>
+
+    <!-- 최근 거래 내역 -->
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="card-header">
+        <h3>최근 거래 내역</h3>
+        <button class="btn" onclick="loadTrades()">새로고침</button>
+      </div>
+      <div class="card-body" style="overflow-x: auto;">
+        <table class="trades-table">
           <thead>
             <tr>
-              <th>ID</th><th>name</th><th>exchange</th><th>active</th><th>last_health</th><th>actions</th>
+              <th>시간</th>
+              <th>자산</th>
+              <th>방향</th>
+              <th>수량</th>
+              <th>가격</th>
+              <th>상태</th>
             </tr>
           </thead>
-          <tbody id="accountsTb"></tbody>
+          <tbody id="tradesBody">
+            <tr>
+              <td colspan="6" style="text-align: center; color: var(--muted); padding: 40px;">
+                거래 내역을 불러오는 중...
+              </td>
+            </tr>
+          </tbody>
         </table>
       </div>
     </div>
-  </div>
 
-  <div id="panel-strategies" style="display:none;">
-    <div class="card">
-      <div class="hd">
-        <b>Strategies</b>
-        <div class="row-actions">
-          <button onclick="openModal('strategy','create')">+ 추가</button>
+    <!-- 관리자 패널 (관리자만 표시) -->
+    <div class="admin-section admin-only" id="adminPanel" style="display: none;">
+      <div class="card">
+        <div class="card-header">
+          <h3>관리자 패널</h3>
+          <button class="btn" onclick="hideAdminPanel()">닫기</button>
         </div>
-      </div>
-      <div class="bd">
-        <div class="hint" id="strategiesMsg"></div>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th><th>name</th><th>active</th><th>params</th><th>updated</th><th>actions</th>
-            </tr>
-          </thead>
-          <tbody id="strategiesTb"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
+        <div class="card-body">
+          <div class="admin-stats">
+            <div class="admin-stat">
+              <div class="admin-stat-value" id="adminTotalUsers">0</div>
+              <div class="admin-stat-label">전체 사용자</div>
+            </div>
+            <div class="admin-stat">
+              <div class="admin-stat-value" id="adminFreeUsers">0</div>
+              <div class="admin-stat-label">무료 사용자</div>
+            </div>
+            <div class="admin-stat">
+              <div class="admin-stat-value" id="adminHubUsers">0</div>
+              <div class="admin-stat-label">허브형</div>
+            </div>
+            <div class="admin-stat">
+              <div class="admin-stat-value" id="adminPremiumUsers">0</div>
+              <div class="admin-stat-label">프리미엄</div>
+            </div>
+          </div>
 
-  <div id="panel-assets" style="display:none;">
-    <div class="card">
-      <div class="hd">
-        <b>Assets</b>
-        <div class="row-actions">
-          <button onclick="openModal('asset','create')">+ 추가</button>
-        </div>
-      </div>
-      <div class="bd">
-        <div class="hint" id="assetsMsg"></div>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th><th>account</th><th>strategy</th><th>symbol</th><th>market</th><th>active</th><th>actions</th>
-            </tr>
-          </thead>
-          <tbody id="assetsTb"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- Timeline Panel -->
-  <div id="panel-timeline" style="display:none;">
-    <div class="card">
-      <div class="hd">
-        <b>📋 타임라인</b>
-        <div class="row-actions">
-          <button class="secondary" onclick="reloadTimeline()">새로고침</button>
-        </div>
-      </div>
-      <div class="bd">
-        <div class="hint" id="timelineMsg"></div>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th><th>시간</th><th>타입</th><th>심볼</th><th>요약</th><th>거래소</th><th>reason_code</th>
-            </tr>
-          </thead>
-          <tbody id="timelineTb"></tbody>
-        </table>
-        <div style="margin-top:12px;display:flex;gap:10px;justify-content:center;">
-          <button class="secondary" id="tlPrev" onclick="timelinePrev()">◀ 이전</button>
-          <span id="tlPage" class="muted">1</span>
-          <button class="secondary" id="tlNext" onclick="timelineNext()">다음 ▶</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- E-STOP Panel -->
-  <div id="panel-estop" style="display:none;">
-    <div class="card">
-      <div class="hd">
-        <b>🛑 E-STOP (긴급 정지)</b>
-      </div>
-      <div class="bd" style="text-align:center;padding:40px 20px;">
-        <div id="estopStatus" style="font-size:48px;margin-bottom:20px;">—</div>
-        <div id="estopLabel" style="font-size:18px;margin-bottom:30px;color:var(--muted);">상태 확인 중...</div>
-        <button id="estopBtn" onclick="toggleEstop()" style="
-          width:200px;height:200px;border-radius:50%;
-          font-size:24px;font-weight:bold;
-          border:4px solid var(--bad);
-          background:rgba(248,113,113,.15);
-          color:var(--bad);
-          cursor:pointer;
-          transition:.2s;
-        ">E-STOP</button>
-        <div class="hint" style="margin-top:30px;">
-          E-STOP을 활성화하면 모든 주문이 즉시 차단됩니다.
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Orders Panel -->
-  <div id="panel-orders" style="display:none;">
-    <div class="card">
-      <div class="hd">
-        <b>📊 주문 내역</b>
-        <div class="row-actions">
-          <button class="secondary" onclick="reloadOrders()">새로고침</button>
-        </div>
-      </div>
-      <div class="bd">
-        <div class="hint" id="ordersMsg"></div>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th><th>시간</th><th>심볼</th><th>거래소</th><th>방향</th><th>수량</th><th>체결가</th><th>상태</th>
-            </tr>
-          </thead>
-          <tbody id="ordersTb"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- Connectors Panel -->
-  <div id="panel-connectors" style="display:none;">
-    <div class="card">
-      <div class="hd">
-        <b>🔌 커넥터 상태</b>
-        <div class="row-actions">
-          <button class="secondary" onclick="reloadConnectors()">새로고침</button>
-        </div>
-      </div>
-      <div class="bd">
-        <div class="hint" id="connectorsMsg"></div>
-        <div id="connectorsGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:12px;"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Premium Panel -->
-  <div id="panel-premium" style="display:none;">
-    <div class="card">
-      <div class="hd">
-        <b>⭐ 프리미엄 상태</b>
-        <div class="row-actions">
-          <button class="secondary" onclick="reloadPremium()">새로고침</button>
-        </div>
-      </div>
-      <div class="bd">
-        <div class="box" id="premiumStatus">
-          <div class="hint">로딩 중...</div>
-        </div>
-        <div style="margin-top:16px;">
-          <b>최근 신호</b>
-          <div class="hint" id="premiumMsg"></div>
-          <table style="margin-top:10px;">
+          <h4 style="margin: 24px 0 16px; font-size: 14px;">최근 가입자</h4>
+          <table class="trades-table">
             <thead>
               <tr>
-                <th>ID</th><th>시간</th><th>심볼</th><th>모드</th><th>방향</th><th>reason_code</th><th>TF</th>
+                <th>ID</th>
+                <th>이메일</th>
+                <th>이름</th>
+                <th>요금제</th>
+                <th>가입일</th>
               </tr>
             </thead>
-            <tbody id="premiumTb"></tbody>
+            <tbody id="adminUsersBody"></tbody>
           </table>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Admin Panel -->
-  <div id="panel-admin" style="display:none;">
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;">
-      <div class="card" style="text-align:center;padding:20px;">
-        <div style="font-size:32px;font-weight:800;color:var(--pri);" id="adminTotalUsers">-</div>
-        <div class="hint">전체 사용자</div>
-      </div>
-      <div class="card" style="text-align:center;padding:20px;">
-        <div style="font-size:32px;font-weight:800;color:var(--ok);" id="adminPremiumUsers">-</div>
-        <div class="hint">프리미엄</div>
-      </div>
-      <div class="card" style="text-align:center;padding:20px;">
-        <div style="font-size:32px;font-weight:800;color:var(--pri2);" id="adminActiveAccounts">-</div>
-        <div class="hint">활성 계정</div>
-      </div>
-      <div class="card" style="text-align:center;padding:20px;">
-        <div style="font-size:32px;font-weight:800;color:var(--warn);" id="adminTodayOrders">-</div>
-        <div class="hint">오늘 주문</div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="hd">
-        <b>사용자 관리</b>
-        <div class="row-actions">
-          <button class="secondary" onclick="reloadAdmin()">새로고침</button>
-        </div>
-      </div>
-      <div class="bd">
-        <div class="hint" id="adminMsg"></div>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th><th>이메일</th><th>이름</th><th>역할</th><th>플랜</th><th>마지막 로그인</th><th>작업</th>
-            </tr>
-          </thead>
-          <tbody id="adminUsersTb"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Modal -->
-<div class="modal-backdrop" id="modal-backdrop">
-  <div class="modal">
-    <div class="hd">
-      <b id="modal-title">Modal</b>
-      <button class="secondary" onclick="closeModal()">닫기</button>
-    </div>
-    <div class="bd" id="modal-body"></div>
-    <div class="ft" id="modal-footer"></div>
+  <!-- 긴급 정지 버튼 -->
+  <div class="estop-float">
+    <button class="estop-btn" id="estopBtn" onclick="toggleEstop()">
+      긴급<br>정지
+    </button>
   </div>
 </div>
 
@@ -853,7 +791,6 @@
     refreshToken: null,
     user: null,
 
-    // 토큰 저장
     saveTokens(access, refresh) {
       this.accessToken = access;
       this.refreshToken = refresh;
@@ -861,13 +798,11 @@
       localStorage.setItem('bbooster_refresh_token', refresh || '');
     },
 
-    // 토큰 로드
     loadTokens() {
       this.accessToken = localStorage.getItem('bbooster_access_token') || null;
       this.refreshToken = localStorage.getItem('bbooster_refresh_token') || null;
     },
 
-    // 토큰 삭제
     clearTokens() {
       this.accessToken = null;
       this.refreshToken = null;
@@ -876,7 +811,6 @@
       localStorage.removeItem('bbooster_refresh_token');
     },
 
-    // 로그인 상태 확인
     isLoggedIn() {
       return !!this.accessToken;
     }
@@ -887,109 +821,80 @@
     const params = new URLSearchParams(window.location.search);
     const accessToken = params.get('access_token');
     const refreshToken = params.get('refresh_token');
-
     if (accessToken && refreshToken) {
       auth.saveTokens(accessToken, refreshToken);
-      // URL에서 토큰 제거 (보안)
       window.history.replaceState({}, document.title, window.location.pathname);
       return true;
     }
     return false;
   }
 
-  // Google 로그인
   function loginWithGoogle() {
     window.location.href = '/api/auth/google/login';
   }
 
-  // 로그인/회원가입 폼 전환
   function showLoginForm() {
     document.getElementById('loginForm').style.display = 'block';
     document.getElementById('registerForm').style.display = 'none';
     document.getElementById('loginTitle').textContent = '로그인';
-    document.getElementById('loginError').classList.remove('show');
   }
 
   function showRegisterForm() {
     document.getElementById('loginForm').style.display = 'none';
     document.getElementById('registerForm').style.display = 'block';
     document.getElementById('loginTitle').textContent = '회원가입';
-    document.getElementById('registerError').classList.remove('show');
   }
 
-  // 로그인 에러 표시
-  function showLoginError(message) {
+  function showLoginError(msg) {
     const el = document.getElementById('loginError');
-    el.textContent = message;
+    el.textContent = msg;
     el.classList.add('show');
   }
 
-  function showRegisterError(message) {
+  function showRegisterError(msg) {
     const el = document.getElementById('registerError');
-    el.textContent = message;
+    el.textContent = msg;
     el.classList.add('show');
   }
 
-  // 이메일 로그인
   async function handleEmailLogin(e) {
     e.preventDefault();
     const email = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPassword').value;
     const btn = document.getElementById('loginSubmitBtn');
 
-    if (!email || !password) {
-      showLoginError('이메일과 비밀번호를 입력하세요');
-      return;
-    }
-
     btn.disabled = true;
     btn.textContent = '로그인 중...';
     document.getElementById('loginError').classList.remove('show');
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || '로그인 실패');
-      }
-
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || '로그인 실패');
       auth.saveTokens(data.access_token, data.refresh_token);
       await checkAuth();
     } catch (err) {
-      showLoginError(err.message || '로그인에 실패했습니다');
+      showLoginError(err.message);
     } finally {
       btn.disabled = false;
       btn.textContent = '로그인';
     }
   }
 
-  // 이메일 회원가입
   async function handleEmailRegister(e) {
     e.preventDefault();
     const name = document.getElementById('registerName').value.trim();
     const email = document.getElementById('registerEmail').value.trim();
     const password = document.getElementById('registerPassword').value;
-    const passwordConfirm = document.getElementById('registerPasswordConfirm').value;
+    const confirm = document.getElementById('registerPasswordConfirm').value;
     const btn = document.getElementById('registerSubmitBtn');
 
-    if (!email || !password) {
-      showRegisterError('이메일과 비밀번호를 입력하세요');
-      return;
-    }
-
-    if (password !== passwordConfirm) {
+    if (password !== confirm) {
       showRegisterError('비밀번호가 일치하지 않습니다');
-      return;
-    }
-
-    if (password.length < 6) {
-      showRegisterError('비밀번호는 6자 이상이어야 합니다');
       return;
     }
 
@@ -998,83 +903,62 @@
     document.getElementById('registerError').classList.remove('show');
 
     try {
-      const response = await fetch('/api/auth/register', {
+      const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, name: name || null })
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || '회원가입 실패');
-      }
-
-      // 회원가입 성공 - 자동 로그인
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || '회원가입 실패');
       auth.saveTokens(data.access_token, data.refresh_token);
       await checkAuth();
     } catch (err) {
-      showRegisterError(err.message || '회원가입에 실패했습니다');
+      showRegisterError(err.message);
     } finally {
       btn.disabled = false;
       btn.textContent = '회원가입';
     }
   }
 
-  // 로그아웃
   async function logout() {
-    try {
-      await api('/api/auth/logout', { method: 'POST' });
-    } catch (e) {
-      // 무시
-    }
+    try { await api('/api/auth/logout', { method: 'POST' }); } catch(e) {}
     auth.clearTokens();
     showLoginScreen();
   }
 
-  // 로그인 화면 표시
   function showLoginScreen() {
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('mainApp').style.display = 'none';
     document.body.classList.remove('is-admin');
   }
 
-  // 대시보드 표시
   function showDashboard() {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('mainApp').style.display = '';
   }
 
-  // 사용자 정보 업데이트 UI
   function updateUserUI(user) {
-    const nameEl = document.getElementById('userName');
-    const roleEl = document.getElementById('userRole');
-    const avatarEl = document.getElementById('userAvatar');
+    document.getElementById('userName').textContent = user.name || user.email || '-';
 
-    if (nameEl) nameEl.textContent = user.name || user.email || '-';
-    if (roleEl) {
-      roleEl.innerHTML = user.role === 'admin'
-        ? `관리자<span class="admin-badge">ADMIN</span>`
-        : (user.plan === 'premium' ? '프리미엄' : user.plan === 'hub' ? '허브' : '무료');
-    }
-    if (avatarEl && user.picture) {
-      avatarEl.src = user.picture;
-    }
-
-    // 관리자면 admin 탭 표시
+    const badge = document.getElementById('userBadge');
     if (user.role === 'admin') {
+      badge.textContent = '관리자';
+      badge.className = 'user-badge admin';
       document.body.classList.add('is-admin');
+    } else if (user.plan === 'premium') {
+      badge.textContent = '프리미엄';
+      badge.className = 'user-badge premium';
+    } else if (user.plan === 'hub') {
+      badge.textContent = '허브형';
+      badge.className = 'user-badge premium';
     } else {
-      document.body.classList.remove('is-admin');
+      badge.textContent = '무료';
+      badge.className = 'user-badge free';
     }
   }
 
-  // 인증 확인
   async function checkAuth() {
-    // URL에서 토큰 확인 (OAuth 콜백)
     parseTokensFromUrl();
-
-    // 저장된 토큰 로드
     auth.loadTokens();
 
     if (!auth.isLoggedIn()) {
@@ -1083,14 +967,13 @@
     }
 
     try {
-      // 사용자 정보 가져오기
       const user = await api('/api/auth/me');
       auth.user = user;
       updateUserUI(user);
       showDashboard();
+      loadDashboard();
       return true;
     } catch (e) {
-      // 토큰이 만료된 경우 리프레시 시도
       if (auth.refreshToken) {
         try {
           const tokens = await fetch('/api/auth/refresh', {
@@ -1098,1366 +981,391 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ refresh_token: auth.refreshToken })
           }).then(r => r.json());
-
           if (tokens.access_token) {
             auth.saveTokens(tokens.access_token, tokens.refresh_token);
-            return checkAuth(); // 재시도
+            return checkAuth();
           }
-        } catch (refreshErr) {
-          // 리프레시 실패
-        }
+        } catch(e) {}
       }
-
       auth.clearTokens();
       showLoginScreen();
       return false;
     }
   }
 
-  const state = {
-    tab: "home",
-    accounts: [],
-    strategies: [],
-    assets: [],
-    modal: null,
-    onlyRequired: undefined, // strategy_config 필수만 보기 토글 상태
-    timelinePage: 0,
-    timelineLimit: 20,
-    estopEnabled: false,
-  };
-
-  function showTab(tab){
-    state.tab = tab;
-    for(const id of ["home","accounts","strategies","assets","timeline","estop","orders","connectors","premium","admin"]){
-      const panel = document.getElementById("panel-"+id);
-      const tabEl = document.getElementById("tab-"+id);
-      if(panel) panel.style.display = (id===tab) ? "" : "none";
-      if(tabEl) tabEl.classList.toggle("active", id===tab);
-    }
-    if(tab==="home") reloadHome();
-    if(tab==="accounts") reloadAccounts();
-    if(tab==="strategies") reloadStrategies();
-    if(tab==="assets") reloadAssets();
-    if(tab==="timeline") reloadTimeline();
-    if(tab==="estop") reloadEstop();
-    if(tab==="orders") reloadOrders();
-    if(tab==="connectors") reloadConnectors();
-    if(tab==="premium") reloadPremium();
-    if(tab==="admin") reloadAdmin();
-  }
-
-  async function api(url, opts={}){
-    const headers = { "Content-Type":"application/json", ...(opts.headers||{}) };
-
-    // 인증 토큰 추가
+  async function api(url, opts = {}) {
+    const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
     if (auth.accessToken) {
-      headers["Authorization"] = `Bearer ${auth.accessToken}`;
+      headers['Authorization'] = `Bearer ${auth.accessToken}`;
     }
-
     const res = await fetch(url, { headers, ...opts });
-    const text = await res.text();
-    let data = null;
-    try { data = text ? JSON.parse(text) : null; } catch(e){ data = text; }
-
-    // 401 에러 시 로그인 화면으로
     if (res.status === 401) {
       auth.clearTokens();
       showLoginScreen();
-      throw new Error("세션이 만료되었습니다. 다시 로그인해주세요.");
+      throw new Error('세션이 만료되었습니다');
     }
-
-    if(!res.ok){
-      const msg = (data && data.detail) ? data.detail : (typeof data==="string" ? data : JSON.stringify(data));
-      throw new Error(`${res.status} ${res.statusText} :: ${msg}`);
-    }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || '오류가 발생했습니다');
     return data;
   }
 
-  function setMsg(which, msg=""){
-    const el = document.getElementById(which+"Msg");
-    if(el) el.textContent = msg || "";
+  // =====================================================
+  // 대시보드 데이터 로드
+  // =====================================================
+  let profitChart = null;
+  let assetChart = null;
+
+  async function loadDashboard() {
+    await Promise.all([
+      loadSummary(),
+      loadChart('daily'),
+      loadAssets(),
+      loadTrades(),
+      loadEstopStatus()
+    ]);
   }
 
-  function escapeHtml(s){
-    return String(s??"")
-      .replaceAll("&","&amp;")
-      .replaceAll("<","&lt;")
-      .replaceAll(">","&gt;")
-      .replaceAll('"',"&quot;")
-      .replaceAll("'","&#039;");
+  async function loadSummary() {
+    try {
+      const data = await api('/api/dashboard/summary');
+
+      // 총 자산
+      document.getElementById('totalAssets').textContent =
+        formatCurrency(data.total_assets || 0);
+
+      // 총 수익률
+      const totalProfit = data.total_profit_pct || 0;
+      const profitEl = document.getElementById('totalProfit');
+      profitEl.textContent = (totalProfit >= 0 ? '+' : '') + totalProfit.toFixed(2) + '%';
+      profitEl.className = 'summary-value ' + (totalProfit >= 0 ? 'positive' : 'negative');
+
+      // 전일 대비
+      const dailyChange = data.daily_change_pct || 0;
+      const changeEl = document.getElementById('profitChange');
+      changeEl.textContent = `전일 대비 ${dailyChange >= 0 ? '+' : ''}${dailyChange.toFixed(2)}%`;
+      changeEl.className = 'summary-change ' + (dailyChange >= 0 ? 'up' : 'down');
+
+      // 오늘 수익
+      const todayProfit = data.today_profit || 0;
+      const todayEl = document.getElementById('todayProfit');
+      todayEl.textContent = formatCurrency(todayProfit);
+      todayEl.className = 'summary-value ' + (todayProfit >= 0 ? 'positive' : 'negative');
+
+      // 활성 자산
+      document.getElementById('activeAssets').textContent = data.active_assets || 0;
+    } catch (e) {
+      console.error('요약 로드 실패:', e);
+    }
   }
-  function escapeAttr(s){ return escapeHtml(s); }
 
-  function closeModal(){
-    document.getElementById("modal-backdrop").style.display = "none";
-    state.modal = null;
-  }
+  async function loadChart(period) {
+    // 탭 활성화
+    document.querySelectorAll('.chart-tab').forEach(tab => {
+      tab.classList.toggle('active', tab.textContent.includes(
+        period === 'daily' ? '일간' : period === 'weekly' ? '주간' : '월간'
+      ));
+    });
 
-  // ---------------- Home ----------------
-  async function reloadHome(){
-    setMsg("home");
-    try{
-      const health = await api("/health");
-      const hb = document.getElementById("healthBadge");
-      const ht = document.getElementById("healthText");
-      hb.classList.remove("ok","bad","warn");
-      hb.classList.add(health.ok ? "ok":"bad");
-      ht.textContent = `health: ${health.ok ? "ok":"fail"}`;
+    try {
+      const data = await api(`/api/dashboard/chart?period=${period}`);
 
-      const db = await api("/db-check");
-      document.getElementById("serverInfo").textContent = `${health.app} @ ${health.time}`;
-      document.getElementById("dbInfo").textContent = JSON.stringify(db, null, 2);
+      const ctx = document.getElementById('profitChart').getContext('2d');
 
-      const rows = await api("/api/home");
-      const items = rows.items || [];
-      const tb = document.getElementById("homeTb");
-      tb.innerHTML = "";
+      if (profitChart) profitChart.destroy();
 
-      // Summary Cards calculation
-      let activeCount = 0;
-      let todayOrderCount = 0;
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      for(const r of items){
-        // Count active assets
-        if(r.is_active) activeCount++;
-
-        // Count today's orders
-        if(r.last_order_at){
-          const orderDate = new Date(r.last_order_at);
-          if(orderDate >= today) todayOrderCount++;
+      profitChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: data.labels || [],
+          datasets: [{
+            label: '수익률 (%)',
+            data: data.values || [],
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            fill: true,
+            tension: 0.4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: value => value + '%'
+              }
+            }
+          }
         }
-
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${r.id}</td>
-          <td>${escapeHtml(r.account_name||"-")}</td>
-          <td>${escapeHtml(r.strategy_name||"-")}</td>
-          <td class="mono">${escapeHtml(r.symbol||"-")}</td>
-          <td>${escapeHtml(r.market||"-")}</td>
-          <td>${r.is_active ? "✅" : "—"}</td>
-          <td class="mono">${escapeHtml(r.last_signal||"-")}</td>
-          <td class="mono">${escapeHtml(r.last_order_status||"-")}</td>
-          <td class="mono">${escapeHtml(r.last_filled||"-")}</td>
-          <td class="mono">${escapeHtml(r.last_order_avg_px||"-")}</td>
-          <td class="mono">${escapeHtml(r.last_okx_order_id||"-")}</td>
-          <td class="mono">${escapeHtml(r.last_order||"-")}</td>
-        `;
-        tb.appendChild(tr);
-      }
-
-      // Update Summary Cards
-      document.getElementById("sumActiveAssets").textContent = activeCount;
-      document.getElementById("sumTodayOrders").textContent = todayOrderCount;
-
-      // Load E-STOP status for summary card
-      try{
-        const estopData = await api("/api/system/estop");
-        const estopOn = estopData.estop === true || estopData.value === "1";
-        const sumEstopEl = document.getElementById("sumEstop");
-        sumEstopEl.textContent = estopOn ? "ON" : "OFF";
-        sumEstopEl.style.color = estopOn ? "var(--bad)" : "var(--ok)";
-      }catch(e){
-        document.getElementById("sumEstop").textContent = "-";
-      }
-
-      // Load Connector status (count active accounts as proxy)
-      try{
-        const accounts = await api("/api/accounts");
-        const accList = Array.isArray(accounts) ? accounts : (accounts.items || []);
-        const activeAccounts = accList.filter(a => a.is_active).length;
-        document.getElementById("sumConnectors").textContent = `${activeAccounts}/${accList.length}`;
-      }catch(e){
-        document.getElementById("sumConnectors").textContent = "-";
-      }
-
-    }catch(e){
-      document.getElementById("homeMsg").textContent = e.message;
-    }
-  }
-
-  // ---------------- Accounts ----------------
-  async function reloadAccounts(){
-    setMsg("accounts");
-    const rows = await api("/api/accounts");
-    state.accounts = (Array.isArray(rows) ? rows : (rows.items || []));
-    const tb = document.getElementById("accountsTb");
-    tb.innerHTML = "";
-    for(const a of state.accounts){
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${a.id}</td>
-        <td>${escapeHtml(a.name)}</td>
-        <td>${escapeHtml(a.exchange)}</td>
-        <td>${a.is_active ? "✅" : "—"}</td>
-        <td class="mono">${escapeHtml(a.last_health_msg || "-")}</td>
-        <td class="right">
-          <div class="row-actions">
-            <button class="secondary" onclick="toggleAccount(${a.id}, ${a.is_active ? "false":"true"})">${a.is_active?"비활성":"활성"}</button>
-            <button class="secondary" onclick="openModal('account','edit', ${a.id})">수정</button>
-            <button class="danger" onclick="deleteAccount(${a.id})">삭제</button>
-          </div>
-        </td>
-      `;
-      tb.appendChild(tr);
-    }
-  }
-  async function toggleAccount(id, on){
-    await api(`/api/accounts/${id}`, { method:"PUT", body: JSON.stringify({ is_active:on }) });
-    reloadAccounts(); reloadHome();
-  }
-  async function deleteAccount(id){
-    if(!confirm("삭제할까요? (참조가 있으면 soft delete 됩니다)")) return;
-    setMsg("accounts");
-    await api(`/api/accounts/${id}`, { method:"DELETE" });
-    reloadAccounts(); reloadHome();
-    setMsg("accounts","삭제 완료");
-  }
-
-  // ---------------- Strategies ----------------
-  async function reloadStrategies(){
-    setMsg("strategies");
-    const rows = await api("/api/strategies");
-    state.strategies = (Array.isArray(rows) ? rows : (rows.items || []));
-    const tb = document.getElementById("strategiesTb");
-    tb.innerHTML = "";
-    for(const s of state.strategies){
-      let pcount = "-";
-      try{
-        const pr = await api(`/api/strategies/${s.id}/signal-params`);
-        const arr = Array.isArray(pr) ? pr : (pr.items || pr.params || []);
-        pcount = (arr && arr.length !== undefined) ? arr.length : "-";
-      }catch(e){ pcount = "0"; }
-
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${s.id}</td>
-        <td>${escapeHtml(s.name)}</td>
-        <td>${s.is_active ? "✅" : "—"}</td>
-        <td class="mono">${pcount}</td>
-        <td class="mono">${escapeHtml(s.updated_at || "-")}</td>
-        <td class="right">
-          <div class="row-actions">
-            <button class="secondary" onclick="toggleStrategy(${s.id}, ${s.is_active ? "false":"true"})">${s.is_active?"비활성":"활성"}</button>
-            <button class="secondary" onclick="openModal('strategy','edit', ${s.id})">수정</button>
-            <button class="secondary" onclick="openStrategyConfig(${s.id})">설정</button>
-            <button class="danger" onclick="deleteStrategy(${s.id})">삭제</button>
-          </div>
-        </td>
-      `;
-      tb.appendChild(tr);
-    }
-  }
-  async function toggleStrategy(id, on){
-    await api(`/api/strategies/${id}`, { method:"PUT", body: JSON.stringify({ is_active:on }) });
-    reloadStrategies(); reloadHome();
-  }
-  async function deleteStrategy(id){
-    if(!confirm("삭제할까요? (참조가 있으면 soft delete 됩니다)")) return;
-    setMsg("strategies");
-    await api(`/api/strategies/${id}`, { method:"DELETE" });
-    reloadStrategies(); reloadHome();
-    setMsg("strategies","삭제 완료");
-  }
-
-  // ---------------- Assets ----------------
-  async function reloadAssets(){
-    setMsg("assets");
-    const rows = await api("/api/assets");
-    state.assets = (Array.isArray(rows) ? rows : (rows.items || []));
-    const tb = document.getElementById("assetsTb");
-    tb.innerHTML = "";
-    for(const a of state.assets){
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${a.id}</td>
-        <td>${escapeHtml(a.account_name||"-")}</td>
-        <td>${escapeHtml(a.strategy_name||"-")}</td>
-        <td class="mono">${escapeHtml(a.symbol||"-")}</td>
-        <td>${escapeHtml(a.market||"-")}</td>
-        <td>${a.is_active ? "✅" : "—"}</td>
-        <td class="right">
-          <div class="row-actions">
-            <button class="secondary" onclick="openModal('asset','edit', ${a.id})">수정</button>
-            <button class="danger" onclick="deleteAsset(${a.id})">삭제</button>
-          </div>
-        </td>
-      `;
-      tb.appendChild(tr);
-    }
-  }
-  async function deleteAsset(id){
-    if(!confirm("삭제할까요? (참조가 있으면 soft delete 됩니다)")) return;
-    setMsg("assets");
-    await api(`/api/assets/${id}`, { method:"DELETE" });
-    reloadAssets(); reloadHome();
-    setMsg("assets","삭제 완료");
-  }
-
-  // ---------------- Timeline ----------------
-  async function reloadTimeline(){
-    setMsg("timeline");
-    try{
-      const offset = state.timelinePage * state.timelineLimit;
-      const data = await api(`/api/timeline?limit=${state.timelineLimit}&offset=${offset}`);
-      const items = data.items || data || [];
-      const tb = document.getElementById("timelineTb");
-      tb.innerHTML = "";
-      for(const e of items){
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${e.id || "-"}</td>
-          <td class="mono">${escapeHtml(e.created_at || "-")}</td>
-          <td><span class="badge">${escapeHtml(e.event_type || "-")}</span></td>
-          <td class="mono">${escapeHtml(e.symbol || "-")}</td>
-          <td>${escapeHtml(e.summary || "-")}</td>
-          <td>${escapeHtml(e.exchange || "-")}</td>
-          <td class="mono">${escapeHtml(e.reason_code || "-")}</td>
-        `;
-        tb.appendChild(tr);
-      }
-      document.getElementById("tlPage").textContent = state.timelinePage + 1;
-      document.getElementById("tlPrev").disabled = (state.timelinePage === 0);
-      document.getElementById("tlNext").disabled = (items.length < state.timelineLimit);
-    }catch(e){
-      setMsg("timeline", e.message);
-    }
-  }
-  function timelinePrev(){
-    if(state.timelinePage > 0){ state.timelinePage--; reloadTimeline(); }
-  }
-  function timelineNext(){
-    state.timelinePage++; reloadTimeline();
-  }
-
-  // ---------------- E-STOP ----------------
-  async function reloadEstop(){
-    try{
-      const data = await api("/api/system/estop");
-      state.estopEnabled = data.estop === true || data.value === "1";
-      updateEstopUI();
-    }catch(e){
-      document.getElementById("estopLabel").textContent = "상태 조회 실패: " + e.message;
-    }
-  }
-  function updateEstopUI(){
-    const statusEl = document.getElementById("estopStatus");
-    const labelEl = document.getElementById("estopLabel");
-    const btnEl = document.getElementById("estopBtn");
-    if(state.estopEnabled){
-      statusEl.textContent = "🔴";
-      labelEl.textContent = "긴급 정지 활성화됨 - 모든 주문 차단 중";
-      labelEl.style.color = "var(--bad)";
-      btnEl.textContent = "E-STOP 해제";
-      btnEl.style.borderColor = "var(--ok)";
-      btnEl.style.background = "rgba(52,211,153,.15)";
-      btnEl.style.color = "var(--ok)";
-    }else{
-      statusEl.textContent = "🟢";
-      labelEl.textContent = "정상 운영 중";
-      labelEl.style.color = "var(--ok)";
-      btnEl.textContent = "E-STOP";
-      btnEl.style.borderColor = "var(--bad)";
-      btnEl.style.background = "rgba(248,113,113,.15)";
-      btnEl.style.color = "var(--bad)";
-    }
-  }
-  async function toggleEstop(){
-    const newState = !state.estopEnabled;
-    const msg = newState
-      ? "정말 E-STOP을 활성화하시겠습니까?\n모든 주문이 즉시 차단됩니다."
-      : "E-STOP을 해제하시겠습니까?\n주문이 다시 실행됩니다.";
-    if(!confirm(msg)) return;
-    try{
-      await api("/api/system/estop", {
-        method: "POST",
-        body: JSON.stringify({ estop: newState })
       });
-      state.estopEnabled = newState;
-      updateEstopUI();
-    }catch(e){
-      alert("E-STOP 변경 실패: " + e.message);
+    } catch (e) {
+      console.error('차트 로드 실패:', e);
     }
   }
 
-  // ---------------- Orders ----------------
-  async function reloadOrders(){
-    setMsg("orders");
-    try{
-      const data = await api("/api/home");
-      const items = data.items || [];
-      const tb = document.getElementById("ordersTb");
-      tb.innerHTML = "";
-      for(const r of items){
-        if(!r.last_order_at) continue;
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${r.last_order_id || "-"}</td>
-          <td class="mono">${escapeHtml(r.last_order_at || "-")}</td>
-          <td class="mono">${escapeHtml(r.symbol || "-")}</td>
-          <td>${escapeHtml(r.account_name || "-")}</td>
-          <td>-</td>
-          <td class="mono">${escapeHtml(r.last_filled_qty || "-")}</td>
-          <td class="mono">${escapeHtml(r.last_order_avg_px || "-")}</td>
-          <td><span class="badge ${r.last_order_status==='filled'?'ok':r.last_order_status==='failed'?'bad':'warn'}">${escapeHtml(r.last_order_status || "-")}</span></td>
-        `;
-        tb.appendChild(tr);
-      }
-      if(tb.innerHTML === "") setMsg("orders", "주문 내역이 없습니다.");
-    }catch(e){
-      setMsg("orders", e.message);
-    }
-  }
+  async function loadAssets() {
+    try {
+      const data = await api('/api/dashboard/assets');
+      const assets = data.assets || [];
 
-  // ---------------- Connectors ----------------
-  async function reloadConnectors(){
-    setMsg("connectors");
-    const grid = document.getElementById("connectorsGrid");
-    grid.innerHTML = '<div class="hint">로딩 중...</div>';
-    const exchanges = ["OKX","KIS","BINANCE","BYBIT","UPBIT"];
-    let html = "";
-    for(const ex of exchanges){
-      try{
-        const data = await api(`/api/diag/connector-test?exchange=${ex}`);
-        const ok = data.ok === true;
-        const balance = data.trading ?? data.balance ?? "-";
-        html += `
-          <div class="box">
-            <div class="kv" style="justify-content:space-between;">
-              <b>${ex}</b>
-              <span class="badge ${ok?'ok':'bad'}"><span class="dot"></span>${ok?'연결됨':'끊김'}</span>
-            </div>
-            <div class="hint" style="margin-top:8px;">잔고: ${balance}</div>
+      const grid = document.getElementById('assetsGrid');
+
+      if (assets.length === 0) {
+        grid.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📊</div>
+            <div>등록된 자산이 없습니다</div>
           </div>
         `;
-      }catch(e){
-        html += `
-          <div class="box">
-            <div class="kv" style="justify-content:space-between;">
-              <b>${ex}</b>
-              <span class="badge bad"><span class="dot"></span>오류</span>
-            </div>
-            <div class="hint" style="margin-top:8px;">${escapeHtml(e.message)}</div>
-          </div>
-        `;
-      }
-    }
-    grid.innerHTML = html;
-    setMsg("connectors");
-  }
-
-  // ---------------- Premium ----------------
-  async function reloadPremium(){
-    setMsg("premium");
-    const statusEl = document.getElementById("premiumStatus");
-    try{
-      const status = await api("/api/premium/status");
-      statusEl.innerHTML = `
-        <div class="kv" style="flex-wrap:wrap;gap:16px;">
-          <div><span class="k">Premium</span> <b class="${status.enabled?'':'muted'}">${status.enabled?'ON':'OFF'}</b></div>
-          <div><span class="k">Modes</span> <span class="mono">${(status.modes||[]).join(', ')||'-'}</span></div>
-          <div><span class="k">Trend</span> ${status.trend_enabled?'✅':'—'}</div>
-          <div><span class="k">MR</span> ${status.mr_enabled?'✅':'—'}</div>
-          <div><span class="k">Custom</span> ${status.custom_enabled?'✅':'—'}</div>
-        </div>
-      `;
-    }catch(e){
-      statusEl.innerHTML = `<div class="err">상태 조회 실패: ${escapeHtml(e.message)}</div>`;
-    }
-
-    try{
-      const signals = await api("/api/premium/signals?limit=20");
-      const items = signals.items || signals || [];
-      const tb = document.getElementById("premiumTb");
-      tb.innerHTML = "";
-      for(const s of items){
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${s.id || "-"}</td>
-          <td class="mono">${escapeHtml(s.created_at || "-")}</td>
-          <td class="mono">${escapeHtml(s.symbol || "-")}</td>
-          <td><span class="badge">${escapeHtml(s.premium_mode || "-")}</span></td>
-          <td>${escapeHtml(s.side || "-")}</td>
-          <td class="mono">${escapeHtml(s.reason_code || "-")}</td>
-          <td>${escapeHtml(s.tf || "-")}</td>
-        `;
-        tb.appendChild(tr);
-      }
-      if(items.length === 0) setMsg("premium", "신호가 없습니다.");
-    }catch(e){
-      setMsg("premium", e.message);
-    }
-  }
-
-  // ---------------- Admin (관리자 전용) ----------------
-  async function reloadAdmin(){
-    if (!auth.user || auth.user.role !== 'admin') {
-      setMsg("admin", "관리자 권한이 필요합니다.");
-      return;
-    }
-
-    setMsg("admin");
-    try {
-      // 통계 로드
-      const stats = await api("/api/admin/stats");
-      document.getElementById("adminTotalUsers").textContent = stats.users?.total || 0;
-      document.getElementById("adminPremiumUsers").textContent = stats.users?.by_plan?.premium || 0;
-      document.getElementById("adminActiveAccounts").textContent = stats.accounts?.active || 0;
-      document.getElementById("adminTodayOrders").textContent = stats.orders?.today || 0;
-    } catch (e) {
-      // 통계 실패해도 계속
-    }
-
-    try {
-      // 사용자 목록 로드
-      const data = await api("/api/admin/users?limit=50");
-      const users = data.users || [];
-      const tb = document.getElementById("adminUsersTb");
-      tb.innerHTML = "";
-
-      for (const u of users) {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${u.id}</td>
-          <td class="mono">${escapeHtml(u.email || "-")}</td>
-          <td>${escapeHtml(u.name || "-")}</td>
-          <td>
-            <select onchange="changeUserRole(${u.id}, this.value)" style="padding:4px 8px;">
-              <option value="user" ${u.role==='user'?'selected':''}>user</option>
-              <option value="admin" ${u.role==='admin'?'selected':''}>admin</option>
-            </select>
-          </td>
-          <td>
-            <select onchange="changeUserPlan(${u.id}, this.value)" style="padding:4px 8px;">
-              <option value="free" ${u.plan==='free'?'selected':''}>free</option>
-              <option value="hub" ${u.plan==='hub'?'selected':''}>hub</option>
-              <option value="premium" ${u.plan==='premium'?'selected':''}>premium</option>
-            </select>
-          </td>
-          <td class="mono">${escapeHtml(u.last_login_at || "-")}</td>
-          <td>-</td>
-        `;
-        tb.appendChild(tr);
-      }
-
-      if (users.length === 0) {
-        setMsg("admin", "사용자가 없습니다.");
-      }
-    } catch (e) {
-      setMsg("admin", e.message);
-    }
-  }
-
-  async function changeUserRole(userId, newRole) {
-    try {
-      await api(`/api/admin/users/${userId}/role`, {
-        method: "PUT",
-        body: JSON.stringify({ role: newRole })
-      });
-      setMsg("admin", `사용자 ${userId} 역할이 ${newRole}로 변경되었습니다.`);
-    } catch (e) {
-      alert("역할 변경 실패: " + e.message);
-      reloadAdmin();
-    }
-  }
-
-  async function changeUserPlan(userId, newPlan) {
-    try {
-      await api(`/api/admin/users/${userId}/plan`, {
-        method: "PUT",
-        body: JSON.stringify({ plan: newPlan })
-      });
-      setMsg("admin", `사용자 ${userId} 플랜이 ${newPlan}으로 변경되었습니다.`);
-    } catch (e) {
-      alert("플랜 변경 실패: " + e.message);
-      reloadAdmin();
-    }
-  }
-
-  // ---------------- Modal: CRUD ----------------
-  function openModal(kind, mode, id=null){
-    state.modal = { kind, mode, item: null };
-
-    if(kind === "account"){
-      state.modal.item = (mode==="edit")
-        ? state.accounts.find(x=>x.id===id)
-        : { name:"", exchange:"OKX", api_key:"", api_secret:"", api_passphrase:"", is_active:false };
-      renderAccountModal();
-    }
-
-    if(kind === "strategy"){
-      state.modal.item = (mode==="edit")
-        ? state.strategies.find(x=>x.id===id)
-        : { name:"", tv_secret:"", is_active:false };
-      renderStrategyModal();
-    }
-
-    if(kind === "asset"){
-      state.modal.item = (mode==="edit")
-        ? state.assets.find(x=>x.id===id)
-        : { account_id: null, strategy_id: null, symbol:"", market:"SPOT", is_active:true };
-      renderAssetModal();
-    }
-
-    document.getElementById("modal-backdrop").style.display = "flex";
-  }
-
-  function renderAccountModal(){
-    const item = state.modal.item;
-    document.getElementById("modal-title").textContent = state.modal.mode==="create" ? "Account 추가" : `Account 수정 (ID ${item.id})`;
-    document.getElementById("modal-body").innerHTML = `
-      <div class="grid">
-        <div class="field"><label>name</label><input id="f_name" value="${escapeAttr(item.name||"")}" /></div>
-        <div class="field"><label>exchange</label>
-          <select id="f_exchange">
-            <option ${item.exchange==="OKX"?"selected":""}>OKX</option>
-            <option ${item.exchange==="KIWOOM"?"selected":""}>KIWOOM</option>
-            <option ${item.exchange==="KIS"?"selected":""}>KIS</option>
-          </select>
-        </div>
-        <div class="field"><label>api_key</label><input id="f_api_key" value="${escapeAttr(item.api_key||"")}" /></div>
-        <div class="field"><label>api_secret</label><input id="f_api_secret" value="${escapeAttr(item.api_secret||"")}" /></div>
-        <div class="field"><label>api_passphrase</label><input id="f_api_passphrase" value="${escapeAttr(item.api_passphrase||"")}" /></div>
-        <div class="field"><label>is_active</label>
-          <select id="f_is_active">
-            <option value="false" ${item.is_active? "":"selected"}>false</option>
-            <option value="true" ${item.is_active? "selected":""}>true</option>
-          </select>
-        </div>
-      </div>
-      <div class="err" id="modal-err"></div>
-    `;
-    document.getElementById("modal-footer").innerHTML = `
-      <button class="secondary" onclick="closeModal()">취소</button>
-      <button onclick="saveAccount()">저장</button>
-    `;
-  }
-  async function saveAccount(){
-    const item = state.modal.item;
-    const payload = {
-      name: document.getElementById("f_name").value.trim(),
-      exchange: document.getElementById("f_exchange").value.trim(),
-      api_key: document.getElementById("f_api_key").value.trim(),
-      api_secret: document.getElementById("f_api_secret").value.trim(),
-      api_passphrase: document.getElementById("f_api_passphrase").value.trim(),
-      is_active: document.getElementById("f_is_active").value==="true"
-    };
-    try{
-      if(state.modal.mode==="create"){
-        await api("/api/accounts", { method:"POST", body: JSON.stringify(payload) });
-      }else{
-        await api(`/api/accounts/${item.id}`, { method:"PUT", body: JSON.stringify(payload) });
-      }
-      closeModal();
-      await reloadAccounts();
-      reloadHome();
-      setMsg("accounts","저장 완료");
-    }catch(e){
-      document.getElementById("modal-err").textContent = e.message;
-    }
-  }
-
-  function renderStrategyModal(){
-    const item = state.modal.item;
-    document.getElementById("modal-title").textContent = state.modal.mode==="create" ? "Strategy 추가" : `Strategy 수정 (ID ${item.id})`;
-    document.getElementById("modal-body").innerHTML = `
-      <div class="grid">
-        <div class="field"><label>name</label><input id="f_name" value="${escapeAttr(item.name||"")}" /></div>
-        <div class="field"><label>tv_secret</label><input id="f_tv_secret" value="${escapeAttr(item.tv_secret||"")}" /></div>
-        <div class="field"><label>is_active</label>
-          <select id="f_is_active">
-            <option value="false" ${item.is_active? "":"selected"}>false</option>
-            <option value="true" ${item.is_active? "selected":""}>true</option>
-          </select>
-        </div>
-      </div>
-      <div class="err" id="modal-err"></div>
-    `;
-    document.getElementById("modal-footer").innerHTML = `
-      <button class="secondary" onclick="closeModal()">취소</button>
-      <button onclick="saveStrategy()">저장</button>
-    `;
-  }
-  async function saveStrategy(){
-    const item = state.modal.item;
-    const payload = {
-      name: document.getElementById("f_name").value.trim(),
-      tv_secret: document.getElementById("f_tv_secret").value.trim(),
-      is_active: document.getElementById("f_is_active").value==="true"
-    };
-    try{
-      if(state.modal.mode==="create"){
-        await api("/api/strategies", { method:"POST", body: JSON.stringify(payload) });
-      }else{
-        await api(`/api/strategies/${item.id}`, { method:"PUT", body: JSON.stringify(payload) });
-      }
-      closeModal();
-      await reloadStrategies();
-      reloadHome();
-      setMsg("strategies","저장 완료");
-    }catch(e){
-      document.getElementById("modal-err").textContent = e.message;
-    }
-  }
-
-  function renderAssetModal(){
-    const item = state.modal.item;
-    document.getElementById("modal-title").textContent = state.modal.mode==="create" ? "Asset 추가" : `Asset 수정 (ID ${item.id})`;
-
-    const accOpts = state.accounts.map(a => `<option value="${a.id}" ${item.account_id===a.id?"selected":""}>${escapeHtml(a.name)} (#${a.id})</option>`).join("");
-    const stOpts  = state.strategies.map(s => `<option value="${s.id}" ${item.strategy_id===s.id?"selected":""}>${escapeHtml(s.name)} (#${s.id})</option>`).join("");
-
-    document.getElementById("modal-body").innerHTML = `
-      <div class="grid">
-        <div class="field"><label>account</label>
-          <select id="f_account_id"><option value="">-</option>${accOpts}</select>
-        </div>
-        <div class="field"><label>strategy</label>
-          <select id="f_strategy_id"><option value="">-</option>${stOpts}</select>
-        </div>
-        <div class="field"><label>symbol</label><input id="f_symbol" value="${escapeAttr(item.symbol||"")}" /></div>
-        <div class="field"><label>market</label><input id="f_market" value="${escapeAttr(item.market||"SPOT")}" /></div>
-        <div class="field"><label>is_active</label>
-          <select id="f_is_active">
-            <option value="false" ${item.is_active? "":"selected"}>false</option>
-            <option value="true" ${item.is_active? "selected":""}>true</option>
-          </select>
-        </div>
-      </div>
-      <div class="err" id="modal-err"></div>
-    `;
-    document.getElementById("modal-footer").innerHTML = `
-      <button class="secondary" onclick="closeModal()">취소</button>
-      <button onclick="saveAsset()">저장</button>
-    `;
-  }
-  async function saveAsset(){
-    const item = state.modal.item;
-    const payload = {
-      account_id: document.getElementById("f_account_id").value ? Number(document.getElementById("f_account_id").value) : null,
-      strategy_id: document.getElementById("f_strategy_id").value ? Number(document.getElementById("f_strategy_id").value) : null,
-      symbol: document.getElementById("f_symbol").value.trim(),
-      market: document.getElementById("f_market").value.trim(),
-      is_active: document.getElementById("f_is_active").value==="true"
-    };
-    try{
-      if(state.modal.mode==="create"){
-        await api("/api/assets", { method:"POST", body: JSON.stringify(payload) });
-      }else{
-        await api(`/api/assets/${item.id}`, { method:"PUT", body: JSON.stringify(payload) });
-      }
-      closeModal();
-      await reloadAssets();
-      reloadHome();
-      setMsg("assets","저장 완료");
-    }catch(e){
-      document.getElementById("modal-err").textContent = e.message;
-    }
-  }
-
-  // ---------------- Strategy Config (Week2 Day5 UI 마감) ----------------
-  // ✅ 기능
-  // 1) signal_params 자동 폼 렌더링
-  // 2) "필수만 보기(99.*)" 토글(기본 ON)
-  // 3) 저장(config 생성) → 결과(config_id/config_hash/reused) 표시
-  // 4) 저장 직후 TradingView 템플릿 2종 자동 출력 + 복사
-  // 5) 파라미터 0이면 "먼저 sync 필요" + (선택) UI에서 Parse+Sync 버튼 제공
-
-  function isRequiredGroup(groupName){
-    const g = String(groupName||"").toLowerCase().trim();
-    if(g.startsWith("99.")) return true;
-    if(g.includes("webhook") || g.includes("alert")) return true;
-    return false;
-  }
-
-  function filterParamsByRequired(params, onlyRequired){
-    if(!onlyRequired) return params;
-    return params.filter(p => isRequiredGroup(p.group_name));
-  }
-
-  async function openStrategyConfig(strategyId){
-    state.modal = { kind:"strategy_config", mode:"edit", item:{ strategyId } };
-    document.getElementById("modal-backdrop").style.display = "flex";
-    document.getElementById("modal-title").textContent = `Strategy 설정 (ID ${strategyId})`;
-    document.getElementById("modal-body").innerHTML = `<div class="hint">signal_params 불러오는 중...</div>`;
-    document.getElementById("modal-footer").innerHTML = `
-      <button class="secondary" onclick="closeModal()">닫기</button>
-    `;
-
-    try{
-      const paramsRaw = await api(`/api/strategies/${strategyId}/signal-params`);
-      const params = normalizeSignalParams(paramsRaw);
-      __lastParams = params;
-
-      if(params.length === 0){
-        renderStrategyConfigEmptyModal(strategyId);
         return;
       }
-      renderStrategyConfigModal(strategyId, paramsRaw);
-    }catch(e){
-      document.getElementById("modal-body").innerHTML = `
-        <div class="err">signal_params 로드 실패:\n${escapeHtml(e.message)}</div>
-        <div class="hint" style="margin-top:10px;">
-          체크: GET /api/strategies/${strategyId}/signal-params 가 존재해야 합니다.
-        </div>
-      `;
-      document.getElementById("modal-footer").innerHTML = `
-        <button class="secondary" onclick="closeModal()">닫기</button>
-      `;
-    }
-  }
 
-  function normalizeSignalParams(rows){
-    const arr = Array.isArray(rows) ? rows : (rows && rows.items ? rows.items : []);
-    return arr
-      .filter(x => !x.is_hidden)
-      .sort((a,b)=>{
-        const ga = (a.group_name||"").toLowerCase();
-        const gb = (b.group_name||"").toLowerCase();
-        if(ga<gb) return -1; if(ga>gb) return 1;
-        const oa = a.order_index ?? 0;
-        const ob = b.order_index ?? 0;
-        if(oa!==ob) return oa-ob;
-        return String(a.key).localeCompare(String(b.key));
-      });
-  }
+      // 수익률 순 정렬
+      assets.sort((a, b) => (b.profit_pct || 0) - (a.profit_pct || 0));
 
-  function renderStrategyConfigEmptyModal(strategyId){
-    document.getElementById("modal-body").innerHTML = `
-      <div class="box">
-        <div class="kv">
-          <span class="k">전략 ID</span><b class="mono">${strategyId}</b>
-          <span class="k">파라미터 수</span><b>0</b>
-        </div>
-        <div class="err" style="margin-top:10px;">
-          이 전략에는 signal_params가 없습니다. 먼저 <b>sync</b>가 필요합니다.
-        </div>
-        <div class="hint" style="margin-top:10px;">
-          ✅ 가장 쉬운 방법(권장): 기존에 성공했던 PowerShell 커맨드 재사용<br/>
-          - POST /api/pine/parse-inputs → inputs.json 생성<br/>
-          - POST /api/strategies/${strategyId}/signal-params:sync
-        </div>
-      </div>
-
-      <div class="box" style="margin-top:14px;">
-        <b>선택: UI에서 바로 Parse + Sync</b>
-        <div class="hint" style="margin-top:6px;">
-          TradingView PineScript 전체 코드를 아래에 붙여넣고 실행하세요.
-        </div>
-        <textarea id="pine_code" class="mono" style="height:180px;" placeholder="//@version=5 ... 전체 Pine 코드"></textarea>
-        <div class="kv" style="margin-top:10px; justify-content:flex-end;">
-          <button class="secondary" onclick="parseAndSync(${strategyId})">Parse + Sync</button>
-        </div>
-        <div id="sync_status" class="mono muted" style="margin-top:8px;">-</div>
-      </div>
-    `;
-
-    document.getElementById("modal-footer").innerHTML = `
-      <button class="secondary" onclick="closeModal()">닫기</button>
-    `;
-  }
-
-  async function parseAndSync(strategyId){
-    const st = document.getElementById("sync_status");
-    st.textContent = "Parsing...";
-    try{
-      const code = (document.getElementById("pine_code").value || "").trim();
-      if(!code) throw new Error("Pine 코드가 비었습니다. PineScript 전체를 붙여넣어 주세요.");
-
-      const parsed = await api("/api/pine/parse-inputs", {
-        method:"POST",
-        body: JSON.stringify({ code })
-      });
-
-      if(!parsed || !parsed.ok) throw new Error("parse-inputs 실패: 응답이 비정상입니다.");
-      st.textContent = `Parsed OK: count=${parsed.count} → syncing...`;
-
-      const syncRes = await api(`/api/strategies/${strategyId}/signal-params:sync`, {
-        method:"POST",
-        body: JSON.stringify({ inputs: parsed.inputs })
-      });
-
-      st.textContent = `Sync OK: received=${syncRes.received}, upserted=${syncRes.upserted}. 다시 불러오는 중...`;
-
-      const paramsRaw = await api(`/api/strategies/${strategyId}/signal-params`);
-      const params = normalizeSignalParams(paramsRaw);
-      __lastParams = params;
-      renderStrategyConfigModal(strategyId, paramsRaw);
-    }catch(e){
-      st.textContent = `ERROR: ${e.message}`;
-    }
-  }
-
-  function renderStrategyConfigModal(strategyId, rows){
-    const paramsAll = normalizeSignalParams(rows);
-    __lastParams = paramsAll;
-
-    if(state.onlyRequired === undefined) state.onlyRequired = true;
-    const params = filterParamsByRequired(paramsAll, state.onlyRequired);
-
-    const byGroup = new Map();
-    for(const p of params){
-      const g = p.group_name || "General";
-      if(!byGroup.has(g)) byGroup.set(g, []);
-      byGroup.get(g).push(p);
-    }
-
-    let html = `
-      <div class="box">
-        <div class="kv" style="flex-wrap:wrap;">
-          <span class="k">전략 ID</span><b class="mono">${strategyId}</b>
-          <span class="k">파라미터</span><b>${params.length}</b>
-          <span class="k">전체</span><b class="muted">${paramsAll.length}</b>
-
-          <span class="k">config name</span>
-          <input id="cfg_name" style="width:260px;" value="ui-${new Date().toISOString().slice(0,19)}" />
-
-          <label class="pill ${state.onlyRequired?'on':'off'}" style="cursor:pointer;">
-            <input id="only_required" type="checkbox" ${state.onlyRequired?'checked':''}
-                   onchange="toggleRequired(${strategyId})" style="margin-right:6px;" />
-            필수만 보기(99.*)
-          </label>
-
-          <button class="secondary" onclick="fillDefaults()">기본값으로 리셋</button>
-        </div>
-        <div class="hint" style="margin-top:8px;">
-          저장하면 strategy_configs에 config가 쌓이고, 바로 TradingView 템플릿 2종(해시 포함/미포함)을 생성합니다.
-          (필수만 보기 ON이면 화면은 99.* 그룹만 보이지만, 저장은 전체 key를 포함합니다. 보이지 않는 값은 defval로 저장됩니다.)
-        </div>
-      </div>
-    `;
-
-    for(const [g, items] of byGroup.entries()){
-      html += `<div class="group-hd"><b>${escapeHtml(g)}</b></div>`;
-      html += `<div class="grid">`;
-      for(const p of items){
-        html += renderParamField(p);
-      }
-      html += `</div>`;
-    }
-
-    html += `
-      <div style="margin-top:14px;" class="box">
-        <div class="kv">
-          <span class="k">저장 결과</span>
-          <span id="cfg_result" class="mono muted">-</span>
-          <button class="secondary" onclick="copyText('cfg_result')">복사</button>
-        </div>
-        <div class="err" id="cfg_err"></div>
-        <div class="okmsg" id="cfg_ok"></div>
-      </div>
-
-      <div style="margin-top:14px;" class="box">
-        <div class="kv" style="justify-content:space-between;">
-          <div><b>TradingView Template (include_hash=true)</b></div>
-          <div class="kv">
-            <button class="secondary" onclick="copyText('tv_with_hash')">복사</button>
+      grid.innerHTML = assets.map(asset => {
+        const profit = asset.profit_pct || 0;
+        const profitClass = profit >= 0 ? 'positive' : 'negative';
+        return `
+          <div class="asset-card">
+            <div class="asset-header">
+              <span class="asset-symbol">${asset.symbol || '-'}</span>
+              <span class="asset-exchange">${asset.exchange || '-'}</span>
+            </div>
+            <div class="asset-profit ${profitClass}">
+              ${profit >= 0 ? '+' : ''}${profit.toFixed(2)}%
+            </div>
+            <div class="asset-details">
+              <span>보유: ${formatNumber(asset.quantity || 0)}</span>
+              <span>평가: ${formatCurrency(asset.value || 0)}</span>
+            </div>
           </div>
-        </div>
-        <textarea id="tv_with_hash" class="mono" readonly></textarea>
-      </div>
+        `;
+      }).join('');
 
-      <div style="margin-top:14px;" class="box">
-        <div class="kv" style="justify-content:space-between;">
-          <div><b>TradingView Template (include_hash=false)</b></div>
-          <div class="kv">
-            <button class="secondary" onclick="copyText('tv_no_hash')">복사</button>
-          </div>
-        </div>
-        <textarea id="tv_no_hash" class="mono" readonly></textarea>
-      </div>
-    `;
-
-    document.getElementById("modal-body").innerHTML = html;
-
-    document.getElementById("modal-footer").innerHTML = `
-      <button class="secondary" onclick="closeModal()">닫기</button>
-      <button onclick="saveStrategyConfig(${strategyId})">저장(config 생성)</button>
-    `;
-
-    applyDefvalsFromParams();
-  }
-
-  function toggleRequired(strategyId){
-    const chk = document.getElementById("only_required");
-    state.onlyRequired = !!(chk && chk.checked);
-    renderStrategyConfigModal(strategyId, __lastParams);
-  }
-
-  function fillDefaults(){
-    applyDefvalsFromParams();
-    document.getElementById("cfg_err") && (document.getElementById("cfg_err").textContent = "");
-    document.getElementById("cfg_ok")  && (document.getElementById("cfg_ok").textContent  = "");
-  }
-
-  function renderParamField(p){
-    const key = String(p.key || "");
-    const title = p.title || key;
-    const type = (p.type || "string").toLowerCase();
-    const tooltip = p.tooltip ? `<div class="hint">${escapeHtml(p.tooltip)}</div>` : "";
-    const id = `p_${key.replaceAll(".","_").replaceAll("-","_")}`;
-
-    const options = p.options;
-
-    if(Array.isArray(options) && options.length){
-      const opts = options.map(o => {
-        const ov = String(o);
-        return `<option value="${escapeAttr(ov)}">${escapeHtml(ov)}</option>`;
-      }).join("");
-      return `
-        <div class="field">
-          <label>${escapeHtml(title)} <span class="hint mono">(${escapeHtml(key)})</span></label>
-          <select id="${escapeAttr(id)}" data-key="${escapeAttr(key)}" data-type="string">${opts}</select>
-          ${tooltip}
-        </div>
-      `;
-    }
-
-    if(type === "bool" || type === "boolean"){
-      return `
-        <div class="field">
-          <label>${escapeHtml(title)} <span class="hint mono">(${escapeHtml(key)})</span></label>
-          <select id="${escapeAttr(id)}" data-key="${escapeAttr(key)}" data-type="bool">
-            <option value="false">false</option>
-            <option value="true">true</option>
-          </select>
-          ${tooltip}
-        </div>
-      `;
-    }
-
-    if(type === "int" || type === "integer" || type === "float" || type === "number"){
-      const min = (p.min_val ?? "");
-      const max = (p.max_val ?? "");
-      const step = (p.step_val ?? (type === "int" ? 1 : 0.01));
-      return `
-        <div class="field">
-          <label>${escapeHtml(title)} <span class="hint mono">(${escapeHtml(key)})</span></label>
-          <input id="${escapeAttr(id)}" data-key="${escapeAttr(key)}" data-type="${escapeAttr(type)}"
-                 type="number" step="${escapeAttr(step)}" ${min!==""?`min="${escapeAttr(min)}"`:""} ${max!==""?`max="${escapeAttr(max)}"`:""} />
-          ${tooltip}
-        </div>
-      `;
-    }
-
-    return `
-      <div class="field">
-        <label>${escapeHtml(title)} <span class="hint mono">(${escapeHtml(key)})</span></label>
-        <input id="${escapeAttr(id)}" data-key="${escapeAttr(key)}" data-type="string" type="text" />
-        ${tooltip}
-      </div>
-    `;
-  }
-
-  let __lastParams = [];
-  function applyDefvalsFromParams(){
-    if(!__lastParams.length) return;
-    for(const p of __lastParams){
-      if(p.is_hidden) continue;
-      const key = String(p.key||"");
-      const id = `p_${key.replaceAll(".","_").replaceAll("-","_")}`;
-      const el = document.getElementById(id);
-      if(!el) continue;
-
-      const t = (p.type||"string").toLowerCase();
-      const v = p.defval;
-
-      if(t === "bool" || t === "boolean"){
-        el.value = (v === true) ? "true" : "false";
-      }else if(t === "int" || t === "integer" || t === "float" || t === "number"){
-        el.value = (v === null || v === undefined) ? "" : String(v);
-      }else{
-        el.value = (v === null || v === undefined) ? "" : String(v);
-      }
-
-      if(el.tagName === "SELECT" && Array.isArray(p.options) && p.options.length){
-        const sv = (v === null || v === undefined) ? "" : String(v);
-        if(sv) el.value = sv;
-      }
+      // 자산별 차트 업데이트
+      updateAssetChart(assets);
+    } catch (e) {
+      console.error('자산 로드 실패:', e);
     }
   }
 
-  async function saveStrategyConfig(strategyId){
-    document.getElementById("cfg_err").textContent = "";
-    document.getElementById("cfg_ok").textContent = "";
-    document.getElementById("cfg_result").textContent = "-";
-    document.getElementById("tv_with_hash").value = "";
-    document.getElementById("tv_no_hash").value = "";
+  function updateAssetChart(assets) {
+    const ctx = document.getElementById('assetChart').getContext('2d');
 
-    try{
-      const paramsRaw = await api(`/api/strategies/${strategyId}/signal-params`);
-      const params = normalizeSignalParams(paramsRaw);
-      __lastParams = params;
+    if (assetChart) assetChart.destroy();
 
-      const values = {};
-      for(const p of params){
-        values[p.key] = p.defval;
-      }
+    const top5 = assets.slice(0, 5);
 
-      const fields = document.querySelectorAll("[data-key][data-type]");
-      for(const el of fields){
-        const key = el.getAttribute("data-key");
-        const type = el.getAttribute("data-type");
-
-        let raw = el.value;
-        if(type === "bool" || type === "boolean"){
-          values[key] = (raw === "true");
-        }else if(type === "int" || type === "integer"){
-          values[key] = (raw === "" ? null : Number.parseInt(raw, 10));
-        }else if(type === "float" || type === "number"){
-          values[key] = (raw === "" ? null : Number.parseFloat(raw));
-        }else{
-          values[key] = raw;
+    assetChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: top5.map(a => a.symbol || '-'),
+        datasets: [{
+          data: top5.map(a => a.profit_pct || 0),
+          backgroundColor: top5.map(a =>
+            (a.profit_pct || 0) >= 0 ? 'rgba(16, 185, 129, 0.8)' : 'rgba(239, 68, 68, 0.8)'
+          )
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: 'y',
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          x: {
+            ticks: {
+              callback: value => value + '%'
+            }
+          }
         }
       }
+    });
+  }
 
-      const name = (document.getElementById("cfg_name").value || "ui").trim();
+  async function loadTrades() {
+    try {
+      const data = await api('/api/timeline?limit=10');
+      const trades = data.items || data || [];
 
-      const body = { name, values, is_active: true };
-      const saved = await api(`/api/strategies/${strategyId}/configs`, { method:"POST", body: JSON.stringify(body) });
+      const tbody = document.getElementById('tradesBody');
 
-      const configId = saved.config_id ?? saved.id ?? null;
-      const cfgHash  = saved.config_hash ?? saved.hash ?? null;
-      const reused   = (saved.reused === true);
+      if (trades.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" style="text-align: center; color: var(--muted); padding: 40px;">
+              거래 내역이 없습니다
+            </td>
+          </tr>
+        `;
+        return;
+      }
 
-      document.getElementById("cfg_result").textContent = `config_id=${configId} | config_hash=${cfgHash} | reused=${reused}`;
+      tbody.innerHTML = trades.map(trade => {
+        const side = (trade.side || trade.event_type || '').toLowerCase();
+        const sideText = side.includes('buy') || side.includes('long') ? '매수' :
+                         side.includes('sell') || side.includes('short') ? '매도' :
+                         trade.event_type || '-';
+        const sideClass = side.includes('buy') || side.includes('long') ? 'buy' : 'sell';
 
-      const t1 = await api(`/api/strategies/${strategyId}/templates/tradingview?config_id=${configId}&include_hash=true`);
-      const t2 = await api(`/api/strategies/${strategyId}/templates/tradingview?config_id=${configId}&include_hash=false`);
+        const status = (trade.status || trade.reason_code || 'filled').toLowerCase();
+        const statusText = status === 'filled' ? '체결' :
+                          status === 'failed' ? '실패' :
+                          status === 'pending' ? '대기' : status;
+        const statusClass = status === 'filled' ? 'filled' :
+                           status === 'failed' ? 'failed' : 'pending';
 
-      document.getElementById("tv_with_hash").value = JSON.stringify(t1.template, null, 2);
-      document.getElementById("tv_no_hash").value  = JSON.stringify(t2.template, null, 2);
-
-      document.getElementById("cfg_ok").textContent = "저장 + 템플릿 생성 완료";
-    }catch(e){
-      document.getElementById("cfg_err").textContent = e.message;
+        return `
+          <tr>
+            <td>${formatDateTime(trade.created_at)}</td>
+            <td style="font-family: var(--mono);">${trade.symbol || '-'}</td>
+            <td><span class="trade-side ${sideClass}">${sideText}</span></td>
+            <td>${formatNumber(trade.qty || trade.filled_qty || 0)}</td>
+            <td>${formatCurrency(trade.price || trade.avg_px || 0)}</td>
+            <td><span class="trade-status ${statusClass}">${statusText}</span></td>
+          </tr>
+        `;
+      }).join('');
+    } catch (e) {
+      console.error('거래 내역 로드 실패:', e);
     }
   }
 
-  async function copyText(id){
-    const el = document.getElementById(id);
-    if(!el) return;
-    const text = (el.tagName === "TEXTAREA" || el.tagName === "INPUT") ? el.value : el.textContent;
-    try{
-      await navigator.clipboard.writeText(text || "");
-    }catch(e){
-      const ta = document.createElement("textarea");
-      ta.value = text || "";
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
+  // =====================================================
+  // E-STOP
+  // =====================================================
+  let estopEnabled = false;
+
+  async function loadEstopStatus() {
+    try {
+      const data = await api('/api/system/estop');
+      estopEnabled = data.estop === true || data.value === '1';
+      updateEstopUI();
+    } catch (e) {
+      console.error('E-STOP 상태 로드 실패:', e);
     }
   }
 
-  // 초기 로드
-  (async ()=>{
-    // 인증 확인
-    const isAuthenticated = await checkAuth();
-
-    if (isAuthenticated) {
-      // 로그인 성공 시 데이터 로드
-      await reloadHome();
-      await reloadAccounts();
-      await reloadStrategies();
-      await reloadAssets();
+  function updateEstopUI() {
+    const btn = document.getElementById('estopBtn');
+    if (estopEnabled) {
+      btn.classList.add('active');
+      btn.innerHTML = '정지<br>해제';
+    } else {
+      btn.classList.remove('active');
+      btn.innerHTML = '긴급<br>정지';
     }
-  })();
-</script>
-
-<script id="day5_override">
-(function(){
-  const S = window.__day5 = window.__day5 || { requiredOnly:true, allParams:null, strategyId:null };
-
-  function norm(rows){
-    if(Array.isArray(rows)) return rows;
-    if(rows && Array.isArray(rows.items)) return rows.items;
-    return [];
   }
 
-  async function fetchTemplates(strategyId, configId){
-    const t1 = await fetch(`/api/strategies/${strategyId}/templates/tradingview?config_id=${configId}&include_hash=true`).then(r=>r.json());
-    const t0 = await fetch(`/api/strategies/${strategyId}/templates/tradingview?config_id=${configId}&include_hash=false`).then(r=>r.json());
-    return {with_hash:t1, without_hash:t0};
-  }
+  async function toggleEstop() {
+    const newState = !estopEnabled;
+    const msg = newState
+      ? '긴급 정지를 활성화하시겠습니까?\n모든 주문이 차단됩니다.'
+      : '긴급 정지를 해제하시겠습니까?\n주문이 다시 실행됩니다.';
 
-  function ensurePanels(strategyId, allCount, shownCount){
-    const body = document.getElementById('modal-body');
-    if(!body) return;
+    if (!confirm(msg)) return;
 
-    // tools(토글/카운트) 박스
-    let tools = document.getElementById('cfg-tools');
-    if(!tools){
-      tools = document.createElement('div');
-      tools.id='cfg-tools';
-      tools.style.cssText='padding:10px 12px;margin-bottom:10px;border:1px solid #eee;border-radius:10px;background:#fafafa;display:flex;gap:12px;align-items:center;flex-wrap:wrap;';
-      tools.innerHTML = `
-        <label style="display:inline-flex;align-items:center;gap:8px;">
-          <input type="checkbox" id="cfg_required_only" checked />
-          <span>필수만 보기(99.*)</span>
-        </label>
-        <span id="cfg_counts" style="opacity:.8"></span>
-        <span style="opacity:.6">※ 0개면 sync 필요</span>
-      `;
-      body.prepend(tools);
-
-      tools.querySelector('#cfg_required_only').addEventListener('change', ()=>{
-        S.requiredOnly = tools.querySelector('#cfg_required_only').checked;
-        if(typeof window.renderStrategyConfigModal==='function'){
-          window.renderStrategyConfigModal(S.strategyId, S.allParams);
-        }
+    try {
+      await api('/api/system/estop', {
+        method: 'POST',
+        body: JSON.stringify({ estop: newState })
       });
-    }
-
-    tools.querySelector('#cfg_required_only').checked = (S.requiredOnly !== false);
-    tools.querySelector('#cfg_counts').textContent = `파라미터: ${shownCount}/${allCount}`;
-
-    // 저장결과/템플릿 패널
-    let res = document.getElementById('cfg-save-result');
-    if(!res){
-      res=document.createElement('div');
-      res.id='cfg-save-result';
-      res.style.cssText='margin-top:12px;padding:10px 12px;border:1px solid #eee;border-radius:10px;background:#fff;';
-      res.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-          <b>저장 결과</b>
-          <button type="button" id="cfg_copy_result" class="secondary">복사</button>
-        </div>
-        <pre id="cfg_result_pre" class="code" style="white-space:pre-wrap;margin:8px 0 0;">(아직 저장 전)</pre>
-
-        <div style="height:10px"></div>
-
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-          <b>TradingView 템플릿 (hash 포함)</b>
-          <button type="button" id="cfg_copy_tpl1" class="secondary">복사</button>
-        </div>
-        <pre id="cfg_tpl1_pre" class="code" style="white-space:pre-wrap;margin:8px 0 0;">(저장 후 자동 출력)</pre>
-
-        <div style="height:10px"></div>
-
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-          <b>TradingView 템플릿 (hash 미포함)</b>
-          <button type="button" id="cfg_copy_tpl0" class="secondary">복사</button>
-        </div>
-        <pre id="cfg_tpl0_pre" class="code" style="white-space:pre-wrap;margin:8px 0 0;">(저장 후 자동 출력)</pre>
-      `;
-      body.appendChild(res);
-
-      const copy = async(preId)=>{
-        const el=document.getElementById(preId);
-        if(!el) return;
-        const txt=el.textContent||'';
-        try{ await navigator.clipboard.writeText(txt); }
-        catch(e){ prompt("복사:", txt); }
-      };
-      res.querySelector('#cfg_copy_result').addEventListener('click', ()=>copy('cfg_result_pre'));
-      res.querySelector('#cfg_copy_tpl1').addEventListener('click', ()=>copy('cfg_tpl1_pre'));
-      res.querySelector('#cfg_copy_tpl0').addEventListener('click', ()=>copy('cfg_tpl0_pre'));
+      estopEnabled = newState;
+      updateEstopUI();
+      showToast(newState ? '긴급 정지 활성화됨' : '긴급 정지 해제됨');
+    } catch (e) {
+      showToast('E-STOP 변경 실패: ' + e.message);
     }
   }
 
-  function showSyncNeeded(strategyId){
-    const body=document.getElementById('modal-body');
-    const footer=document.getElementById('modal-footer');
-    if(body){
-      body.innerHTML = `
-        <div class="err">이 전략은 signal_params가 0개입니다. 먼저 <b>signal-params:sync</b>가 필요합니다.</div>
-        <div class="hint" style="margin-top:10px;">
-          <pre class="code">curl.exe -sS -X POST "http://127.0.0.1:8000/api/strategies/${strategyId}/signal-params:sync" -H "Content-Type: application/json; charset=utf-8" --data-binary "@sync_payload.json"</pre>
-        </div>
-      `;
+  // =====================================================
+  // 관리자 패널
+  // =====================================================
+  function showAdminPanel() {
+    document.getElementById('adminPanel').style.display = 'block';
+    loadAdminData();
+  }
+
+  function hideAdminPanel() {
+    document.getElementById('adminPanel').style.display = 'none';
+  }
+
+  async function loadAdminData() {
+    try {
+      const stats = await api('/api/admin/stats');
+      document.getElementById('adminTotalUsers').textContent = stats.users?.total || 0;
+      document.getElementById('adminFreeUsers').textContent = stats.users?.by_plan?.free || 0;
+      document.getElementById('adminHubUsers').textContent = stats.users?.by_plan?.hub || 0;
+      document.getElementById('adminPremiumUsers').textContent = stats.users?.by_plan?.premium || 0;
+
+      const usersData = await api('/api/admin/users?limit=10');
+      const users = usersData.users || [];
+
+      document.getElementById('adminUsersBody').innerHTML = users.map(u => `
+        <tr>
+          <td>${u.id}</td>
+          <td>${u.email || '-'}</td>
+          <td>${u.name || '-'}</td>
+          <td>${u.plan || 'free'}</td>
+          <td>${formatDateTime(u.created_at)}</td>
+        </tr>
+      `).join('');
+    } catch (e) {
+      console.error('관리자 데이터 로드 실패:', e);
     }
-    if(footer){
-      footer.innerHTML = `<button class="secondary" onclick="closeModal && closeModal()">닫기</button>`;
+  }
+
+  // =====================================================
+  // 유틸리티
+  // =====================================================
+  function formatCurrency(value) {
+    if (typeof value !== 'number') value = parseFloat(value) || 0;
+    return '₩' + value.toLocaleString('ko-KR', { maximumFractionDigits: 0 });
+  }
+
+  function formatNumber(value) {
+    if (typeof value !== 'number') value = parseFloat(value) || 0;
+    return value.toLocaleString('ko-KR', { maximumFractionDigits: 4 });
+  }
+
+  function formatDateTime(str) {
+    if (!str) return '-';
+    const d = new Date(str);
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    if (isToday) {
+      return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
     }
+    return d.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   }
 
-  // 1) openStrategyConfig 오버라이드: params 0이면 안내, 아니면 render로 강제
-  if(typeof window.openStrategyConfig === 'function'){
-    const orig = window.openStrategyConfig;
-    window.openStrategyConfig = async function(strategyId){
-      // [PATCH] ensure modal is visible even in override
-      const mb = document.getElementById('modal-backdrop');
-      if(mb) mb.style.display = 'flex';
-      const mt = document.getElementById('modal-title');
-      if(mt) mt.textContent = `Strategy 설정 (ID ${strategyId})`;
-      S.strategyId = strategyId;
-      try{
-        const params = (typeof window.api==='function')
-          ? await window.api(`/api/strategies/${strategyId}/signal-params`)
-          : await fetch(`/api/strategies/${strategyId}/signal-params`).then(r=>r.json());
-
-        S.allParams = params;
-
-        const arr = norm(params);
-        if(arr.length===0){
-          try{ await orig.call(this, strategyId); }catch(e){}
-          showSyncNeeded(strategyId);
-          return;
-        }
-
-        if(typeof window.renderStrategyConfigModal==='function'){
-          window.renderStrategyConfigModal(strategyId, params);
-          return;
-        }
-
-        return orig.call(this, strategyId);
-      }catch(e){
-        return orig.call(this, strategyId);
-      }
-    };
+  function showToast(message) {
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
   }
 
-  // 2) renderStrategyConfigModal 오버라이드: 99.* 필수만 보기 + 패널 주입
-  if(typeof window.renderStrategyConfigModal === 'function'){
-    const origR = window.renderStrategyConfigModal;
-    window.renderStrategyConfigModal = function(strategyId, rows){
-      S.strategyId = strategyId;
-      S.allParams = rows;
+  // =====================================================
+  // 초기화
+  // =====================================================
+  checkAuth();
 
-      const allArr = norm(rows);
-      const shownArr = (S.requiredOnly !== false)
-        ? allArr.filter(p => String(p.group_name||'').startsWith('99'))
-        : allArr;
-
-      const ret = origR.call(this, strategyId, shownArr);
-      try{ ensurePanels(strategyId, allArr.length, shownArr.length); }catch(e){}
-      return ret;
-    };
-  }
-
-  // 3) api 오버라이드: config 저장 성공 시 결과 + 템플릿 2종 자동 출력
-  if(typeof window.api === 'function'){
-    const origApi = window.api;
-    window.api = async function(path, opts){
-      const res = await origApi.call(this, path, opts);
-
-      try{
-        const isSave =
-          typeof path === 'string' &&
-          /\/api\/strategies\/\d+\/configs$/.test(path) &&
-          opts &&
-          String(opts.method||'GET').toUpperCase()==='POST';
-
-        if(isSave && res && res.ok && res.config_id){
-          const pre = document.getElementById('cfg_result_pre');
-          if(pre) pre.textContent = JSON.stringify(res, null, 2);
-
-          const tpls = await fetchTemplates(S.strategyId, res.config_id);
-
-          const pre1 = document.getElementById('cfg_tpl1_pre');
-          const pre0 = document.getElementById('cfg_tpl0_pre');
-
-          if(pre1) pre1.textContent = JSON.stringify(tpls.with_hash, null, 2);
-          if(pre0) pre0.textContent = JSON.stringify(tpls.without_hash, null, 2);
-        }
-      }catch(e){}
-
-      return res;
-    };
-  }
-})();
+  // 주기적 새로고침 (1분마다)
+  setInterval(() => {
+    if (auth.isLoggedIn()) {
+      loadSummary();
+      loadTrades();
+    }
+  }, 60000);
 </script>
 
 </body>
