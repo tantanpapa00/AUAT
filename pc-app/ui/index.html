@@ -326,40 +326,35 @@
                 </div>
             </main>
 
-            <!-- Templates Page -->
+            <!-- Templates Page - Wizard Format -->
             <main class="main page-content" id="page-templates" style="display: none;">
-                <div class="templates-container">
-                    <!-- Template Generator -->
-                    <section class="card template-generator">
-                        <h2>TradingView 템플릿 생성기</h2>
-                        <p class="description">자산을 선택하고 TradingView 웹훅 알림 템플릿을 생성하세요</p>
-
-                        <div class="template-options">
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="template-side">매매 방향</label>
-                                    <select id="template-side">
-                                        <option value="buy">매수</option>
-                                        <option value="sell">매도</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="template-qty">수량</label>
-                                    <input type="number" id="template-qty" value="1" min="0.001" step="0.001">
-                                </div>
-                                <div class="form-group">
-                                    <label for="template-type">주문 유형</label>
-                                    <select id="template-type">
-                                        <option value="market">시장가</option>
-                                        <option value="limit">지정가</option>
-                                    </select>
-                                </div>
-                            </div>
+                <div class="templates-wizard">
+                    <!-- Wizard Progress -->
+                    <div class="wizard-progress">
+                        <div class="wizard-step active" data-step="1">
+                            <div class="step-number">1</div>
+                            <div class="step-label">자산 선택</div>
                         </div>
+                        <div class="wizard-connector"></div>
+                        <div class="wizard-step" data-step="2">
+                            <div class="step-number">2</div>
+                            <div class="step-label">주문 설정</div>
+                        </div>
+                        <div class="wizard-connector"></div>
+                        <div class="wizard-step" data-step="3">
+                            <div class="step-number">3</div>
+                            <div class="step-label">템플릿 확인</div>
+                        </div>
+                    </div>
+
+                    <!-- Step 1: Asset Selection -->
+                    <section class="wizard-content card" id="wizard-step-1">
+                        <h2>Step 1. 자산 선택</h2>
+                        <p class="step-description">TradingView 웹훅을 연결할 자산을 선택하세요. 복수 선택 가능합니다.</p>
 
                         <div class="asset-selection">
                             <div class="asset-selection-header">
-                                <h3>자산 선택</h3>
+                                <span class="selected-count" id="selected-count">0개 선택됨</span>
                                 <button id="btn-refresh-assets" class="btn btn-secondary btn-sm">새로고침</button>
                             </div>
                             <div id="assets-list" class="assets-list">
@@ -367,19 +362,77 @@
                             </div>
                         </div>
 
-                        <div class="template-actions">
-                            <button id="btn-generate-templates" class="btn btn-primary" disabled>템플릿 생성</button>
+                        <div class="wizard-actions">
+                            <button class="btn btn-secondary" disabled>이전</button>
+                            <button class="btn btn-primary" id="btn-wizard-next-1" disabled>다음</button>
                         </div>
                     </section>
 
-                    <!-- Generated Templates -->
-                    <section class="card generated-templates">
-                        <h2>생성된 템플릿</h2>
-                        <div id="templates-result" class="templates-result">
-                            <p class="empty">자산을 선택하고 "템플릿 생성" 버튼을 클릭하여 웹훅 JSON을 만드세요</p>
+                    <!-- Step 2: Order Settings -->
+                    <section class="wizard-content card" id="wizard-step-2" style="display: none;">
+                        <h2>Step 2. 주문 설정</h2>
+                        <p class="step-description">웹훅 신호 수신 시 실행할 주문 설정을 구성하세요.</p>
+
+                        <div class="order-settings-grid">
+                            <div class="setting-card">
+                                <div class="setting-icon">📈</div>
+                                <label for="template-side">매매 방향</label>
+                                <select id="template-side" class="setting-select">
+                                    <option value="buy">매수 (Buy)</option>
+                                    <option value="sell">매도 (Sell)</option>
+                                </select>
+                                <p class="setting-hint">TradingView 신호에 따라 실행될 주문 방향</p>
+                            </div>
+                            <div class="setting-card">
+                                <div class="setting-icon">📊</div>
+                                <label for="template-qty">주문 수량</label>
+                                <input type="number" id="template-qty" class="setting-input" value="1" min="0.001" step="0.001">
+                                <p class="setting-hint">거래소의 최소 단위를 확인하세요</p>
+                            </div>
+                            <div class="setting-card">
+                                <div class="setting-icon">⚡</div>
+                                <label for="template-type">주문 유형</label>
+                                <select id="template-type" class="setting-select">
+                                    <option value="market">시장가 (Market)</option>
+                                    <option value="limit">지정가 (Limit)</option>
+                                </select>
+                                <p class="setting-hint">시장가는 즉시 체결, 지정가는 원하는 가격에 주문</p>
+                            </div>
                         </div>
-                        <div class="template-tip">
-                            <strong>팁:</strong> JSON을 복사하여 TradingView 알림 > 메시지 필드에 붙여넣으세요
+
+                        <div class="wizard-actions">
+                            <button class="btn btn-secondary" id="btn-wizard-prev-2">이전</button>
+                            <button class="btn btn-primary" id="btn-wizard-next-2">템플릿 생성</button>
+                        </div>
+                    </section>
+
+                    <!-- Step 3: Generated Templates -->
+                    <section class="wizard-content card" id="wizard-step-3" style="display: none;">
+                        <h2>Step 3. 템플릿 확인</h2>
+                        <p class="step-description">생성된 JSON 템플릿을 복사하여 TradingView에 붙여넣으세요.</p>
+
+                        <div id="templates-result" class="templates-result">
+                            <p class="empty">템플릿 생성 중...</p>
+                        </div>
+
+                        <div class="template-guide card">
+                            <h4>TradingView 설정 방법</h4>
+                            <ol>
+                                <li>TradingView에서 알림 생성 클릭</li>
+                                <li>"웹훅 URL" 체크 후 BBooster URL 입력</li>
+                                <li>"메시지" 필드에 위 JSON 붙여넣기</li>
+                                <li>알림 저장 후 전략 실행</li>
+                            </ol>
+                            <div class="webhook-url-display">
+                                <label>웹훅 URL:</label>
+                                <code id="webhook-url">http://76.13.180.30:8000/api/webhook</code>
+                                <button class="btn btn-sm btn-secondary" id="btn-copy-webhook">복사</button>
+                            </div>
+                        </div>
+
+                        <div class="wizard-actions">
+                            <button class="btn btn-secondary" id="btn-wizard-prev-3">이전</button>
+                            <button class="btn btn-primary" id="btn-wizard-restart">처음부터 다시</button>
                         </div>
                     </section>
                 </div>

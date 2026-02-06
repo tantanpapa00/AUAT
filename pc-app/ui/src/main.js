@@ -1329,17 +1329,68 @@ function showFormMessage(message, type) {
 }
 
 // =====================================================
-// Templates Page
+// Templates Page - Wizard
 // =====================================================
 const templateSide = document.getElementById('template-side');
 const templateQty = document.getElementById('template-qty');
 const templateType = document.getElementById('template-type');
 const assetsList = document.getElementById('assets-list');
 const btnRefreshAssets = document.getElementById('btn-refresh-assets');
-const btnGenerateTemplates = document.getElementById('btn-generate-templates');
 const templatesResult = document.getElementById('templates-result');
 
+// Wizard elements
+const wizardSteps = document.querySelectorAll('.wizard-step');
+const selectedCountEl = document.getElementById('selected-count');
+const btnWizardNext1 = document.getElementById('btn-wizard-next-1');
+const btnWizardPrev2 = document.getElementById('btn-wizard-prev-2');
+const btnWizardNext2 = document.getElementById('btn-wizard-next-2');
+const btnWizardPrev3 = document.getElementById('btn-wizard-prev-3');
+const btnWizardRestart = document.getElementById('btn-wizard-restart');
+const btnCopyWebhook = document.getElementById('btn-copy-webhook');
+
 let selectedAssets = new Set();
+let currentWizardStep = 1;
+
+// Update wizard step UI
+function updateWizardUI(step) {
+    currentWizardStep = step;
+
+    // Update step indicators
+    wizardSteps.forEach(stepEl => {
+        const stepNum = parseInt(stepEl.dataset.step);
+        stepEl.classList.remove('active', 'completed');
+        if (stepNum === step) {
+            stepEl.classList.add('active');
+        } else if (stepNum < step) {
+            stepEl.classList.add('completed');
+        }
+    });
+
+    // Show/hide content
+    for (let i = 1; i <= 3; i++) {
+        const content = document.getElementById(`wizard-step-${i}`);
+        if (content) {
+            content.style.display = i === step ? 'block' : 'none';
+        }
+    }
+}
+
+// Go to specific step
+function goToWizardStep(step) {
+    if (step >= 1 && step <= 3) {
+        updateWizardUI(step);
+    }
+}
+
+// Update selected count
+function updateSelectedCount() {
+    if (selectedCountEl) {
+        selectedCountEl.textContent = `${selectedAssets.size}개 선택됨`;
+    }
+    if (btnWizardNext1) {
+        btnWizardNext1.disabled = selectedAssets.size === 0;
+    }
+}
 
 // Load assets for template generation
 async function loadTemplateAssets() {
@@ -1372,27 +1423,29 @@ async function loadTemplateAssets() {
                         assetItem.classList.remove('selected');
                     }
 
-                    btnGenerateTemplates.disabled = selectedAssets.size === 0;
+                    updateSelectedCount();
                 });
             });
         } else {
             assetsList.innerHTML = `
-                <p class="empty">No assets available.</p>
-                <p class="empty">Register accounts and create strategies first.</p>
+                <p class="empty">등록된 자산이 없습니다.</p>
+                <p class="empty">먼저 계정을 등록하고 전략을 생성하세요.</p>
             `;
         }
     } catch (error) {
         console.error('Failed to load assets:', error);
-        assetsList.innerHTML = '<p class="empty">Failed to load assets. Check server connection.</p>';
+        assetsList.innerHTML = '<p class="empty">자산 로딩 실패. 서버 연결을 확인하세요.</p>';
     }
 }
 
-// Generate templates
+// Generate templates and go to step 3
 async function generateTemplates() {
     if (selectedAssets.size === 0) return;
 
-    btnGenerateTemplates.disabled = true;
-    btnGenerateTemplates.textContent = 'Generating...';
+    if (btnWizardNext2) {
+        btnWizardNext2.disabled = true;
+        btnWizardNext2.textContent = '생성 중...';
+    }
 
     try {
         const response = await fetch(`${API_BASE_URL}/api/templates/tradingview/generate`, {
@@ -1429,7 +1482,7 @@ async function generateTemplates() {
                         <div class="template-item-header">
                             <span class="template-item-title">${result.symbol} (${result.account_name})</span>
                             <button class="btn btn-secondary btn-sm btn-copy" data-template='${templateJson.replace(/'/g, "\\'")}'>
-                                Copy
+                                복사
                             </button>
                         </div>
                         <div class="template-item-body">
@@ -1443,15 +1496,20 @@ async function generateTemplates() {
             templatesResult.querySelectorAll('.btn-copy').forEach(btn => {
                 btn.addEventListener('click', () => copyTemplateToClipboard(btn));
             });
+
+            // Go to step 3
+            goToWizardStep(3);
         } else {
-            templatesResult.innerHTML = '<p class="empty">Failed to generate templates</p>';
+            templatesResult.innerHTML = '<p class="empty">템플릿 생성 실패</p>';
         }
     } catch (error) {
         console.error('Failed to generate templates:', error);
-        templatesResult.innerHTML = '<p class="empty">Failed to generate templates. Check server connection.</p>';
+        templatesResult.innerHTML = '<p class="empty">템플릿 생성 실패. 서버 연결을 확인하세요.</p>';
     } finally {
-        btnGenerateTemplates.disabled = selectedAssets.size === 0;
-        btnGenerateTemplates.textContent = 'Generate Templates';
+        if (btnWizardNext2) {
+            btnWizardNext2.disabled = false;
+            btnWizardNext2.textContent = '템플릿 생성';
+        }
     }
 }
 
@@ -1461,20 +1519,54 @@ async function copyTemplateToClipboard(btn) {
     try {
         await navigator.clipboard.writeText(template);
         const originalText = btn.textContent;
-        btn.textContent = 'Copied!';
+        btn.textContent = '복사됨!';
         btn.classList.add('btn-success');
         setTimeout(() => {
             btn.textContent = originalText;
             btn.classList.remove('btn-success');
         }, 2000);
     } catch (error) {
-        showToast('Failed to copy to clipboard', 'error');
+        showToast('클립보드 복사 실패', 'error');
     }
 }
 
+// Reset wizard to step 1
+function resetWizard() {
+    selectedAssets.clear();
+    currentWizardStep = 1;
+
+    // Uncheck all checkboxes
+    assetsList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.checked = false;
+        cb.closest('.asset-item')?.classList.remove('selected');
+    });
+
+    updateSelectedCount();
+    goToWizardStep(1);
+}
+
+// Wizard navigation event listeners
+btnWizardNext1?.addEventListener('click', () => goToWizardStep(2));
+btnWizardPrev2?.addEventListener('click', () => goToWizardStep(1));
+btnWizardNext2?.addEventListener('click', generateTemplates);
+btnWizardPrev3?.addEventListener('click', () => goToWizardStep(2));
+btnWizardRestart?.addEventListener('click', resetWizard);
+
+// Copy webhook URL
+btnCopyWebhook?.addEventListener('click', async () => {
+    const webhookUrl = document.getElementById('webhook-url')?.textContent;
+    if (webhookUrl) {
+        try {
+            await navigator.clipboard.writeText(webhookUrl);
+            showToast('웹훅 URL 복사됨', 'success');
+        } catch (error) {
+            showToast('복사 실패', 'error');
+        }
+    }
+});
+
 // Event listeners for Templates page
 btnRefreshAssets?.addEventListener('click', loadTemplateAssets);
-btnGenerateTemplates?.addEventListener('click', generateTemplates);
 
 // =====================================================
 // Settings Page
