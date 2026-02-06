@@ -203,6 +203,39 @@
 
 - Commits: `30000d6` (STEP B), `63339d4` (10 bug fixes)
 
+## Day 8 (2026-02-07) — DONE ✅
+- **긴급 버그 수정 5가지**
+  - [x] kis_api.py: `search_symbols()` 함수 추가
+  - [x] naver_finance.py: 네이버 모바일 API 기반 재작성
+    - HTML 파싱(BeautifulSoup) → JSON API
+    - `_safe_int`, `_safe_float` 안전한 타입 변환
+    - 모든 함수 try/except + 기본값 반환
+  - [x] PC앱 자동완성 4곳 적용
+    - TV Connect Step 2: asset-search-input
+    - Premium Strategy: custom/reversal/trend-symbol
+    - Watchlist: 종목 추가 모달
+  - [x] 종목명 파싱 오류 수정
+    - `_clean_stock_name()` 함수 추가
+    - "삼성화재    ST100210025000" → "삼성화재"
+  - [x] 섹터 데이터 수정
+    - `get_sector_ranking()` API 변경
+    - `/api/stocks/up?menu=UPJONG` → `/api/index/KOSPI/all`
+    - 개별종목 → 업종지수 정상 반환
+
+- **의존성 추가**
+  - [x] itsdangerous==2.1.2
+
+- **API 경로 확인 (모두 일치)**
+  - `/api/market/overview` ✓
+  - `/api/market/sectors` ✓
+  - `/api/market/etf` ✓
+  - `/api/market/crypto` ✓
+  - `/api/analysis/rs` ✓
+  - `/api/analysis/new-high` ✓
+  - `/api/analysis/valuation` ✓
+
+- Commits: `a257c8b`, `9583e50`, `3502355`
+
 ---
 
 # 5) 매주 승인(작가님 체크 포인트)

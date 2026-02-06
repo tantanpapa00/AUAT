@@ -9,8 +9,10 @@
 - Week A~D: DONE (브랜드/사이트/PC앱/Android APK 기반)
 - Day 6: DONE (대시보드 개편 + 구독 플랜)
 - Day 7: DONE (종목분석 개편 + 10 버그 수정)
-  - 신규 모듈: app/naver_finance.py, app/yahoo_finance.py
-  - 자동완성/타임아웃/ETF/Admin 표시 수정
+- Day 8: DONE (종목검색/네이버API/자동완성/파싱 수정)
+  - naver_finance.py: HTML파싱 → JSON API 전환
+  - kis_api.py: search_symbols 추가, 종목명 파싱 수정
+  - PC앱 자동완성 4곳 적용
 
 ## Quick Commands
 - Syntax: `python -m compileall app`
@@ -18,12 +20,10 @@
 - Server: `docker compose up -d` (VPS)
 - PC App: `cd pc-app && cargo tauri dev`
 
-## New APIs (Day 7)
-- `/api/market/etf` — ETF 섹터별 분류
-- `/api/market/crypto` — 암호화폐 시세
-- `/api/analysis/rs` — 상대강도(RS) 분석
-- `/api/analysis/new-high` — 52주 신고가
-- `/api/analysis/valuation` — 밸류에이션 분석
+## Day 8 Fixes
+- 종목명 쓰레기 데이터 제거 (`_clean_stock_name`)
+- 섹터 데이터 수정 (업종 지수 기반)
+- itsdangerous==2.1.2 추가
 
 ## Scope Exclusions
 - SMC strategy/files, MFT candle, Futures
