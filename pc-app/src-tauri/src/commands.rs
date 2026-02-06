@@ -1241,7 +1241,7 @@ pub async fn search_symbols(
     let resp = client
         .get(&url)
         .header("Authorization", format!("Bearer {}", access_token))
-        .timeout(std::time::Duration::from_secs(10))
+        .timeout(std::time::Duration::from_secs(15))
         .send()
         .await;
 
@@ -1252,16 +1252,18 @@ pub async fn search_symbols(
 
             if let Some(arr) = symbols {
                 let result: Vec<SymbolInfo> = arr.iter().filter_map(|s| {
+                    // symbol은 필수, 나머지는 기본값 사용
+                    let symbol = s.get("symbol")?.as_str()?.to_string();
                     Some(SymbolInfo {
-                        symbol: s.get("symbol")?.as_str()?.to_string(),
-                        name: s.get("name")?.as_str()?.to_string(),
-                        exchange: s.get("exchange")?.as_str()?.to_string(),
-                        price: s.get("price")?.as_f64()?,
-                        price_formatted: s.get("price_formatted")?.as_str()?.to_string(),
-                        change: s.get("change")?.as_f64()?,
-                        change_formatted: s.get("change_formatted")?.as_str()?.to_string(),
-                        volume: s.get("volume")?.as_i64()?,
-                        volume_formatted: s.get("volume_formatted")?.as_str()?.to_string(),
+                        symbol: symbol.clone(),
+                        name: s.get("name").and_then(|n| n.as_str()).unwrap_or(&symbol).to_string(),
+                        exchange: s.get("exchange").and_then(|e| e.as_str()).unwrap_or("").to_string(),
+                        price: s.get("price").and_then(|p| p.as_f64()).unwrap_or(0.0),
+                        price_formatted: s.get("price_formatted").and_then(|p| p.as_str()).unwrap_or("N/A").to_string(),
+                        change: s.get("change").and_then(|c| c.as_f64()).unwrap_or(0.0),
+                        change_formatted: s.get("change_formatted").and_then(|c| c.as_str()).unwrap_or("0.00%").to_string(),
+                        volume: s.get("volume").and_then(|v| v.as_f64()).map(|v| v as i64).unwrap_or(0),
+                        volume_formatted: s.get("volume_formatted").and_then(|v| v.as_str()).unwrap_or("0").to_string(),
                         high_24h: s.get("high_24h").and_then(|h| h.as_f64()),
                         low_24h: s.get("low_24h").and_then(|l| l.as_f64()),
                     })
@@ -1331,21 +1333,61 @@ pub async fn get_symbol_detail(
     }
 }
 
-#[derive(Serialize, Deserialize)]
+/// 각 거래소별 인기 종목 목록
+#[derive(Serialize, Deserialize, Default)]
 pub struct PopularSymbols {
-    pub crypto: Vec<SymbolInfo>,
-    pub stocks: Vec<SymbolInfo>,
+    #[serde(default)]
+    pub okx: Vec<SymbolInfo>,
+    #[serde(default)]
+    pub binance: Vec<SymbolInfo>,
+    #[serde(default)]
+    pub bybit: Vec<SymbolInfo>,
+    #[serde(default)]
+    pub upbit: Vec<SymbolInfo>,
+    #[serde(default)]
+    pub kis_kr: Vec<SymbolInfo>,
+    #[serde(default)]
+    pub kis_us: Vec<SymbolInfo>,
+}
+
+fn parse_symbol_list(data: &serde_json::Value, key: &str) -> Vec<SymbolInfo> {
+    data.get(key)
+        .and_then(|arr| arr.as_array())
+        .map(|arr| arr.iter().filter_map(|s| {
+            Some(SymbolInfo {
+                symbol: s.get("symbol")?.as_str()?.to_string(),
+                name: s.get("name").and_then(|n| n.as_str()).unwrap_or("").to_string(),
+                exchange: s.get("exchange").and_then(|e| e.as_str()).unwrap_or("").to_string(),
+                price: s.get("price").and_then(|p| p.as_f64()).unwrap_or(0.0),
+                price_formatted: s.get("price_formatted").and_then(|p| p.as_str()).unwrap_or("N/A").to_string(),
+                change: s.get("change").and_then(|c| c.as_f64()).unwrap_or(0.0),
+                change_formatted: s.get("change_formatted").and_then(|c| c.as_str()).unwrap_or("0.00%").to_string(),
+                volume: s.get("volume").and_then(|v| v.as_f64()).map(|v| v as i64).unwrap_or(0),
+                volume_formatted: s.get("volume_formatted").and_then(|v| v.as_str()).unwrap_or("0").to_string(),
+                high_24h: s.get("high_24h").and_then(|h| h.as_f64()),
+                low_24h: s.get("low_24h").and_then(|l| l.as_f64()),
+            })
+        }).collect())
+        .unwrap_or_default()
 }
 
 #[tauri::command]
-pub async fn get_popular_symbols(access_token: String) -> Result<PopularSymbols, String> {
+pub async fn get_popular_symbols(
+    access_token: String,
+    exchange: Option<String>,
+) -> Result<PopularSymbols, String> {
     let client = reqwest::Client::new();
-    let url = format!("{}/api/symbols/popular", VPS_SERVER_URL);
+
+    // exchange 파라미터가 있으면 쿼리 추가
+    let url = match &exchange {
+        Some(ex) => format!("{}/api/symbols/popular?exchange={}", VPS_SERVER_URL, ex),
+        None => format!("{}/api/symbols/popular", VPS_SERVER_URL),
+    };
 
     let resp = client
         .get(&url)
         .header("Authorization", format!("Bearer {}", access_token))
-        .timeout(std::time::Duration::from_secs(10))
+        .timeout(std::time::Duration::from_secs(15))
         .send()
         .await;
 
@@ -1353,47 +1395,16 @@ pub async fn get_popular_symbols(access_token: String) -> Result<PopularSymbols,
         Ok(r) if r.status().is_success() => {
             let data: serde_json::Value = r.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
 
-            let crypto: Vec<SymbolInfo> = data.get("crypto")
-                .and_then(|c| c.as_array())
-                .map(|arr| arr.iter().filter_map(|s| {
-                    Some(SymbolInfo {
-                        symbol: s.get("symbol")?.as_str()?.to_string(),
-                        name: s.get("name")?.as_str()?.to_string(),
-                        exchange: s.get("exchange")?.as_str()?.to_string(),
-                        price: s.get("price")?.as_f64()?,
-                        price_formatted: s.get("price_formatted")?.as_str()?.to_string(),
-                        change: s.get("change")?.as_f64()?,
-                        change_formatted: s.get("change_formatted")?.as_str()?.to_string(),
-                        volume: s.get("volume")?.as_i64()?,
-                        volume_formatted: s.get("volume_formatted")?.as_str()?.to_string(),
-                        high_24h: None,
-                        low_24h: None,
-                    })
-                }).collect())
-                .unwrap_or_default();
-
-            let stocks: Vec<SymbolInfo> = data.get("stocks")
-                .and_then(|c| c.as_array())
-                .map(|arr| arr.iter().filter_map(|s| {
-                    Some(SymbolInfo {
-                        symbol: s.get("symbol")?.as_str()?.to_string(),
-                        name: s.get("name")?.as_str()?.to_string(),
-                        exchange: s.get("exchange")?.as_str()?.to_string(),
-                        price: s.get("price")?.as_f64()?,
-                        price_formatted: s.get("price_formatted")?.as_str()?.to_string(),
-                        change: s.get("change")?.as_f64()?,
-                        change_formatted: s.get("change_formatted")?.as_str()?.to_string(),
-                        volume: s.get("volume")?.as_i64()?,
-                        volume_formatted: s.get("volume_formatted")?.as_str()?.to_string(),
-                        high_24h: None,
-                        low_24h: None,
-                    })
-                }).collect())
-                .unwrap_or_default();
-
-            Ok(PopularSymbols { crypto, stocks })
+            Ok(PopularSymbols {
+                okx: parse_symbol_list(&data, "okx"),
+                binance: parse_symbol_list(&data, "binance"),
+                bybit: parse_symbol_list(&data, "bybit"),
+                upbit: parse_symbol_list(&data, "upbit"),
+                kis_kr: parse_symbol_list(&data, "kis_kr"),
+                kis_us: parse_symbol_list(&data, "kis_us"),
+            })
         }
-        Ok(_) | Err(_) => Ok(PopularSymbols { crypto: vec![], stocks: vec![] }),
+        Ok(_) | Err(_) => Ok(PopularSymbols::default()),
     }
 }
 

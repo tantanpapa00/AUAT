@@ -1075,10 +1075,25 @@ document.querySelectorAll('.asset-tag').forEach(tag => {
 });
 
 // =====================================================
-// Symbols Page (PHASE 5)
+// Symbols Page (PHASE 5) — Real Exchange API Integration
 // =====================================================
 let currentSymbolExchange = 'all';
 let symbolsData = [];
+let symbolSearchTimeout = null;
+let isSymbolsLoading = false;
+
+// 디바운스 함수
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
 
 async function loadSymbolsPage() {
     // Check user plan
@@ -1094,33 +1109,61 @@ async function loadSymbolsPage() {
     await loadPopularSymbols();
 }
 
+function showSymbolsLoading() {
+    const tbody = document.getElementById('symbols-tbody');
+    if (!tbody) return;
+    isSymbolsLoading = true;
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="6" class="empty-cell">
+                <div class="loading-spinner"></div>
+                <span style="margin-left: 8px;">거래소에서 데이터 로딩 중...</span>
+            </td>
+        </tr>
+    `;
+}
+
 async function loadPopularSymbols() {
     const tbody = document.getElementById('symbols-tbody');
     if (!tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">로딩 중...</td></tr>';
+    showSymbolsLoading();
 
     try {
-        let symbols = [];
+        let allSymbols = [];
+
         if (auth.accessToken) {
-            const data = await invoke('get_popular_symbols', { accessToken: auth.accessToken });
-            symbols = [...(data.crypto || []), ...(data.stocks || [])];
+            // 거래소 필터에 따라 인기 종목 조회
+            const exchangeParam = currentSymbolExchange === 'all' ? null : currentSymbolExchange;
+            const data = await invoke('get_popular_symbols', {
+                accessToken: auth.accessToken,
+                exchange: exchangeParam
+            });
+
+            // 각 거래소별 결과 합치기
+            if (data.okx) allSymbols = allSymbols.concat(data.okx);
+            if (data.binance) allSymbols = allSymbols.concat(data.binance);
+            if (data.bybit) allSymbols = allSymbols.concat(data.bybit);
+            if (data.upbit) allSymbols = allSymbols.concat(data.upbit);
+            if (data.kis_kr) allSymbols = allSymbols.concat(data.kis_kr);
+            if (data.kis_us) allSymbols = allSymbols.concat(data.kis_us);
+
+            // 현재 선택된 거래소만 필터
+            if (currentSymbolExchange !== 'all') {
+                allSymbols = allSymbols.filter(s =>
+                    s.exchange.toLowerCase() === currentSymbolExchange.toLowerCase() ||
+                    s.exchange.toLowerCase().replace('_', '') === currentSymbolExchange.toLowerCase().replace('_', '')
+                );
+            }
         }
 
-        if (symbols.length === 0) {
-            // 더미 데이터
-            symbols = [
-                { symbol: 'BTC-USDT', name: 'Bitcoin', exchange: 'OKX', price_formatted: '$97,234.50', change_formatted: '+2.34%', change: 2.34, volume_formatted: '1.2B' },
-                { symbol: 'ETH-USDT', name: 'Ethereum', exchange: 'OKX', price_formatted: '$3,456.78', change_formatted: '+1.23%', change: 1.23, volume_formatted: '890M' },
-                { symbol: 'SOL-USDT', name: 'Solana', exchange: 'OKX', price_formatted: '$198.45', change_formatted: '-0.89%', change: -0.89, volume_formatted: '456M' }
-            ];
-        }
-
-        symbolsData = symbols;
-        renderSymbolsTable(symbols);
+        symbolsData = allSymbols;
+        renderSymbolsTable(allSymbols);
     } catch (error) {
-        console.error('Failed to load symbols:', error);
-        tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">심볼 로딩 실패</td></tr>';
+        console.error('Failed to load popular symbols:', error);
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">인기 종목 로딩 실패</td></tr>';
+    } finally {
+        isSymbolsLoading = false;
     }
 }
 
@@ -1128,23 +1171,36 @@ async function searchSymbols(query) {
     const tbody = document.getElementById('symbols-tbody');
     if (!tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">검색 중...</td></tr>';
+    showSymbolsLoading();
 
     try {
         const exchange = currentSymbolExchange === 'all' ? null : currentSymbolExchange;
-        const symbols = await invoke('search_symbols', {
+        const result = await invoke('search_symbols', {
             accessToken: auth.accessToken || '',
             query: query,
             exchange: exchange
         });
 
-        symbolsData = symbols || [];
-        renderSymbolsTable(symbolsData);
+        // result.symbols 또는 result 자체가 배열인 경우 처리
+        const symbols = result.symbols || result || [];
+        symbolsData = symbols;
+        renderSymbolsTable(symbols);
     } catch (error) {
         console.error('Failed to search symbols:', error);
         tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">검색 실패</td></tr>';
+    } finally {
+        isSymbolsLoading = false;
     }
 }
+
+// 디바운스된 검색 함수 (300ms)
+const debouncedSearch = debounce((query) => {
+    if (query) {
+        searchSymbols(query);
+    } else {
+        loadPopularSymbols();
+    }
+}, 300);
 
 function renderSymbolsTable(symbols) {
     const tbody = document.getElementById('symbols-tbody');
@@ -1155,16 +1211,22 @@ function renderSymbolsTable(symbols) {
         return;
     }
 
-    tbody.innerHTML = symbols.map(s => `
-        <tr data-symbol="${s.symbol}" data-exchange="${s.exchange}" style="cursor: pointer;">
-            <td><strong>${s.symbol}</strong></td>
-            <td>${s.name}</td>
-            <td><span class="exchange-badge ${s.exchange.toLowerCase()}">${s.exchange}</span></td>
-            <td>${s.price_formatted}</td>
-            <td class="${s.change >= 0 ? 'profit' : 'loss'}">${s.change_formatted}</td>
-            <td>${s.volume_formatted}</td>
-        </tr>
-    `).join('');
+    tbody.innerHTML = symbols.map(s => {
+        // exchange badge 클래스 결정 (kis_kr, kis_us 처리)
+        const exchangeLower = (s.exchange || '').toLowerCase().replace('_', '-');
+        const exchangeDisplay = s.exchange.replace('_', ' ').toUpperCase();
+
+        return `
+            <tr data-symbol="${s.symbol}" data-exchange="${s.exchange}" style="cursor: pointer;">
+                <td><strong>${s.symbol}</strong></td>
+                <td>${s.name || s.symbol}</td>
+                <td><span class="exchange-badge ${exchangeLower}">${exchangeDisplay}</span></td>
+                <td>${s.price_formatted || 'N/A'}</td>
+                <td class="${(s.change || 0) >= 0 ? 'profit' : 'loss'}">${s.change_formatted || '0.00%'}</td>
+                <td>${s.volume_formatted || '0'}</td>
+            </tr>
+        `;
+    }).join('');
 
     tbody.querySelectorAll('tr[data-symbol]').forEach(row => {
         row.addEventListener('click', () => showSymbolDetail(row.dataset.symbol, row.dataset.exchange));
@@ -1176,9 +1238,17 @@ async function showSymbolDetail(symbol, exchange) {
     if (!panel) return;
 
     document.getElementById('detail-symbol-name').textContent = symbol;
-    document.getElementById('detail-exchange').textContent = exchange;
-    document.getElementById('detail-exchange').className = `exchange-badge ${exchange.toLowerCase()}`;
+    const exchangeDisplay = exchange.replace('_', ' ').toUpperCase();
+    document.getElementById('detail-exchange').textContent = exchangeDisplay;
+    document.getElementById('detail-exchange').className = `exchange-badge ${exchange.toLowerCase().replace('_', '-')}`;
     panel.style.display = 'block';
+
+    // 로딩 상태 표시
+    document.getElementById('detail-price').textContent = '로딩...';
+    document.getElementById('detail-change').textContent = '-';
+    document.getElementById('detail-high').textContent = '-';
+    document.getElementById('detail-low').textContent = '-';
+    document.getElementById('detail-volume').textContent = '-';
 
     try {
         const detail = await invoke('get_symbol_detail', {
@@ -1187,18 +1257,21 @@ async function showSymbolDetail(symbol, exchange) {
             exchange: exchange
         });
 
-        document.getElementById('detail-price').textContent = detail.price_formatted || '-';
+        document.getElementById('detail-price').textContent = detail.price_formatted || 'N/A';
         const changeEl = document.getElementById('detail-change');
-        changeEl.textContent = detail.change_formatted || '-';
-        changeEl.className = `price-change ${detail.change >= 0 ? 'profit' : 'loss'}`;
-        document.getElementById('detail-high').textContent = detail.high_24h_formatted || '-';
-        document.getElementById('detail-low').textContent = detail.low_24h_formatted || '-';
-        document.getElementById('detail-volume').textContent = detail.volume_formatted || '-';
+        changeEl.textContent = detail.change_formatted || 'N/A';
+        changeEl.className = `price-change ${(detail.change || 0) >= 0 ? 'profit' : 'loss'}`;
+        document.getElementById('detail-high').textContent = detail.high_24h_formatted || 'N/A';
+        document.getElementById('detail-low').textContent = detail.low_24h_formatted || 'N/A';
+        document.getElementById('detail-volume').textContent = detail.volume_formatted || 'N/A';
 
-        // 미니 차트 (더미)
-        drawMiniChart(detail.price, detail.change);
+        // 미니 차트 그리기
+        if (detail.price && detail.price > 0) {
+            drawMiniChart(detail.price, detail.change || 0);
+        }
     } catch (error) {
         console.error('Failed to load symbol detail:', error);
+        document.getElementById('detail-price').textContent = '조회 실패';
     }
 }
 
@@ -1212,7 +1285,7 @@ function drawMiniChart(price, change) {
 
     ctx.clearRect(0, 0, width, height);
 
-    // 더미 차트 데이터
+    // 시뮬레이션 차트 데이터 (24시간 추이)
     const data = [];
     let value = price * 0.97;
     for (let i = 0; i < 24; i++) {
@@ -1251,9 +1324,16 @@ document.getElementById('btn-set-strategy-symbol')?.addEventListener('click', ()
     showToast(`${symbol}으로 전략 설정 페이지로 이동`, 'info');
 });
 
-// Symbol search input
+// Symbol search input with debounce
+document.getElementById('symbol-search')?.addEventListener('input', (e) => {
+    const query = e.target.value.trim();
+    debouncedSearch(query);
+});
+
 document.getElementById('symbol-search')?.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
+        // Enter 시 즉시 검색
+        clearTimeout(symbolSearchTimeout);
         const query = e.target.value.trim();
         if (query) searchSymbols(query);
         else loadPopularSymbols();
@@ -1280,10 +1360,13 @@ document.querySelectorAll('.filter-tab').forEach(tab => {
         tab.classList.add('active');
         currentSymbolExchange = tab.dataset.exchange;
 
-        // 현재 검색어로 재검색
+        // 탭 전환 시 해당 거래소 심볼 로드
         const query = document.getElementById('symbol-search')?.value?.trim() || '';
-        if (query) searchSymbols(query);
-        else loadPopularSymbols();
+        if (query) {
+            searchSymbols(query);
+        } else {
+            loadPopularSymbols();
+        }
     });
 });
 

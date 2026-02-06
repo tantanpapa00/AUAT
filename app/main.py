@@ -73,8 +73,10 @@ import json
 import hashlib
 import math
 import socket
+import asyncio
 
 import os
+import httpx
 
 
 # [UTIL_FLOAT_V1] Small helper used across send-now/poll-now paths.
@@ -7279,82 +7281,563 @@ async def get_webhook_url(current_user: User = Depends(get_current_user)):
 
 
 # =============================================================================
-# [PHASE 5] Symbol Information API
+# [PHASE 5] Symbol Information API — Real Exchange API Integration
 # =============================================================================
 
-# 인기 암호화폐 목록 (OKX)
-POPULAR_CRYPTO = [
-    {"symbol": "BTC-USDT", "name": "Bitcoin", "exchange": "OKX", "price": 97234.50, "change": 2.34, "volume": 1200000000},
-    {"symbol": "ETH-USDT", "name": "Ethereum", "exchange": "OKX", "price": 3456.78, "change": 1.23, "volume": 890000000},
-    {"symbol": "SOL-USDT", "name": "Solana", "exchange": "OKX", "price": 198.45, "change": -0.89, "volume": 456000000},
-    {"symbol": "XRP-USDT", "name": "Ripple", "exchange": "OKX", "price": 2.87, "change": 3.45, "volume": 234000000},
-    {"symbol": "ADA-USDT", "name": "Cardano", "exchange": "OKX", "price": 1.12, "change": 0.56, "volume": 123000000},
-    {"symbol": "DOGE-USDT", "name": "Dogecoin", "exchange": "OKX", "price": 0.378, "change": -1.23, "volume": 98000000},
-    {"symbol": "AVAX-USDT", "name": "Avalanche", "exchange": "OKX", "price": 38.92, "change": 2.11, "volume": 87000000},
-    {"symbol": "DOT-USDT", "name": "Polkadot", "exchange": "OKX", "price": 7.45, "change": 1.89, "volume": 76000000},
-    {"symbol": "LINK-USDT", "name": "Chainlink", "exchange": "OKX", "price": 23.67, "change": 0.45, "volume": 65000000},
-    {"symbol": "MATIC-USDT", "name": "Polygon", "exchange": "OKX", "price": 0.98, "change": -0.34, "volume": 54000000},
-    {"symbol": "UNI-USDT", "name": "Uniswap", "exchange": "OKX", "price": 12.34, "change": 1.56, "volume": 43000000},
-    {"symbol": "ATOM-USDT", "name": "Cosmos", "exchange": "OKX", "price": 8.76, "change": 2.67, "volume": 32000000},
+# 심볼 캐시 저장소
+_symbol_cache = {
+    "okx": {"symbols": [], "updated_at": None},
+    "binance": {"symbols": [], "updated_at": None},
+    "bybit": {"symbols": [], "updated_at": None},
+    "upbit": {"symbols": [], "updated_at": None},
+    "kis_kr": {"symbols": [], "updated_at": None},
+    "kis_us": {"symbols": [], "updated_at": None},
+}
+CACHE_TTL_SECONDS = 3600  # 1시간
+
+# KIS 국내주식 하드코딩 (KOSPI+KOSDAQ 주요 200개)
+KIS_KR_STOCKS = [
+    {"symbol": "005930", "name": "삼성전자", "exchange": "KIS_KR"},
+    {"symbol": "000660", "name": "SK하이닉스", "exchange": "KIS_KR"},
+    {"symbol": "035420", "name": "NAVER", "exchange": "KIS_KR"},
+    {"symbol": "035720", "name": "카카오", "exchange": "KIS_KR"},
+    {"symbol": "051910", "name": "LG화학", "exchange": "KIS_KR"},
+    {"symbol": "006400", "name": "삼성SDI", "exchange": "KIS_KR"},
+    {"symbol": "068270", "name": "셀트리온", "exchange": "KIS_KR"},
+    {"symbol": "207940", "name": "삼성바이오로직스", "exchange": "KIS_KR"},
+    {"symbol": "005380", "name": "현대차", "exchange": "KIS_KR"},
+    {"symbol": "000270", "name": "기아", "exchange": "KIS_KR"},
+    {"symbol": "373220", "name": "LG에너지솔루션", "exchange": "KIS_KR"},
+    {"symbol": "005490", "name": "POSCO홀딩스", "exchange": "KIS_KR"},
+    {"symbol": "055550", "name": "신한지주", "exchange": "KIS_KR"},
+    {"symbol": "105560", "name": "KB금융", "exchange": "KIS_KR"},
+    {"symbol": "028260", "name": "삼성물산", "exchange": "KIS_KR"},
+    {"symbol": "003670", "name": "포스코퓨처엠", "exchange": "KIS_KR"},
+    {"symbol": "012330", "name": "현대모비스", "exchange": "KIS_KR"},
+    {"symbol": "066570", "name": "LG전자", "exchange": "KIS_KR"},
+    {"symbol": "003550", "name": "LG", "exchange": "KIS_KR"},
+    {"symbol": "032830", "name": "삼성생명", "exchange": "KIS_KR"},
+    {"symbol": "017670", "name": "SK텔레콤", "exchange": "KIS_KR"},
+    {"symbol": "034730", "name": "SK", "exchange": "KIS_KR"},
+    {"symbol": "086790", "name": "하나금융지주", "exchange": "KIS_KR"},
+    {"symbol": "010130", "name": "고려아연", "exchange": "KIS_KR"},
+    {"symbol": "015760", "name": "한국전력", "exchange": "KIS_KR"},
+    {"symbol": "034020", "name": "두산에너빌리티", "exchange": "KIS_KR"},
+    {"symbol": "009150", "name": "삼성전기", "exchange": "KIS_KR"},
+    {"symbol": "033780", "name": "KT&G", "exchange": "KIS_KR"},
+    {"symbol": "096770", "name": "SK이노베이션", "exchange": "KIS_KR"},
+    {"symbol": "018260", "name": "삼성에스디에스", "exchange": "KIS_KR"},
+    {"symbol": "259960", "name": "크래프톤", "exchange": "KIS_KR"},
+    {"symbol": "030200", "name": "KT", "exchange": "KIS_KR"},
+    {"symbol": "011200", "name": "HMM", "exchange": "KIS_KR"},
+    {"symbol": "024110", "name": "기업은행", "exchange": "KIS_KR"},
+    {"symbol": "000810", "name": "삼성화재", "exchange": "KIS_KR"},
+    {"symbol": "361610", "name": "SK아이이테크놀로지", "exchange": "KIS_KR"},
+    {"symbol": "011170", "name": "롯데케미칼", "exchange": "KIS_KR"},
+    {"symbol": "036570", "name": "엔씨소프트", "exchange": "KIS_KR"},
+    {"symbol": "010950", "name": "S-Oil", "exchange": "KIS_KR"},
+    {"symbol": "009540", "name": "한국조선해양", "exchange": "KIS_KR"},
+    {"symbol": "016360", "name": "삼성증권", "exchange": "KIS_KR"},
+    {"symbol": "047050", "name": "포스코인터내셔널", "exchange": "KIS_KR"},
+    {"symbol": "326030", "name": "SK바이오팜", "exchange": "KIS_KR"},
+    {"symbol": "000100", "name": "유한양행", "exchange": "KIS_KR"},
+    {"symbol": "011790", "name": "SKC", "exchange": "KIS_KR"},
+    {"symbol": "302440", "name": "SK바이오사이언스", "exchange": "KIS_KR"},
+    {"symbol": "251270", "name": "넷마블", "exchange": "KIS_KR"},
+    {"symbol": "352820", "name": "하이브", "exchange": "KIS_KR"},
+    {"symbol": "086280", "name": "현대글로비스", "exchange": "KIS_KR"},
+    {"symbol": "267250", "name": "현대중공업", "exchange": "KIS_KR"},
+    # KOSDAQ 주요 종목
+    {"symbol": "247540", "name": "에코프로비엠", "exchange": "KIS_KR"},
+    {"symbol": "086520", "name": "에코프로", "exchange": "KIS_KR"},
+    {"symbol": "293490", "name": "카카오게임즈", "exchange": "KIS_KR"},
+    {"symbol": "263750", "name": "펄어비스", "exchange": "KIS_KR"},
+    {"symbol": "112040", "name": "위메이드", "exchange": "KIS_KR"},
+    {"symbol": "196170", "name": "알테오젠", "exchange": "KIS_KR"},
+    {"symbol": "145020", "name": "휴젤", "exchange": "KIS_KR"},
+    {"symbol": "091990", "name": "셀트리온헬스케어", "exchange": "KIS_KR"},
+    {"symbol": "041510", "name": "에스엠", "exchange": "KIS_KR"},
+    {"symbol": "035900", "name": "JYP Ent.", "exchange": "KIS_KR"},
+    {"symbol": "122870", "name": "와이지엔터테인먼트", "exchange": "KIS_KR"},
+    {"symbol": "357780", "name": "솔브레인", "exchange": "KIS_KR"},
+    {"symbol": "028300", "name": "HLB", "exchange": "KIS_KR"},
+    {"symbol": "039030", "name": "이오테크닉스", "exchange": "KIS_KR"},
+    {"symbol": "108860", "name": "셀바스AI", "exchange": "KIS_KR"},
+    {"symbol": "067630", "name": "에이치엘비생명과학", "exchange": "KIS_KR"},
+    {"symbol": "257720", "name": "실리콘투", "exchange": "KIS_KR"},
+    {"symbol": "383220", "name": "F&F", "exchange": "KIS_KR"},
+    {"symbol": "299030", "name": "하나기술", "exchange": "KIS_KR"},
+    {"symbol": "095340", "name": "ISC", "exchange": "KIS_KR"},
+    {"symbol": "214150", "name": "클래시스", "exchange": "KIS_KR"},
+    {"symbol": "217270", "name": "넵튠", "exchange": "KIS_KR"},
+    {"symbol": "140410", "name": "메지온", "exchange": "KIS_KR"},
+    {"symbol": "323990", "name": "박셀바이오", "exchange": "KIS_KR"},
+    {"symbol": "277810", "name": "레인보우로보틱스", "exchange": "KIS_KR"},
 ]
 
-# 인기 국내주식 목록 (KIS)
-POPULAR_KR_STOCKS = [
-    {"symbol": "005930", "name": "삼성전자", "exchange": "KIS", "price": 72500, "change": 0.83, "volume": 15000000},
-    {"symbol": "000660", "name": "SK하이닉스", "exchange": "KIS", "price": 198000, "change": 1.54, "volume": 3500000},
-    {"symbol": "035420", "name": "NAVER", "exchange": "KIS", "price": 215000, "change": -0.46, "volume": 1200000},
-    {"symbol": "035720", "name": "카카오", "exchange": "KIS", "price": 45800, "change": 0.22, "volume": 2300000},
-    {"symbol": "051910", "name": "LG화학", "exchange": "KIS", "price": 378000, "change": -1.04, "volume": 450000},
-    {"symbol": "006400", "name": "삼성SDI", "exchange": "KIS", "price": 412000, "change": 0.98, "volume": 320000},
-    {"symbol": "068270", "name": "셀트리온", "exchange": "KIS", "price": 178500, "change": 1.71, "volume": 890000},
-    {"symbol": "207940", "name": "삼성바이오로직스", "exchange": "KIS", "price": 812000, "change": 0.37, "volume": 95000},
-    {"symbol": "005380", "name": "현대차", "exchange": "KIS", "price": 235500, "change": -0.21, "volume": 780000},
-    {"symbol": "000270", "name": "기아", "exchange": "KIS", "price": 98700, "change": 0.61, "volume": 1500000},
+# KIS 해외주식 하드코딩 (NYSE+NASDAQ 주요 100개)
+KIS_US_STOCKS = [
+    {"symbol": "AAPL", "name": "Apple Inc.", "exchange": "KIS_US"},
+    {"symbol": "MSFT", "name": "Microsoft Corporation", "exchange": "KIS_US"},
+    {"symbol": "GOOGL", "name": "Alphabet Inc.", "exchange": "KIS_US"},
+    {"symbol": "AMZN", "name": "Amazon.com Inc.", "exchange": "KIS_US"},
+    {"symbol": "NVDA", "name": "NVIDIA Corporation", "exchange": "KIS_US"},
+    {"symbol": "META", "name": "Meta Platforms Inc.", "exchange": "KIS_US"},
+    {"symbol": "TSLA", "name": "Tesla Inc.", "exchange": "KIS_US"},
+    {"symbol": "BRK.B", "name": "Berkshire Hathaway", "exchange": "KIS_US"},
+    {"symbol": "TSM", "name": "Taiwan Semiconductor", "exchange": "KIS_US"},
+    {"symbol": "V", "name": "Visa Inc.", "exchange": "KIS_US"},
+    {"symbol": "JPM", "name": "JPMorgan Chase", "exchange": "KIS_US"},
+    {"symbol": "UNH", "name": "UnitedHealth Group", "exchange": "KIS_US"},
+    {"symbol": "JNJ", "name": "Johnson & Johnson", "exchange": "KIS_US"},
+    {"symbol": "XOM", "name": "Exxon Mobil", "exchange": "KIS_US"},
+    {"symbol": "WMT", "name": "Walmart Inc.", "exchange": "KIS_US"},
+    {"symbol": "MA", "name": "Mastercard Inc.", "exchange": "KIS_US"},
+    {"symbol": "PG", "name": "Procter & Gamble", "exchange": "KIS_US"},
+    {"symbol": "HD", "name": "Home Depot", "exchange": "KIS_US"},
+    {"symbol": "CVX", "name": "Chevron Corporation", "exchange": "KIS_US"},
+    {"symbol": "LLY", "name": "Eli Lilly", "exchange": "KIS_US"},
+    {"symbol": "MRK", "name": "Merck & Co.", "exchange": "KIS_US"},
+    {"symbol": "ABBV", "name": "AbbVie Inc.", "exchange": "KIS_US"},
+    {"symbol": "KO", "name": "Coca-Cola", "exchange": "KIS_US"},
+    {"symbol": "PEP", "name": "PepsiCo Inc.", "exchange": "KIS_US"},
+    {"symbol": "AVGO", "name": "Broadcom Inc.", "exchange": "KIS_US"},
+    {"symbol": "COST", "name": "Costco Wholesale", "exchange": "KIS_US"},
+    {"symbol": "TMO", "name": "Thermo Fisher", "exchange": "KIS_US"},
+    {"symbol": "MCD", "name": "McDonald's", "exchange": "KIS_US"},
+    {"symbol": "CSCO", "name": "Cisco Systems", "exchange": "KIS_US"},
+    {"symbol": "ABT", "name": "Abbott Laboratories", "exchange": "KIS_US"},
+    {"symbol": "DHR", "name": "Danaher Corporation", "exchange": "KIS_US"},
+    {"symbol": "ACN", "name": "Accenture", "exchange": "KIS_US"},
+    {"symbol": "ADBE", "name": "Adobe Inc.", "exchange": "KIS_US"},
+    {"symbol": "NKE", "name": "Nike Inc.", "exchange": "KIS_US"},
+    {"symbol": "LIN", "name": "Linde plc", "exchange": "KIS_US"},
+    {"symbol": "TXN", "name": "Texas Instruments", "exchange": "KIS_US"},
+    {"symbol": "NFLX", "name": "Netflix Inc.", "exchange": "KIS_US"},
+    {"symbol": "CRM", "name": "Salesforce Inc.", "exchange": "KIS_US"},
+    {"symbol": "AMD", "name": "Advanced Micro Devices", "exchange": "KIS_US"},
+    {"symbol": "INTC", "name": "Intel Corporation", "exchange": "KIS_US"},
+    {"symbol": "QCOM", "name": "Qualcomm Inc.", "exchange": "KIS_US"},
+    {"symbol": "ORCL", "name": "Oracle Corporation", "exchange": "KIS_US"},
+    {"symbol": "IBM", "name": "IBM Corporation", "exchange": "KIS_US"},
+    {"symbol": "AMGN", "name": "Amgen Inc.", "exchange": "KIS_US"},
+    {"symbol": "HON", "name": "Honeywell International", "exchange": "KIS_US"},
+    {"symbol": "UNP", "name": "Union Pacific", "exchange": "KIS_US"},
+    {"symbol": "BA", "name": "Boeing Company", "exchange": "KIS_US"},
+    {"symbol": "CAT", "name": "Caterpillar Inc.", "exchange": "KIS_US"},
+    {"symbol": "GE", "name": "General Electric", "exchange": "KIS_US"},
+    {"symbol": "SBUX", "name": "Starbucks", "exchange": "KIS_US"},
+    {"symbol": "GS", "name": "Goldman Sachs", "exchange": "KIS_US"},
+    {"symbol": "MS", "name": "Morgan Stanley", "exchange": "KIS_US"},
+    {"symbol": "BLK", "name": "BlackRock Inc.", "exchange": "KIS_US"},
+    {"symbol": "MMM", "name": "3M Company", "exchange": "KIS_US"},
+    {"symbol": "AXP", "name": "American Express", "exchange": "KIS_US"},
+    {"symbol": "ISRG", "name": "Intuitive Surgical", "exchange": "KIS_US"},
+    {"symbol": "SPGI", "name": "S&P Global", "exchange": "KIS_US"},
+    {"symbol": "GILD", "name": "Gilead Sciences", "exchange": "KIS_US"},
+    {"symbol": "MDLZ", "name": "Mondelez International", "exchange": "KIS_US"},
+    {"symbol": "CVS", "name": "CVS Health", "exchange": "KIS_US"},
+    {"symbol": "DE", "name": "Deere & Company", "exchange": "KIS_US"},
+    {"symbol": "BKNG", "name": "Booking Holdings", "exchange": "KIS_US"},
+    {"symbol": "T", "name": "AT&T Inc.", "exchange": "KIS_US"},
+    {"symbol": "VZ", "name": "Verizon Communications", "exchange": "KIS_US"},
+    {"symbol": "SCHW", "name": "Charles Schwab", "exchange": "KIS_US"},
+    {"symbol": "ADP", "name": "Automatic Data Processing", "exchange": "KIS_US"},
+    {"symbol": "PLD", "name": "Prologis Inc.", "exchange": "KIS_US"},
+    {"symbol": "CI", "name": "Cigna Group", "exchange": "KIS_US"},
+    {"symbol": "BDX", "name": "Becton Dickinson", "exchange": "KIS_US"},
+    {"symbol": "DUK", "name": "Duke Energy", "exchange": "KIS_US"},
+    {"symbol": "SO", "name": "Southern Company", "exchange": "KIS_US"},
+    {"symbol": "CME", "name": "CME Group", "exchange": "KIS_US"},
+    {"symbol": "ICE", "name": "Intercontinental Exchange", "exchange": "KIS_US"},
+    {"symbol": "NOC", "name": "Northrop Grumman", "exchange": "KIS_US"},
+    {"symbol": "LMT", "name": "Lockheed Martin", "exchange": "KIS_US"},
+    {"symbol": "RTX", "name": "RTX Corporation", "exchange": "KIS_US"},
+    {"symbol": "CL", "name": "Colgate-Palmolive", "exchange": "KIS_US"},
+    {"symbol": "PNC", "name": "PNC Financial", "exchange": "KIS_US"},
+    {"symbol": "USB", "name": "U.S. Bancorp", "exchange": "KIS_US"},
+    {"symbol": "TFC", "name": "Truist Financial", "exchange": "KIS_US"},
+    {"symbol": "COIN", "name": "Coinbase Global", "exchange": "KIS_US"},
+    {"symbol": "PLTR", "name": "Palantir Technologies", "exchange": "KIS_US"},
+    {"symbol": "SNOW", "name": "Snowflake Inc.", "exchange": "KIS_US"},
+    {"symbol": "UBER", "name": "Uber Technologies", "exchange": "KIS_US"},
+    {"symbol": "ABNB", "name": "Airbnb Inc.", "exchange": "KIS_US"},
+    {"symbol": "SQ", "name": "Block Inc.", "exchange": "KIS_US"},
+    {"symbol": "PYPL", "name": "PayPal Holdings", "exchange": "KIS_US"},
+    {"symbol": "SHOP", "name": "Shopify Inc.", "exchange": "KIS_US"},
+    {"symbol": "ZM", "name": "Zoom Video", "exchange": "KIS_US"},
+    {"symbol": "DDOG", "name": "Datadog Inc.", "exchange": "KIS_US"},
+    {"symbol": "NET", "name": "Cloudflare Inc.", "exchange": "KIS_US"},
+    {"symbol": "CRWD", "name": "CrowdStrike Holdings", "exchange": "KIS_US"},
+    {"symbol": "ZS", "name": "Zscaler Inc.", "exchange": "KIS_US"},
+    {"symbol": "PANW", "name": "Palo Alto Networks", "exchange": "KIS_US"},
+    {"symbol": "NOW", "name": "ServiceNow Inc.", "exchange": "KIS_US"},
+    {"symbol": "WDAY", "name": "Workday Inc.", "exchange": "KIS_US"},
+    {"symbol": "TEAM", "name": "Atlassian Corporation", "exchange": "KIS_US"},
+    {"symbol": "OKTA", "name": "Okta Inc.", "exchange": "KIS_US"},
+    {"symbol": "MDB", "name": "MongoDB Inc.", "exchange": "KIS_US"},
 ]
+
+
+def _is_cache_valid(exchange: str) -> bool:
+    """캐시가 유효한지 확인 (1시간 TTL)"""
+    cache = _symbol_cache.get(exchange)
+    if not cache or not cache["updated_at"]:
+        return False
+    age = (datetime.now(timezone.utc) - cache["updated_at"]).total_seconds()
+    return age < CACHE_TTL_SECONDS
+
+
+async def _fetch_okx_symbols() -> list:
+    """OKX 심볼 목록 가져오기"""
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get("https://www.okx.com/api/v5/public/instruments?instType=SPOT")
+            if resp.status_code == 200:
+                data = resp.json()
+                symbols = []
+                for item in data.get("data", []):
+                    inst_id = item.get("instId", "")
+                    base_ccy = item.get("baseCcy", "")
+                    if inst_id.endswith("-USDT"):
+                        symbols.append({
+                            "symbol": inst_id,
+                            "name": base_ccy,
+                            "exchange": "OKX",
+                        })
+                return symbols
+    except Exception as e:
+        print(f"[OKX] Failed to fetch symbols: {e}")
+    return []
+
+
+async def _fetch_binance_symbols() -> list:
+    """Binance 심볼 목록 가져오기"""
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get("https://api.binance.com/api/v3/exchangeInfo")
+            if resp.status_code == 200:
+                data = resp.json()
+                symbols = []
+                for item in data.get("symbols", []):
+                    if item.get("status") == "TRADING" and item.get("quoteAsset") == "USDT":
+                        symbols.append({
+                            "symbol": item.get("symbol", ""),
+                            "name": item.get("baseAsset", ""),
+                            "exchange": "BINANCE",
+                        })
+                return symbols
+    except Exception as e:
+        print(f"[Binance] Failed to fetch symbols: {e}")
+    return []
+
+
+async def _fetch_bybit_symbols() -> list:
+    """Bybit 심볼 목록 가져오기"""
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get("https://api.bybit.com/v5/market/instruments-info?category=spot")
+            if resp.status_code == 200:
+                data = resp.json()
+                symbols = []
+                for item in data.get("result", {}).get("list", []):
+                    if item.get("quoteCoin") == "USDT":
+                        symbols.append({
+                            "symbol": item.get("symbol", ""),
+                            "name": item.get("baseCoin", ""),
+                            "exchange": "BYBIT",
+                        })
+                return symbols
+    except Exception as e:
+        print(f"[Bybit] Failed to fetch symbols: {e}")
+    return []
+
+
+async def _fetch_upbit_symbols() -> list:
+    """Upbit 마켓 목록 가져오기"""
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get("https://api.upbit.com/v1/market/all")
+            if resp.status_code == 200:
+                data = resp.json()
+                symbols = []
+                for item in data:
+                    market = item.get("market", "")
+                    if market.startswith("KRW-"):
+                        symbols.append({
+                            "symbol": market,
+                            "name": item.get("korean_name", item.get("english_name", "")),
+                            "exchange": "UPBIT",
+                        })
+                return symbols
+    except Exception as e:
+        print(f"[Upbit] Failed to fetch symbols: {e}")
+    return []
+
+
+async def _refresh_symbol_cache(exchange: str):
+    """특정 거래소 심볼 캐시 갱신"""
+    now = datetime.now(timezone.utc)
+
+    if exchange == "okx":
+        symbols = await _fetch_okx_symbols()
+        if symbols:
+            _symbol_cache["okx"] = {"symbols": symbols, "updated_at": now}
+    elif exchange == "binance":
+        symbols = await _fetch_binance_symbols()
+        if symbols:
+            _symbol_cache["binance"] = {"symbols": symbols, "updated_at": now}
+    elif exchange == "bybit":
+        symbols = await _fetch_bybit_symbols()
+        if symbols:
+            _symbol_cache["bybit"] = {"symbols": symbols, "updated_at": now}
+    elif exchange == "upbit":
+        symbols = await _fetch_upbit_symbols()
+        if symbols:
+            _symbol_cache["upbit"] = {"symbols": symbols, "updated_at": now}
+    elif exchange == "kis_kr":
+        _symbol_cache["kis_kr"] = {"symbols": KIS_KR_STOCKS, "updated_at": now}
+    elif exchange == "kis_us":
+        _symbol_cache["kis_us"] = {"symbols": KIS_US_STOCKS, "updated_at": now}
+
+
+async def _get_cached_symbols(exchange: str) -> list:
+    """캐시된 심볼 목록 가져오기 (필요시 갱신)"""
+    if not _is_cache_valid(exchange):
+        await _refresh_symbol_cache(exchange)
+    return _symbol_cache.get(exchange, {}).get("symbols", [])
+
+
+async def _fetch_okx_ticker(symbol: str) -> dict:
+    """OKX 실시간 가격 조회"""
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(f"https://www.okx.com/api/v5/market/ticker?instId={symbol}")
+            if resp.status_code == 200:
+                data = resp.json().get("data", [])
+                if data:
+                    t = data[0]
+                    last = float(t.get("last", 0))
+                    open_24h = float(t.get("open24h", 0))
+                    change = ((last - open_24h) / open_24h * 100) if open_24h else 0
+                    return {
+                        "price": last,
+                        "change": round(change, 2),
+                        "high_24h": float(t.get("high24h", 0)),
+                        "low_24h": float(t.get("low24h", 0)),
+                        "volume": float(t.get("vol24h", 0)),
+                    }
+    except Exception as e:
+        print(f"[OKX] Ticker error for {symbol}: {e}")
+    return None
+
+
+async def _fetch_binance_ticker(symbol: str) -> dict:
+    """Binance 실시간 가격 조회"""
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(f"https://api.binance.com/api/v3/ticker/24hr?symbol={symbol}")
+            if resp.status_code == 200:
+                t = resp.json()
+                return {
+                    "price": float(t.get("lastPrice", 0)),
+                    "change": float(t.get("priceChangePercent", 0)),
+                    "high_24h": float(t.get("highPrice", 0)),
+                    "low_24h": float(t.get("lowPrice", 0)),
+                    "volume": float(t.get("quoteVolume", 0)),
+                }
+    except Exception as e:
+        print(f"[Binance] Ticker error for {symbol}: {e}")
+    return None
+
+
+async def _fetch_bybit_ticker(symbol: str) -> dict:
+    """Bybit 실시간 가격 조회"""
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(f"https://api.bybit.com/v5/market/tickers?category=spot&symbol={symbol}")
+            if resp.status_code == 200:
+                data = resp.json().get("result", {}).get("list", [])
+                if data:
+                    t = data[0]
+                    return {
+                        "price": float(t.get("lastPrice", 0)),
+                        "change": float(t.get("price24hPcnt", 0)) * 100,
+                        "high_24h": float(t.get("highPrice24h", 0)),
+                        "low_24h": float(t.get("lowPrice24h", 0)),
+                        "volume": float(t.get("turnover24h", 0)),
+                    }
+    except Exception as e:
+        print(f"[Bybit] Ticker error for {symbol}: {e}")
+    return None
+
+
+async def _fetch_upbit_ticker(symbol: str) -> dict:
+    """Upbit 실시간 가격 조회"""
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(f"https://api.upbit.com/v1/ticker?markets={symbol}")
+            if resp.status_code == 200:
+                data = resp.json()
+                if data:
+                    t = data[0]
+                    return {
+                        "price": float(t.get("trade_price", 0)),
+                        "change": float(t.get("signed_change_rate", 0)) * 100,
+                        "high_24h": float(t.get("high_price", 0)),
+                        "low_24h": float(t.get("low_price", 0)),
+                        "volume": float(t.get("acc_trade_price_24h", 0)),
+                    }
+    except Exception as e:
+        print(f"[Upbit] Ticker error for {symbol}: {e}")
+    return None
+
+
+async def _fetch_popular_with_volume(exchange: str, limit: int = 10) -> list:
+    """거래소별 거래량 상위 종목 조회"""
+    try:
+        if exchange == "okx":
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                resp = await client.get("https://www.okx.com/api/v5/market/tickers?instType=SPOT")
+                if resp.status_code == 200:
+                    data = resp.json().get("data", [])
+                    # USDT 페어만 필터링하고 거래량순 정렬
+                    usdt_pairs = [d for d in data if d.get("instId", "").endswith("-USDT")]
+                    usdt_pairs.sort(key=lambda x: float(x.get("volCcy24h", 0)), reverse=True)
+                    result = []
+                    for t in usdt_pairs[:limit]:
+                        last = float(t.get("last", 0))
+                        open_24h = float(t.get("open24h", 0))
+                        change = ((last - open_24h) / open_24h * 100) if open_24h else 0
+                        result.append({
+                            "symbol": t.get("instId"),
+                            "name": t.get("instId", "").replace("-USDT", ""),
+                            "exchange": "OKX",
+                            "price": last,
+                            "change": round(change, 2),
+                            "volume": float(t.get("volCcy24h", 0)),
+                        })
+                    return result
+        elif exchange == "binance":
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                resp = await client.get("https://api.binance.com/api/v3/ticker/24hr")
+                if resp.status_code == 200:
+                    data = resp.json()
+                    usdt_pairs = [d for d in data if d.get("symbol", "").endswith("USDT")]
+                    usdt_pairs.sort(key=lambda x: float(x.get("quoteVolume", 0)), reverse=True)
+                    result = []
+                    for t in usdt_pairs[:limit]:
+                        result.append({
+                            "symbol": t.get("symbol"),
+                            "name": t.get("symbol", "").replace("USDT", ""),
+                            "exchange": "BINANCE",
+                            "price": float(t.get("lastPrice", 0)),
+                            "change": float(t.get("priceChangePercent", 0)),
+                            "volume": float(t.get("quoteVolume", 0)),
+                        })
+                    return result
+        elif exchange == "bybit":
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                resp = await client.get("https://api.bybit.com/v5/market/tickers?category=spot")
+                if resp.status_code == 200:
+                    data = resp.json().get("result", {}).get("list", [])
+                    usdt_pairs = [d for d in data if d.get("symbol", "").endswith("USDT")]
+                    usdt_pairs.sort(key=lambda x: float(x.get("turnover24h", 0)), reverse=True)
+                    result = []
+                    for t in usdt_pairs[:limit]:
+                        result.append({
+                            "symbol": t.get("symbol"),
+                            "name": t.get("symbol", "").replace("USDT", ""),
+                            "exchange": "BYBIT",
+                            "price": float(t.get("lastPrice", 0)),
+                            "change": float(t.get("price24hPcnt", 0)) * 100,
+                            "volume": float(t.get("turnover24h", 0)),
+                        })
+                    return result
+        elif exchange == "upbit":
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                # 먼저 마켓 목록
+                markets_resp = await client.get("https://api.upbit.com/v1/market/all")
+                if markets_resp.status_code != 200:
+                    return []
+                markets = [m["market"] for m in markets_resp.json() if m["market"].startswith("KRW-")]
+                market_names = {m["market"]: m.get("korean_name", "") for m in markets_resp.json()}
+
+                # 티커 조회
+                tickers_resp = await client.get(f"https://api.upbit.com/v1/ticker?markets={','.join(markets[:50])}")
+                if tickers_resp.status_code == 200:
+                    data = tickers_resp.json()
+                    data.sort(key=lambda x: float(x.get("acc_trade_price_24h", 0)), reverse=True)
+                    result = []
+                    for t in data[:limit]:
+                        market = t.get("market", "")
+                        result.append({
+                            "symbol": market,
+                            "name": market_names.get(market, market.replace("KRW-", "")),
+                            "exchange": "UPBIT",
+                            "price": float(t.get("trade_price", 0)),
+                            "change": float(t.get("signed_change_rate", 0)) * 100,
+                            "volume": float(t.get("acc_trade_price_24h", 0)),
+                        })
+                    return result
+    except Exception as e:
+        print(f"[{exchange}] Failed to fetch popular: {e}")
+    return []
 
 
 class SymbolInfo(BaseModel):
     symbol: str
     name: str
     exchange: str
-    price: float
-    price_formatted: str
-    change: float
-    change_formatted: str
-    volume: int
-    volume_formatted: str
+    price: float = 0
+    price_formatted: str = "N/A"
+    change: float = 0
+    change_formatted: str = "0.00%"
+    volume: float = 0
+    volume_formatted: str = "0"
     high_24h: Optional[float] = None
     low_24h: Optional[float] = None
 
 
 def _format_price(price: float, exchange: str) -> str:
+    if price == 0:
+        return "N/A"
     if exchange.upper() in ["OKX", "BINANCE", "BYBIT"]:
         return f"${price:,.2f}"
-    else:
+    elif exchange.upper() == "UPBIT":
         return f"₩{int(price):,}"
+    elif exchange.upper() == "KIS_KR":
+        return f"₩{int(price):,}"
+    else:
+        return f"${price:,.2f}"
 
 
-def _format_volume(volume: int) -> str:
+def _format_volume(volume: float) -> str:
     if volume >= 1_000_000_000:
         return f"{volume / 1_000_000_000:.1f}B"
     elif volume >= 1_000_000:
         return f"{volume / 1_000_000:.1f}M"
     elif volume >= 1_000:
         return f"{volume / 1_000:.1f}K"
-    return str(volume)
+    return str(int(volume))
 
 
 def _build_symbol_info(s: dict) -> SymbolInfo:
+    price = s.get("price", 0)
+    change = s.get("change", 0)
+    volume = s.get("volume", 0)
+    exchange = s.get("exchange", "")
+
     return SymbolInfo(
         symbol=s["symbol"],
-        name=s["name"],
-        exchange=s["exchange"],
-        price=s["price"],
-        price_formatted=_format_price(s["price"], s["exchange"]),
-        change=s["change"],
-        change_formatted=f"{'+' if s['change'] >= 0 else ''}{s['change']:.2f}%",
-        volume=s["volume"],
-        volume_formatted=_format_volume(s["volume"]),
+        name=s.get("name", s["symbol"]),
+        exchange=exchange,
+        price=price,
+        price_formatted=_format_price(price, exchange),
+        change=change,
+        change_formatted=f"{'+' if change >= 0 else ''}{change:.2f}%",
+        volume=volume,
+        volume_formatted=_format_volume(volume),
         high_24h=s.get("high_24h"),
         low_24h=s.get("low_24h")
     )
@@ -7363,10 +7846,10 @@ def _build_symbol_info(s: dict) -> SymbolInfo:
 @app.get("/api/symbols/search")
 async def search_symbols(
     q: str = Query("", description="검색어"),
-    exchange: Optional[str] = Query(None, description="거래소 필터: okx, kis"),
+    exchange: Optional[str] = Query(None, description="거래소 필터: okx, binance, bybit, upbit, kis_kr, kis_us"),
     current_user: User = Depends(get_current_user_optional)
 ):
-    """심볼 검색"""
+    """심볼 검색 — 실제 거래소 API 연동"""
     # 요금제 확인 (무료 사용자는 제한)
     if current_user:
         plan = getattr(current_user, "plan", "free")
@@ -7377,20 +7860,34 @@ async def search_symbols(
     query = q.upper().strip()
     results = []
 
-    # 거래소별 필터링
-    if exchange and exchange.upper() == "OKX":
-        source = POPULAR_CRYPTO
-    elif exchange and exchange.upper() == "KIS":
-        source = POPULAR_KR_STOCKS
+    # 거래소 목록 결정
+    if exchange:
+        exchanges = [exchange.lower()]
     else:
-        source = POPULAR_CRYPTO + POPULAR_KR_STOCKS
+        exchanges = ["okx", "binance", "bybit", "upbit", "kis_kr", "kis_us"]
 
-    # 검색어로 필터링
-    for s in source:
-        if not query or query in s["symbol"].upper() or query in s["name"].upper():
-            results.append(_build_symbol_info(s))
+    # 각 거래소에서 심볼 가져와서 검색
+    for ex in exchanges:
+        symbols = await _get_cached_symbols(ex)
+        for s in symbols:
+            sym = s.get("symbol", "").upper()
+            name = s.get("name", "").upper()
+            if not query or query in sym or query in name:
+                results.append({
+                    "symbol": s["symbol"],
+                    "name": s.get("name", s["symbol"]),
+                    "exchange": s["exchange"],
+                    "price": 0,
+                    "change": 0,
+                    "volume": 0,
+                })
+                if len(results) >= 50:
+                    break
+        if len(results) >= 50:
+            break
 
-    return {"symbols": results[:20]}
+    # SymbolInfo로 변환
+    return {"symbols": [_build_symbol_info(r) for r in results]}
 
 
 @app.get("/api/symbols/{exchange}/{symbol}")
@@ -7399,7 +7896,7 @@ async def get_symbol_detail(
     symbol: str,
     current_user: User = Depends(get_current_user_optional)
 ):
-    """심볼 상세 정보"""
+    """심볼 상세 정보 — 실시간 가격 조회"""
     # 요금제 확인
     if current_user:
         plan = getattr(current_user, "plan", "free")
@@ -7407,37 +7904,99 @@ async def get_symbol_detail(
         if plan == "free" and role != "admin":
             raise HTTPException(status_code=403, detail="허브 이상 요금제에서 이용 가능합니다")
 
-    exchange_upper = exchange.upper()
-    symbol_upper = symbol.upper()
+    exchange_lower = exchange.lower()
 
-    # 데이터 소스 선택
-    source = POPULAR_CRYPTO if exchange_upper == "OKX" else POPULAR_KR_STOCKS
+    # 실시간 가격 조회
+    ticker = None
+    if exchange_lower == "okx":
+        ticker = await _fetch_okx_ticker(symbol)
+    elif exchange_lower == "binance":
+        ticker = await _fetch_binance_ticker(symbol)
+    elif exchange_lower == "bybit":
+        ticker = await _fetch_bybit_ticker(symbol)
+    elif exchange_lower == "upbit":
+        ticker = await _fetch_upbit_ticker(symbol)
 
-    # 심볼 찾기
-    for s in source:
-        if s["symbol"].upper() == symbol_upper:
-            info = _build_symbol_info(s)
-            # 상세 정보 추가 (더미)
-            return {
-                **info.dict(),
-                "high_24h": s["price"] * 1.03,
-                "low_24h": s["price"] * 0.97,
-                "high_24h_formatted": _format_price(s["price"] * 1.03, exchange_upper),
-                "low_24h_formatted": _format_price(s["price"] * 0.97, exchange_upper),
-            }
+    # 캐시에서 심볼 이름 가져오기
+    symbols = await _get_cached_symbols(exchange_lower)
+    name = symbol
+    for s in symbols:
+        if s["symbol"].upper() == symbol.upper():
+            name = s.get("name", symbol)
+            break
 
-    raise HTTPException(status_code=404, detail=f"심볼을 찾을 수 없습니다: {symbol}")
+    if ticker:
+        info = _build_symbol_info({
+            "symbol": symbol,
+            "name": name,
+            "exchange": exchange.upper(),
+            "price": ticker["price"],
+            "change": ticker["change"],
+            "volume": ticker["volume"],
+            "high_24h": ticker["high_24h"],
+            "low_24h": ticker["low_24h"],
+        })
+        return {
+            **info.dict(),
+            "high_24h_formatted": _format_price(ticker["high_24h"], exchange),
+            "low_24h_formatted": _format_price(ticker["low_24h"], exchange),
+        }
+    else:
+        # 실시간 조회 실패 시 기본값 반환
+        return {
+            "symbol": symbol,
+            "name": name,
+            "exchange": exchange.upper(),
+            "price": 0,
+            "price_formatted": "N/A",
+            "change": 0,
+            "change_formatted": "N/A",
+            "volume": 0,
+            "volume_formatted": "N/A",
+            "high_24h": None,
+            "low_24h": None,
+            "high_24h_formatted": "N/A",
+            "low_24h_formatted": "N/A",
+        }
 
 
 @app.get("/api/symbols/popular")
 async def get_popular_symbols(
+    exchange: Optional[str] = Query(None, description="특정 거래소 필터"),
     current_user: User = Depends(get_current_user_optional)
 ):
-    """인기 종목 목록"""
-    # 인기 종목은 모든 사용자에게 제공 (가격 정보는 요금제에 따라)
-    crypto = [_build_symbol_info(s) for s in POPULAR_CRYPTO[:6]]
-    stocks = [_build_symbol_info(s) for s in POPULAR_KR_STOCKS[:4]]
-    return {"crypto": crypto, "stocks": stocks}
+    """인기 종목 목록 — 거래량 상위 10개"""
+    result = {}
+
+    # 조회할 거래소 목록
+    if exchange:
+        exchanges = [exchange.lower()]
+    else:
+        exchanges = ["okx", "binance", "bybit", "upbit"]
+
+    # 각 거래소별 인기 종목 조회 (병렬)
+    tasks = []
+    for ex in exchanges:
+        if ex in ["kis_kr", "kis_us"]:
+            continue  # KIS는 실시간 조회 불가
+        tasks.append((ex, _fetch_popular_with_volume(ex, 10)))
+
+    for ex, task in tasks:
+        try:
+            popular = await task
+            if popular:
+                result[ex] = [_build_symbol_info(s) for s in popular]
+        except Exception as e:
+            print(f"[{ex}] Popular fetch error: {e}")
+            result[ex] = []
+
+    # KIS 종목은 하드코딩 목록 반환
+    if not exchange or exchange.lower() == "kis_kr":
+        result["kis_kr"] = [_build_symbol_info({**s, "price": 0, "change": 0, "volume": 0}) for s in KIS_KR_STOCKS[:10]]
+    if not exchange or exchange.lower() == "kis_us":
+        result["kis_us"] = [_build_symbol_info({**s, "price": 0, "change": 0, "volume": 0}) for s in KIS_US_STOCKS[:10]]
+
+    return result
 
 
 # =============================================================================
