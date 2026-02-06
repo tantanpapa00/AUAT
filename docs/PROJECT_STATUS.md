@@ -1,5 +1,5 @@
 # PROJECT_STATUS.md (SSOT)
-- Last updated: 2026-02-05 (Day 5 — Google OAuth 구현) KST
+- Last updated: 2026-02-06 (Day 6 — 대시보드 + PC앱 업그레이드) KST
 - Owner: 기훈(작가님)
 
 > NOTE: 이 파일이 '진실(SSOT)'입니다. 채팅은 인터페이스일 뿐.
@@ -1267,6 +1267,65 @@ powershell -ExecutionPolicy Bypass -File scripts\build-apk.ps1
 
 > **서버 배포 + PC앱 완료!**
 > VPS 서버 정상 운영 중, PC앱 VPS 직접 연결 확인됨.
+
+---
+
+## Week 21 Day 6 — 대시보드 + PC앱 업그레이드
+
+### 완료 작업 요약
+
+**STEP 3: 웹 대시보드 리디자인** — DONE
+- 수익률 중심 대시보드 (총 자산, 수익률, 일 변동, 오늘 수익)
+- Chart.js 기반 수익률 차트 (기간 선택: 1주/1개월/3개월)
+- 자산별 수익률 그리드
+- 관리자 전용 패널 (관리자 로그인 시만 표시)
+- 커밋: `feat: 웹 대시보드 수익률 중심 리디자인 + 관리자 패널`
+
+**STEP 5: PC앱 API 키 등록/관리** — DONE
+- Tauri commands 추가: `register_api_key`, `delete_api_key`, `get_accounts_list`
+- JWT 인증 API 엔드포인트: `/api/user/accounts` (GET/POST/DELETE)
+- 로그인 시 VPS 서버에 API 키 등록, 허브 모드 시 로컬 저장
+- 커밋: `feat: PC앱 API 키 등록/관리 화면 + JWT 인증 API`
+
+**STEP 6: 템플릿 생성 마법사** — DONE
+- 3단계 위자드 형식 UI (자산선택 → 주문설정 → 템플릿확인)
+- 시각적 진행 표시기 (progress indicator)
+- 웹훅 URL 복사 기능
+- 한국어 UI 텍스트
+- 커밋: `feat: 템플릿 생성 마법사 형식 UI 개선`
+
+**STEP 7: 구독 플랜 + 관리자 대시보드** — DONE
+- 구독 플랜 섹션 (무료/허브/프리미엄 가격표)
+- 관리자 패널 개선: 사용자 관리 (플랜/권한 변경), CSV 내보내기
+- 시스템 현황 통계 (등록 계정, 오늘 주문, 활성 사용자, E-STOP)
+- 커밋: `feat: 구독 플랜 페이지 + 관리자 대시보드 개선`
+
+**STEP 9: SSOT 문서 업데이트** — DONE
+- PROJECT_STATUS.md 최신화 (이 섹션)
+
+### 변경된 파일
+| 파일 | 설명 |
+|------|------|
+| `app/templates/index.html` | 웹 대시보드 완전 리디자인 + 구독 플랜 + 관리자 패널 |
+| `app/main.py` | Dashboard API + JWT 보호 계정 API + 관리자 통계 |
+| `pc-app/src-tauri/src/commands.rs` | API 키 등록/삭제/조회 명령어 |
+| `pc-app/src-tauri/src/main.rs` | 새 명령어 등록 |
+| `pc-app/ui/index.html` | 템플릿 마법사 UI |
+| `pc-app/ui/src/main.js` | 마법사 로직 + API 키 관리 로직 |
+| `pc-app/ui/src/style.css` | 마법사 스타일 |
+
+### 커밋 이력 (Day 6)
+```
+dfaa451 feat: PC앱 API 키 등록/관리 화면 + JWT 인증 API
+bbcf813 feat: 템플릿 생성 마법사 형식 UI 개선
+7b6db4e feat: 구독 플랜 페이지 + 관리자 대시보드 개선
+```
+
+### 다음 단계
+1) **VPS 배포**: `git pull` 후 서버 재시작
+2) **PC앱 재빌드**: `npm run tauri build` 후 설치 파일 배포
+3) **모바일 앱**: Flutter 환경 설정 후 APK 빌드
+4) **결제 시스템**: PG사 API 연동 (토스페이먼츠/네이버페이)
 
 ---
 
