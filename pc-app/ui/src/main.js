@@ -1017,18 +1017,29 @@ let deletingAccount = null;
 // Load accounts when navigating to Accounts page
 async function loadAccounts() {
     try {
-        // Try to get accounts from server first, then fall back to local
         let accounts = [];
-        try {
-            accounts = await invoke('fetch_server_accounts');
-        } catch (e) {
-            console.log('Server accounts not available, loading local');
+
+        // If logged in, get accounts from VPS server
+        if (auth.accessToken) {
+            try {
+                accounts = await invoke('get_accounts_list', {
+                    accessToken: auth.accessToken
+                });
+                console.log('[Accounts] VPS 서버에서 계정 로드:', accounts.length);
+            } catch (e) {
+                console.log('VPS accounts not available:', e);
+            }
         }
 
-        // Merge with local accounts
-        const localAccounts = await invoke('list_local_accounts');
+        // Also get local accounts (for hub mode or backup)
+        let localAccounts = [];
+        try {
+            localAccounts = await invoke('list_local_accounts');
+        } catch (e) {
+            console.log('Local accounts not available');
+        }
 
-        // Combine and deduplicate
+        // Combine and deduplicate (VPS accounts take priority)
         const accountMap = new Map();
         for (const acc of [...accounts, ...localAccounts]) {
             const key = `${acc.name}-${acc.exchange}`;
@@ -1050,7 +1061,7 @@ async function loadAccounts() {
         }
 
         accountsList.innerHTML = allAccounts.map(account => `
-            <div class="account-card" data-name="${account.name}" data-exchange="${account.exchange}">
+            <div class="account-card" data-id="${account.id || 0}" data-name="${account.name}" data-exchange="${account.exchange}">
                 <div class="account-card-header">
                     <div class="account-info">
                         <h3>${account.name}</h3>
@@ -1077,9 +1088,9 @@ async function loadAccounts() {
                     </div>
                 </div>
                 <div class="account-card-actions">
-                    <button class="btn btn-secondary btn-edit" data-name="${account.name}" data-exchange="${account.exchange}">Edit</button>
+                    <button class="btn btn-secondary btn-edit" data-id="${account.id || 0}" data-name="${account.name}" data-exchange="${account.exchange}">Edit</button>
                     <button class="btn btn-secondary btn-test" data-name="${account.name}" data-exchange="${account.exchange}">Test</button>
-                    <button class="btn btn-danger btn-delete" data-name="${account.name}" data-exchange="${account.exchange}">Delete</button>
+                    <button class="btn btn-danger btn-delete" data-id="${account.id || 0}" data-name="${account.name}" data-exchange="${account.exchange}">Delete</button>
                 </div>
             </div>
         `).join('');
@@ -1094,7 +1105,7 @@ async function loadAccounts() {
         });
 
         document.querySelectorAll('.btn-delete').forEach(btn => {
-            btn.addEventListener('click', () => openDeleteModal(btn.dataset.name, btn.dataset.exchange));
+            btn.addEventListener('click', () => openDeleteModal(btn.dataset.id, btn.dataset.name, btn.dataset.exchange));
         });
 
     } catch (error) {
@@ -1200,17 +1211,34 @@ accountForm.addEventListener('submit', async (e) => {
     showFormMessage('Saving account...', 'loading');
 
     try {
-        await invoke('save_account_keys', {
-            accountName: name,
-            exchange: exchange,
-            keys: {
-                api_key: key,
-                api_secret: secret,
-                passphrase: passphrase || null
-            }
-        });
+        // If logged in, register API key on VPS server
+        if (auth.accessToken) {
+            console.log('[Accounts] VPS 서버에 API 키 등록 중...');
+            const result = await invoke('register_api_key', {
+                accessToken: auth.accessToken,
+                name: name,
+                exchange: exchange,
+                apiKey: key,
+                apiSecret: secret,
+                apiPassphrase: passphrase || null
+            });
+            console.log('[Accounts] VPS 등록 성공:', result);
+            showFormMessage('API 키가 서버에 등록되었습니다!', 'success');
+        } else {
+            // Hub mode: save locally only
+            console.log('[Accounts] 로컬에 API 키 저장 중...');
+            await invoke('save_account_keys', {
+                accountName: name,
+                exchange: exchange,
+                keys: {
+                    api_key: key,
+                    api_secret: secret,
+                    passphrase: passphrase || null
+                }
+            });
+            showFormMessage('Account saved locally!', 'success');
+        }
 
-        showFormMessage('Account saved successfully!', 'success');
         setTimeout(() => {
             closeModal();
             loadAccounts();
@@ -1241,8 +1269,8 @@ async function testAccountConnection(name, exchange, btn) {
 }
 
 // Delete Modal
-function openDeleteModal(name, exchange) {
-    deletingAccount = { name, exchange };
+function openDeleteModal(id, name, exchange) {
+    deletingAccount = { id: parseInt(id) || 0, name, exchange };
     deleteAccountName.textContent = `${name} (${exchange})`;
     deleteModal.style.display = 'flex';
 }
@@ -1265,11 +1293,24 @@ btnConfirmDelete.addEventListener('click', async () => {
     btnConfirmDelete.textContent = 'Deleting...';
 
     try {
-        await invoke('delete_account_keys', {
-            accountName: deletingAccount.name,
-            exchange: deletingAccount.exchange
-        });
-        showToast(`${deletingAccount.name} deleted successfully`);
+        // If logged in, delete from VPS server
+        if (auth.accessToken) {
+            console.log('[Accounts] VPS 서버에서 계정 삭제 중...');
+            await invoke('delete_api_key', {
+                accessToken: auth.accessToken,
+                accountId: deletingAccount.id || 0,
+                accountName: deletingAccount.name,
+                exchange: deletingAccount.exchange
+            });
+            showToast(`${deletingAccount.name} 서버에서 삭제됨`);
+        } else {
+            // Hub mode: delete locally
+            await invoke('delete_account_keys', {
+                accountName: deletingAccount.name,
+                exchange: deletingAccount.exchange
+            });
+            showToast(`${deletingAccount.name} deleted successfully`);
+        }
         closeDeleteModal();
         loadAccounts();
     } catch (error) {

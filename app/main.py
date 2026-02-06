@@ -1041,6 +1041,62 @@ def api_create_account(payload: dict, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409, detail="Account name already exists")
 
 
+# ============================================================
+# JWT Protected Account Endpoints (PC App용)
+# ============================================================
+@app.get("/api/user/accounts")
+async def api_user_accounts(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """사용자의 계정 목록 조회 (JWT 인증 필요)"""
+    rows = list_accounts(db)
+    return [
+        {
+            "id": r.id,
+            "name": r.name,
+            "exchange": r.exchange,
+            "is_active": r.is_active,
+            "has_keys": True,
+            "last_health_check": r.last_health_at.isoformat() if r.last_health_at else None,
+            "health_status": r.last_health_msg or "OK" if r.last_health_ok else "Error",
+        } for r in rows
+    ]
+
+
+@app.post("/api/user/accounts")
+async def api_user_create_account(
+    payload: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """API 키 등록 (JWT 인증 필요)"""
+    required = ["name", "exchange", "api_key", "api_secret"]
+    for k in required:
+        if not payload.get(k):
+            raise HTTPException(status_code=400, detail=f"missing: {k}")
+    try:
+        acc = create_account(db, payload)
+        return {"ok": True, "id": acc.id, "message": "API key registered successfully"}
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Account name already exists")
+
+
+@app.delete("/api/user/accounts/{account_id}")
+async def api_user_delete_account(
+    account_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """계정 삭제 (JWT 인증 필요)"""
+    acc = get_account(db, account_id)
+    if not acc:
+        raise HTTPException(status_code=404, detail="Account not found")
+    delete_account(db, acc)
+    return {"ok": True, "message": "Account deleted successfully"}
+
+
 # @app.put("/api/accounts/{account_id}")
 # def api_update_account(account_id: int, payload: dict, db: Session = Depends(get_db)):
 #     acc = get_account(db, account_id)

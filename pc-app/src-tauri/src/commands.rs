@@ -517,6 +517,147 @@ fn remove_account_from_registry(name: &str, exchange: &str) -> Result<(), String
 }
 
 // =====================================================
+// API Key Registration (VPS 서버에 등록)
+// =====================================================
+
+#[derive(Serialize, Deserialize)]
+pub struct RegisterApiKeyRequest {
+    pub name: String,
+    pub exchange: String,
+    pub api_key: String,
+    pub api_secret: String,
+    pub api_passphrase: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct RegisterApiKeyResponse {
+    pub ok: bool,
+    pub account_id: Option<i64>,
+    pub message: String,
+}
+
+#[tauri::command]
+pub async fn register_api_key(
+    access_token: String,
+    name: String,
+    exchange: String,
+    api_key: String,
+    api_secret: String,
+    api_passphrase: Option<String>,
+) -> Result<RegisterApiKeyResponse, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/user/accounts", VPS_SERVER_URL);
+
+    let body = serde_json::json!({
+        "name": name,
+        "exchange": exchange,
+        "api_key": api_key,
+        "api_secret": api_secret,
+        "api_passphrase": api_passphrase,
+        "is_active": true
+    });
+
+    let resp = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .json(&body)
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        let account_id = data.get("id").and_then(|v| v.as_i64());
+
+        // 로컬 레지스트리에도 저장
+        let _ = save_account_to_registry(&name, &exchange);
+
+        Ok(RegisterApiKeyResponse {
+            ok: true,
+            account_id,
+            message: "API 키가 성공적으로 등록되었습니다".to_string(),
+        })
+    } else {
+        let error_text = resp.text().await.unwrap_or_default();
+        Err(format!("API 키 등록 실패: {}", error_text))
+    }
+}
+
+#[tauri::command]
+pub async fn delete_api_key(
+    access_token: String,
+    account_id: i64,
+    account_name: String,
+    exchange: String,
+) -> Result<String, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/user/accounts/{}", VPS_SERVER_URL, account_id);
+
+    let resp = client
+        .delete(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        // 로컬 레지스트리에서도 삭제
+        let _ = remove_account_from_registry(&account_name, &exchange);
+        Ok("계정이 삭제되었습니다".to_string())
+    } else {
+        let error_text = resp.text().await.unwrap_or_default();
+        Err(format!("계정 삭제 실패: {}", error_text))
+    }
+}
+
+#[tauri::command]
+pub async fn get_accounts_list(access_token: String) -> Result<Vec<AccountInfo>, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/user/accounts", VPS_SERVER_URL);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(5))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+
+        // accounts 필드가 있으면 그것을 사용, 아니면 배열 직접 파싱
+        let accounts_array = data.get("accounts")
+            .and_then(|a| a.as_array())
+            .or_else(|| data.as_array());
+
+        if let Some(accounts) = accounts_array {
+            let result: Vec<AccountInfo> = accounts
+                .iter()
+                .filter_map(|a| {
+                    Some(AccountInfo {
+                        id: a.get("id").and_then(|v| v.as_i64()),
+                        name: a.get("name").and_then(|v| v.as_str())?.to_string(),
+                        exchange: a.get("exchange").and_then(|v| v.as_str())?.to_string(),
+                        is_active: a.get("is_active").and_then(|v| v.as_bool()).unwrap_or(false),
+                        has_keys: true,
+                        last_health_check: a.get("last_health_check").and_then(|v| v.as_str()).map(String::from),
+                        health_status: a.get("health_status").and_then(|v| v.as_str()).map(String::from),
+                    })
+                })
+                .collect();
+            Ok(result)
+        } else {
+            Ok(vec![])
+        }
+    } else {
+        Err("계정 목록을 가져올 수 없습니다".to_string())
+    }
+}
+
+// =====================================================
 // Timeline & Connector Status
 // =====================================================
 
