@@ -563,6 +563,125 @@
     /* 관리자 전용 */
     .admin-only { display: none; }
     body.is-admin .admin-only { display: block; }
+
+    /* 구독 플랜 스타일 */
+    .pricing-section {
+      margin-top: 24px;
+    }
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    @media (max-width: 900px) {
+      .pricing-grid { grid-template-columns: 1fr; }
+    }
+    .pricing-card {
+      background: var(--card);
+      border: 2px solid var(--line);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      position: relative;
+      transition: all .3s ease;
+    }
+    .pricing-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow);
+    }
+    .pricing-card.popular {
+      border-color: var(--pri);
+      background: linear-gradient(180deg, #f0f9ff 0%, #fff 100%);
+    }
+    .popular-badge {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, var(--pri), var(--pri2));
+      color: white;
+      padding: 4px 16px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .pricing-header h4 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .pricing-price {
+      margin-bottom: 20px;
+    }
+    .pricing-price .price {
+      font-size: 32px;
+      font-weight: 900;
+      color: var(--text);
+    }
+    .pricing-price .period {
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .pricing-features {
+      list-style: none;
+      text-align: left;
+      margin-bottom: 24px;
+    }
+    .pricing-features li {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--line);
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .pricing-features li:last-child { border-bottom: none; }
+    .pricing-features li.included::before {
+      content: "✓";
+      color: var(--ok);
+      font-weight: 700;
+    }
+    .pricing-features li.not-included {
+      color: var(--muted);
+    }
+    .pricing-features li.not-included::before {
+      content: "✕";
+      color: var(--muted);
+    }
+    .pricing-btn {
+      width: 100%;
+      padding: 12px;
+      font-weight: 600;
+    }
+    .btn-upgrade-nav {
+      background: linear-gradient(135deg, var(--pri), var(--pri2));
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-upgrade-nav:hover {
+      opacity: .9;
+    }
+    .btn-sm {
+      padding: 4px 8px;
+      font-size: 11px;
+      border-radius: 4px;
+    }
+    .plan-select {
+      padding: 4px 8px;
+      font-size: 12px;
+      border-radius: 4px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      cursor: pointer;
+    }
+    .plan-select:hover {
+      border-color: var(--pri);
+    }
   </style>
 </head>
 <body>
@@ -627,6 +746,7 @@
         <span class="user-name" id="userName">-</span>
         <span class="user-badge free" id="userBadge">무료</span>
       </div>
+      <button class="btn-upgrade-nav" id="upgradeBtn" onclick="showPricingSection()">업그레이드</button>
       <a href="#" class="btn admin-only" id="adminPanelLink" onclick="showAdminPanel()">관리자 패널</a>
       <button class="btn" onclick="logout()">로그아웃</button>
     </div>
@@ -756,6 +876,12 @@
             </div>
           </div>
 
+          <!-- Admin Quick Actions -->
+          <div style="margin: 20px 0; display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="btn btn-primary" onclick="refreshAdminData()">새로고침</button>
+            <button class="btn" onclick="exportUsersCSV()">사용자 CSV 내보내기</button>
+          </div>
+
           <h4 style="margin: 24px 0 16px; font-size: 14px;">최근 가입자</h4>
           <table class="trades-table">
             <thead>
@@ -765,10 +891,112 @@
                 <th>이름</th>
                 <th>요금제</th>
                 <th>가입일</th>
+                <th>관리</th>
               </tr>
             </thead>
             <tbody id="adminUsersBody"></tbody>
           </table>
+
+          <!-- System Stats -->
+          <h4 style="margin: 24px 0 16px; font-size: 14px;">시스템 현황</h4>
+          <div class="admin-stats">
+            <div class="admin-stat">
+              <div class="admin-stat-value" id="adminTotalAccounts">0</div>
+              <div class="admin-stat-label">등록 계정</div>
+            </div>
+            <div class="admin-stat">
+              <div class="admin-stat-value" id="adminTotalOrders">0</div>
+              <div class="admin-stat-label">오늘 주문</div>
+            </div>
+            <div class="admin-stat">
+              <div class="admin-stat-value" id="adminActiveUsers">0</div>
+              <div class="admin-stat-label">활성 사용자</div>
+            </div>
+            <div class="admin-stat">
+              <div class="admin-stat-value" id="adminEstopStatus">OFF</div>
+              <div class="admin-stat-label">E-STOP 상태</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 구독 플랜 섹션 -->
+    <div class="pricing-section" id="pricingSection" style="display: none;">
+      <div class="card">
+        <div class="card-header">
+          <h3>구독 플랜</h3>
+          <button class="btn" onclick="hidePricingSection()">닫기</button>
+        </div>
+        <div class="card-body">
+          <p style="text-align: center; color: var(--muted); margin-bottom: 24px;">
+            당신에게 맞는 플랜을 선택하세요
+          </p>
+          <div class="pricing-grid">
+            <!-- Free Plan -->
+            <div class="pricing-card">
+              <div class="pricing-header">
+                <h4>무료</h4>
+                <div class="pricing-price">
+                  <span class="price">₩0</span>
+                  <span class="period">/월</span>
+                </div>
+              </div>
+              <ul class="pricing-features">
+                <li class="included">기본 자동매매</li>
+                <li class="included">TradingView 웹훅</li>
+                <li class="included">1개 계정 연결</li>
+                <li class="not-included">다중 계정</li>
+                <li class="not-included">프리미엄 신호</li>
+                <li class="not-included">우선 지원</li>
+              </ul>
+              <button class="btn pricing-btn" disabled>현재 플랜</button>
+            </div>
+
+            <!-- Hub Plan -->
+            <div class="pricing-card popular">
+              <div class="popular-badge">인기</div>
+              <div class="pricing-header">
+                <h4>허브형</h4>
+                <div class="pricing-price">
+                  <span class="price">₩29,000</span>
+                  <span class="period">/월</span>
+                </div>
+              </div>
+              <ul class="pricing-features">
+                <li class="included">모든 무료 기능</li>
+                <li class="included">무제한 계정 연결</li>
+                <li class="included">개인 서버 운영</li>
+                <li class="included">API 우선 접근</li>
+                <li class="not-included">프리미엄 신호</li>
+                <li class="not-included">클라우드 동기화</li>
+              </ul>
+              <button class="btn btn-primary pricing-btn" onclick="selectPlan('hub')">업그레이드</button>
+            </div>
+
+            <!-- Premium Plan -->
+            <div class="pricing-card">
+              <div class="pricing-header">
+                <h4>프리미엄</h4>
+                <div class="pricing-price">
+                  <span class="price">₩99,000</span>
+                  <span class="period">/월</span>
+                </div>
+              </div>
+              <ul class="pricing-features">
+                <li class="included">모든 허브 기능</li>
+                <li class="included">프리미엄 신호</li>
+                <li class="included">클라우드 동기화</li>
+                <li class="included">우선 지원</li>
+                <li class="included">전용 서버</li>
+                <li class="included">API 무제한</li>
+              </ul>
+              <button class="btn btn-primary pricing-btn" onclick="selectPlan('premium')">업그레이드</button>
+            </div>
+          </div>
+          <p style="text-align: center; color: var(--muted); margin-top: 24px; font-size: 12px;">
+            * 결제 시스템은 추후 연동 예정입니다
+          </p>
         </div>
       </div>
     </div>
@@ -1297,6 +1525,11 @@
     document.getElementById('adminPanel').style.display = 'none';
   }
 
+  function refreshAdminData() {
+    loadAdminData();
+    showToast('관리자 데이터 새로고침 완료');
+  }
+
   async function loadAdminData() {
     try {
       const stats = await api('/api/admin/stats');
@@ -1304,6 +1537,12 @@
       document.getElementById('adminFreeUsers').textContent = stats.users?.by_plan?.free || 0;
       document.getElementById('adminHubUsers').textContent = stats.users?.by_plan?.hub || 0;
       document.getElementById('adminPremiumUsers').textContent = stats.users?.by_plan?.premium || 0;
+
+      // System stats
+      document.getElementById('adminTotalAccounts').textContent = stats.accounts?.total || 0;
+      document.getElementById('adminTotalOrders').textContent = stats.orders?.today || 0;
+      document.getElementById('adminActiveUsers').textContent = stats.users?.active_today || 0;
+      document.getElementById('adminEstopStatus').textContent = stats.system?.estop ? 'ON' : 'OFF';
 
       const usersData = await api('/api/admin/users?limit=10');
       const users = usersData.users || [];
@@ -1313,13 +1552,122 @@
           <td>${u.id}</td>
           <td>${u.email || '-'}</td>
           <td>${u.name || '-'}</td>
-          <td>${u.plan || 'free'}</td>
+          <td>
+            <select class="plan-select" onchange="changeUserPlan(${u.id}, this.value)">
+              <option value="free" ${u.plan === 'free' ? 'selected' : ''}>무료</option>
+              <option value="hub" ${u.plan === 'hub' ? 'selected' : ''}>허브</option>
+              <option value="premium" ${u.plan === 'premium' ? 'selected' : ''}>프리미엄</option>
+            </select>
+          </td>
           <td>${formatDateTime(u.created_at)}</td>
+          <td>
+            <button class="btn btn-sm" onclick="toggleUserRole(${u.id}, '${u.role}')">${u.role === 'admin' ? '일반' : '관리자'}</button>
+          </td>
         </tr>
       `).join('');
     } catch (e) {
       console.error('관리자 데이터 로드 실패:', e);
     }
+  }
+
+  async function changeUserPlan(userId, newPlan) {
+    try {
+      await api(`/api/admin/users/${userId}/plan`, {
+        method: 'PUT',
+        body: JSON.stringify({ plan: newPlan })
+      });
+      showToast('사용자 플랜 변경 완료');
+      loadAdminData();
+    } catch (e) {
+      showToast('플랜 변경 실패: ' + e.message);
+    }
+  }
+
+  async function toggleUserRole(userId, currentRole) {
+    const newRole = currentRole === 'admin' ? 'user' : 'admin';
+    try {
+      await api(`/api/admin/users/${userId}/role`, {
+        method: 'PUT',
+        body: JSON.stringify({ role: newRole })
+      });
+      showToast('사용자 권한 변경 완료');
+      loadAdminData();
+    } catch (e) {
+      showToast('권한 변경 실패: ' + e.message);
+    }
+  }
+
+  async function exportUsersCSV() {
+    try {
+      const usersData = await api('/api/admin/users?limit=1000');
+      const users = usersData.users || [];
+
+      const headers = ['ID', 'Email', 'Name', 'Plan', 'Role', 'Created At'];
+      const rows = users.map(u => [
+        u.id, u.email || '', u.name || '', u.plan || 'free', u.role || 'user', u.created_at || ''
+      ]);
+
+      const csvContent = [headers.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n');
+      const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `bbooster_users_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      showToast('사용자 CSV 내보내기 완료');
+    } catch (e) {
+      showToast('CSV 내보내기 실패');
+    }
+  }
+
+  // =====================================================
+  // 구독 플랜
+  // =====================================================
+  function showPricingSection() {
+    document.getElementById('pricingSection').style.display = 'block';
+    updatePricingButtons();
+  }
+
+  function hidePricingSection() {
+    document.getElementById('pricingSection').style.display = 'none';
+  }
+
+  function updatePricingButtons() {
+    const currentPlan = auth.user?.plan || 'free';
+    const cards = document.querySelectorAll('.pricing-card');
+    const plans = ['free', 'hub', 'premium'];
+
+    cards.forEach((card, idx) => {
+      const btn = card.querySelector('.pricing-btn');
+      const plan = plans[idx];
+
+      if (plan === currentPlan) {
+        btn.textContent = '현재 플랜';
+        btn.disabled = true;
+        btn.classList.remove('btn-primary');
+      } else if (plans.indexOf(plan) > plans.indexOf(currentPlan)) {
+        btn.textContent = '업그레이드';
+        btn.disabled = false;
+        btn.classList.add('btn-primary');
+      } else {
+        btn.textContent = '다운그레이드';
+        btn.disabled = true;
+        btn.classList.remove('btn-primary');
+      }
+    });
+
+    // Hide upgrade button in navbar if already premium
+    const upgradeBtn = document.getElementById('upgradeBtn');
+    if (upgradeBtn) {
+      upgradeBtn.style.display = currentPlan === 'premium' ? 'none' : 'block';
+    }
+  }
+
+  function selectPlan(plan) {
+    showToast(`${plan === 'hub' ? '허브형' : '프리미엄'} 플랜 선택됨 (결제 시스템 준비 중)`);
+    hidePricingSection();
   }
 
   // =====================================================

@@ -517,11 +517,24 @@ async def admin_stats(
         total_orders = 0
         today_orders = 0
 
+    # 오늘 활성 사용자 (최근 로그인)
+    try:
+        active_today = db.query(User).filter(
+            User.updated_at >= datetime.utcnow().replace(hour=0, minute=0, second=0)
+        ).count()
+    except Exception:
+        active_today = 0
+
+    # E-STOP 상태
+    from .state import global_state
+    estop_status = global_state.get("estop", False)
+
     return {
         "ok": True,
         "users": {
             "total": total_users,
             "admin": admin_users,
+            "active_today": active_today,
             "by_plan": {
                 "free": free_users,
                 "hub": hub_users,
@@ -535,6 +548,9 @@ async def admin_stats(
         "orders": {
             "total": total_orders,
             "today": today_orders,
+        },
+        "system": {
+            "estop": estop_status,
         },
     }
 
