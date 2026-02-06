@@ -200,8 +200,20 @@ def _parse_overseas_master(content: bytes, market: str) -> Dict[str, StockMaster
     """해외 종목 마스터 파싱 (NYSE, NASDAQ, AMEX)"""
     stocks = {}
     try:
-        # 해외 마스터는 | 구분자 또는 고정폭
-        lines = content.decode('utf-8', errors='replace').splitlines()
+        # 인코딩 순서: cp949 → euc-kr → utf-8 (해외 마스터는 cp949인 경우 많음)
+        text = None
+        for encoding in ['cp949', 'euc-kr', 'utf-8']:
+            try:
+                text = content.decode(encoding)
+                # 깨진 문자 체크 (replacement character)
+                if '\ufffd' not in text[:1000]:
+                    break
+            except (UnicodeDecodeError, LookupError):
+                continue
+        if text is None:
+            text = content.decode('utf-8', errors='replace')
+
+        lines = text.splitlines()
         for line in lines:
             if not line.strip():
                 continue

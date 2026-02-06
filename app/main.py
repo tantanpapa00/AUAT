@@ -807,13 +807,18 @@ _poller_loop = _poll_worker_loop
 # KIS 종목 마스터 초기화 (앱 시작 시 백그라운드에서 로드)
 @app.on_event("startup")
 async def _startup_kis_master():
-    """앱 시작 시 KIS 종목 마스터 캐시 갱신 (재시도 로직 포함)"""
+    """앱 시작 시 KIS 종목 마스터 캐시 갱신 (지연 실행 + 재시도 로직)"""
     import asyncio
 
     async def load_with_retry():
-        retry_delays = [5, 10, 30]  # 재시도 대기 시간 (초)
+        # DNS 준비 대기: 서버 시작 후 10초 대기
+        print("[KIS] Waiting 10s for DNS to be ready...")
+        await asyncio.sleep(10)
 
-        for attempt in range(len(retry_delays) + 1):
+        max_retries = 5
+        retry_delay = 30  # 30초 간격 재시도
+
+        for attempt in range(max_retries):
             try:
                 await refresh_master_cache()
                 cache = get_master_cache()
@@ -826,12 +831,11 @@ async def _startup_kis_master():
                 print(f"[KIS] Master cache has only {stock_count} stocks, retrying...")
 
             except Exception as e:
-                print(f"[KIS] Master load attempt {attempt + 1} failed: {e}")
+                print(f"[KIS] Master load attempt {attempt + 1}/{max_retries} failed: {e}")
 
-            if attempt < len(retry_delays):
-                delay = retry_delays[attempt]
-                print(f"[KIS] Waiting {delay}s before retry...")
-                await asyncio.sleep(delay)
+            if attempt < max_retries - 1:
+                print(f"[KIS] Waiting {retry_delay}s before retry...")
+                await asyncio.sleep(retry_delay)
 
         print("[KIS] All retry attempts failed, using fallback data")
         return False
