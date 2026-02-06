@@ -882,6 +882,7 @@ let tvWizardStep = 1;
 async function loadTVConnectPage() {
     loadExchangeSelection();
     loadWebhookLogs();
+    loadUserWebhookUrl();
     updateTVWizardUI(1);
 }
 
@@ -931,10 +932,52 @@ async function loadWebhookLogs() {
     if (!tbody) return;
 
     try {
-        // For now, show empty state - will be implemented with backend
-        tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">최근 수신 웹훅 없음</td></tr>';
+        let logs = [];
+        if (auth.accessToken) {
+            logs = await invoke('get_webhook_logs', { accessToken: auth.accessToken, limit: 20 });
+        }
+
+        if (!logs || logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">최근 수신 웹훅 없음</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = logs.map(log => {
+            const statusClass = log.status === 'success' ? 'success' : log.status === 'rejected' ? 'warning' : 'error';
+            const statusText = log.status === 'success' ? '성공' : log.status === 'rejected' ? '거부' : '실패';
+            const timeStr = log.received_at ? new Date(log.received_at).toLocaleString('ko-KR') : '-';
+            const content = log.error_message || `${log.action} ${log.symbol}`;
+
+            return `
+                <tr>
+                    <td>${timeStr}</td>
+                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                    <td>${log.exchange || '-'}</td>
+                    <td>${log.symbol || '-'}</td>
+                    <td title="${log.error_message || ''}">${content}</td>
+                </tr>
+            `;
+        }).join('');
+
     } catch (error) {
+        console.error('Failed to load webhook logs:', error);
         tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">로그 로딩 실패</td></tr>';
+    }
+}
+
+async function loadUserWebhookUrl() {
+    const webhookUrlEl = document.getElementById('webhook-url');
+    if (!webhookUrlEl) return;
+
+    try {
+        if (auth.accessToken) {
+            const urlInfo = await invoke('get_webhook_url', { accessToken: auth.accessToken });
+            webhookUrlEl.textContent = urlInfo.webhook_url;
+        } else if (auth.user && auth.user.id) {
+            webhookUrlEl.textContent = `https://qube-system.com/api/webhook/${auth.user.id}`;
+        }
+    } catch (error) {
+        console.error('Failed to load webhook URL:', error);
     }
 }
 

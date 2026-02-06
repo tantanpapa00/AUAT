@@ -100,6 +100,9 @@ fn main() {
             commands::get_active_strategies,
             commands::emergency_stop,
             commands::verify_password,
+            // Webhook (PHASE 4)
+            commands::get_webhook_logs,
+            commands::get_webhook_url,
         ])
         .setup(|app| {
             // 앱 시작 시 VPS 서버 연결 확인 (로컬 서버 시작 없음)

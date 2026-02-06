@@ -1125,6 +1125,89 @@ pub async fn emergency_stop(access_token: String) -> Result<bool, String> {
 }
 
 // =====================================================
+// Webhook Logs (PHASE 4)
+// =====================================================
+
+#[derive(Serialize, Deserialize)]
+pub struct WebhookLogItem {
+    pub id: i64,
+    pub received_at: String,
+    pub status: String,
+    pub exchange: String,
+    pub symbol: String,
+    pub action: String,
+    pub error_message: Option<String>,
+}
+
+#[tauri::command]
+pub async fn get_webhook_logs(access_token: String, limit: Option<i32>) -> Result<Vec<WebhookLogItem>, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/webhook/logs?limit={}", VPS_SERVER_URL, limit.unwrap_or(20));
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await;
+
+    match resp {
+        Ok(r) if r.status().is_success() => {
+            let data: serde_json::Value = r.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+            let logs = data.get("logs").and_then(|l| l.as_array());
+
+            if let Some(arr) = logs {
+                let result: Vec<WebhookLogItem> = arr.iter().filter_map(|l| {
+                    Some(WebhookLogItem {
+                        id: l.get("id")?.as_i64()?,
+                        received_at: l.get("received_at")?.as_str()?.to_string(),
+                        status: l.get("status")?.as_str()?.to_string(),
+                        exchange: l.get("exchange").and_then(|e| e.as_str()).unwrap_or("").to_string(),
+                        symbol: l.get("symbol").and_then(|s| s.as_str()).unwrap_or("").to_string(),
+                        action: l.get("action").and_then(|a| a.as_str()).unwrap_or("").to_string(),
+                        error_message: l.get("error_message").and_then(|e| e.as_str()).map(String::from),
+                    })
+                }).collect();
+                Ok(result)
+            } else {
+                Ok(vec![])
+            }
+        }
+        Ok(_) | Err(_) => Ok(vec![]),
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct WebhookUrlInfo {
+    pub webhook_url: String,
+    pub user_id: i64,
+}
+
+#[tauri::command]
+pub async fn get_webhook_url(access_token: String) -> Result<WebhookUrlInfo, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/webhook/url", VPS_SERVER_URL);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(WebhookUrlInfo {
+            webhook_url: data.get("webhook_url").and_then(|u| u.as_str()).unwrap_or("").to_string(),
+            user_id: data.get("user_id").and_then(|u| u.as_i64()).unwrap_or(0),
+        })
+    } else {
+        Err("웹훅 URL을 가져올 수 없습니다".to_string())
+    }
+}
+
+// =====================================================
 // Password Verification
 // =====================================================
 
