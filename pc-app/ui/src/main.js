@@ -3777,7 +3777,8 @@ async function loadMarketKr() {
 
     } catch (error) {
         console.error('Market KR error:', error);
-        contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button class="btn btn-sm btn-primary" onclick="loadMarketKr()">다시 시도</button></div>';
+        const errMsg = error?.message || error || '알 수 없는 오류';
+        contentEl.innerHTML = `<div class="error-state"><p>${errMsg}</p><button class="btn btn-sm btn-primary" onclick="loadMarketKr()">다시 시도</button></div>`;
     }
 }
 
@@ -3867,7 +3868,8 @@ async function loadMarketUs() {
 
     } catch (error) {
         console.error('Market US error:', error);
-        contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button class="btn btn-sm btn-primary" onclick="loadMarketUs()">다시 시도</button></div>';
+        const errMsg = error?.message || error || '알 수 없는 오류';
+        contentEl.innerHTML = `<div class="error-state"><p>${errMsg}</p><button class="btn btn-sm btn-primary" onclick="loadMarketUs()">다시 시도</button></div>`;
     }
 }
 
@@ -3977,7 +3979,8 @@ async function loadMarketEtf() {
 
     } catch (error) {
         console.error('Market ETF error:', error);
-        contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button class="btn btn-sm btn-primary" onclick="loadMarketEtf()">다시 시도</button></div>';
+        const errMsg = error?.message || error || '알 수 없는 오류';
+        contentEl.innerHTML = `<div class="error-state"><p>${errMsg}</p><button class="btn btn-sm btn-primary" onclick="loadMarketEtf()">다시 시도</button></div>`;
     }
 }
 
@@ -4095,7 +4098,8 @@ async function loadMarketCrypto() {
 
     } catch (error) {
         console.error('Market Crypto error:', error);
-        contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button class="btn btn-sm btn-primary" onclick="loadMarketCrypto()">다시 시도</button></div>';
+        const errMsg = error?.message || error || '알 수 없는 오류';
+        contentEl.innerHTML = `<div class="error-state"><p>${errMsg}</p><button class="btn btn-sm btn-primary" onclick="loadMarketCrypto()">다시 시도</button></div>`;
     }
 }
 
@@ -4233,7 +4237,8 @@ async function loadRsData() {
 
     } catch (error) {
         console.error('RS 데이터 로드 실패:', error);
-        tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">데이터를 불러올 수 없습니다</td></tr>';
+        const errMsg = error?.message || error || '알 수 없는 오류';
+        tbody.innerHTML = `<tr><td colspan="9" class="empty-cell">${errMsg}</td></tr>`;
     }
 }
 
