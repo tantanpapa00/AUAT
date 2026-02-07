@@ -14,7 +14,7 @@ const CREATE_NO_WINDOW: u32 = 0x08000000;
 // Server Management (VPS 연결 방식 - 로컬 서버 시작 불필요)
 // =====================================================
 
-const VPS_SERVER_URL: &str = "https://qube-system.com";
+const VPS_SERVER_URL: &str = "http://76.13.180.30";
 
 #[tauri::command]
 pub async fn start_server() -> Result<String, String> {
@@ -99,7 +99,7 @@ pub async fn check_server_health() -> Result<HealthCheckResult, String> {
 pub async fn get_server_status() -> Result<ServerStatus, String> {
     let client = reqwest::Client::new();
     match client
-        .get("https://qube-system.com/api/diag/home")
+        .get(format!("{}/api/diag/home", VPS_SERVER_URL))
         .timeout(std::time::Duration::from_secs(3))
         .send()
         .await
@@ -141,7 +141,7 @@ pub struct ServerStatus {
 
 #[tauri::command]
 pub async fn open_dashboard() -> Result<(), String> {
-    open::that("https://qube-system.com").map_err(|e| e.to_string())
+    open::that(VPS_SERVER_URL).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -232,7 +232,8 @@ pub async fn set_estop(enabled: bool) -> Result<bool, String> {
 pub async fn set_estop_api(enabled: bool) -> Result<bool, String> {
     let client = reqwest::Client::new();
     let url = format!(
-        "https://qube-system.com/api/system/estop?value={}",
+        "{}/api/system/estop?value={}",
+        VPS_SERVER_URL,
         if enabled { "1" } else { "0" }
     );
 
@@ -253,7 +254,7 @@ pub async fn set_estop_api(enabled: bool) -> Result<bool, String> {
 pub async fn get_home_data() -> Result<serde_json::Value, String> {
     let client = reqwest::Client::new();
     let resp = client
-        .get("https://qube-system.com/api/diag/home")
+        .get(format!("{}/api/diag/home", VPS_SERVER_URL))
         .timeout(std::time::Duration::from_secs(5))
         .send()
         .await
@@ -391,7 +392,7 @@ pub async fn list_local_accounts() -> Result<Vec<AccountInfo>, String> {
 pub async fn fetch_server_accounts() -> Result<Vec<AccountInfo>, String> {
     let client = reqwest::Client::new();
     let resp = client
-        .get("https://qube-system.com/api/accounts")
+        .get(format!("{}/api/accounts", VPS_SERVER_URL))
         .timeout(std::time::Duration::from_secs(5))
         .send()
         .await;
@@ -676,7 +677,8 @@ pub struct TimelineEvent {
 pub async fn fetch_timeline(limit: Option<i64>) -> Result<Vec<TimelineEvent>, String> {
     let client = reqwest::Client::new();
     let url = format!(
-        "https://qube-system.com/api/timeline?limit={}",
+        "{}/api/timeline?limit={}",
+        VPS_SERVER_URL,
         limit.unwrap_or(50)
     );
 
@@ -703,7 +705,7 @@ pub struct ConnectorStatus {
 pub async fn fetch_connector_status() -> Result<Vec<ConnectorStatus>, String> {
     let client = reqwest::Client::new();
     let resp = client
-        .get("https://qube-system.com/api/connectors/status")
+        .get(format!("{}/api/connectors/status", VPS_SERVER_URL))
         .timeout(std::time::Duration::from_secs(5))
         .send()
         .await
@@ -729,7 +731,7 @@ pub struct SubscriptionInfo {
 pub async fn fetch_subscription() -> Result<SubscriptionInfo, String> {
     let client = reqwest::Client::new();
     let resp = client
-        .get("https://qube-system.com/api/subscription")
+        .get(format!("{}/api/subscription", VPS_SERVER_URL))
         .timeout(std::time::Duration::from_secs(5))
         .send()
         .await;
