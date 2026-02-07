@@ -2,8 +2,8 @@
 // BBooster PC App Configuration
 // =====================================================
 
-// API 서버 URL 설정 (PHASE 8: 도메인으로 변경)
-export const API_BASE_URL = "https://qube-system.com";
+// API 서버 URL 설정
+export const API_BASE_URL = "http://76.13.180.30";
 
 // 연결 설정
 export const CONNECTION_TIMEOUT = 5000; // 5초
