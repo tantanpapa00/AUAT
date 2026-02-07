@@ -3229,13 +3229,12 @@ async function loadMarketOverview() {
         restrictionEl.style.display = 'none';
         contentEl.style.display = 'block';
 
-        // 지수 표시
-        const indices = data.indices || {};
-        updateIndexCard('index-kospi', indices.kospi);
-        updateIndexCard('index-kosdaq', indices.kosdaq);
-        updateIndexCard('index-nasdaq', indices.nasdaq);
-        updateIndexCard('index-sp500', indices.sp500);
-        updateIndexCard('index-dow', indices.dow);
+        // 지수 표시 (API 응답: data.kospi, data.kosdaq 직접 접근)
+        updateIndexCard('index-kospi', data.kospi);
+        updateIndexCard('index-kosdaq', data.kosdaq);
+        updateIndexCard('index-nasdaq', data.nasdaq);
+        updateIndexCard('index-sp500', data.sp500);
+        updateIndexCard('index-dow', data.dow);
 
         // 시황 요약
         const summary = data.summary || {};
@@ -3248,9 +3247,9 @@ async function loadMarketOverview() {
             `코스피 ${kospiChange >= 0 ? '+' : ''}${kospiChange.toFixed(2)}%, ` +
             `코스닥 ${kosdaqChange >= 0 ? '+' : ''}${kosdaqChange.toFixed(2)}%`;
 
-        // 투자자 동향
-        if (data.investor) {
-            updateInvestorBars(data.investor);
+        // 투자자 동향 (API 응답: data.investors)
+        if (data.investors) {
+            updateInvestorBars(data.investors);
             document.getElementById('investor-kis-hint').style.display = 'none';
         } else {
             document.getElementById('investor-kis-hint').style.display = data.has_kis_account ? 'none' : 'block';
@@ -3273,21 +3272,23 @@ function updateIndexCard(cardId, data) {
     const changeEl = card.querySelector('.index-change');
 
     valueEl.textContent = data.current?.toLocaleString() || '-';
-    const change = data.change || 0;
+    // API 응답: change_percent 사용
+    const change = data.change_percent || 0;
     changeEl.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
     changeEl.className = `index-change ${change >= 0 ? 'profit' : 'loss'}`;
 }
 
 function updateInvestorBars(investor) {
+    // API 응답: foreign, institution, individual (without _net suffix)
     const maxVal = Math.max(
-        Math.abs(investor.foreign_net || 0),
-        Math.abs(investor.institution_net || 0),
-        Math.abs(investor.individual_net || 0)
+        Math.abs(investor.foreign || 0),
+        Math.abs(investor.institution || 0),
+        Math.abs(investor.individual || 0)
     ) || 1;
 
-    updateInvestorBar('foreign', investor.foreign_net || 0, maxVal);
-    updateInvestorBar('institution', investor.institution_net || 0, maxVal);
-    updateInvestorBar('individual', investor.individual_net || 0, maxVal);
+    updateInvestorBar('foreign', investor.foreign || 0, maxVal);
+    updateInvestorBar('institution', investor.institution || 0, maxVal);
+    updateInvestorBar('individual', investor.individual || 0, maxVal);
 }
 
 function updateInvestorBar(type, value, maxVal) {
@@ -3773,13 +3774,12 @@ async function loadMarketKr() {
             </div>
         `;
 
-        // 지수 카드
-        const indices = data.indices || {};
-        updateIndexCard('kr-index-kospi', indices.kospi);
-        updateIndexCard('kr-index-kosdaq', indices.kosdaq);
+        // 지수 카드 (API 응답: data.kospi, data.kosdaq 직접 접근)
+        updateIndexCard('kr-index-kospi', data.kospi);
+        updateIndexCard('kr-index-kosdaq', data.kosdaq);
 
         // 시장 신호
-        const kospiChange = indices.kospi?.change_percent || data.summary?.kospi_change || 0;
+        const kospiChange = data.kospi?.change_percent || data.summary?.kospi_change || 0;
         const signalEl = document.getElementById('market-signal-kr');
         if (signalEl) {
             if (kospiChange > 0.5) {
@@ -3791,11 +3791,11 @@ async function loadMarketKr() {
             }
         }
 
-        // 투자자 동향
-        const investor = data.investor || {};
-        document.getElementById('kr-investor-foreign').textContent = formatBillions(investor.foreign || investor.foreign_net || 0);
-        document.getElementById('kr-investor-institution').textContent = formatBillions(investor.institution || investor.institution_net || 0);
-        document.getElementById('kr-investor-individual').textContent = formatBillions(investor.individual || investor.individual_net || 0);
+        // 투자자 동향 (API 응답: data.investors)
+        const investors = data.investors || {};
+        document.getElementById('kr-investor-foreign').textContent = formatBillions(investors.foreign || 0);
+        document.getElementById('kr-investor-institution').textContent = formatBillions(investors.institution || 0);
+        document.getElementById('kr-investor-individual').textContent = formatBillions(investors.individual || 0);
 
         // 섹터 리스트
         const sectors = data.sectors || [];
@@ -3874,11 +3874,10 @@ async function loadMarketUs() {
             </div>
         `;
 
-        // 지수 카드
-        const indices = data.indices || {};
-        updateIndexCard('us-index-sp500', indices.sp500 || indices['^GSPC']);
-        updateIndexCard('us-index-nasdaq', indices.nasdaq || indices['^IXIC']);
-        updateIndexCard('us-index-dow', indices.dow || indices['^DJI']);
+        // 지수 카드 (API 응답: data.sp500, data.nasdaq, data.dow 직접 접근)
+        updateIndexCard('us-index-sp500', data.sp500 || data['^GSPC']);
+        updateIndexCard('us-index-nasdaq', data.nasdaq || data['^IXIC']);
+        updateIndexCard('us-index-dow', data.dow || data['^DJI']);
 
         // 주요 종목 표시
         const topStocks = data.top_stocks || [];
