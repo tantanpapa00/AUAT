@@ -2350,13 +2350,13 @@
     })();
     </script>
 
-    <!-- 종목 상세 모달 (캔들차트 포함) -->
+    <!-- 종목 상세 모달 (StockEasy 스타일) -->
     <div class="modal-overlay" id="stock-detail-modal" style="display: none;">
         <div class="modal-content stock-detail-modal">
             <div class="modal-header">
                 <div class="stock-header-info">
-                    <h2 id="detail-stock-name">삼성전자</h2>
-                    <span class="stock-code" id="detail-stock-code">005930</span>
+                    <h2 id="detail-stock-name">종목명</h2>
+                    <span class="stock-code" id="detail-stock-code">000000</span>
                     <span class="stock-market" id="detail-stock-market">KOSPI</span>
                 </div>
                 <button class="modal-close" id="stock-detail-modal-close">&times;</button>
@@ -2400,134 +2400,41 @@
                     <button class="info-tab" data-tab="financial">재무</button>
                 </div>
 
-                <!-- 요약 탭 -->
+                <!-- 요약 탭 (동적 렌더링) -->
                 <div class="info-content" id="info-summary">
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <span class="info-label">시가총액</span>
-                            <span class="info-value" id="detail-market-cap">-</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">PER</span>
-                            <span class="info-value" id="detail-per">-</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">PBR</span>
-                            <span class="info-value" id="detail-pbr">-</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">EPS</span>
-                            <span class="info-value" id="detail-eps">-</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">52주 최고</span>
-                            <span class="info-value" id="detail-high52">-</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">52주 최저</span>
-                            <span class="info-value" id="detail-low52">-</span>
-                        </div>
-                        <div class="info-item blur-item" id="revenue-item">
-                            <span class="info-label">매출액</span>
-                            <span class="info-value" id="detail-revenue">-</span>
-                        </div>
-                        <div class="info-item blur-item" id="op-profit-item">
-                            <span class="info-label">영업이익</span>
-                            <span class="info-value" id="detail-operating">-</span>
-                        </div>
-                    </div>
-                    <!-- 컨센서스 (프리미엄) -->
-                    <div class="consensus-section blur-section" id="consensus-section">
-                        <h4>투자의견</h4>
-                        <div class="consensus-content">
-                            <span class="target-price" id="detail-target-price">목표가: -</span>
-                            <span class="recommendation" id="detail-recommendation">-</span>
-                        </div>
-                    </div>
-                    <!-- 블러 오버레이 -->
-                    <div class="blur-overlay" id="summary-blur-overlay" style="display: none;">
-                        <div class="blur-message">
-                            <span>🔒 Hub 이상 요금제에서 이용 가능</span>
-                            <button class="btn btn-sm btn-primary" id="btn-upgrade-plan">업그레이드</button>
-                        </div>
+                    <div class="sd-loading">
+                        <div class="sd-loading-spinner"></div>
+                        <span>정보를 불러오는 중...</span>
                     </div>
                 </div>
 
-                <!-- 소식 탭 -->
+                <!-- 소식 탭 (동적 렌더링) -->
                 <div class="info-content" id="info-news" style="display: none;">
-                    <div class="news-list" id="stock-news-list">
-                        <div class="loading-placeholder">뉴스를 불러오는 중...</div>
-                    </div>
-                    <div class="disclosure-section">
-                        <h4>최근 공시</h4>
-                        <div class="disclosure-list" id="stock-disclosure-list">
-                            <div class="loading-placeholder">공시를 불러오는 중...</div>
-                        </div>
+                    <div class="sd-loading">
+                        <div class="sd-loading-spinner"></div>
+                        <span>뉴스를 불러오는 중...</span>
                     </div>
                 </div>
 
-                <!-- 기업 탭 -->
+                <!-- 기업 탭 (동적 렌더링) -->
                 <div class="info-content" id="info-company" style="display: none;">
-                    <div class="company-info">
-                        <div class="info-item">
-                            <span class="info-label">회사명</span>
-                            <span class="info-value" id="detail-company-name">-</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">업종</span>
-                            <span class="info-value" id="detail-sector">-</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">시장</span>
-                            <span class="info-value" id="detail-market-type">-</span>
-                        </div>
-                    </div>
-                    <div class="comparables-section">
-                        <h4>동종업계 비교</h4>
-                        <div class="comparables-list" id="comparables-list">
-                            <div class="loading-placeholder">데이터를 불러오는 중...</div>
-                        </div>
+                    <div class="sd-loading">
+                        <div class="sd-loading-spinner"></div>
+                        <span>기업 정보를 불러오는 중...</span>
                     </div>
                 </div>
 
-                <!-- 재무 탭 -->
+                <!-- 재무 탭 (동적 렌더링) -->
                 <div class="info-content" id="info-financial" style="display: none;">
-                    <div class="financial-chart-section blur-section" id="financial-chart-section">
-                        <h4>실적 추이</h4>
-                        <div class="financial-trend" id="financial-trend">
-                            <div class="loading-placeholder">실적 데이터를 불러오는 중...</div>
-                        </div>
-                    </div>
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <span class="info-label">ROE</span>
-                            <span class="info-value" id="detail-roe">-</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">배당수익률</span>
-                            <span class="info-value" id="detail-div-yield">-</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">BPS</span>
-                            <span class="info-value" id="detail-bps">-</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">외국인지분율</span>
-                            <span class="info-value blur-item" id="detail-foreign-ratio">-</span>
-                        </div>
-                    </div>
-                    <!-- 블러 오버레이 -->
-                    <div class="blur-overlay" id="financial-blur-overlay" style="display: none;">
-                        <div class="blur-message">
-                            <span>🔒 Hub 이상 요금제에서 이용 가능</span>
-                            <button class="btn btn-sm btn-primary" onclick="location.href='#settings'">업그레이드</button>
-                        </div>
+                    <div class="sd-loading">
+                        <div class="sd-loading-spinner"></div>
+                        <span>재무 정보를 불러오는 중...</span>
                     </div>
                 </div>
             </div>
             <div class="modal-footer stock-detail-footer">
-                <button class="btn btn-secondary" id="btn-add-to-watchlist">⭐ 관심종목 추가</button>
-                <button class="btn btn-primary" id="btn-ai-analysis">🤖 AI 분석</button>
+                <button class="btn btn-secondary" id="btn-add-to-watchlist">관심종목 추가</button>
+                <button class="btn btn-primary" id="btn-ai-analysis">AI 분석</button>
             </div>
         </div>
     </div>

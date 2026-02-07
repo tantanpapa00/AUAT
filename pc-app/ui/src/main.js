@@ -4866,7 +4866,203 @@ function initSearchAutocomplete(inputId, autocompleteId, market = 'kr') {
     });
 }
 
-// 종목 상세 모달 열기 (4-Tab 스탁이지 스타일)
+// =====================================================
+// Stock Detail Modal - StockEasy Style (Light Theme)
+// =====================================================
+
+// 재무건전성 점수 계산 함수
+function calculateHealthScore(data) {
+    let score = 50; // 기본 점수
+
+    // ROE 점수 (0~25점)
+    const roe = parseFloat(data.roe) || 0;
+    if (roe >= 15) score += 25;
+    else if (roe >= 10) score += 20;
+    else if (roe >= 5) score += 15;
+    else if (roe > 0) score += 10;
+    else score -= 10;
+
+    // 부채비율 점수 (0~25점)
+    const debtRatio = parseFloat(data.debt_ratio) || 0;
+    if (debtRatio < 50) score += 25;
+    else if (debtRatio < 100) score += 20;
+    else if (debtRatio < 150) score += 10;
+    else if (debtRatio < 200) score += 5;
+    else score -= 10;
+
+    // 영업이익률 점수 (0~15점)
+    const opMargin = parseFloat(data.operating_margin) || 0;
+    if (opMargin >= 20) score += 15;
+    else if (opMargin >= 10) score += 10;
+    else if (opMargin > 0) score += 5;
+    else score -= 5;
+
+    // 매출성장률 점수 (0~10점)
+    const growth = parseFloat(data.revenue_growth) || 0;
+    if (growth >= 20) score += 10;
+    else if (growth >= 10) score += 7;
+    else if (growth > 0) score += 5;
+    else score -= 5;
+
+    return Math.max(0, Math.min(100, score));
+}
+
+// 점수에 따른 등급 반환
+function getGrade(score) {
+    if (score >= 80) return { grade: 'A', label: '매우 우수', class: 'grade-a' };
+    if (score >= 60) return { grade: 'B', label: '양호', class: 'grade-b' };
+    if (score >= 40) return { grade: 'C', label: '보통', class: 'grade-c' };
+    if (score >= 20) return { grade: 'D', label: '주의', class: 'grade-d' };
+    return { grade: 'F', label: '취약', class: 'grade-f' };
+}
+
+// 투자지표 등급 계산
+function getIndicatorGrade(type, value) {
+    switch(type) {
+        case 'growth': // 성장성 (매출성장률 기준)
+            if (value >= 20) return { grade: 'A', class: 'grade-a' };
+            if (value >= 10) return { grade: 'B', class: 'grade-b' };
+            if (value >= 0) return { grade: 'C', class: 'grade-c' };
+            return { grade: 'D', class: 'grade-d' };
+        case 'profitability': // 수익성 (ROE 기준)
+            if (value >= 15) return { grade: 'A', class: 'grade-a' };
+            if (value >= 10) return { grade: 'B', class: 'grade-b' };
+            if (value >= 5) return { grade: 'C', class: 'grade-c' };
+            return { grade: 'D', class: 'grade-d' };
+        case 'stability': // 안정성 (부채비율 역산)
+            if (value < 50) return { grade: 'A', class: 'grade-a' };
+            if (value < 100) return { grade: 'B', class: 'grade-b' };
+            if (value < 150) return { grade: 'C', class: 'grade-c' };
+            return { grade: 'D', class: 'grade-d' };
+        case 'valuation': // 밸류에이션 (PER 기준)
+            if (value > 0 && value < 10) return { grade: 'A', class: 'grade-a' };
+            if (value > 0 && value < 15) return { grade: 'B', class: 'grade-b' };
+            if (value > 0 && value < 25) return { grade: 'C', class: 'grade-c' };
+            return { grade: 'D', class: 'grade-d' };
+        default:
+            return { grade: '-', class: 'grade-f' };
+    }
+}
+
+// SVG 원형 차트 생성
+function renderHealthCircle(score, gradeClass) {
+    const radius = 50;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference - (score / 100) * circumference;
+
+    return `
+        <div class="sd-health-circle">
+            <svg width="120" height="120" viewBox="0 0 120 120">
+                <circle class="sd-health-circle-bg" cx="60" cy="60" r="${radius}"/>
+                <circle class="sd-health-circle-progress ${gradeClass}"
+                    cx="60" cy="60" r="${radius}"
+                    stroke-dasharray="${circumference}"
+                    stroke-dashoffset="${offset}"/>
+            </svg>
+            <div class="sd-health-text">
+                <div class="sd-health-score-value">${score}</div>
+                <div class="sd-health-grade">${getGrade(score).label}</div>
+            </div>
+        </div>
+    `;
+}
+
+// DIV 기반 바 차트 생성
+function renderTrendChart(data) {
+    if (!data || data.length === 0) {
+        return '<div class="sd-empty-state">실적 데이터가 없습니다</div>';
+    }
+
+    // 최대값 찾기
+    const maxRevenue = Math.max(...data.map(d => Math.abs(d.revenue || 0)));
+    const maxProfit = Math.max(...data.map(d => Math.abs(d.operating_profit || 0)));
+    const maxVal = Math.max(maxRevenue, maxProfit);
+
+    const bars = data.slice(-6).map(item => {
+        const revenueHeight = maxVal > 0 ? (Math.abs(item.revenue || 0) / maxVal) * 120 : 0;
+        const profitHeight = maxVal > 0 ? (Math.abs(item.operating_profit || 0) / maxVal) * 120 : 0;
+        const profitNegative = (item.operating_profit || 0) < 0;
+
+        return `
+            <div class="sd-trend-bar-group">
+                <div class="sd-trend-bars">
+                    <div class="sd-trend-bar revenue" style="height: ${revenueHeight}px"></div>
+                    <div class="sd-trend-bar profit ${profitNegative ? 'negative' : ''}" style="height: ${profitHeight}px"></div>
+                </div>
+                <div class="sd-trend-label">${item.period || ''}</div>
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div class="sd-trend-chart">${bars}</div>
+        <div class="sd-trend-legend">
+            <div class="sd-trend-legend-item">
+                <div class="sd-trend-legend-dot revenue"></div>
+                <span>매출액</span>
+            </div>
+            <div class="sd-trend-legend-item">
+                <div class="sd-trend-legend-dot profit"></div>
+                <span>영업이익</span>
+            </div>
+        </div>
+    `;
+}
+
+// SVG 도넛 차트 생성 (세그먼트 매출)
+function renderDonutChart(segments) {
+    if (!segments || segments.length === 0) {
+        return '<div class="sd-empty-state">세그먼트 데이터가 없습니다</div>';
+    }
+
+    const colors = ['#7C3AED', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+    const total = segments.reduce((sum, s) => sum + (s.value || 0), 0);
+
+    let currentAngle = 0;
+    const radius = 60;
+    const cx = 80;
+    const cy = 80;
+
+    const paths = segments.map((seg, idx) => {
+        const percentage = total > 0 ? (seg.value / total) : 0;
+        const angle = percentage * 360;
+        const largeArc = angle > 180 ? 1 : 0;
+
+        const startX = cx + radius * Math.cos((currentAngle - 90) * Math.PI / 180);
+        const startY = cy + radius * Math.sin((currentAngle - 90) * Math.PI / 180);
+        currentAngle += angle;
+        const endX = cx + radius * Math.cos((currentAngle - 90) * Math.PI / 180);
+        const endY = cy + radius * Math.sin((currentAngle - 90) * Math.PI / 180);
+
+        return `<path d="M ${cx} ${cy} L ${startX} ${startY} A ${radius} ${radius} 0 ${largeArc} 1 ${endX} ${endY} Z" fill="${colors[idx % colors.length]}"/>`;
+    }).join('');
+
+    const legendItems = segments.map((seg, idx) => `
+        <div class="sd-segment-item">
+            <div class="sd-segment-info">
+                <div class="sd-segment-color" style="background: ${colors[idx % colors.length]}"></div>
+                <span class="sd-segment-name">${seg.name}</span>
+            </div>
+            <span class="sd-segment-value">${total > 0 ? ((seg.value / total) * 100).toFixed(1) : 0}%</span>
+        </div>
+    `).join('');
+
+    return `
+        <div class="sd-segment-container">
+            <div class="sd-donut-chart">
+                <svg width="160" height="160" viewBox="0 0 160 160">
+                    ${paths}
+                    <circle cx="${cx}" cy="${cy}" r="35" fill="#FFFFFF"/>
+                </svg>
+            </div>
+            <div class="sd-segment-legend">
+                ${legendItems}
+            </div>
+        </div>
+    `;
+}
+
+// 종목 상세 모달 열기 (StockEasy 스타일)
 async function openStockDetail(symbol, exchange) {
     const modal = document.getElementById('stock-detail-modal');
     if (!modal) return;
@@ -4938,8 +5134,11 @@ async function openStockDetail(symbol, exchange) {
     }
 }
 
-// 재무 요약 로드
+// 재무 요약 로드 (StockEasy 스타일)
 async function loadFinancialSummary(code) {
+    const summaryContent = document.getElementById('info-summary');
+    if (!summaryContent) return;
+
     try {
         const response = await invokeWithTimeout('get_stock_financial_summary', {
             accessToken: auth.accessToken || '',
@@ -4950,56 +5149,141 @@ async function loadFinancialSummary(code) {
             const data = response.data;
             const isPremium = response.is_premium;
 
-            // 기본 데이터 업데이트
-            safeSetText('#detail-per', data.per > 0 ? data.per.toFixed(2) : '-');
-            safeSetText('#detail-pbr', data.pbr > 0 ? data.pbr.toFixed(2) : '-');
-            safeSetText('#detail-eps', data.eps > 0 ? data.eps.toLocaleString() : '-');
-            safeSetText('#detail-high52', data.high_52w > 0 ? data.high_52w.toLocaleString() : '-');
-            safeSetText('#detail-low52', data.low_52w > 0 ? data.low_52w.toLocaleString() : '-');
+            // 재무 그리드 렌더링
+            const financialGridHtml = `
+                <div class="sd-card">
+                    <div class="sd-card-title">주요 지표</div>
+                    <div class="sd-financial-grid">
+                        <div class="sd-financial-item">
+                            <span class="sd-financial-label">시가총액</span>
+                            <span class="sd-financial-value">${formatBillions(data.market_cap) || '-'}</span>
+                        </div>
+                        <div class="sd-financial-item">
+                            <span class="sd-financial-label">PER</span>
+                            <span class="sd-financial-value">${data.per > 0 ? data.per.toFixed(2) : '-'}</span>
+                        </div>
+                        <div class="sd-financial-item">
+                            <span class="sd-financial-label">PBR</span>
+                            <span class="sd-financial-value">${data.pbr > 0 ? data.pbr.toFixed(2) : '-'}</span>
+                        </div>
+                        <div class="sd-financial-item">
+                            <span class="sd-financial-label">EPS</span>
+                            <span class="sd-financial-value">${data.eps > 0 ? data.eps.toLocaleString() : '-'}</span>
+                        </div>
+                        <div class="sd-financial-item">
+                            <span class="sd-financial-label">52주 최고</span>
+                            <span class="sd-financial-value positive">${data.high_52w > 0 ? data.high_52w.toLocaleString() : '-'}</span>
+                        </div>
+                        <div class="sd-financial-item">
+                            <span class="sd-financial-label">52주 최저</span>
+                            <span class="sd-financial-value negative">${data.low_52w > 0 ? data.low_52w.toLocaleString() : '-'}</span>
+                        </div>
+                        <div class="sd-financial-item ${!isPremium ? 'blur-item blurred' : ''}">
+                            <span class="sd-financial-label">매출액</span>
+                            <span class="sd-financial-value">${data.revenue_formatted || '-'}</span>
+                        </div>
+                        <div class="sd-financial-item ${!isPremium ? 'blur-item blurred' : ''}">
+                            <span class="sd-financial-label">영업이익</span>
+                            <span class="sd-financial-value">${data.operating_profit_formatted || '-'}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
 
-            // 프리미엄 데이터
-            if (isPremium) {
-                safeSetText('#detail-revenue', data.revenue_formatted || '-');
-                safeSetText('#detail-operating', data.operating_profit_formatted || '-');
-                document.getElementById('summary-blur-overlay')?.style.setProperty('display', 'none');
-            } else {
-                // 블러 처리
-                document.querySelectorAll('.blur-item').forEach(el => el.classList.add('blurred'));
-                document.getElementById('summary-blur-overlay')?.style.setProperty('display', 'flex');
-            }
+            // 투자지표 등급 계산
+            const growthGrade = getIndicatorGrade('growth', data.revenue_growth || 0);
+            const profitGrade = getIndicatorGrade('profitability', data.roe || 0);
+            const stabilityGrade = getIndicatorGrade('stability', data.debt_ratio || 100);
+            const valuationGrade = getIndicatorGrade('valuation', data.per || 0);
+
+            const indicatorsHtml = `
+                <div class="sd-card ${!isPremium ? 'blur-section' : ''}">
+                    <div class="sd-card-title">투자 지표</div>
+                    <div class="sd-indicators-grid">
+                        <div class="sd-indicator-card">
+                            <div class="sd-indicator-title">성장성</div>
+                            <span class="sd-indicator-badge ${growthGrade.class}">${growthGrade.grade}</span>
+                        </div>
+                        <div class="sd-indicator-card">
+                            <div class="sd-indicator-title">수익성</div>
+                            <span class="sd-indicator-badge ${profitGrade.class}">${profitGrade.grade}</span>
+                        </div>
+                        <div class="sd-indicator-card">
+                            <div class="sd-indicator-title">안정성</div>
+                            <span class="sd-indicator-badge ${stabilityGrade.class}">${stabilityGrade.grade}</span>
+                        </div>
+                        <div class="sd-indicator-card">
+                            <div class="sd-indicator-title">밸류에이션</div>
+                            <span class="sd-indicator-badge ${valuationGrade.class}">${valuationGrade.grade}</span>
+                        </div>
+                    </div>
+                    ${!isPremium ? `
+                        <div class="blur-overlay">
+                            <div class="blur-icon">🔒</div>
+                            <div class="blur-message">
+                                <p>Hub 이상 요금제에서 이용 가능</p>
+                                <span>상세 투자 지표를 확인하세요</span>
+                                <button class="upgrade-btn" onclick="navigateTo('settings')">업그레이드</button>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+
+            // 컨센서스 섹션 (프리미엄)
+            const consensusHtml = isPremium ? `
+                <div class="sd-card consensus-section">
+                    <div class="sd-consensus-header">
+                        <h4>투자의견</h4>
+                        <span class="sd-target-price">목표가: ${data.target_price > 0 ? data.target_price.toLocaleString() + '원' : '-'}</span>
+                    </div>
+                    <span class="sd-recommendation ${data.recommendation === '매수' ? 'buy' : data.recommendation === '보유' ? 'hold' : 'sell'}">${data.recommendation || '-'}</span>
+                </div>
+            ` : '';
+
+            summaryContent.innerHTML = financialGridHtml + indicatorsHtml + consensusHtml;
         }
     } catch (error) {
         console.error('Failed to load financial summary:', error);
+        summaryContent.innerHTML = '<div class="sd-empty-state">재무 정보를 불러올 수 없습니다</div>';
     }
 }
 
-// 뉴스/공시 로드
+// 뉴스/공시 로드 (StockEasy 스타일)
 async function loadStockNews(code) {
-    const newsList = document.getElementById('stock-news-list');
-    const disclosureList = document.getElementById('stock-disclosure-list');
+    const newsContent = document.getElementById('info-news');
+    if (!newsContent) return;
 
-    if (newsList) newsList.innerHTML = '<div class="loading-placeholder">뉴스를 불러오는 중...</div>';
-    if (disclosureList) disclosureList.innerHTML = '<div class="loading-placeholder">공시를 불러오는 중...</div>';
+    newsContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>뉴스를 불러오는 중...</span></div>';
 
     try {
         // 뉴스 로드
         const newsResponse = await invokeWithTimeout('get_stock_news', {
             accessToken: auth.accessToken || '',
             code: code,
-            limit: 10
+            limit: 15
         }, 10000);
 
-        if (newsResponse && newsResponse.data && newsResponse.data.news) {
-            const newsHtml = newsResponse.data.news.map(item => `
-                <div class="news-item" onclick="window.open('${item.url}', '_blank')">
-                    <div class="news-title">${item.title}</div>
-                    <div class="news-meta">
-                        <span class="news-source">${item.source}</span>
-                        <span class="news-date">${formatNewsDate(item.date)}</span>
+        let newsHtml = '';
+        if (newsResponse && newsResponse.data && newsResponse.data.news && newsResponse.data.news.length > 0) {
+            newsHtml = `
+                <div class="sd-card">
+                    <div class="sd-card-title">최신 뉴스</div>
+                    <div class="sd-news-list">
+                        ${newsResponse.data.news.map(item => `
+                            <div class="sd-news-item" onclick="window.open('${item.url}', '_blank')">
+                                <div class="sd-news-title">${item.title}</div>
+                                <div class="sd-news-meta">
+                                    <span class="sd-news-source">${item.source || '뉴스'}</span>
+                                    <span class="sd-news-date">${formatNewsDate(item.date)}</span>
+                                </div>
+                            </div>
+                        `).join('')}
                     </div>
                 </div>
-            `).join('');
-            if (newsList) newsList.innerHTML = newsHtml || '<div class="empty-state">뉴스가 없습니다</div>';
+            `;
+        } else {
+            newsHtml = '<div class="sd-card"><div class="sd-empty-state">관련 뉴스가 없습니다</div></div>';
         }
 
         // 공시 로드
@@ -5009,25 +5293,39 @@ async function loadStockNews(code) {
             limit: 10
         }, 10000);
 
-        if (disclosureResponse && disclosureResponse.data) {
-            const disclosureHtml = disclosureResponse.data.map(item => `
-                <div class="disclosure-item">
-                    <div class="disclosure-title">${item.title}</div>
-                    <div class="disclosure-date">${formatNewsDate(item.date)}</div>
+        let disclosureHtml = '';
+        if (disclosureResponse && disclosureResponse.data && disclosureResponse.data.length > 0) {
+            disclosureHtml = `
+                <div class="sd-card">
+                    <div class="sd-card-title">최근 공시</div>
+                    <div class="sd-disclosure-list">
+                        ${disclosureResponse.data.map(item => `
+                            <div class="sd-disclosure-item">
+                                <span class="sd-disclosure-title">${item.title}</span>
+                                <span class="sd-disclosure-date">${formatNewsDate(item.date)}</span>
+                            </div>
+                        `).join('')}
+                    </div>
                 </div>
-            `).join('');
-            if (disclosureList) disclosureList.innerHTML = disclosureHtml || '<div class="empty-state">공시가 없습니다</div>';
+            `;
+        } else {
+            disclosureHtml = '<div class="sd-card"><div class="sd-empty-state">최근 공시가 없습니다</div></div>';
         }
+
+        newsContent.innerHTML = newsHtml + disclosureHtml;
+
     } catch (error) {
         console.error('Failed to load news:', error);
-        if (newsList) newsList.innerHTML = '<div class="empty-state">뉴스를 불러올 수 없습니다</div>';
+        newsContent.innerHTML = '<div class="sd-card"><div class="sd-empty-state">뉴스를 불러올 수 없습니다</div></div>';
     }
 }
 
-// 기업 정보 로드
+// 기업 정보 로드 (StockEasy 스타일)
 async function loadCompanyInfo(code) {
-    const comparablesList = document.getElementById('comparables-list');
-    if (comparablesList) comparablesList.innerHTML = '<div class="loading-placeholder">데이터를 불러오는 중...</div>';
+    const companyContent = document.getElementById('info-company');
+    if (!companyContent) return;
+
+    companyContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>기업 정보를 불러오는 중...</span></div>';
 
     try {
         const response = await invokeWithTimeout('get_stock_company', {
@@ -5037,88 +5335,237 @@ async function loadCompanyInfo(code) {
 
         if (response && response.data) {
             const data = response.data;
-            safeSetText('#detail-company-name', data.name || '-');
-            safeSetText('#detail-sector', data.sector || '-');
-            safeSetText('#detail-market-type', data.market || '-');
+            const isPremium = response.is_premium;
+
+            // 기본 기업 정보
+            const companyInfoHtml = `
+                <div class="sd-card">
+                    <div class="sd-card-title">기업 개요</div>
+                    <div class="sd-company-grid">
+                        <div class="sd-company-item">
+                            <span class="sd-company-label">회사명</span>
+                            <span class="sd-company-value">${data.name || '-'}</span>
+                        </div>
+                        <div class="sd-company-item">
+                            <span class="sd-company-label">업종</span>
+                            <span class="sd-company-value">${data.sector || '-'}</span>
+                        </div>
+                        <div class="sd-company-item">
+                            <span class="sd-company-label">시장</span>
+                            <span class="sd-company-value">${data.market || '-'}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // 세그먼트 매출 (도넛 차트) - 프리미엄
+            let segmentHtml = '';
+            if (isPremium && data.segments && data.segments.length > 0) {
+                segmentHtml = `
+                    <div class="sd-card">
+                        <div class="sd-card-title">세그먼트별 매출</div>
+                        ${renderDonutChart(data.segments)}
+                    </div>
+                `;
+            } else if (!isPremium) {
+                segmentHtml = `
+                    <div class="sd-card blur-section">
+                        <div class="sd-card-title">세그먼트별 매출</div>
+                        <div style="height: 180px; display: flex; align-items: center; justify-content: center; color: #9CA3AF;">
+                            세그먼트 데이터
+                        </div>
+                        <div class="blur-overlay">
+                            <div class="blur-icon">🔒</div>
+                            <div class="blur-message">
+                                <p>Hub 이상 요금제에서 이용 가능</p>
+                                <button class="upgrade-btn" onclick="navigateTo('settings')">업그레이드</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
 
             // 동종업계 비교
+            let comparablesHtml = '';
             if (data.comparables && data.comparables.length > 0) {
-                const comparablesHtml = data.comparables.map(comp => `
-                    <div class="comparable-item" onclick="openStockDetail('${comp.code}', 'KIS_KR')">
-                        <span class="comp-name">${comp.name}</span>
-                        <span class="comp-price">${comp.price?.toLocaleString()}</span>
-                        <span class="comp-change ${comp.change >= 0 ? 'profit' : 'loss'}">${comp.change >= 0 ? '+' : ''}${comp.change?.toFixed(2)}%</span>
+                comparablesHtml = `
+                    <div class="sd-card">
+                        <div class="sd-card-title">동종업계 비교</div>
+                        <div class="sd-comparables-list">
+                            ${data.comparables.map(comp => `
+                                <div class="sd-comparable-item" onclick="openStockDetail('${comp.code}', 'kis_kr')">
+                                    <span class="sd-comp-name">${comp.name}</span>
+                                    <span class="sd-comp-price">${comp.price?.toLocaleString() || '-'}원</span>
+                                    <span class="sd-comp-change ${(comp.change || 0) >= 0 ? 'positive' : 'negative'}">
+                                        ${(comp.change || 0) >= 0 ? '+' : ''}${(comp.change || 0).toFixed(2)}%
+                                    </span>
+                                </div>
+                            `).join('')}
+                        </div>
                     </div>
-                `).join('');
-                if (comparablesList) comparablesList.innerHTML = comparablesHtml;
+                `;
             } else {
-                if (comparablesList) comparablesList.innerHTML = '<div class="empty-state">비교 데이터가 없습니다</div>';
+                comparablesHtml = '<div class="sd-card"><div class="sd-empty-state">동종업계 비교 데이터가 없습니다</div></div>';
             }
+
+            companyContent.innerHTML = companyInfoHtml + segmentHtml + comparablesHtml;
+        } else {
+            companyContent.innerHTML = '<div class="sd-card"><div class="sd-empty-state">기업 정보를 불러올 수 없습니다</div></div>';
         }
     } catch (error) {
         console.error('Failed to load company info:', error);
+        companyContent.innerHTML = '<div class="sd-card"><div class="sd-empty-state">기업 정보를 불러올 수 없습니다</div></div>';
     }
 }
 
-// 재무 탭 로드
+// 재무 탭 로드 (StockEasy 스타일)
 async function loadFinancialTab(code) {
-    const trendContainer = document.getElementById('financial-trend');
-    if (trendContainer) trendContainer.innerHTML = '<div class="loading-placeholder">실적 데이터를 불러오는 중...</div>';
+    const financialContent = document.getElementById('info-financial');
+    if (!financialContent) return;
+
+    financialContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>재무 정보를 불러오는 중...</span></div>';
 
     try {
-        const response = await invokeWithTimeout('get_stock_financial_trend', {
+        // 재무 추이 데이터 로드
+        const trendResponse = await invokeWithTimeout('get_stock_financial_trend', {
             accessToken: auth.accessToken || '',
             code: code
         }, 10000);
 
-        if (response && response.is_premium && response.data) {
-            const data = response.data;
-            // 실적 추이 테이블
-            if (data.annual && data.annual.length > 0) {
-                const trendHtml = `
-                    <table class="trend-table">
-                        <thead>
-                            <tr>
-                                <th>기간</th>
-                                <th>매출액</th>
-                                <th>영업이익</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${data.annual.map(item => `
-                                <tr class="${item.is_estimate ? 'estimate' : ''}">
-                                    <td>${item.period}${item.is_estimate ? '(E)' : ''}</td>
-                                    <td>${formatKoreanNum(item.revenue)}</td>
-                                    <td>${formatKoreanNum(item.operating_profit)}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `;
-                if (trendContainer) trendContainer.innerHTML = trendHtml;
-            }
-            document.getElementById('financial-blur-overlay')?.style.setProperty('display', 'none');
-        } else {
-            // 비프리미엄 - 블러 처리
-            if (trendContainer) trendContainer.innerHTML = '<div class="blurred-placeholder">실적 데이터</div>';
-            document.getElementById('financial-blur-overlay')?.style.setProperty('display', 'flex');
-        }
-
-        // 추가 재무 데이터 로드
+        // 재무 요약 데이터 로드
         const summaryResponse = await invokeWithTimeout('get_stock_financial_summary', {
             accessToken: auth.accessToken || '',
             code: code
         }, 10000);
 
-        if (summaryResponse && summaryResponse.data) {
-            const data = summaryResponse.data;
-            safeSetText('#detail-roe', data.roe > 0 ? `${data.roe.toFixed(2)}%` : '-');
-            safeSetText('#detail-div-yield', data.dividend_yield > 0 ? `${data.dividend_yield.toFixed(2)}%` : '-');
-            safeSetText('#detail-bps', data.bps > 0 ? data.bps.toLocaleString() : '-');
-            safeSetText('#detail-foreign-ratio', data.foreign_ratio > 0 ? `${data.foreign_ratio.toFixed(2)}%` : '-');
+        const isPremium = trendResponse?.is_premium || summaryResponse?.is_premium;
+        const trendData = trendResponse?.data || {};
+        const summaryData = summaryResponse?.data || {};
+
+        // 실적 추이 차트 (DIV 기반)
+        let trendChartHtml = '';
+        if (isPremium && trendData.annual && trendData.annual.length > 0) {
+            trendChartHtml = `
+                <div class="sd-card">
+                    <div class="sd-card-title">실적 추이</div>
+                    ${renderTrendChart(trendData.annual)}
+                </div>
+            `;
+        } else if (!isPremium) {
+            trendChartHtml = `
+                <div class="sd-card blur-section">
+                    <div class="sd-card-title">실적 추이</div>
+                    <div style="height: 180px; display: flex; align-items: center; justify-content: center; color: #9CA3AF;">
+                        실적 추이 차트
+                    </div>
+                    <div class="blur-overlay">
+                        <div class="blur-icon">🔒</div>
+                        <div class="blur-message">
+                            <p>Hub 이상 요금제에서 이용 가능</p>
+                            <span>상세 재무 데이터를 확인하세요</span>
+                            <button class="upgrade-btn" onclick="navigateTo('settings')">업그레이드</button>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
+
+        // 재무건전성 점수
+        const healthScore = calculateHealthScore(summaryData);
+        const gradeInfo = getGrade(healthScore);
+
+        let healthScoreHtml = '';
+        if (isPremium) {
+            healthScoreHtml = `
+                <div class="sd-card">
+                    <div class="sd-card-title">재무 건전성</div>
+                    <div class="sd-health-score">
+                        ${renderHealthCircle(healthScore, gradeInfo.class)}
+                        <div class="sd-health-details">
+                            <div class="sd-health-detail-item">
+                                <span class="sd-health-detail-label">ROE</span>
+                                <span class="sd-health-detail-value">${summaryData.roe > 0 ? summaryData.roe.toFixed(2) + '%' : '-'}</span>
+                            </div>
+                            <div class="sd-health-detail-item">
+                                <span class="sd-health-detail-label">부채비율</span>
+                                <span class="sd-health-detail-value">${summaryData.debt_ratio > 0 ? summaryData.debt_ratio.toFixed(1) + '%' : '-'}</span>
+                            </div>
+                            <div class="sd-health-detail-item">
+                                <span class="sd-health-detail-label">배당수익률</span>
+                                <span class="sd-health-detail-value">${summaryData.dividend_yield > 0 ? summaryData.dividend_yield.toFixed(2) + '%' : '-'}</span>
+                            </div>
+                            <div class="sd-health-detail-item">
+                                <span class="sd-health-detail-label">BPS</span>
+                                <span class="sd-health-detail-value">${summaryData.bps > 0 ? summaryData.bps.toLocaleString() + '원' : '-'}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            healthScoreHtml = `
+                <div class="sd-card blur-section">
+                    <div class="sd-card-title">재무 건전성</div>
+                    <div style="height: 140px; display: flex; align-items: center; justify-content: center; color: #9CA3AF;">
+                        재무 건전성 점수
+                    </div>
+                    <div class="blur-overlay">
+                        <div class="blur-icon">🔒</div>
+                        <div class="blur-message">
+                            <p>Hub 이상 요금제에서 이용 가능</p>
+                            <button class="upgrade-btn" onclick="navigateTo('settings')">업그레이드</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 상세 재무 지표
+        let financialDetailsHtml = `
+            <div class="sd-card">
+                <div class="sd-card-title">상세 재무 지표</div>
+                <div class="sd-financial-grid">
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">ROE</span>
+                        <span class="sd-financial-value">${summaryData.roe > 0 ? summaryData.roe.toFixed(2) + '%' : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">ROA</span>
+                        <span class="sd-financial-value">${summaryData.roa > 0 ? summaryData.roa.toFixed(2) + '%' : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item ${!isPremium ? 'blur-item blurred' : ''}">
+                        <span class="sd-financial-label">부채비율</span>
+                        <span class="sd-financial-value">${summaryData.debt_ratio > 0 ? summaryData.debt_ratio.toFixed(1) + '%' : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item ${!isPremium ? 'blur-item blurred' : ''}">
+                        <span class="sd-financial-label">유보율</span>
+                        <span class="sd-financial-value">${summaryData.reserve_ratio > 0 ? summaryData.reserve_ratio.toFixed(1) + '%' : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">배당수익률</span>
+                        <span class="sd-financial-value">${summaryData.dividend_yield > 0 ? summaryData.dividend_yield.toFixed(2) + '%' : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">BPS</span>
+                        <span class="sd-financial-value">${summaryData.bps > 0 ? summaryData.bps.toLocaleString() : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item ${!isPremium ? 'blur-item blurred' : ''}">
+                        <span class="sd-financial-label">외국인지분율</span>
+                        <span class="sd-financial-value">${summaryData.foreign_ratio > 0 ? summaryData.foreign_ratio.toFixed(2) + '%' : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item ${!isPremium ? 'blur-item blurred' : ''}">
+                        <span class="sd-financial-label">영업이익률</span>
+                        <span class="sd-financial-value">${summaryData.operating_margin > 0 ? summaryData.operating_margin.toFixed(2) + '%' : '-'}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        financialContent.innerHTML = trendChartHtml + healthScoreHtml + financialDetailsHtml;
+
     } catch (error) {
         console.error('Failed to load financial tab:', error);
+        financialContent.innerHTML = '<div class="sd-card"><div class="sd-empty-state">재무 정보를 불러올 수 없습니다</div></div>';
     }
 }
 
