@@ -20,7 +20,7 @@ const VPS_SERVER_URL: &str = "https://76.13.180.30";
 pub async fn start_server() -> Result<String, String> {
     // VPS 서버에 연결하므로 로컬 서버 시작 불필요
     // VPS 연결 상태만 확인
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     match client
         .get(format!("{}/api/diag/home", VPS_SERVER_URL))
         .timeout(std::time::Duration::from_secs(5))
@@ -59,7 +59,7 @@ pub struct HealthCheckResult {
 
 #[tauri::command]
 pub async fn check_server_health() -> Result<HealthCheckResult, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let start = std::time::Instant::now();
 
     match client
@@ -97,7 +97,7 @@ pub async fn check_server_health() -> Result<HealthCheckResult, String> {
 
 #[tauri::command]
 pub async fn get_server_status() -> Result<ServerStatus, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     match client
         .get(format!("{}/api/diag/home", VPS_SERVER_URL))
         .timeout(std::time::Duration::from_secs(3))
@@ -230,7 +230,7 @@ pub async fn set_estop(enabled: bool) -> Result<bool, String> {
 }
 
 pub async fn set_estop_api(enabled: bool) -> Result<bool, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!(
         "{}/api/system/estop?value={}",
         VPS_SERVER_URL,
@@ -252,7 +252,7 @@ pub async fn set_estop_api(enabled: bool) -> Result<bool, String> {
 
 #[tauri::command]
 pub async fn get_home_data() -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let resp = client
         .get(format!("{}/api/diag/home", VPS_SERVER_URL))
         .timeout(std::time::Duration::from_secs(5))
@@ -390,7 +390,7 @@ pub async fn list_local_accounts() -> Result<Vec<AccountInfo>, String> {
 
 #[tauri::command]
 pub async fn fetch_server_accounts() -> Result<Vec<AccountInfo>, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let resp = client
         .get(format!("{}/api/accounts", VPS_SERVER_URL))
         .timeout(std::time::Duration::from_secs(5))
@@ -432,7 +432,7 @@ pub async fn fetch_server_accounts() -> Result<Vec<AccountInfo>, String> {
 
 #[tauri::command]
 pub async fn test_account_connection(exchange: String, account_name: String) -> Result<String, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
 
     // 거래소별 테스트 엔드포인트 매핑
     let endpoint = match exchange.to_uppercase().as_str() {
@@ -546,7 +546,7 @@ pub async fn register_api_key(
     api_passphrase: Option<String>,
     account_number: Option<String>,
 ) -> Result<RegisterApiKeyResponse, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/user/accounts", VPS_SERVER_URL);
 
     let body = serde_json::json!({
@@ -593,7 +593,7 @@ pub async fn delete_api_key(
     account_name: String,
     exchange: String,
 ) -> Result<String, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/user/accounts/{}", VPS_SERVER_URL, account_id);
 
     let resp = client
@@ -616,7 +616,7 @@ pub async fn delete_api_key(
 
 #[tauri::command]
 pub async fn get_accounts_list(access_token: String) -> Result<Vec<AccountInfo>, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/user/accounts", VPS_SERVER_URL);
 
     let resp = client
@@ -675,7 +675,7 @@ pub struct TimelineEvent {
 
 #[tauri::command]
 pub async fn fetch_timeline(limit: Option<i64>) -> Result<Vec<TimelineEvent>, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!(
         "{}/api/timeline?limit={}",
         VPS_SERVER_URL,
@@ -703,7 +703,7 @@ pub struct ConnectorStatus {
 
 #[tauri::command]
 pub async fn fetch_connector_status() -> Result<Vec<ConnectorStatus>, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let resp = client
         .get(format!("{}/api/connectors/status", VPS_SERVER_URL))
         .timeout(std::time::Duration::from_secs(5))
@@ -729,7 +729,7 @@ pub struct SubscriptionInfo {
 
 #[tauri::command]
 pub async fn fetch_subscription() -> Result<SubscriptionInfo, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let resp = client
         .get(format!("{}/api/subscription", VPS_SERVER_URL))
         .timeout(std::time::Duration::from_secs(5))
@@ -793,7 +793,7 @@ pub struct AuthError {
 
 #[tauri::command]
 pub async fn login_with_email(email: String, password: String) -> Result<AuthTokens, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/auth/login", VPS_SERVER_URL);
 
     let body = serde_json::json!({
@@ -826,7 +826,7 @@ pub async fn register_with_email(
     password: String,
     name: Option<String>,
 ) -> Result<AuthTokens, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/auth/register", VPS_SERVER_URL);
 
     let body = serde_json::json!({
@@ -856,7 +856,7 @@ pub async fn register_with_email(
 
 #[tauri::command]
 pub async fn get_user_info(access_token: String) -> Result<UserInfo, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/auth/me", VPS_SERVER_URL);
 
     let resp = client
@@ -879,7 +879,7 @@ pub async fn get_user_info(access_token: String) -> Result<UserInfo, String> {
 
 #[tauri::command]
 pub async fn refresh_auth_token(refresh_token: String) -> Result<AuthTokens, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/auth/refresh", VPS_SERVER_URL);
 
     let body = serde_json::json!({
@@ -920,7 +920,7 @@ pub struct PortfolioSummary {
 
 #[tauri::command]
 pub async fn get_portfolio_summary(access_token: String) -> Result<PortfolioSummary, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/portfolio/summary", VPS_SERVER_URL);
 
     let resp = client
@@ -965,7 +965,7 @@ pub struct PortfolioChart {
 
 #[tauri::command]
 pub async fn get_portfolio_chart(access_token: String, period: String) -> Result<PortfolioChart, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/portfolio/chart?period={}", VPS_SERVER_URL, period);
 
     let resp = client
@@ -1030,7 +1030,7 @@ pub struct Holding {
 
 #[tauri::command]
 pub async fn get_holdings(access_token: String) -> Result<Vec<Holding>, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/portfolio/holdings", VPS_SERVER_URL);
 
     let resp = client
@@ -1079,7 +1079,7 @@ pub struct ActiveStrategy {
 
 #[tauri::command]
 pub async fn get_active_strategies(access_token: String) -> Result<Vec<ActiveStrategy>, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/strategies/active", VPS_SERVER_URL);
 
     let resp = client
@@ -1116,7 +1116,7 @@ pub async fn get_active_strategies(access_token: String) -> Result<Vec<ActiveStr
 
 #[tauri::command]
 pub async fn emergency_stop(access_token: String) -> Result<bool, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/system/emergency-stop", VPS_SERVER_URL);
 
     let resp = client
@@ -1152,7 +1152,7 @@ pub struct WebhookLogItem {
 
 #[tauri::command]
 pub async fn get_webhook_logs(access_token: String, limit: Option<i32>) -> Result<Vec<WebhookLogItem>, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/webhook/logs?limit={}", VPS_SERVER_URL, limit.unwrap_or(20));
 
     let resp = client
@@ -1196,7 +1196,7 @@ pub struct WebhookUrlInfo {
 
 #[tauri::command]
 pub async fn get_webhook_url(access_token: String) -> Result<WebhookUrlInfo, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/webhook/url", VPS_SERVER_URL);
 
     let resp = client
@@ -1243,7 +1243,7 @@ pub async fn search_symbols(
     query: String,
     exchange: Option<String>,
 ) -> Result<Vec<SymbolInfo>, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let mut url = format!("{}/api/symbols/search?q={}", VPS_SERVER_URL, query);
     if let Some(ex) = exchange {
         url = format!("{}&exchange={}", url, ex);
@@ -1295,7 +1295,7 @@ pub async fn get_symbol_detail(
     symbol: String,
     exchange: String,
 ) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/symbols/{}/{}", VPS_SERVER_URL, exchange, symbol);
 
     let resp = client
@@ -1361,7 +1361,7 @@ pub async fn get_popular_symbols(
     access_token: String,
     exchange: Option<String>,
 ) -> Result<PopularSymbols, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
 
     // exchange 파라미터가 있으면 쿼리 추가
     let url = match &exchange {
@@ -1446,7 +1446,7 @@ pub async fn run_backtest(
     params: serde_json::Value,
     order_settings: serde_json::Value,
 ) -> Result<BacktestResult, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/backtest", VPS_SERVER_URL);
 
     let body = serde_json::json!({
@@ -1502,7 +1502,7 @@ pub async fn save_strategy(
     order_settings: serde_json::Value,
     is_active: bool,
 ) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/strategies", VPS_SERVER_URL);
 
     let body = serde_json::json!({
@@ -1535,7 +1535,7 @@ pub async fn save_strategy(
 
 #[tauri::command]
 pub async fn get_strategies(access_token: String) -> Result<Vec<StrategyItem>, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/strategies", VPS_SERVER_URL);
 
     let resp = client
@@ -1575,7 +1575,7 @@ pub async fn get_strategies(access_token: String) -> Result<Vec<StrategyItem>, S
 
 #[tauri::command]
 pub async fn toggle_strategy(access_token: String, strategy_id: i64) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/strategies/{}/toggle", VPS_SERVER_URL, strategy_id);
 
     let resp = client
@@ -1596,7 +1596,7 @@ pub async fn toggle_strategy(access_token: String, strategy_id: i64) -> Result<s
 
 #[tauri::command]
 pub async fn delete_strategy(access_token: String, strategy_id: i64) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/strategies/{}", VPS_SERVER_URL, strategy_id);
 
     let resp = client
@@ -1621,7 +1621,7 @@ pub async fn delete_strategy(access_token: String, strategy_id: i64) -> Result<s
 
 #[tauri::command]
 pub async fn verify_password(access_token: String, password: String) -> Result<bool, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/auth/verify-password", VPS_SERVER_URL);
 
     let body = serde_json::json!({ "password": password });
@@ -1667,7 +1667,7 @@ pub async fn admin_get_users(
     search: Option<String>,
     plan_filter: Option<String>,
 ) -> Result<Vec<AdminUser>, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let mut url = format!("{}/api/admin/users?", VPS_SERVER_URL);
     if let Some(s) = search {
         url = format!("{}search={}&", url, s);
@@ -1717,7 +1717,7 @@ pub async fn admin_update_user_plan(
     user_id: i64,
     plan: String,
 ) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/admin/users/{}/plan", VPS_SERVER_URL, user_id);
 
     let body = serde_json::json!({ "plan": plan });
@@ -1752,7 +1752,7 @@ pub struct SystemStatus {
 
 #[tauri::command]
 pub async fn admin_get_system_status(access_token: String) -> Result<SystemStatus, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/admin/system", VPS_SERVER_URL);
 
     let resp = client
@@ -1785,7 +1785,7 @@ pub async fn admin_get_system_status(access_token: String) -> Result<SystemStatu
 // Admin Stats (관리자 대시보드 통계)
 #[tauri::command]
 pub async fn admin_get_stats(access_token: String) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/admin/stats", VPS_SERVER_URL);
 
     let resp = client
@@ -1806,7 +1806,7 @@ pub async fn admin_get_stats(access_token: String) -> Result<serde_json::Value, 
 
 #[tauri::command]
 pub async fn admin_get_recent_users(access_token: String) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/admin/recent-users", VPS_SERVER_URL);
 
     let resp = client
@@ -1841,7 +1841,7 @@ pub async fn get_market_overview(access_token: String) -> Result<serde_json::Val
     };
     println!("[Rust DEBUG] get_market_overview: token={}", token_preview);
 
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/market/overview", VPS_SERVER_URL);
 
     let resp = client
@@ -1866,7 +1866,7 @@ pub async fn get_market_overview(access_token: String) -> Result<serde_json::Val
 
 #[tauri::command]
 pub async fn get_market_sectors(access_token: String) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/market/sectors", VPS_SERVER_URL);
 
     let resp = client
@@ -1892,7 +1892,7 @@ pub async fn get_stock_ranking(
     ranking_type: String,
     market: String,
 ) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!(
         "{}/api/market/ranking?ranking_type={}&market={}",
         VPS_SERVER_URL, ranking_type, market
@@ -1917,7 +1917,7 @@ pub async fn get_stock_ranking(
 
 #[tauri::command]
 pub async fn get_featured_stocks(access_token: String) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/market/featured", VPS_SERVER_URL);
 
     let resp = client
@@ -1943,7 +1943,7 @@ pub async fn get_market_events(
     event_type: String,
     month: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let mut url = format!("{}/api/market/events?event_type={}", VPS_SERVER_URL, event_type);
     if let Some(m) = month {
         url.push_str(&format!("&month={}", m));
@@ -1972,7 +1972,7 @@ pub async fn get_market_events(
 
 #[tauri::command]
 pub async fn get_ai_usage(access_token: String) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/ai/usage", VPS_SERVER_URL);
 
     let resp = client
@@ -1996,7 +1996,7 @@ pub async fn request_ai_analysis(
     symbol: String,
     exchange: String,
 ) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/ai/analyze", VPS_SERVER_URL);
 
     let body = serde_json::json!({
@@ -2025,7 +2025,7 @@ pub async fn request_ai_analysis(
 
 #[tauri::command]
 pub async fn get_market_timeline(access_token: String) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/market/timeline", VPS_SERVER_URL);
 
     let resp = client
@@ -2045,7 +2045,7 @@ pub async fn get_market_timeline(access_token: String) -> Result<serde_json::Val
 
 #[tauri::command]
 pub async fn get_watchlist_groups(access_token: String) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/watchlist/groups", VPS_SERVER_URL);
 
     let resp = client
@@ -2068,7 +2068,7 @@ pub async fn create_watchlist_group(
     access_token: String,
     name: String,
 ) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/watchlist/groups", VPS_SERVER_URL);
 
     let body = serde_json::json!({ "name": name });
@@ -2095,7 +2095,7 @@ pub async fn delete_watchlist_group(
     access_token: String,
     group_id: i64,
 ) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/watchlist/groups/{}", VPS_SERVER_URL, group_id);
 
     let resp = client
@@ -2118,7 +2118,7 @@ pub async fn get_watchlist_items(
     access_token: String,
     group_id: i64,
 ) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/watchlist/groups/{}/items", VPS_SERVER_URL, group_id);
 
     let resp = client
@@ -2143,7 +2143,7 @@ pub async fn add_watchlist_item(
     symbol: String,
     exchange: String,
 ) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/watchlist/items", VPS_SERVER_URL);
 
     let body = serde_json::json!({
@@ -2177,7 +2177,7 @@ pub async fn remove_watchlist_item(
     access_token: String,
     item_id: i64,
 ) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/watchlist/items/{}", VPS_SERVER_URL, item_id);
 
     let resp = client
@@ -2204,7 +2204,7 @@ pub async fn get_market_etf(
     access_token: String,
     sector: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let sector_param = sector.unwrap_or_else(|| "all".to_string());
     let url = format!("{}/api/market/etf?sector={}", VPS_SERVER_URL, sector_param);
 
@@ -2228,7 +2228,7 @@ pub async fn get_market_crypto(
     access_token: String,
     exchange: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let exchange_param = exchange.unwrap_or_else(|| "all".to_string());
     let url = format!("{}/api/market/crypto?exchange={}", VPS_SERVER_URL, exchange_param);
 
@@ -2252,7 +2252,7 @@ pub async fn get_analysis_rs(
     access_token: String,
     market: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let market_param = market.unwrap_or_else(|| "all".to_string());
     let url = format!("{}/api/analysis/rs?market={}", VPS_SERVER_URL, market_param);
 
@@ -2273,7 +2273,7 @@ pub async fn get_analysis_rs(
 
 #[tauri::command]
 pub async fn get_analysis_new_high(access_token: String) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/analysis/new-high", VPS_SERVER_URL);
 
     let resp = client
@@ -2296,7 +2296,7 @@ pub async fn get_analysis_valuation(
     access_token: String,
     market: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let market_param = market.unwrap_or_else(|| "all".to_string());
     let url = format!("{}/api/analysis/valuation?market={}", VPS_SERVER_URL, market_param);
 
