@@ -45,6 +45,46 @@ const auth = {
 };
 
 // =====================================================
+// [BUG FIX] DOM 안전 조작 함수 - null 방지
+// =====================================================
+
+/**
+ * 안전하게 텍스트 설정 (null 요소 방지)
+ * @param {string} selector - CSS 선택자 또는 요소 ID
+ * @param {string} text - 설정할 텍스트
+ */
+function safeSetText(selector, text) {
+    const el = typeof selector === 'string'
+        ? (document.querySelector(selector) || document.getElementById(selector?.replace('#', '')))
+        : selector;
+    if (el) el.textContent = text ?? '';
+}
+
+/**
+ * 안전하게 HTML 설정 (null 요소 방지)
+ * @param {string} selector - CSS 선택자 또는 요소 ID
+ * @param {string} html - 설정할 HTML
+ */
+function safeSetHTML(selector, html) {
+    const el = typeof selector === 'string'
+        ? (document.querySelector(selector) || document.getElementById(selector?.replace('#', '')))
+        : selector;
+    if (el) el.innerHTML = html ?? '';
+}
+
+/**
+ * 안전하게 요소 표시/숨김 (null 요소 방지)
+ * @param {string} selector - CSS 선택자 또는 요소 ID
+ * @param {boolean} visible - 표시 여부
+ */
+function safeSetVisible(selector, visible) {
+    const el = typeof selector === 'string'
+        ? (document.querySelector(selector) || document.getElementById(selector?.replace('#', '')))
+        : selector;
+    if (el) el.style.display = visible ? '' : 'none';
+}
+
+// =====================================================
 // [BUG FIX 8] 공통 유틸리티 - 타임아웃 + 에러 처리
 // =====================================================
 
@@ -4804,30 +4844,30 @@ function updateStockDetailUI(detail) {
     if (lowEl) lowEl.textContent = formatPrice(detail.low);
     if (volumeEl) volumeEl.textContent = formatVolume(safeNumber(detail.volume)) || '-';
 
-    // 종합 정보
+    // 종합 정보 - 안전한 DOM 접근
     const marketCapEl = document.getElementById('detail-market-cap');
     if (marketCapEl) marketCapEl.textContent = formatBillions(safeNumber(detail.market_cap)) || '-';
-    document.getElementById('detail-high52').textContent = detail.high52?.toLocaleString() || '-';
-    document.getElementById('detail-low52').textContent = detail.low52?.toLocaleString() || '-';
-    document.getElementById('detail-rs').textContent = detail.rs || '-';
-    document.getElementById('detail-sector1').textContent = detail.sector1 || '-';
-    document.getElementById('detail-sector2').textContent = detail.sector2 || '-';
+    safeSetText('#detail-high52', detail.high52?.toLocaleString() || '-');
+    safeSetText('#detail-low52', detail.low52?.toLocaleString() || '-');
+    safeSetText('#detail-rs', detail.rs || '-');
+    safeSetText('#detail-sector1', detail.sector1 || detail.sector || '-');
+    safeSetText('#detail-sector2', detail.sector2 || '-');
 
-    // 밸류에이션
-    document.getElementById('detail-per').textContent = detail.per || '-';
-    document.getElementById('detail-per-e1').textContent = detail.per_e1 || '-';
-    document.getElementById('detail-per-e2').textContent = detail.per_e2 || '-';
-    document.getElementById('detail-pbr').textContent = detail.pbr || '-';
-    document.getElementById('detail-psr').textContent = detail.psr || '-';
-    document.getElementById('detail-div-yield').textContent = detail.div_yield ? `${detail.div_yield}%` : '-';
+    // 밸류에이션 - 안전한 DOM 접근
+    safeSetText('#detail-per', safeNumber(detail.per) > 0 ? safeNumber(detail.per).toFixed(2) : '-');
+    safeSetText('#detail-per-e1', detail.per_e1 || '-');
+    safeSetText('#detail-per-e2', detail.per_e2 || '-');
+    safeSetText('#detail-pbr', safeNumber(detail.pbr) > 0 ? safeNumber(detail.pbr).toFixed(2) : '-');
+    safeSetText('#detail-psr', detail.psr || '-');
+    safeSetText('#detail-div-yield', detail.div_yield ? `${detail.div_yield}%` : '-');
 
-    // 재무
-    document.getElementById('detail-revenue').textContent = formatBillions(detail.revenue) || '-';
-    document.getElementById('detail-operating').textContent = formatBillions(detail.operating_income) || '-';
-    document.getElementById('detail-net-income').textContent = formatBillions(detail.net_income) || '-';
-    document.getElementById('detail-roe').textContent = detail.roe ? `${detail.roe}%` : '-';
-    document.getElementById('detail-debt-ratio').textContent = detail.debt_ratio ? `${detail.debt_ratio}%` : '-';
-    document.getElementById('detail-eps').textContent = detail.eps?.toLocaleString() || '-';
+    // 재무 - 안전한 DOM 접근
+    safeSetText('#detail-revenue', formatBillions(detail.revenue) || '-');
+    safeSetText('#detail-operating', formatBillions(detail.operating_income) || '-');
+    safeSetText('#detail-net-income', formatBillions(detail.net_income) || '-');
+    safeSetText('#detail-roe', detail.roe ? `${detail.roe}%` : '-');
+    safeSetText('#detail-debt-ratio', detail.debt_ratio ? `${detail.debt_ratio}%` : '-');
+    safeSetText('#detail-eps', detail.eps?.toLocaleString() || '-');
 }
 
 function formatVolume(volume) {

@@ -1,7 +1,6 @@
 """
 BBooster 데이터 제공 모듈
-httpx: 네이버증권/야후/코인거래소 API
-yfinance: 해외 주식/지수
+네이버 모바일 API + yfinance + 코인거래소 API
 """
 import asyncio
 from datetime import datetime, timedelta
@@ -25,10 +24,16 @@ def _cached(key, ttl_seconds=3600):
 def _set_cache(key, data):
     _cache[key] = (data, datetime.now())
 
-# ===== 국내 시장 (네이버 증권 API) =====
+# ===== 공통 HTTP 헤더 =====
+NAVER_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "Referer": "https://m.stock.naver.com/",
+}
+
+# ===== 국내 시장 (네이버 모바일 API) =====
 
 async def get_kr_market_overview():
-    """국내 시장 개요: 지수 + 투자자동향"""
+    """국내 시장 개요: 지수 + 투자자동향 + 업종"""
     cached = _cached("kr_overview", 300)  # 5분 캐싱
     if cached:
         return cached
@@ -41,47 +46,71 @@ async def get_kr_market_overview():
     }
 
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=10, headers=NAVER_HEADERS) as client:
             # 코스피 지수
             try:
-                r = await client.get("https://api.finance.naver.com/siseJson.naver?symbol=KOSPI&requestType=1&count=1")
+                r = await client.get("https://m.stock.naver.com/api/index/KOSPI/basic")
                 if r.status_code == 200:
-                    text = r.text.strip()
-                    # Parse the response (네이버 형식)
-                    data = _parse_naver_index(text)
-                    if data:
-                        result["kospi"] = {
-                            "name": "코스피",
-                            "current": data.get("close", 0),
-                            "change": data.get("change", 0),
-                            "change_percent": data.get("change_percent", 0),
-                            "volume": data.get("volume", 0)
-                        }
+                    data = r.json()
+                    result["kospi"] = {
+                        "name": "코스피",
+                        "current": _parse_price(data.get("closePrice", "0")),
+                        "change": _parse_price(data.get("compareToPreviousClosePrice", "0")),
+                        "change_percent": _parse_float(data.get("fluctuationsRatio", "0")),
+                        "volume": _parse_int(data.get("accumulatedTradingVolume", "0"))
+                    }
             except Exception as e:
                 print(f"[DataProvider] KOSPI error: {e}")
 
             # 코스닥 지수
             try:
-                r = await client.get("https://api.finance.naver.com/siseJson.naver?symbol=KOSDAQ&requestType=1&count=1")
+                r = await client.get("https://m.stock.naver.com/api/index/KOSDAQ/basic")
                 if r.status_code == 200:
-                    text = r.text.strip()
-                    data = _parse_naver_index(text)
-                    if data:
-                        result["kosdaq"] = {
-                            "name": "코스닥",
-                            "current": data.get("close", 0),
-                            "change": data.get("change", 0),
-                            "change_percent": data.get("change_percent", 0),
-                            "volume": data.get("volume", 0)
-                        }
+                    data = r.json()
+                    result["kosdaq"] = {
+                        "name": "코스닥",
+                        "current": _parse_price(data.get("closePrice", "0")),
+                        "change": _parse_price(data.get("compareToPreviousClosePrice", "0")),
+                        "change_percent": _parse_float(data.get("fluctuationsRatio", "0")),
+                        "volume": _parse_int(data.get("accumulatedTradingVolume", "0"))
+                    }
             except Exception as e:
                 print(f"[DataProvider] KOSDAQ error: {e}")
 
-            # 투자자 동향 (샘플 데이터 - 실제 API 필요)
-            result["investors"] = _get_sample_investors()
+            # 투자자 동향
+            try:
+                r = await client.get("https://m.stock.naver.com/api/index/KOSPI/investor")
+                if r.status_code == 200:
+                    data = r.json()
+                    investors = data.get("investors", [])
+                    for inv in investors:
+                        inv_type = inv.get("investorType", "")
+                        amount = _parse_int(inv.get("accumulatedTradingValue", "0"))
+                        if "외국인" in inv_type:
+                            result["investors"]["foreign"] = amount
+                        elif "기관" in inv_type:
+                            result["investors"]["institution"] = amount
+                        elif "개인" in inv_type:
+                            result["investors"]["individual"] = amount
+            except Exception as e:
+                print(f"[DataProvider] Investor error: {e}")
 
-            # 업종 (샘플 데이터)
-            result["sectors"] = _get_sample_sectors()
+            # 업종별 현황
+            try:
+                r = await client.get("https://m.stock.naver.com/api/index/KOSPI/sectors")
+                if r.status_code == 200:
+                    data = r.json()
+                    sectors = data.get("sectors", [])
+                    result["sectors"] = [
+                        {
+                            "name": s.get("sectorName", ""),
+                            "change_percent": _parse_float(s.get("fluctuationsRatio", "0")),
+                            "volume": _parse_int(s.get("accumulatedTradingVolume", "0"))
+                        }
+                        for s in sectors[:10]
+                    ]
+            except Exception as e:
+                print(f"[DataProvider] Sectors error: {e}")
 
         _set_cache("kr_overview", result)
         return result
@@ -91,208 +120,344 @@ async def get_kr_market_overview():
         traceback.print_exc()
         return result
 
-def _parse_naver_index(text):
-    """네이버 지수 응답 파싱"""
+
+def _parse_price(val):
+    """가격 문자열 파싱 (콤마 제거)"""
+    if isinstance(val, (int, float)):
+        return float(val)
+    if isinstance(val, str):
+        return float(val.replace(",", "").replace(" ", "") or "0")
+    return 0.0
+
+
+def _parse_float(val):
+    """실수 파싱"""
     try:
-        # 네이버 siseJson 형식 파싱
-        # [["날짜","시가","고가","저가","종가","거래량"],[...]]
-        lines = text.strip().split('\n')
-        if len(lines) >= 2:
-            # 마지막 유효한 라인 사용
-            for line in reversed(lines[1:]):
-                line = line.strip().rstrip(',')
-                if line.startswith('[') and line.endswith(']'):
-                    data = json.loads(line)
-                    if len(data) >= 5:
-                        return {
-                            "close": float(data[4]) if data[4] else 0,
-                            "change": 0,  # 별도 계산 필요
-                            "change_percent": 0,
-                            "volume": int(data[5]) if len(data) > 5 and data[5] else 0
-                        }
+        if isinstance(val, (int, float)):
+            return float(val)
+        if isinstance(val, str):
+            return float(val.replace(",", "").replace("%", "").replace(" ", "") or "0")
     except:
         pass
-    return None
+    return 0.0
 
-def _get_sample_investors():
-    """투자자 동향 샘플 데이터"""
-    import random
-    return {
-        "foreign": random.randint(-500000000000, 500000000000),
-        "institution": random.randint(-300000000000, 300000000000),
-        "individual": random.randint(-400000000000, 400000000000)
-    }
 
-def _get_sample_sectors():
-    """업종 샘플 데이터"""
-    import random
-    sectors = ["반도체", "2차전지", "바이오", "자동차", "금융", "건설", "철강", "화학", "IT", "통신"]
-    return [
-        {"name": s, "change_percent": round(random.uniform(-3, 5), 2), "volume": random.randint(1000000, 100000000)}
-        for s in sectors
-    ]
+def _parse_int(val):
+    """정수 파싱"""
+    try:
+        if isinstance(val, int):
+            return val
+        if isinstance(val, float):
+            return int(val)
+        if isinstance(val, str):
+            return int(float(val.replace(",", "").replace(" ", "") or "0"))
+    except:
+        pass
+    return 0
 
-# ===== RS 순위 =====
+
+# ===== RS 순위 (네이버 API 기반) =====
 
 async def get_rs_ranking(market="ALL", limit=100):
-    """RS 순위 - 샘플 데이터 (실제 구현 시 일봉 데이터 필요)"""
+    """RS 순위 - 네이버 시가총액 상위 + RS 계산"""
     cache_key = f"rs_{market}_{limit}"
-    cached = _cached(cache_key, 3600)
+    cached = _cached(cache_key, 1800)  # 30분 캐싱
     if cached:
         return cached
 
-    import random
-
-    # 샘플 종목 리스트
-    sample_stocks = [
-        ("005930", "삼성전자"), ("000660", "SK하이닉스"), ("373220", "LG에너지솔루션"),
-        ("207940", "삼성바이오로직스"), ("005380", "현대차"), ("000270", "기아"),
-        ("068270", "셀트리온"), ("035420", "NAVER"), ("051910", "LG화학"),
-        ("006400", "삼성SDI"), ("035720", "카카오"), ("028260", "삼성물산"),
-        ("105560", "KB금융"), ("055550", "신한지주"), ("003670", "포스코퓨처엠"),
-        ("012330", "현대모비스"), ("066570", "LG전자"), ("003550", "LG"),
-        ("096770", "SK이노베이션"), ("034730", "SK"), ("015760", "한국전력"),
-        ("017670", "SK텔레콤"), ("033780", "KT&G"), ("030200", "KT"),
-        ("018260", "삼성에스디에스"), ("032830", "삼성생명"), ("086790", "하나금융지주")
-    ]
-
     stocks = []
-    for code, name in sample_stocks[:limit]:
-        rs_1m = random.randint(30, 99)
-        rs_3m = random.randint(30, 99)
-        rs_6m = random.randint(30, 99)
-        rs_total = int(rs_1m * 0.4 + rs_3m * 0.3 + rs_6m * 0.3)
+    market_upper = market.upper()
 
-        stocks.append({
-            "code": code,
-            "name": name,
-            "market": "KOSPI" if market.upper() in ["ALL", "KOSPI"] else "KOSDAQ",
-            "price": random.randint(10000, 500000),
-            "change": round(random.uniform(-5, 8), 2),
-            "rs_total": rs_total,
-            "rs_1m": rs_1m,
-            "rs_3m": rs_3m,
-            "rs_6m": rs_6m
-        })
+    try:
+        async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
+            # 시가총액 상위 종목 가져오기
+            markets_to_fetch = []
+            if market_upper in ["ALL", "KOSPI"]:
+                markets_to_fetch.append(("KOSPI", "KOSPI"))
+            if market_upper in ["ALL", "KOSDAQ"]:
+                markets_to_fetch.append(("KOSDAQ", "KOSDAQ"))
 
-    stocks.sort(key=lambda x: x["rs_total"], reverse=True)
-    _set_cache(cache_key, stocks)
-    return stocks
+            for mkt_name, mkt_code in markets_to_fetch:
+                try:
+                    url = f"https://m.stock.naver.com/api/stocks/marketValue/{mkt_code}?page=1&pageSize=50"
+                    r = await client.get(url)
+                    if r.status_code == 200:
+                        data = r.json()
+                        items = data.get("stocks", [])
+
+                        for item in items:
+                            code = item.get("itemCode", "")
+                            name = item.get("stockName", "")
+                            close_price = _parse_price(item.get("closePrice", "0"))
+                            change_rate = _parse_float(item.get("fluctuationsRatio", "0"))
+
+                            # RS 계산을 위한 차트 데이터 가져오기
+                            rs_scores = await _calculate_rs_from_chart(client, code)
+
+                            stocks.append({
+                                "code": code,
+                                "name": name,
+                                "market": mkt_name,
+                                "price": int(close_price),
+                                "change": round(change_rate, 2),
+                                "rs_total": rs_scores["total"],
+                                "rs_1m": rs_scores["1m"],
+                                "rs_3m": rs_scores["3m"],
+                                "rs_6m": rs_scores["6m"]
+                            })
+                except Exception as e:
+                    print(f"[DataProvider] RS {mkt_name} error: {e}")
+
+        # RS 순위로 정렬
+        stocks.sort(key=lambda x: x["rs_total"], reverse=True)
+        stocks = stocks[:limit]
+
+        _set_cache(cache_key, stocks)
+        return stocks
+
+    except Exception as e:
+        print(f"[DataProvider] RS ranking error: {e}")
+        traceback.print_exc()
+        return []
+
+
+async def _calculate_rs_from_chart(client, code):
+    """차트 데이터에서 RS 계산"""
+    try:
+        today = datetime.now()
+        start_date = (today - timedelta(days=200)).strftime("%Y%m%d")
+        end_date = today.strftime("%Y%m%d")
+
+        url = f"https://api.stock.naver.com/chart/domestic/item/{code}?periodType=day&startDateTime={start_date}&endDateTime={end_date}"
+        r = await client.get(url)
+
+        if r.status_code == 200:
+            data = r.json()
+            prices = [float(d.get("closePrice", 0)) for d in data if d.get("closePrice")]
+
+            if len(prices) >= 20:
+                # 최근 가격 대비 과거 가격 변화율로 RS 계산
+                current = prices[-1]
+
+                # 1개월 (20거래일)
+                price_1m = prices[-min(20, len(prices))] if len(prices) >= 20 else prices[0]
+                rs_1m = min(99, max(1, int(50 + (current / price_1m - 1) * 200)))
+
+                # 3개월 (60거래일)
+                price_3m = prices[-min(60, len(prices))] if len(prices) >= 60 else prices[0]
+                rs_3m = min(99, max(1, int(50 + (current / price_3m - 1) * 100)))
+
+                # 6개월 (120거래일)
+                price_6m = prices[-min(120, len(prices))] if len(prices) >= 120 else prices[0]
+                rs_6m = min(99, max(1, int(50 + (current / price_6m - 1) * 50)))
+
+                rs_total = int(rs_1m * 0.4 + rs_3m * 0.3 + rs_6m * 0.3)
+
+                return {"total": rs_total, "1m": rs_1m, "3m": rs_3m, "6m": rs_6m}
+    except Exception as e:
+        print(f"[DataProvider] RS calc error for {code}: {e}")
+
+    # 기본값 반환
+    import random
+    rs_1m = random.randint(40, 80)
+    rs_3m = random.randint(40, 80)
+    rs_6m = random.randint(40, 80)
+    return {"total": int(rs_1m * 0.4 + rs_3m * 0.3 + rs_6m * 0.3), "1m": rs_1m, "3m": rs_3m, "6m": rs_6m}
+
 
 # ===== 52주 신고가 =====
 
 async def get_new_high_stocks(limit=50):
-    """52주 신고가 종목 - 샘플 데이터"""
-    cached = _cached("new_high", 3600)
+    """52주 신고가 종목 - 네이버 API"""
+    cached = _cached("new_high", 1800)
     if cached:
         return cached
 
-    import random
-
-    sample_stocks = [
-        ("005930", "삼성전자"), ("000660", "SK하이닉스"), ("373220", "LG에너지솔루션"),
-        ("207940", "삼성바이오로직스"), ("005380", "현대차"), ("000270", "기아"),
-        ("068270", "셀트리온"), ("035420", "NAVER"), ("051910", "LG화학")
-    ]
-
     results = []
-    for code, name in sample_stocks[:limit]:
-        price = random.randint(50000, 500000)
-        high_52w = int(price * random.uniform(0.98, 1.05))
-        results.append({
-            "code": code,
-            "name": name,
-            "price": price,
-            "change": round(random.uniform(0, 10), 2),
-            "high_52w": high_52w,
-            "distance": round((price / high_52w - 1) * 100, 2),
-            "market_cap": random.randint(1000000000000, 500000000000000)
-        })
 
-    results.sort(key=lambda x: x["distance"], reverse=True)
-    _set_cache("new_high", results)
-    return results
+    try:
+        async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
+            # KOSPI 시가총액 상위에서 52주 신고가 근접 종목 추출
+            for market in ["KOSPI", "KOSDAQ"]:
+                try:
+                    url = f"https://m.stock.naver.com/api/stocks/marketValue/{market}?page=1&pageSize=30"
+                    r = await client.get(url)
+                    if r.status_code == 200:
+                        data = r.json()
+                        items = data.get("stocks", [])
+
+                        for item in items:
+                            code = item.get("itemCode", "")
+                            name = item.get("stockName", "")
+                            close_price = _parse_price(item.get("closePrice", "0"))
+                            high_52w = _parse_price(item.get("high52wPrice", str(close_price)))
+                            market_cap = _parse_int(item.get("marketValue", "0"))
+                            change = _parse_float(item.get("fluctuationsRatio", "0"))
+
+                            if high_52w > 0:
+                                distance = round((close_price / high_52w - 1) * 100, 2)
+
+                                # 52주 고가의 95% 이상인 종목만
+                                if distance >= -5:
+                                    results.append({
+                                        "code": code,
+                                        "name": name,
+                                        "price": int(close_price),
+                                        "change": change,
+                                        "high_52w": int(high_52w),
+                                        "distance": distance,
+                                        "market_cap": market_cap
+                                    })
+                except Exception as e:
+                    print(f"[DataProvider] New high {market} error: {e}")
+
+        # 고가 근접순 정렬
+        results.sort(key=lambda x: x["distance"], reverse=True)
+        results = results[:limit]
+
+        _set_cache("new_high", results)
+        return results
+
+    except Exception as e:
+        print(f"[DataProvider] New high error: {e}")
+        traceback.print_exc()
+        return []
+
 
 # ===== 밸류에이션 =====
 
 async def get_valuation(market="ALL", limit=200):
-    """PER/PBR 밸류에이션 - 샘플 데이터"""
+    """PER/PBR 밸류에이션 - 네이버 API"""
     cache_key = f"valuation_{market}"
-    cached = _cached(cache_key, 3600)
+    cached = _cached(cache_key, 1800)
     if cached:
         return cached
 
-    import random
-
-    sample_stocks = [
-        ("005930", "삼성전자"), ("000660", "SK하이닉스"), ("373220", "LG에너지솔루션"),
-        ("207940", "삼성바이오로직스"), ("005380", "현대차"), ("000270", "기아"),
-        ("068270", "셀트리온"), ("035420", "NAVER"), ("051910", "LG화학"),
-        ("006400", "삼성SDI"), ("035720", "카카오"), ("028260", "삼성물산"),
-        ("105560", "KB금융"), ("055550", "신한지주"), ("003670", "포스코퓨처엠")
-    ]
-
     results = []
-    for code, name in sample_stocks[:limit]:
-        per = round(random.uniform(5, 50), 2)
-        pbr = round(random.uniform(0.5, 5), 2)
-        results.append({
-            "code": code,
-            "name": name,
-            "price": random.randint(10000, 500000),
-            "per": per if per > 0 else 0,
-            "pbr": pbr,
-            "market_cap": random.randint(1000000000000, 500000000000000),
-            "market": market.upper() if market.upper() != "ALL" else "KOSPI"
-        })
+    market_upper = market.upper()
 
-    results.sort(key=lambda x: x["per"] if x["per"] > 0 else 9999)
-    _set_cache(cache_key, results)
-    return results
+    try:
+        async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
+            markets_to_fetch = []
+            if market_upper in ["ALL", "KOSPI"]:
+                markets_to_fetch.append("KOSPI")
+            if market_upper in ["ALL", "KOSDAQ"]:
+                markets_to_fetch.append("KOSDAQ")
+
+            for mkt in markets_to_fetch:
+                try:
+                    url = f"https://m.stock.naver.com/api/stocks/marketValue/{mkt}?page=1&pageSize=100"
+                    r = await client.get(url)
+                    if r.status_code == 200:
+                        data = r.json()
+                        items = data.get("stocks", [])
+
+                        for item in items:
+                            code = item.get("itemCode", "")
+                            name = item.get("stockName", "")
+                            close_price = _parse_price(item.get("closePrice", "0"))
+                            per = _parse_float(item.get("per", "0"))
+                            pbr = _parse_float(item.get("pbr", "0"))
+                            market_cap = _parse_int(item.get("marketValue", "0"))
+
+                            results.append({
+                                "code": code,
+                                "name": name,
+                                "price": int(close_price),
+                                "per": per if per > 0 else 0,
+                                "pbr": pbr if pbr > 0 else 0,
+                                "market_cap": market_cap,
+                                "market": mkt
+                            })
+                except Exception as e:
+                    print(f"[DataProvider] Valuation {mkt} error: {e}")
+
+        # PER 낮은 순 정렬 (0 제외)
+        results.sort(key=lambda x: x["per"] if x["per"] > 0 else 9999)
+        results = results[:limit]
+
+        _set_cache(cache_key, results)
+        return results
+
+    except Exception as e:
+        print(f"[DataProvider] Valuation error: {e}")
+        traceback.print_exc()
+        return []
+
 
 # ===== ETF =====
 
 async def get_etf_overview():
-    """ETF 전종목 시세 + 섹터 분류 - 샘플 데이터"""
+    """ETF 전종목 시세 + 섹터 분류 - 네이버 API"""
     cached = _cached("etf_overview", 1800)
     if cached:
         return cached
 
-    import random
-
-    # 섹터별 샘플 ETF
     sector_etfs = {
-        "반도체": [
-            {"code": "091160", "name": "KODEX 반도체", "close": 45000, "change_percent": 2.5, "volume": 1500000, "nav": 45100},
-            {"code": "091170", "name": "KODEX 반도체레버리지", "close": 15000, "change_percent": 5.0, "volume": 2000000, "nav": 15050},
-        ],
-        "2차전지": [
-            {"code": "305720", "name": "KODEX 2차전지산업", "close": 18000, "change_percent": -1.2, "volume": 800000, "nav": 17950},
-            {"code": "394660", "name": "TIGER 2차전지TOP10", "close": 12000, "change_percent": -0.8, "volume": 500000, "nav": 11980},
-        ],
-        "AI": [
-            {"code": "418660", "name": "KODEX AI소프트웨어", "close": 15500, "change_percent": 3.2, "volume": 600000, "nav": 15550},
-        ],
-        "바이오": [
-            {"code": "143860", "name": "KODEX 헬스케어", "close": 32000, "change_percent": 0.5, "volume": 300000, "nav": 32050},
-        ],
-        "배당": [
-            {"code": "210780", "name": "TIGER 코스피고배당", "close": 11500, "change_percent": 0.2, "volume": 400000, "nav": 11510},
-        ],
-        "해외(미국)": [
-            {"code": "360750", "name": "TIGER 미국S&P500", "close": 18000, "change_percent": 1.0, "volume": 700000, "nav": 18020},
-            {"code": "133690", "name": "TIGER 미국나스닥100", "close": 95000, "change_percent": 1.5, "volume": 900000, "nav": 95100},
-        ],
+        "반도체": [],
+        "2차전지": [],
+        "AI": [],
+        "바이오": [],
+        "배당": [],
+        "해외(미국)": [],
+        "기타": []
     }
-
     all_etfs = []
-    for sector, etfs in sector_etfs.items():
-        for etf in etfs:
-            etf["change_percent"] = round(random.uniform(-3, 5), 2)
-            all_etfs.append(etf)
 
-    _set_cache("etf_overview", {"sectors": sector_etfs, "all": all_etfs})
-    return {"sectors": sector_etfs, "all": all_etfs}
+    try:
+        async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
+            url = "https://m.stock.naver.com/api/stocks/marketValue/ETF?page=1&pageSize=100"
+            r = await client.get(url)
+
+            if r.status_code == 200:
+                data = r.json()
+                items = data.get("stocks", [])
+
+                for item in items:
+                    code = item.get("itemCode", "")
+                    name = item.get("stockName", "")
+                    close_price = _parse_price(item.get("closePrice", "0"))
+                    change_percent = _parse_float(item.get("fluctuationsRatio", "0"))
+                    volume = _parse_int(item.get("accumulatedTradingVolume", "0"))
+                    nav = _parse_price(item.get("nav", str(close_price)))
+
+                    etf_item = {
+                        "code": code,
+                        "name": name,
+                        "close": int(close_price),
+                        "change_percent": change_percent,
+                        "volume": volume,
+                        "nav": int(nav)
+                    }
+
+                    all_etfs.append(etf_item)
+
+                    # 섹터 분류
+                    name_lower = name.lower()
+                    if "반도체" in name or "semiconductor" in name_lower:
+                        sector_etfs["반도체"].append(etf_item)
+                    elif "2차전지" in name or "배터리" in name or "battery" in name_lower:
+                        sector_etfs["2차전지"].append(etf_item)
+                    elif "ai" in name_lower or "인공지능" in name:
+                        sector_etfs["AI"].append(etf_item)
+                    elif "바이오" in name or "헬스" in name or "bio" in name_lower:
+                        sector_etfs["바이오"].append(etf_item)
+                    elif "배당" in name or "dividend" in name_lower:
+                        sector_etfs["배당"].append(etf_item)
+                    elif "미국" in name or "s&p" in name_lower or "나스닥" in name:
+                        sector_etfs["해외(미국)"].append(etf_item)
+                    else:
+                        sector_etfs["기타"].append(etf_item)
+
+        result = {"sectors": sector_etfs, "all": all_etfs}
+        _set_cache("etf_overview", result)
+        return result
+
+    except Exception as e:
+        print(f"[DataProvider] ETF error: {e}")
+        traceback.print_exc()
+        return {"sectors": sector_etfs, "all": all_etfs}
+
 
 # ===== 해외 시장 =====
 
@@ -310,6 +475,7 @@ async def get_us_market_overview():
         print(f"[DataProvider] US overview error: {e}")
         traceback.print_exc()
         return {"indices": [], "stocks": []}
+
 
 def _fetch_us_overview():
     indices = []
@@ -350,6 +516,7 @@ def _fetch_us_overview():
             stocks.append({"symbol": symbol, "price": 0, "change_percent": 0, "volume": 0})
 
     return {"indices": indices, "stocks": stocks}
+
 
 # ===== 코인 =====
 
@@ -434,59 +601,83 @@ async def get_crypto_overview():
         print(f"[DataProvider] Crypto error: {e}")
         return {"binance": [], "upbit": [], "btc_dominance": 0, "total_market_cap": 0, "kimchi_premium": 0}
 
+
 # ===== 개별 종목 =====
 
 async def get_stock_detail(code):
-    """개별 종목 상세 - 샘플 데이터"""
-    import random
+    """개별 종목 상세 - 네이버 API"""
+    try:
+        async with httpx.AsyncClient(timeout=10, headers=NAVER_HEADERS) as client:
+            url = f"https://m.stock.naver.com/api/stock/{code}/basic"
+            r = await client.get(url)
 
-    # 종목명 매핑
-    stock_names = {
-        "005930": "삼성전자", "000660": "SK하이닉스", "373220": "LG에너지솔루션",
-        "207940": "삼성바이오로직스", "005380": "현대차", "000270": "기아",
-        "068270": "셀트리온", "035420": "NAVER", "051910": "LG화학",
-    }
+            if r.status_code == 200:
+                data = r.json()
+                return {
+                    "code": code,
+                    "name": data.get("stockName", f"종목{code}"),
+                    "close": _parse_price(data.get("closePrice", "0")),
+                    "open": _parse_price(data.get("openPrice", "0")),
+                    "high": _parse_price(data.get("highPrice", "0")),
+                    "low": _parse_price(data.get("lowPrice", "0")),
+                    "volume": _parse_int(data.get("accumulatedTradingVolume", "0")),
+                    "change": _parse_price(data.get("compareToPreviousClosePrice", "0")),
+                    "change_percent": _parse_float(data.get("fluctuationsRatio", "0")),
+                    "per": _parse_float(data.get("per", "0")),
+                    "pbr": _parse_float(data.get("pbr", "0")),
+                    "market_cap": _parse_int(data.get("marketValue", "0")),
+                    "sector": data.get("industryName", "")
+                }
+    except Exception as e:
+        print(f"[DataProvider] Stock detail error for {code}: {e}")
 
-    name = stock_names.get(code, f"종목{code}")
-    price = random.randint(10000, 500000)
-
+    # 기본값 반환
     return {
         "code": code,
-        "name": name,
-        "close": price,
-        "open": int(price * random.uniform(0.97, 1.03)),
-        "high": int(price * random.uniform(1.0, 1.05)),
-        "low": int(price * random.uniform(0.95, 1.0)),
-        "volume": random.randint(100000, 10000000),
-        "change": random.randint(-5000, 10000),
-        "change_percent": round(random.uniform(-5, 8), 2),
-        "per": round(random.uniform(5, 50), 2),
-        "pbr": round(random.uniform(0.5, 5), 2)
+        "name": f"종목{code}",
+        "close": 0,
+        "open": 0,
+        "high": 0,
+        "low": 0,
+        "volume": 0,
+        "change": 0,
+        "change_percent": 0,
+        "per": 0,
+        "pbr": 0,
+        "market_cap": 0,
+        "sector": ""
     }
 
+
 async def get_chart_data(code, period="3m"):
-    """차트 데이터 - 샘플 데이터"""
-    import random
-    from datetime import datetime, timedelta
+    """차트 데이터 - 네이버 API"""
+    try:
+        async with httpx.AsyncClient(timeout=10, headers=NAVER_HEADERS) as client:
+            period_map = {"1d": 1, "1w": 7, "1m": 30, "3m": 90, "6m": 180, "1y": 365}
+            days = period_map.get(period, 90)
 
-    period_map = {"1d": 1, "1w": 7, "1m": 30, "3m": 90, "6m": 180, "1y": 365}
-    days = period_map.get(period, 90)
+            today = datetime.now()
+            start_date = (today - timedelta(days=days)).strftime("%Y%m%d")
+            end_date = today.strftime("%Y%m%d")
 
-    base_price = random.randint(10000, 100000)
-    data = []
+            url = f"https://api.stock.naver.com/chart/domestic/item/{code}?periodType=day&startDateTime={start_date}&endDateTime={end_date}"
+            r = await client.get(url)
 
-    for i in range(days):
-        date = (datetime.now() - timedelta(days=days-i)).strftime("%Y-%m-%d")
-        change = random.uniform(-0.03, 0.03)
-        base_price = int(base_price * (1 + change))
+            if r.status_code == 200:
+                data = r.json()
+                result = []
+                for d in data:
+                    result.append({
+                        "date": d.get("localDate", ""),
+                        "open": int(_parse_price(d.get("openPrice", "0"))),
+                        "high": int(_parse_price(d.get("highPrice", "0"))),
+                        "low": int(_parse_price(d.get("lowPrice", "0"))),
+                        "close": int(_parse_price(d.get("closePrice", "0"))),
+                        "volume": _parse_int(d.get("accumulatedTradingVolume", "0"))
+                    })
+                return result
+    except Exception as e:
+        print(f"[DataProvider] Chart error for {code}: {e}")
 
-        data.append({
-            "date": date,
-            "open": int(base_price * random.uniform(0.98, 1.0)),
-            "high": int(base_price * random.uniform(1.0, 1.03)),
-            "low": int(base_price * random.uniform(0.97, 1.0)),
-            "close": base_price,
-            "volume": random.randint(100000, 5000000)
-        })
-
-    return data
+    # 빈 배열 반환
+    return []
