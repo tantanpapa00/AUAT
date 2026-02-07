@@ -3756,8 +3756,16 @@ async function loadMarketKr() {
         // 지수 카드 + 투자자 동향 UI 렌더링
         contentEl.innerHTML = `
             <div class="market-grid">
-                <div class="index-card" id="kr-index-kospi"></div>
-                <div class="index-card" id="kr-index-kosdaq"></div>
+                <div class="index-card" id="kr-index-kospi">
+                    <div class="index-name">코스피</div>
+                    <div class="index-value">-</div>
+                    <div class="index-change">-</div>
+                </div>
+                <div class="index-card" id="kr-index-kosdaq">
+                    <div class="index-name">코스닥</div>
+                    <div class="index-value">-</div>
+                    <div class="index-change">-</div>
+                </div>
             </div>
             <div class="market-signal" id="market-signal-kr"></div>
             <div class="investor-section card">
@@ -3861,9 +3869,21 @@ async function loadMarketUs() {
         // UI 렌더링
         contentEl.innerHTML = `
             <div class="market-grid us-grid">
-                <div class="index-card" id="us-index-sp500"></div>
-                <div class="index-card" id="us-index-nasdaq"></div>
-                <div class="index-card" id="us-index-dow"></div>
+                <div class="index-card" id="us-index-sp500">
+                    <div class="index-name">S&P 500</div>
+                    <div class="index-value">-</div>
+                    <div class="index-change">-</div>
+                </div>
+                <div class="index-card" id="us-index-nasdaq">
+                    <div class="index-name">나스닥</div>
+                    <div class="index-value">-</div>
+                    <div class="index-change">-</div>
+                </div>
+                <div class="index-card" id="us-index-dow">
+                    <div class="index-name">다우</div>
+                    <div class="index-value">-</div>
+                    <div class="index-change">-</div>
+                </div>
             </div>
             <div class="us-stocks-section card">
                 <h3>주요 종목</h3>
