@@ -1314,6 +1314,189 @@ pub async fn get_symbol_detail(
     }
 }
 
+// =====================================================
+// Stock Detail Renewal APIs (Phase 2)
+// =====================================================
+
+/// 종목 재무 요약 (요약 탭)
+#[tauri::command]
+pub async fn get_stock_financial_summary(
+    access_token: String,
+    code: String,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/stock/{}/financial-summary", VPS_SERVER_URL, code);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("재무 요약 정보를 가져올 수 없습니다".to_string())
+    }
+}
+
+/// 종목 실적 추이 (재무 탭)
+#[tauri::command]
+pub async fn get_stock_financial_trend(
+    access_token: String,
+    code: String,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/stock/{}/financial-trend", VPS_SERVER_URL, code);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("실적 추이 정보를 가져올 수 없습니다".to_string())
+    }
+}
+
+/// 기업 정보 (기업 탭)
+#[tauri::command]
+pub async fn get_stock_company(
+    access_token: String,
+    code: String,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/stock/{}/company", VPS_SERVER_URL, code);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("기업 정보를 가져올 수 없습니다".to_string())
+    }
+}
+
+/// 재무제표 상세 (재무 탭)
+#[tauri::command]
+pub async fn get_stock_financial_statement(
+    access_token: String,
+    code: String,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/stock/{}/financial-statement", VPS_SERVER_URL, code);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("재무제표 정보를 가져올 수 없습니다".to_string())
+    }
+}
+
+/// 종목 뉴스 (소식 탭)
+#[tauri::command]
+pub async fn get_stock_news(
+    access_token: String,
+    code: String,
+    limit: Option<i32>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let limit_val = limit.unwrap_or(20);
+    let url = format!("{}/api/stock/{}/news?limit={}", VPS_SERVER_URL, code, limit_val);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("뉴스 정보를 가져올 수 없습니다".to_string())
+    }
+}
+
+/// 공시 정보 (소식 탭)
+#[tauri::command]
+pub async fn get_stock_disclosures(
+    access_token: String,
+    code: String,
+    limit: Option<i32>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let limit_val = limit.unwrap_or(20);
+    let url = format!("{}/api/stock/{}/disclosures?limit={}", VPS_SERVER_URL, code, limit_val);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("공시 정보를 가져올 수 없습니다".to_string())
+    }
+}
+
+/// 투자의견/컨센서스 (요약 탭)
+#[tauri::command]
+pub async fn get_stock_consensus(
+    access_token: String,
+    code: String,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/stock/{}/consensus", VPS_SERVER_URL, code);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("컨센서스 정보를 가져올 수 없습니다".to_string())
+    }
+}
+
 /// 각 거래소별 인기 종목 목록
 #[derive(Serialize, Deserialize, Default)]
 pub struct PopularSymbols {

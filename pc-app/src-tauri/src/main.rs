@@ -142,6 +142,14 @@ fn main() {
             commands::get_analysis_rs,
             commands::get_analysis_new_high,
             commands::get_analysis_valuation,
+            // Stock Detail Renewal (Phase 2)
+            commands::get_stock_financial_summary,
+            commands::get_stock_financial_trend,
+            commands::get_stock_company,
+            commands::get_stock_financial_statement,
+            commands::get_stock_news,
+            commands::get_stock_disclosures,
+            commands::get_stock_consensus,
         ])
         .setup(|app| {
             // 앱 시작 시 VPS 서버 연결 확인 (로컬 서버 시작 없음)
