@@ -10,3 +10,5 @@ python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 itsdangerous==2.1.2
 yfinance==0.2.36
+beautifulsoup4==4.12.3
+lxml==5.1.0

@@ -9,6 +9,7 @@ import httpx
 import traceback
 import json
 import re
+from bs4 import BeautifulSoup
 
 # ===== 캐싱 =====
 _cache = {}
@@ -77,40 +78,67 @@ async def get_kr_market_overview():
             except Exception as e:
                 print(f"[DataProvider] KOSDAQ error: {e}")
 
-            # 투자자 동향
+            # 투자자 동향 (메인 페이지에서 파싱)
             try:
-                r = await client.get("https://m.stock.naver.com/api/index/KOSPI/investor")
+                r = await client.get("https://finance.naver.com/sise/")
                 if r.status_code == 200:
-                    data = r.json()
-                    investors = data.get("investors", [])
-                    for inv in investors:
-                        inv_type = inv.get("investorType", "")
-                        amount = _parse_int(inv.get("accumulatedTradingValue", "0"))
-                        if "외국인" in inv_type:
-                            result["investors"]["foreign"] = amount
-                        elif "기관" in inv_type:
-                            result["investors"]["institution"] = amount
-                        elif "개인" in inv_type:
-                            result["investors"]["individual"] = amount
+                    r.encoding = "euc-kr"
+                    inv_soup = BeautifulSoup(r.text, "lxml")
+                    links = inv_soup.find_all("a")
+                    foreign_val = 0
+                    institution_val = 0
+                    for link in links:
+                        text = link.get_text(strip=True)
+                        if "억" in text and text.startswith("외국인"):
+                            try:
+                                val_str = text.replace("외국인", "").replace("억", "").replace(",", "").replace("+", "")
+                                foreign_val = int(float(val_str))
+                                break
+                            except:
+                                pass
+                    for link in links:
+                        text = link.get_text(strip=True)
+                        if "억" in text and text.startswith("기관"):
+                            try:
+                                val_str = text.replace("기관", "").replace("억", "").replace(",", "").replace("+", "")
+                                institution_val = int(float(val_str))
+                                break
+                            except:
+                                pass
+                    individual_val = -(foreign_val + institution_val)
+                    result["investors"] = {
+                        "foreign": foreign_val,
+                        "institution": institution_val,
+                        "individual": individual_val
+                    }
             except Exception as e:
                 print(f"[DataProvider] Investor error: {e}")
 
-            # 업종별 현황
+            # 업종별 현황 (HTML 파싱)
             try:
-                r = await client.get("https://m.stock.naver.com/api/index/KOSPI/sectors")
+                r = await client.get("https://finance.naver.com/sise/sise_group.naver?type=upjong")
                 if r.status_code == 200:
-                    data = r.json()
-                    sectors = data.get("sectors", [])
-                    result["sectors"] = [
-                        {
-                            "name": s.get("sectorName", ""),
-                            "change_percent": _parse_float(s.get("fluctuationsRatio", "0")),
-                            "volume": _parse_int(s.get("accumulatedTradingVolume", "0"))
-                        }
-                        for s in sectors[:10]
-                    ]
+                    r.encoding = "euc-kr"
+                    soup = BeautifulSoup(r.text, "lxml")
+                    sectors = []
+                    rows = soup.select("table.type_1 tr")
+                    for row in rows:
+                        cells = row.select("td")
+                        if len(cells) >= 4:
+                            name_el = cells[0].select_one("a")
+                            if name_el:
+                                name = name_el.get_text(strip=True)
+                                change_pct_str = cells[1].get_text(strip=True).replace("%", "").replace("+", "")
+                                try:
+                                    change_val = float(change_pct_str) if change_pct_str else 0
+                                    sectors.append({"name": name, "change_percent": change_val, "volume": 0})
+                                except:
+                                    pass
+                    sectors.sort(key=lambda x: x["change_percent"], reverse=True)
+                    result["sectors"] = sectors[:15]
             except Exception as e:
                 print(f"[DataProvider] Sectors error: {e}")
+
 
         _set_cache("kr_overview", result)
         return result
@@ -483,135 +511,147 @@ async def get_valuation(market="ALL", limit=200):
 # ===== ETF =====
 
 async def get_etf_overview():
-    """ETF 전종목 시세 + 섹터 분류 - 네이버 API"""
+    """ETF 시세 - 주요 ETF 개별 조회"""
     cached = _cached("etf_overview", 1800)
     if cached:
         return cached
 
-    sector_etfs = {
-        "반도체": [],
-        "2차전지": [],
-        "AI": [],
-        "바이오": [],
-        "배당": [],
-        "해외(미국)": [],
-        "기타": []
+    # 주요 ETF 코드 목록 (섹터별)
+    ETF_LIST = {
+        "반도체": ["091160", "091170", "395160", "395170"],  # KODEX 반도체, TIGER 반도체 등
+        "2차전지": ["305720", "371460", "305540", "373220"],  # KODEX 2차전지, TIGER 2차전지 등
+        "AI": ["418660", "460850", "474220"],  # KODEX AI, TIGER AI 등
+        "바이오": ["143860", "227540", "203780"],  # KODEX 헬스케어, TIGER 헬스케어 등
+        "배당": ["161510", "148020", "278530"],  # KODEX 고배당, TIGER 배당 등
+        "해외(미국)": ["360750", "133690", "379810", "379800", "261240"],  # TIGER 미국S&P500, 나스닥 등
+        "기타": ["069500", "102110", "114800", "252670", "278240"]  # KODEX 200, TIGER 200 등
     }
+
+    sector_etfs = {k: [] for k in ETF_LIST.keys()}
     all_etfs = []
 
     try:
         async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
-            url = "https://m.stock.naver.com/api/stocks/marketValue/ETF?page=1&pageSize=100"
-            r = await client.get(url)
-
-            if r.status_code == 200:
-                data = r.json()
-                items = data.get("stocks", [])
-
-                for item in items:
-                    code = item.get("itemCode", "")
-                    name = item.get("stockName", "")
-                    close_price = _parse_price(item.get("closePrice", "0"))
-                    change_percent = _parse_float(item.get("fluctuationsRatio", "0"))
-                    volume = _parse_int(item.get("accumulatedTradingVolume", "0"))
-                    nav = _parse_price(item.get("nav", str(close_price)))
-
-                    etf_item = {
-                        "code": code,
-                        "name": name,
-                        "close": int(close_price),
-                        "change_percent": change_percent,
-                        "volume": volume,
-                        "nav": int(nav)
-                    }
-
-                    all_etfs.append(etf_item)
-
-                    # 섹터 분류
-                    name_lower = name.lower()
-                    if "반도체" in name or "semiconductor" in name_lower:
-                        sector_etfs["반도체"].append(etf_item)
-                    elif "2차전지" in name or "배터리" in name or "battery" in name_lower:
-                        sector_etfs["2차전지"].append(etf_item)
-                    elif "ai" in name_lower or "인공지능" in name:
-                        sector_etfs["AI"].append(etf_item)
-                    elif "바이오" in name or "헬스" in name or "bio" in name_lower:
-                        sector_etfs["바이오"].append(etf_item)
-                    elif "배당" in name or "dividend" in name_lower:
-                        sector_etfs["배당"].append(etf_item)
-                    elif "미국" in name or "s&p" in name_lower or "나스닥" in name:
-                        sector_etfs["해외(미국)"].append(etf_item)
-                    else:
-                        sector_etfs["기타"].append(etf_item)
-
-        result = {"sectors": sector_etfs, "all": all_etfs}
-        _set_cache("etf_overview", result)
-        return result
-
+            for sector, codes in ETF_LIST.items():
+                for code in codes:
+                    try:
+                        url = f"https://m.stock.naver.com/api/stock/{code}/basic"
+                        r = await client.get(url)
+                        if r.status_code == 200:
+                            data = r.json()
+                            name = data.get("stockName", "")
+                            close_str = data.get("closePrice", "0")
+                            change_str = data.get("fluctuationsRatio", "0")
+                            volume_str = data.get("accumulatedTradingVolume", "0")
+                            
+                            close_price = _parse_price(close_str)
+                            change_pct = _parse_float(change_str)
+                            volume = _parse_int(volume_str)
+                            
+                            etf_item = {
+                                "code": code,
+                                "name": name,
+                                "close": int(close_price),
+                                "change_percent": change_pct,
+                                "volume": volume,
+                                "nav": int(close_price)
+                            }
+                            sector_etfs[sector].append(etf_item)
+                            all_etfs.append(etf_item)
+                    except Exception as e:
+                        print(f"[DataProvider] ETF {code} error: {e}")
+                        
     except Exception as e:
-        print(f"[DataProvider] ETF error: {e}")
+        print(f"[DataProvider] ETF overview error: {e}")
         traceback.print_exc()
-        return {"sectors": sector_etfs, "all": all_etfs}
 
+    result = {"sectors": sector_etfs, "all": all_etfs}
+    _set_cache("etf_overview", result)
+    return result
 
 # ===== 해외 시장 =====
 
 async def get_us_market_overview():
-    """해외 시장 개요 - yfinance"""
+    """해외 시장 개요 - Yahoo Finance 직접 API"""
     cached = _cached("us_overview", 600)
     if cached:
         return cached
 
-    try:
-        result = await asyncio.to_thread(_fetch_us_overview)
-        _set_cache("us_overview", result)
-        return result
-    except Exception as e:
-        print(f"[DataProvider] US overview error: {e}")
-        traceback.print_exc()
-        return {"indices": [], "stocks": []}
-
-
-def _fetch_us_overview():
-    indices = []
-    for symbol, name in [("^GSPC", "S&P 500"), ("^IXIC", "나스닥"), ("^DJI", "다우존스"), ("^RUT", "러셀2000")]:
-        try:
-            t = yf.Ticker(symbol)
-            info = t.fast_info
-            last_price = float(info.last_price) if hasattr(info, 'last_price') else 0
-            prev_close = float(info.previous_close) if hasattr(info, 'previous_close') else last_price
-            indices.append({
-                "name": name,
-                "current": round(last_price, 2),
-                "change": round(last_price - prev_close, 2),
-                "change_percent": round((last_price / prev_close - 1) * 100, 2) if prev_close > 0 else 0
-            })
-        except Exception as e:
-            print(f"[DataProvider] US index {symbol} error: {e}")
-            indices.append({"name": name, "current": 0, "change": 0, "change_percent": 0})
-
-    # 주요 미국 종목 TOP 20
+    result = {"indices": [], "stocks": [], "success": True}
+    
+    YAHOO_HEADERS = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    }
+    
+    indices_info = [("^GSPC", "S&P 500"), ("^IXIC", "나스닥"), ("^DJI", "다우존스"), ("^RUT", "러셀2000")]
     top_symbols = ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "BRK-B", "JPM", "V",
                    "UNH", "MA", "HD", "PG", "COST", "ABBV", "CRM", "AVGO", "NFLX", "AMD"]
-    stocks = []
-    for symbol in top_symbols:
-        try:
-            t = yf.Ticker(symbol)
-            info = t.fast_info
-            last_price = float(info.last_price) if hasattr(info, 'last_price') else 0
-            prev_close = float(info.previous_close) if hasattr(info, 'previous_close') else last_price
-            last_volume = int(info.last_volume) if hasattr(info, 'last_volume') else 0
-            stocks.append({
-                "symbol": symbol,
-                "price": round(last_price, 2),
-                "change_percent": round((last_price / prev_close - 1) * 100, 2) if prev_close > 0 else 0,
-                "volume": last_volume
-            })
-        except:
-            stocks.append({"symbol": symbol, "price": 0, "change_percent": 0, "volume": 0})
+    
+    try:
+        async with httpx.AsyncClient(timeout=15, headers=YAHOO_HEADERS) as client:
+            # 지수 데이터
+            for symbol, name in indices_info:
+                try:
+                    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=2d"
+                    r = await client.get(url)
+                    if r.status_code == 200:
+                        data = r.json()
+                        chart_result = data.get("chart", {}).get("result", [])
+                        if chart_result:
+                            meta = chart_result[0].get("meta", {})
+                            price = meta.get("regularMarketPrice", 0)
+                            prev = meta.get("chartPreviousClose", 0)
+                            change = price - prev if prev else 0
+                            change_pct = (change / prev * 100) if prev else 0
+                            result["indices"].append({
+                                "name": name,
+                                "current": round(price, 2),
+                                "change": round(change, 2),
+                                "change_percent": round(change_pct, 2)
+                            })
+                        else:
+                            result["indices"].append({"name": name, "current": 0, "change": 0, "change_percent": 0})
+                    else:
+                        result["indices"].append({"name": name, "current": 0, "change": 0, "change_percent": 0})
+                except Exception as e:
+                    print(f"[DataProvider] US index {symbol} error: {e}")
+                    result["indices"].append({"name": name, "current": 0, "change": 0, "change_percent": 0})
+            
+            # 주요 종목 데이터
+            for symbol in top_symbols:
+                try:
+                    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=2d"
+                    r = await client.get(url)
+                    if r.status_code == 200:
+                        data = r.json()
+                        chart_result = data.get("chart", {}).get("result", [])
+                        if chart_result:
+                            meta = chart_result[0].get("meta", {})
+                            price = meta.get("regularMarketPrice", 0)
+                            prev = meta.get("chartPreviousClose", 0)
+                            volume = meta.get("regularMarketVolume", 0)
+                            change_pct = ((price - prev) / prev * 100) if prev else 0
+                            result["stocks"].append({
+                                "symbol": symbol,
+                                "name": meta.get("shortName", symbol),
+                                "price": round(price, 2),
+                                "change_percent": round(change_pct, 2),
+                                "volume": volume
+                            })
+                        else:
+                            result["stocks"].append({"symbol": symbol, "price": 0, "change_percent": 0, "volume": 0})
+                    else:
+                        result["stocks"].append({"symbol": symbol, "price": 0, "change_percent": 0, "volume": 0})
+                except Exception as e:
+                    print(f"[DataProvider] US stock {symbol} error: {e}")
+                    result["stocks"].append({"symbol": symbol, "price": 0, "change_percent": 0, "volume": 0})
+                    
+    except Exception as e:
+        print(f"[DataProvider] US overview error: {e}")
+        result["success"] = False
 
-    return {"indices": indices, "stocks": stocks}
-
+    _set_cache("us_overview", result)
+    return result
 
 # ===== 코인 =====
 
