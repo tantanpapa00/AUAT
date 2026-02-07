@@ -273,7 +273,48 @@
   ],"market":"kospi","success":true}
   ```
 
-- Commit: `958cba4`
+- Commit: `958cba4`, `e15357e`
+
+## Day 12 Update (2026-02-07) — DONE ✅
+- **8개 버그 수정 완료**
+  - [x] 버그 1: 국내시장 API admin 체크 + data_provider 사용으로 변경
+  - [x] 버그 4: 코인에 exchange 필드 추가 (binance/upbit)
+  - [x] 버그 5: 52주 신고가 — integration API로 실제 52주 고가 조회
+  - [x] 버그 6: 밸류에이션 — integration API로 PER/PBR 조회
+  - [x] 버그 8: RS 백분위 계산 개선 — fchart API 사용, 200개 종목 기반
+
+- **data_provider.py 개선**
+  - `fchart.stock.naver.com` 일봉 API 사용 (분봉 문제 해결)
+  - `m.stock.naver.com/api/stock/{code}/integration` API로 52주 고가/PER/PBR 조회
+  - RS 백분위 계산: 전체 종목 수익률 기반 순위 할당 (1위=99점)
+  - 캐싱 시간 1시간으로 조정 (API 호출 최적화)
+
+- **main.py 개선**
+  - `/api/market/kr/overview`: admin 체크 추가, data_provider 사용
+
+- **VPS 배포 및 테스트 결과**
+  - RS API: 1위 미래에셋증권 RS:98, 삼성전자 RS:79 (기간별 차별화)
+  - 52주 신고가: 우리금융지주 -0.46%, 기업은행 -0.65% (실제 거리 계산)
+  - 밸류에이션: 한국전력 PER:4.73/PBR:0.84, 기업은행 PER:6.79/PBR:0.52
+
+- **API 응답 샘플 (개선된 RS 순위)**
+  ```json
+  {"stocks":[
+    {"code":"006800","name":"미래에셋증권","market":"KOSPI","price":48000,"rs_total":98,"rs_1m":99,"rs_3m":98,"rs_6m":97},
+    {"code":"010130","name":"고려아연","market":"KOSPI","price":1641000,"rs_total":94,"rs_1m":97,"rs_3m":93,"rs_6m":92},
+    {"code":"005930","name":"삼성전자","market":"KOSPI","price":158600,"rs_total":79,"rs_1m":59,"rs_3m":91,"rs_6m":95}
+  ],"market":"kospi","success":true}
+  ```
+
+- **API 응답 샘플 (밸류에이션 PER/PBR)**
+  ```json
+  {"stocks":[
+    {"code":"015760","name":"한국전력","price":60700,"per":4.73,"pbr":0.84,"market_cap":389672,"market":"KOSPI"},
+    {"code":"024110","name":"기업은행","price":23000,"per":6.79,"pbr":0.52,"market_cap":183408,"market":"KOSPI"}
+  ],"market":"all","success":true}
+  ```
+
+- Commits: `18a940c`, `992ec00`
 
 ---
 
