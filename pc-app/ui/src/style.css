@@ -5165,6 +5165,253 @@ body {
     border-top: 1px solid var(--border);
 }
 
+/* 블러 오버레이 (프리미엄 콘텐츠) */
+.blur-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    border-radius: 8px;
+}
+
+.blur-message {
+    text-align: center;
+    color: var(--text-primary);
+}
+
+.blur-message span {
+    display: block;
+    margin-bottom: 12px;
+    font-size: 0.95rem;
+}
+
+.blur-item.blurred {
+    filter: blur(4px);
+    user-select: none;
+}
+
+.blur-section {
+    position: relative;
+}
+
+/* 뉴스 리스트 */
+.news-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.news-item {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.news-item:hover {
+    background: var(--bg-light);
+    margin: 0 -10px;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.news-title {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    line-height: 1.4;
+    margin-bottom: 6px;
+}
+
+.news-meta {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    display: flex;
+    gap: 12px;
+}
+
+.news-source {
+    color: var(--primary);
+}
+
+/* 공시 섹션 */
+.disclosure-section {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+}
+
+.disclosure-section h4 {
+    margin-bottom: 12px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.disclosure-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.disclosure-title {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.disclosure-date {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-left: 12px;
+}
+
+/* 기업 정보 */
+.company-info {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-bottom: 24px;
+}
+
+/* 동종업계 비교 */
+.comparables-section h4 {
+    margin-bottom: 12px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.comparables-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.comparable-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    background: var(--bg-card2);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.comparable-item:hover {
+    background: var(--bg-light);
+}
+
+.comp-name {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    flex: 1;
+}
+
+.comp-price {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-right: 12px;
+}
+
+.comp-change {
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.comp-change.profit {
+    color: var(--success);
+}
+
+.comp-change.loss {
+    color: var(--danger);
+}
+
+/* 컨센서스 섹션 */
+.consensus-section {
+    margin-top: 20px;
+    padding: 16px;
+    background: var(--bg-card2);
+    border-radius: 8px;
+}
+
+.consensus-section h4 {
+    margin-bottom: 12px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.consensus-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.target-price {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--primary);
+}
+
+.recommendation {
+    padding: 4px 12px;
+    background: var(--success);
+    color: white;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+/* 재무 추이 테이블 */
+.trend-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.trend-table th,
+.trend-table td {
+    padding: 10px 8px;
+    text-align: right;
+    border-bottom: 1px solid var(--border);
+}
+
+.trend-table th {
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.trend-table th:first-child,
+.trend-table td:first-child {
+    text-align: left;
+}
+
+.trend-table tr.estimate td {
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.loading-placeholder, .empty-state {
+    text-align: center;
+    padding: 24px;
+    color: var(--text-muted);
+}
+
+.blurred-placeholder {
+    filter: blur(5px);
+    padding: 40px;
+    text-align: center;
+    color: var(--text-muted);
+}
+
 /* =====================================================
    검색 자동완성
    ===================================================== */

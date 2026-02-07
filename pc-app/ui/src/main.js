@@ -4866,7 +4866,7 @@ function initSearchAutocomplete(inputId, autocompleteId, market = 'kr') {
     });
 }
 
-// 종목 상세 모달 열기
+// 종목 상세 모달 열기 (4-Tab 스탁이지 스타일)
 async function openStockDetail(symbol, exchange) {
     const modal = document.getElementById('stock-detail-modal');
     if (!modal) return;
@@ -4883,18 +4883,19 @@ async function openStockDetail(symbol, exchange) {
     if (codeEl) codeEl.textContent = symbol || '';
     if (marketEl) marketEl.textContent = exchange?.toUpperCase() || '';
 
+    // 첫 번째 탭(요약) 활성화
+    activateStockTab('summary');
+
     try {
-        // [BUG FIX 2] 종목 상세 정보 - 타임아웃 적용
+        // 1. 기본 종목 정보 로드
         const response = await invokeWithTimeout('get_symbol_detail', {
             accessToken: auth.accessToken || '',
             symbol: symbol,
             exchange: exchange
         }, 10000);
 
-        // [BUG FIX Day13] 응답 파싱 - API는 {basic, price, ...} 구조
         let detail = null;
         if (response && typeof response === 'object') {
-            // API 응답: { basic: {name, symbol, ...}, price: {current, change, ...}, ... }
             if (response.basic && response.basic.name) {
                 detail = {
                     name: response.basic.name,
@@ -4914,13 +4915,8 @@ async function openStockDetail(symbol, exchange) {
                     per: response.price?.per || 0,
                     pbr: response.price?.pbr || 0,
                     daily_prices: response.daily_prices || [],
-                    financial: response.financial,
-                    opinion: response.opinion,
-                    investor: response.investor,
                 };
-            }
-            // 기존 flat 구조 지원
-            else if (response.name) {
+            } else if (response.name) {
                 detail = response;
             }
         }
@@ -4929,15 +4925,255 @@ async function openStockDetail(symbol, exchange) {
             updateStockDetailUI(detail);
             initCandleChart(symbol, exchange, '1D');
         } else {
-            // 기본값 설정
             if (nameEl) nameEl.textContent = symbol || '-';
-            showToast('종목 정보를 불러올 수 없습니다', 'warning');
         }
+
+        // 2. 재무 요약 데이터 로드 (병렬)
+        loadFinancialSummary(symbol);
+
     } catch (error) {
         console.error('Failed to load stock detail:', error);
         if (nameEl) nameEl.textContent = symbol || '-';
         showToast('종목 정보를 불러올 수 없습니다', 'error');
     }
+}
+
+// 재무 요약 로드
+async function loadFinancialSummary(code) {
+    try {
+        const response = await invokeWithTimeout('get_stock_financial_summary', {
+            accessToken: auth.accessToken || '',
+            code: code
+        }, 10000);
+
+        if (response && response.data) {
+            const data = response.data;
+            const isPremium = response.is_premium;
+
+            // 기본 데이터 업데이트
+            safeSetText('#detail-per', data.per > 0 ? data.per.toFixed(2) : '-');
+            safeSetText('#detail-pbr', data.pbr > 0 ? data.pbr.toFixed(2) : '-');
+            safeSetText('#detail-eps', data.eps > 0 ? data.eps.toLocaleString() : '-');
+            safeSetText('#detail-high52', data.high_52w > 0 ? data.high_52w.toLocaleString() : '-');
+            safeSetText('#detail-low52', data.low_52w > 0 ? data.low_52w.toLocaleString() : '-');
+
+            // 프리미엄 데이터
+            if (isPremium) {
+                safeSetText('#detail-revenue', data.revenue_formatted || '-');
+                safeSetText('#detail-operating', data.operating_profit_formatted || '-');
+                document.getElementById('summary-blur-overlay')?.style.setProperty('display', 'none');
+            } else {
+                // 블러 처리
+                document.querySelectorAll('.blur-item').forEach(el => el.classList.add('blurred'));
+                document.getElementById('summary-blur-overlay')?.style.setProperty('display', 'flex');
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load financial summary:', error);
+    }
+}
+
+// 뉴스/공시 로드
+async function loadStockNews(code) {
+    const newsList = document.getElementById('stock-news-list');
+    const disclosureList = document.getElementById('stock-disclosure-list');
+
+    if (newsList) newsList.innerHTML = '<div class="loading-placeholder">뉴스를 불러오는 중...</div>';
+    if (disclosureList) disclosureList.innerHTML = '<div class="loading-placeholder">공시를 불러오는 중...</div>';
+
+    try {
+        // 뉴스 로드
+        const newsResponse = await invokeWithTimeout('get_stock_news', {
+            accessToken: auth.accessToken || '',
+            code: code,
+            limit: 10
+        }, 10000);
+
+        if (newsResponse && newsResponse.data && newsResponse.data.news) {
+            const newsHtml = newsResponse.data.news.map(item => `
+                <div class="news-item" onclick="window.open('${item.url}', '_blank')">
+                    <div class="news-title">${item.title}</div>
+                    <div class="news-meta">
+                        <span class="news-source">${item.source}</span>
+                        <span class="news-date">${formatNewsDate(item.date)}</span>
+                    </div>
+                </div>
+            `).join('');
+            if (newsList) newsList.innerHTML = newsHtml || '<div class="empty-state">뉴스가 없습니다</div>';
+        }
+
+        // 공시 로드
+        const disclosureResponse = await invokeWithTimeout('get_stock_disclosures', {
+            accessToken: auth.accessToken || '',
+            code: code,
+            limit: 10
+        }, 10000);
+
+        if (disclosureResponse && disclosureResponse.data) {
+            const disclosureHtml = disclosureResponse.data.map(item => `
+                <div class="disclosure-item">
+                    <div class="disclosure-title">${item.title}</div>
+                    <div class="disclosure-date">${formatNewsDate(item.date)}</div>
+                </div>
+            `).join('');
+            if (disclosureList) disclosureList.innerHTML = disclosureHtml || '<div class="empty-state">공시가 없습니다</div>';
+        }
+    } catch (error) {
+        console.error('Failed to load news:', error);
+        if (newsList) newsList.innerHTML = '<div class="empty-state">뉴스를 불러올 수 없습니다</div>';
+    }
+}
+
+// 기업 정보 로드
+async function loadCompanyInfo(code) {
+    const comparablesList = document.getElementById('comparables-list');
+    if (comparablesList) comparablesList.innerHTML = '<div class="loading-placeholder">데이터를 불러오는 중...</div>';
+
+    try {
+        const response = await invokeWithTimeout('get_stock_company', {
+            accessToken: auth.accessToken || '',
+            code: code
+        }, 10000);
+
+        if (response && response.data) {
+            const data = response.data;
+            safeSetText('#detail-company-name', data.name || '-');
+            safeSetText('#detail-sector', data.sector || '-');
+            safeSetText('#detail-market-type', data.market || '-');
+
+            // 동종업계 비교
+            if (data.comparables && data.comparables.length > 0) {
+                const comparablesHtml = data.comparables.map(comp => `
+                    <div class="comparable-item" onclick="openStockDetail('${comp.code}', 'KIS_KR')">
+                        <span class="comp-name">${comp.name}</span>
+                        <span class="comp-price">${comp.price?.toLocaleString()}</span>
+                        <span class="comp-change ${comp.change >= 0 ? 'profit' : 'loss'}">${comp.change >= 0 ? '+' : ''}${comp.change?.toFixed(2)}%</span>
+                    </div>
+                `).join('');
+                if (comparablesList) comparablesList.innerHTML = comparablesHtml;
+            } else {
+                if (comparablesList) comparablesList.innerHTML = '<div class="empty-state">비교 데이터가 없습니다</div>';
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load company info:', error);
+    }
+}
+
+// 재무 탭 로드
+async function loadFinancialTab(code) {
+    const trendContainer = document.getElementById('financial-trend');
+    if (trendContainer) trendContainer.innerHTML = '<div class="loading-placeholder">실적 데이터를 불러오는 중...</div>';
+
+    try {
+        const response = await invokeWithTimeout('get_stock_financial_trend', {
+            accessToken: auth.accessToken || '',
+            code: code
+        }, 10000);
+
+        if (response && response.is_premium && response.data) {
+            const data = response.data;
+            // 실적 추이 테이블
+            if (data.annual && data.annual.length > 0) {
+                const trendHtml = `
+                    <table class="trend-table">
+                        <thead>
+                            <tr>
+                                <th>기간</th>
+                                <th>매출액</th>
+                                <th>영업이익</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.annual.map(item => `
+                                <tr class="${item.is_estimate ? 'estimate' : ''}">
+                                    <td>${item.period}${item.is_estimate ? '(E)' : ''}</td>
+                                    <td>${formatKoreanNum(item.revenue)}</td>
+                                    <td>${formatKoreanNum(item.operating_profit)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                if (trendContainer) trendContainer.innerHTML = trendHtml;
+            }
+            document.getElementById('financial-blur-overlay')?.style.setProperty('display', 'none');
+        } else {
+            // 비프리미엄 - 블러 처리
+            if (trendContainer) trendContainer.innerHTML = '<div class="blurred-placeholder">실적 데이터</div>';
+            document.getElementById('financial-blur-overlay')?.style.setProperty('display', 'flex');
+        }
+
+        // 추가 재무 데이터 로드
+        const summaryResponse = await invokeWithTimeout('get_stock_financial_summary', {
+            accessToken: auth.accessToken || '',
+            code: code
+        }, 10000);
+
+        if (summaryResponse && summaryResponse.data) {
+            const data = summaryResponse.data;
+            safeSetText('#detail-roe', data.roe > 0 ? `${data.roe.toFixed(2)}%` : '-');
+            safeSetText('#detail-div-yield', data.dividend_yield > 0 ? `${data.dividend_yield.toFixed(2)}%` : '-');
+            safeSetText('#detail-bps', data.bps > 0 ? data.bps.toLocaleString() : '-');
+            safeSetText('#detail-foreign-ratio', data.foreign_ratio > 0 ? `${data.foreign_ratio.toFixed(2)}%` : '-');
+        }
+    } catch (error) {
+        console.error('Failed to load financial tab:', error);
+    }
+}
+
+// 탭 활성화
+function activateStockTab(tabName) {
+    // 탭 버튼 활성화
+    document.querySelectorAll('.info-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabName);
+    });
+
+    // 탭 콘텐츠 표시
+    document.querySelectorAll('.info-content').forEach(content => {
+        content.style.display = 'none';
+    });
+    const activeContent = document.getElementById(`info-${tabName}`);
+    if (activeContent) activeContent.style.display = 'block';
+
+    // 탭별 데이터 로드
+    if (currentStockData && currentStockData.symbol) {
+        const code = currentStockData.symbol;
+        switch (tabName) {
+            case 'news':
+                loadStockNews(code);
+                break;
+            case 'company':
+                loadCompanyInfo(code);
+                break;
+            case 'financial':
+                loadFinancialTab(code);
+                break;
+        }
+    }
+}
+
+// 뉴스 날짜 포맷
+function formatNewsDate(dateStr) {
+    if (!dateStr) return '';
+    // 202602071900 → 2026.02.07
+    if (dateStr.length === 12) {
+        return `${dateStr.slice(0, 4)}.${dateStr.slice(4, 6)}.${dateStr.slice(6, 8)}`;
+    }
+    // ISO 형식 → YYYY.MM.DD
+    if (dateStr.includes('T')) {
+        return dateStr.split('T')[0].replace(/-/g, '.');
+    }
+    return dateStr;
+}
+
+// 한국식 숫자 포맷
+function formatKoreanNum(val) {
+    if (!val || val === 0) return '-';
+    if (val >= 1e12) return `${(val / 1e12).toFixed(1)}조`;
+    if (val >= 1e8) return `${(val / 1e8).toFixed(0)}억`;
+    if (val >= 1e4) return `${(val / 1e4).toFixed(0)}만`;
+    return val.toLocaleString();
 }
 
 /**
@@ -5210,15 +5446,11 @@ document.querySelectorAll('.type-btn').forEach(btn => {
     });
 });
 
-// 종목 정보 탭 이벤트
+// 종목 정보 탭 이벤트 (4-Tab: 요약/소식/기업/재무)
 document.querySelectorAll('.info-tab').forEach(tab => {
     tab.addEventListener('click', () => {
-        document.querySelectorAll('.info-tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
         const tabId = tab.dataset.tab;
-        document.getElementById('info-overview').style.display = tabId === 'overview' ? 'block' : 'none';
-        document.getElementById('info-valuation').style.display = tabId === 'valuation' ? 'block' : 'none';
-        document.getElementById('info-financial').style.display = tabId === 'financial' ? 'block' : 'none';
+        activateStockTab(tabId);
     });
 });
 
