@@ -236,6 +236,45 @@
 
 - Commits: `a257c8b`, `9583e50`, `3502355`
 
+## Day 12 (2026-02-07) — DONE ✅
+- **KRX API 차단 우회 — 네이버 모바일 API 적용**
+  - [x] data_provider.py 전면 재작성
+    - pykrx 제거 (VPS 해외서버에서 KRX 차단)
+    - 네이버 모바일 API로 전환 (해외서버에서 정상 작동)
+  - [x] 지수 데이터: `m.stock.naver.com/api/index/KOSPI/basic`
+  - [x] 시가총액 상위: `m.stock.naver.com/api/stocks/marketValue/KOSPI`
+  - [x] RS 계산: `api.stock.naver.com/chart/domestic/item/{code}` 차트 데이터 기반
+  - [x] 투자자동향: `m.stock.naver.com/api/index/KOSPI/investor`
+  - [x] 업종별: `m.stock.naver.com/api/index/KOSPI/sectors`
+  - [x] ETF: `m.stock.naver.com/api/stocks/marketValue/ETF`
+  - [x] 개별종목: `m.stock.naver.com/api/stock/{code}/basic`
+
+- **프론트엔드 버그 수정**
+  - [x] `safeSetText()`, `safeSetHTML()`, `safeSetVisible()` 함수 추가 (DOM null 방지)
+  - [x] 종목 상세 UI 안전한 DOM 접근으로 수정
+  - [x] 모든 검색 input에 `autocomplete="off"` 적용
+    - user-search, stock-us-search, stock-etf-search, stock-crypto-search
+
+- **VPS 배포 및 테스트**
+  - [x] 배포: `docker compose up -d --build`
+  - [x] API 테스트 결과:
+    - `/api/health` ✅ `{"ok":true,"status":"running"}`
+    - `/api/analysis/rs` ✅ 실제 네이버 데이터 50개 종목 반환
+    - `/api/analysis/new-high` ✅ 52주 신고가 종목
+    - `/api/analysis/valuation` ✅ 밸류에이션 데이터
+    - `/api/symbols/popular` ✅ OKX 코인 실시간 데이터
+
+- **API 응답 샘플 (RS 순위)**
+  ```json
+  {"stocks":[
+    {"code":"005935","name":"삼성전자우","market":"KOSPI","price":112400,"change":-0.97,"rs_total":75},
+    {"code":"373220","name":"LG에너지솔루션","market":"KOSPI","price":385000,"change":-2.53,"rs_total":72},
+    {"code":"015760","name":"한국전력","market":"KOSPI","price":60700,"change":-1.94,"rs_total":72}
+  ],"market":"kospi","success":true}
+  ```
+
+- Commit: `958cba4`
+
 ---
 
 # 5) 매주 승인(작가님 체크 포인트)
