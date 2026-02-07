@@ -4335,6 +4335,12 @@ async function loadHigh52Data() {
             return;
         }
 
+        // 테이블 헤더 업데이트 (데이터 있는 컬럼만)
+        const tableHead = tbody.closest('table').querySelector('thead tr');
+        if (tableHead) {
+            tableHead.innerHTML = '<th>종목명</th><th>현재가</th><th>등락률</th><th>52주 최고가</th><th>최고가 대비</th><th>거래량</th>';
+        }
+
         tbody.innerHTML = stocks.slice(0, 30).map(s => {
             const changeVal = s.change || 0;
             const changeClass = changeVal >= 0 ? 'profit' : 'loss';
@@ -4349,7 +4355,6 @@ async function loadHigh52Data() {
                     <td class="${changeClass}">${changeStr}</td>
                     <td>${s.high_52w?.toLocaleString() || '-'}</td>
                     <td class="${distanceClass}">${distanceStr}</td>
-                    <td>-</td>
                     <td>${formatVolume(s.volume || 0)}</td>
                 </tr>
             `;
@@ -4366,7 +4371,7 @@ async function loadHigh52Data() {
     } catch (error) {
         console.error('52주 신고가 데이터 로드 실패:', error);
         const errMsg = error?.message || error || '알 수 없는 오류';
-        tbody.innerHTML = `<tr><td colspan="7" class="empty-cell">${errMsg}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-cell">${errMsg}</td></tr>`;
     }
 }
 
@@ -4389,17 +4394,23 @@ async function loadValuationData() {
             return;
         }
 
+        // 테이블 헤더 업데이트 (데이터 있는 컬럼만)
+        const tableHead = tbody.closest('table').querySelector('thead tr');
+        if (tableHead) {
+            tableHead.innerHTML = '<th>종목명</th><th>현재가</th><th>시가총액</th><th>PER</th><th>PBR</th><th>시장</th>';
+        }
+
         tbody.innerHTML = stocks.slice(0, 30).map(s => {
+            const per = s.per > 0 ? s.per.toFixed(2) : '-';
+            const pbr = s.pbr > 0 ? s.pbr.toFixed(2) : '-';
             return `
                 <tr class="clickable" data-symbol="${s.code}">
                     <td><strong>${s.name}</strong></td>
                     <td>${s.price?.toLocaleString() || '-'}</td>
                     <td>${formatBillions(s.market_cap || 0)}</td>
-                    <td>${s.per?.toFixed(2) || '-'}</td>
-                    <td>-</td>
-                    <td>-</td>
+                    <td>${per}</td>
+                    <td>${pbr}</td>
                     <td>${s.market || '-'}</td>
-                    <td>-</td>
                 </tr>
             `;
         }).join('');
@@ -4415,7 +4426,7 @@ async function loadValuationData() {
     } catch (error) {
         console.error('밸류에이션 데이터 로드 실패:', error);
         const errMsg = error?.message || error || '알 수 없는 오류';
-        tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">${errMsg}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-cell">${errMsg}</td></tr>`;
     }
 }
 
@@ -4880,29 +4891,41 @@ async function openStockDetail(symbol, exchange) {
             exchange: exchange
         }, 10000);
 
-        // [BUG FIX 2] 응답 파싱 - 다양한 형태 처리
+        // [BUG FIX Day13] 응답 파싱 - API는 {basic, price, ...} 구조
         let detail = null;
-        if (response) {
-            // response가 직접 데이터인 경우
-            if (typeof response === 'object' && response.name) {
+        if (response && typeof response === 'object') {
+            // API 응답: { basic: {name, symbol, ...}, price: {current, change, ...}, ... }
+            if (response.basic && response.basic.name) {
+                detail = {
+                    name: response.basic.name,
+                    symbol: response.basic.symbol,
+                    market: response.basic.market,
+                    exchange: response.basic.exchange,
+                    is_etf: response.basic.is_etf,
+                    sector: response.basic.sector,
+                    price: response.price?.current || 0,
+                    change: response.price?.change_amount || 0,
+                    change_percent: response.price?.change || 0,
+                    open: response.price?.open || 0,
+                    high: response.price?.high || 0,
+                    low: response.price?.low || 0,
+                    volume: response.price?.volume || 0,
+                    market_cap: response.price?.market_cap || 0,
+                    per: response.price?.per || 0,
+                    pbr: response.price?.pbr || 0,
+                    daily_prices: response.daily_prices || [],
+                    financial: response.financial,
+                    opinion: response.opinion,
+                    investor: response.investor,
+                };
+            }
+            // 기존 flat 구조 지원
+            else if (response.name) {
                 detail = response;
-            }
-            // response.data 형태인 경우
-            else if (response.data && typeof response.data === 'object') {
-                detail = response.data;
-            }
-            // response가 문자열인 경우 (JSON 파싱 시도)
-            else if (typeof response === 'string') {
-                try {
-                    detail = JSON.parse(response);
-                    if (detail.data) detail = detail.data;
-                } catch {
-                    detail = null;
-                }
             }
         }
 
-        if (detail && typeof detail === 'object' && detail.name) {
+        if (detail && detail.name) {
             updateStockDetailUI(detail);
             initCandleChart(symbol, exchange, '1D');
         } else {

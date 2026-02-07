@@ -381,6 +381,7 @@ async def get_new_high_stocks(limit=50):
                                 "price": _parse_price(item.get("closePrice", "0")),
                                 "change": _parse_float(item.get("fluctuationsRatio", "0")),
                                 "market_cap": _parse_int(item.get("marketValue", "0")),
+                                "volume": _parse_int(item.get("accumulatedTradingVolume", "0")),
                                 "market": market
                             })
                 except Exception as e:
@@ -411,7 +412,8 @@ async def get_new_high_stocks(limit=50):
                             "change": stock["change"],
                             "high_52w": int(high_52w),
                             "distance": distance,
-                            "market_cap": stock["market_cap"]
+                            "market_cap": stock["market_cap"],
+                            "volume": stock.get("volume", 0)
                         })
 
         # 고가 근접순 정렬
@@ -516,13 +518,13 @@ async def get_etf_overview():
     if cached:
         return cached
 
-    # 주요 ETF 코드 목록 (섹터별)
+    # 주요 ETF 코드 목록 (섹터별) - 2026년 기준 정확한 ETF 코드
     ETF_LIST = {
-        "반도체": ["091160", "091170", "395160", "395170"],  # KODEX 반도체, TIGER 반도체 등
-        "2차전지": ["305720", "371460", "305540", "373220"],  # KODEX 2차전지, TIGER 2차전지 등
-        "AI": ["418660", "460850", "474220"],  # KODEX AI, TIGER AI 등
-        "바이오": ["143860", "227540", "203780"],  # KODEX 헬스케어, TIGER 헬스케어 등
-        "배당": ["161510", "148020", "278530"],  # KODEX 고배당, TIGER 배당 등
+        "반도체": ["091160", "395160", "395170", "446720"],  # KODEX 반도체, KODEX AI반도체, TIGER 반도체
+        "2차전지": ["305720", "371460", "305540", "394660"],  # KODEX 2차전지산업, TIGER 2차전지테마
+        "AI": ["418660", "474220", "466940"],  # TIGER AI, KODEX AI레버리지
+        "바이오": ["143860", "227540", "203780"],  # TIGER 헬스케어, TIGER 200 헬스케어
+        "배당": ["161510", "148020", "278530", "449170"],  # PLUS 고배당주, RISE 200, KODEX 200TR
         "해외(미국)": ["360750", "133690", "379810", "379800", "261240"],  # TIGER 미국S&P500, 나스닥 등
         "기타": ["069500", "102110", "114800", "252670", "278240"]  # KODEX 200, TIGER 200 등
     }
@@ -539,15 +541,20 @@ async def get_etf_overview():
                         r = await client.get(url)
                         if r.status_code == 200:
                             data = r.json()
+                            # ETF 여부 확인 (stockEndType == 'etf')
+                            stock_type = data.get("stockEndType", "")
+                            if stock_type != "etf":
+                                continue  # 일반 주식은 스킵
+
                             name = data.get("stockName", "")
                             close_str = data.get("closePrice", "0")
                             change_str = data.get("fluctuationsRatio", "0")
                             volume_str = data.get("accumulatedTradingVolume", "0")
-                            
+
                             close_price = _parse_price(close_str)
                             change_pct = _parse_float(change_str)
                             volume = _parse_int(volume_str)
-                            
+
                             etf_item = {
                                 "code": code,
                                 "name": name,
