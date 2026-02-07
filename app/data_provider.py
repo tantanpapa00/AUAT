@@ -259,35 +259,38 @@ async def get_rs_ranking(market="ALL", limit=100):
 
 
 async def _calculate_returns_from_chart(client, code):
-    """차트 데이터에서 수익률 계산"""
+    """일봉 차트 데이터에서 수익률 계산 (네이버 fchart API)"""
     try:
-        today = datetime.now()
-        start_date = (today - timedelta(days=200)).strftime("%Y%m%d")
-        end_date = today.strftime("%Y%m%d")
-
-        url = f"https://api.stock.naver.com/chart/domestic/item/{code}?periodType=day&startDateTime={start_date}&endDateTime={end_date}"
+        # 네이버 일봉 차트 API (XML 형식)
+        url = f"https://fchart.stock.naver.com/sise.nhn?symbol={code}&timeframe=day&count=150&requestType=0"
         r = await client.get(url)
 
         if r.status_code == 200:
-            data = r.json()
-            prices = [float(d.get("closePrice", 0)) for d in data if d.get("closePrice")]
+            text = r.text
+            # XML에서 종가 추출: <item data="날짜|시가|고가|저가|종가|거래량" />
+            import re
+            pattern = r'data="(\d+)\|(\d+)\|(\d+)\|(\d+)\|(\d+)\|(\d+)"'
+            matches = re.findall(pattern, text)
 
-            if len(prices) >= 10:
+            if len(matches) >= 10:
+                # 종가 리스트 (index 4가 종가)
+                prices = [int(m[4]) for m in matches]
                 current = prices[-1]
+                total_days = len(prices)
 
                 # 1개월 (20거래일)
-                idx_1m = min(20, len(prices) - 1)
-                price_1m = prices[-(idx_1m + 1)] if idx_1m > 0 else prices[0]
+                idx_1m = min(20, total_days - 1)
+                price_1m = prices[-(idx_1m + 1)] if idx_1m + 1 <= total_days else prices[0]
                 ret_1m = (current / price_1m - 1) * 100 if price_1m > 0 else 0
 
                 # 3개월 (60거래일)
-                idx_3m = min(60, len(prices) - 1)
-                price_3m = prices[-(idx_3m + 1)] if idx_3m > 0 else prices[0]
+                idx_3m = min(60, total_days - 1)
+                price_3m = prices[-(idx_3m + 1)] if idx_3m + 1 <= total_days else prices[0]
                 ret_3m = (current / price_3m - 1) * 100 if price_3m > 0 else 0
 
                 # 6개월 (120거래일)
-                idx_6m = min(120, len(prices) - 1)
-                price_6m = prices[-(idx_6m + 1)] if idx_6m > 0 else prices[0]
+                idx_6m = min(120, total_days - 1)
+                price_6m = prices[-(idx_6m + 1)] if idx_6m + 1 <= total_days else prices[0]
                 ret_6m = (current / price_6m - 1) * 100 if price_6m > 0 else 0
 
                 return {"ret_1m": ret_1m, "ret_3m": ret_3m, "ret_6m": ret_6m}
