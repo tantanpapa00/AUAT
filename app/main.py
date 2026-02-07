@@ -211,7 +211,11 @@ from app import yahoo_finance
 from app.data_provider import (
     get_kr_market_overview, get_us_market_overview, get_etf_overview,
     get_crypto_overview, get_rs_ranking, get_new_high_stocks, get_valuation,
-    get_stock_detail, get_chart_data
+    get_stock_detail, get_chart_data,
+    # Stock Detail Renewal (Phase 1)
+    get_stock_financial_summary, get_stock_financial_trend, get_stock_company,
+    get_stock_financial_statement, get_stock_news, get_stock_disclosures,
+    get_stock_consensus
 )
 
 # 세션 미들웨어 (OAuth 콜백용)
@@ -8421,6 +8425,171 @@ async def get_popular_symbols(
             ]
 
     return result
+
+
+# =============================================================================
+# [STOCK DETAIL RENEWAL] 종목 상세 - 스탁이지 스타일 (Phase 1)
+# =============================================================================
+
+def _check_hub_plan(user: Optional[User]) -> bool:
+    """Hub 이상 요금제 체크 (종목 상세용)"""
+    if not user:
+        return False
+    role = getattr(user, "role", "user")
+    plan = getattr(user, "plan", "free")
+    if role == "admin":
+        return True
+    return plan in ("hub", "pro", "premium")
+
+
+@app.get("/api/stock/{code}/financial-summary")
+async def api_stock_financial_summary(
+    code: str,
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    종목 재무 요약 (요약 탭)
+    - 시가총액, PER, PBR, EPS, ROE, 52주 고저
+    - Hub 이상 요금제 필요 (Free는 blur 처리)
+    """
+    data = await get_stock_financial_summary(code)
+
+    # Free 요금제는 제한된 데이터만 반환
+    is_premium = _check_hub_plan(current_user)
+
+    return {
+        "data": data,
+        "is_premium": is_premium,
+        "blur_fields": [] if is_premium else ["revenue", "operating_profit", "net_income", "roe", "eps", "foreign_ratio"]
+    }
+
+
+@app.get("/api/stock/{code}/financial-trend")
+async def api_stock_financial_trend(
+    code: str,
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    종목 실적 추이 (재무 탭)
+    - 분기별/연간별 매출액, 영업이익, 당기순이익
+    - Hub 이상 요금제 필요
+    """
+    is_premium = _check_hub_plan(current_user)
+
+    if not is_premium:
+        return {
+            "data": {"annual": [], "quarter": []},
+            "is_premium": False,
+            "message": "Hub 이상 요금제에서 이용 가능합니다"
+        }
+
+    data = await get_stock_financial_trend(code)
+    return {
+        "data": data,
+        "is_premium": True
+    }
+
+
+@app.get("/api/stock/{code}/company")
+async def api_stock_company(
+    code: str,
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    기업 정보 (기업 탭)
+    - 회사 개요, CEO, 설립일, 사업 내용
+    - 누구나 접근 가능
+    """
+    data = await get_stock_company(code)
+    return {"data": data}
+
+
+@app.get("/api/stock/{code}/financial-statement")
+async def api_stock_financial_statement(
+    code: str,
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    재무제표 상세 (재무 탭)
+    - 대차대조표, 손익계산서, 현금흐름표
+    - Hub 이상 요금제 필요
+    """
+    is_premium = _check_hub_plan(current_user)
+
+    if not is_premium:
+        return {
+            "data": {"balance_sheet": [], "income_statement": [], "cash_flow": []},
+            "is_premium": False,
+            "message": "Hub 이상 요금제에서 이용 가능합니다"
+        }
+
+    data = await get_stock_financial_statement(code)
+    return {
+        "data": data,
+        "is_premium": True
+    }
+
+
+@app.get("/api/stock/{code}/news")
+async def api_stock_news(
+    code: str,
+    limit: int = Query(20, ge=1, le=50),
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    종목 뉴스/리포트 (소식 탭)
+    - 누구나 접근 가능 (리포트는 Hub+)
+    """
+    data = await get_stock_news(code, limit)
+    is_premium = _check_hub_plan(current_user)
+
+    return {
+        "data": {
+            "news": data.get("news", []),
+            "reports": data.get("reports", []) if is_premium else []
+        },
+        "is_premium": is_premium,
+        "reports_locked": not is_premium
+    }
+
+
+@app.get("/api/stock/{code}/disclosures")
+async def api_stock_disclosures(
+    code: str,
+    limit: int = Query(20, ge=1, le=50),
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    공시 정보 (소식 탭)
+    - 누구나 접근 가능
+    """
+    data = await get_stock_disclosures(code, limit)
+    return {"data": data}
+
+
+@app.get("/api/stock/{code}/consensus")
+async def api_stock_consensus(
+    code: str,
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    투자 의견/컨센서스 (요약 탭)
+    - Hub 이상 요금제 필요
+    """
+    is_premium = _check_hub_plan(current_user)
+
+    if not is_premium:
+        return {
+            "data": {"target_price": 0, "opinion": "", "analyst_count": 0, "target_price_list": []},
+            "is_premium": False,
+            "message": "Hub 이상 요금제에서 이용 가능합니다"
+        }
+
+    data = await get_stock_consensus(code)
+    return {
+        "data": data,
+        "is_premium": True
+    }
 
 
 # =============================================================================

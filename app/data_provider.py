@@ -825,3 +825,448 @@ async def get_chart_data(code, period="3m"):
 
     # 빈 배열 반환
     return []
+
+
+# ===== 종목 상세 - 스탁이지 스타일 (Phase 1) =====
+
+async def get_stock_financial_summary(code: str):
+    """
+    종목 재무 요약 (요약 탭)
+    - 네이버 모바일 API에서 매출액, 영업이익, EPS, PER, PBR 등
+    """
+    cache_key = f"fin_summary_{code}"
+    cached = _cached(cache_key, 3600)
+    if cached:
+        return cached
+
+    result = {
+        "code": code,
+        "name": "",
+        "sector": "",
+        "market": "",
+        "market_cap": 0,
+        "market_cap_formatted": "",
+        "per": 0,
+        "pbr": 0,
+        "eps": 0,
+        "bps": 0,
+        "dividend_yield": 0,
+        "roe": 0,
+        "revenue": 0,
+        "revenue_formatted": "",
+        "operating_profit": 0,
+        "operating_profit_formatted": "",
+        "net_income": 0,
+        "net_income_formatted": "",
+        "high_52w": 0,
+        "low_52w": 0,
+        "foreign_ratio": 0,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
+            # 1. 기본 정보 API
+            r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/basic")
+            if r.status_code == 200:
+                data = r.json()
+                result["name"] = data.get("stockName", "")
+                result["market"] = data.get("stockExchangeName", "")
+                result["sector"] = data.get("industryName", "")
+                market_cap_raw = _parse_int(data.get("marketValue", "0"))
+                result["market_cap"] = market_cap_raw
+                result["market_cap_formatted"] = _format_korean_num(market_cap_raw)
+
+            # 2. Integration API (PER, PBR, 52주 고저)
+            r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/integration")
+            if r.status_code == 200:
+                data = r.json()
+                for info in data.get("totalInfos", []):
+                    key = info.get("code", "")
+                    value = info.get("value", "0")
+                    if key == "per":
+                        result["per"] = _parse_float(value.replace("배", ""))
+                    elif key == "pbr":
+                        result["pbr"] = _parse_float(value.replace("배", ""))
+                    elif key == "eps":
+                        result["eps"] = _parse_int(value.replace("원", "").replace(",", ""))
+                    elif key == "bps":
+                        result["bps"] = _parse_int(value.replace("원", "").replace(",", ""))
+                    elif key == "dividendYield":
+                        result["dividend_yield"] = _parse_float(value.replace("%", ""))
+                    elif key == "roe":
+                        result["roe"] = _parse_float(value.replace("%", ""))
+                    elif key == "highPriceOf52Weeks":
+                        result["high_52w"] = _parse_price(value)
+                    elif key == "lowPriceOf52Weeks":
+                        result["low_52w"] = _parse_price(value)
+                    elif key == "foreignerRatio":
+                        result["foreign_ratio"] = _parse_float(value.replace("%", ""))
+
+            # 3. 재무 정보 (Summary)
+            r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/finance/summary")
+            if r.status_code == 200:
+                data = r.json()
+                # 최신 연간 데이터 (첫 번째 행)
+                annual = data.get("annual", [])
+                if annual:
+                    latest = annual[0] if annual else {}
+                    rev = _parse_finance_value(latest.get("revenue", "0"))
+                    op = _parse_finance_value(latest.get("operatingProfit", "0"))
+                    ni = _parse_finance_value(latest.get("netIncome", "0"))
+                    result["revenue"] = rev
+                    result["revenue_formatted"] = _format_korean_num(rev)
+                    result["operating_profit"] = op
+                    result["operating_profit_formatted"] = _format_korean_num(op)
+                    result["net_income"] = ni
+                    result["net_income_formatted"] = _format_korean_num(ni)
+
+        _set_cache(cache_key, result)
+        return result
+
+    except Exception as e:
+        print(f"[DataProvider] Financial summary error for {code}: {e}")
+        traceback.print_exc()
+        return result
+
+
+async def get_stock_financial_trend(code: str):
+    """
+    종목 실적 추이 (재무 탭)
+    - 분기별/연간별 매출액, 영업이익, 당기순이익
+    """
+    cache_key = f"fin_trend_{code}"
+    cached = _cached(cache_key, 3600)
+    if cached:
+        return cached
+
+    result = {
+        "annual": [],
+        "quarter": []
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
+            # 네이버 finance/summary API
+            r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/finance/summary")
+            if r.status_code == 200:
+                data = r.json()
+
+                # 연간 데이터
+                for item in data.get("annual", [])[:5]:
+                    result["annual"].append({
+                        "period": item.get("date", ""),
+                        "revenue": _parse_finance_value(item.get("revenue", "0")),
+                        "operating_profit": _parse_finance_value(item.get("operatingProfit", "0")),
+                        "net_income": _parse_finance_value(item.get("netIncome", "0")),
+                        "eps": _parse_finance_value(item.get("eps", "0")),
+                    })
+
+                # 분기 데이터
+                for item in data.get("quarter", [])[:8]:
+                    result["quarter"].append({
+                        "period": item.get("date", ""),
+                        "revenue": _parse_finance_value(item.get("revenue", "0")),
+                        "operating_profit": _parse_finance_value(item.get("operatingProfit", "0")),
+                        "net_income": _parse_finance_value(item.get("netIncome", "0")),
+                        "eps": _parse_finance_value(item.get("eps", "0")),
+                    })
+
+        _set_cache(cache_key, result)
+        return result
+
+    except Exception as e:
+        print(f"[DataProvider] Financial trend error for {code}: {e}")
+        traceback.print_exc()
+        return result
+
+
+async def get_stock_company(code: str):
+    """
+    기업 정보 (기업 탭)
+    - 회사 개요, 대표자, 설립일, 상장일, 홈페이지, 사업 내용
+    """
+    cache_key = f"company_{code}"
+    cached = _cached(cache_key, 86400)  # 24시간 캐싱
+    if cached:
+        return cached
+
+    result = {
+        "name": "",
+        "ceo": "",
+        "founded": "",
+        "listed": "",
+        "employees": 0,
+        "website": "",
+        "address": "",
+        "phone": "",
+        "sector": "",
+        "industry": "",
+        "description": "",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
+            # 네이버 company API
+            r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/company")
+            if r.status_code == 200:
+                data = r.json()
+                result["name"] = data.get("companyName", "")
+                result["ceo"] = data.get("ceoNm", "")
+                result["founded"] = data.get("foundedDate", "")
+                result["listed"] = data.get("listedDate", "")
+                result["employees"] = _parse_int(data.get("employeeCount", "0"))
+                result["website"] = data.get("homepage", "")
+                result["address"] = data.get("address", "")
+                result["phone"] = data.get("telephone", "")
+                result["sector"] = data.get("industryName", "")
+                result["industry"] = data.get("businessContents", "")
+                result["description"] = data.get("businessSummary", "")
+
+        _set_cache(cache_key, result)
+        return result
+
+    except Exception as e:
+        print(f"[DataProvider] Company info error for {code}: {e}")
+        traceback.print_exc()
+        return result
+
+
+async def get_stock_financial_statement(code: str):
+    """
+    재무제표 상세 (재무 탭)
+    - 대차대조표, 손익계산서, 현금흐름표
+    """
+    cache_key = f"fin_stmt_{code}"
+    cached = _cached(cache_key, 3600)
+    if cached:
+        return cached
+
+    result = {
+        "balance_sheet": [],
+        "income_statement": [],
+        "cash_flow": []
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
+            # 대차대조표
+            r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/finance/balanceSheet")
+            if r.status_code == 200:
+                data = r.json()
+                for item in data.get("balanceSheet", [])[:4]:
+                    result["balance_sheet"].append({
+                        "period": item.get("date", ""),
+                        "total_assets": _parse_finance_value(item.get("totalAssets", "0")),
+                        "total_liabilities": _parse_finance_value(item.get("totalLiabilities", "0")),
+                        "total_equity": _parse_finance_value(item.get("totalEquity", "0")),
+                        "current_assets": _parse_finance_value(item.get("currentAssets", "0")),
+                        "current_liabilities": _parse_finance_value(item.get("currentLiabilities", "0")),
+                    })
+
+            # 손익계산서
+            r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/finance/incomeStatement")
+            if r.status_code == 200:
+                data = r.json()
+                for item in data.get("incomeStatement", [])[:4]:
+                    result["income_statement"].append({
+                        "period": item.get("date", ""),
+                        "revenue": _parse_finance_value(item.get("revenue", "0")),
+                        "cost_of_sales": _parse_finance_value(item.get("costOfSales", "0")),
+                        "gross_profit": _parse_finance_value(item.get("grossProfit", "0")),
+                        "operating_profit": _parse_finance_value(item.get("operatingProfit", "0")),
+                        "net_income": _parse_finance_value(item.get("netIncome", "0")),
+                    })
+
+            # 현금흐름표
+            r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/finance/cashFlow")
+            if r.status_code == 200:
+                data = r.json()
+                for item in data.get("cashFlow", [])[:4]:
+                    result["cash_flow"].append({
+                        "period": item.get("date", ""),
+                        "operating": _parse_finance_value(item.get("operatingCashFlow", "0")),
+                        "investing": _parse_finance_value(item.get("investingCashFlow", "0")),
+                        "financing": _parse_finance_value(item.get("financingCashFlow", "0")),
+                    })
+
+        _set_cache(cache_key, result)
+        return result
+
+    except Exception as e:
+        print(f"[DataProvider] Financial statement error for {code}: {e}")
+        traceback.print_exc()
+        return result
+
+
+async def get_stock_news(code: str, limit: int = 20):
+    """
+    종목 뉴스/리포트 (소식 탭)
+    - 네이버 뉴스 + 애널리스트 리포트
+    """
+    cache_key = f"news_{code}_{limit}"
+    cached = _cached(cache_key, 1800)  # 30분 캐싱
+    if cached:
+        return cached
+
+    result = {
+        "news": [],
+        "reports": []
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
+            # 뉴스
+            r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/news?pageSize={limit}")
+            if r.status_code == 200:
+                data = r.json()
+                for item in data.get("news", []):
+                    result["news"].append({
+                        "title": item.get("title", ""),
+                        "source": item.get("officeName", ""),
+                        "date": item.get("datetime", ""),
+                        "url": item.get("link", ""),
+                        "summary": item.get("body", "")[:200] if item.get("body") else "",
+                    })
+
+            # 리포트 (research)
+            r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/research?pageSize=10")
+            if r.status_code == 200:
+                data = r.json()
+                for item in data.get("researchList", []):
+                    result["reports"].append({
+                        "title": item.get("title", ""),
+                        "source": item.get("brokerName", ""),
+                        "date": item.get("date", ""),
+                        "target_price": _parse_int(item.get("targetPrice", "0")),
+                        "opinion": item.get("investOpinionName", ""),
+                        "pdf_url": item.get("attachUrl", ""),
+                    })
+
+        _set_cache(cache_key, result)
+        return result
+
+    except Exception as e:
+        print(f"[DataProvider] News error for {code}: {e}")
+        traceback.print_exc()
+        return result
+
+
+async def get_stock_disclosures(code: str, limit: int = 20):
+    """
+    공시 정보 (소식 탭)
+    - 네이버 공시 API
+    """
+    cache_key = f"disclosures_{code}_{limit}"
+    cached = _cached(cache_key, 1800)
+    if cached:
+        return cached
+
+    result = []
+
+    try:
+        async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
+            r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/disclosure?pageSize={limit}")
+            if r.status_code == 200:
+                data = r.json()
+                for item in data.get("disclosureList", []):
+                    result.append({
+                        "title": item.get("title", ""),
+                        "type": item.get("disclosureTypeName", ""),
+                        "date": item.get("date", ""),
+                        "url": item.get("link", ""),
+                    })
+
+        _set_cache(cache_key, result)
+        return result
+
+    except Exception as e:
+        print(f"[DataProvider] Disclosures error for {code}: {e}")
+        traceback.print_exc()
+        return result
+
+
+async def get_stock_consensus(code: str):
+    """
+    투자 의견/컨센서스 (요약 탭)
+    - 목표가, 투자의견, 애널리스트 수
+    """
+    cache_key = f"consensus_{code}"
+    cached = _cached(cache_key, 3600)
+    if cached:
+        return cached
+
+    result = {
+        "target_price": 0,
+        "opinion": "",
+        "analyst_count": 0,
+        "buy_count": 0,
+        "hold_count": 0,
+        "sell_count": 0,
+        "target_price_list": []
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
+            # 투자의견 API
+            r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/investOpinion")
+            if r.status_code == 200:
+                data = r.json()
+                result["target_price"] = _parse_int(data.get("targetPrice", "0"))
+                result["opinion"] = data.get("investOpinionName", "")
+                result["analyst_count"] = _parse_int(data.get("analystCount", "0"))
+
+                # 최근 목표가 리스트
+                for item in data.get("investOpinionList", [])[:10]:
+                    result["target_price_list"].append({
+                        "broker": item.get("brokerName", ""),
+                        "analyst": item.get("analystName", ""),
+                        "target_price": _parse_int(item.get("targetPrice", "0")),
+                        "opinion": item.get("investOpinionName", ""),
+                        "date": item.get("date", ""),
+                    })
+
+        _set_cache(cache_key, result)
+        return result
+
+    except Exception as e:
+        print(f"[DataProvider] Consensus error for {code}: {e}")
+        traceback.print_exc()
+        return result
+
+
+def _parse_finance_value(val):
+    """재무 데이터 파싱 (억, 조 단위 처리)"""
+    if isinstance(val, (int, float)):
+        return int(val)
+    if isinstance(val, str):
+        val = val.replace(",", "").replace(" ", "")
+        if not val or val == "-":
+            return 0
+        try:
+            # 조 단위
+            if "조" in val:
+                parts = val.split("조")
+                jo = float(parts[0]) * 10000  # 조 → 억
+                if len(parts) > 1 and parts[1]:
+                    eok = parts[1].replace("억", "")
+                    if eok:
+                        jo += float(eok)
+                return int(jo * 100000000)  # 억 → 원
+            # 억 단위
+            if "억" in val:
+                return int(float(val.replace("억", "")) * 100000000)
+            return int(float(val))
+        except:
+            return 0
+    return 0
+
+
+def _format_korean_num(val):
+    """한국식 숫자 포맷 (억/조 단위)"""
+    if val >= 1000000000000:  # 1조
+        return f"{val / 1000000000000:.1f}조"
+    if val >= 100000000:  # 1억
+        return f"{val / 100000000:.0f}억"
+    if val >= 10000:  # 1만
+        return f"{val / 10000:.0f}만"
+    return f"{val:,}"
