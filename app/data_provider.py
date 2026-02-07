@@ -902,23 +902,27 @@ async def get_stock_financial_summary(code: str):
                     elif key == "foreignerRatio":
                         result["foreign_ratio"] = _parse_float(value.replace("%", ""))
 
-            # 3. 재무 정보 (Summary)
+            # 3. 재무 정보 (Summary) - chartIncomeStatement 형식
             r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/finance/summary")
             if r.status_code == 200:
                 data = r.json()
-                # 최신 연간 데이터 (첫 번째 행)
-                annual = data.get("annual", [])
-                if annual:
-                    latest = annual[0] if annual else {}
-                    rev = _parse_finance_value(latest.get("revenue", "0"))
-                    op = _parse_finance_value(latest.get("operatingProfit", "0"))
-                    ni = _parse_finance_value(latest.get("netIncome", "0"))
-                    result["revenue"] = rev
-                    result["revenue_formatted"] = _format_korean_num(rev)
-                    result["operating_profit"] = op
-                    result["operating_profit_formatted"] = _format_korean_num(op)
-                    result["net_income"] = ni
-                    result["net_income_formatted"] = _format_korean_num(ni)
+                # chartIncomeStatement.annual.columns에서 최신 데이터 추출
+                annual_data = data.get("chartIncomeStatement", {}).get("annual", {})
+                columns = annual_data.get("columns", [])
+                if len(columns) >= 3:
+                    # columns[0] = 기간 헤더, columns[1] = 매출액, columns[2] = 영업이익
+                    periods = columns[0] if columns else []
+                    revenues = columns[1] if len(columns) > 1 else []
+                    op_profits = columns[2] if len(columns) > 2 else []
+                    # 최신 데이터 (마지막 값)
+                    if len(revenues) > 1:
+                        rev = _parse_int(revenues[-1]) * 100000000  # 억 단위 → 원
+                        result["revenue"] = rev
+                        result["revenue_formatted"] = _format_korean_num(rev)
+                    if len(op_profits) > 1:
+                        op = _parse_int(op_profits[-1]) * 100000000
+                        result["operating_profit"] = op
+                        result["operating_profit_formatted"] = _format_korean_num(op)
 
         _set_cache(cache_key, result)
         return result
@@ -950,26 +954,50 @@ async def get_stock_financial_trend(code: str):
             r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/finance/summary")
             if r.status_code == 200:
                 data = r.json()
+                income_stmt = data.get("chartIncomeStatement", {})
+                eps_data = data.get("chartEps", {})
 
-                # 연간 데이터
-                for item in data.get("annual", [])[:5]:
-                    result["annual"].append({
-                        "period": item.get("date", ""),
-                        "revenue": _parse_finance_value(item.get("revenue", "0")),
-                        "operating_profit": _parse_finance_value(item.get("operatingProfit", "0")),
-                        "net_income": _parse_finance_value(item.get("netIncome", "0")),
-                        "eps": _parse_finance_value(item.get("eps", "0")),
-                    })
+                # 연간 데이터 파싱
+                annual_cols = income_stmt.get("annual", {}).get("columns", [])
+                annual_titles = income_stmt.get("annual", {}).get("trTitleList", [])
+                if len(annual_cols) >= 3:
+                    periods = annual_cols[0][1:] if annual_cols else []
+                    revenues = annual_cols[1][1:] if len(annual_cols) > 1 else []
+                    op_profits = annual_cols[2][1:] if len(annual_cols) > 2 else []
+                    for i, period in enumerate(periods):
+                        is_consensus = annual_titles[i].get("isConsensus", "N") == "Y" if i < len(annual_titles) else False
+                        result["annual"].append({
+                            "period": period,
+                            "revenue": _parse_int(revenues[i]) * 100000000 if i < len(revenues) else 0,
+                            "operating_profit": _parse_int(op_profits[i]) * 100000000 if i < len(op_profits) else 0,
+                            "is_estimate": is_consensus
+                        })
 
-                # 분기 데이터
-                for item in data.get("quarter", [])[:8]:
-                    result["quarter"].append({
-                        "period": item.get("date", ""),
-                        "revenue": _parse_finance_value(item.get("revenue", "0")),
-                        "operating_profit": _parse_finance_value(item.get("operatingProfit", "0")),
-                        "net_income": _parse_finance_value(item.get("netIncome", "0")),
-                        "eps": _parse_finance_value(item.get("eps", "0")),
-                    })
+                # 분기 데이터 파싱
+                quarter_cols = income_stmt.get("quarter", {}).get("columns", [])
+                quarter_titles = income_stmt.get("quarter", {}).get("trTitleList", [])
+                if len(quarter_cols) >= 3:
+                    periods = quarter_cols[0][1:] if quarter_cols else []
+                    revenues = quarter_cols[1][1:] if len(quarter_cols) > 1 else []
+                    op_profits = quarter_cols[2][1:] if len(quarter_cols) > 2 else []
+                    for i, period in enumerate(periods):
+                        is_consensus = quarter_titles[i].get("isConsensus", "N") == "Y" if i < len(quarter_titles) else False
+                        result["quarter"].append({
+                            "period": period,
+                            "revenue": _parse_int(revenues[i]) * 100000000 if i < len(revenues) else 0,
+                            "operating_profit": _parse_int(op_profits[i]) * 100000000 if i < len(op_profits) else 0,
+                            "is_estimate": is_consensus
+                        })
+
+                # EPS 데이터 추가
+                eps_cols = eps_data.get("columns", [])
+                if len(eps_cols) >= 2:
+                    eps_periods = eps_cols[0][1:] if eps_cols else []
+                    eps_values = eps_cols[1][1:] if len(eps_cols) > 1 else []
+                    result["eps_trend"] = [
+                        {"period": eps_periods[i], "eps": _parse_int(eps_values[i])}
+                        for i in range(len(eps_periods)) if i < len(eps_values)
+                    ]
 
         _set_cache(cache_key, result)
         return result
@@ -983,7 +1011,8 @@ async def get_stock_financial_trend(code: str):
 async def get_stock_company(code: str):
     """
     기업 정보 (기업 탭)
-    - 회사 개요, 대표자, 설립일, 상장일, 홈페이지, 사업 내용
+    - basic API + integration API에서 추출
+    - 동종업계 비교 정보 포함
     """
     cache_key = f"company_{code}"
     cached = _cached(cache_key, 86400)  # 24시간 캐싱
@@ -992,35 +1021,33 @@ async def get_stock_company(code: str):
 
     result = {
         "name": "",
-        "ceo": "",
-        "founded": "",
-        "listed": "",
-        "employees": 0,
-        "website": "",
-        "address": "",
-        "phone": "",
         "sector": "",
-        "industry": "",
-        "description": "",
+        "market": "",
+        "comparables": []
     }
 
     try:
         async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
-            # 네이버 company API
-            r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/company")
+            # 기본 정보
+            r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/basic")
             if r.status_code == 200:
                 data = r.json()
-                result["name"] = data.get("companyName", "")
-                result["ceo"] = data.get("ceoNm", "")
-                result["founded"] = data.get("foundedDate", "")
-                result["listed"] = data.get("listedDate", "")
-                result["employees"] = _parse_int(data.get("employeeCount", "0"))
-                result["website"] = data.get("homepage", "")
-                result["address"] = data.get("address", "")
-                result["phone"] = data.get("telephone", "")
+                result["name"] = data.get("stockName", "")
                 result["sector"] = data.get("industryName", "")
-                result["industry"] = data.get("businessContents", "")
-                result["description"] = data.get("businessSummary", "")
+                result["market"] = data.get("stockExchangeName", "")
+
+            # integration API에서 동종업계 비교
+            r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/integration")
+            if r.status_code == 200:
+                data = r.json()
+                for comp in data.get("industryCompareInfo", [])[:6]:
+                    result["comparables"].append({
+                        "code": comp.get("itemCode", ""),
+                        "name": comp.get("stockName", ""),
+                        "price": _parse_price(comp.get("closePrice", "0")),
+                        "change": _parse_float(comp.get("fluctuationsRatio", "0")),
+                        "market_cap": _parse_int(comp.get("marketValue", "0")),
+                    })
 
         _set_cache(cache_key, result)
         return result
@@ -1115,31 +1142,32 @@ async def get_stock_news(code: str, limit: int = 20):
 
     try:
         async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
-            # 뉴스
-            r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/news?pageSize={limit}")
+            # 뉴스 (올바른 API 경로: /api/news/stock/{code})
+            r = await client.get(f"https://m.stock.naver.com/api/news/stock/{code}?pageSize={limit}")
             if r.status_code == 200:
                 data = r.json()
-                for item in data.get("news", []):
-                    result["news"].append({
-                        "title": item.get("title", ""),
-                        "source": item.get("officeName", ""),
-                        "date": item.get("datetime", ""),
-                        "url": item.get("link", ""),
-                        "summary": item.get("body", "")[:200] if item.get("body") else "",
-                    })
+                # 응답이 배열 형태
+                for group in data:
+                    for item in group.get("items", []):
+                        result["news"].append({
+                            "title": item.get("title", ""),
+                            "source": item.get("officeName", ""),
+                            "date": item.get("datetime", ""),
+                            "url": f"https://n.news.naver.com/article/{item.get('officeId', '')}/{item.get('articleId', '')}",
+                            "summary": item.get("body", "")[:200] if item.get("body") else "",
+                            "image": item.get("imageOriginLink", ""),
+                        })
 
-            # 리포트 (research)
-            r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/research?pageSize=10")
+            # 리포트 (integration API에서 가져옴)
+            r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/integration")
             if r.status_code == 200:
                 data = r.json()
-                for item in data.get("researchList", []):
+                for item in data.get("researches", []):
                     result["reports"].append({
-                        "title": item.get("title", ""),
-                        "source": item.get("brokerName", ""),
-                        "date": item.get("date", ""),
-                        "target_price": _parse_int(item.get("targetPrice", "0")),
-                        "opinion": item.get("investOpinionName", ""),
-                        "pdf_url": item.get("attachUrl", ""),
+                        "title": item.get("tit", ""),
+                        "source": item.get("bnm", ""),
+                        "date": item.get("wdt", ""),
+                        "read_count": _parse_int(item.get("rcnt", "0")),
                     })
 
         _set_cache(cache_key, result)
@@ -1154,7 +1182,7 @@ async def get_stock_news(code: str, limit: int = 20):
 async def get_stock_disclosures(code: str, limit: int = 20):
     """
     공시 정보 (소식 탭)
-    - 네이버 공시 API
+    - 네이버 공시 API (배열 직접 반환)
     """
     cache_key = f"disclosures_{code}_{limit}"
     cached = _cached(cache_key, 1800)
@@ -1165,15 +1193,16 @@ async def get_stock_disclosures(code: str, limit: int = 20):
 
     try:
         async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
-            r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/disclosure?pageSize={limit}")
+            r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/disclosure")
             if r.status_code == 200:
                 data = r.json()
-                for item in data.get("disclosureList", []):
+                # 응답이 배열 형태
+                items = data if isinstance(data, list) else data.get("disclosureList", [])
+                for item in items[:limit]:
                     result.append({
                         "title": item.get("title", ""),
-                        "type": item.get("disclosureTypeName", ""),
-                        "date": item.get("date", ""),
-                        "url": item.get("link", ""),
+                        "date": item.get("datetime", ""),
+                        "author": item.get("author", ""),
                     })
 
         _set_cache(cache_key, result)
@@ -1188,7 +1217,7 @@ async def get_stock_disclosures(code: str, limit: int = 20):
 async def get_stock_consensus(code: str):
     """
     투자 의견/컨센서스 (요약 탭)
-    - 목표가, 투자의견, 애널리스트 수
+    - integration API에서 consensusInfo, researches 사용
     """
     cache_key = f"consensus_{code}"
     cached = _cached(cache_key, 3600)
@@ -1197,32 +1226,39 @@ async def get_stock_consensus(code: str):
 
     result = {
         "target_price": 0,
-        "opinion": "",
-        "analyst_count": 0,
-        "buy_count": 0,
-        "hold_count": 0,
-        "sell_count": 0,
-        "target_price_list": []
+        "recommendation": "",
+        "reports": []
     }
 
     try:
         async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
-            # 투자의견 API
-            r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/investOpinion")
+            # integration API
+            r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/integration")
             if r.status_code == 200:
                 data = r.json()
-                result["target_price"] = _parse_int(data.get("targetPrice", "0"))
-                result["opinion"] = data.get("investOpinionName", "")
-                result["analyst_count"] = _parse_int(data.get("analystCount", "0"))
+                # 컨센서스 정보
+                consensus = data.get("consensusInfo", {})
+                if consensus:
+                    result["target_price"] = _parse_int(consensus.get("priceTargetMean", "0"))
+                    recomm = float(consensus.get("recommMean", "0") or "0")
+                    # recommMean: 1=강력매도, 2=매도, 3=중립, 4=매수, 5=강력매수
+                    if recomm >= 4.5:
+                        result["recommendation"] = "강력매수"
+                    elif recomm >= 3.5:
+                        result["recommendation"] = "매수"
+                    elif recomm >= 2.5:
+                        result["recommendation"] = "중립"
+                    elif recomm >= 1.5:
+                        result["recommendation"] = "매도"
+                    else:
+                        result["recommendation"] = "강력매도" if recomm > 0 else ""
 
-                # 최근 목표가 리스트
-                for item in data.get("investOpinionList", [])[:10]:
-                    result["target_price_list"].append({
-                        "broker": item.get("brokerName", ""),
-                        "analyst": item.get("analystName", ""),
-                        "target_price": _parse_int(item.get("targetPrice", "0")),
-                        "opinion": item.get("investOpinionName", ""),
-                        "date": item.get("date", ""),
+                # 최근 리포트
+                for item in data.get("researches", [])[:5]:
+                    result["reports"].append({
+                        "title": item.get("tit", ""),
+                        "broker": item.get("bnm", ""),
+                        "date": item.get("wdt", ""),
                     })
 
         _set_cache(cache_key, result)
