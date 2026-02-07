@@ -4172,7 +4172,9 @@ function renderCryptoTable(coins) {
     }
 
     tbody.innerHTML = coins.slice(0, 30).map(c => {
-        const changeClass = (c.change_percent || 0) >= 0 ? 'profit' : 'loss';
+        // API 응답: change_24h (not change_percent)
+        const change = c.change_24h || c.change_percent || 0;
+        const changeClass = change >= 0 ? 'profit' : 'loss';
         const priceStr = c.exchange === 'upbit' && c.symbol?.includes('KRW')
             ? `₩${(c.price || 0).toLocaleString()}`
             : `$${(c.price || 0).toLocaleString()}`;
@@ -4182,7 +4184,7 @@ function renderCryptoTable(coins) {
                 <td><strong>${c.symbol}</strong></td>
                 <td><span class="exchange-badge ${c.exchange}">${c.exchange?.toUpperCase()}</span></td>
                 <td>${priceStr}</td>
-                <td class="${changeClass}">${(c.change_percent || 0) >= 0 ? '+' : ''}${(c.change_percent || 0).toFixed(2)}%</td>
+                <td class="${changeClass}">${change >= 0 ? '+' : ''}${change.toFixed(2)}%</td>
                 <td>${formatBillions(c.volume || 0)}</td>
             </tr>
         `;
@@ -4231,8 +4233,12 @@ async function loadStockKr() {
         }
     });
 
-    // RS 데이터 로드
-    await loadRsData();
+    // RS, 52주 신고가, 밸류에이션 데이터 로드
+    await Promise.all([
+        loadRsData(),
+        loadHigh52Data(),
+        loadValuationData()
+    ]);
 
     // 테이블 행 클릭 이벤트 (종목 상세 열기)
     document.querySelectorAll('#rs-tbody tr, #high52-tbody tr, #valuation-tbody tr').forEach(row => {
@@ -4298,6 +4304,108 @@ async function loadRsData() {
         console.error('RS 데이터 로드 실패:', error);
         const errMsg = error?.message || error || '알 수 없는 오류';
         tbody.innerHTML = `<tr><td colspan="9" class="empty-cell">${errMsg}</td></tr>`;
+    }
+}
+
+// 52주 신고가 데이터 로드
+async function loadHigh52Data() {
+    const tbody = document.getElementById('high52-tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">52주 신고가 데이터 로딩 중...</td></tr>';
+
+    try {
+        const result = await invoke('get_analysis_new_high', {
+            accessToken: auth.accessToken || ''
+        });
+
+        const stocks = result?.stocks || [];
+        if (stocks.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">데이터가 없습니다</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = stocks.slice(0, 30).map(s => {
+            const changeVal = s.change || 0;
+            const changeClass = changeVal >= 0 ? 'profit' : 'loss';
+            const changeStr = changeVal >= 0 ? `+${changeVal.toFixed(2)}%` : `${changeVal.toFixed(2)}%`;
+            const distanceVal = s.distance || 0;
+            const distanceClass = distanceVal >= 0 ? 'profit' : 'loss';
+            const distanceStr = distanceVal >= 0 ? `+${distanceVal.toFixed(2)}%` : `${distanceVal.toFixed(2)}%`;
+            return `
+                <tr class="clickable" data-symbol="${s.code}">
+                    <td><strong>${s.name}</strong></td>
+                    <td>${s.price?.toLocaleString() || '-'}</td>
+                    <td class="${changeClass}">${changeStr}</td>
+                    <td>${s.high_52w?.toLocaleString() || '-'}</td>
+                    <td class="${distanceClass}">${distanceStr}</td>
+                    <td>-</td>
+                    <td>${formatVolume(s.volume || 0)}</td>
+                </tr>
+            `;
+        }).join('');
+
+        // 클릭 이벤트 바인딩
+        tbody.querySelectorAll('tr.clickable').forEach(row => {
+            row.addEventListener('click', () => {
+                const symbol = row.dataset.symbol;
+                if (symbol) openStockDetail(symbol, 'kis_kr');
+            });
+        });
+
+    } catch (error) {
+        console.error('52주 신고가 데이터 로드 실패:', error);
+        const errMsg = error?.message || error || '알 수 없는 오류';
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-cell">${errMsg}</td></tr>`;
+    }
+}
+
+// 밸류에이션 데이터 로드
+async function loadValuationData() {
+    const tbody = document.getElementById('valuation-tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">밸류에이션 데이터 로딩 중...</td></tr>';
+
+    try {
+        const result = await invoke('get_analysis_valuation', {
+            accessToken: auth.accessToken || '',
+            market: 'all'
+        });
+
+        const stocks = result?.stocks || [];
+        if (stocks.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">데이터가 없습니다</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = stocks.slice(0, 30).map(s => {
+            return `
+                <tr class="clickable" data-symbol="${s.code}">
+                    <td><strong>${s.name}</strong></td>
+                    <td>${s.price?.toLocaleString() || '-'}</td>
+                    <td>${formatBillions(s.market_cap || 0)}</td>
+                    <td>${s.per?.toFixed(2) || '-'}</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>${s.market || '-'}</td>
+                    <td>-</td>
+                </tr>
+            `;
+        }).join('');
+
+        // 클릭 이벤트 바인딩
+        tbody.querySelectorAll('tr.clickable').forEach(row => {
+            row.addEventListener('click', () => {
+                const symbol = row.dataset.symbol;
+                if (symbol) openStockDetail(symbol, 'kis_kr');
+            });
+        });
+
+    } catch (error) {
+        console.error('밸류에이션 데이터 로드 실패:', error);
+        const errMsg = error?.message || error || '알 수 없는 오류';
+        tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">${errMsg}</td></tr>`;
     }
 }
 
