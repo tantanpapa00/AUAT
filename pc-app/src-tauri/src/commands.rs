@@ -1842,10 +1842,13 @@ pub async fn get_market_overview(access_token: String) -> Result<serde_json::Val
 
     if resp.status().is_success() {
         resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else if resp.status().as_u16() == 401 {
+        Err("로그인이 필요합니다".to_string())
     } else if resp.status().as_u16() == 403 {
         Err("Pro 이상 요금제에서 이용 가능합니다".to_string())
     } else {
-        Err("시장 현황을 가져올 수 없습니다".to_string())
+        let status = resp.status().as_u16();
+        Err(format!("시장 현황을 가져올 수 없습니다 ({})", status))
     }
 }
 

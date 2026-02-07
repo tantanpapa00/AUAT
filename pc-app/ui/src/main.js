@@ -3696,10 +3696,16 @@ async function loadMarketKr() {
     contentEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
 
     try {
+        // [DEBUG] 토큰 상태 로그
+        console.log('[loadMarketKr] accessToken:', auth.accessToken ? `${auth.accessToken.slice(0, 20)}...` : 'EMPTY');
+        console.log('[loadMarketKr] user:', auth.user);
+
         // [BUG FIX 3] 타임아웃 적용
         const data = await invokeWithTimeout('get_market_overview', {
             accessToken: auth.accessToken || ''
         }, 10000);
+
+        console.log('[loadMarketKr] API result:', data);
 
         if (!data) {
             contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button class="btn btn-sm btn-primary" onclick="loadMarketKr()">다시 시도</button></div>';

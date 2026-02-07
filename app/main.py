@@ -8439,7 +8439,15 @@ async def get_market_overview(
     db: Session = Depends(get_db)
 ):
     """시장현황 — 지수 + 투자자 동향"""
+    # 디버그 로그
+    if current_user:
+        print(f"[DEBUG] get_market_overview: user={current_user.email}, role={current_user.role}, plan={current_user.plan}")
+    else:
+        print("[DEBUG] get_market_overview: current_user is None (no auth token)")
+
     if not _check_pro_plan(current_user):
+        if not current_user:
+            raise HTTPException(status_code=401, detail="로그인이 필요합니다")
         raise HTTPException(status_code=403, detail="Pro 이상 요금제에서 이용 가능합니다")
 
     # 공개 API로 지수 데이터 조회 (항상)
