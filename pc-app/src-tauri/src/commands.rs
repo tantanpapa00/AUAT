@@ -1829,6 +1829,16 @@ pub async fn admin_get_recent_users(access_token: String) -> Result<serde_json::
 
 #[tauri::command]
 pub async fn get_market_overview(access_token: String) -> Result<serde_json::Value, String> {
+    // [DEBUG] 토큰 상태 로그
+    let token_preview = if access_token.len() > 20 {
+        format!("{}...", &access_token[..20])
+    } else if access_token.is_empty() {
+        "EMPTY".to_string()
+    } else {
+        access_token.clone()
+    };
+    println!("[Rust DEBUG] get_market_overview: token={}", token_preview);
+
     let client = reqwest::Client::new();
     let url = format!("{}/api/market/overview", VPS_SERVER_URL);
 
