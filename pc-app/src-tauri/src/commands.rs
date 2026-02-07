@@ -14,7 +14,7 @@ const CREATE_NO_WINDOW: u32 = 0x08000000;
 // Server Management (VPS 연결 방식 - 로컬 서버 시작 불필요)
 // =====================================================
 
-const VPS_SERVER_URL: &str = "https://76.13.180.30";
+const VPS_SERVER_URL: &str = "http://76.13.180.30";
 
 #[tauri::command]
 pub async fn start_server() -> Result<String, String> {
