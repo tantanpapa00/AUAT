@@ -551,10 +551,10 @@ async def get_etf_overview():
                             etf_item = {
                                 "code": code,
                                 "name": name,
-                                "close": int(close_price),
+                                "price": int(close_price),
                                 "change_percent": change_pct,
                                 "volume": volume,
-                                "nav": int(close_price)
+                                "sector": sector
                             }
                             sector_etfs[sector].append(etf_item)
                             all_etfs.append(etf_item)

@@ -121,6 +121,7 @@ fn main() {
             commands::admin_get_recent_users,
             // Market Analysis (STEP 2)
             commands::get_market_overview,
+            commands::get_market_us_overview,
             commands::get_market_sectors,
             commands::get_stock_ranking,
             commands::get_featured_stocks,

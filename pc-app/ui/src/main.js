@@ -3271,8 +3271,9 @@ function updateIndexCard(cardId, data) {
     const valueEl = card.querySelector('.index-value');
     const changeEl = card.querySelector('.index-change');
 
-    valueEl.textContent = data.current?.toLocaleString() || '-';
-    // API 응답: change_percent 사용
+    // current 또는 price 필드 지원 (KR: current, US: price)
+    const currentValue = data.current ?? data.price ?? 0;
+    valueEl.textContent = currentValue?.toLocaleString() || '-';
     const change = data.change_percent || 0;
     changeEl.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
     changeEl.className = `index-change ${change >= 0 ? 'profit' : 'loss'}`;
@@ -3799,11 +3800,16 @@ async function loadMarketKr() {
             }
         }
 
-        // 투자자 동향 (API 응답: data.investors)
+        // 투자자 동향 (API 응답: data.investors, 값은 억 단위)
         const investors = data.investors || {};
-        document.getElementById('kr-investor-foreign').textContent = formatBillions(investors.foreign || 0);
-        document.getElementById('kr-investor-institution').textContent = formatBillions(investors.institution || 0);
-        document.getElementById('kr-investor-individual').textContent = formatBillions(investors.individual || 0);
+        const formatInvestor = (v) => {
+            if (v == null || v === 0) return '-';
+            const sign = v >= 0 ? '+' : '';
+            return `${sign}${Math.abs(v).toLocaleString()}억`;
+        };
+        document.getElementById('kr-investor-foreign').textContent = formatInvestor(investors.foreign);
+        document.getElementById('kr-investor-institution').textContent = formatInvestor(investors.institution);
+        document.getElementById('kr-investor-individual').textContent = formatInvestor(investors.individual);
 
         // 섹터 리스트
         const sectors = data.sectors || [];
@@ -3856,12 +3862,12 @@ async function loadMarketUs() {
     contentEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
 
     try {
-        // [BUG FIX 3] Yahoo Finance API 직접 호출
-        const data = await invokeWithTimeout('get_market_overview', {
+        // [BUG FIX] US Market 전용 API 호출
+        const data = await invokeWithTimeout('get_market_us_overview', {
             accessToken: auth.accessToken || ''
-        }, 10000);
+        }, 15000);
 
-        if (!data) {
+        if (!data || !data.success) {
             contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button class="btn btn-sm btn-primary" onclick="loadMarketUs()">다시 시도</button></div>';
             return;
         }
@@ -3894,13 +3900,17 @@ async function loadMarketUs() {
             </div>
         `;
 
-        // 지수 카드 (API 응답: data.sp500, data.nasdaq, data.dow 직접 접근)
-        updateIndexCard('us-index-sp500', data.sp500 || data['^GSPC']);
-        updateIndexCard('us-index-nasdaq', data.nasdaq || data['^IXIC']);
-        updateIndexCard('us-index-dow', data.dow || data['^DJI']);
+        // 지수 카드 (API 응답: data.indices 배열에서 찾기)
+        const indices = data.indices || [];
+        const sp500 = indices.find(i => i.symbol === '^GSPC' || i.name === 'S&P 500');
+        const nasdaq = indices.find(i => i.symbol === '^IXIC' || i.name === '나스닥');
+        const dow = indices.find(i => i.symbol === '^DJI' || i.name === '다우존스');
+        updateIndexCard('us-index-sp500', sp500);
+        updateIndexCard('us-index-nasdaq', nasdaq);
+        updateIndexCard('us-index-dow', dow);
 
         // 주요 종목 표시
-        const topStocks = data.top_stocks || [];
+        const topStocks = data.stocks || [];
         const tbody = document.getElementById('us-stocks-tbody');
         if (tbody) {
             if (topStocks.length > 0) {
@@ -4260,10 +4270,10 @@ async function loadRsData() {
     tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">RS 데이터 로딩 중...</td></tr>';
 
     try {
-        const result = await invoke('get_analysis_rs', {
+        const result = await invokeWithTimeout('get_analysis_rs', {
             accessToken: auth.accessToken || '',
             market: 'kospi'
-        });
+        }, 15000);
 
         const stocks = result?.stocks || [];
         if (stocks.length === 0) {
@@ -4315,9 +4325,9 @@ async function loadHigh52Data() {
     tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">52주 신고가 데이터 로딩 중...</td></tr>';
 
     try {
-        const result = await invoke('get_analysis_new_high', {
+        const result = await invokeWithTimeout('get_analysis_new_high', {
             accessToken: auth.accessToken || ''
-        });
+        }, 15000);
 
         const stocks = result?.stocks || [];
         if (stocks.length === 0) {
@@ -4368,10 +4378,10 @@ async function loadValuationData() {
     tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">밸류에이션 데이터 로딩 중...</td></tr>';
 
     try {
-        const result = await invoke('get_analysis_valuation', {
+        const result = await invokeWithTimeout('get_analysis_valuation', {
             accessToken: auth.accessToken || '',
             market: 'all'
-        });
+        }, 15000);
 
         const stocks = result?.stocks || [];
         if (stocks.length === 0) {
