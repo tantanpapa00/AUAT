@@ -3676,6 +3676,11 @@ async function loadMarketKr() {
     const contentEl = document.getElementById('market-kr-content');
     if (!restrictionEl || !contentEl) return;
 
+    // auth.user가 없으면 먼저 로드 시도
+    if (!auth.user && auth.accessToken) {
+        await loadUserInfo();
+    }
+
     const plan = auth.user?.plan || 'free';
     const role = auth.user?.role || 'user';
     const isPro = ['pro', 'premium'].includes(plan) || role === 'admin';
@@ -3776,6 +3781,11 @@ async function loadMarketUs() {
     const contentEl = document.getElementById('market-us-content');
     if (!restrictionEl || !contentEl) return;
 
+    // auth.user가 없으면 먼저 로드 시도
+    if (!auth.user && auth.accessToken) {
+        await loadUserInfo();
+    }
+
     const plan = auth.user?.plan || 'free';
     const role = auth.user?.role || 'user';
     const isPro = ['pro', 'premium'].includes(plan) || role === 'admin';
@@ -3860,6 +3870,11 @@ async function loadMarketEtf() {
     const restrictionEl = document.getElementById('market-etf-restriction');
     const contentEl = document.getElementById('market-etf-content');
     if (!restrictionEl || !contentEl) return;
+
+    // auth.user가 없으면 먼저 로드 시도
+    if (!auth.user && auth.accessToken) {
+        await loadUserInfo();
+    }
 
     const plan = auth.user?.plan || 'free';
     const role = auth.user?.role || 'user';
@@ -3989,6 +4004,11 @@ async function loadMarketCrypto() {
     const restrictionEl = document.getElementById('market-crypto-restriction');
     const contentEl = document.getElementById('market-crypto-content');
     if (!restrictionEl || !contentEl) return;
+
+    // auth.user가 없으면 먼저 로드 시도
+    if (!auth.user && auth.accessToken) {
+        await loadUserInfo();
+    }
 
     const plan = auth.user?.plan || 'free';
     const role = auth.user?.role || 'user';
@@ -5030,6 +5050,10 @@ window.openStockDetail = openStockDetail;
     if (isAuthenticated) {
         checkServerConnection();
     }
+
+    // 자동완성 초기화
+    initAllAutocompletes();
+    initPremiumStrategyAutocomplete();
 })();
 
 // Periodic status update
