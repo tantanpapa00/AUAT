@@ -294,14 +294,26 @@ async def get_current_user_optional(
             db.refresh(dev_user)
         return dev_user
 
+    # [DEBUG] 인증 정보 로그
+    if credentials:
+        token_preview = credentials.credentials[:20] + "..." if len(credentials.credentials) > 20 else credentials.credentials
+        print(f"[AUTH DEBUG] credentials.scheme={credentials.scheme}, token={token_preview}")
+    else:
+        print("[AUTH DEBUG] credentials is None (no Authorization header)")
+
     if not credentials:
         return None
 
     token_data = verify_token(credentials.credentials)
     if not token_data or not token_data.user_id:
+        print(f"[AUTH DEBUG] token_data invalid: {token_data}")
         return None
 
     user = db.query(User).filter(User.id == token_data.user_id).first()
+    if user:
+        print(f"[AUTH DEBUG] user found: id={user.id}, email={user.email}, role={user.role}, plan={user.plan}")
+    else:
+        print(f"[AUTH DEBUG] user not found for user_id={token_data.user_id}")
     return user
 
 
