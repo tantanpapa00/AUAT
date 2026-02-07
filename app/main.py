@@ -8659,44 +8659,29 @@ async def get_market_kr_overview(
     current_user: User = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """국내시장 현황 - 네이버 금융 직접 크롤링"""
-    if not _check_pro_plan(current_user):
+    """국내시장 현황 - data_provider 사용"""
+    # admin이면 무조건 통과
+    if current_user and current_user.role == "admin":
+        pass
+    elif not _check_pro_plan(current_user):
+        if not current_user:
+            raise HTTPException(status_code=401, detail="로그인이 필요합니다")
         raise HTTPException(status_code=403, detail="Pro 이상 요금제에서 이용 가능합니다")
 
     try:
-        # 병렬로 데이터 조회
-        import asyncio
-        kospi_task = naver_finance.get_kospi_index()
-        kosdaq_task = naver_finance.get_kosdaq_index()
-        investor_task = naver_finance.get_investor_trend()
-        sector_task = naver_finance.get_sector_ranking()
-
-        kospi, kosdaq, investor, sectors = await asyncio.gather(
-            kospi_task, kosdaq_task, investor_task, sector_task,
-            return_exceptions=True
-        )
-
-        # 에러 처리
-        if isinstance(kospi, Exception):
-            kospi = {"name": "KOSPI", "current": 0, "error": str(kospi)}
-        if isinstance(kosdaq, Exception):
-            kosdaq = {"name": "KOSDAQ", "current": 0, "error": str(kosdaq)}
-        if isinstance(investor, Exception):
-            investor = {"foreign": 0, "institution": 0, "individual": 0, "error": str(investor)}
-        if isinstance(sectors, Exception):
-            sectors = []
-
+        data = await get_kr_market_overview()
         return {
             "indices": {
-                "kospi": kospi,
-                "kosdaq": kosdaq,
+                "kospi": data.get("kospi", {"name": "코스피", "current": 0, "change": 0, "change_percent": 0}),
+                "kosdaq": data.get("kosdaq", {"name": "코스닥", "current": 0, "change": 0, "change_percent": 0}),
             },
-            "investor": investor,
-            "sectors": sectors[:5],  # TOP 5
+            "investor": data.get("investors", {"foreign": 0, "institution": 0, "individual": 0}),
+            "sectors": data.get("sectors", [])[:5],
             "success": True,
         }
 
     except Exception as e:
+        print(f"[API] KR market error: {e}")
         return {
             "indices": {},
             "investor": {},

@@ -159,9 +159,9 @@ def _parse_int(val):
 # ===== RS 순위 (네이버 API 기반) =====
 
 async def get_rs_ranking(market="ALL", limit=100):
-    """RS 순위 - 네이버 시가총액 상위 + RS 계산"""
+    """RS 순위 - 백분위 기반 RS 계산"""
     cache_key = f"rs_{market}_{limit}"
-    cached = _cached(cache_key, 1800)  # 30분 캐싱
+    cached = _cached(cache_key, 3600)  # 1시간 캐싱
     if cached:
         return cached
 
@@ -169,48 +169,85 @@ async def get_rs_ranking(market="ALL", limit=100):
     market_upper = market.upper()
 
     try:
-        async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
-            # 시가총액 상위 종목 가져오기
+        async with httpx.AsyncClient(timeout=30, headers=NAVER_HEADERS) as client:
+            # 시가총액 상위 종목 가져오기 (더 많이)
             markets_to_fetch = []
             if market_upper in ["ALL", "KOSPI"]:
                 markets_to_fetch.append(("KOSPI", "KOSPI"))
             if market_upper in ["ALL", "KOSDAQ"]:
                 markets_to_fetch.append(("KOSDAQ", "KOSDAQ"))
 
+            all_stocks = []
             for mkt_name, mkt_code in markets_to_fetch:
                 try:
-                    url = f"https://m.stock.naver.com/api/stocks/marketValue/{mkt_code}?page=1&pageSize=50"
+                    # 시총 상위 100개씩 (총 200개)
+                    url = f"https://m.stock.naver.com/api/stocks/marketValue/{mkt_code}?page=1&pageSize=100"
                     r = await client.get(url)
                     if r.status_code == 200:
                         data = r.json()
                         items = data.get("stocks", [])
-
                         for item in items:
-                            code = item.get("itemCode", "")
-                            name = item.get("stockName", "")
-                            close_price = _parse_price(item.get("closePrice", "0"))
-                            change_rate = _parse_float(item.get("fluctuationsRatio", "0"))
-
-                            # RS 계산을 위한 차트 데이터 가져오기
-                            rs_scores = await _calculate_rs_from_chart(client, code)
-
-                            stocks.append({
-                                "code": code,
-                                "name": name,
+                            all_stocks.append({
+                                "code": item.get("itemCode", ""),
+                                "name": item.get("stockName", ""),
                                 "market": mkt_name,
-                                "price": int(close_price),
-                                "change": round(change_rate, 2),
-                                "rs_total": rs_scores["total"],
-                                "rs_1m": rs_scores["1m"],
-                                "rs_3m": rs_scores["3m"],
-                                "rs_6m": rs_scores["6m"]
+                                "price": _parse_price(item.get("closePrice", "0")),
+                                "change": _parse_float(item.get("fluctuationsRatio", "0")),
                             })
                 except Exception as e:
                     print(f"[DataProvider] RS {mkt_name} error: {e}")
 
-        # RS 순위로 정렬
-        stocks.sort(key=lambda x: x["rs_total"], reverse=True)
-        stocks = stocks[:limit]
+            # 병렬로 차트 데이터 가져오기 (수익률 계산용)
+            tasks = [_calculate_returns_from_chart(client, s["code"]) for s in all_stocks]
+            returns_data = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # 수익률 데이터 매핑
+            for i, stock in enumerate(all_stocks):
+                ret_data = returns_data[i]
+                if isinstance(ret_data, Exception):
+                    stock["ret_1m"] = 0
+                    stock["ret_3m"] = 0
+                    stock["ret_6m"] = 0
+                else:
+                    stock["ret_1m"] = ret_data.get("ret_1m", 0)
+                    stock["ret_3m"] = ret_data.get("ret_3m", 0)
+                    stock["ret_6m"] = ret_data.get("ret_6m", 0)
+
+            # 백분위 RS 계산
+            n = len(all_stocks)
+            if n > 0:
+                # 각 기간별로 정렬 후 백분위 할당
+                sorted_1m = sorted(all_stocks, key=lambda x: x["ret_1m"])
+                sorted_3m = sorted(all_stocks, key=lambda x: x["ret_3m"])
+                sorted_6m = sorted(all_stocks, key=lambda x: x["ret_6m"])
+
+                for i, s in enumerate(sorted_1m):
+                    s["rs_1m"] = max(1, min(99, int((i + 1) / n * 99)))
+                for i, s in enumerate(sorted_3m):
+                    s["rs_3m"] = max(1, min(99, int((i + 1) / n * 99)))
+                for i, s in enumerate(sorted_6m):
+                    s["rs_6m"] = max(1, min(99, int((i + 1) / n * 99)))
+
+                # 종합 RS 계산 (1개월 40%, 3개월 30%, 6개월 30%)
+                for s in all_stocks:
+                    s["rs_total"] = int(s["rs_1m"] * 0.4 + s["rs_3m"] * 0.3 + s["rs_6m"] * 0.3)
+
+            # RS 순위로 정렬
+            all_stocks.sort(key=lambda x: x["rs_total"], reverse=True)
+
+            # 결과 정리
+            for stock in all_stocks[:limit]:
+                stocks.append({
+                    "code": stock["code"],
+                    "name": stock["name"],
+                    "market": stock["market"],
+                    "price": int(stock["price"]),
+                    "change": round(stock["change"], 2),
+                    "rs_total": stock["rs_total"],
+                    "rs_1m": stock["rs_1m"],
+                    "rs_3m": stock["rs_3m"],
+                    "rs_6m": stock["rs_6m"]
+                })
 
         _set_cache(cache_key, stocks)
         return stocks
@@ -221,8 +258,8 @@ async def get_rs_ranking(market="ALL", limit=100):
         return []
 
 
-async def _calculate_rs_from_chart(client, code):
-    """차트 데이터에서 RS 계산"""
+async def _calculate_returns_from_chart(client, code):
+    """차트 데이터에서 수익률 계산"""
     try:
         today = datetime.now()
         start_date = (today - timedelta(days=200)).strftime("%Y%m%d")
@@ -235,81 +272,116 @@ async def _calculate_rs_from_chart(client, code):
             data = r.json()
             prices = [float(d.get("closePrice", 0)) for d in data if d.get("closePrice")]
 
-            if len(prices) >= 20:
-                # 최근 가격 대비 과거 가격 변화율로 RS 계산
+            if len(prices) >= 10:
                 current = prices[-1]
 
                 # 1개월 (20거래일)
-                price_1m = prices[-min(20, len(prices))] if len(prices) >= 20 else prices[0]
-                rs_1m = min(99, max(1, int(50 + (current / price_1m - 1) * 200)))
+                idx_1m = min(20, len(prices) - 1)
+                price_1m = prices[-(idx_1m + 1)] if idx_1m > 0 else prices[0]
+                ret_1m = (current / price_1m - 1) * 100 if price_1m > 0 else 0
 
                 # 3개월 (60거래일)
-                price_3m = prices[-min(60, len(prices))] if len(prices) >= 60 else prices[0]
-                rs_3m = min(99, max(1, int(50 + (current / price_3m - 1) * 100)))
+                idx_3m = min(60, len(prices) - 1)
+                price_3m = prices[-(idx_3m + 1)] if idx_3m > 0 else prices[0]
+                ret_3m = (current / price_3m - 1) * 100 if price_3m > 0 else 0
 
                 # 6개월 (120거래일)
-                price_6m = prices[-min(120, len(prices))] if len(prices) >= 120 else prices[0]
-                rs_6m = min(99, max(1, int(50 + (current / price_6m - 1) * 50)))
+                idx_6m = min(120, len(prices) - 1)
+                price_6m = prices[-(idx_6m + 1)] if idx_6m > 0 else prices[0]
+                ret_6m = (current / price_6m - 1) * 100 if price_6m > 0 else 0
 
-                rs_total = int(rs_1m * 0.4 + rs_3m * 0.3 + rs_6m * 0.3)
-
-                return {"total": rs_total, "1m": rs_1m, "3m": rs_3m, "6m": rs_6m}
+                return {"ret_1m": ret_1m, "ret_3m": ret_3m, "ret_6m": ret_6m}
     except Exception as e:
-        print(f"[DataProvider] RS calc error for {code}: {e}")
+        print(f"[DataProvider] Returns calc error for {code}: {e}")
 
-    # 기본값 반환
-    import random
-    rs_1m = random.randint(40, 80)
-    rs_3m = random.randint(40, 80)
-    rs_6m = random.randint(40, 80)
-    return {"total": int(rs_1m * 0.4 + rs_3m * 0.3 + rs_6m * 0.3), "1m": rs_1m, "3m": rs_3m, "6m": rs_6m}
+    return {"ret_1m": 0, "ret_3m": 0, "ret_6m": 0}
 
 
 # ===== 52주 신고가 =====
 
+async def _fetch_stock_integration(client, code):
+    """개별 종목 integration API에서 상세 정보 조회"""
+    try:
+        url = f"https://m.stock.naver.com/api/stock/{code}/integration"
+        r = await client.get(url)
+        if r.status_code == 200:
+            data = r.json()
+            result = {"code": code}
+            for info in data.get("totalInfos", []):
+                key = info.get("code", "")
+                value = info.get("value", "0")
+                if key == "highPriceOf52Weeks":
+                    result["high_52w"] = _parse_price(value)
+                elif key == "lowPriceOf52Weeks":
+                    result["low_52w"] = _parse_price(value)
+                elif key == "per":
+                    result["per"] = _parse_float(value.replace("배", ""))
+                elif key == "pbr":
+                    result["pbr"] = _parse_float(value.replace("배", ""))
+            return result
+    except Exception as e:
+        print(f"[DataProvider] Integration error for {code}: {e}")
+    return {"code": code, "high_52w": 0, "low_52w": 0, "per": 0, "pbr": 0}
+
+
 async def get_new_high_stocks(limit=50):
-    """52주 신고가 종목 - 네이버 API"""
-    cached = _cached("new_high", 1800)
+    """52주 신고가 종목 - 네이버 API (integration 사용)"""
+    cached = _cached("new_high", 3600)  # 1시간 캐싱
     if cached:
         return cached
 
     results = []
+    stocks_to_check = []
 
     try:
-        async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
-            # KOSPI 시가총액 상위에서 52주 신고가 근접 종목 추출
+        async with httpx.AsyncClient(timeout=30, headers=NAVER_HEADERS) as client:
+            # KOSPI/KOSDAQ 시가총액 상위 50개씩 가져오기
             for market in ["KOSPI", "KOSDAQ"]:
                 try:
-                    url = f"https://m.stock.naver.com/api/stocks/marketValue/{market}?page=1&pageSize=30"
+                    url = f"https://m.stock.naver.com/api/stocks/marketValue/{market}?page=1&pageSize=50"
                     r = await client.get(url)
                     if r.status_code == 200:
                         data = r.json()
                         items = data.get("stocks", [])
-
                         for item in items:
-                            code = item.get("itemCode", "")
-                            name = item.get("stockName", "")
-                            close_price = _parse_price(item.get("closePrice", "0"))
-                            high_52w = _parse_price(item.get("high52wPrice", str(close_price)))
-                            market_cap = _parse_int(item.get("marketValue", "0"))
-                            change = _parse_float(item.get("fluctuationsRatio", "0"))
-
-                            if high_52w > 0:
-                                distance = round((close_price / high_52w - 1) * 100, 2)
-
-                                # 52주 고가의 95% 이상인 종목만
-                                if distance >= -5:
-                                    results.append({
-                                        "code": code,
-                                        "name": name,
-                                        "price": int(close_price),
-                                        "change": change,
-                                        "high_52w": int(high_52w),
-                                        "distance": distance,
-                                        "market_cap": market_cap
-                                    })
+                            stocks_to_check.append({
+                                "code": item.get("itemCode", ""),
+                                "name": item.get("stockName", ""),
+                                "price": _parse_price(item.get("closePrice", "0")),
+                                "change": _parse_float(item.get("fluctuationsRatio", "0")),
+                                "market_cap": _parse_int(item.get("marketValue", "0")),
+                                "market": market
+                            })
                 except Exception as e:
-                    print(f"[DataProvider] New high {market} error: {e}")
+                    print(f"[DataProvider] New high list {market} error: {e}")
+
+            # 상위 60개만 상세 조회 (속도)
+            stocks_to_check = stocks_to_check[:60]
+
+            # 병렬로 integration API 호출
+            tasks = [_fetch_stock_integration(client, s["code"]) for s in stocks_to_check]
+            integration_data = await asyncio.gather(*tasks, return_exceptions=True)
+
+            for i, stock in enumerate(stocks_to_check):
+                int_data = integration_data[i]
+                if isinstance(int_data, Exception):
+                    continue
+
+                high_52w = int_data.get("high_52w", 0)
+                if high_52w > 0 and stock["price"] > 0:
+                    distance = round((stock["price"] / high_52w - 1) * 100, 2)
+
+                    # 52주 고가의 90% 이상인 종목만 (-10% 이상)
+                    if distance >= -10:
+                        results.append({
+                            "code": stock["code"],
+                            "name": stock["name"],
+                            "price": int(stock["price"]),
+                            "change": stock["change"],
+                            "high_52w": int(high_52w),
+                            "distance": distance,
+                            "market_cap": stock["market_cap"]
+                        })
 
         # 고가 근접순 정렬
         results.sort(key=lambda x: x["distance"], reverse=True)
@@ -327,53 +399,73 @@ async def get_new_high_stocks(limit=50):
 # ===== 밸류에이션 =====
 
 async def get_valuation(market="ALL", limit=200):
-    """PER/PBR 밸류에이션 - 네이버 API"""
+    """PER/PBR 밸류에이션 - 네이버 API (integration 사용)"""
     cache_key = f"valuation_{market}"
-    cached = _cached(cache_key, 1800)
+    cached = _cached(cache_key, 3600)  # 1시간 캐싱
     if cached:
         return cached
 
     results = []
+    stocks_to_check = []
     market_upper = market.upper()
 
     try:
-        async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
+        async with httpx.AsyncClient(timeout=30, headers=NAVER_HEADERS) as client:
             markets_to_fetch = []
             if market_upper in ["ALL", "KOSPI"]:
                 markets_to_fetch.append("KOSPI")
             if market_upper in ["ALL", "KOSDAQ"]:
                 markets_to_fetch.append("KOSDAQ")
 
+            # 시가총액 상위 종목 목록 가져오기
             for mkt in markets_to_fetch:
                 try:
-                    url = f"https://m.stock.naver.com/api/stocks/marketValue/{mkt}?page=1&pageSize=100"
+                    url = f"https://m.stock.naver.com/api/stocks/marketValue/{mkt}?page=1&pageSize=60"
                     r = await client.get(url)
                     if r.status_code == 200:
                         data = r.json()
                         items = data.get("stocks", [])
-
                         for item in items:
-                            code = item.get("itemCode", "")
-                            name = item.get("stockName", "")
-                            close_price = _parse_price(item.get("closePrice", "0"))
-                            per = _parse_float(item.get("per", "0"))
-                            pbr = _parse_float(item.get("pbr", "0"))
-                            market_cap = _parse_int(item.get("marketValue", "0"))
-
-                            results.append({
-                                "code": code,
-                                "name": name,
-                                "price": int(close_price),
-                                "per": per if per > 0 else 0,
-                                "pbr": pbr if pbr > 0 else 0,
-                                "market_cap": market_cap,
+                            stocks_to_check.append({
+                                "code": item.get("itemCode", ""),
+                                "name": item.get("stockName", ""),
+                                "price": _parse_price(item.get("closePrice", "0")),
+                                "market_cap": _parse_int(item.get("marketValue", "0")),
                                 "market": mkt
                             })
                 except Exception as e:
-                    print(f"[DataProvider] Valuation {mkt} error: {e}")
+                    print(f"[DataProvider] Valuation list {mkt} error: {e}")
 
-        # PER 낮은 순 정렬 (0 제외)
-        results.sort(key=lambda x: x["per"] if x["per"] > 0 else 9999)
+            # 상위 80개만 상세 조회 (속도)
+            stocks_to_check = sorted(stocks_to_check, key=lambda x: x["market_cap"], reverse=True)[:80]
+
+            # 병렬로 integration API 호출
+            tasks = [_fetch_stock_integration(client, s["code"]) for s in stocks_to_check]
+            integration_data = await asyncio.gather(*tasks, return_exceptions=True)
+
+            for i, stock in enumerate(stocks_to_check):
+                int_data = integration_data[i]
+                if isinstance(int_data, Exception):
+                    continue
+
+                per = int_data.get("per", 0)
+                pbr = int_data.get("pbr", 0)
+
+                results.append({
+                    "code": stock["code"],
+                    "name": stock["name"],
+                    "price": int(stock["price"]),
+                    "per": per if per > 0 else 0,
+                    "pbr": pbr if pbr > 0 else 0,
+                    "market_cap": stock["market_cap"],
+                    "market": stock["market"]
+                })
+
+        # PER 낮은 순 정렬 (0 제외하고 정렬)
+        with_per = [r for r in results if r["per"] > 0]
+        without_per = [r for r in results if r["per"] == 0]
+        with_per.sort(key=lambda x: x["per"])
+        results = with_per + without_per
         results = results[:limit]
 
         _set_cache(cache_key, results)
@@ -540,7 +632,8 @@ async def get_crypto_overview():
                         "symbol": k.replace("USDT",""),
                         "price": float(v["lastPrice"]),
                         "change_24h": float(v["priceChangePercent"]),
-                        "volume": float(v["quoteVolume"])
+                        "volume": float(v["quoteVolume"]),
+                        "exchange": "binance"
                     } for k, v in main_coins.items()]
                 else:
                     result["binance"] = []
@@ -557,7 +650,8 @@ async def get_crypto_overview():
                         "symbol": d["market"].replace("KRW-",""),
                         "price": float(d["trade_price"]),
                         "change_24h": float(d["signed_change_rate"]) * 100,
-                        "volume": float(d["acc_trade_price_24h"])
+                        "volume": float(d["acc_trade_price_24h"]),
+                        "exchange": "upbit"
                     } for d in data]
                 else:
                     result["upbit"] = []
