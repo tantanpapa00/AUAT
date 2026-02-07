@@ -206,8 +206,13 @@ from app.kis_api import (
     SECTOR_CODES
 )
 
-# 네이버 금융 + Yahoo Finance 모듈
-from app import naver_finance, yahoo_finance
+# Yahoo Finance 모듈 (naver_finance는 data_provider로 대체)
+from app import yahoo_finance
+from app.data_provider import (
+    get_kr_market_overview, get_us_market_overview, get_etf_overview,
+    get_crypto_overview, get_rs_ranking, get_new_high_stocks, get_valuation,
+    get_stock_detail, get_chart_data
+)
 
 # 세션 미들웨어 (OAuth 콜백용)
 app.add_middleware(
@@ -8434,88 +8439,81 @@ def _check_pro_plan(user: Optional[User]) -> bool:
 
 
 @app.get("/api/market/overview")
-async def get_market_overview(
+async def api_market_overview(
     current_user: User = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """시장현황 — 지수 + 투자자 동향"""
+    """시장현황 — 지수 + 투자자 동향 (pykrx 사용)"""
     # 디버그 로그
     if current_user:
         print(f"[DEBUG] get_market_overview: user={current_user.email}, role={current_user.role}, plan={current_user.plan}")
     else:
         print("[DEBUG] get_market_overview: current_user is None (no auth token)")
 
-    if not _check_pro_plan(current_user):
+    # admin이면 무조건 통과
+    if current_user and current_user.role == "admin":
+        pass  # 허용
+    elif not _check_pro_plan(current_user):
         if not current_user:
             raise HTTPException(status_code=401, detail="로그인이 필요합니다")
         raise HTTPException(status_code=403, detail="Pro 이상 요금제에서 이용 가능합니다")
 
-    # 공개 API로 지수 데이터 조회 (항상)
-    kr_indices = await get_naver_index()
-    us_indices = await get_yahoo_index()
+    # pykrx로 국내 시장 데이터 조회
+    kr_data = await get_kr_market_overview()
 
-    # 투자자 동향 (KIS 계정 있을 때)
-    investor_data = None
-    kis_creds = None
+    # KIS 계정 확인
+    has_kis = False
     if current_user:
         kis_creds = await _get_kis_credentials(db, current_user.id)
-        if kis_creds:
-            app_key, app_secret = kis_creds
-            token = await get_kis_token(app_key, app_secret)
-            if token:
-                investor_data = await get_investor_daily(app_key, app_secret, token.access_token)
+        has_kis = kis_creds is not None
 
-    # 시황 요약 생성 (규칙 기반)
-    kospi_change = kr_indices.get("kospi", {}).get("change", 0)
-    kosdaq_change = kr_indices.get("kosdaq", {}).get("change", 0)
+    # 시황 요약 생성
+    kospi_change = kr_data.get("kospi", {}).get("change_percent", 0)
+    kosdaq_change = kr_data.get("kosdaq", {}).get("change_percent", 0)
 
     if kospi_change > 1:
         market_status = "강세"
-        market_emoji = "🟢"
     elif kospi_change < -1:
         market_status = "약세"
-        market_emoji = "🔴"
     else:
         market_status = "보합"
-        market_emoji = "🟡"
-
-    summary = {
-        "status": market_status,
-        "emoji": market_emoji,
-        "kospi_change": kospi_change,
-        "kosdaq_change": kosdaq_change,
-    }
 
     return {
-        "indices": {
-            **kr_indices,
-            **us_indices
+        "kospi": kr_data.get("kospi", {}),
+        "kosdaq": kr_data.get("kosdaq", {}),
+        "investors": kr_data.get("investors", {}),
+        "sectors": kr_data.get("sectors", []),
+        "summary": {
+            "status": market_status,
+            "kospi_change": kospi_change,
+            "kosdaq_change": kosdaq_change,
         },
-        "investor": investor_data,
-        "summary": summary,
-        "has_kis_account": kis_creds is not None,
+        "has_kis_account": has_kis,
     }
 
 
 @app.get("/api/market/sectors")
-async def get_market_sectors(
+async def api_market_sectors(
     current_user: User = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """업종별 현황"""
-    if not _check_pro_plan(current_user):
+    """업종별 현황 (pykrx 사용)"""
+    # admin이면 무조건 통과
+    if current_user and current_user.role == "admin":
+        pass
+    elif not _check_pro_plan(current_user):
+        if not current_user:
+            raise HTTPException(status_code=401, detail="로그인이 필요합니다")
         raise HTTPException(status_code=403, detail="Pro 이상 요금제에서 이용 가능합니다")
 
-    # 네이버 공개 API로 업종 데이터 조회
-    sectors = await get_naver_sector_list()
-
-    # 등락률 순 정렬
-    sectors_sorted = sorted(sectors, key=lambda x: x.get("change", 0), reverse=True)
+    # pykrx로 업종 데이터 조회 (overview에서 같이 가져옴)
+    kr_data = await get_kr_market_overview()
+    sectors = kr_data.get("sectors", [])
 
     return {
-        "sectors": sectors_sorted,
-        "leading": sectors_sorted[:3] if len(sectors_sorted) >= 3 else sectors_sorted,
-        "lagging": sectors_sorted[-3:] if len(sectors_sorted) >= 3 else [],
+        "sectors": sectors,
+        "leading": sectors[:3] if len(sectors) >= 3 else sectors,
+        "lagging": sectors[-3:] if len(sectors) >= 3 else [],
     }
 
 
@@ -8709,78 +8707,68 @@ async def get_market_kr_overview(
 
 
 @app.get("/api/market/us/overview")
-async def get_market_us_overview(
+async def api_market_us_overview(
     current_user: User = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """해외시장 현황 - Yahoo Finance 직접 연동"""
-    if not _check_pro_plan(current_user):
+    """해외시장 현황 - yfinance 사용"""
+    # admin이면 무조건 통과
+    if current_user and current_user.role == "admin":
+        pass
+    elif not _check_pro_plan(current_user):
+        if not current_user:
+            raise HTTPException(status_code=401, detail="로그인이 필요합니다")
         raise HTTPException(status_code=403, detail="Pro 이상 요금제에서 이용 가능합니다")
 
     try:
-        import asyncio
-        indices_task = yahoo_finance.get_us_indices()
-        top_stocks_task = yahoo_finance.get_top_us_stocks()
-
-        indices, top_stocks = await asyncio.gather(
-            indices_task, top_stocks_task,
-            return_exceptions=True
-        )
-
-        if isinstance(indices, Exception):
-            indices = {}
-        if isinstance(top_stocks, Exception):
-            top_stocks = []
-
+        data = await get_us_market_overview()
         return {
-            "indices": indices,
-            "top_stocks": top_stocks[:20],
+            "indices": data.get("indices", []),
+            "stocks": data.get("stocks", []),
             "success": True,
         }
-
     except Exception as e:
+        print(f"[API] US market error: {e}")
         return {
-            "indices": {},
-            "top_stocks": [],
+            "indices": [],
+            "stocks": [],
             "success": False,
             "error": str(e),
         }
 
 
 @app.get("/api/market/etf")
-async def get_market_etf(
+async def api_market_etf(
     sector: str = Query("all", description="섹터 필터"),
     current_user: User = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """ETF 시장 현황 - 섹터별 분류"""
-    if not _check_pro_plan(current_user):
+    """ETF 시장 현황 - pykrx 사용"""
+    # admin이면 무조건 통과
+    if current_user and current_user.role == "admin":
+        pass
+    elif not _check_pro_plan(current_user):
+        if not current_user:
+            raise HTTPException(status_code=401, detail="로그인이 필요합니다")
         raise HTTPException(status_code=403, detail="Pro 이상 요금제에서 이용 가능합니다")
 
     try:
-        etfs = await naver_finance.get_etf_list()
-
-        # 섹터별 그룹핑
-        sector_map = {}
-        for etf in etfs:
-            s = etf.get("sector", "기타")
-            if s not in sector_map:
-                sector_map[s] = []
-            sector_map[s].append(etf)
+        data = await get_etf_overview()
+        sector_map = data.get("sectors", {})
+        all_etfs = data.get("all", [])
 
         # 섹터 필터
         if sector != "all" and sector in sector_map:
             filtered_etfs = sector_map[sector]
         else:
-            filtered_etfs = etfs
+            filtered_etfs = all_etfs
 
-        # 섹터별 요약 (각 섹터의 대표 ETF 등락률)
+        # 섹터별 요약
         sector_summary = []
         for sec, items in sector_map.items():
             if items:
-                # 거래대금 상위 ETF 선택
                 top_etf = max(items, key=lambda x: x.get("volume", 0))
-                avg_change = sum(e.get("change_percent", 0) for e in items) / len(items)
+                avg_change = sum(e.get("change_percent", 0) for e in items) / len(items) if items else 0
                 sector_summary.append({
                     "sector": sec,
                     "count": len(items),
@@ -8789,11 +8777,8 @@ async def get_market_etf(
                     "top_etf_change": top_etf.get("change_percent", 0),
                 })
 
-        # 등락률 순 정렬
         sector_summary.sort(key=lambda x: x["avg_change"], reverse=True)
-
-        # 자금 흐름 (거래대금 기준)
-        sorted_by_volume = sorted(etfs, key=lambda x: x.get("volume", 0), reverse=True)
+        sorted_by_volume = sorted(all_etfs, key=lambda x: x.get("volume", 0), reverse=True)
 
         return {
             "sector_summary": sector_summary,
@@ -8804,6 +8789,7 @@ async def get_market_etf(
         }
 
     except Exception as e:
+        print(f"[API] ETF error: {e}")
         return {
             "sector_summary": [],
             "etfs": [],
@@ -8815,103 +8801,41 @@ async def get_market_etf(
 
 
 @app.get("/api/market/crypto")
-async def get_market_crypto(
-    exchange: str = Query("all", description="거래소 필터: all, binance, upbit, okx, bybit"),
+async def api_market_crypto(
+    exchange: str = Query("all", description="거래소 필터: all, binance, upbit"),
     current_user: User = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """코인 시장 현황 - 거래소 API 직접 연동"""
-    if not _check_pro_plan(current_user):
+    """코인 시장 현황 - data_provider 사용"""
+    # admin이면 무조건 통과
+    if current_user and current_user.role == "admin":
+        pass
+    elif not _check_pro_plan(current_user):
+        if not current_user:
+            raise HTTPException(status_code=401, detail="로그인이 필요합니다")
         raise HTTPException(status_code=403, detail="Pro 이상 요금제에서 이용 가능합니다")
 
     try:
-        import asyncio
-        results = []
+        data = await get_crypto_overview()
 
-        async def fetch_binance():
-            try:
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    resp = await client.get("https://api.binance.com/api/v3/ticker/24hr")
-                    data = resp.json()
-                    return [
-                        {
-                            "symbol": d["symbol"],
-                            "exchange": "binance",
-                            "price": float(d["lastPrice"]),
-                            "change_percent": float(d["priceChangePercent"]),
-                            "volume": float(d["quoteVolume"]),
-                        }
-                        for d in data[:100] if d["symbol"].endswith("USDT")
-                    ]
-            except Exception as e:
-                print(f"[Crypto] Binance error: {e}")
-                return []
-
-        async def fetch_upbit():
-            try:
-                markets = "KRW-BTC,KRW-ETH,KRW-XRP,KRW-SOL,KRW-DOGE,KRW-ADA,KRW-AVAX,KRW-DOT"
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    resp = await client.get(f"https://api.upbit.com/v1/ticker?markets={markets}")
-                    data = resp.json()
-                    return [
-                        {
-                            "symbol": d["market"].replace("KRW-", "") + "-KRW",
-                            "exchange": "upbit",
-                            "price": float(d["trade_price"]),
-                            "change_percent": float(d["signed_change_rate"]) * 100,
-                            "volume": float(d["acc_trade_price_24h"]),
-                        }
-                        for d in data
-                    ]
-            except Exception as e:
-                print(f"[Crypto] Upbit error: {e}")
-                return []
-
-        async def fetch_coingecko_global():
-            try:
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    resp = await client.get("https://api.coingecko.com/api/v3/global")
-                    data = resp.json().get("data", {})
-                    return {
-                        "btc_dominance": round(data.get("market_cap_percentage", {}).get("btc", 0), 2),
-                        "eth_dominance": round(data.get("market_cap_percentage", {}).get("eth", 0), 2),
-                        "total_market_cap": data.get("total_market_cap", {}).get("usd", 0),
-                        "total_volume": data.get("total_volume", {}).get("usd", 0),
-                    }
-            except Exception as e:
-                print(f"[Crypto] CoinGecko error: {e}")
-                return {}
-
-        # 병렬 조회
+        coins = []
         if exchange in ("all", "binance"):
-            binance_data = await fetch_binance()
-            results.extend(binance_data[:20])
-
+            coins.extend(data.get("binance", []))
         if exchange in ("all", "upbit"):
-            upbit_data = await fetch_upbit()
-            results.extend(upbit_data)
-
-        global_data = await fetch_coingecko_global()
-
-        # 김치 프리미엄 계산 (업비트 BTC vs 바이낸스 BTC)
-        upbit_btc = next((r for r in results if r["symbol"] == "BTC-KRW" and r["exchange"] == "upbit"), None)
-        binance_btc = next((r for r in results if r["symbol"] == "BTCUSDT" and r["exchange"] == "binance"), None)
-        kimchi_premium = None
-
-        if upbit_btc and binance_btc:
-            # 환율 가정 (실제로는 API 조회 필요)
-            exchange_rate = 1380
-            upbit_usd = upbit_btc["price"] / exchange_rate
-            kimchi_premium = round((upbit_usd / binance_btc["price"] - 1) * 100, 2)
+            coins.extend(data.get("upbit", []))
 
         return {
-            "coins": results,
-            "global": global_data,
-            "kimchi_premium": kimchi_premium,
+            "coins": coins,
+            "global": {
+                "btc_dominance": data.get("btc_dominance", 0),
+                "total_market_cap": data.get("total_market_cap", 0),
+            },
+            "kimchi_premium": data.get("kimchi_premium", 0),
             "success": True,
         }
 
     except Exception as e:
+        print(f"[API] Crypto error: {e}")
         return {
             "coins": [],
             "global": {},
@@ -8926,50 +8850,16 @@ async def get_market_crypto(
 # =============================================================================
 
 @app.get("/api/analysis/rs")
-async def get_analysis_rs(
+async def api_analysis_rs(
     market: str = Query("all", description="시장: all, kospi, kosdaq"),
-    limit: int = Query(50, description="최대 개수"),
+    limit: int = Query(100, description="최대 개수"),
     current_user: User = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """종합RS 순위"""
+    """종합RS 순위 - pykrx 실제 데이터 사용"""
     try:
-        # 마스터 캐시에서 종목 가져오기
-        master = get_master_cache()
-        stocks = list(master.stocks.values()) if master.stocks else []
-
-        # 시장 필터
-        if market == "kospi":
-            stocks = [s for s in stocks if s.market == "KOSPI"]
-        elif market == "kosdaq":
-            stocks = [s for s in stocks if s.market == "KOSDAQ"]
-
-        # 시가총액 기준 상위 종목만 (ETF 제외)
-        stocks = [s for s in stocks if not s.is_etf][:200]
-
-        # RS 계산 (샘플 - 실제로는 일봉 데이터 필요)
-        import random
-        rs_data = []
-        for s in stocks[:limit]:
-            rs_1m = random.randint(30, 99)
-            rs_3m = random.randint(30, 99)
-            rs_6m = random.randint(30, 99)
-            rs_total = int(rs_1m * 0.4 + rs_3m * 0.35 + rs_6m * 0.25)
-
-            rs_data.append({
-                "code": s.code,
-                "name": s.name,
-                "market": s.market,
-                "price": 0,  # 실시간 시세는 별도 조회 필요
-                "change": 0,
-                "rs_total": rs_total,
-                "rs_1m": rs_1m,
-                "rs_3m": rs_3m,
-                "rs_6m": rs_6m,
-            })
-
-        # RS 순위 정렬
-        rs_data.sort(key=lambda x: x["rs_total"], reverse=True)
+        # pykrx로 RS 계산
+        rs_data = await get_rs_ranking(market.upper(), limit)
 
         return {
             "stocks": rs_data,
@@ -8978,6 +8868,7 @@ async def get_analysis_rs(
         }
 
     except Exception as e:
+        print(f"[API] RS error: {e}")
         return {
             "stocks": [],
             "market": market,
@@ -8987,18 +8878,20 @@ async def get_analysis_rs(
 
 
 @app.get("/api/analysis/new-high")
-async def get_analysis_new_high(
+async def api_analysis_new_high(
+    limit: int = Query(50, description="최대 개수"),
     current_user: User = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """52주 신고가 돌파 종목"""
+    """52주 신고가 돌파 종목 - pykrx 사용"""
     try:
-        stocks = await naver_finance.get_new_high_stocks()
+        stocks = await get_new_high_stocks(limit)
         return {
             "stocks": stocks,
             "success": True,
         }
     except Exception as e:
+        print(f"[API] New high error: {e}")
         return {
             "stocks": [],
             "success": False,
@@ -9007,59 +8900,33 @@ async def get_analysis_new_high(
 
 
 @app.get("/api/analysis/valuation")
-async def get_analysis_valuation(
+async def api_analysis_valuation(
     market: str = Query("all", description="시장: all, kospi, kosdaq"),
     sort_by: str = Query("per", description="정렬: per, pbr, market_cap"),
-    limit: int = Query(50, description="최대 개수"),
+    limit: int = Query(200, description="최대 개수"),
     current_user: User = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """밸류에이션 데이터"""
+    """밸류에이션 데이터 - pykrx 사용"""
     try:
-        # 마스터 캐시에서 종목 가져오기
-        master = get_master_cache()
-        stocks = list(master.stocks.values()) if master.stocks else []
-
-        # 시장 필터
-        if market == "kospi":
-            stocks = [s for s in stocks if s.market == "KOSPI"]
-        elif market == "kosdaq":
-            stocks = [s for s in stocks if s.market == "KOSDAQ"]
-
-        # ETF 제외
-        stocks = [s for s in stocks if not s.is_etf][:100]
-
-        # 밸류에이션 데이터 (샘플 - 실제로는 API 조회 필요)
-        import random
-        valuation_data = []
-        for s in stocks[:limit]:
-            valuation_data.append({
-                "code": s.code,
-                "name": s.name,
-                "market": s.market,
-                "price": 0,
-                "market_cap": 0,
-                "per": round(random.uniform(5, 50), 1),
-                "per_e1": round(random.uniform(4, 40), 1),  # 2026E
-                "per_e2": round(random.uniform(3, 35), 1),  # 2027E
-                "pbr": round(random.uniform(0.5, 5), 2),
-                "sector1": "산업",
-                "sector2": "업종",
-            })
+        valuation_data = await get_valuation(market.upper(), limit)
 
         # 정렬
         if sort_by == "per":
-            valuation_data.sort(key=lambda x: x["per"])
+            valuation_data.sort(key=lambda x: x["per"] if x["per"] > 0 else 9999)
         elif sort_by == "pbr":
-            valuation_data.sort(key=lambda x: x["pbr"])
+            valuation_data.sort(key=lambda x: x["pbr"] if x["pbr"] > 0 else 9999)
+        elif sort_by == "market_cap":
+            valuation_data.sort(key=lambda x: x["market_cap"], reverse=True)
 
         return {
-            "stocks": valuation_data,
+            "stocks": valuation_data[:limit],
             "market": market,
             "success": True,
         }
 
     except Exception as e:
+        print(f"[API] Valuation error: {e}")
         return {
             "stocks": [],
             "market": market,
