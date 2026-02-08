@@ -3899,27 +3899,12 @@ async def tv_webhook(request: Request, db: Session = Depends(get_db)):
             detail = f"invalid side: '{side}' (buy 또는 sell만 허용)"
             return _tv_json(False, code, detail)
 
-        # [Week8] qty 검증 강화
-        if qty is None:
-            code = "missing_qty"
-            detail = "missing: qty (수량 필수)"
-            return _tv_json(False, code, detail)
-        try:
-            qty_float = float(qty)
-            if qty_float <= 0:
-                code = "invalid_qty"
-                detail = f"invalid qty: {qty} (0보다 커야 함)"
-                return _tv_json(False, code, detail)
-        except (ValueError, TypeError):
-            code = "invalid_qty"
-            detail = f"invalid qty: '{qty}' (숫자여야 함)"
-            return _tv_json(False, code, detail)
-
         # [Week8] alert_id 권장 (누락 시 경고 포함하되 진행)
         if not alert_id:
             # 경고만 - 진행은 허용 (idempotency 불가 안내)
             pass  # TODO: 향후 로그에 warning 기록
 
+        # 3-1) asset 먼저 조회 (qty 계산에 필요)
         asset = _resolve_asset(db, strategy_id, str(symbol).strip(), market="spot")
         if not asset:
             code = "asset_not_found"
@@ -3932,13 +3917,97 @@ async def tv_webhook(request: Request, db: Session = Depends(get_db)):
             detail = f"자산 비활성: symbol='{symbol}' 활성화 필요 (is_active=true)"
             return {"ok": False, "code": code, "detail": detail}
 
-        # [Signal Params] effective_params 조회 및 Limits 체크
         account_id = int(asset.get("account_id")) if asset.get("account_id") is not None else None
-        try:
-            from app.utils.trading import get_effective_params, check_limits
-            effective_params = get_effective_params(db, asset_id)
 
-            # Limits 체크 (주문 생성 전 가드레일)
+        # 3-2) effective_params 조회
+        effective_params = {}
+        try:
+            from app.utils.trading import get_effective_params, check_limits, calculate_qty, determine_signal_type
+            effective_params = get_effective_params(db, asset_id)
+        except Exception as ep_err:
+            print(f"[WARN] get_effective_params failed: {ep_err}")
+
+        # 3-3) qty 처리: 웹훅에 있으면 사용, 없으면 자동 계산
+        qty_float = None
+        qty_auto_calculated = False
+
+        if qty is not None:
+            # 웹훅에서 qty 제공 (하위호환)
+            try:
+                qty_float = float(qty)
+                if qty_float <= 0:
+                    code = "invalid_qty"
+                    detail = f"invalid qty: {qty} (0보다 커야 함)"
+                    return _tv_json(False, code, detail)
+            except (ValueError, TypeError):
+                code = "invalid_qty"
+                detail = f"invalid qty: '{qty}' (숫자여야 함)"
+                return _tv_json(False, code, detail)
+        else:
+            # qty 없음 -> signal_params 기반 자동 계산
+            try:
+                # 거래소 정보 조회
+                exchange_row = db.execute(text("""
+                    SELECT ac.exchange FROM accounts ac WHERE ac.id = :aid
+                """), {"aid": account_id}).mappings().first() if account_id else None
+                exchange_name = exchange_row["exchange"] if exchange_row else "OKX"
+
+                # 커넥터로 잔고/현재가 조회
+                conn = get_connector(exchange_name)
+                if not conn:
+                    return _tv_json(False, "connector_not_found", f"커넥터 없음: {exchange_name}")
+
+                # 잔고 조회
+                ccy = "USDT" if exchange_name in ("OKX", "BINANCE", "BYBIT") else "KRW"
+                bs = conn.get_balance_split(ccy=ccy)
+                if not bs:
+                    return _tv_json(False, "balance_error", "잔고 조회 실패")
+
+                free_balance = bs.trading if bs.trading else 0
+                total_balance = bs.total if bs.total else 0
+
+                # 현재가 조회 (심볼 형식 변환)
+                sym_for_price = str(symbol).strip()
+                current_price = 0.0
+                try:
+                    # OKX 형식: BTC-USDT
+                    ticker = conn.get_ticker(sym_for_price)
+                    if ticker and hasattr(ticker, 'last'):
+                        current_price = float(ticker.last)
+                    elif isinstance(ticker, dict) and 'last' in ticker:
+                        current_price = float(ticker['last'])
+                except Exception as price_err:
+                    print(f"[WARN] get_ticker failed: {price_err}")
+
+                if current_price <= 0:
+                    return _tv_json(False, "price_error", f"현재가 조회 실패: {symbol}")
+
+                # signal_type 결정 (buy=OPEN, sell=REDUCE/CLOSE)
+                action = payload.get("action") if isinstance(payload, dict) else side_lower
+                signal_type = determine_signal_type(action or side_lower, 0)
+
+                # qty 계산
+                qty_float = calculate_qty(
+                    params=effective_params,
+                    signal_type=signal_type,
+                    current_price=current_price,
+                    free_balance=free_balance,
+                    total_balance=total_balance,
+                    current_position_qty=0,  # TODO: 현재 포지션 조회
+                    reduce_pct_from_signal=None
+                )
+
+                if qty_float <= 0:
+                    return _tv_json(False, "qty_calc_zero", "자동 계산된 수량이 0 이하입니다 (잔고 부족 또는 설정 확인)")
+
+                qty_auto_calculated = True
+                print(f"[INFO] qty auto-calculated: {qty_float} (price={current_price}, free={free_balance})")
+
+            except Exception as calc_err:
+                return _tv_json(False, "qty_calc_error", f"수량 자동 계산 실패: {calc_err}")
+
+        # 3-4) Limits 체크 (주문 생성 전 가드레일)
+        try:
             limits_ok, limits_reason = await check_limits(
                 db=db,
                 params=effective_params,
@@ -3967,7 +4036,7 @@ async def tv_webhook(request: Request, db: Session = Depends(get_db)):
                 symbol=str(symbol) if symbol else None,
                 market="spot",
                 side=str(side) if side else None,
-                qty=qty,
+                qty=qty_float,  # 웹훅 qty 또는 자동계산 qty
                 order_type=payload.get("type") if isinstance(payload, dict) else None,
                 payload=payload if isinstance(payload, dict) else None,
             )
@@ -4025,6 +4094,8 @@ async def tv_webhook(request: Request, db: Session = Depends(get_db)):
             "asset_id": asset_id,
             "order_id": order_id,
             "idem_key": idem_key,
+            "qty": qty_float,
+            "qty_auto": qty_auto_calculated,
         }
 
     except Exception as e:
