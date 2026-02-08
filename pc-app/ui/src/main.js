@@ -1208,13 +1208,20 @@ function renderHoldings() {
 
         // 거래소 헤더
         if (selectedExchange === 'all' && Object.keys(byExchange).length > 1) {
-            html += `<tr class="exchange-group-header"><td colspan="7"><strong>${ex}</strong> (${assets.length}개 자산, ${formatUSD(subtotal)})</td></tr>`;
+            // 거래소별 통화 확인
+            const isKRWExchange = ['UPBIT', 'KIS_KR', 'KIS'].includes(ex);
+            const subtotalFormatted = isKRWExchange
+                ? '₩' + Math.round(subtotal).toLocaleString('ko-KR')
+                : '$' + subtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            html += `<tr class="exchange-group-header"><td colspan="7"><strong>${ex}</strong> (${assets.length}개 자산, ${subtotalFormatted})</td></tr>`;
         }
 
         assets.forEach(h => {
-            const avgPrice = h.avg_price > 0 ? formatCurrency(h.avg_price, h.exchange) : '-';
-            const currentPrice = h.current_price > 0 ? formatCurrency(h.current_price, h.exchange) : '-';
-            const profitLoss = h.avg_price > 0 ? formatCurrency(h.profit_loss, h.exchange) : '-';
+            // currency 필드 우선, 없으면 exchange 사용
+            const currency = h.currency || h.exchange;
+            const avgPrice = h.avg_price > 0 ? formatCurrency(h.avg_price, currency) : '-';
+            const currentPrice = h.current_price > 0 ? formatCurrency(h.current_price, currency) : '-';
+            const profitLoss = h.avg_price > 0 ? formatCurrency(h.profit_loss, currency) : '-';
             const profitRate = h.avg_price > 0 ? `${h.profit_rate >= 0 ? '+' : ''}${h.profit_rate.toFixed(2)}%` : '-';
             const profitClass = h.profit_rate >= 0 ? 'profit' : 'loss';
 
@@ -1298,16 +1305,23 @@ function formatNumber(num) {
     return num.toLocaleString('ko-KR', { maximumFractionDigits: 8 });
 }
 
-function formatCurrency(value, exchange) {
+function formatCurrency(value, exchangeOrCurrency) {
     if (value === null || value === undefined) return '-';
-    const isCrypto = ['OKX', 'BINANCE', 'BYBIT'].includes(exchange?.toUpperCase());
-    const isKRW = ['KIS', 'KIWOOM'].includes(exchange?.toUpperCase());
 
-    if (isCrypto) {
-        return '$' + value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    } else if (isKRW) {
+    // currency 필드가 직접 전달되는 경우
+    const currencyUpper = exchangeOrCurrency?.toUpperCase() || '';
+
+    // KRW 거래소 (Upbit, KIS 국내)
+    const isKRW = ['KRW', 'UPBIT', 'KIS_KR', 'KIS', 'KIWOOM'].includes(currencyUpper);
+    // USD 거래소 (OKX, Binance, Bybit, KIS 해외)
+    const isUSD = ['USD', 'OKX', 'BINANCE', 'BYBIT', 'KIS_US'].includes(currencyUpper);
+
+    if (isKRW) {
         return '₩' + Math.round(value).toLocaleString('ko-KR');
+    } else if (isUSD) {
+        return '$' + value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
+    // 기본값
     return value.toLocaleString('ko-KR', { minimumFractionDigits: 2 });
 }
 

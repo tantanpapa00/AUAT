@@ -37,11 +37,18 @@
 - **is_mock 필드** - KIS 모의투자 지원 (`accounts.is_mock` 컬럼 추가)
 - **테스트 계정 정리** - `test-okx-temp`, `test-kis-temp` 삭제
 
-### OKX 평균단가/평가손익/수익률 구현
-- **거래내역 API** - `GET /api/v5/trade/fills-history` 연동
-- **이동평균법** - 매수 시 평균단가 재계산, 매도 시 수량만 감소
-- **cost_basis 테이블** - DB 캐싱 (6시간 TTL)
-- **프론트엔드 연동** - `fetch_okx_balances(include_cost_basis=True)`
+### 전 거래소 평균단가/평가손익/수익률 구현
+| 거래소 | 잔고 | 현재가 | 평균단가 | 통화 |
+|--------|------|--------|----------|------|
+| OKX | `/api/v5/account/balance` | `/api/v5/market/ticker` | fills-history 이동평균 | USD |
+| Binance | `/api/v3/account` | `/api/v3/ticker/price` | myTrades 이동평균 | USD |
+| Bybit | `/v5/account/wallet-balance` | `/v5/market/tickers` | execution/list 이동평균 | USD |
+| Upbit | `/v1/accounts` (avg_buy_price 제공) | `/v1/ticker` | API 직접 제공 | KRW |
+| KIS 국내 | 잔고 API (pchs_avg_pric 제공) | - | API 직접 제공 | KRW |
+| KIS 해외 | 해외잔고 API | - | avg_unpr3 제공 | USD |
+
+- **이동평균법** - 매수: `(기존총액 + 매수금액) / (기존수량 + 매수수량)`, 매도: 수량만 감소
+- **프론트엔드** - currency 필드 기반 ₩/$ 자동 표시
 
 ### 커밋 목록
 - `1df2e32` fix: 긴급 수정 3건 - RTF/수익률/보유자산
@@ -50,6 +57,7 @@
 - `98e4ffa` fix: 계정 삭제 버튼에 data-exchange 속성 추가
 - `98759ec` feat: 보유자산 표시 개선 5건
 - `4b499f7` feat: OKX 보유자산 평균단가/평가손익/수익률 구현
+- `0993868` feat: 전 거래소 평균단가/평가손익/수익률 구현
 
 ## Day 8 Fixes
 - 종목명 쓰레기 데이터 제거 (`_clean_stock_name`)
