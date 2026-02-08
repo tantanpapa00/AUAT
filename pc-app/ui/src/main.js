@@ -1385,7 +1385,7 @@ function renderHoldings() {
                         <td>-</td>
                         <td>-</td>
                         <td>-</td>
-                        <td>₩${Math.round(depositAmount).toLocaleString('ko-KR')}</td>
+                        <td style="color: #F59E0B; font-weight: 600;">₩${Math.round(depositAmount).toLocaleString('ko-KR')}</td>
                         <td>-</td>
                         <td>-</td>
                     </tr>
@@ -1410,7 +1410,7 @@ function renderHoldings() {
                         <td>${formatQuantity(h.quantity)}</td>
                         <td>${avgPrice}</td>
                         <td>${currentPrice}</td>
-                        <td>${evalAmount}</td>
+                        <td style="color: #F59E0B; font-weight: 600;">${evalAmount}</td>
                         <td class="${h.avg_price > 0 ? profitClass : ''}">${profitLoss}</td>
                         <td class="${h.avg_price > 0 ? profitClass : ''}">${profitRate}</td>
                     </tr>
