@@ -7201,6 +7201,65 @@ async def get_portfolio_summary(
     usd_krw_rate = await get_usd_krw_rate()
     total_assets = total_krw + (total_usd * usd_krw_rate)
 
+    # 자산배분 계산
+    domestic = 0.0   # 국내주식
+    foreign = 0.0    # 해외주식
+    crypto = 0.0     # 암호화폐
+    cash = 0.0       # 현금
+
+    stablecoins = ["USDT", "USDC", "BUSD", "DAI", "TUSD"]
+
+    for h in holdings:
+        exchange = (h.get("exchange") or "").upper()
+        symbol = (h.get("symbol") or "").upper()
+
+        # 평가금액 계산 (원화 기준)
+        value_krw = h.get("value_krw", 0)
+        value_usd = h.get("value_usd", 0)
+        if value_krw <= 0 and value_usd > 0:
+            value_krw = value_usd * usd_krw_rate
+        elif value_krw <= 0:
+            # current_price * quantity로 계산
+            price = h.get("current_price", 0)
+            qty = h.get("quantity", 0)
+            if exchange in ("OKX", "BINANCE", "BYBIT", "KIS_US"):
+                value_krw = price * qty * usd_krw_rate
+            else:
+                value_krw = price * qty
+
+        # 분류
+        if exchange in ("KIS_KR", "KIS"):
+            if symbol in ("KRW", "예수금") or h.get("name") == "예수금":
+                cash += value_krw
+            else:
+                domestic += value_krw
+        elif exchange == "KIS_US":
+            foreign += value_krw
+        elif exchange in ("OKX", "BINANCE", "BYBIT"):
+            if symbol in stablecoins:
+                cash += value_krw
+            else:
+                crypto += value_krw
+        elif exchange == "UPBIT":
+            if symbol == "KRW":
+                cash += value_krw
+            else:
+                crypto += value_krw
+
+    alloc_total = domestic + foreign + crypto + cash
+    allocation = {
+        "domestic": round(domestic / alloc_total * 100) if alloc_total > 0 else 0,
+        "foreign": round(foreign / alloc_total * 100) if alloc_total > 0 else 0,
+        "crypto": round(crypto / alloc_total * 100) if alloc_total > 0 else 0,
+        "cash": round(cash / alloc_total * 100) if alloc_total > 0 else 100,
+        "domestic_value": domestic,
+        "foreign_value": foreign,
+        "crypto_value": crypto,
+        "cash_value": cash,
+    }
+
+    print(f"[Summary] Allocation: domestic={domestic:.0f}, foreign={foreign:.0f}, crypto={crypto:.0f}, cash={cash:.0f}")
+
     # 포맷팅
     def format_krw(val):
         if val >= 1e12:
@@ -7223,7 +7282,8 @@ async def get_portfolio_summary(
         "daily_change_rate": 0.0,
         "active_strategies": active_strategies,
         "holdings_count": len(holdings),
-        "currency": "KRW"
+        "currency": "KRW",
+        "allocation": allocation
     }
 
 

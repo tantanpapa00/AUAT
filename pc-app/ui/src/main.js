@@ -1014,6 +1014,19 @@ function updateSummaryCards(summary) {
     }
 
     if (activeStrategies) activeStrategies.textContent = (summary.active_strategies || 0) + '개';
+
+    // 자산배분 도넛차트 업데이트 (summary.allocation 사용)
+    if (summary.allocation) {
+        const alloc = summary.allocation;
+        console.log('[Summary] Allocation from API:', alloc);
+        const allocData = [
+            alloc.domestic || 0,
+            alloc.foreign || 0,
+            alloc.crypto || 0,
+            alloc.cash || 0
+        ];
+        initAllocationChart(allocData);
+    }
 }
 
 async function loadPortfolioChart(period) {
