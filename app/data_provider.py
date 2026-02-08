@@ -2053,8 +2053,12 @@ async def fetch_kis_kr_balances(api_key: str, secret_key: str, account_number: s
                         holdings.append({
                             "symbol": "KRW",
                             "name": "예수금",
-                            "quantity": 1,
+                            "quantity": cash,  # 실제 금액을 quantity로
+                            "avg_price": 1,
+                            "current_price": 1,
                             "value_krw": cash,
+                            "profit_loss": 0,
+                            "profit_rate": 0,
                             "currency": "KRW"
                         })
 
