@@ -73,6 +73,27 @@
 - `5758628` style: 평가액 컬럼 앰버 색상 적용 (#F59E0B)
 - `7482588` fix: allocation 분류 로직 수정 + 디버그 로그 정리
 
+### 전략설정 (Sizing/Risk/Limits) 기능 추가
+**아키텍처**: `strategies.signal_params` (JSONB) + `assets.signal_params_override` (JSONB)
+Hub 로직: `effective = deep_merge(strategies.signal_params, assets.signal_params_override)`
+
+**Phase 1: DB + 유틸리티**
+- `scripts/migrate_signal_params.sql`: DB 마이그레이션
+- `app/utils/merge.py`: deep_merge (object 재귀, array 통째 교체, null 무시)
+- `app/utils/validation.py`: validate_effective_params 검증
+
+**Phase 2: API 엔드포인트**
+- `GET/PUT /api/strategies/{id}/signal-params-jsonb`
+- `GET/PUT/DELETE /api/assets/{id}/signal-params-override`
+- `GET /api/assets/{id}/effective-params`
+
+**Phase 3: PC앱 UI**
+- TV Connect Step 3: 사이징/리스크/리밋 3개 카드
+- collectSignalParams(), loadSignalParamsToUI() 함수
+
+**커밋**
+- `f2da45a` feat: 전략설정 (Sizing/Risk/Limits) Phase 1-3 구현
+
 ## Day 8 Fixes
 - 종목명 쓰레기 데이터 제거 (`_clean_stock_name`)
 - 섹터 데이터 수정 (업종 지수 기반)
