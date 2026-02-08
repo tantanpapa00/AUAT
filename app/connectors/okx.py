@@ -21,6 +21,7 @@ from .base import (
     MarketInfo,
     OrderResult,
     PlaceOrderResult,
+    TickerInfo,
     OrderType,
     Side,
 )
@@ -393,3 +394,88 @@ class OKXConnector(Connector):
                 )
             )
         return out
+
+    def get_ticker(self, symbol: str) -> TickerInfo:
+        """
+        OKX 현재가 조회 (Public API - 인증 불필요)
+        GET /api/v5/market/ticker?instId=BTC-USDT
+        """
+        base_url, _, _, _, _, timeout_sec = _okx_env()
+        inst_id = symbol.upper()
+        url = f"{base_url}/api/v5/market/ticker?instId={inst_id}"
+
+        try:
+            req = urlrequest.Request(url, method="GET", headers={
+                "Accept": "application/json",
+                "User-Agent": "bbooster-hub/0.1",
+            })
+            with urlrequest.urlopen(req, timeout=timeout_sec) as resp:
+                raw = resp.read().decode("utf-8", errors="replace")
+                j = json.loads(raw)
+        except HTTPError as e:
+            raw = e.read().decode("utf-8", errors="replace") if hasattr(e, "read") else str(e)
+            return TickerInfo(
+                ok=False,
+                exchange=self.exchange,
+                symbol=symbol,
+                err_code="http_error",
+                err_msg=str(e),
+                raw={"error": raw},
+            )
+        except URLError as e:
+            return TickerInfo(
+                ok=False,
+                exchange=self.exchange,
+                symbol=symbol,
+                err_code="network_error",
+                err_msg=str(e),
+            )
+        except Exception as e:
+            return TickerInfo(
+                ok=False,
+                exchange=self.exchange,
+                symbol=symbol,
+                err_code="exception",
+                err_msg=str(e),
+            )
+
+        if str(j.get("code", "")) != "0":
+            return TickerInfo(
+                ok=False,
+                exchange=self.exchange,
+                symbol=symbol,
+                err_code=str(j.get("code")),
+                err_msg=j.get("msg"),
+                raw=j,
+            )
+
+        data = j.get("data", [])
+        if not data:
+            return TickerInfo(
+                ok=False,
+                exchange=self.exchange,
+                symbol=symbol,
+                err_code="no_data",
+                err_msg="Empty data array",
+                raw=j,
+            )
+
+        def _to_f(x):
+            try:
+                return float(x) if x else None
+            except Exception:
+                return None
+
+        tick = data[0]
+        return TickerInfo(
+            ok=True,
+            exchange=self.exchange,
+            symbol=symbol,
+            last=_to_f(tick.get("last")),
+            bid=_to_f(tick.get("bidPx")),
+            ask=_to_f(tick.get("askPx")),
+            high24h=_to_f(tick.get("high24h")),
+            low24h=_to_f(tick.get("low24h")),
+            vol24h=_to_f(tick.get("vol24h")),
+            raw=tick,
+        )

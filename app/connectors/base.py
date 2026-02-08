@@ -71,6 +71,22 @@ class MarketInfo:
     raw: Optional[Dict[str, Any]] = None
 
 
+@dataclass(frozen=True)
+class TickerInfo:
+    ok: bool
+    exchange: str
+    symbol: str
+    last: Optional[float] = None
+    bid: Optional[float] = None
+    ask: Optional[float] = None
+    high24h: Optional[float] = None
+    low24h: Optional[float] = None
+    vol24h: Optional[float] = None
+    raw: Optional[Dict[str, Any]] = None
+    err_code: Optional[str] = None
+    err_msg: Optional[str] = None
+
+
 class Connector(Protocol):
     exchange: str
 
@@ -99,4 +115,7 @@ class Connector(Protocol):
         ...
 
     def get_markets(self, *, symbol: Optional[str] = None) -> List[MarketInfo]:
+        ...
+
+    def get_ticker(self, symbol: str) -> TickerInfo:
         ...

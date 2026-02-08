@@ -21,6 +21,7 @@ from .base import (
     MarketInfo,
     OrderResult,
     PlaceOrderResult,
+    TickerInfo,
     OrderType,
     Side,
 )
@@ -424,3 +425,76 @@ class BinanceConnector(Connector):
             )
 
         return out
+
+    def get_ticker(self, symbol: str) -> TickerInfo:
+        """
+        Binance 현재가 조회 (Public API)
+        GET /api/v3/ticker/24hr?symbol=BTCUSDT
+        """
+        base_url, _, _, _, timeout_sec = _binance_env()
+        binance_symbol = _to_binance_symbol(symbol)
+        url = f"{base_url}/api/v3/ticker/24hr?symbol={binance_symbol}"
+
+        try:
+            req = urlrequest.Request(url, method="GET", headers={
+                "Accept": "application/json",
+                "User-Agent": "bbooster-hub/0.1",
+            })
+            with urlrequest.urlopen(req, timeout=timeout_sec) as resp:
+                raw = resp.read().decode("utf-8", errors="replace")
+                j = json.loads(raw)
+        except HTTPError as e:
+            raw = e.read().decode("utf-8", errors="replace") if hasattr(e, "read") else str(e)
+            return TickerInfo(
+                ok=False,
+                exchange=self.exchange,
+                symbol=symbol,
+                err_code="http_error",
+                err_msg=str(e),
+                raw={"error": raw},
+            )
+        except URLError as e:
+            return TickerInfo(
+                ok=False,
+                exchange=self.exchange,
+                symbol=symbol,
+                err_code="network_error",
+                err_msg=str(e),
+            )
+        except Exception as e:
+            return TickerInfo(
+                ok=False,
+                exchange=self.exchange,
+                symbol=symbol,
+                err_code="exception",
+                err_msg=str(e),
+            )
+
+        if "code" in j:
+            return TickerInfo(
+                ok=False,
+                exchange=self.exchange,
+                symbol=symbol,
+                err_code=str(j.get("code")),
+                err_msg=j.get("msg"),
+                raw=j,
+            )
+
+        def _to_f(x):
+            try:
+                return float(x) if x else None
+            except Exception:
+                return None
+
+        return TickerInfo(
+            ok=True,
+            exchange=self.exchange,
+            symbol=symbol,
+            last=_to_f(j.get("lastPrice")),
+            bid=_to_f(j.get("bidPrice")),
+            ask=_to_f(j.get("askPrice")),
+            high24h=_to_f(j.get("highPrice")),
+            low24h=_to_f(j.get("lowPrice")),
+            vol24h=_to_f(j.get("volume")),
+            raw=j,
+        )

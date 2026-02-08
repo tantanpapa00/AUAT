@@ -22,6 +22,7 @@ from .base import (
     MarketInfo,
     OrderResult,
     PlaceOrderResult,
+    TickerInfo,
     Side,
     OrderType,
 )
@@ -671,3 +672,18 @@ class KISConnector(Connector):
                 symbol=symbol,
                 raw={"error": "exception", "detail": f"{type(e).__name__}: {e}"},
             )]
+
+    def get_ticker(self, symbol: str) -> TickerInfo:
+        """
+        KIS 현재가 조회 (국내주식시세/주식현재가)
+        TODO: 실제 KIS API 호출 구현 필요
+        """
+        # KIS는 현재가 조회를 위해 별도 API 호출 필요
+        # 일단 미구현 상태로 반환
+        return TickerInfo(
+            ok=False,
+            exchange=self.exchange,
+            symbol=symbol,
+            err_code="not_implemented",
+            err_msg="KIS get_ticker not implemented yet",
+        )
