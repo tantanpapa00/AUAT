@@ -104,12 +104,12 @@
     "windows": [
       {
         "fullscreen": false,
-        "height": 800,
+        "height": 900,
         "resizable": true,
         "title": "BBooster — 큐브시스템",
-        "width": 1200,
-        "minWidth": 800,
-        "minHeight": 600,
+        "width": 1400,
+        "minWidth": 1100,
+        "minHeight": 700,
         "center": true,
         "visible": true,
         "decorations": true,

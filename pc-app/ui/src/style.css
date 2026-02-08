@@ -2960,39 +2960,21 @@ body {
 .holdings-table-wrapper {
     max-height: 400px;
     overflow-y: auto;
-    overflow-x: hidden;
+    overflow-x: auto;
 }
 
 .holdings-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12px;
-    table-layout: fixed;
+    font-size: 13px;
+    table-layout: auto;
 }
-
-/* 컬럼 너비 지정 */
-.holdings-table th:nth-child(1),
-.holdings-table td:nth-child(1) { width: 15%; } /* 자산명 */
-.holdings-table th:nth-child(2),
-.holdings-table td:nth-child(2) { width: 10%; } /* 거래소 */
-.holdings-table th:nth-child(3),
-.holdings-table td:nth-child(3) { width: 17%; } /* 보유수량 */
-.holdings-table th:nth-child(4),
-.holdings-table td:nth-child(4) { width: 17%; } /* 평단가 */
-.holdings-table th:nth-child(5),
-.holdings-table td:nth-child(5) { width: 17%; } /* 현재가 */
-.holdings-table th:nth-child(6),
-.holdings-table td:nth-child(6) { width: 14%; } /* 손익 */
-.holdings-table th:nth-child(7),
-.holdings-table td:nth-child(7) { width: 10%; } /* 수익률 */
 
 .holdings-table th,
 .holdings-table td {
-    padding: 8px 6px;
+    padding: 10px 8px;
     text-align: left;
     border-bottom: 1px solid var(--border);
-    overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
 }
 
@@ -3000,7 +2982,7 @@ body {
     background: var(--bg-light);
     color: var(--text-muted);
     font-weight: 500;
-    font-size: 11px;
+    font-size: 12px;
     text-transform: uppercase;
     position: sticky;
     top: 0;
@@ -3021,7 +3003,6 @@ body {
 .holdings-table .empty-row td {
     padding: 0;
     background: transparent;
-    overflow: visible;
     white-space: normal;
 }
 
@@ -3029,10 +3010,17 @@ body {
     background: transparent;
 }
 
-/* 거래소 배지 작게 */
-.holdings-table .exchange-badge {
-    font-size: 10px;
-    padding: 2px 6px;
+/* 반응형: 창 크기에 따른 폰트 조절 */
+@media (min-width: 1200px) {
+    .holdings-table { font-size: 14px; }
+    .holdings-table th { font-size: 12px; }
+    .holdings-table th, .holdings-table td { padding: 12px 10px; }
+}
+
+@media (max-width: 900px) {
+    .holdings-table { font-size: 12px; }
+    .holdings-table th { font-size: 11px; }
+    .holdings-table th, .holdings-table td { padding: 8px 4px; }
 }
 
 /* 활성 전략 그리드 */
