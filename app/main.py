@@ -3972,33 +3972,36 @@ async def tv_webhook(request: Request, db: Session = Depends(get_db)):
                     from app.data_provider import fetch_okx_balances
                     okx_balances = await fetch_okx_balances(api_key, api_secret, api_passphrase, include_cost_basis=False)
                     for b in okx_balances:
-                        if b.get("symbol") == ccy or b.get("currency") == ccy:
-                            free_balance = float(b.get("available", 0) or b.get("free", 0) or 0)
-                            total_balance = float(b.get("total", 0) or b.get("balance", 0) or 0)
+                        if b.get("symbol") == ccy:
+                            # fetch_okx_balances 반환: {symbol, quantity, value_usd, ...}
+                            free_balance = float(b.get("quantity", 0) or 0)
+                            total_balance = float(b.get("quantity", 0) or 0)
                             break
                     # USDT 못 찾으면 첫 번째 스테이블코인 사용
                     if free_balance == 0 and okx_balances:
                         for b in okx_balances:
                             sym = b.get("symbol", "").upper()
                             if sym in ("USDT", "USDC"):
-                                free_balance = float(b.get("available", 0) or b.get("free", 0) or 0)
-                                total_balance = float(b.get("total", 0) or b.get("balance", 0) or 0)
+                                free_balance = float(b.get("quantity", 0) or 0)
+                                total_balance = float(b.get("quantity", 0) or 0)
                                 break
                 elif exchange_name == "BINANCE":
                     from app.data_provider import fetch_binance_balances
                     bin_balances = await fetch_binance_balances(api_key, api_secret)
                     for b in bin_balances:
                         if b.get("symbol") == ccy:
-                            free_balance = float(b.get("available", 0) or 0)
-                            total_balance = float(b.get("total", 0) or 0)
+                            # fetch_binance_balances 반환: {symbol, quantity, value_usd, ...}
+                            free_balance = float(b.get("quantity", 0) or 0)
+                            total_balance = float(b.get("quantity", 0) or 0)
                             break
                 elif exchange_name == "BYBIT":
                     from app.data_provider import fetch_bybit_balances
                     bybit_balances = await fetch_bybit_balances(api_key, api_secret)
                     for b in bybit_balances:
                         if b.get("symbol") == ccy:
-                            free_balance = float(b.get("available", 0) or 0)
-                            total_balance = float(b.get("total", 0) or 0)
+                            # fetch_bybit_balances 반환: {symbol, quantity, value_usd, ...}
+                            free_balance = float(b.get("quantity", 0) or 0)
+                            total_balance = float(b.get("quantity", 0) or 0)
                             break
                 else:
                     return _tv_json(False, "unsupported_exchange", f"미지원 거래소: {exchange_name}")
