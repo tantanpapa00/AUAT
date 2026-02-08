@@ -1854,6 +1854,215 @@ def api_signal_params_list(strategy_id: int, db: Session = Depends(get_db)):
     return {"ok": True, "strategy_id": strategy_id, "count": len(rows), "items": [dict(r) for r in rows]}
 
 
+# =====================================================
+# Signal Params API (Sizing/Risk/Limits) - JSONB 기반
+# =====================================================
+from app.utils.merge import deep_merge, get_overridden_keys, DEFAULT_SIGNAL_PARAMS
+
+
+class SignalParamsRequest(BaseModel):
+    """전략 signal_params 저장 요청"""
+    signal_params: dict
+
+
+class SignalParamsOverrideRequest(BaseModel):
+    """종목별 signal_params_override 저장 요청"""
+    signal_params_override: dict
+
+
+@app.get("/api/strategies/{strategy_id}/signal-params-jsonb")
+def api_get_strategy_signal_params(strategy_id: int, db: Session = Depends(get_db)):
+    """전략의 signal_params (JSONB) 조회"""
+    row = db.execute(
+        text("SELECT id, name, signal_params FROM strategies WHERE id = :id"),
+        {"id": strategy_id}
+    ).mappings().first()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="전략을 찾을 수 없습니다")
+
+    # signal_params가 없으면 기본값 반환
+    signal_params = row["signal_params"] or DEFAULT_SIGNAL_PARAMS
+
+    return {
+        "ok": True,
+        "strategy_id": strategy_id,
+        "strategy_name": row["name"],
+        "signal_params": signal_params
+    }
+
+
+@app.put("/api/strategies/{strategy_id}/signal-params-jsonb")
+def api_put_strategy_signal_params(
+    strategy_id: int,
+    req: SignalParamsRequest,
+    db: Session = Depends(get_db)
+):
+    """전략의 signal_params (JSONB) 저장"""
+    row = db.execute(
+        text("SELECT id FROM strategies WHERE id = :id"),
+        {"id": strategy_id}
+    ).mappings().first()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="전략을 찾을 수 없습니다")
+
+    try:
+        db.execute(
+            text("""
+                UPDATE strategies
+                SET signal_params = CAST(:params AS jsonb),
+                    updated_at = now()
+                WHERE id = :id
+            """),
+            {"id": strategy_id, "params": _safe_dumps(req.signal_params)}
+        )
+        db.commit()
+
+        return {
+            "ok": True,
+            "message": "저장 완료",
+            "signal_params": req.signal_params
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"저장 실패: {str(e)}")
+
+
+@app.get("/api/assets/{asset_id}/signal-params-override")
+def api_get_asset_signal_params_override(asset_id: int, db: Session = Depends(get_db)):
+    """종목의 signal_params_override 조회"""
+    row = db.execute(
+        text("SELECT id, symbol, signal_params_override FROM assets WHERE id = :id"),
+        {"id": asset_id}
+    ).mappings().first()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
+
+    return {
+        "ok": True,
+        "asset_id": asset_id,
+        "symbol": row["symbol"],
+        "signal_params_override": row["signal_params_override"]  # NULL 가능
+    }
+
+
+@app.put("/api/assets/{asset_id}/signal-params-override")
+def api_put_asset_signal_params_override(
+    asset_id: int,
+    req: SignalParamsOverrideRequest,
+    db: Session = Depends(get_db)
+):
+    """종목의 signal_params_override 저장"""
+    row = db.execute(
+        text("SELECT id FROM assets WHERE id = :id"),
+        {"id": asset_id}
+    ).mappings().first()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
+
+    try:
+        db.execute(
+            text("""
+                UPDATE assets
+                SET signal_params_override = CAST(:params AS jsonb),
+                    updated_at = now()
+                WHERE id = :id
+            """),
+            {"id": asset_id, "params": _safe_dumps(req.signal_params_override)}
+        )
+        db.commit()
+
+        return {
+            "ok": True,
+            "message": "저장 완료",
+            "signal_params_override": req.signal_params_override
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"저장 실패: {str(e)}")
+
+
+@app.delete("/api/assets/{asset_id}/signal-params-override")
+def api_delete_asset_signal_params_override(asset_id: int, db: Session = Depends(get_db)):
+    """종목의 signal_params_override 초기화 (전략 기본값으로 복귀)"""
+    row = db.execute(
+        text("SELECT id FROM assets WHERE id = :id"),
+        {"id": asset_id}
+    ).mappings().first()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
+
+    try:
+        db.execute(
+            text("""
+                UPDATE assets
+                SET signal_params_override = NULL,
+                    updated_at = now()
+                WHERE id = :id
+            """),
+            {"id": asset_id}
+        )
+        db.commit()
+
+        return {
+            "ok": True,
+            "message": "오버라이드 초기화 완료"
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"초기화 실패: {str(e)}")
+
+
+@app.get("/api/assets/{asset_id}/effective-params")
+def api_get_asset_effective_params(asset_id: int, db: Session = Depends(get_db)):
+    """
+    종목의 최종 적용값 조회 (merged).
+    Hub가 매매 시 이 엔드포인트를 사용하여 최종 설정을 가져옴.
+    """
+    row = db.execute(
+        text("""
+            SELECT
+                a.id as asset_id,
+                a.symbol,
+                a.signal_params_override,
+                s.id as strategy_id,
+                s.name as strategy_name,
+                s.signal_params
+            FROM assets a
+            JOIN strategies s ON a.strategy_id = s.id
+            WHERE a.id = :id
+        """),
+        {"id": asset_id}
+    ).mappings().first()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
+
+    # 전략 기본값 (없으면 DEFAULT_SIGNAL_PARAMS 사용)
+    base_params = row["signal_params"] or DEFAULT_SIGNAL_PARAMS
+    override_params = row["signal_params_override"]
+
+    # deep_merge 수행
+    effective_params = deep_merge(base_params, override_params)
+
+    # 오버라이드된 키 목록
+    overridden_keys = get_overridden_keys(base_params, override_params)
+
+    return {
+        "ok": True,
+        "asset_id": asset_id,
+        "symbol": row["symbol"],
+        "strategy_id": row["strategy_id"],
+        "strategy_name": row["strategy_name"],
+        "effective_params": effective_params,
+        "overridden_keys": overridden_keys
+    }
+
+
 # @app.post("/api/strategies/{strategy_id}/configs")
 # def api_create_strategy_config(strategy_id: int, payload: dict, db: Session = Depends(get_db)):
 #     _ = _get_strategy_or_404(db, strategy_id)
