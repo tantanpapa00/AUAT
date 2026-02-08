@@ -1482,7 +1482,7 @@ async def get_usd_krw_rate():
 # ===================================================================
 
 async def fetch_upbit_balances(api_key: str, secret_key: str):
-    """업비트 잔고 조회"""
+    """업비트 잔고 조회 + 현재가 + 평가손익 (avg_buy_price 직접 제공)"""
     try:
         import jwt as pyjwt
 
@@ -1493,62 +1493,196 @@ async def fetch_upbit_balances(api_key: str, secret_key: str):
         jwt_token = pyjwt.encode(payload, secret_key)
         headers = {"Authorization": f"Bearer {jwt_token}"}
 
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=15) as client:
+            # 1. 잔고 조회
             r = await client.get("https://api.upbit.com/v1/accounts", headers=headers)
-            if r.status_code == 200:
-                data = r.json()
-                balances = []
-                for item in data:
-                    currency = item.get("currency", "")
-                    balance = float(item.get("balance", 0))
-                    locked = float(item.get("locked", 0))
-                    avg_buy_price = float(item.get("avg_buy_price", 0))
-                    total_qty = balance + locked
-                    if total_qty > 0:
-                        balances.append({
-                            "symbol": currency,
-                            "quantity": total_qty,
-                            "avg_price": avg_buy_price,
-                            "value_krw": total_qty * avg_buy_price if currency != "KRW" else total_qty,
-                            "currency": "KRW"
-                        })
-                return balances
-            return []
+            print(f"[Upbit DEBUG] Balance API status: {r.status_code}")
+            if r.status_code != 200:
+                print(f"[Upbit DEBUG] Balance error: {r.text[:300]}")
+                return []
+
+            data = r.json()
+            balances = []
+            symbols_to_price = []
+
+            for item in data:
+                currency = item.get("currency", "")
+                balance = float(item.get("balance", 0))
+                locked = float(item.get("locked", 0))
+                avg_buy_price = float(item.get("avg_buy_price", 0))
+                total_qty = balance + locked
+
+                if total_qty > 0:
+                    balances.append({
+                        "symbol": currency,
+                        "quantity": total_qty,
+                        "avg_price": avg_buy_price,
+                        "current_price": 0,
+                        "value_krw": 0,
+                        "profit_loss": 0,
+                        "profit_rate": 0,
+                        "currency": "KRW"
+                    })
+                    if currency != "KRW":
+                        symbols_to_price.append(currency)
+
+            # 2. 현재가 조회 (KRW 마켓)
+            if symbols_to_price:
+                markets = ",".join([f"KRW-{s}" for s in symbols_to_price])
+                try:
+                    tr = await client.get(f"https://api.upbit.com/v1/ticker?markets={markets}")
+                    if tr.status_code == 200:
+                        ticker_data = tr.json()
+                        price_map = {t["market"].replace("KRW-", ""): float(t["trade_price"]) for t in ticker_data}
+
+                        for b in balances:
+                            sym = b["symbol"]
+                            if sym == "KRW":
+                                b["current_price"] = 1
+                                b["avg_price"] = 1
+                                b["value_krw"] = b["quantity"]
+                            elif sym in price_map:
+                                current_price = price_map[sym]
+                                avg_price = b["avg_price"]
+                                qty = b["quantity"]
+
+                                b["current_price"] = current_price
+                                b["value_krw"] = current_price * qty
+
+                                if avg_price > 0:
+                                    b["profit_loss"] = (current_price - avg_price) * qty
+                                    b["profit_rate"] = ((current_price - avg_price) / avg_price) * 100
+                                print(f"[Upbit DEBUG] {sym}: price={current_price}, avg={avg_price}, profit_rate={b['profit_rate']:.2f}%")
+                except Exception as te:
+                    print(f"[Upbit DEBUG] Ticker error: {te}")
+
+            print(f"[Upbit DEBUG] Returning {len(balances)} assets")
+            return balances
     except Exception as e:
-        print(f"[DataProvider] Upbit balance error: {e}")
+        print(f"[Upbit DEBUG] Balance error: {e}")
+        traceback.print_exc()
         return []
 
 
 async def fetch_binance_balances(api_key: str, secret_key: str):
-    """바이낸스 잔고 조회"""
+    """바이낸스 잔고 조회 + 현재가 + 거래내역 기반 평균단가"""
     try:
-        timestamp = int(time.time() * 1000)
-        query = f"timestamp={timestamp}"
-        signature = hmac.new(secret_key.encode(), query.encode(), hashlib.sha256).hexdigest()
-
         headers = {"X-MBX-APIKEY": api_key}
-        url = f"https://api.binance.com/api/v3/account?{query}&signature={signature}"
 
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=15) as client:
+            # 1. 잔고 조회
+            timestamp = int(time.time() * 1000)
+            query = f"timestamp={timestamp}"
+            signature = hmac.new(secret_key.encode(), query.encode(), hashlib.sha256).hexdigest()
+            url = f"https://api.binance.com/api/v3/account?{query}&signature={signature}"
+
             r = await client.get(url, headers=headers)
-            if r.status_code == 200:
-                data = r.json()
-                balances = []
-                for b in data.get("balances", []):
-                    free = float(b.get("free", 0))
-                    locked = float(b.get("locked", 0))
-                    total = free + locked
-                    if total > 0.0001:  # 소량 필터
-                        balances.append({
-                            "symbol": b["asset"],
-                            "quantity": total,
-                            "value_usd": 0,  # 시세 별도 조회 필요
-                            "currency": "USD"
-                        })
-                return balances
-            return []
+            print(f"[Binance DEBUG] Balance API status: {r.status_code}")
+            if r.status_code != 200:
+                print(f"[Binance DEBUG] Balance error: {r.text[:300]}")
+                return []
+
+            data = r.json()
+            balances = []
+            symbols_with_balance = []
+
+            for b in data.get("balances", []):
+                free = float(b.get("free", 0))
+                locked = float(b.get("locked", 0))
+                total = free + locked
+                if total > 0.00001:
+                    symbol = b["asset"]
+                    balances.append({
+                        "symbol": symbol,
+                        "quantity": total,
+                        "avg_price": 0,
+                        "current_price": 0,
+                        "value_usd": 0,
+                        "profit_loss": 0,
+                        "profit_rate": 0,
+                        "currency": "USD"
+                    })
+                    if symbol not in ["USDT", "USDC", "BUSD", "USD"]:
+                        symbols_with_balance.append(symbol)
+
+            # 2. 현재가 일괄 조회
+            prices = {"USDT": 1.0, "USDC": 1.0, "BUSD": 1.0, "USD": 1.0}
+            try:
+                tr = await client.get("https://api.binance.com/api/v3/ticker/price")
+                if tr.status_code == 200:
+                    for t in tr.json():
+                        sym = t["symbol"]
+                        if sym.endswith("USDT"):
+                            base = sym.replace("USDT", "")
+                            prices[base] = float(t["price"])
+            except Exception as pe:
+                print(f"[Binance DEBUG] Price fetch error: {pe}")
+
+            # 3. 거래내역 조회 및 평균단가 계산
+            cost_basis = {}
+            for symbol in symbols_with_balance[:10]:  # 상위 10개만 (API 제한)
+                try:
+                    ts = int(time.time() * 1000)
+                    q = f"symbol={symbol}USDT&timestamp={ts}&limit=500"
+                    sig = hmac.new(secret_key.encode(), q.encode(), hashlib.sha256).hexdigest()
+                    trades_url = f"https://api.binance.com/api/v3/myTrades?{q}&signature={sig}"
+
+                    tr = await client.get(trades_url, headers=headers)
+                    if tr.status_code == 200:
+                        trades = tr.json()
+                        if trades:
+                            # 이동평균법으로 계산
+                            total_qty = 0.0
+                            total_cost = 0.0
+                            avg_cost = 0.0
+
+                            for trade in sorted(trades, key=lambda x: x["time"]):
+                                qty = float(trade["qty"])
+                                price = float(trade["price"])
+                                is_buyer = trade["isBuyer"]
+
+                                if is_buyer:
+                                    total_cost += qty * price
+                                    total_qty += qty
+                                    avg_cost = total_cost / total_qty if total_qty > 0 else 0
+                                else:
+                                    total_qty -= qty
+                                    if total_qty > 0:
+                                        total_cost = avg_cost * total_qty
+                                    else:
+                                        total_qty = 0
+                                        total_cost = 0
+                                        avg_cost = 0
+
+                            if total_qty > 0:
+                                cost_basis[symbol] = {"avg_cost": avg_cost, "total_qty": total_qty}
+                                print(f"[Binance DEBUG] {symbol} avg_cost=${avg_cost:.4f}")
+                except Exception as te:
+                    print(f"[Binance DEBUG] Trade history error for {symbol}: {te}")
+
+            # 4. 최종 데이터 조합
+            for b in balances:
+                sym = b["symbol"]
+                current_price = prices.get(sym, 0)
+                b["current_price"] = current_price
+                b["value_usd"] = b["quantity"] * current_price
+
+                if sym in ["USDT", "USDC", "BUSD", "USD"]:
+                    b["avg_price"] = 1.0
+                    b["profit_loss"] = 0
+                    b["profit_rate"] = 0
+                elif sym in cost_basis:
+                    avg_price = cost_basis[sym]["avg_cost"]
+                    b["avg_price"] = round(avg_price, 4)
+                    if avg_price > 0 and current_price > 0:
+                        b["profit_loss"] = round((current_price - avg_price) * b["quantity"], 2)
+                        b["profit_rate"] = round(((current_price - avg_price) / avg_price) * 100, 2)
+
+            print(f"[Binance DEBUG] Returning {len(balances)} assets")
+            return balances
     except Exception as e:
-        print(f"[DataProvider] Binance balance error: {e}")
+        print(f"[Binance DEBUG] Balance error: {e}")
+        traceback.print_exc()
         return []
 
 
@@ -1673,44 +1807,139 @@ async def fetch_okx_balances(api_key: str, secret_key: str, passphrase: str, inc
 
 
 async def fetch_bybit_balances(api_key: str, secret_key: str):
-    """바이비트 잔고 조회"""
+    """바이비트 잔고 조회 + 현재가 + 거래내역 기반 평균단가"""
     try:
-        timestamp = str(int(time.time() * 1000))
         recv_window = "5000"
-        query = "accountType=UNIFIED"
-        sign_str = f"{timestamp}{api_key}{recv_window}{query}"
-        signature = hmac.new(secret_key.encode(), sign_str.encode(), hashlib.sha256).hexdigest()
 
-        headers = {
-            "X-BAPI-API-KEY": api_key,
-            "X-BAPI-SIGN": signature,
-            "X-BAPI-TIMESTAMP": timestamp,
-            "X-BAPI-RECV-WINDOW": recv_window,
-        }
+        def make_bybit_headers(query_str):
+            ts = str(int(time.time() * 1000))
+            sign_str = f"{ts}{api_key}{recv_window}{query_str}"
+            sig = hmac.new(secret_key.encode(), sign_str.encode(), hashlib.sha256).hexdigest()
+            return {
+                "X-BAPI-API-KEY": api_key,
+                "X-BAPI-SIGN": sig,
+                "X-BAPI-TIMESTAMP": ts,
+                "X-BAPI-RECV-WINDOW": recv_window,
+            }
 
-        url = f"https://api.bybit.com/v5/account/wallet-balance?{query}"
+        async with httpx.AsyncClient(timeout=15) as client:
+            # 1. 잔고 조회
+            query = "accountType=UNIFIED"
+            r = await client.get(
+                f"https://api.bybit.com/v5/account/wallet-balance?{query}",
+                headers=make_bybit_headers(query)
+            )
+            print(f"[Bybit DEBUG] Balance API status: {r.status_code}")
+            if r.status_code != 200:
+                print(f"[Bybit DEBUG] Balance error: {r.text[:300]}")
+                return []
 
-        async with httpx.AsyncClient(timeout=10) as client:
-            r = await client.get(url, headers=headers)
-            if r.status_code == 200:
-                data = r.json()
-                balances = []
-                for account in data.get("result", {}).get("list", []):
-                    for coin in account.get("coin", []):
-                        symbol = coin.get("coin", "")
-                        wallet_bal = float(coin.get("walletBalance", 0))
-                        usd_value = float(coin.get("usdValue", 0))
-                        if wallet_bal > 0.0001:
-                            balances.append({
-                                "symbol": symbol,
-                                "quantity": wallet_bal,
-                                "value_usd": usd_value,
-                                "currency": "USD"
-                            })
-                return balances
-            return []
+            data = r.json()
+            if data.get("retCode") != 0:
+                print(f"[Bybit DEBUG] API error: {data.get('retMsg')}")
+                return []
+
+            balances = []
+            symbols_with_balance = []
+
+            for account in data.get("result", {}).get("list", []):
+                for coin in account.get("coin", []):
+                    symbol = coin.get("coin", "")
+                    wallet_bal = float(coin.get("walletBalance", 0))
+                    usd_value = float(coin.get("usdValue", 0))
+                    if wallet_bal > 0.00001:
+                        balances.append({
+                            "symbol": symbol,
+                            "quantity": wallet_bal,
+                            "avg_price": 0,
+                            "current_price": 0,
+                            "value_usd": usd_value,
+                            "profit_loss": 0,
+                            "profit_rate": 0,
+                            "currency": "USD"
+                        })
+                        if symbol not in ["USDT", "USDC"]:
+                            symbols_with_balance.append(symbol)
+
+            # 2. 현재가 조회
+            prices = {"USDT": 1.0, "USDC": 1.0}
+            try:
+                tr = await client.get("https://api.bybit.com/v5/market/tickers?category=spot")
+                if tr.status_code == 200:
+                    ticker_data = tr.json()
+                    for t in ticker_data.get("result", {}).get("list", []):
+                        sym = t.get("symbol", "")
+                        if sym.endswith("USDT"):
+                            base = sym.replace("USDT", "")
+                            prices[base] = float(t.get("lastPrice", 0))
+            except Exception as pe:
+                print(f"[Bybit DEBUG] Price fetch error: {pe}")
+
+            # 3. 거래내역 조회 및 평균단가 계산
+            cost_basis = {}
+            for symbol in symbols_with_balance[:10]:
+                try:
+                    q = f"category=spot&symbol={symbol}USDT&limit=200"
+                    tr = await client.get(
+                        f"https://api.bybit.com/v5/execution/list?{q}",
+                        headers=make_bybit_headers(q)
+                    )
+                    if tr.status_code == 200:
+                        exec_data = tr.json()
+                        if exec_data.get("retCode") == 0:
+                            executions = exec_data.get("result", {}).get("list", [])
+                            if executions:
+                                total_qty = 0.0
+                                total_cost = 0.0
+                                avg_cost = 0.0
+
+                                # 시간 역순이므로 reverse
+                                for ex in reversed(executions):
+                                    qty = float(ex.get("execQty", 0))
+                                    price = float(ex.get("execPrice", 0))
+                                    side = ex.get("side", "")
+
+                                    if side == "Buy":
+                                        total_cost += qty * price
+                                        total_qty += qty
+                                        avg_cost = total_cost / total_qty if total_qty > 0 else 0
+                                    elif side == "Sell":
+                                        total_qty -= qty
+                                        if total_qty > 0:
+                                            total_cost = avg_cost * total_qty
+                                        else:
+                                            total_qty = 0
+                                            total_cost = 0
+                                            avg_cost = 0
+
+                                if total_qty > 0:
+                                    cost_basis[symbol] = {"avg_cost": avg_cost}
+                                    print(f"[Bybit DEBUG] {symbol} avg_cost=${avg_cost:.4f}")
+                except Exception as te:
+                    print(f"[Bybit DEBUG] Execution history error for {symbol}: {te}")
+
+            # 4. 최종 데이터 조합
+            for b in balances:
+                sym = b["symbol"]
+                current_price = prices.get(sym, 0)
+                b["current_price"] = current_price
+                if current_price > 0:
+                    b["value_usd"] = b["quantity"] * current_price
+
+                if sym in ["USDT", "USDC"]:
+                    b["avg_price"] = 1.0
+                elif sym in cost_basis:
+                    avg_price = cost_basis[sym]["avg_cost"]
+                    b["avg_price"] = round(avg_price, 4)
+                    if avg_price > 0 and current_price > 0:
+                        b["profit_loss"] = round((current_price - avg_price) * b["quantity"], 2)
+                        b["profit_rate"] = round(((current_price - avg_price) / avg_price) * 100, 2)
+
+            print(f"[Bybit DEBUG] Returning {len(balances)} assets")
+            return balances
     except Exception as e:
-        print(f"[DataProvider] Bybit balance error: {e}")
+        print(f"[Bybit DEBUG] Balance error: {e}")
+        traceback.print_exc()
         return []
 
 
@@ -1924,53 +2153,52 @@ async def fetch_okx_trade_history(api_key: str, secret_key: str, passphrase: str
     try:
         from datetime import datetime, timezone
 
-        timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.') + \
-                    f"{datetime.now(timezone.utc).microsecond // 1000:03d}Z"
+        def make_okx_signature(method, path, query=""):
+            """OKX API 서명 생성 (매 요청마다 새 타임스탬프)"""
+            ts = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.') + \
+                 f"{datetime.now(timezone.utc).microsecond // 1000:03d}Z"
+            msg = f"{ts}{method}{path}"
+            if query:
+                msg += f"?{query}"
+            sig = base64.b64encode(
+                hmac.new(secret_key.encode(), msg.encode(), hashlib.sha256).digest()
+            ).decode()
+            return ts, sig
 
-        # 요청 경로 및 쿼리
         path = "/api/v5/trade/fills-history"
-        query_params = "instType=SPOT"
+        base_query = "instType=SPOT"
         if inst_id:
-            query_params += f"&instId={inst_id}"
-
-        message = f"{timestamp}GET{path}?{query_params}"
-        signature = base64.b64encode(
-            hmac.new(secret_key.encode(), message.encode(), hashlib.sha256).digest()
-        ).decode()
-
-        headers = {
-            "OK-ACCESS-KEY": api_key,
-            "OK-ACCESS-SIGN": signature,
-            "OK-ACCESS-TIMESTAMP": timestamp,
-            "OK-ACCESS-PASSPHRASE": passphrase,
-        }
-
-        url = f"https://www.okx.com{path}?{query_params}"
+            base_query += f"&instId={inst_id}"
 
         all_trades = []
         async with httpx.AsyncClient(timeout=15) as client:
-            # 페이지네이션으로 최대 100건씩 조회
             after = ""
-            for _ in range(10):  # 최대 1000건
-                page_url = url + (f"&after={after}" if after else "")
+            for page_num in range(10):  # 최대 1000건
+                query = base_query + (f"&after={after}" if after else "")
+                ts, sig = make_okx_signature("GET", path, query)
 
-                # 페이지별로 서명 재생성
-                page_query = query_params + (f"&after={after}" if after else "")
-                page_message = f"{timestamp}GET{path}?{page_query}"
-                page_signature = base64.b64encode(
-                    hmac.new(secret_key.encode(), page_message.encode(), hashlib.sha256).digest()
-                ).decode()
-                headers["OK-ACCESS-SIGN"] = page_signature
+                headers = {
+                    "OK-ACCESS-KEY": api_key,
+                    "OK-ACCESS-SIGN": sig,
+                    "OK-ACCESS-TIMESTAMP": ts,
+                    "OK-ACCESS-PASSPHRASE": passphrase,
+                }
 
-                r = await client.get(page_url, headers=headers)
+                url = f"https://www.okx.com{path}?{query}"
+                r = await client.get(url, headers=headers)
+
                 if r.status_code == 200:
                     data = r.json()
+                    if data.get("code") != "0":
+                        print(f"[OKX DEBUG] Trade history API error: {data.get('msg')}")
+                        break
                     trades = data.get("data", [])
                     if not trades:
+                        print(f"[OKX DEBUG] No more trades at page {page_num}")
                         break
                     all_trades.extend(trades)
-                    # 다음 페이지 커서
                     after = trades[-1].get("billId", "")
+                    print(f"[OKX DEBUG] Page {page_num}: got {len(trades)} trades")
                 else:
                     print(f"[OKX DEBUG] Trade history error: {r.status_code} - {r.text[:200]}")
                     break
@@ -1979,16 +2207,16 @@ async def fetch_okx_trade_history(api_key: str, secret_key: str, passphrase: str
         parsed_trades = []
         for trade in all_trades:
             parsed_trades.append({
-                "instId": trade.get("instId", ""),  # BTC-USDT
-                "side": trade.get("side", ""),  # buy/sell
-                "fillPx": float(trade.get("fillPx", 0)),  # 체결가
-                "fillSz": float(trade.get("fillSz", 0)),  # 체결수량
-                "fee": float(trade.get("fee", 0)),  # 수수료
-                "feeCcy": trade.get("feeCcy", ""),  # 수수료 통화
-                "ts": trade.get("ts", ""),  # 타임스탬프
+                "instId": trade.get("instId", ""),
+                "side": trade.get("side", ""),
+                "fillPx": float(trade.get("fillPx", 0)),
+                "fillSz": float(trade.get("fillSz", 0)),
+                "fee": float(trade.get("fee", 0)),
+                "feeCcy": trade.get("feeCcy", ""),
+                "ts": trade.get("ts", ""),
             })
 
-        print(f"[OKX DEBUG] Fetched {len(parsed_trades)} trades")
+        print(f"[OKX DEBUG] Total fetched {len(parsed_trades)} trades")
         return parsed_trades
 
     except Exception as e:

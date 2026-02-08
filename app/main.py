@@ -7315,20 +7315,15 @@ async def get_holdings(
                     print(f"[Holdings DEBUG] Calling fetch_upbit_balances...")
                     balances = await fetch_upbit_balances(api_key, api_secret)
                     for b in balances:
-                        quantity = b.get("quantity", 0)
-                        avg_price = b.get("avg_price", 0)
-                        current_price = b.get("current_price", 0)
-                        profit_loss = (current_price - avg_price) * quantity if quantity else 0
-                        profit_rate = ((current_price / avg_price) - 1) * 100 if avg_price else 0
                         holdings.append({
-                            "exchange": "upbit",
+                            "exchange": "Upbit",
                             "symbol": b.get("symbol", ""),
                             "name": b.get("symbol", ""),
-                            "quantity": quantity,
-                            "avg_price": avg_price,
-                            "current_price": current_price,
-                            "profit_loss": profit_loss,
-                            "profit_rate": profit_rate,
+                            "quantity": b.get("quantity", 0),
+                            "avg_price": b.get("avg_price", 0),
+                            "current_price": b.get("current_price", 0),
+                            "profit_loss": b.get("profit_loss", 0),
+                            "profit_rate": b.get("profit_rate", 0),
                             "currency": "KRW"
                         })
 
@@ -7375,22 +7370,19 @@ async def get_holdings(
                         })
 
                 elif exchange == "binance":
+                    print(f"[Holdings DEBUG] Calling fetch_binance_balances...")
                     balances = await fetch_binance_balances(api_key, api_secret)
+                    print(f"[Holdings DEBUG] Binance returned {len(balances)} items")
                     for b in balances:
-                        quantity = b.get("quantity", 0)
-                        avg_price = b.get("avg_price", 0)
-                        current_price = b.get("current_price", 0)
-                        profit_loss = (current_price - avg_price) * quantity if quantity and avg_price else 0
-                        profit_rate = ((current_price / avg_price) - 1) * 100 if avg_price else 0
                         holdings.append({
-                            "exchange": "binance",
+                            "exchange": "Binance",
                             "symbol": b.get("symbol", ""),
                             "name": b.get("symbol", ""),
-                            "quantity": quantity,
-                            "avg_price": avg_price,
-                            "current_price": current_price,
-                            "profit_loss": profit_loss,
-                            "profit_rate": profit_rate,
+                            "quantity": b.get("quantity", 0),
+                            "avg_price": b.get("avg_price", 0),
+                            "current_price": b.get("current_price", 0),
+                            "profit_loss": b.get("profit_loss", 0),
+                            "profit_rate": b.get("profit_rate", 0),
                             "currency": "USD"
                         })
 
@@ -7399,41 +7391,32 @@ async def get_holdings(
                     balances = await fetch_okx_balances(api_key, api_secret, passphrase, include_cost_basis=True)
                     print(f"[Holdings DEBUG] OKX returned {len(balances)} items")
                     for b in balances:
-                        quantity = b.get("quantity", 0)
-                        # data_provider에서 이미 계산된 값 사용
-                        avg_price = b.get("avg_price", 0)
-                        current_price = b.get("current_price", 0)
-                        profit_loss = b.get("profit_loss", 0)
-                        profit_rate = b.get("profit_rate", 0)
                         holdings.append({
-                            "exchange": "okx",
+                            "exchange": "OKX",
                             "symbol": b.get("symbol", ""),
                             "name": b.get("symbol", ""),
-                            "quantity": quantity,
-                            "avg_price": avg_price,
-                            "current_price": current_price,
-                            "profit_loss": profit_loss,
-                            "profit_rate": profit_rate,
+                            "quantity": b.get("quantity", 0),
+                            "avg_price": b.get("avg_price", 0),
+                            "current_price": b.get("current_price", 0),
+                            "profit_loss": b.get("profit_loss", 0),
+                            "profit_rate": b.get("profit_rate", 0),
                             "currency": "USD"
                         })
 
                 elif exchange == "bybit":
+                    print(f"[Holdings DEBUG] Calling fetch_bybit_balances...")
                     balances = await fetch_bybit_balances(api_key, api_secret)
+                    print(f"[Holdings DEBUG] Bybit returned {len(balances)} items")
                     for b in balances:
-                        quantity = b.get("quantity", 0)
-                        avg_price = b.get("avg_price", 0)
-                        current_price = b.get("current_price", 0)
-                        profit_loss = (current_price - avg_price) * quantity if quantity and avg_price else 0
-                        profit_rate = ((current_price / avg_price) - 1) * 100 if avg_price else 0
                         holdings.append({
-                            "exchange": "bybit",
+                            "exchange": "Bybit",
                             "symbol": b.get("symbol", ""),
                             "name": b.get("symbol", ""),
-                            "quantity": quantity,
-                            "avg_price": avg_price,
-                            "current_price": current_price,
-                            "profit_loss": profit_loss,
-                            "profit_rate": profit_rate,
+                            "quantity": b.get("quantity", 0),
+                            "avg_price": b.get("avg_price", 0),
+                            "current_price": b.get("current_price", 0),
+                            "profit_loss": b.get("profit_loss", 0),
+                            "profit_rate": b.get("profit_rate", 0),
                             "currency": "USD"
                         })
 
