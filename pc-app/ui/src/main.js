@@ -1176,27 +1176,9 @@ async function loadHoldings() {
 
         renderHoldings();
 
-        // 자산배분 계산 및 차트 업데이트
-        const allocation = calculateAllocation(holdings);
-        console.log('[Allocation DEBUG] Final result:', allocation);
-
-        // 테스트: allocation이 [0,0,0,100]이면 계산 문제
-        if (allocation[0] === 0 && allocation[1] === 0 && allocation[2] === 0 && allocation[3] === 100) {
-            console.warn('[Allocation WARNING] All cash! Holdings:', holdings?.length, 'items');
-            // 디버그: 각 holding의 필드 출력
-            holdings?.forEach((h, i) => {
-                console.log(`[Holding ${i}]`, {
-                    exchange: h.exchange,
-                    symbol: h.symbol,
-                    currency: h.currency,
-                    qty: h.quantity,
-                    price: h.current_price,
-                    calc: (h.current_price || 0) * (h.quantity || 0)
-                });
-            });
-        }
-
-        initAllocationChart(allocation);
+        // 자산배분은 loadPortfolioSummary에서 summary.allocation으로 업데이트됨
+        // 여기서는 도넛차트를 업데이트하지 않음 (덮어쓰기 방지)
+        console.log('[Holdings] Loaded', holdings?.length, 'items. Donut chart updated by summary API.');
 
     } catch (e) {
         console.error('Failed to load holdings:', e);
