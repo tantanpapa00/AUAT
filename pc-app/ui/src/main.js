@@ -1168,6 +1168,9 @@ async function loadHoldings() {
  * @returns [국내주식%, 해외주식%, 암호화폐%, 현금%]
  */
 function calculateAllocation(holdings) {
+    console.log('[Allocation DEBUG] holdings count:', holdings?.length);
+    console.log('[Allocation DEBUG] holdings raw:', JSON.stringify(holdings, null, 2));
+
     if (!holdings || holdings.length === 0) {
         return [0, 0, 0, 100];  // 데이터 없으면 현금 100%
     }
@@ -1179,27 +1182,38 @@ function calculateAllocation(holdings) {
 
     // 스테이블코인 목록
     const stablecoins = ['USDT', 'USDC', 'BUSD', 'DAI', 'TUSD'];
+    // KRW 거래소 목록
+    const krwExchanges = ['UPBIT', 'KIS_KR', 'KIS', 'KIWOOM'];
 
     holdings.forEach(h => {
         const exchange = (h.exchange || '').toUpperCase();
         const symbol = (h.symbol || '').toUpperCase();
-        const currency = (h.currency || '').toUpperCase();
+        // currency가 없으면 exchange로 판단
+        const currency = h.currency ? h.currency.toUpperCase() : (krwExchanges.includes(exchange) ? 'KRW' : 'USD');
 
-        // 평가금액 계산 (USD → KRW 변환 필요 시)
-        let valueKRW = 0;
-        if (currency === 'KRW') {
-            valueKRW = h.current_price * h.quantity || h.value_krw || 0;
-        } else {
-            // USD 기준은 환율 적용 (약 1450원)
-            const valueUSD = h.current_price * h.quantity || h.value_usd || 0;
-            valueKRW = valueUSD * 1450;
+        // 평가금액 계산 - 여러 소스에서 시도
+        let value = 0;
+        if (h.current_price && h.quantity) {
+            value = h.current_price * h.quantity;
+        } else if (h.value && h.value > 0) {
+            value = h.value;
+        } else if (h.value_krw && h.value_krw > 0) {
+            value = h.value_krw;
+        } else if (h.value_usd && h.value_usd > 0) {
+            value = h.value_usd;
         }
 
-        console.log(`[Alloc] ${symbol}: exchange=${exchange}, price=${h.current_price}, qty=${h.quantity}, valueKRW=${valueKRW}`);
+        // USD → KRW 변환 (환율 1450원)
+        let valueKRW = value;
+        if (currency === 'USD') {
+            valueKRW = value * 1450;
+        }
+
+        console.log(`[Alloc] ${symbol}: exchange=${exchange}, currency=${currency}, price=${h.current_price}, qty=${h.quantity}, value=${value}, valueKRW=${valueKRW}`);
 
         // 거래소별 분류
         if (exchange === 'KIS_KR' || exchange === 'KIS') {
-            if (symbol === 'KRW' || symbol === '예수금') {
+            if (symbol === 'KRW' || h.name === '예수금') {
                 cash += valueKRW;
             } else {
                 krStock += valueKRW;
@@ -1217,6 +1231,8 @@ function calculateAllocation(holdings) {
 
     // 총액 계산
     const total = krStock + usStock + crypto + cash;
+    console.log(`[Allocation] 국내주식: ₩${krStock.toLocaleString()}, 해외주식: ₩${usStock.toLocaleString()}, 암호화폐: ₩${crypto.toLocaleString()}, 현금: ₩${cash.toLocaleString()}, 총: ₩${total.toLocaleString()}`);
+
     if (total <= 0) {
         return [0, 0, 0, 100];
     }
@@ -1290,25 +1306,44 @@ function renderHoldings() {
         }
 
         assets.forEach(h => {
-            // currency 필드 우선, 없으면 exchange 사용
-            const currency = h.currency || h.exchange;
-            const avgPrice = h.avg_price > 0 ? formatCurrency(h.avg_price, currency) : '-';
-            const currentPrice = h.current_price > 0 ? formatCurrency(h.current_price, currency) : '-';
-            const profitLoss = h.avg_price > 0 ? formatProfitLoss(h.profit_loss, currency) : '-';
-            const profitRate = h.avg_price > 0 ? `${h.profit_rate >= 0 ? '+' : ''}${h.profit_rate.toFixed(2)}%` : '-';
-            const profitClass = h.profit_rate >= 0 ? 'profit' : 'loss';
+            // 예수금/현금 특별 처리
+            const isDeposit = h.symbol === 'KRW' || h.name === '예수금';
 
-            html += `
-                <tr>
-                    <td title="${h.name || h.symbol}">${h.symbol}</td>
-                    <td><span class="exchange-badge ${h.exchange.toLowerCase()}">${h.exchange}</span></td>
-                    <td>${formatQuantity(h.quantity)}</td>
-                    <td>${avgPrice}</td>
-                    <td>${currentPrice}</td>
-                    <td class="${h.avg_price > 0 ? profitClass : ''}">${profitLoss}</td>
-                    <td class="${h.avg_price > 0 ? profitClass : ''}">${profitRate}</td>
-                </tr>
-            `;
+            if (isDeposit) {
+                // 예수금 전용 표시
+                const depositAmount = h.quantity || h.value_krw || 0;
+                html += `
+                    <tr>
+                        <td title="예수금">${h.name || '예수금'}</td>
+                        <td><span class="exchange-badge ${h.exchange.toLowerCase()}">${h.exchange}</span></td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>₩${Math.round(depositAmount).toLocaleString('ko-KR')}</td>
+                        <td>-</td>
+                        <td>-</td>
+                    </tr>
+                `;
+            } else {
+                // 일반 자산 표시
+                const currency = h.currency || h.exchange;
+                const avgPrice = h.avg_price > 0 ? formatCurrency(h.avg_price, currency) : '-';
+                const currentPrice = h.current_price > 0 ? formatCurrency(h.current_price, currency) : '-';
+                const profitLoss = h.avg_price > 0 ? formatProfitLoss(h.profit_loss, currency) : '-';
+                const profitRate = h.avg_price > 0 ? `${h.profit_rate >= 0 ? '+' : ''}${h.profit_rate.toFixed(2)}%` : '-';
+                const profitClass = h.profit_rate >= 0 ? 'profit' : 'loss';
+
+                html += `
+                    <tr>
+                        <td title="${h.name || h.symbol}">${h.symbol}</td>
+                        <td><span class="exchange-badge ${h.exchange.toLowerCase()}">${h.exchange}</span></td>
+                        <td>${formatQuantity(h.quantity)}</td>
+                        <td>${avgPrice}</td>
+                        <td>${currentPrice}</td>
+                        <td class="${h.avg_price > 0 ? profitClass : ''}">${profitLoss}</td>
+                        <td class="${h.avg_price > 0 ? profitClass : ''}">${profitRate}</td>
+                    </tr>
+                `;
+            }
         });
     });
 
