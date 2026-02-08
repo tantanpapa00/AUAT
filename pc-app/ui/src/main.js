@@ -1221,15 +1221,15 @@ function renderHoldings() {
             const currency = h.currency || h.exchange;
             const avgPrice = h.avg_price > 0 ? formatCurrency(h.avg_price, currency) : '-';
             const currentPrice = h.current_price > 0 ? formatCurrency(h.current_price, currency) : '-';
-            const profitLoss = h.avg_price > 0 ? formatCurrency(h.profit_loss, currency) : '-';
+            const profitLoss = h.avg_price > 0 ? formatProfitLoss(h.profit_loss, currency) : '-';
             const profitRate = h.avg_price > 0 ? `${h.profit_rate >= 0 ? '+' : ''}${h.profit_rate.toFixed(2)}%` : '-';
             const profitClass = h.profit_rate >= 0 ? 'profit' : 'loss';
 
             html += `
                 <tr>
-                    <td><strong>${h.symbol}</strong><br><small>${h.name || h.symbol}</small></td>
+                    <td title="${h.name || h.symbol}">${h.symbol}</td>
                     <td><span class="exchange-badge ${h.exchange.toLowerCase()}">${h.exchange}</span></td>
-                    <td>${formatNumber(h.quantity)}</td>
+                    <td>${formatQuantity(h.quantity)}</td>
                     <td>${avgPrice}</td>
                     <td>${currentPrice}</td>
                     <td class="${h.avg_price > 0 ? profitClass : ''}">${profitLoss}</td>
@@ -1323,6 +1323,30 @@ function formatCurrency(value, exchangeOrCurrency) {
     }
     // 기본값
     return value.toLocaleString('ko-KR', { minimumFractionDigits: 2 });
+}
+
+// 수량 포맷 (소수점 4자리까지, USDT/KRW는 정수)
+function formatQuantity(num) {
+    if (num === null || num === undefined) return '0';
+    if (num >= 1) {
+        return num.toLocaleString('ko-KR', { maximumFractionDigits: 4 });
+    }
+    // 소수점 이하 수량은 4자리까지
+    return num.toLocaleString('ko-KR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+}
+
+// 손익 포맷 (부호 포함, 축약)
+function formatProfitLoss(value, exchangeOrCurrency) {
+    if (value === null || value === undefined) return '-';
+
+    const currencyUpper = exchangeOrCurrency?.toUpperCase() || '';
+    const isKRW = ['KRW', 'UPBIT', 'KIS_KR', 'KIS', 'KIWOOM'].includes(currencyUpper);
+    const sign = value >= 0 ? '+' : '';
+
+    if (isKRW) {
+        return sign + '₩' + Math.round(value).toLocaleString('ko-KR');
+    }
+    return sign + '$' + value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 // Period tabs

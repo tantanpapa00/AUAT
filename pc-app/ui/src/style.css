@@ -2960,26 +2960,47 @@ body {
 .holdings-table-wrapper {
     max-height: 400px;
     overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .holdings-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.85rem;
+    font-size: 12px;
+    table-layout: fixed;
 }
+
+/* 컬럼 너비 지정 */
+.holdings-table th:nth-child(1),
+.holdings-table td:nth-child(1) { width: 15%; } /* 자산명 */
+.holdings-table th:nth-child(2),
+.holdings-table td:nth-child(2) { width: 10%; } /* 거래소 */
+.holdings-table th:nth-child(3),
+.holdings-table td:nth-child(3) { width: 17%; } /* 보유수량 */
+.holdings-table th:nth-child(4),
+.holdings-table td:nth-child(4) { width: 17%; } /* 평단가 */
+.holdings-table th:nth-child(5),
+.holdings-table td:nth-child(5) { width: 17%; } /* 현재가 */
+.holdings-table th:nth-child(6),
+.holdings-table td:nth-child(6) { width: 14%; } /* 손익 */
+.holdings-table th:nth-child(7),
+.holdings-table td:nth-child(7) { width: 10%; } /* 수익률 */
 
 .holdings-table th,
 .holdings-table td {
-    padding: 12px;
+    padding: 8px 6px;
     text-align: left;
     border-bottom: 1px solid var(--border);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .holdings-table th {
     background: var(--bg-light);
     color: var(--text-muted);
     font-weight: 500;
-    font-size: 0.75rem;
+    font-size: 11px;
     text-transform: uppercase;
     position: sticky;
     top: 0;
@@ -3000,10 +3021,18 @@ body {
 .holdings-table .empty-row td {
     padding: 0;
     background: transparent;
+    overflow: visible;
+    white-space: normal;
 }
 
 .holdings-table .empty-row:hover td {
     background: transparent;
+}
+
+/* 거래소 배지 작게 */
+.holdings-table .exchange-badge {
+    font-size: 10px;
+    padding: 2px 6px;
 }
 
 /* 활성 전략 그리드 */
