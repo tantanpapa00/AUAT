@@ -3766,6 +3766,25 @@ async def tv_webhook(request: Request, db: Session = Depends(get_db)):
                 except (ValueError, TypeError):
                     return _tv_json(False, "invalid_qty", f"qty 숫자 아님: {qty}")
 
+                # [Signal Params] effective_params 조회 및 Limits 체크
+                try:
+                    from app.utils.trading import get_effective_params, check_limits
+                    effective_params = get_effective_params(db, asset_id)
+
+                    limits_ok, limits_reason = await check_limits(
+                        db=db,
+                        params=effective_params,
+                        asset_id=asset_id,
+                        account_id=account_id,
+                        alert_id=str(alert_id) if alert_id else "",
+                        signal_side=side_lower,
+                        bar_time=None
+                    )
+                    if not limits_ok:
+                        return _tv_json(False, "limits_blocked", limits_reason)
+                except Exception as limits_err:
+                    print(f"[WARN] ShortMsg Limits check failed: {limits_err}")
+
                 # orders 생성 (short_id 포함)
                 try:
                     created, order_id, idem_key = _create_order_if_new(
@@ -3894,6 +3913,28 @@ async def tv_webhook(request: Request, db: Session = Depends(get_db)):
             code = "asset_inactive"
             detail = f"자산 비활성: symbol='{symbol}' 활성화 필요 (is_active=true)"
             return {"ok": False, "code": code, "detail": detail}
+
+        # [Signal Params] effective_params 조회 및 Limits 체크
+        account_id = int(asset.get("account_id")) if asset.get("account_id") is not None else None
+        try:
+            from app.utils.trading import get_effective_params, check_limits
+            effective_params = get_effective_params(db, asset_id)
+
+            # Limits 체크 (주문 생성 전 가드레일)
+            limits_ok, limits_reason = await check_limits(
+                db=db,
+                params=effective_params,
+                asset_id=asset_id,
+                account_id=account_id or 0,
+                alert_id=str(alert_id) if alert_id else "",
+                signal_side=side_lower,
+                bar_time=None  # TODO: 웹훅에서 bar_time 파싱
+            )
+            if not limits_ok:
+                return _tv_json(False, "limits_blocked", limits_reason)
+        except Exception as limits_err:
+            # Limits 체크 실패해도 기존 로직 진행 (graceful degradation)
+            print(f"[WARN] Limits check failed: {limits_err}")
 
         # 4) orders 기록 + idempotency
         try:
