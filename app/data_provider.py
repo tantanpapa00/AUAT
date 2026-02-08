@@ -1952,18 +1952,20 @@ _kis_token_cache = {}
 
 async def get_kis_token(api_key: str, secret_key: str, is_mock: bool = False):
     """KIS 토큰 발급 (캐시 사용)"""
-    cache_key = f"kis_token_{api_key[:8]}"
+    cache_key = f"kis_token_{api_key[:8]}_{is_mock}"
     now = time.time()
 
     # 캐시 확인 (토큰 유효시간 23시간으로 가정)
     if cache_key in _kis_token_cache:
         token, issued_at = _kis_token_cache[cache_key]
         if (now - issued_at) < 82800:  # 23시간
+            print(f"[KIS DEBUG] Using cached token for key={api_key[:8]}, is_mock={is_mock}")
             return token
 
     try:
         base_url = "https://openapivts.koreainvestment.com:29443" if is_mock else "https://openapi.koreainvestment.com:9443"
         url = f"{base_url}/oauth2/tokenP"
+        print(f"[KIS DEBUG] Requesting token from {url}, is_mock={is_mock}")
 
         body = {
             "grant_type": "client_credentials",
@@ -1973,11 +1975,18 @@ async def get_kis_token(api_key: str, secret_key: str, is_mock: bool = False):
 
         async with httpx.AsyncClient(timeout=10) as client:
             r = await client.post(url, json=body)
+            print(f"[KIS DEBUG] Token response status: {r.status_code}")
             if r.status_code == 200:
                 data = r.json()
                 token = data.get("access_token", "")
-                _kis_token_cache[cache_key] = (token, now)
-                return token
+                if token:
+                    _kis_token_cache[cache_key] = (token, now)
+                    print(f"[KIS DEBUG] Token acquired successfully, length={len(token)}")
+                    return token
+                else:
+                    print(f"[KIS DEBUG] Token response had no access_token: {data}")
+            else:
+                print(f"[KIS DEBUG] Token request failed: {r.status_code}, body={r.text[:500]}")
     except Exception as e:
         print(f"[DataProvider] KIS token error: {e}")
 

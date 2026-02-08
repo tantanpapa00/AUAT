@@ -1147,12 +1147,15 @@ async function loadHoldings() {
             holdings = await invoke('get_holdings', { accessToken: auth.accessToken });
         }
 
+        console.log('[Holdings DEBUG] Raw holdings data:', JSON.stringify(holdings, null, 2));
+
         _holdingsData = holdings;  // 전역 저장
 
         renderHoldings();
 
         // 자산배분 계산 및 차트 업데이트
         const allocation = calculateAllocation(holdings);
+        console.log('[Allocation DEBUG] Result:', allocation);
         initAllocationChart(allocation);
 
     } catch (e) {
@@ -1191,6 +1194,8 @@ function calculateAllocation(holdings) {
             const valueUSD = h.current_price * h.quantity || h.value_usd || 0;
             valueKRW = valueUSD * 1450;
         }
+
+        console.log(`[Alloc] ${symbol}: exchange=${exchange}, price=${h.current_price}, qty=${h.quantity}, valueKRW=${valueKRW}`);
 
         // 거래소별 분류
         if (exchange === 'KIS_KR' || exchange === 'KIS') {

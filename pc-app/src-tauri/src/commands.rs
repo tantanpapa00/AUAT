@@ -1026,6 +1026,7 @@ pub struct Holding {
     pub current_price: f64,
     pub profit_loss: f64,
     pub profit_rate: f64,
+    pub currency: String,
 }
 
 #[tauri::command]
@@ -1052,10 +1053,11 @@ pub async fn get_holdings(access_token: String) -> Result<Vec<Holding>, String> 
                         name: h.get("name").and_then(|n| n.as_str()).unwrap_or("").to_string(),
                         exchange: h.get("exchange")?.as_str()?.to_string(),
                         quantity: h.get("quantity")?.as_f64()?,
-                        avg_price: h.get("avg_price")?.as_f64()?,
-                        current_price: h.get("current_price")?.as_f64()?,
-                        profit_loss: h.get("profit_loss")?.as_f64()?,
-                        profit_rate: h.get("profit_rate")?.as_f64()?,
+                        avg_price: h.get("avg_price").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                        current_price: h.get("current_price").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                        profit_loss: h.get("profit_loss").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                        profit_rate: h.get("profit_rate").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                        currency: h.get("currency").and_then(|c| c.as_str()).unwrap_or("USD").to_string(),
                     })
                 }).collect();
                 Ok(result)
