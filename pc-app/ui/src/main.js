@@ -973,11 +973,8 @@ async function loadHomePage() {
     // Load portfolio data
     await loadPortfolioSummary();
     await loadPortfolioChart(currentPeriod);
-    await loadHoldings();
+    await loadHoldings();  // 자산배분 차트도 함께 업데이트
     await loadActiveStrategies();
-
-    // Initialize charts
-    initAllocationChart();
 }
 
 async function loadPortfolioSummary() {
@@ -1154,9 +1151,80 @@ async function loadHoldings() {
 
         renderHoldings();
 
+        // 자산배분 계산 및 차트 업데이트
+        const allocation = calculateAllocation(holdings);
+        initAllocationChart(allocation);
+
     } catch (e) {
         console.error('Failed to load holdings:', e);
     }
+}
+
+/**
+ * 보유자산 기반 자산배분 계산
+ * @returns [국내주식%, 해외주식%, 암호화폐%, 현금%]
+ */
+function calculateAllocation(holdings) {
+    if (!holdings || holdings.length === 0) {
+        return [0, 0, 0, 100];  // 데이터 없으면 현금 100%
+    }
+
+    let krStock = 0;      // 국내주식
+    let usStock = 0;      // 해외주식
+    let crypto = 0;       // 암호화폐
+    let cash = 0;         // 현금
+
+    // 스테이블코인 목록
+    const stablecoins = ['USDT', 'USDC', 'BUSD', 'DAI', 'TUSD'];
+
+    holdings.forEach(h => {
+        const exchange = (h.exchange || '').toUpperCase();
+        const symbol = (h.symbol || '').toUpperCase();
+        const currency = (h.currency || '').toUpperCase();
+
+        // 평가금액 계산 (USD → KRW 변환 필요 시)
+        let valueKRW = 0;
+        if (currency === 'KRW') {
+            valueKRW = h.current_price * h.quantity || h.value_krw || 0;
+        } else {
+            // USD 기준은 환율 적용 (약 1450원)
+            const valueUSD = h.current_price * h.quantity || h.value_usd || 0;
+            valueKRW = valueUSD * 1450;
+        }
+
+        // 거래소별 분류
+        if (exchange === 'KIS_KR' || exchange === 'KIS') {
+            if (symbol === 'KRW' || symbol === '예수금') {
+                cash += valueKRW;
+            } else {
+                krStock += valueKRW;
+            }
+        } else if (exchange === 'KIS_US') {
+            usStock += valueKRW;
+        } else if (['OKX', 'BINANCE', 'BYBIT', 'UPBIT'].includes(exchange)) {
+            if (stablecoins.includes(symbol) || symbol === 'KRW') {
+                cash += valueKRW;
+            } else {
+                crypto += valueKRW;
+            }
+        }
+    });
+
+    // 총액 계산
+    const total = krStock + usStock + crypto + cash;
+    if (total <= 0) {
+        return [0, 0, 0, 100];
+    }
+
+    // 비율 계산 (소수점 1자리)
+    const krStockPct = Math.round((krStock / total) * 1000) / 10;
+    const usStockPct = Math.round((usStock / total) * 1000) / 10;
+    const cryptoPct = Math.round((crypto / total) * 1000) / 10;
+    const cashPct = Math.round((100 - krStockPct - usStockPct - cryptoPct) * 10) / 10;
+
+    console.log(`[Allocation] 국내주식: ${krStockPct}%, 해외주식: ${usStockPct}%, 암호화폐: ${cryptoPct}%, 현금: ${cashPct}%`);
+
+    return [krStockPct, usStockPct, cryptoPct, cashPct];
 }
 
 function renderHoldings() {
