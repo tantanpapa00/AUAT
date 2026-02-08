@@ -1552,8 +1552,8 @@ async def fetch_binance_balances(api_key: str, secret_key: str):
         return []
 
 
-async def fetch_okx_balances(api_key: str, secret_key: str, passphrase: str):
-    """OKX 잔고 조회 + 현재가 조회"""
+async def fetch_okx_balances(api_key: str, secret_key: str, passphrase: str, include_cost_basis: bool = True):
+    """OKX 잔고 조회 + 현재가 조회 + 평균단가 계산"""
     try:
         from datetime import datetime, timezone
 
@@ -1613,6 +1613,17 @@ async def fetch_okx_balances(api_key: str, secret_key: str, passphrase: str):
                             print(f"[OKX DEBUG] Ticker error for {ccy}: {te}")
                             prices[ccy] = 0
 
+                # 평균단가 계산 (거래내역 기반)
+                cost_basis = {}
+                if include_cost_basis:
+                    try:
+                        symbols = [a["ccy"] for a in assets_with_balance if a["ccy"] not in ["USDT", "USDC"]]
+                        if symbols:
+                            cost_basis = await get_okx_cost_basis(api_key, secret_key, passphrase, symbols)
+                            print(f"[OKX DEBUG] Cost basis loaded for {len(cost_basis)} symbols")
+                    except Exception as cb_err:
+                        print(f"[OKX DEBUG] Cost basis error: {cb_err}")
+
                 # 잔고 데이터 구성
                 for asset in assets_with_balance:
                     ccy = asset["ccy"]
@@ -1620,18 +1631,36 @@ async def fetch_okx_balances(api_key: str, secret_key: str, passphrase: str):
                     current_price = prices.get(ccy, 0)
                     value_usd = cash_bal * current_price if current_price else asset["eq"]
 
+                    # 평균단가 적용
+                    avg_price = 0
+                    profit_loss = 0
+                    profit_rate = 0
+
+                    if ccy in cost_basis:
+                        avg_price = cost_basis[ccy].get("avg_cost", 0)
+                        if avg_price > 0 and current_price > 0:
+                            # 평가손익 = (현재가 - 평균단가) × 수량
+                            profit_loss = (current_price - avg_price) * cash_bal
+                            # 수익률 = (현재가 - 평균단가) / 평균단가 × 100
+                            profit_rate = ((current_price - avg_price) / avg_price) * 100
+                    elif ccy in ["USDT", "USDC"]:
+                        # 스테이블코인은 평균단가 = 현재가 = $1
+                        avg_price = 1.0
+                        profit_loss = 0
+                        profit_rate = 0
+
                     balances.append({
                         "symbol": ccy,
                         "quantity": cash_bal,
-                        "avg_price": 0,  # OKX API에서 평균단가 미제공
+                        "avg_price": round(avg_price, 4),
                         "current_price": current_price,
                         "value_usd": value_usd,
-                        "profit_loss": 0,  # 평균단가 없어서 계산 불가
-                        "profit_rate": 0,
+                        "profit_loss": round(profit_loss, 2),
+                        "profit_rate": round(profit_rate, 2),
                         "currency": "USD"
                     })
 
-                print(f"[OKX DEBUG] Returning {len(balances)} assets")
+                print(f"[OKX DEBUG] Returning {len(balances)} assets with cost basis")
                 return balances
             else:
                 print(f"[OKX DEBUG] Balance API error: {r.text[:500]}")
@@ -1880,3 +1909,289 @@ async def fetch_kis_us_balances(api_key: str, secret_key: str, account_number: s
         print(f"[DataProvider] KIS US balance error: {e}")
         traceback.print_exc()
         return []
+
+
+# ===================================================================
+# OKX 거래내역 조회 및 평균단가 계산
+# ===================================================================
+
+async def fetch_okx_trade_history(api_key: str, secret_key: str, passphrase: str, inst_id: str = None):
+    """
+    OKX 거래내역 조회 (최근 3개월)
+    - GET /api/v5/trade/fills-history
+    - instType=SPOT
+    """
+    try:
+        from datetime import datetime, timezone
+
+        timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.') + \
+                    f"{datetime.now(timezone.utc).microsecond // 1000:03d}Z"
+
+        # 요청 경로 및 쿼리
+        path = "/api/v5/trade/fills-history"
+        query_params = "instType=SPOT"
+        if inst_id:
+            query_params += f"&instId={inst_id}"
+
+        message = f"{timestamp}GET{path}?{query_params}"
+        signature = base64.b64encode(
+            hmac.new(secret_key.encode(), message.encode(), hashlib.sha256).digest()
+        ).decode()
+
+        headers = {
+            "OK-ACCESS-KEY": api_key,
+            "OK-ACCESS-SIGN": signature,
+            "OK-ACCESS-TIMESTAMP": timestamp,
+            "OK-ACCESS-PASSPHRASE": passphrase,
+        }
+
+        url = f"https://www.okx.com{path}?{query_params}"
+
+        all_trades = []
+        async with httpx.AsyncClient(timeout=15) as client:
+            # 페이지네이션으로 최대 100건씩 조회
+            after = ""
+            for _ in range(10):  # 최대 1000건
+                page_url = url + (f"&after={after}" if after else "")
+
+                # 페이지별로 서명 재생성
+                page_query = query_params + (f"&after={after}" if after else "")
+                page_message = f"{timestamp}GET{path}?{page_query}"
+                page_signature = base64.b64encode(
+                    hmac.new(secret_key.encode(), page_message.encode(), hashlib.sha256).digest()
+                ).decode()
+                headers["OK-ACCESS-SIGN"] = page_signature
+
+                r = await client.get(page_url, headers=headers)
+                if r.status_code == 200:
+                    data = r.json()
+                    trades = data.get("data", [])
+                    if not trades:
+                        break
+                    all_trades.extend(trades)
+                    # 다음 페이지 커서
+                    after = trades[-1].get("billId", "")
+                else:
+                    print(f"[OKX DEBUG] Trade history error: {r.status_code} - {r.text[:200]}")
+                    break
+
+        # 거래내역 파싱
+        parsed_trades = []
+        for trade in all_trades:
+            parsed_trades.append({
+                "instId": trade.get("instId", ""),  # BTC-USDT
+                "side": trade.get("side", ""),  # buy/sell
+                "fillPx": float(trade.get("fillPx", 0)),  # 체결가
+                "fillSz": float(trade.get("fillSz", 0)),  # 체결수량
+                "fee": float(trade.get("fee", 0)),  # 수수료
+                "feeCcy": trade.get("feeCcy", ""),  # 수수료 통화
+                "ts": trade.get("ts", ""),  # 타임스탬프
+            })
+
+        print(f"[OKX DEBUG] Fetched {len(parsed_trades)} trades")
+        return parsed_trades
+
+    except Exception as e:
+        print(f"[OKX DEBUG] Trade history error: {e}")
+        traceback.print_exc()
+        return []
+
+
+def calculate_moving_average_cost(trades: list, symbol: str) -> dict:
+    """
+    이동평균법으로 평균단가 계산
+    - 매수: (기존총액 + 매수금액) / (기존수량 + 매수수량)
+    - 매도: 평균단가 변동 없음, 수량만 감소
+
+    trades: 시간순 정렬된 거래내역 (오래된 것부터)
+    symbol: 계산할 심볼 (예: BTC)
+    """
+    total_qty = 0.0
+    total_cost = 0.0
+    avg_cost = 0.0
+
+    # 시간순 정렬 (오래된 것부터)
+    sorted_trades = sorted(trades, key=lambda x: x.get("ts", "0"))
+
+    for trade in sorted_trades:
+        inst_id = trade.get("instId", "")
+        # instId에서 심볼 추출 (BTC-USDT → BTC)
+        trade_symbol = inst_id.split("-")[0] if "-" in inst_id else inst_id
+
+        if trade_symbol != symbol:
+            continue
+
+        side = trade.get("side", "")
+        fill_px = trade.get("fillPx", 0)
+        fill_sz = trade.get("fillSz", 0)
+
+        if side == "buy":
+            # 매수: 총액 증가, 수량 증가
+            buy_cost = fill_px * fill_sz
+            total_cost += buy_cost
+            total_qty += fill_sz
+            # 새 평균단가 계산
+            avg_cost = total_cost / total_qty if total_qty > 0 else 0
+        elif side == "sell":
+            # 매도: 평균단가 유지, 수량만 감소
+            total_qty -= fill_sz
+            if total_qty > 0:
+                total_cost = avg_cost * total_qty
+            else:
+                # 전량 매도 시 초기화
+                total_qty = 0
+                total_cost = 0
+                avg_cost = 0
+
+    return {
+        "symbol": symbol,
+        "avg_cost": round(avg_cost, 8),
+        "total_qty": round(total_qty, 8),
+    }
+
+
+async def get_okx_cost_basis(api_key: str, secret_key: str, passphrase: str, symbols: list = None):
+    """
+    OKX 보유자산 평균단가 일괄 계산
+    - 거래내역 조회 후 각 심볼별 이동평균법 적용
+    """
+    # 거래내역 조회
+    trades = await fetch_okx_trade_history(api_key, secret_key, passphrase)
+
+    if not trades:
+        print("[OKX DEBUG] No trades found, returning empty cost basis")
+        return {}
+
+    # 심볼 목록 추출 (지정 안 했으면 거래내역에서 자동 추출)
+    if not symbols:
+        symbols = set()
+        for trade in trades:
+            inst_id = trade.get("instId", "")
+            if "-" in inst_id:
+                symbols.add(inst_id.split("-")[0])
+
+    # 각 심볼별 평균단가 계산
+    cost_basis = {}
+    for symbol in symbols:
+        result = calculate_moving_average_cost(trades, symbol)
+        if result["total_qty"] > 0:  # 보유 수량이 있는 것만
+            cost_basis[symbol] = result
+
+    print(f"[OKX DEBUG] Calculated cost basis for {len(cost_basis)} symbols")
+    return cost_basis
+
+
+# ===================================================================
+# Cost Basis DB 캐싱 함수
+# ===================================================================
+
+async def save_cost_basis_to_db(db_session, user_id: int, account_id: int, cost_basis: dict):
+    """
+    계산된 평균단가를 DB에 저장 (upsert)
+    cost_basis: {"BTC": {"avg_cost": 50000.0, "total_qty": 0.5}, ...}
+    """
+    try:
+        from sqlalchemy import text
+        for symbol, data in cost_basis.items():
+            avg_cost = data.get("avg_cost", 0)
+            total_qty = data.get("total_qty", 0)
+
+            # Upsert (PostgreSQL ON CONFLICT)
+            sql = """
+                INSERT INTO cost_basis (user_id, account_id, symbol, avg_cost, total_qty, updated_at)
+                VALUES (:user_id, :account_id, :symbol, :avg_cost, :total_qty, NOW())
+                ON CONFLICT (account_id, symbol) DO UPDATE SET
+                    avg_cost = EXCLUDED.avg_cost,
+                    total_qty = EXCLUDED.total_qty,
+                    updated_at = NOW()
+            """
+            db_session.execute(text(sql), {
+                "user_id": user_id,
+                "account_id": account_id,
+                "symbol": symbol,
+                "avg_cost": avg_cost,
+                "total_qty": total_qty
+            })
+        db_session.commit()
+        print(f"[CostBasis] Saved {len(cost_basis)} symbols to DB for account_id={account_id}")
+    except Exception as e:
+        print(f"[CostBasis] DB save error: {e}")
+        traceback.print_exc()
+
+
+async def load_cost_basis_from_db(db_session, account_id: int) -> dict:
+    """
+    DB에서 평균단가 캐시 로드
+    Returns: {"BTC": {"avg_cost": 50000.0, "total_qty": 0.5}, ...}
+    """
+    try:
+        from sqlalchemy import text
+        sql = """
+            SELECT symbol, avg_cost, total_qty, updated_at
+            FROM cost_basis
+            WHERE account_id = :account_id
+        """
+        rows = db_session.execute(text(sql), {"account_id": account_id}).fetchall()
+
+        cost_basis = {}
+        for row in rows:
+            cost_basis[row.symbol] = {
+                "avg_cost": float(row.avg_cost or 0),
+                "total_qty": float(row.total_qty or 0),
+                "updated_at": row.updated_at.isoformat() if row.updated_at else None
+            }
+        print(f"[CostBasis] Loaded {len(cost_basis)} symbols from DB for account_id={account_id}")
+        return cost_basis
+    except Exception as e:
+        print(f"[CostBasis] DB load error: {e}")
+        return {}
+
+
+async def get_or_calculate_cost_basis(
+    db_session,
+    user_id: int,
+    account_id: int,
+    api_key: str,
+    secret_key: str,
+    passphrase: str,
+    symbols: list,
+    force_refresh: bool = False,
+    cache_ttl_hours: int = 6
+) -> dict:
+    """
+    평균단가 조회 (캐시 우선, 만료 시 재계산)
+    - DB 캐시 확인 → 유효하면 반환
+    - 캐시 만료 or force_refresh → API 조회 후 DB 저장
+    """
+    from datetime import datetime, timedelta
+
+    # 캐시 확인
+    if not force_refresh:
+        cached = await load_cost_basis_from_db(db_session, account_id)
+        if cached:
+            # 캐시 만료 체크 (가장 최근 updated_at 기준)
+            latest = None
+            for sym, data in cached.items():
+                if data.get("updated_at"):
+                    try:
+                        ts = datetime.fromisoformat(data["updated_at"])
+                        if latest is None or ts > latest:
+                            latest = ts
+                    except:
+                        pass
+
+            if latest:
+                cache_age = datetime.now() - latest.replace(tzinfo=None)
+                if cache_age < timedelta(hours=cache_ttl_hours):
+                    print(f"[CostBasis] Using cached data (age: {cache_age})")
+                    return cached
+
+    # API에서 조회 후 계산
+    print(f"[CostBasis] Refreshing from API for account_id={account_id}")
+    cost_basis = await get_okx_cost_basis(api_key, secret_key, passphrase, symbols)
+
+    # DB에 저장
+    if cost_basis:
+        await save_cost_basis_to_db(db_session, user_id, account_id, cost_basis)
+
+    return cost_basis

@@ -7395,15 +7395,16 @@ async def get_holdings(
                         })
 
                 elif exchange == "okx":
-                    print(f"[Holdings DEBUG] Calling fetch_okx_balances...")
-                    balances = await fetch_okx_balances(api_key, api_secret, passphrase)
+                    print(f"[Holdings DEBUG] Calling fetch_okx_balances with cost basis...")
+                    balances = await fetch_okx_balances(api_key, api_secret, passphrase, include_cost_basis=True)
                     print(f"[Holdings DEBUG] OKX returned {len(balances)} items")
                     for b in balances:
                         quantity = b.get("quantity", 0)
+                        # data_provider에서 이미 계산된 값 사용
                         avg_price = b.get("avg_price", 0)
                         current_price = b.get("current_price", 0)
-                        profit_loss = (current_price - avg_price) * quantity if quantity and avg_price else 0
-                        profit_rate = ((current_price / avg_price) - 1) * 100 if avg_price else 0
+                        profit_loss = b.get("profit_loss", 0)
+                        profit_rate = b.get("profit_rate", 0)
                         holdings.append({
                             "exchange": "okx",
                             "symbol": b.get("symbol", ""),
