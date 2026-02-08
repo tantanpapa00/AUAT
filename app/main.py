@@ -3946,36 +3946,77 @@ async def tv_webhook(request: Request, db: Session = Depends(get_db)):
         else:
             # qty 없음 -> signal_params 기반 자동 계산
             try:
-                # 거래소 정보 조회
-                exchange_row = db.execute(text("""
-                    SELECT ac.exchange FROM accounts ac WHERE ac.id = :aid
+                # DB에서 계정 API 키 조회
+                acc_row = db.execute(text("""
+                    SELECT exchange, api_key, api_secret, api_passphrase
+                    FROM accounts WHERE id = :aid
                 """), {"aid": account_id}).mappings().first() if account_id else None
-                exchange_name = exchange_row["exchange"] if exchange_row else "OKX"
 
-                # 커넥터로 잔고/현재가 조회
-                conn = get_connector(exchange_name)
-                if not conn:
-                    return _tv_json(False, "connector_not_found", f"커넥터 없음: {exchange_name}")
+                if not acc_row:
+                    return _tv_json(False, "account_not_found", f"계정 조회 실패: account_id={account_id}")
 
-                # 잔고 조회
+                exchange_name = (acc_row["exchange"] or "OKX").upper()
+                api_key = acc_row["api_key"] or ""
+                api_secret = acc_row["api_secret"] or ""
+                api_passphrase = acc_row["api_passphrase"] or ""
+
+                if not api_key or not api_secret:
+                    return _tv_json(False, "missing_api_keys", f"API 키가 등록되지 않음: account_id={account_id}")
+
+                # 잔고 조회 (DB 키 사용)
+                free_balance = 0.0
+                total_balance = 0.0
                 ccy = "USDT" if exchange_name in ("OKX", "BINANCE", "BYBIT") else "KRW"
-                bs = conn.get_balance_split(ccy=ccy)
-                if not bs:
-                    return _tv_json(False, "balance_error", "잔고 조회 실패")
 
-                free_balance = bs.trading if bs.trading else 0
-                total_balance = bs.total if bs.total else 0
+                if exchange_name == "OKX":
+                    from app.data_provider import fetch_okx_balances
+                    okx_balances = await fetch_okx_balances(api_key, api_secret, api_passphrase, include_cost_basis=False)
+                    for b in okx_balances:
+                        if b.get("symbol") == ccy or b.get("currency") == ccy:
+                            free_balance = float(b.get("available", 0) or b.get("free", 0) or 0)
+                            total_balance = float(b.get("total", 0) or b.get("balance", 0) or 0)
+                            break
+                    # USDT 못 찾으면 첫 번째 스테이블코인 사용
+                    if free_balance == 0 and okx_balances:
+                        for b in okx_balances:
+                            sym = b.get("symbol", "").upper()
+                            if sym in ("USDT", "USDC"):
+                                free_balance = float(b.get("available", 0) or b.get("free", 0) or 0)
+                                total_balance = float(b.get("total", 0) or b.get("balance", 0) or 0)
+                                break
+                elif exchange_name == "BINANCE":
+                    from app.data_provider import fetch_binance_balances
+                    bin_balances = await fetch_binance_balances(api_key, api_secret)
+                    for b in bin_balances:
+                        if b.get("symbol") == ccy:
+                            free_balance = float(b.get("available", 0) or 0)
+                            total_balance = float(b.get("total", 0) or 0)
+                            break
+                elif exchange_name == "BYBIT":
+                    from app.data_provider import fetch_bybit_balances
+                    bybit_balances = await fetch_bybit_balances(api_key, api_secret)
+                    for b in bybit_balances:
+                        if b.get("symbol") == ccy:
+                            free_balance = float(b.get("available", 0) or 0)
+                            total_balance = float(b.get("total", 0) or 0)
+                            break
+                else:
+                    return _tv_json(False, "unsupported_exchange", f"미지원 거래소: {exchange_name}")
 
-                # 현재가 조회 (심볼 형식 변환)
+                if free_balance <= 0:
+                    return _tv_json(False, "insufficient_balance", f"가용 잔고 부족: {ccy}={free_balance}")
+
+                # 현재가 조회 (Public API - 키 불필요)
                 sym_for_price = str(symbol).strip()
                 current_price = 0.0
                 try:
-                    # OKX 형식: BTC-USDT
-                    ticker = conn.get_ticker(sym_for_price)
-                    if ticker and hasattr(ticker, 'last'):
-                        current_price = float(ticker.last)
-                    elif isinstance(ticker, dict) and 'last' in ticker:
-                        current_price = float(ticker['last'])
+                    conn = get_connector(exchange_name)
+                    if conn:
+                        ticker = conn.get_ticker(sym_for_price)
+                        if ticker and hasattr(ticker, 'last') and ticker.last:
+                            current_price = float(ticker.last)
+                        elif ticker and hasattr(ticker, 'ok') and ticker.ok and ticker.last:
+                            current_price = float(ticker.last)
                 except Exception as price_err:
                     print(f"[WARN] get_ticker failed: {price_err}")
 
