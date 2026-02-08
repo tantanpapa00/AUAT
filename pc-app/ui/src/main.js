@@ -1147,7 +1147,17 @@ async function loadHoldings() {
             holdings = await invoke('get_holdings', { accessToken: auth.accessToken });
         }
 
-        console.log('[Holdings DEBUG] Raw holdings data:', JSON.stringify(holdings, null, 2));
+        console.log('[Holdings DEBUG] Raw holdings count:', holdings?.length);
+        console.log('[Holdings DEBUG] First item:', holdings?.[0]);
+
+        // currency 필드가 없으면 exchange 기반으로 추가
+        holdings = holdings.map(h => {
+            if (!h.currency) {
+                const ex = (h.exchange || '').toUpperCase();
+                h.currency = ['UPBIT', 'KIS_KR', 'KIS', 'KIWOOM'].includes(ex) ? 'KRW' : 'USD';
+            }
+            return h;
+        });
 
         _holdingsData = holdings;  // 전역 저장
 
@@ -1155,7 +1165,24 @@ async function loadHoldings() {
 
         // 자산배분 계산 및 차트 업데이트
         const allocation = calculateAllocation(holdings);
-        console.log('[Allocation DEBUG] Result:', allocation);
+        console.log('[Allocation DEBUG] Final result:', allocation);
+
+        // 테스트: allocation이 [0,0,0,100]이면 계산 문제
+        if (allocation[0] === 0 && allocation[1] === 0 && allocation[2] === 0 && allocation[3] === 100) {
+            console.warn('[Allocation WARNING] All cash! Holdings:', holdings?.length, 'items');
+            // 디버그: 각 holding의 필드 출력
+            holdings?.forEach((h, i) => {
+                console.log(`[Holding ${i}]`, {
+                    exchange: h.exchange,
+                    symbol: h.symbol,
+                    currency: h.currency,
+                    qty: h.quantity,
+                    price: h.current_price,
+                    calc: (h.current_price || 0) * (h.quantity || 0)
+                });
+            });
+        }
+
         initAllocationChart(allocation);
 
     } catch (e) {
