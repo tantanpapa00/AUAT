@@ -91,8 +91,14 @@ Hub 로직: `effective = deep_merge(strategies.signal_params, assets.signal_para
 - TV Connect Step 3: 사이징/리스크/리밋 3개 카드
 - collectSignalParams(), loadSignalParamsToUI() 함수
 
+**Phase 4: Hub 매매 로직**
+- `app/utils/trading.py`: check_limits, calculate_qty, get_effective_params
+- `/tv` 웹훅: effective_params 조회 + Limits 체크
+- Limits 항목: 중복방지, 쿨다운, 1봉1회, 일일한도, 포지션한도
+
 **커밋**
 - `f2da45a` feat: 전략설정 (Sizing/Risk/Limits) Phase 1-3 구현
+- `4c119f7` feat: 전략설정 Phase 4 - Hub 매매 로직 통합
 
 ## Day 8 Fixes
 - 종목명 쓰레기 데이터 제거 (`_clean_stock_name`)
