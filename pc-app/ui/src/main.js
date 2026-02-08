@@ -2790,7 +2790,7 @@ async function loadAccountsList() {
                 </div>
                 <div class="account-card-actions">
                     <button class="btn btn-secondary btn-test" data-name="${acc.name}" data-exchange="${acc.exchange}">연결 테스트</button>
-                    <button class="btn btn-danger btn-delete" data-id="${acc.id}" data-name="${acc.name}">삭제</button>
+                    <button class="btn btn-danger btn-delete" data-id="${acc.id}" data-name="${acc.name}" data-exchange="${acc.exchange}">삭제</button>
                 </div>
             </div>
         `).join('');
