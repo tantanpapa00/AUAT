@@ -1680,9 +1680,12 @@ async def get_kis_token(api_key: str, secret_key: str, is_mock: bool = False):
 
 async def fetch_kis_kr_balances(api_key: str, secret_key: str, account_number: str, is_mock: bool = False):
     """한국투자증권 국내주식 잔고 조회"""
+    print(f"[KIS DEBUG] fetch_kis_kr_balances called, account_number={account_number}, is_mock={is_mock}")
     try:
         token = await get_kis_token(api_key, secret_key, is_mock)
+        print(f"[KIS DEBUG] token acquired: {bool(token)}")
         if not token:
+            print("[KIS DEBUG] No token, returning empty")
             return []
 
         # 계좌번호 파싱 (XXXXXXXX-XX 형식)
@@ -1717,11 +1720,14 @@ async def fetch_kis_kr_balances(api_key: str, secret_key: str, account_number: s
         }
 
         url = f"{base_url}/uapi/domestic-stock/v1/trading/inquire-balance"
+        print(f"[KIS DEBUG] Calling URL: {url}, CANO={cano}, ACNT={acnt}")
 
         async with httpx.AsyncClient(timeout=15) as client:
             r = await client.get(url, headers=headers, params=params)
+            print(f"[KIS DEBUG] API response status: {r.status_code}")
             if r.status_code == 200:
                 data = r.json()
+                print(f"[KIS DEBUG] Response rt_cd={data.get('rt_cd')}, msg1={data.get('msg1')}, output1_count={len(data.get('output1', []))}, output2_count={len(data.get('output2', []))}")
                 holdings = []
 
                 # 예수금 정보 (output2)
@@ -1754,10 +1760,13 @@ async def fetch_kis_kr_balances(api_key: str, secret_key: str, account_number: s
                             "profit_rate": float(item.get("evlu_pfls_rt", 0)),
                             "currency": "KRW"
                         })
+                print(f"[KIS DEBUG] Returning {len(holdings)} holdings")
                 return holdings
+            else:
+                print(f"[KIS DEBUG] Non-200 response: {r.text[:500]}")
             return []
     except Exception as e:
-        print(f"[DataProvider] KIS KR balance error: {e}")
+        print(f"[KIS DEBUG] KIS KR balance error: {e}")
         traceback.print_exc()
         return []
 
