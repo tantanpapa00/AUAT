@@ -1810,7 +1810,7 @@ function generateTemplate() {
 }
 
 /**
- * 전략/종목을 서버에 저장
+ * 전략/종목을 서버에 저장 (Tauri invoke 사용)
  * @returns {Promise<{ok: boolean, strategyId?: number, assetId?: number, error?: string}>}
  */
 async function saveStrategyAndAsset() {
@@ -1818,64 +1818,47 @@ async function saveStrategyAndAsset() {
         return { ok: false, error: '거래소와 종목을 선택해주세요' };
     }
 
+    if (!auth.accessToken) {
+        return { ok: false, error: '로그인이 필요합니다' };
+    }
+
     const signalParams = collectSignalParams();
     const strategyName = `${selectedExchange.exchange}_${selectedSymbol}_${Date.now()}`;
     const tvSecret = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     try {
-        // 1. 전략 생성
-        const strategyRes = await fetch(`${API_BASE_URL}/api/strategies`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                name: strategyName,
-                tv_secret: tvSecret,
-                is_active: true,
-                signal_params: signalParams
-            })
+        // 1. 전략 생성 (Tauri invoke)
+        const strategyData = await invoke('create_strategy_with_params', {
+            accessToken: auth.accessToken,
+            name: strategyName,
+            tvSecret: tvSecret,
+            signalParams: signalParams
         });
 
-        if (!strategyRes.ok) {
-            const err = await strategyRes.json().catch(() => ({}));
-            throw new Error(err.detail || '전략 생성 실패');
+        const strategyId = strategyData.id;
+        if (!strategyId) {
+            throw new Error('전략 ID를 받지 못했습니다');
         }
 
-        const strategyData = await strategyRes.json();
-        const strategyId = strategyData.id;
-
         // 2. signal_params 저장 (별도 API로 확실히 저장)
-        const paramsRes = await fetch(`${API_BASE_URL}/api/strategies/${strategyId}/signal-params-jsonb`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ signal_params: signalParams })
-        });
-
-        if (!paramsRes.ok) {
-            console.warn('signal_params 저장 실패, 계속 진행');
+        try {
+            await invoke('save_signal_params', {
+                accessToken: auth.accessToken,
+                strategyId: strategyId,
+                signalParams: signalParams
+            });
+        } catch (e) {
+            console.warn('signal_params 저장 실패, 계속 진행:', e);
         }
 
         // 3. 종목(asset) 생성
-        const assetRes = await fetch(`${API_BASE_URL}/api/assets`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                account_id: selectedExchange.id,
-                strategy_id: strategyId,
-                symbol: selectedSymbol,
-                market: 'spot',
-                is_active: true
-            })
+        const assetData = await invoke('create_asset', {
+            accessToken: auth.accessToken,
+            accountId: selectedExchange.id,
+            strategyId: strategyId,
+            symbol: selectedSymbol,
+            market: 'spot'
         });
-
-        if (!assetRes.ok) {
-            const err = await assetRes.json().catch(() => ({}));
-            // 중복이면 OK (이미 존재)
-            if (assetRes.status !== 409) {
-                throw new Error(err.detail || '종목 연결 실패');
-            }
-        }
-
-        const assetData = await assetRes.json().catch(() => ({}));
 
         return {
             ok: true,
@@ -1886,7 +1869,7 @@ async function saveStrategyAndAsset() {
 
     } catch (error) {
         console.error('saveStrategyAndAsset error:', error);
-        return { ok: false, error: error.message };
+        return { ok: false, error: error.toString() };
     }
 }
 

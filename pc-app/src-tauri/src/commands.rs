@@ -2790,3 +2790,113 @@ fn get_logs_path() -> Result<PathBuf, String> {
     let data_dir = dirs::data_dir().ok_or("Data directory not found")?;
     Ok(data_dir.join("BBooster").join("logs"))
 }
+
+// =====================================================
+// TV Connect - 전략/종목 저장 API
+// =====================================================
+
+#[tauri::command]
+pub async fn create_strategy_with_params(
+    access_token: String,
+    name: String,
+    tv_secret: String,
+    signal_params: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/strategies", VPS_SERVER_URL);
+
+    let body = serde_json::json!({
+        "name": name,
+        "tv_secret": tv_secret,
+        "is_active": true,
+        "signal_params": signal_params
+    });
+
+    let resp = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .json(&body)
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        let error_text = resp.text().await.unwrap_or_default();
+        Err(format!("전략 생성 실패: {}", error_text))
+    }
+}
+
+#[tauri::command]
+pub async fn save_signal_params(
+    access_token: String,
+    strategy_id: i64,
+    signal_params: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/strategies/{}/signal-params-jsonb", VPS_SERVER_URL, strategy_id);
+
+    let body = serde_json::json!({
+        "signal_params": signal_params
+    });
+
+    let resp = client
+        .put(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .json(&body)
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        let error_text = resp.text().await.unwrap_or_default();
+        Err(format!("signal_params 저장 실패: {}", error_text))
+    }
+}
+
+#[tauri::command]
+pub async fn create_asset(
+    access_token: String,
+    account_id: i64,
+    strategy_id: i64,
+    symbol: String,
+    market: String,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/assets", VPS_SERVER_URL);
+
+    let body = serde_json::json!({
+        "account_id": account_id,
+        "strategy_id": strategy_id,
+        "symbol": symbol,
+        "market": market,
+        "is_active": true
+    });
+
+    let resp = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .json(&body)
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else if resp.status().as_u16() == 409 {
+        // 중복 - 이미 존재하는 asset
+        Ok(serde_json::json!({"ok": true, "duplicate": true}))
+    } else {
+        let error_text = resp.text().await.unwrap_or_default();
+        Err(format!("종목 연결 실패: {}", error_text))
+    }
+}

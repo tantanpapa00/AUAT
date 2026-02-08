@@ -153,6 +153,10 @@ fn main() {
             commands::get_stock_news,
             commands::get_stock_disclosures,
             commands::get_stock_consensus,
+            // TV Connect - 전략/종목 저장
+            commands::create_strategy_with_params,
+            commands::save_signal_params,
+            commands::create_asset,
         ])
         .setup(|app| {
             // 앱 시작 시 VPS 서버 연결 확인 (로컬 서버 시작 없음)
