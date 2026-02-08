@@ -946,7 +946,36 @@ pub async fn get_portfolio_summary(access_token: String) -> Result<PortfolioSumm
 
     match resp {
         Ok(r) if r.status().is_success() => {
-            r.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+            // serde_json::Value로 파싱 후 수동 매핑 (추가 필드 무시)
+            let data: serde_json::Value = r.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+
+            // allocation 파싱
+            let allocation = if let Some(alloc) = data.get("allocation") {
+                Some(Allocation {
+                    domestic: alloc.get("domestic").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
+                    foreign: alloc.get("foreign").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
+                    crypto: alloc.get("crypto").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
+                    cash: alloc.get("cash").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
+                    domestic_value: alloc.get("domestic_value").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                    foreign_value: alloc.get("foreign_value").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                    crypto_value: alloc.get("crypto_value").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                    cash_value: alloc.get("cash_value").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                })
+            } else {
+                None
+            };
+
+            Ok(PortfolioSummary {
+                total_assets: data.get("total_assets").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                total_assets_formatted: data.get("total_assets_formatted").and_then(|v| v.as_str()).unwrap_or("₩0").to_string(),
+                total_profit_rate: data.get("total_profit_rate").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                daily_change: data.get("daily_change").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                daily_change_formatted: data.get("daily_change_formatted").and_then(|v| v.as_str()).unwrap_or("₩0").to_string(),
+                daily_change_rate: data.get("daily_change_rate").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                active_strategies: data.get("active_strategies").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
+                currency: data.get("currency").and_then(|v| v.as_str()).unwrap_or("KRW").to_string(),
+                allocation,
+            })
         }
         Ok(_) | Err(_) => {
             // 더미 데이터 반환 (API 미구현 시)
