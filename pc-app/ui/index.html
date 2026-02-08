@@ -518,7 +518,7 @@
                         </div>
                     </section>
 
-                    <!-- Step 3: 매매 설정 (Sizing/Risk/Limits) -->
+                    <!-- Step 3: 매매 설정 (Sizing/Risk/Limits) v2 -->
                     <section class="wizard-content" id="tv-step-3" style="display: none;">
                         <h2>단계 3. 매매 설정</h2>
                         <p class="step-description">웹훅 신호 수신 시 적용할 사이징, 리스크, 리밋 규칙을 설정하세요.</p>
@@ -526,58 +526,72 @@
                         <!-- 사이징 카드 -->
                         <div class="signal-params-card card">
                             <div class="card-header">
-                                <h3>사이징 (Sizing) - 주문 수량 규칙</h3>
+                                <h3>사이징 (Sizing)</h3>
+                                <span class="help-icon" title="주문 수량을 결정하는 방식을 설정합니다">ℹ️</span>
                             </div>
                             <div class="signal-params-grid">
                                 <div class="param-group">
-                                    <label>주문 방식</label>
-                                    <div class="radio-group">
-                                        <label class="radio-label"><input type="radio" name="sizing-mode" value="balance_pct" checked> 가용자금 비율</label>
-                                        <label class="radio-label"><input type="radio" name="sizing-mode" value="fixed_amount"> 고정금액</label>
-                                    </div>
+                                    <label>주문 방식 <span class="help-icon" title="자본의%: 잔고 대비 비율로 주문&#10;고정금액: 매번 동일한 금액으로 주문&#10;수량: 매번 동일한 수량으로 주문">ℹ️</span></label>
+                                    <select id="sizing-mode" class="param-select">
+                                        <option value="balance_pct">자본의 %</option>
+                                        <option value="fixed_amount">고정금액</option>
+                                        <option value="fixed_qty">수량</option>
+                                    </select>
                                 </div>
                                 <div class="param-group">
-                                    <label for="sizing-value">비율/금액</label>
+                                    <label for="sizing-value" id="sizing-value-label">비율</label>
                                     <div class="input-with-suffix">
                                         <input type="number" id="sizing-value" value="30" min="0" step="1">
                                         <span class="suffix" id="sizing-value-suffix">%</span>
                                     </div>
                                 </div>
-                                <div class="param-group">
-                                    <label>기준 잔고</label>
+                                <div class="param-group" id="sizing-currency-group">
+                                    <label for="sizing-currency">통화 <span class="help-icon" title="거래소에 따라 사용 가능한 통화가 다릅니다">ℹ️</span></label>
+                                    <select id="sizing-currency" class="param-select">
+                                        <option value="USDT">USDT</option>
+                                        <option value="USD">USD</option>
+                                        <option value="USDC">USDC</option>
+                                        <option value="KRW">KRW</option>
+                                    </select>
+                                </div>
+                                <div class="param-group" id="sizing-base-group">
+                                    <label>기준 잔고 <span class="help-icon" title="가용잔고: 주문 가능한 잔고만&#10;총자산: 포지션 포함 전체 자산">ℹ️</span></label>
                                     <div class="radio-group">
                                         <label class="radio-label"><input type="radio" name="sizing-base" value="free" checked> 가용잔고</label>
                                         <label class="radio-label"><input type="radio" name="sizing-base" value="total"> 총자산</label>
                                     </div>
                                 </div>
-                                <div class="param-group">
-                                    <label for="sizing-max-notional">1회 최대 주문금액</label>
+                                <div class="param-group" id="sizing-max-notional-group">
+                                    <label for="sizing-max-notional">1회 최대 주문금액 <span class="help-icon" title="0=무제한. 비율 계산 결과가 이 값을 초과하면 이 값으로 제한">ℹ️</span></label>
                                     <div class="input-with-suffix">
                                         <input type="number" id="sizing-max-notional" value="0" min="0" step="1000" placeholder="0=무제한">
-                                        <span class="suffix">원</span>
+                                        <span class="suffix" id="sizing-max-suffix">USDT</span>
                                     </div>
                                 </div>
-                                <div class="param-group">
-                                    <label for="sizing-min-notional">1회 최소 주문금액</label>
+                                <div class="param-group" id="sizing-min-notional-group">
+                                    <label for="sizing-min-notional">1회 최소 주문금액 <span class="help-icon" title="0=무제한. 비율 계산 결과가 이 값 미만이면 이 값으로 올림">ℹ️</span></label>
                                     <div class="input-with-suffix">
                                         <input type="number" id="sizing-min-notional" value="0" min="0" step="1000" placeholder="0=무제한">
-                                        <span class="suffix">원</span>
+                                        <span class="suffix" id="sizing-min-suffix">USDT</span>
                                     </div>
                                 </div>
                             </div>
                             <details class="param-advanced">
-                                <summary>부분청산 설정</summary>
+                                <summary>청산 설정</summary>
                                 <div class="signal-params-grid">
                                     <div class="param-group">
-                                        <label for="sizing-reduce-pct">기본 청산 비율</label>
+                                        <label>청산 방식 <span class="help-icon" title="전량청산: 포지션 전체 청산&#10;부분청산: 지정 비율만 청산">ℹ️</span></label>
+                                        <select id="sizing-reduce-mode" class="param-select">
+                                            <option value="full">전량청산</option>
+                                            <option value="partial">부분청산</option>
+                                        </select>
+                                    </div>
+                                    <div class="param-group" id="sizing-reduce-pct-group" style="display: none;">
+                                        <label for="sizing-reduce-pct">기본 청산 비율 <span class="help-icon" title="reduce 신호 수신 시 청산할 기본 비율 (1~100%)">ℹ️</span></label>
                                         <div class="input-with-suffix">
-                                            <input type="number" id="sizing-reduce-pct" value="0" min="0" max="100" step="1" placeholder="0=전량청산">
+                                            <input type="number" id="sizing-reduce-pct" value="50" min="1" max="100" step="1">
                                             <span class="suffix">%</span>
                                         </div>
-                                    </div>
-                                    <div class="param-group">
-                                        <label for="sizing-reduce-seq">분할청산 순서</label>
-                                        <input type="text" id="sizing-reduce-seq" placeholder="예: 30,30,40" class="param-input">
                                     </div>
                                 </div>
                             </details>
@@ -586,127 +600,91 @@
                         <!-- 리스크 카드 -->
                         <div class="signal-params-card card">
                             <div class="card-header">
-                                <h3>리스크 (Risk) - 손절/익절/보호</h3>
+                                <h3>리스크 (Risk)</h3>
+                                <span class="help-icon" title="손절/익절 및 포지션 보호 설정">ℹ️</span>
                             </div>
                             <div class="signal-params-grid">
                                 <div class="param-group">
-                                    <label>청산 방식</label>
-                                    <div class="radio-group">
-                                        <label class="radio-label"><input type="radio" name="risk-exec-mode" value="tv_exit_signal" checked> TV 신호 기반</label>
-                                        <label class="radio-label"><input type="radio" name="risk-exec-mode" value="exchange_bracket"> 거래소 브라켓</label>
-                                    </div>
+                                    <label>청산 방식 <span class="help-icon" title="신호 대기: TV 청산 신호가 올 때까지 대기&#10;자동 손절/익절: 거래소에서 자동으로 SL/TP 주문 설정">ℹ️</span></label>
+                                    <select id="risk-exec-mode" class="param-select">
+                                        <option value="tv_exit_signal">신호 대기</option>
+                                        <option value="exchange_bracket">자동 손절/익절</option>
+                                    </select>
                                 </div>
-                                <div class="param-group">
-                                    <label>레버리지 정책</label>
-                                    <div class="radio-group">
-                                        <label class="radio-label"><input type="radio" name="risk-leverage-policy" value="fixed" checked> 고정배수</label>
-                                        <label class="radio-label"><input type="radio" name="risk-leverage-policy" value="max_cap"> 최대한도</label>
-                                    </div>
-                                </div>
-                                <div class="param-group">
-                                    <label for="risk-leverage-value">레버리지 배수</label>
+                                <div class="param-group futures-only" id="risk-leverage-group" style="display: none;">
+                                    <label for="risk-leverage-value">레버리지 <span class="help-icon" title="선물 거래 시 사용할 레버리지 배수 (1~125x)">ℹ️</span></label>
                                     <div class="input-with-suffix">
                                         <input type="number" id="risk-leverage-value" value="1" min="1" max="125" step="1">
                                         <span class="suffix">x</span>
                                     </div>
                                 </div>
                             </div>
-                            <details class="param-advanced">
-                                <summary>손절 (SL)</summary>
+
+                            <!-- SL/TP 설정 (자동 손절/익절 선택 시만 표시) -->
+                            <div id="risk-sltp-section" style="display: none;">
+                                <div class="section-divider"></div>
                                 <div class="signal-params-grid">
                                     <div class="param-group">
                                         <label class="checkbox-label">
-                                            <input type="checkbox" id="risk-sl-enabled"> 손절 활성화
+                                            <input type="checkbox" id="risk-sl-enabled"> 손절 (SL) 활성화
                                         </label>
                                     </div>
-                                    <div class="param-group">
+                                    <div class="param-group sl-field" style="display: none;">
                                         <label for="risk-sl-type">방식</label>
                                         <select id="risk-sl-type" class="param-select">
                                             <option value="pct">퍼센트</option>
                                             <option value="price">가격</option>
                                         </select>
                                     </div>
-                                    <div class="param-group">
-                                        <label for="risk-sl-value">값</label>
+                                    <div class="param-group sl-field" style="display: none;">
+                                        <label for="risk-sl-value">손절값 <span class="help-icon" title="진입가 대비 손절 발동 %">ℹ️</span></label>
                                         <div class="input-with-suffix">
-                                            <input type="number" id="risk-sl-value" value="0" min="0" step="0.1">
+                                            <input type="number" id="risk-sl-value" value="2" min="0" step="0.1">
                                             <span class="suffix" id="risk-sl-suffix">%</span>
                                         </div>
                                     </div>
-                                    <div class="param-group">
-                                        <label for="risk-sl-basis">기준</label>
-                                        <select id="risk-sl-basis" class="param-select">
-                                            <option value="entry">진입가</option>
-                                            <option value="avg">평단가</option>
-                                        </select>
-                                    </div>
-                                    <div class="param-group">
-                                        <label for="risk-sl-order-type">주문유형</label>
-                                        <select id="risk-sl-order-type" class="param-select">
-                                            <option value="market">시장가</option>
-                                            <option value="limit">지정가</option>
-                                        </select>
-                                    </div>
                                 </div>
-                            </details>
-                            <details class="param-advanced">
-                                <summary>익절 (TP)</summary>
                                 <div class="signal-params-grid">
                                     <div class="param-group">
                                         <label class="checkbox-label">
-                                            <input type="checkbox" id="risk-tp-enabled"> 익절 활성화
+                                            <input type="checkbox" id="risk-tp-enabled"> 익절 (TP) 활성화
                                         </label>
                                     </div>
-                                    <div class="param-group">
+                                    <div class="param-group tp-field" style="display: none;">
                                         <label for="risk-tp-type">방식</label>
                                         <select id="risk-tp-type" class="param-select">
                                             <option value="pct">퍼센트</option>
                                             <option value="price">가격</option>
                                         </select>
                                     </div>
-                                    <div class="param-group">
-                                        <label for="risk-tp-value">값</label>
+                                    <div class="param-group tp-field" style="display: none;">
+                                        <label for="risk-tp-value">익절값 <span class="help-icon" title="진입가 대비 익절 발동 %">ℹ️</span></label>
                                         <div class="input-with-suffix">
-                                            <input type="number" id="risk-tp-value" value="0" min="0" step="0.1">
+                                            <input type="number" id="risk-tp-value" value="5" min="0" step="0.1">
                                             <span class="suffix" id="risk-tp-suffix">%</span>
                                         </div>
                                     </div>
-                                    <div class="param-group">
-                                        <label for="risk-tp-basis">기준</label>
-                                        <select id="risk-tp-basis" class="param-select">
-                                            <option value="entry">진입가</option>
-                                            <option value="avg">평단가</option>
-                                        </select>
-                                    </div>
-                                    <div class="param-group">
-                                        <label for="risk-tp-order-type">주문유형</label>
-                                        <select id="risk-tp-order-type" class="param-select">
-                                            <option value="market">시장가</option>
-                                            <option value="limit">지정가</option>
-                                        </select>
-                                    </div>
                                 </div>
-                            </details>
-                            <details class="param-advanced">
-                                <summary>트레일링 스탑</summary>
                                 <div class="signal-params-grid">
                                     <div class="param-group">
                                         <label class="checkbox-label">
-                                            <input type="checkbox" id="risk-trailing-enabled"> 트레일링 활성화
+                                            <input type="checkbox" id="risk-trailing-enabled"> 트레일링 스탑 활성화
                                         </label>
                                     </div>
-                                    <div class="param-group">
-                                        <label for="risk-trailing-value">값</label>
+                                    <div class="param-group trailing-field" style="display: none;">
+                                        <label for="risk-trailing-value">트레일링 값 <span class="help-icon" title="고점 대비 하락 시 청산 발동 %">ℹ️</span></label>
                                         <div class="input-with-suffix">
-                                            <input type="number" id="risk-trailing-value" value="0" min="0" step="0.1">
+                                            <input type="number" id="risk-trailing-value" value="1" min="0" step="0.1">
                                             <span class="suffix">%</span>
                                         </div>
                                     </div>
                                 </div>
-                            </details>
-                            <div class="param-group" style="margin-top: 12px;">
+                            </div>
+
+                            <div class="param-group futures-only" id="risk-reduce-only-group" style="display: none; margin-top: 12px;">
                                 <label class="checkbox-label">
                                     <input type="checkbox" id="risk-reduce-only" checked> 청산주문 reduceOnly 사용
+                                    <span class="help-icon" title="선물 거래에서 청산 주문 시 포지션 증가 방지">ℹ️</span>
                                 </label>
                             </div>
                         </div>
@@ -714,23 +692,18 @@
                         <!-- 리밋 카드 -->
                         <div class="signal-params-card card">
                             <div class="card-header">
-                                <h3>리밋 (Limits) - 사고 방지 가드레일</h3>
+                                <h3>리밋 (Limits)</h3>
+                                <span class="help-icon" title="사고 방지를 위한 가드레일 설정">ℹ️</span>
                             </div>
                             <div class="signal-params-grid">
                                 <div class="param-group">
                                     <label class="checkbox-label">
                                         <input type="checkbox" id="limits-idempotency-enabled" checked> 중복신호 방지
+                                        <span class="help-icon" title="같은 alert_id로 중복 주문 방지 (24시간 내)">ℹ️</span>
                                     </label>
                                 </div>
                                 <div class="param-group">
-                                    <label for="limits-idempotency-key">중복 판단 키</label>
-                                    <select id="limits-idempotency-key" class="param-select">
-                                        <option value="alert_id">alert_id</option>
-                                        <option value="symbol">symbol</option>
-                                    </select>
-                                </div>
-                                <div class="param-group">
-                                    <label for="limits-cooldown">쿨다운</label>
+                                    <label for="limits-cooldown">쿨다운 <span class="help-icon" title="마지막 주문 후 다음 주문까지 대기 시간 (0=비활성)">ℹ️</span></label>
                                     <div class="input-with-suffix">
                                         <input type="number" id="limits-cooldown" value="0" min="0" step="1" placeholder="0=비활성">
                                         <span class="suffix">초</span>
@@ -739,45 +712,59 @@
                                 <div class="param-group">
                                     <label class="checkbox-label">
                                         <input type="checkbox" id="limits-one-trade-per-bar"> 1봉 1회 제한
+                                        <span class="help-icon" title="같은 봉(캔들) 내에서 1회만 거래">ℹ️</span>
                                     </label>
                                 </div>
                             </div>
-                            <details class="param-advanced">
-                                <summary>일일 한도</summary>
-                                <div class="signal-params-grid">
-                                    <div class="param-group">
-                                        <label for="limits-daily-max-trades">일일 최대 거래 횟수</label>
+
+                            <div class="section-divider"></div>
+                            <h4 class="subsection-title">일일 한도</h4>
+                            <div class="signal-params-grid">
+                                <div class="param-group limit-with-toggle">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="limits-daily-trades-enabled"> 일일 최대 거래 횟수
+                                    </label>
+                                    <div class="limit-value-group" id="limits-daily-trades-value-group" style="display: none;">
                                         <div class="input-with-suffix">
-                                            <input type="number" id="limits-daily-max-trades" value="0" min="0" step="1" placeholder="0=무제한">
+                                            <input type="number" id="limits-daily-max-trades" value="10" min="1" step="1">
                                             <span class="suffix">회</span>
                                         </div>
                                     </div>
-                                    <div class="param-group">
-                                        <label for="limits-daily-max-notional">일일 최대 거래 금액</label>
+                                </div>
+                                <div class="param-group limit-with-toggle">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="limits-daily-notional-enabled"> 일일 최대 거래 금액
+                                    </label>
+                                    <div class="limit-value-group" id="limits-daily-notional-value-group" style="display: none;">
                                         <div class="input-with-suffix">
-                                            <input type="number" id="limits-daily-max-notional" value="0" min="0" step="10000" placeholder="0=무제한">
-                                            <span class="suffix">원</span>
+                                            <input type="number" id="limits-daily-max-notional" value="1000000" min="0" step="10000">
+                                            <span class="suffix" id="limits-daily-suffix">USDT</span>
                                         </div>
                                     </div>
                                 </div>
-                            </details>
-                            <details class="param-advanced">
-                                <summary>포지션 한도</summary>
-                                <div class="signal-params-grid">
-                                    <div class="param-group">
-                                        <label for="limits-max-open-positions">최대 동시 포지션</label>
+                            </div>
+
+                            <div class="section-divider"></div>
+                            <h4 class="subsection-title">포지션 한도</h4>
+                            <div class="signal-params-grid">
+                                <div class="param-group limit-with-toggle">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="limits-max-positions-enabled"> 최대 동시 포지션
+                                    </label>
+                                    <div class="limit-value-group" id="limits-max-positions-value-group" style="display: none;">
                                         <div class="input-with-suffix">
-                                            <input type="number" id="limits-max-open-positions" value="0" min="0" step="1" placeholder="0=무제한">
+                                            <input type="number" id="limits-max-open-positions" value="5" min="1" step="1">
                                             <span class="suffix">개</span>
                                         </div>
                                     </div>
-                                    <div class="param-group">
-                                        <label class="checkbox-label">
-                                            <input type="checkbox" id="limits-allow-same-side-add" checked> 같은 방향 추가 진입 허용
-                                        </label>
-                                    </div>
                                 </div>
-                            </details>
+                                <div class="param-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="limits-allow-same-side-add" checked> 같은 방향 추가 진입 허용
+                                        <span class="help-icon" title="이미 롱 포지션이 있을 때 추가 롱 진입 허용 여부">ℹ️</span>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="wizard-actions">
@@ -790,6 +777,11 @@
                     <section class="wizard-content card" id="tv-step-4" style="display: none;">
                         <h2>단계 4. 템플릿 확인</h2>
                         <p class="step-description">생성된 JSON을 TradingView 웹훅 메시지에 붙여넣으세요.</p>
+
+                        <div class="settings-notice">
+                            <span class="notice-icon">💾</span>
+                            <span>사이징/리스크/리밋 설정은 서버에 저장됩니다. 웹훅 JSON에는 필수 필드만 포함됩니다.</span>
+                        </div>
 
                         <div class="template-preview">
                             <div class="template-header">

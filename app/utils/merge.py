@@ -100,21 +100,22 @@ def get_overridden_keys(base: Optional[dict], override: Optional[dict], prefix: 
     return keys
 
 
-# 기본값 상수 (API에서 사용)
+# 기본값 상수 v2 (API에서 사용)
 DEFAULT_SIGNAL_PARAMS = {
     "sizing": {
-        "mode": "balance_pct",
+        "mode": "balance_pct",  # balance_pct / fixed_amount / fixed_qty
         "value": 30,
-        "base": "free",
+        "base": "free",  # free / total (mode=balance_pct일 때만)
+        "currency": "USDT",  # KRW / USD / USDT / USDC
         "max_notional_per_order": 0,
         "min_notional_per_order": 0,
         "reduce": {
-            "default_pct": 0,
-            "sequence_pct": []
+            "mode": "full",  # full / partial
+            "default_pct": 100
         }
     },
     "risk": {
-        "exec_mode": "tv_exit_signal",
+        "exec_mode": "tv_exit_signal",  # tv_exit_signal / exchange_bracket
         "leverage_policy": "fixed",
         "leverage_value": 1,
         "sl": {
@@ -145,13 +146,13 @@ DEFAULT_SIGNAL_PARAMS = {
         },
         "cooldown_seconds": 0,
         "one_trade_per_bar": False,
-        "daily_max_trades": 0,
-        "daily_max_notional": 0,
-        "max_open_positions": 0,
+        "daily_max_trades": {"enabled": False, "value": 0},
+        "daily_max_notional": {"enabled": False, "value": 0},
+        "max_open_positions": {"enabled": False, "value": 0},
         "allow_same_side_add": True
     },
     "meta": {
-        "version": 1,
+        "version": 2,
         "notes": ""
     }
 }

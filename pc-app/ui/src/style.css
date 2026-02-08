@@ -6836,3 +6836,88 @@ body {
     padding-top: 16px;
     border-top: 1px solid var(--border);
 }
+
+/* Help Icon (v2) */
+.help-icon {
+    cursor: help;
+    font-size: 12px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.help-icon:hover {
+    opacity: 1;
+}
+
+.card-header .help-icon {
+    margin-left: 8px;
+}
+
+/* Section Divider (v2) */
+.section-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 16px 0;
+}
+
+/* Subsection Title (v2) */
+.subsection-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin: 0 0 12px 0;
+}
+
+/* Settings Notice (v2) */
+.settings-notice {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--info-bg, rgba(59, 130, 246, 0.1));
+    border: 1px solid var(--info, #3B82F6);
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.settings-notice .notice-icon {
+    font-size: 16px;
+}
+
+/* Limit with Toggle (v2) */
+.limit-with-toggle {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.limit-value-group {
+    margin-left: 24px;
+}
+
+/* Select Dropdown Visibility Fix (v2) */
+.param-select {
+    background-color: var(--surface-1, #1E293B);
+    color: var(--text-primary, #E5E7EB);
+}
+
+.param-select option {
+    background-color: var(--surface-1, #1E293B);
+    color: var(--text-primary, #E5E7EB);
+    padding: 8px;
+}
+
+/* Card Header with Help Icon */
+.signal-params-card .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.signal-params-card .card-header h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}

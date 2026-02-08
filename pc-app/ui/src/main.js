@@ -1684,51 +1684,57 @@ function updateTVWizardUI(step) {
         const content = document.getElementById(`tv-step-${i}`);
         if (content) content.style.display = i === step ? 'block' : 'none';
     }
+
+    // Step 3 진입 시 조건부 필드 초기화 (v2)
+    if (step === 3) {
+        updateSignalParamsConditionalFields();
+    }
 }
 
 /**
- * UI에서 signal_params 수집
+ * UI에서 signal_params 수집 (v2)
  */
 function collectSignalParams() {
-    // Sizing
-    const sizingMode = document.querySelector('input[name="sizing-mode"]:checked')?.value || 'balance_pct';
+    // Sizing (v2: select로 변경, currency 추가, reduce.mode 추가)
+    const sizingMode = document.getElementById('sizing-mode')?.value || 'balance_pct';
     const sizingValue = parseFloat(document.getElementById('sizing-value')?.value) || 30;
     const sizingBase = document.querySelector('input[name="sizing-base"]:checked')?.value || 'free';
+    const sizingCurrency = document.getElementById('sizing-currency')?.value || 'USDT';
     const maxNotional = parseFloat(document.getElementById('sizing-max-notional')?.value) || 0;
     const minNotional = parseFloat(document.getElementById('sizing-min-notional')?.value) || 0;
-    const reduceDefaultPct = parseFloat(document.getElementById('sizing-reduce-pct')?.value) || 0;
-    const reduceSeqStr = document.getElementById('sizing-reduce-seq')?.value || '';
-    const reduceSeq = reduceSeqStr ? reduceSeqStr.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n)) : [];
+    const reduceMode = document.getElementById('sizing-reduce-mode')?.value || 'full';
+    const reduceDefaultPct = parseFloat(document.getElementById('sizing-reduce-pct')?.value) || 100;
 
-    // Risk
-    const execMode = document.querySelector('input[name="risk-exec-mode"]:checked')?.value || 'tv_exit_signal';
-    const leveragePolicy = document.querySelector('input[name="risk-leverage-policy"]:checked')?.value || 'fixed';
+    // Risk (v2: select로 변경)
+    const execMode = document.getElementById('risk-exec-mode')?.value || 'tv_exit_signal';
     const leverageValue = parseInt(document.getElementById('risk-leverage-value')?.value) || 1;
 
     const slEnabled = document.getElementById('risk-sl-enabled')?.checked || false;
     const slType = document.getElementById('risk-sl-type')?.value || 'pct';
     const slValue = parseFloat(document.getElementById('risk-sl-value')?.value) || 0;
-    const slBasis = document.getElementById('risk-sl-basis')?.value || 'entry';
-    const slOrderType = document.getElementById('risk-sl-order-type')?.value || 'market';
 
     const tpEnabled = document.getElementById('risk-tp-enabled')?.checked || false;
     const tpType = document.getElementById('risk-tp-type')?.value || 'pct';
     const tpValue = parseFloat(document.getElementById('risk-tp-value')?.value) || 0;
-    const tpBasis = document.getElementById('risk-tp-basis')?.value || 'entry';
-    const tpOrderType = document.getElementById('risk-tp-order-type')?.value || 'market';
 
     const trailingEnabled = document.getElementById('risk-trailing-enabled')?.checked || false;
     const trailingValue = parseFloat(document.getElementById('risk-trailing-value')?.value) || 0;
     const reduceOnly = document.getElementById('risk-reduce-only')?.checked ?? true;
 
-    // Limits
+    // Limits (v2: 객체 구조로 변경)
     const idempotencyEnabled = document.getElementById('limits-idempotency-enabled')?.checked ?? true;
-    const idempotencyKey = document.getElementById('limits-idempotency-key')?.value || 'alert_id';
     const cooldown = parseInt(document.getElementById('limits-cooldown')?.value) || 0;
     const oneTradePerBar = document.getElementById('limits-one-trade-per-bar')?.checked || false;
-    const dailyMaxTrades = parseInt(document.getElementById('limits-daily-max-trades')?.value) || 0;
-    const dailyMaxNotional = parseFloat(document.getElementById('limits-daily-max-notional')?.value) || 0;
-    const maxOpenPositions = parseInt(document.getElementById('limits-max-open-positions')?.value) || 0;
+
+    const dailyTradesEnabled = document.getElementById('limits-daily-trades-enabled')?.checked || false;
+    const dailyMaxTrades = parseInt(document.getElementById('limits-daily-max-trades')?.value) || 10;
+
+    const dailyNotionalEnabled = document.getElementById('limits-daily-notional-enabled')?.checked || false;
+    const dailyMaxNotional = parseFloat(document.getElementById('limits-daily-max-notional')?.value) || 1000000;
+
+    const maxPositionsEnabled = document.getElementById('limits-max-positions-enabled')?.checked || false;
+    const maxOpenPositions = parseInt(document.getElementById('limits-max-open-positions')?.value) || 5;
+
     const allowSameSideAdd = document.getElementById('limits-allow-same-side-add')?.checked ?? true;
 
     return {
@@ -1736,30 +1742,31 @@ function collectSignalParams() {
             mode: sizingMode,
             value: sizingValue,
             base: sizingBase,
+            currency: sizingCurrency,
             max_notional_per_order: maxNotional,
             min_notional_per_order: minNotional,
             reduce: {
-                default_pct: reduceDefaultPct,
-                sequence_pct: reduceSeq
+                mode: reduceMode,
+                default_pct: reduceMode === 'partial' ? reduceDefaultPct : 100
             }
         },
         risk: {
             exec_mode: execMode,
-            leverage_policy: leveragePolicy,
+            leverage_policy: 'fixed',
             leverage_value: leverageValue,
             sl: {
                 enabled: slEnabled,
                 type: slType,
                 value: slValue,
-                basis: slBasis,
-                order_type: slOrderType
+                basis: 'entry',
+                order_type: 'market'
             },
             tp: {
                 enabled: tpEnabled,
                 type: tpType,
                 value: tpValue,
-                basis: tpBasis,
-                order_type: tpOrderType
+                basis: 'entry',
+                order_type: 'market'
             },
             trailing: {
                 enabled: trailingEnabled,
@@ -1771,51 +1778,39 @@ function collectSignalParams() {
         limits: {
             idempotency: {
                 enabled: idempotencyEnabled,
-                key: idempotencyKey
+                key: 'alert_id'
             },
             cooldown_seconds: cooldown,
             one_trade_per_bar: oneTradePerBar,
-            daily_max_trades: dailyMaxTrades,
-            daily_max_notional: dailyMaxNotional,
-            max_open_positions: maxOpenPositions,
+            daily_max_trades: { enabled: dailyTradesEnabled, value: dailyMaxTrades },
+            daily_max_notional: { enabled: dailyNotionalEnabled, value: dailyMaxNotional },
+            max_open_positions: { enabled: maxPositionsEnabled, value: maxOpenPositions },
             allow_same_side_add: allowSameSideAdd
         },
         meta: {
-            version: 1,
+            version: 2,
             notes: ''
         }
     };
 }
 
 /**
- * TradingView 웹훅 템플릿 생성
+ * TradingView 웹훅 템플릿 생성 (v2: 간소화 - 설정은 서버에 저장)
  */
 function generateTemplate() {
-    const signalParams = collectSignalParams();
-
+    // v2: 웹훅 JSON은 필수 필드만 포함 (sizing/risk/limits는 서버에 저장)
     const template = {
-        action: 'buy',  // TV에서 동적으로 설정
+        action: '{{strategy.order.action}}',  // TV 변수로 동적 설정
         symbol: selectedSymbol || 'BTC-USDT',
         exchange: selectedExchange?.exchange || 'OKX',
-        qty_type: signalParams.sizing.mode === 'balance_pct' ? 'percent' : 'fixed',
-        qty: signalParams.sizing.value,
-        order_type: 'market',
-        leverage: signalParams.risk.leverage_value
+        alert_id: '{{timenow}}'  // 중복 방지용
     };
-
-    // SL/TP가 활성화되어 있으면 추가
-    if (signalParams.risk.sl.enabled && signalParams.risk.sl.value > 0) {
-        template.sl = signalParams.risk.sl.value;
-    }
-    if (signalParams.risk.tp.enabled && signalParams.risk.tp.value > 0) {
-        template.tp = signalParams.risk.tp.value;
-    }
 
     return JSON.stringify(template, null, 2);
 }
 
 /**
- * signal_params를 UI에 로드
+ * signal_params를 UI에 로드 (v2)
  */
 function loadSignalParamsToUI(params) {
     if (!params) return;
@@ -1824,12 +1819,15 @@ function loadSignalParamsToUI(params) {
     const risk = params.risk || {};
     const limits = params.limits || {};
 
-    // Sizing
-    const modeRadio = document.querySelector(`input[name="sizing-mode"][value="${sizing.mode || 'balance_pct'}"]`);
-    if (modeRadio) modeRadio.checked = true;
+    // Sizing (v2: select로 변경)
+    const sizingModeEl = document.getElementById('sizing-mode');
+    if (sizingModeEl) sizingModeEl.value = sizing.mode || 'balance_pct';
 
     const sizingValueEl = document.getElementById('sizing-value');
     if (sizingValueEl) sizingValueEl.value = sizing.value ?? 30;
+
+    const sizingCurrencyEl = document.getElementById('sizing-currency');
+    if (sizingCurrencyEl) sizingCurrencyEl.value = sizing.currency || 'USDT';
 
     const baseRadio = document.querySelector(`input[name="sizing-base"][value="${sizing.base || 'free'}"]`);
     if (baseRadio) baseRadio.checked = true;
@@ -1840,20 +1838,15 @@ function loadSignalParamsToUI(params) {
     const minNotionalEl = document.getElementById('sizing-min-notional');
     if (minNotionalEl) minNotionalEl.value = sizing.min_notional_per_order ?? 0;
 
+    const reduceModeEl = document.getElementById('sizing-reduce-mode');
+    if (reduceModeEl) reduceModeEl.value = sizing.reduce?.mode || 'full';
+
     const reducePctEl = document.getElementById('sizing-reduce-pct');
-    if (reducePctEl) reducePctEl.value = sizing.reduce?.default_pct ?? 0;
+    if (reducePctEl) reducePctEl.value = sizing.reduce?.default_pct ?? 100;
 
-    const reduceSeqEl = document.getElementById('sizing-reduce-seq');
-    if (reduceSeqEl && sizing.reduce?.sequence_pct) {
-        reduceSeqEl.value = sizing.reduce.sequence_pct.join(',');
-    }
-
-    // Risk
-    const execModeRadio = document.querySelector(`input[name="risk-exec-mode"][value="${risk.exec_mode || 'tv_exit_signal'}"]`);
-    if (execModeRadio) execModeRadio.checked = true;
-
-    const leveragePolicyRadio = document.querySelector(`input[name="risk-leverage-policy"][value="${risk.leverage_policy || 'fixed'}"]`);
-    if (leveragePolicyRadio) leveragePolicyRadio.checked = true;
+    // Risk (v2: select로 변경)
+    const execModeEl = document.getElementById('risk-exec-mode');
+    if (execModeEl) execModeEl.value = risk.exec_mode || 'tv_exit_signal';
 
     const leverageValueEl = document.getElementById('risk-leverage-value');
     if (leverageValueEl) leverageValueEl.value = risk.leverage_value ?? 1;
@@ -1866,13 +1859,7 @@ function loadSignalParamsToUI(params) {
     if (slTypeEl) slTypeEl.value = risk.sl?.type ?? 'pct';
 
     const slValueEl = document.getElementById('risk-sl-value');
-    if (slValueEl) slValueEl.value = risk.sl?.value ?? 0;
-
-    const slBasisEl = document.getElementById('risk-sl-basis');
-    if (slBasisEl) slBasisEl.value = risk.sl?.basis ?? 'entry';
-
-    const slOrderTypeEl = document.getElementById('risk-sl-order-type');
-    if (slOrderTypeEl) slOrderTypeEl.value = risk.sl?.order_type ?? 'market';
+    if (slValueEl) slValueEl.value = risk.sl?.value ?? 2;
 
     // TP
     const tpEnabledEl = document.getElementById('risk-tp-enabled');
@@ -1882,30 +1869,21 @@ function loadSignalParamsToUI(params) {
     if (tpTypeEl) tpTypeEl.value = risk.tp?.type ?? 'pct';
 
     const tpValueEl = document.getElementById('risk-tp-value');
-    if (tpValueEl) tpValueEl.value = risk.tp?.value ?? 0;
-
-    const tpBasisEl = document.getElementById('risk-tp-basis');
-    if (tpBasisEl) tpBasisEl.value = risk.tp?.basis ?? 'entry';
-
-    const tpOrderTypeEl = document.getElementById('risk-tp-order-type');
-    if (tpOrderTypeEl) tpOrderTypeEl.value = risk.tp?.order_type ?? 'market';
+    if (tpValueEl) tpValueEl.value = risk.tp?.value ?? 5;
 
     // Trailing
     const trailingEnabledEl = document.getElementById('risk-trailing-enabled');
     if (trailingEnabledEl) trailingEnabledEl.checked = risk.trailing?.enabled ?? false;
 
     const trailingValueEl = document.getElementById('risk-trailing-value');
-    if (trailingValueEl) trailingValueEl.value = risk.trailing?.value ?? 0;
+    if (trailingValueEl) trailingValueEl.value = risk.trailing?.value ?? 1;
 
     const reduceOnlyEl = document.getElementById('risk-reduce-only');
     if (reduceOnlyEl) reduceOnlyEl.checked = risk.reduce_only ?? true;
 
-    // Limits
+    // Limits (v2: 객체 구조)
     const idempotencyEnabledEl = document.getElementById('limits-idempotency-enabled');
     if (idempotencyEnabledEl) idempotencyEnabledEl.checked = limits.idempotency?.enabled ?? true;
-
-    const idempotencyKeyEl = document.getElementById('limits-idempotency-key');
-    if (idempotencyKeyEl) idempotencyKeyEl.value = limits.idempotency?.key ?? 'alert_id';
 
     const cooldownEl = document.getElementById('limits-cooldown');
     if (cooldownEl) cooldownEl.value = limits.cooldown_seconds ?? 0;
@@ -1913,17 +1891,121 @@ function loadSignalParamsToUI(params) {
     const oneTradePerBarEl = document.getElementById('limits-one-trade-per-bar');
     if (oneTradePerBarEl) oneTradePerBarEl.checked = limits.one_trade_per_bar ?? false;
 
+    // v2: 객체 구조 또는 v1 호환 (숫자)
+    const dailyTradesObj = limits.daily_max_trades;
+    const dailyTradesEnabledEl = document.getElementById('limits-daily-trades-enabled');
     const dailyMaxTradesEl = document.getElementById('limits-daily-max-trades');
-    if (dailyMaxTradesEl) dailyMaxTradesEl.value = limits.daily_max_trades ?? 0;
+    if (typeof dailyTradesObj === 'object') {
+        if (dailyTradesEnabledEl) dailyTradesEnabledEl.checked = dailyTradesObj?.enabled ?? false;
+        if (dailyMaxTradesEl) dailyMaxTradesEl.value = dailyTradesObj?.value ?? 10;
+    } else {
+        if (dailyTradesEnabledEl) dailyTradesEnabledEl.checked = (dailyTradesObj || 0) > 0;
+        if (dailyMaxTradesEl) dailyMaxTradesEl.value = dailyTradesObj || 10;
+    }
 
+    const dailyNotionalObj = limits.daily_max_notional;
+    const dailyNotionalEnabledEl = document.getElementById('limits-daily-notional-enabled');
     const dailyMaxNotionalEl = document.getElementById('limits-daily-max-notional');
-    if (dailyMaxNotionalEl) dailyMaxNotionalEl.value = limits.daily_max_notional ?? 0;
+    if (typeof dailyNotionalObj === 'object') {
+        if (dailyNotionalEnabledEl) dailyNotionalEnabledEl.checked = dailyNotionalObj?.enabled ?? false;
+        if (dailyMaxNotionalEl) dailyMaxNotionalEl.value = dailyNotionalObj?.value ?? 1000000;
+    } else {
+        if (dailyNotionalEnabledEl) dailyNotionalEnabledEl.checked = (dailyNotionalObj || 0) > 0;
+        if (dailyMaxNotionalEl) dailyMaxNotionalEl.value = dailyNotionalObj || 1000000;
+    }
 
+    const maxPosObj = limits.max_open_positions;
+    const maxPosEnabledEl = document.getElementById('limits-max-positions-enabled');
     const maxOpenPositionsEl = document.getElementById('limits-max-open-positions');
-    if (maxOpenPositionsEl) maxOpenPositionsEl.value = limits.max_open_positions ?? 0;
+    if (typeof maxPosObj === 'object') {
+        if (maxPosEnabledEl) maxPosEnabledEl.checked = maxPosObj?.enabled ?? false;
+        if (maxOpenPositionsEl) maxOpenPositionsEl.value = maxPosObj?.value ?? 5;
+    } else {
+        if (maxPosEnabledEl) maxPosEnabledEl.checked = (maxPosObj || 0) > 0;
+        if (maxOpenPositionsEl) maxOpenPositionsEl.value = maxPosObj || 5;
+    }
 
     const allowSameSideAddEl = document.getElementById('limits-allow-same-side-add');
     if (allowSameSideAddEl) allowSameSideAddEl.checked = limits.allow_same_side_add ?? true;
+
+    // 조건부 필드 표시 업데이트
+    updateSignalParamsConditionalFields();
+}
+
+/**
+ * Step 3 조건부 필드 표시/숨김 업데이트 (v2)
+ */
+function updateSignalParamsConditionalFields() {
+    // Sizing: mode에 따른 조건부 표시
+    const sizingMode = document.getElementById('sizing-mode')?.value || 'balance_pct';
+    const sizingValueLabel = document.getElementById('sizing-value-label');
+    const sizingValueSuffix = document.getElementById('sizing-value-suffix');
+    const sizingBaseGroup = document.getElementById('sizing-base-group');
+    const sizingMaxGroup = document.getElementById('sizing-max-notional-group');
+    const sizingMinGroup = document.getElementById('sizing-min-notional-group');
+
+    if (sizingMode === 'balance_pct') {
+        if (sizingValueLabel) sizingValueLabel.textContent = '비율';
+        if (sizingValueSuffix) sizingValueSuffix.textContent = '%';
+        if (sizingBaseGroup) sizingBaseGroup.style.display = '';
+        if (sizingMaxGroup) sizingMaxGroup.style.display = '';
+        if (sizingMinGroup) sizingMinGroup.style.display = '';
+    } else if (sizingMode === 'fixed_amount') {
+        if (sizingValueLabel) sizingValueLabel.textContent = '금액';
+        const currency = document.getElementById('sizing-currency')?.value || 'USDT';
+        if (sizingValueSuffix) sizingValueSuffix.textContent = currency;
+        if (sizingBaseGroup) sizingBaseGroup.style.display = 'none';
+        if (sizingMaxGroup) sizingMaxGroup.style.display = '';
+        if (sizingMinGroup) sizingMinGroup.style.display = '';
+    } else if (sizingMode === 'fixed_qty') {
+        if (sizingValueLabel) sizingValueLabel.textContent = '수량';
+        if (sizingValueSuffix) sizingValueSuffix.textContent = '개';
+        if (sizingBaseGroup) sizingBaseGroup.style.display = 'none';
+        if (sizingMaxGroup) sizingMaxGroup.style.display = 'none';
+        if (sizingMinGroup) sizingMinGroup.style.display = 'none';
+    }
+
+    // Sizing: reduce mode에 따른 조건부 표시
+    const reduceMode = document.getElementById('sizing-reduce-mode')?.value || 'full';
+    const reducePctGroup = document.getElementById('sizing-reduce-pct-group');
+    if (reducePctGroup) reducePctGroup.style.display = reduceMode === 'partial' ? '' : 'none';
+
+    // Currency suffix 업데이트
+    const currency = document.getElementById('sizing-currency')?.value || 'USDT';
+    const maxSuffix = document.getElementById('sizing-max-suffix');
+    const minSuffix = document.getElementById('sizing-min-suffix');
+    const dailySuffix = document.getElementById('limits-daily-suffix');
+    if (maxSuffix) maxSuffix.textContent = currency;
+    if (minSuffix) minSuffix.textContent = currency;
+    if (dailySuffix) dailySuffix.textContent = currency;
+
+    // Risk: exec_mode에 따른 SL/TP 섹션 표시
+    const execMode = document.getElementById('risk-exec-mode')?.value || 'tv_exit_signal';
+    const sltpSection = document.getElementById('risk-sltp-section');
+    if (sltpSection) sltpSection.style.display = execMode === 'exchange_bracket' ? '' : 'none';
+
+    // Risk: SL/TP/Trailing 체크박스에 따른 값 필드 표시
+    const slEnabled = document.getElementById('risk-sl-enabled')?.checked || false;
+    document.querySelectorAll('.sl-field').forEach(el => el.style.display = slEnabled ? '' : 'none');
+
+    const tpEnabled = document.getElementById('risk-tp-enabled')?.checked || false;
+    document.querySelectorAll('.tp-field').forEach(el => el.style.display = tpEnabled ? '' : 'none');
+
+    const trailingEnabled = document.getElementById('risk-trailing-enabled')?.checked || false;
+    document.querySelectorAll('.trailing-field').forEach(el => el.style.display = trailingEnabled ? '' : 'none');
+
+    // Limits: 체크박스에 따른 값 필드 표시
+    const dailyTradesEnabled = document.getElementById('limits-daily-trades-enabled')?.checked || false;
+    const dailyTradesValueGroup = document.getElementById('limits-daily-trades-value-group');
+    if (dailyTradesValueGroup) dailyTradesValueGroup.style.display = dailyTradesEnabled ? '' : 'none';
+
+    const dailyNotionalEnabled = document.getElementById('limits-daily-notional-enabled')?.checked || false;
+    const dailyNotionalValueGroup = document.getElementById('limits-daily-notional-value-group');
+    if (dailyNotionalValueGroup) dailyNotionalValueGroup.style.display = dailyNotionalEnabled ? '' : 'none';
+
+    const maxPosEnabled = document.getElementById('limits-max-positions-enabled')?.checked || false;
+    const maxPosValueGroup = document.getElementById('limits-max-positions-value-group');
+    if (maxPosValueGroup) maxPosValueGroup.style.display = maxPosEnabled ? '' : 'none';
 }
 
 // TV Wizard navigation
@@ -1968,6 +2050,18 @@ document.getElementById('btn-copy-webhook-url')?.addEventListener('click', async
 });
 
 document.getElementById('btn-refresh-webhook-logs')?.addEventListener('click', loadWebhookLogs);
+
+// Step 3 조건부 필드 이벤트 리스너 (v2)
+document.getElementById('sizing-mode')?.addEventListener('change', updateSignalParamsConditionalFields);
+document.getElementById('sizing-currency')?.addEventListener('change', updateSignalParamsConditionalFields);
+document.getElementById('sizing-reduce-mode')?.addEventListener('change', updateSignalParamsConditionalFields);
+document.getElementById('risk-exec-mode')?.addEventListener('change', updateSignalParamsConditionalFields);
+document.getElementById('risk-sl-enabled')?.addEventListener('change', updateSignalParamsConditionalFields);
+document.getElementById('risk-tp-enabled')?.addEventListener('change', updateSignalParamsConditionalFields);
+document.getElementById('risk-trailing-enabled')?.addEventListener('change', updateSignalParamsConditionalFields);
+document.getElementById('limits-daily-trades-enabled')?.addEventListener('change', updateSignalParamsConditionalFields);
+document.getElementById('limits-daily-notional-enabled')?.addEventListener('change', updateSignalParamsConditionalFields);
+document.getElementById('limits-max-positions-enabled')?.addEventListener('change', updateSignalParamsConditionalFields);
 
 // Asset tags
 document.querySelectorAll('.asset-tag').forEach(tag => {

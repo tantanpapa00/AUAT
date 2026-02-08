@@ -1,5 +1,5 @@
 """
-BBooster Signal Params Validation
+BBooster Signal Params Validation (v2)
 effective_params 검증 로직
 """
 from typing import List, Optional
@@ -12,7 +12,7 @@ class ValidationError(Exception):
 
 def validate_effective_params(params: dict, exchange_capabilities: dict = None) -> List[str]:
     """
-    effective_params를 검증한다.
+    effective_params를 검증한다 (v2 구조).
 
     Args:
         params: 머지된 effective_params
@@ -41,6 +41,9 @@ def validate_effective_params(params: dict, exchange_capabilities: dict = None) 
     elif mode == "fixed_amount":
         if value <= 0:
             errors.append(f"사이징: 고정금액은 0보다 커야 합니다 (현재: {value})")
+    elif mode == "fixed_qty":
+        if value <= 0:
+            errors.append(f"사이징: 수량은 0보다 커야 합니다 (현재: {value})")
 
     max_notional = sizing.get("max_notional_per_order", 0)
     if max_notional < 0:
@@ -53,16 +56,13 @@ def validate_effective_params(params: dict, exchange_capabilities: dict = None) 
     if max_notional > 0 and min_notional > 0 and min_notional > max_notional:
         errors.append(f"사이징: 최소금액({min_notional})이 최대금액({max_notional})보다 큽니다")
 
-    reduce_pct = sizing.get("reduce", {}).get("default_pct", 0)
-    if reduce_pct < 0 or reduce_pct > 100:
-        errors.append(f"사이징: 부분청산 비율은 0~100% 범위여야 합니다 (현재: {reduce_pct}%)")
-
-    sequence = sizing.get("reduce", {}).get("sequence_pct", [])
-    if sequence:
-        if any(p <= 0 or p > 100 for p in sequence):
-            errors.append("사이징: 분할청산 순서의 각 값은 1~100% 범위여야 합니다")
-        if sum(sequence) != 100:
-            warnings.append(f"사이징: 분할청산 순서 합계가 100%가 아닙니다 (현재: {sum(sequence)}%)")
+    # reduce 검증 (v2: mode + default_pct)
+    reduce_obj = sizing.get("reduce", {})
+    reduce_mode = reduce_obj.get("mode", "full")
+    if reduce_mode == "partial":
+        reduce_pct = reduce_obj.get("default_pct", 100)
+        if reduce_pct < 1 or reduce_pct > 100:
+            errors.append(f"사이징: 부분청산 비율은 1~100% 범위여야 합니다 (현재: {reduce_pct}%)")
 
     # ─── Risk 검증 ───
     exec_mode = risk.get("exec_mode", "tv_exit_signal")
@@ -74,7 +74,7 @@ def validate_effective_params(params: dict, exchange_capabilities: dict = None) 
     # 거래소가 브라켓 주문을 지원하지 않으면 경고
     if exec_mode == "exchange_bracket":
         if exchange_capabilities and not exchange_capabilities.get("supports_bracket", False):
-            warnings.append("리스크: 거래소가 브라켓 주문을 지원하지 않아 tv_exit_signal로 자동 전환됩니다")
+            warnings.append("리스크: 거래소가 브라켓 주문을 지원하지 않아 신호 대기 모드로 자동 전환됩니다")
 
     for label, section in [("손절", risk.get("sl", {})), ("익절", risk.get("tp", {}))]:
         if section.get("enabled"):
@@ -86,11 +86,26 @@ def validate_effective_params(params: dict, exchange_capabilities: dict = None) 
     if trailing.get("enabled") and trailing.get("value", 0) <= 0:
         errors.append("리스크: 트레일링 스탑 활성화됨 - 값이 0보다 커야 합니다")
 
-    # ─── Limits 검증 ───
-    for field in ["cooldown_seconds", "daily_max_trades", "daily_max_notional", "max_open_positions"]:
-        val = limits.get(field, 0)
-        if val < 0:
-            errors.append(f"리밋: {field}은(는) 음수일 수 없습니다 (현재: {val})")
+    # ─── Limits 검증 (v2: 객체 구조) ───
+    # cooldown_seconds는 숫자
+    cooldown = limits.get("cooldown_seconds", 0)
+    if cooldown < 0:
+        errors.append(f"리밋: cooldown_seconds는 음수일 수 없습니다 (현재: {cooldown})")
+
+    # daily_max_trades, daily_max_notional, max_open_positions는 객체
+    for field_name, label in [
+        ("daily_max_trades", "일일 최대 거래 횟수"),
+        ("daily_max_notional", "일일 최대 거래 금액"),
+        ("max_open_positions", "최대 동시 포지션")
+    ]:
+        field = limits.get(field_name, {})
+        if isinstance(field, dict):
+            if field.get("enabled") and field.get("value", 0) <= 0:
+                warnings.append(f"리밋: {label}이 활성화되었지만 값이 0입니다")
+        elif isinstance(field, (int, float)):
+            # v1 호환: 숫자인 경우
+            if field < 0:
+                errors.append(f"리밋: {field_name}은(는) 음수일 수 없습니다 (현재: {field})")
 
     # ─── 결과 ───
     if errors:

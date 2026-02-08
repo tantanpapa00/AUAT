@@ -90,8 +90,15 @@ async def check_limits(
         if existing:
             return False, "이번 봉에서 이미 거래함"
 
-    # 4. 일일 최대 거래 횟수
-    daily_max_trades = limits.get("daily_max_trades", 0)
+    # 4. 일일 최대 거래 횟수 (v2: 객체 구조)
+    daily_max_obj = limits.get("daily_max_trades", {})
+    if isinstance(daily_max_obj, dict) and daily_max_obj.get("enabled"):
+        daily_max_trades = daily_max_obj.get("value", 0)
+    elif isinstance(daily_max_obj, (int, float)):
+        daily_max_trades = daily_max_obj  # v1 호환
+    else:
+        daily_max_trades = 0
+
     if daily_max_trades > 0:
         today_count = db.execute(text("""
             SELECT COUNT(*) FROM orders
@@ -105,8 +112,15 @@ async def check_limits(
         if today_count >= daily_max_trades:
             return False, f"일일 최대 거래 횟수 {daily_max_trades} 도달"
 
-    # 5. 일일 최대 거래 금액
-    daily_max_notional = limits.get("daily_max_notional", 0)
+    # 5. 일일 최대 거래 금액 (v2: 객체 구조)
+    daily_notional_obj = limits.get("daily_max_notional", {})
+    if isinstance(daily_notional_obj, dict) and daily_notional_obj.get("enabled"):
+        daily_max_notional = daily_notional_obj.get("value", 0)
+    elif isinstance(daily_notional_obj, (int, float)):
+        daily_max_notional = daily_notional_obj  # v1 호환
+    else:
+        daily_max_notional = 0
+
     if daily_max_notional > 0:
         today_notional = db.execute(text("""
             SELECT COALESCE(SUM(qty * COALESCE(avg_px, 0)), 0) FROM orders
@@ -121,8 +135,15 @@ async def check_limits(
         if today_notional >= daily_max_notional:
             return False, f"일일 최대 거래 금액 도달 ({today_notional:,.0f})"
 
-    # 6. 최대 동시 포지션
-    max_open_positions = limits.get("max_open_positions", 0)
+    # 6. 최대 동시 포지션 (v2: 객체 구조)
+    max_pos_obj = limits.get("max_open_positions", {})
+    if isinstance(max_pos_obj, dict) and max_pos_obj.get("enabled"):
+        max_open_positions = max_pos_obj.get("value", 0)
+    elif isinstance(max_pos_obj, (int, float)):
+        max_open_positions = max_pos_obj  # v1 호환
+    else:
+        max_open_positions = 0
+
     if max_open_positions > 0:
         # 현재 열린 포지션 수 (간단 버전: 잔고 > 0인 자산 수)
         open_count = db.execute(text("""
@@ -198,8 +219,13 @@ def calculate_qty(
         # 신호에서 reduce_pct가 왔으면 그거 사용
         pct = reduce_pct_from_signal
         if pct is None or pct == 0:
-            pct = sizing.get("reduce", {}).get("default_pct", 0)
-        if pct == 0:
+            # v2 구조: reduce.mode + reduce.default_pct
+            reduce_obj = sizing.get("reduce", {})
+            reduce_mode = reduce_obj.get("mode", "full")
+            if reduce_mode == "full":
+                return current_position_qty  # 전량청산
+            pct = reduce_obj.get("default_pct", 100)
+        if pct == 0 or pct >= 100:
             return current_position_qty  # 전량청산
         return current_position_qty * (pct / 100)
 
@@ -207,6 +233,10 @@ def calculate_qty(
     mode = sizing.get("mode", "balance_pct")
     value = sizing.get("value", 30)
     base = sizing.get("base", "free")
+
+    # fixed_qty 모드: 수량 직접 반환
+    if mode == "fixed_qty":
+        return value * leverage
 
     base_balance = free_balance if base == "free" else total_balance
 
