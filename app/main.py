@@ -7141,8 +7141,8 @@ async def get_portfolio_summary(
         # 등록된 계정들 조회 (현재 사용자 계정만)
         try:
             accounts = db.execute(
-                text("SELECT id, name, exchange, api_key, api_secret, api_passphrase, account_number FROM accounts WHERE user_id = :user_id"),
-                {"user_id": current_user.id}
+                text("SELECT id, name, exchange, api_key, api_secret, api_passphrase, account_number FROM accounts WHERE owner_id = :owner_id"),
+                {"owner_id": current_user.id}
             ).fetchall()
 
             for acc in accounts:
@@ -7291,8 +7291,8 @@ async def get_holdings(
 
     try:
         accounts = db.execute(
-            text("SELECT id, name, exchange, api_key, api_secret, api_passphrase, account_number FROM accounts WHERE user_id = :user_id"),
-            {"user_id": current_user.id}
+            text("SELECT id, name, exchange, api_key, api_secret, api_passphrase, account_number FROM accounts WHERE owner_id = :owner_id"),
+            {"owner_id": current_user.id}
         ).fetchall()
 
         for acc in accounts:
