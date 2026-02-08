@@ -5,12 +5,12 @@
 - SSOT: docs/FINISH_SSOT.md, docs/PROJECT_STATUS.md
 - Rules: docs/AI_RULES.md (MUST read first)
 
-## Current Status (2026-02-08)
+## Current Status (2026-02-09)
 - Week A~D: DONE (브랜드/사이트/PC앱/Android APK 기반)
 - Day 6: DONE (대시보드 개편 + 구독 플랜)
 - Day 7: DONE (종목분석 개편 + 10 버그 수정)
 - Day 8: DONE (종목검색/네이버API/자동완성/파싱 수정)
-- Day 9: DONE (긴급 수정 + 보유자산 + 계정관리)
+- Day 9: DONE (긴급 수정 + 보유자산 + 계정관리 + 전략설정 v2 UI)
 
 ## Quick Commands
 - Syntax: `python -m compileall app`
@@ -96,9 +96,38 @@ Hub 로직: `effective = deep_merge(strategies.signal_params, assets.signal_para
 - `/tv` 웹훅: effective_params 조회 + Limits 체크
 - Limits 항목: 중복방지, 쿨다운, 1봉1회, 일일한도, 포지션한도
 
+**Phase 5: v2 UI 개편** (2026-02-09)
+- Sizing 3개 모드: `balance_pct` / `fixed_amount` / `fixed_qty`
+- Currency 드롭다운: KRW / USD / USDT / USDC
+- Limits v2 구조: `{enabled: bool, value: number}` 객체
+- 용어 변경: "TV신호 기반" → "신호 대기", "거래소 브라켓" → "자동 손절/익절"
+- 조건부 필드 표시 (mode별, enabled별)
+- 도움말 아이콘 (ℹ️) 각 필드
+- Step 4 템플릿 간소화 (설정은 서버 저장)
+
+**v2 DEFAULT_SIGNAL_PARAMS 구조:**
+```python
+{
+    "sizing": {
+        "mode": "balance_pct",  # balance_pct / fixed_amount / fixed_qty
+        "value": 30,
+        "base": "free",
+        "currency": "USDT",
+        "reduce": {"mode": "full", "default_pct": 100}
+    },
+    "limits": {
+        "daily_max_trades": {"enabled": False, "value": 0},
+        "daily_max_notional": {"enabled": False, "value": 0},
+        "max_open_positions": {"enabled": False, "value": 0}
+    },
+    "meta": {"version": 2}
+}
+```
+
 **커밋**
 - `f2da45a` feat: 전략설정 (Sizing/Risk/Limits) Phase 1-3 구현
 - `4c119f7` feat: 전략설정 Phase 4 - Hub 매매 로직 통합
+- `001ca81` feat: 전략설정 v2 - PC앱 UI 개편 + 백엔드 구조 업데이트
 
 ## Day 8 Fixes
 - 종목명 쓰레기 데이터 제거 (`_clean_stock_name`)
