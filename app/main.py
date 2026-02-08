@@ -7213,6 +7213,7 @@ async def get_portfolio_summary(
     for h in holdings:
         exchange = (h.get("exchange") or "").upper()
         symbol = (h.get("symbol") or "").upper()
+        name = h.get("name", "")
 
         # 평가금액 계산 (원화 기준)
         value_krw = h.get("value_krw", 0)
@@ -7231,7 +7232,7 @@ async def get_portfolio_summary(
 
         # 분류
         if exchange in ("KIS_KR", "KIS"):
-            if symbol in ("KRW", "예수금") or h.get("name") == "예수금":
+            if symbol in ("KRW", "예수금") or name == "예수금":
                 cash_krw += value_krw
             else:
                 domestic += value_krw
