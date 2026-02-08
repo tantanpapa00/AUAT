@@ -7286,7 +7286,10 @@ async def get_holdings(
     holdings = []
     usd_krw_rate = await get_usd_krw_rate()
 
+    print(f"[Holdings DEBUG] current_user: {current_user}, id: {current_user.id if current_user else 'None'}")
+
     if not current_user:
+        print("[Holdings DEBUG] No current_user, returning empty")
         return {"holdings": [], "usd_krw_rate": usd_krw_rate}
 
     try:
@@ -7294,6 +7297,7 @@ async def get_holdings(
             text("SELECT id, name, exchange, api_key, api_secret, api_passphrase, account_number FROM accounts WHERE owner_id = :owner_id"),
             {"owner_id": current_user.id}
         ).fetchall()
+        print(f"[Holdings DEBUG] Found {len(accounts)} accounts for owner_id={current_user.id}")
 
         for acc in accounts:
             exchange = acc.exchange.lower() if acc.exchange else ""
@@ -7302,8 +7306,11 @@ async def get_holdings(
             passphrase = acc.api_passphrase or ""
             account_number = acc.account_number or ""
 
+            print(f"[Holdings DEBUG] Processing account id={acc.id}, exchange='{exchange}', has_key={bool(api_key)}, has_secret={bool(api_secret)}")
+
             try:
                 if exchange == "upbit":
+                    print(f"[Holdings DEBUG] Calling fetch_upbit_balances...")
                     balances = await fetch_upbit_balances(api_key, api_secret)
                     for b in balances:
                         quantity = b.get("quantity", 0)
@@ -7324,7 +7331,9 @@ async def get_holdings(
                         })
 
                 elif exchange in ("kis_kr", "kis"):
+                    print(f"[Holdings DEBUG] Calling fetch_kis_kr_balances for account_number={account_number}...")
                     balances = await fetch_kis_kr_balances(api_key, api_secret, account_number)
+                    print(f"[Holdings DEBUG] KIS_KR returned {len(balances)} items")
                     for b in balances:
                         quantity = b.get("quantity", 0)
                         avg_price = b.get("avg_price", 0)
@@ -7384,7 +7393,9 @@ async def get_holdings(
                         })
 
                 elif exchange == "okx":
+                    print(f"[Holdings DEBUG] Calling fetch_okx_balances...")
                     balances = await fetch_okx_balances(api_key, api_secret, passphrase)
+                    print(f"[Holdings DEBUG] OKX returned {len(balances)} items")
                     for b in balances:
                         quantity = b.get("quantity", 0)
                         avg_price = b.get("avg_price", 0)
@@ -7423,13 +7434,21 @@ async def get_holdings(
                             "currency": "USD"
                         })
 
+                else:
+                    print(f"[Holdings DEBUG] Unknown exchange: '{exchange}' - skipping")
+
             except Exception as e:
-                print(f"[Holdings] Balance fetch error for {exchange}: {e}")
+                print(f"[Holdings DEBUG] Balance fetch error for {exchange}: {e}")
+                import traceback
+                traceback.print_exc()
                 continue
 
     except Exception as e:
-        print(f"[Holdings] Account fetch error: {e}")
+        print(f"[Holdings DEBUG] Account fetch error: {e}")
+        import traceback
+        traceback.print_exc()
 
+    print(f"[Holdings DEBUG] Final result: {len(holdings)} holdings")
     return {"holdings": holdings, "usd_krw_rate": usd_krw_rate}
 
 
