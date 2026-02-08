@@ -1553,7 +1553,7 @@ async def fetch_binance_balances(api_key: str, secret_key: str):
 
 
 async def fetch_okx_balances(api_key: str, secret_key: str, passphrase: str):
-    """OKX 잔고 조회"""
+    """OKX 잔고 조회 + 현재가 조회"""
     try:
         from datetime import datetime, timezone
 
@@ -1571,27 +1571,75 @@ async def fetch_okx_balances(api_key: str, secret_key: str, passphrase: str):
             "OK-ACCESS-PASSPHRASE": passphrase,
         }
 
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=15) as client:
             r = await client.get("https://www.okx.com/api/v5/account/balance", headers=headers)
+            print(f"[OKX DEBUG] Balance API status: {r.status_code}")
             if r.status_code == 200:
                 data = r.json()
+                print(f"[OKX DEBUG] Balance response code: {data.get('code')}, msg: {data.get('msg')}")
                 balances = []
+
+                # 수집할 자산 목록
+                assets_with_balance = []
                 for account in data.get("data", []):
                     for detail in account.get("details", []):
                         ccy = detail.get("ccy", "")
                         eq = float(detail.get("eq", 0))  # 총 자산 (USD 환산)
                         cash_bal = float(detail.get("cashBal", 0))  # 현금 잔고
-                        if eq > 0.01:
-                            balances.append({
-                                "symbol": ccy,
-                                "quantity": cash_bal,
-                                "value_usd": eq,
-                                "currency": "USD"
+                        print(f"[OKX DEBUG] Asset: {ccy}, cashBal={cash_bal}, eq={eq}")
+                        # 0보다 큰 모든 자산 포함 (필터 완화)
+                        if cash_bal > 0:
+                            assets_with_balance.append({
+                                "ccy": ccy,
+                                "cash_bal": cash_bal,
+                                "eq": eq
                             })
+
+                # 현재가 조회 (USDT 제외한 코인들)
+                prices = {"USDT": 1.0, "USDC": 1.0}  # 스테이블코인은 $1 고정
+                for asset in assets_with_balance:
+                    ccy = asset["ccy"]
+                    if ccy not in prices:
+                        try:
+                            ticker_url = f"https://www.okx.com/api/v5/market/ticker?instId={ccy}-USDT"
+                            tr = await client.get(ticker_url, timeout=5)
+                            if tr.status_code == 200:
+                                ticker_data = tr.json()
+                                if ticker_data.get("data"):
+                                    last_price = float(ticker_data["data"][0].get("last", 0))
+                                    prices[ccy] = last_price
+                                    print(f"[OKX DEBUG] Ticker {ccy}: ${last_price}")
+                        except Exception as te:
+                            print(f"[OKX DEBUG] Ticker error for {ccy}: {te}")
+                            prices[ccy] = 0
+
+                # 잔고 데이터 구성
+                for asset in assets_with_balance:
+                    ccy = asset["ccy"]
+                    cash_bal = asset["cash_bal"]
+                    current_price = prices.get(ccy, 0)
+                    value_usd = cash_bal * current_price if current_price else asset["eq"]
+
+                    balances.append({
+                        "symbol": ccy,
+                        "quantity": cash_bal,
+                        "avg_price": 0,  # OKX API에서 평균단가 미제공
+                        "current_price": current_price,
+                        "value_usd": value_usd,
+                        "profit_loss": 0,  # 평균단가 없어서 계산 불가
+                        "profit_rate": 0,
+                        "currency": "USD"
+                    })
+
+                print(f"[OKX DEBUG] Returning {len(balances)} assets")
                 return balances
+            else:
+                print(f"[OKX DEBUG] Balance API error: {r.text[:500]}")
             return []
     except Exception as e:
-        print(f"[DataProvider] OKX balance error: {e}")
+        print(f"[OKX DEBUG] OKX balance error: {e}")
+        import traceback
+        traceback.print_exc()
         return []
 
 

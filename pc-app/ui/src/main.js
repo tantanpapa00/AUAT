@@ -1137,6 +1137,9 @@ function initAllocationChart(allocData) {
     });
 }
 
+// 전역 holdings 데이터 저장
+let _holdingsData = [];
+
 async function loadHoldings() {
     const tbody = document.getElementById('holdings-tbody');
     if (!tbody) return;
@@ -1147,40 +1150,97 @@ async function loadHoldings() {
             holdings = await invoke('get_holdings', { accessToken: auth.accessToken });
         }
 
-        if (holdings.length === 0) {
-            tbody.innerHTML = `
-                <tr class="empty-row">
-                    <td colspan="7">
-                        <div class="empty-state">
-                            <p>연결된 계정이 없습니다.</p>
-                            <p>설정 → 계정관리에서 거래소를 연결하세요.</p>
-                            <button class="btn btn-primary" onclick="navigateTo('accounts')">계정 연결하기</button>
-                        </div>
-                    </td>
-                </tr>
-            `;
-            return;
-        }
+        _holdingsData = holdings;  // 전역 저장
 
-        // Sort by profit rate (highest first)
-        holdings.sort((a, b) => b.profit_rate - a.profit_rate);
-
-        tbody.innerHTML = holdings.map(h => `
-            <tr>
-                <td><strong>${h.symbol}</strong><br><small>${h.name}</small></td>
-                <td><span class="exchange-badge">${h.exchange}</span></td>
-                <td>${formatNumber(h.quantity)}</td>
-                <td>${formatCurrency(h.avg_price, h.exchange)}</td>
-                <td>${formatCurrency(h.current_price, h.exchange)}</td>
-                <td class="${h.profit_loss >= 0 ? 'profit' : 'loss'}">${formatCurrency(h.profit_loss, h.exchange)}</td>
-                <td class="${h.profit_rate >= 0 ? 'profit' : 'loss'}">${h.profit_rate >= 0 ? '+' : ''}${h.profit_rate.toFixed(2)}%</td>
-            </tr>
-        `).join('');
+        renderHoldings();
 
     } catch (e) {
         console.error('Failed to load holdings:', e);
     }
 }
+
+function renderHoldings() {
+    const tbody = document.getElementById('holdings-tbody');
+    if (!tbody) return;
+
+    const filterSelect = document.getElementById('holdings-exchange-filter');
+    const selectedExchange = filterSelect?.value || 'all';
+
+    // 필터 적용
+    let filtered = _holdingsData;
+    if (selectedExchange !== 'all') {
+        filtered = _holdingsData.filter(h => h.exchange.toLowerCase() === selectedExchange.toLowerCase());
+    }
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr class="empty-row">
+                <td colspan="7">
+                    <div class="empty-state">
+                        <p>${selectedExchange === 'all' ? '연결된 계정이 없습니다.' : `${selectedExchange.toUpperCase()} 자산이 없습니다.`}</p>
+                        <p>설정 → 계정관리에서 거래소를 연결하세요.</p>
+                        <button class="btn btn-primary" onclick="navigateTo('accounts')">계정 연결하기</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    // 거래소별 그룹화
+    const byExchange = {};
+    filtered.forEach(h => {
+        const ex = h.exchange.toUpperCase();
+        if (!byExchange[ex]) byExchange[ex] = [];
+        byExchange[ex].push(h);
+    });
+
+    // 거래소별 정렬 (수익률 높은 순)
+    Object.keys(byExchange).forEach(ex => {
+        byExchange[ex].sort((a, b) => (b.profit_rate || 0) - (a.profit_rate || 0));
+    });
+
+    // 테이블 렌더링
+    let html = '';
+    Object.keys(byExchange).sort().forEach(ex => {
+        const assets = byExchange[ex];
+        const subtotal = assets.reduce((sum, h) => sum + (h.current_price * h.quantity || 0), 0);
+
+        // 거래소 헤더
+        if (selectedExchange === 'all' && Object.keys(byExchange).length > 1) {
+            html += `<tr class="exchange-group-header"><td colspan="7"><strong>${ex}</strong> (${assets.length}개 자산, ${formatUSD(subtotal)})</td></tr>`;
+        }
+
+        assets.forEach(h => {
+            const avgPrice = h.avg_price > 0 ? formatCurrency(h.avg_price, h.exchange) : '-';
+            const currentPrice = h.current_price > 0 ? formatCurrency(h.current_price, h.exchange) : '-';
+            const profitLoss = h.avg_price > 0 ? formatCurrency(h.profit_loss, h.exchange) : '-';
+            const profitRate = h.avg_price > 0 ? `${h.profit_rate >= 0 ? '+' : ''}${h.profit_rate.toFixed(2)}%` : '-';
+            const profitClass = h.profit_rate >= 0 ? 'profit' : 'loss';
+
+            html += `
+                <tr>
+                    <td><strong>${h.symbol}</strong><br><small>${h.name || h.symbol}</small></td>
+                    <td><span class="exchange-badge ${h.exchange.toLowerCase()}">${h.exchange}</span></td>
+                    <td>${formatNumber(h.quantity)}</td>
+                    <td>${avgPrice}</td>
+                    <td>${currentPrice}</td>
+                    <td class="${h.avg_price > 0 ? profitClass : ''}">${profitLoss}</td>
+                    <td class="${h.avg_price > 0 ? profitClass : ''}">${profitRate}</td>
+                </tr>
+            `;
+        });
+    });
+
+    tbody.innerHTML = html;
+}
+
+function formatUSD(value) {
+    return '$' + value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// 거래소 필터 이벤트
+document.getElementById('holdings-exchange-filter')?.addEventListener('change', renderHoldings);
 
 async function loadActiveStrategies() {
     const container = document.getElementById('active-strategies-list');

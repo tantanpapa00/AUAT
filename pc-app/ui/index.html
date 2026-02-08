@@ -382,19 +382,30 @@
                     <section class="card holdings-section">
                         <div class="card-header">
                             <h2>보유 자산</h2>
-                            <button class="btn btn-secondary btn-sm" id="btn-refresh-holdings">새로고침</button>
+                            <div class="header-actions">
+                                <select id="holdings-exchange-filter" class="filter-select">
+                                    <option value="all">전체 거래소</option>
+                                    <option value="okx">OKX</option>
+                                    <option value="binance">Binance</option>
+                                    <option value="bybit">Bybit</option>
+                                    <option value="upbit">Upbit</option>
+                                    <option value="kis_kr">KIS 국내</option>
+                                    <option value="kis_us">KIS 해외</option>
+                                </select>
+                                <button class="btn btn-secondary btn-sm" id="btn-refresh-holdings">새로고침</button>
+                            </div>
                         </div>
                         <div class="holdings-table-wrapper" id="holdings-list">
                             <table class="holdings-table">
                                 <thead>
                                     <tr>
-                                        <th>자산명</th>
-                                        <th>거래소</th>
-                                        <th>보유수량</th>
-                                        <th>평균단가</th>
-                                        <th>현재가</th>
-                                        <th>평가손익</th>
-                                        <th>수익률</th>
+                                        <th style="white-space:nowrap">자산명</th>
+                                        <th style="white-space:nowrap">거래소</th>
+                                        <th style="white-space:nowrap">보유수량</th>
+                                        <th style="white-space:nowrap">평균단가</th>
+                                        <th style="white-space:nowrap">현재가</th>
+                                        <th style="white-space:nowrap">평가손익</th>
+                                        <th style="white-space:nowrap">수익률</th>
                                     </tr>
                                 </thead>
                                 <tbody id="holdings-tbody">
