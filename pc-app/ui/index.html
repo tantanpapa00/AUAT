@@ -332,8 +332,13 @@
                                 </div>
                                 <div class="legend-item">
                                     <span class="legend-color" style="background:#6B7280"></span>
-                                    <span class="legend-label">현금</span>
-                                    <span class="legend-value" id="alloc-cash">100%</span>
+                                    <span class="legend-label">현금(원화)</span>
+                                    <span class="legend-value" id="alloc-cash-krw">0%</span>
+                                </div>
+                                <div class="legend-item">
+                                    <span class="legend-color" style="background:#9CA3AF"></span>
+                                    <span class="legend-label">현금(달러)</span>
+                                    <span class="legend-value" id="alloc-cash-usd">0%</span>
                                 </div>
                             </div>
                         </div>
@@ -368,9 +373,15 @@
                                         <td class="profit" id="alloc-crypto-profit">+0.00%</td>
                                     </tr>
                                     <tr>
-                                        <td>현금</td>
-                                        <td id="alloc-cash-value">₩0</td>
-                                        <td id="alloc-cash-pct">100%</td>
+                                        <td>현금(원화)</td>
+                                        <td id="alloc-cash-krw-value">₩0</td>
+                                        <td id="alloc-cash-krw-pct">0%</td>
+                                        <td>-</td>
+                                    </tr>
+                                    <tr>
+                                        <td>현금(달러)</td>
+                                        <td id="alloc-cash-usd-value">$0</td>
+                                        <td id="alloc-cash-usd-pct">0%</td>
                                         <td>-</td>
                                     </tr>
                                 </tbody>
@@ -404,13 +415,14 @@
                                         <th>보유수량</th>
                                         <th>평균단가</th>
                                         <th>현재가</th>
+                                        <th>평가액</th>
                                         <th>평가손익</th>
                                         <th>수익률</th>
                                     </tr>
                                 </thead>
                                 <tbody id="holdings-tbody">
                                     <tr class="empty-row">
-                                        <td colspan="7">
+                                        <td colspan="8">
                                             <div class="empty-state">
                                                 <p>연결된 계정이 없습니다.</p>
                                                 <p>설정 → 계정관리에서 거래소를 연결하세요.</p>

@@ -7202,10 +7202,11 @@ async def get_portfolio_summary(
     total_assets = total_krw + (total_usd * usd_krw_rate)
 
     # 자산배분 계산
-    domestic = 0.0   # 국내주식
-    foreign = 0.0    # 해외주식
-    crypto = 0.0     # 암호화폐
-    cash = 0.0       # 현금
+    domestic = 0.0    # 국내주식
+    foreign = 0.0     # 해외주식
+    crypto = 0.0      # 암호화폐
+    cash_krw = 0.0    # 현금(원화)
+    cash_usd = 0.0    # 현금(달러) - USD 기준
 
     stablecoins = ["USDT", "USDC", "BUSD", "DAI", "TUSD"]
 
@@ -7224,51 +7225,50 @@ async def get_portfolio_summary(
             qty = h.get("quantity", 0)
             if exchange in ("OKX", "BINANCE", "BYBIT", "KIS_US"):
                 value_krw = price * qty * usd_krw_rate
+                value_usd = price * qty
             else:
                 value_krw = price * qty
 
         # 분류
         if exchange in ("KIS_KR", "KIS"):
             if symbol in ("KRW", "예수금") or h.get("name") == "예수금":
-                cash += value_krw
+                cash_krw += value_krw
             else:
                 domestic += value_krw
         elif exchange == "KIS_US":
             foreign += value_krw
         elif exchange in ("OKX", "BINANCE", "BYBIT"):
             if symbol in stablecoins:
-                cash += value_krw
+                cash_usd += value_usd if value_usd > 0 else value_krw / usd_krw_rate
             else:
                 crypto += value_krw
         elif exchange == "UPBIT":
             if symbol == "KRW":
-                cash += value_krw
+                cash_krw += value_krw
             else:
                 crypto += value_krw
 
-    alloc_total = domestic + foreign + crypto + cash
+    # 총액 (원화 기준)
+    cash_usd_krw = cash_usd * usd_krw_rate
+    alloc_total = domestic + foreign + crypto + cash_krw + cash_usd_krw
     allocation = {
         "domestic": round(domestic / alloc_total * 100) if alloc_total > 0 else 0,
         "foreign": round(foreign / alloc_total * 100) if alloc_total > 0 else 0,
         "crypto": round(crypto / alloc_total * 100) if alloc_total > 0 else 0,
-        "cash": round(cash / alloc_total * 100) if alloc_total > 0 else 100,
+        "cash_krw": round(cash_krw / alloc_total * 100) if alloc_total > 0 else 0,
+        "cash_usd": round(cash_usd_krw / alloc_total * 100) if alloc_total > 0 else 0,
         "domestic_value": domestic,
         "foreign_value": foreign,
         "crypto_value": crypto,
-        "cash_value": cash,
+        "cash_krw_value": cash_krw,
+        "cash_usd_value": cash_usd,  # USD 금액 (달러)
     }
 
-    print(f"[Summary] Allocation: domestic={domestic:.0f}, foreign={foreign:.0f}, crypto={crypto:.0f}, cash={cash:.0f}")
+    print(f"[Summary] Allocation: domestic={domestic:.0f}, foreign={foreign:.0f}, crypto={crypto:.0f}, cash_krw={cash_krw:.0f}, cash_usd=${cash_usd:.2f}")
 
-    # 포맷팅
+    # 포맷팅 (1원 단위, 천단위 콤마)
     def format_krw(val):
-        if val >= 1e12:
-            return f"₩{val / 1e12:.1f}조"
-        if val >= 1e8:
-            return f"₩{val / 1e8:.1f}억"
-        if val >= 1e4:
-            return f"₩{val / 1e4:.0f}만"
-        return f"₩{val:,.0f}"
+        return f"₩{int(val):,}"
 
     return {
         "total_assets": total_assets,

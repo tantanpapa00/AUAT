@@ -911,11 +911,13 @@ pub struct Allocation {
     pub domestic: i32,
     pub foreign: i32,
     pub crypto: i32,
-    pub cash: i32,
+    pub cash_krw: i32,
+    pub cash_usd: i32,
     pub domestic_value: f64,
     pub foreign_value: f64,
     pub crypto_value: f64,
-    pub cash_value: f64,
+    pub cash_krw_value: f64,
+    pub cash_usd_value: f64,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -955,11 +957,13 @@ pub async fn get_portfolio_summary(access_token: String) -> Result<PortfolioSumm
                     domestic: alloc.get("domestic").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
                     foreign: alloc.get("foreign").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
                     crypto: alloc.get("crypto").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
-                    cash: alloc.get("cash").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
+                    cash_krw: alloc.get("cash_krw").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
+                    cash_usd: alloc.get("cash_usd").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
                     domestic_value: alloc.get("domestic_value").and_then(|v| v.as_f64()).unwrap_or(0.0),
                     foreign_value: alloc.get("foreign_value").and_then(|v| v.as_f64()).unwrap_or(0.0),
                     crypto_value: alloc.get("crypto_value").and_then(|v| v.as_f64()).unwrap_or(0.0),
-                    cash_value: alloc.get("cash_value").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                    cash_krw_value: alloc.get("cash_krw_value").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                    cash_usd_value: alloc.get("cash_usd_value").and_then(|v| v.as_f64()).unwrap_or(0.0),
                 })
             } else {
                 None
@@ -989,8 +993,9 @@ pub async fn get_portfolio_summary(access_token: String) -> Result<PortfolioSumm
                 active_strategies: 0,
                 currency: "KRW".to_string(),
                 allocation: Some(Allocation {
-                    domestic: 0, foreign: 0, crypto: 0, cash: 100,
-                    domestic_value: 0.0, foreign_value: 0.0, crypto_value: 0.0, cash_value: 0.0,
+                    domestic: 0, foreign: 0, crypto: 0, cash_krw: 100, cash_usd: 0,
+                    domestic_value: 0.0, foreign_value: 0.0, crypto_value: 0.0,
+                    cash_krw_value: 0.0, cash_usd_value: 0.0,
                 }),
             })
         }

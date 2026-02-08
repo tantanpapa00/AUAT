@@ -1015,54 +1015,61 @@ function updateSummaryCards(summary) {
 
     if (activeStrategies) activeStrategies.textContent = (summary.active_strategies || 0) + '개';
 
-    // 자산배분 도넛차트 업데이트 (summary.allocation 사용)
+    // 자산배분 도넛차트 업데이트 (summary.allocation 사용) - 5개 카테고리
     if (summary.allocation) {
         const alloc = summary.allocation;
         console.log('[Summary] Allocation from API:', alloc);
 
-        // 1. Chart.js 도넛차트 업데이트
+        // 1. Chart.js 도넛차트 업데이트 (5개 카테고리)
         const allocData = [
             alloc.domestic || 0,
             alloc.foreign || 0,
             alloc.crypto || 0,
-            alloc.cash || 0
+            alloc.cash_krw || 0,
+            alloc.cash_usd || 0
         ];
         initAllocationChart(allocData);
 
-        // 2. 범례 퍼센트 텍스트 업데이트
+        // 2. 범례 퍼센트 텍스트 업데이트 (5개)
         const allocDomestic = document.getElementById('alloc-domestic');
         const allocForeign = document.getElementById('alloc-foreign');
         const allocCrypto = document.getElementById('alloc-crypto');
-        const allocCash = document.getElementById('alloc-cash');
+        const allocCashKrw = document.getElementById('alloc-cash-krw');
+        const allocCashUsd = document.getElementById('alloc-cash-usd');
 
         if (allocDomestic) allocDomestic.textContent = (alloc.domestic || 0) + '%';
         if (allocForeign) allocForeign.textContent = (alloc.foreign || 0) + '%';
         if (allocCrypto) allocCrypto.textContent = (alloc.crypto || 0) + '%';
-        if (allocCash) allocCash.textContent = (alloc.cash || 0) + '%';
+        if (allocCashKrw) allocCashKrw.textContent = (alloc.cash_krw || 0) + '%';
+        if (allocCashUsd) allocCashUsd.textContent = (alloc.cash_usd || 0) + '%';
 
-        // 3. 테이블 퍼센트 업데이트
+        // 3. 테이블 퍼센트 업데이트 (5개)
         const domesticPct = document.getElementById('alloc-domestic-pct');
         const foreignPct = document.getElementById('alloc-foreign-pct');
         const cryptoPct = document.getElementById('alloc-crypto-pct');
-        const cashPct = document.getElementById('alloc-cash-pct');
+        const cashKrwPct = document.getElementById('alloc-cash-krw-pct');
+        const cashUsdPct = document.getElementById('alloc-cash-usd-pct');
 
         if (domesticPct) domesticPct.textContent = (alloc.domestic || 0) + '%';
         if (foreignPct) foreignPct.textContent = (alloc.foreign || 0) + '%';
         if (cryptoPct) cryptoPct.textContent = (alloc.crypto || 0) + '%';
-        if (cashPct) cashPct.textContent = (alloc.cash || 0) + '%';
+        if (cashKrwPct) cashKrwPct.textContent = (alloc.cash_krw || 0) + '%';
+        if (cashUsdPct) cashUsdPct.textContent = (alloc.cash_usd || 0) + '%';
 
-        // 4. 테이블 금액 업데이트
+        // 4. 테이블 금액 업데이트 (5개)
         const domesticValue = document.getElementById('alloc-domestic-value');
         const foreignValue = document.getElementById('alloc-foreign-value');
         const cryptoValue = document.getElementById('alloc-crypto-value');
-        const cashValue = document.getElementById('alloc-cash-value');
+        const cashKrwValue = document.getElementById('alloc-cash-krw-value');
+        const cashUsdValue = document.getElementById('alloc-cash-usd-value');
 
         if (domesticValue) domesticValue.textContent = '₩' + Math.round(alloc.domestic_value || 0).toLocaleString('ko-KR');
         if (foreignValue) foreignValue.textContent = '$' + (alloc.foreign_value || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
         if (cryptoValue) cryptoValue.textContent = '$' + (alloc.crypto_value ? alloc.crypto_value / 1450 : 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        if (cashValue) cashValue.textContent = '₩' + Math.round(alloc.cash_value || 0).toLocaleString('ko-KR');
+        if (cashKrwValue) cashKrwValue.textContent = '₩' + Math.round(alloc.cash_krw_value || 0).toLocaleString('ko-KR');
+        if (cashUsdValue) cashUsdValue.textContent = '$' + (alloc.cash_usd_value || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
-        console.log('[Summary] Updated allocation legend & table');
+        console.log('[Summary] Updated allocation legend & table (5 categories)');
     }
 }
 
@@ -1162,16 +1169,16 @@ function initAllocationChart(allocData) {
 
     if (allocationChart) allocationChart.destroy();
 
-    // Default allocation (all cash)
-    const data = allocData || [0, 0, 0, 100];
+    // Default allocation (5 categories: 국내주식, 해외주식, 암호화폐, 현금(원화), 현금(달러))
+    const data = allocData || [0, 0, 0, 0, 0];
 
     allocationChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: ['국내주식', '해외주식', '암호화폐', '현금'],
+            labels: ['국내주식', '해외주식', '암호화폐', '현금(원화)', '현금(달러)'],
             datasets: [{
                 data: data,
-                backgroundColor: ['#3B82F6', '#8B5CF6', '#F59E0B', '#6B7280'],
+                backgroundColor: ['#3B82F6', '#8B5CF6', '#F59E0B', '#6B7280', '#9CA3AF'],
                 borderWidth: 0
             }]
         },
@@ -1323,7 +1330,7 @@ function renderHoldings() {
     if (filtered.length === 0) {
         tbody.innerHTML = `
             <tr class="empty-row">
-                <td colspan="7">
+                <td colspan="8">
                     <div class="empty-state">
                         <p>${selectedExchange === 'all' ? '연결된 계정이 없습니다.' : `${selectedExchange.toUpperCase()} 자산이 없습니다.`}</p>
                         <p>설정 → 계정관리에서 거래소를 연결하세요.</p>
@@ -1361,7 +1368,7 @@ function renderHoldings() {
             const subtotalFormatted = isKRWExchange
                 ? '₩' + Math.round(subtotal).toLocaleString('ko-KR')
                 : '$' + subtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            html += `<tr class="exchange-group-header"><td colspan="7"><strong>${ex}</strong> (${assets.length}개 자산, ${subtotalFormatted})</td></tr>`;
+            html += `<tr class="exchange-group-header"><td colspan="8"><strong>${ex}</strong> (${assets.length}개 자산, ${subtotalFormatted})</td></tr>`;
         }
 
         assets.forEach(h => {
@@ -1377,6 +1384,7 @@ function renderHoldings() {
                         <td><span class="exchange-badge ${h.exchange.toLowerCase()}">${h.exchange}</span></td>
                         <td>-</td>
                         <td>-</td>
+                        <td>-</td>
                         <td>₩${Math.round(depositAmount).toLocaleString('ko-KR')}</td>
                         <td>-</td>
                         <td>-</td>
@@ -1387,6 +1395,10 @@ function renderHoldings() {
                 const currency = h.currency || h.exchange;
                 const avgPrice = h.avg_price > 0 ? formatCurrency(h.avg_price, currency) : '-';
                 const currentPrice = h.current_price > 0 ? formatCurrency(h.current_price, currency) : '-';
+                // 평가액 계산: 현재가 × 보유수량
+                const evalAmount = h.current_price > 0 && h.quantity > 0
+                    ? formatCurrency(h.current_price * h.quantity, currency)
+                    : '-';
                 const profitLoss = h.avg_price > 0 ? formatProfitLoss(h.profit_loss, currency) : '-';
                 const profitRate = h.avg_price > 0 ? `${h.profit_rate >= 0 ? '+' : ''}${h.profit_rate.toFixed(2)}%` : '-';
                 const profitClass = h.profit_rate >= 0 ? 'profit' : 'loss';
@@ -1398,6 +1410,7 @@ function renderHoldings() {
                         <td>${formatQuantity(h.quantity)}</td>
                         <td>${avgPrice}</td>
                         <td>${currentPrice}</td>
+                        <td>${evalAmount}</td>
                         <td class="${h.avg_price > 0 ? profitClass : ''}">${profitLoss}</td>
                         <td class="${h.avg_price > 0 ? profitClass : ''}">${profitRate}</td>
                     </tr>
