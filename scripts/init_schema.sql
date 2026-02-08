@@ -198,6 +198,43 @@ CREATE INDEX IF NOT EXISTS idx_events_asset_id ON events(asset_id);
 CREATE INDEX IF NOT EXISTS idx_events_order_id ON events(order_id);
 CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at);
 
+-- Portfolio Snapshots (일별 자산 스냅샷)
+CREATE TABLE IF NOT EXISTS portfolio_snapshots (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT REFERENCES users(id),
+    total_asset_krw NUMERIC DEFAULT 0,
+    total_krw NUMERIC DEFAULT 0,
+    total_usd NUMERIC DEFAULT 0,
+    usd_krw_rate NUMERIC DEFAULT 0,
+    snapshot_date DATE NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE(user_id, snapshot_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_portfolio_snapshots_user_date ON portfolio_snapshots(user_id, snapshot_date);
+
+-- Trade History (매매 내역)
+CREATE TABLE IF NOT EXISTS trade_history (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT REFERENCES users(id),
+    account_id BIGINT REFERENCES accounts(id),
+    exchange TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    side TEXT NOT NULL,              -- 'buy' or 'sell'
+    quantity NUMERIC NOT NULL,
+    price NUMERIC NOT NULL,
+    total_amount NUMERIC NOT NULL,
+    currency TEXT DEFAULT 'KRW',
+    fee NUMERIC DEFAULT 0,
+    order_id TEXT,                   -- 거래소 주문ID
+    strategy_name TEXT,              -- 어떤 전략으로 매매했는지
+    executed_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_trade_history_user ON trade_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_trade_history_executed ON trade_history(executed_at);
+
 -- Initial E-STOP flag (disabled by default)
 INSERT INTO system_flags (key, value, reason) VALUES ('E_STOP', '0', 'Initial setup')
 ON CONFLICT (key) DO NOTHING;

@@ -1067,6 +1067,141 @@ pub async fn get_holdings(access_token: String) -> Result<Vec<Holding>, String> 
     }
 }
 
+// =====================================================
+// Day14: 환율 조회
+// =====================================================
+#[derive(Serialize, Deserialize)]
+pub struct ExchangeRateResponse {
+    pub usd_krw: f64,
+    pub updated: String,
+}
+
+#[tauri::command]
+pub async fn get_exchange_rate() -> Result<ExchangeRateResponse, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/exchange-rate", VPS_SERVER_URL);
+
+    let resp = client
+        .get(&url)
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await;
+
+    match resp {
+        Ok(r) if r.status().is_success() => {
+            r.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+        }
+        Ok(_) | Err(_) => {
+            // 기본값 반환
+            Ok(ExchangeRateResponse {
+                usd_krw: 1450.0,
+                updated: chrono::Local::now().format("%Y-%m-%d %H:%M").to_string(),
+            })
+        }
+    }
+}
+
+// =====================================================
+// Day14: 매매 내역 조회
+// =====================================================
+#[derive(Serialize, Deserialize)]
+pub struct TradeItem {
+    pub id: i64,
+    pub exchange: String,
+    pub symbol: String,
+    pub side: String,
+    pub quantity: f64,
+    pub price: f64,
+    pub total_amount: f64,
+    pub currency: String,
+    pub fee: f64,
+    pub strategy_name: Option<String>,
+    pub executed_at: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct TradeHistoryResponse {
+    pub trades: Vec<TradeItem>,
+}
+
+#[tauri::command]
+pub async fn get_trade_history(
+    access_token: String,
+    exchange: Option<String>,
+    symbol: Option<String>,
+    limit: Option<i32>,
+) -> Result<TradeHistoryResponse, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let mut url = format!("{}/api/trades?limit={}", VPS_SERVER_URL, limit.unwrap_or(50));
+    if let Some(ex) = exchange {
+        url.push_str(&format!("&exchange={}", ex));
+    }
+    if let Some(sym) = symbol {
+        url.push_str(&format!("&symbol={}", sym));
+    }
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await;
+
+    match resp {
+        Ok(r) if r.status().is_success() => {
+            r.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+        }
+        Ok(_) | Err(_) => Ok(TradeHistoryResponse { trades: vec![] }),
+    }
+}
+
+// =====================================================
+// Day14: 포트폴리오 히스토리 (수익률 추이)
+// =====================================================
+#[derive(Serialize, Deserialize)]
+pub struct PortfolioHistoryItem {
+    pub date: String,
+    pub value: f64,
+    pub return_pct: f64,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct PortfolioHistoryResponse {
+    pub data: Vec<PortfolioHistoryItem>,
+    pub total_return: f64,
+    pub period: String,
+}
+
+#[tauri::command]
+pub async fn get_portfolio_history(
+    access_token: String,
+    period: String,
+) -> Result<PortfolioHistoryResponse, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/portfolio/history?period={}", VPS_SERVER_URL, period);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await;
+
+    match resp {
+        Ok(r) if r.status().is_success() => {
+            r.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+        }
+        Ok(_) | Err(_) => {
+            // 빈 데이터 반환
+            Ok(PortfolioHistoryResponse {
+                data: vec![],
+                total_return: 0.0,
+                period,
+            })
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct ActiveStrategy {
     pub id: i64,

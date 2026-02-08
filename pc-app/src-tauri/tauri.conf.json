@@ -85,7 +85,8 @@
           "installerIcon": "icons/icon.ico",
           "installMode": "currentUser",
           "languages": ["English", "Korean"],
-          "displayLanguageSelector": false
+          "displayLanguageSelector": false,
+          "license": "LICENSE_KO.rtf"
         }
       }
     },

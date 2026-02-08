@@ -515,6 +515,26 @@ async function handleEmailLogin() {
     }
 }
 
+// 비밀번호 검증 함수 (Day14: 12자리 + 특수문자 필수)
+function validatePassword(password) {
+    return {
+        length: password.length >= 12,
+        letter: /[A-Za-z]/.test(password),
+        number: /[0-9]/.test(password),
+        special: /[!@#$%^&*()_+\-=\[\]{}|;:,.<>?/~`]/.test(password)
+    };
+}
+
+function getPasswordErrors(password) {
+    const checks = validatePassword(password);
+    const errors = [];
+    if (!checks.length) errors.push('12자리 이상');
+    if (!checks.letter) errors.push('영문자 포함');
+    if (!checks.number) errors.push('숫자 포함');
+    if (!checks.special) errors.push('특수문자 포함 (!@#$%^&* 등)');
+    return errors;
+}
+
 async function handleEmailRegister() {
     const name = document.getElementById('register-name')?.value?.trim();
     const email = document.getElementById('register-email')?.value?.trim();
@@ -531,8 +551,10 @@ async function handleEmailRegister() {
         return;
     }
 
-    if (password.length < 6) {
-        showRegisterError('비밀번호는 6자 이상이어야 합니다');
+    // Day14: 강화된 비밀번호 정책
+    const pwdErrors = getPasswordErrors(password);
+    if (pwdErrors.length > 0) {
+        showRegisterError('비밀번호 조건: ' + pwdErrors.join(', '));
         return;
     }
 
@@ -565,6 +587,16 @@ btnEmailLogin?.addEventListener('click', handleEmailLogin);
 btnEmailRegister?.addEventListener('click', handleEmailRegister);
 document.getElementById('login-password')?.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleEmailLogin(); });
 document.getElementById('register-password-confirm')?.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleEmailRegister(); });
+
+// Day14: 비밀번호 실시간 검증
+document.getElementById('register-password')?.addEventListener('input', (e) => {
+    const password = e.target.value;
+    const checks = validatePassword(password);
+    document.getElementById('pwd-length').textContent = (checks.length ? '✅' : '❌') + ' 12자리 이상';
+    document.getElementById('pwd-letter').textContent = (checks.letter ? '✅' : '❌') + ' 영문자 포함';
+    document.getElementById('pwd-number').textContent = (checks.number ? '✅' : '❌') + ' 숫자 포함';
+    document.getElementById('pwd-special').textContent = (checks.special ? '✅' : '❌') + ' 특수문자 포함';
+});
 
 async function loadUserInfo() {
     if (!auth.accessToken) return;

@@ -1434,3 +1434,392 @@ def _format_korean_num(val):
     if val >= 10000:  # 1만
         return f"{val / 10000:.0f}만"
     return f"{val:,}"
+
+
+# ===================================================================
+# 환율 조회 (USD/KRW)
+# ===================================================================
+import time
+import hmac
+import hashlib
+import base64
+import uuid
+
+_exchange_rate_cache = {"rate": 0, "updated": 0}
+
+
+async def get_usd_krw_rate():
+    """USD/KRW 환율 조회 (6시간 캐시)"""
+    global _exchange_rate_cache
+    now = time.time()
+    cache = _exchange_rate_cache
+
+    # 6시간(21600초) 이내면 캐시 사용
+    if cache["rate"] > 0 and (now - cache["updated"]) < 21600:
+        return cache["rate"]
+
+    try:
+        async with httpx.AsyncClient(timeout=10, headers=NAVER_HEADERS) as client:
+            # 네이버 금융 환율 API
+            url = "https://m.stock.naver.com/front-api/v1/marketIndex/productDetail?category=exchange&reutersCode=FX_USDKRW"
+            r = await client.get(url)
+            if r.status_code == 200:
+                data = r.json()
+                rate_str = data.get("result", {}).get("closePrice", "0")
+                rate = float(rate_str.replace(",", ""))
+                _exchange_rate_cache["rate"] = rate
+                _exchange_rate_cache["updated"] = now
+                return rate
+    except Exception as e:
+        print(f"[DataProvider] Exchange rate error: {e}")
+
+    # 실패 시 캐시값 또는 기본값 반환
+    return cache["rate"] if cache["rate"] > 0 else 1450.0
+
+
+# ===================================================================
+# 거래소별 잔고 조회 함수
+# ===================================================================
+
+async def fetch_upbit_balances(api_key: str, secret_key: str):
+    """업비트 잔고 조회"""
+    try:
+        import jwt as pyjwt
+
+        payload = {
+            'access_key': api_key,
+            'nonce': str(uuid.uuid4()),
+        }
+        jwt_token = pyjwt.encode(payload, secret_key)
+        headers = {"Authorization": f"Bearer {jwt_token}"}
+
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get("https://api.upbit.com/v1/accounts", headers=headers)
+            if r.status_code == 200:
+                data = r.json()
+                balances = []
+                for item in data:
+                    currency = item.get("currency", "")
+                    balance = float(item.get("balance", 0))
+                    locked = float(item.get("locked", 0))
+                    avg_buy_price = float(item.get("avg_buy_price", 0))
+                    total_qty = balance + locked
+                    if total_qty > 0:
+                        balances.append({
+                            "symbol": currency,
+                            "quantity": total_qty,
+                            "avg_price": avg_buy_price,
+                            "value_krw": total_qty * avg_buy_price if currency != "KRW" else total_qty,
+                            "currency": "KRW"
+                        })
+                return balances
+            return []
+    except Exception as e:
+        print(f"[DataProvider] Upbit balance error: {e}")
+        return []
+
+
+async def fetch_binance_balances(api_key: str, secret_key: str):
+    """바이낸스 잔고 조회"""
+    try:
+        timestamp = int(time.time() * 1000)
+        query = f"timestamp={timestamp}"
+        signature = hmac.new(secret_key.encode(), query.encode(), hashlib.sha256).hexdigest()
+
+        headers = {"X-MBX-APIKEY": api_key}
+        url = f"https://api.binance.com/api/v3/account?{query}&signature={signature}"
+
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(url, headers=headers)
+            if r.status_code == 200:
+                data = r.json()
+                balances = []
+                for b in data.get("balances", []):
+                    free = float(b.get("free", 0))
+                    locked = float(b.get("locked", 0))
+                    total = free + locked
+                    if total > 0.0001:  # 소량 필터
+                        balances.append({
+                            "symbol": b["asset"],
+                            "quantity": total,
+                            "value_usd": 0,  # 시세 별도 조회 필요
+                            "currency": "USD"
+                        })
+                return balances
+            return []
+    except Exception as e:
+        print(f"[DataProvider] Binance balance error: {e}")
+        return []
+
+
+async def fetch_okx_balances(api_key: str, secret_key: str, passphrase: str):
+    """OKX 잔고 조회"""
+    try:
+        from datetime import datetime, timezone
+
+        timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.') + \
+                    f"{datetime.now(timezone.utc).microsecond // 1000:03d}Z"
+        message = f"{timestamp}GET/api/v5/account/balance"
+        signature = base64.b64encode(
+            hmac.new(secret_key.encode(), message.encode(), hashlib.sha256).digest()
+        ).decode()
+
+        headers = {
+            "OK-ACCESS-KEY": api_key,
+            "OK-ACCESS-SIGN": signature,
+            "OK-ACCESS-TIMESTAMP": timestamp,
+            "OK-ACCESS-PASSPHRASE": passphrase,
+        }
+
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get("https://www.okx.com/api/v5/account/balance", headers=headers)
+            if r.status_code == 200:
+                data = r.json()
+                balances = []
+                for account in data.get("data", []):
+                    for detail in account.get("details", []):
+                        ccy = detail.get("ccy", "")
+                        eq = float(detail.get("eq", 0))  # 총 자산 (USD 환산)
+                        cash_bal = float(detail.get("cashBal", 0))  # 현금 잔고
+                        if eq > 0.01:
+                            balances.append({
+                                "symbol": ccy,
+                                "quantity": cash_bal,
+                                "value_usd": eq,
+                                "currency": "USD"
+                            })
+                return balances
+            return []
+    except Exception as e:
+        print(f"[DataProvider] OKX balance error: {e}")
+        return []
+
+
+async def fetch_bybit_balances(api_key: str, secret_key: str):
+    """바이비트 잔고 조회"""
+    try:
+        timestamp = str(int(time.time() * 1000))
+        recv_window = "5000"
+        query = "accountType=UNIFIED"
+        sign_str = f"{timestamp}{api_key}{recv_window}{query}"
+        signature = hmac.new(secret_key.encode(), sign_str.encode(), hashlib.sha256).hexdigest()
+
+        headers = {
+            "X-BAPI-API-KEY": api_key,
+            "X-BAPI-SIGN": signature,
+            "X-BAPI-TIMESTAMP": timestamp,
+            "X-BAPI-RECV-WINDOW": recv_window,
+        }
+
+        url = f"https://api.bybit.com/v5/account/wallet-balance?{query}"
+
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(url, headers=headers)
+            if r.status_code == 200:
+                data = r.json()
+                balances = []
+                for account in data.get("result", {}).get("list", []):
+                    for coin in account.get("coin", []):
+                        symbol = coin.get("coin", "")
+                        wallet_bal = float(coin.get("walletBalance", 0))
+                        usd_value = float(coin.get("usdValue", 0))
+                        if wallet_bal > 0.0001:
+                            balances.append({
+                                "symbol": symbol,
+                                "quantity": wallet_bal,
+                                "value_usd": usd_value,
+                                "currency": "USD"
+                            })
+                return balances
+            return []
+    except Exception as e:
+        print(f"[DataProvider] Bybit balance error: {e}")
+        return []
+
+
+# ===================================================================
+# KIS (한국투자증권) 잔고 조회
+# ===================================================================
+
+_kis_token_cache = {}
+
+
+async def get_kis_token(api_key: str, secret_key: str, is_mock: bool = False):
+    """KIS 토큰 발급 (캐시 사용)"""
+    cache_key = f"kis_token_{api_key[:8]}"
+    now = time.time()
+
+    # 캐시 확인 (토큰 유효시간 23시간으로 가정)
+    if cache_key in _kis_token_cache:
+        token, issued_at = _kis_token_cache[cache_key]
+        if (now - issued_at) < 82800:  # 23시간
+            return token
+
+    try:
+        base_url = "https://openapivts.koreainvestment.com:29443" if is_mock else "https://openapi.koreainvestment.com:9443"
+        url = f"{base_url}/oauth2/tokenP"
+
+        body = {
+            "grant_type": "client_credentials",
+            "appkey": api_key,
+            "appsecret": secret_key
+        }
+
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.post(url, json=body)
+            if r.status_code == 200:
+                data = r.json()
+                token = data.get("access_token", "")
+                _kis_token_cache[cache_key] = (token, now)
+                return token
+    except Exception as e:
+        print(f"[DataProvider] KIS token error: {e}")
+
+    return ""
+
+
+async def fetch_kis_kr_balances(api_key: str, secret_key: str, account_number: str, is_mock: bool = False):
+    """한국투자증권 국내주식 잔고 조회"""
+    try:
+        token = await get_kis_token(api_key, secret_key, is_mock)
+        if not token:
+            return []
+
+        # 계좌번호 파싱 (XXXXXXXX-XX 형식)
+        if "-" in account_number:
+            cano, acnt = account_number.split("-")
+        else:
+            cano = account_number[:8]
+            acnt = account_number[8:10] if len(account_number) > 8 else "01"
+
+        base_url = "https://openapivts.koreainvestment.com:29443" if is_mock else "https://openapi.koreainvestment.com:9443"
+
+        headers = {
+            "authorization": f"Bearer {token}",
+            "appkey": api_key,
+            "appsecret": secret_key,
+            "tr_id": "VTTC8434R" if is_mock else "TTTC8434R",  # 주식잔고조회
+            "content-type": "application/json; charset=utf-8",
+        }
+
+        params = {
+            "CANO": cano,
+            "ACNT_PRDT_CD": acnt,
+            "AFHR_FLPR_YN": "N",
+            "OFL_YN": "",
+            "INQR_DVSN": "02",
+            "UNPR_DVSN": "01",
+            "FUND_STTL_ICLD_YN": "N",
+            "FNCG_AMT_AUTO_RDPT_YN": "N",
+            "PRCS_DVSN": "01",
+            "CTX_AREA_FK100": "",
+            "CTX_AREA_NK100": "",
+        }
+
+        url = f"{base_url}/uapi/domestic-stock/v1/trading/inquire-balance"
+
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.get(url, headers=headers, params=params)
+            if r.status_code == 200:
+                data = r.json()
+                holdings = []
+
+                # 예수금 정보 (output2)
+                output2 = data.get("output2", [])
+                if output2:
+                    cash = float(output2[0].get("dnca_tot_amt", 0))  # 예수금총액
+                    if cash > 0:
+                        holdings.append({
+                            "symbol": "KRW",
+                            "name": "예수금",
+                            "quantity": 1,
+                            "value_krw": cash,
+                            "currency": "KRW"
+                        })
+
+                # 보유종목 (output1)
+                for item in data.get("output1", []):
+                    pdno = item.get("pdno", "")  # 종목코드
+                    prdt_name = item.get("prdt_name", "")  # 종목명
+                    hldg_qty = int(item.get("hldg_qty", 0))  # 보유수량
+                    if hldg_qty > 0:
+                        holdings.append({
+                            "symbol": pdno,
+                            "name": prdt_name,
+                            "quantity": hldg_qty,
+                            "avg_price": float(item.get("pchs_avg_pric", 0)),
+                            "current_price": float(item.get("prpr", 0)),
+                            "value_krw": float(item.get("evlu_amt", 0)),
+                            "profit_loss": float(item.get("evlu_pfls_amt", 0)),
+                            "profit_rate": float(item.get("evlu_pfls_rt", 0)),
+                            "currency": "KRW"
+                        })
+                return holdings
+            return []
+    except Exception as e:
+        print(f"[DataProvider] KIS KR balance error: {e}")
+        traceback.print_exc()
+        return []
+
+
+async def fetch_kis_us_balances(api_key: str, secret_key: str, account_number: str, is_mock: bool = False):
+    """한국투자증권 해외주식 잔고 조회"""
+    try:
+        token = await get_kis_token(api_key, secret_key, is_mock)
+        if not token:
+            return []
+
+        # 계좌번호 파싱
+        if "-" in account_number:
+            cano, acnt = account_number.split("-")
+        else:
+            cano = account_number[:8]
+            acnt = account_number[8:10] if len(account_number) > 8 else "01"
+
+        base_url = "https://openapivts.koreainvestment.com:29443" if is_mock else "https://openapi.koreainvestment.com:9443"
+
+        headers = {
+            "authorization": f"Bearer {token}",
+            "appkey": api_key,
+            "appsecret": secret_key,
+            "tr_id": "VTTS3012R" if is_mock else "TTTS3012R",  # 해외주식잔고조회
+            "content-type": "application/json; charset=utf-8",
+        }
+
+        params = {
+            "CANO": cano,
+            "ACNT_PRDT_CD": acnt,
+            "OVRS_EXCG_CD": "NASD",  # 나스닥 (필요시 NYSE도 별도 조회)
+            "TR_CRCY_CD": "USD",
+            "CTX_AREA_FK200": "",
+            "CTX_AREA_NK200": "",
+        }
+
+        url = f"{base_url}/uapi/overseas-stock/v1/trading/inquire-balance"
+
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.get(url, headers=headers, params=params)
+            if r.status_code == 200:
+                data = r.json()
+                holdings = []
+                for item in data.get("output1", []):
+                    ovrs_pdno = item.get("ovrs_pdno", "")  # 해외종목코드
+                    ovrs_item_name = item.get("ovrs_item_name", "")  # 종목명
+                    ovrs_cblc_qty = int(item.get("ovrs_cblc_qty", 0))  # 보유수량
+                    if ovrs_cblc_qty > 0:
+                        holdings.append({
+                            "symbol": ovrs_pdno,
+                            "name": ovrs_item_name,
+                            "quantity": ovrs_cblc_qty,
+                            "avg_price": float(item.get("pchs_avg_pric", 0)),
+                            "current_price": float(item.get("now_pric2", 0)),
+                            "value_usd": float(item.get("ovrs_stck_evlu_amt", 0)),
+                            "profit_loss_usd": float(item.get("frcr_evlu_pfls_amt", 0)),
+                            "currency": "USD"
+                        })
+                return holdings
+            return []
+    except Exception as e:
+        print(f"[DataProvider] KIS US balance error: {e}")
+        traceback.print_exc()
+        return []

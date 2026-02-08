@@ -113,8 +113,21 @@ class RegisterRequest(BaseModel):
     @field_validator('password')
     @classmethod
     def validate_password(cls, v):
-        if len(v) < 6:
-            raise ValueError('비밀번호는 최소 6자 이상이어야 합니다')
+        """
+        비밀번호 정책:
+        - 12자리 이상
+        - 영문자 포함
+        - 숫자 포함
+        - 특수문자 포함 (!@#$%^&*()_+-=[]{}|;:,.<>?/~`)
+        """
+        if len(v) < 12:
+            raise ValueError('비밀번호는 12자리 이상이어야 합니다')
+        if not re.search(r'[A-Za-z]', v):
+            raise ValueError('비밀번호에 영문자를 포함해야 합니다')
+        if not re.search(r'[0-9]', v):
+            raise ValueError('비밀번호에 숫자를 포함해야 합니다')
+        if not re.search(r'[!@#$%^&*()_+\-=\[\]{}|;:,.<>?/~`]', v):
+            raise ValueError('비밀번호에 특수문자를 포함해야 합니다 (!@#$%^&* 등)')
         return v
 
 

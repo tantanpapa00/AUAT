@@ -216,7 +216,10 @@ from app.data_provider import (
     # Stock Detail Renewal (Phase 1)
     get_stock_financial_summary, get_stock_financial_trend, get_stock_company,
     get_stock_financial_statement, get_stock_news, get_stock_disclosures,
-    get_stock_consensus
+    get_stock_consensus,
+    # Day14: 환율 + 거래소별 잔고 조회
+    get_usd_krw_rate, fetch_upbit_balances, fetch_binance_balances,
+    fetch_okx_balances, fetch_bybit_balances, fetch_kis_kr_balances, fetch_kis_us_balances
 )
 
 # 세션 미들웨어 (OAuth 콜백용)
@@ -7115,10 +7118,19 @@ async def get_portfolio_summary(
     current_user: User = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """포트폴리오 요약 (총자산, 수익률, 일변동)"""
+    """
+    포트폴리오 요약 (총자산, 수익률)
+    - 각 거래소별 잔고 조회 후 합산
+    - USD 자산은 환율 적용하여 KRW로 환산
+    """
     active_strategies = 0
+    total_krw = 0.0
+    total_usd = 0.0
+    holdings = []
+
     if current_user:
         try:
+            # 활성 전략 수
             result = db.execute(
                 text("SELECT COUNT(*) FROM assets WHERE is_active = true")
             ).scalar()
@@ -7126,16 +7138,91 @@ async def get_portfolio_summary(
         except Exception:
             pass
 
-    return PortfolioSummaryResponse(
-        total_assets=0.0,
-        total_assets_formatted="₩0",
-        total_profit_rate=0.0,
-        daily_change=0.0,
-        daily_change_formatted="₩0",
-        daily_change_rate=0.0,
-        active_strategies=active_strategies,
-        currency="KRW"
-    )
+        # 등록된 계정들 조회
+        try:
+            accounts = db.execute(
+                text("SELECT id, name, exchange, api_key, api_secret, api_passphrase, account_number FROM accounts")
+            ).fetchall()
+
+            for acc in accounts:
+                exchange = acc.exchange.lower() if acc.exchange else ""
+                api_key = acc.api_key or ""
+                api_secret = acc.api_secret or ""
+                passphrase = acc.api_passphrase or ""
+                account_number = acc.account_number or ""
+
+                try:
+                    if exchange == "upbit":
+                        balances = await fetch_upbit_balances(api_key, api_secret)
+                        for b in balances:
+                            total_krw += b.get("value_krw", 0)
+                            holdings.append({**b, "exchange": "upbit"})
+
+                    elif exchange in ("kis_kr", "kis"):
+                        balances = await fetch_kis_kr_balances(api_key, api_secret, account_number)
+                        for b in balances:
+                            total_krw += b.get("value_krw", 0)
+                            holdings.append({**b, "exchange": "KIS_KR"})
+
+                    elif exchange == "kis_us":
+                        balances = await fetch_kis_us_balances(api_key, api_secret, account_number)
+                        for b in balances:
+                            total_usd += b.get("value_usd", 0)
+                            holdings.append({**b, "exchange": "KIS_US"})
+
+                    elif exchange == "binance":
+                        balances = await fetch_binance_balances(api_key, api_secret)
+                        for b in balances:
+                            total_usd += b.get("value_usd", 0)
+                            holdings.append({**b, "exchange": "binance"})
+
+                    elif exchange == "okx":
+                        balances = await fetch_okx_balances(api_key, api_secret, passphrase)
+                        for b in balances:
+                            total_usd += b.get("value_usd", 0)
+                            holdings.append({**b, "exchange": "okx"})
+
+                    elif exchange == "bybit":
+                        balances = await fetch_bybit_balances(api_key, api_secret)
+                        for b in balances:
+                            total_usd += b.get("value_usd", 0)
+                            holdings.append({**b, "exchange": "bybit"})
+
+                except Exception as e:
+                    print(f"[Portfolio] Balance fetch error for {exchange}: {e}")
+                    continue
+
+        except Exception as e:
+            print(f"[Portfolio] Account fetch error: {e}")
+
+    # 환율 조회 및 총자산 계산
+    usd_krw_rate = await get_usd_krw_rate()
+    total_assets = total_krw + (total_usd * usd_krw_rate)
+
+    # 포맷팅
+    def format_krw(val):
+        if val >= 1e12:
+            return f"₩{val / 1e12:.1f}조"
+        if val >= 1e8:
+            return f"₩{val / 1e8:.1f}억"
+        if val >= 1e4:
+            return f"₩{val / 1e4:.0f}만"
+        return f"₩{val:,.0f}"
+
+    return {
+        "total_assets": total_assets,
+        "total_assets_formatted": format_krw(total_assets),
+        "total_krw": total_krw,
+        "total_usd": total_usd,
+        "usd_krw_rate": usd_krw_rate,
+        "total_profit_rate": 0.0,  # 스냅샷 기반 계산 필요
+        "daily_change": 0.0,
+        "daily_change_formatted": "₩0",
+        "daily_change_rate": 0.0,
+        "active_strategies": active_strategies,
+        "holdings_count": len(holdings),
+        "currency": "KRW"
+    }
 
 
 class ChartDataPoint(BaseModel):
@@ -7190,9 +7277,243 @@ class HoldingItem(BaseModel):
 
 
 @app.get("/api/portfolio/holdings")
-async def get_holdings(current_user: User = Depends(get_current_user_optional)):
-    """보유 자산 목록"""
-    return {"holdings": []}
+async def get_holdings(
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """보유 자산 목록 (각 거래소별 잔고 조회)"""
+    holdings = []
+    usd_krw_rate = await get_usd_krw_rate()
+
+    if not current_user:
+        return {"holdings": [], "usd_krw_rate": usd_krw_rate}
+
+    try:
+        accounts = db.execute(
+            text("SELECT id, name, exchange, api_key, api_secret, api_passphrase, account_number FROM accounts")
+        ).fetchall()
+
+        for acc in accounts:
+            exchange = acc.exchange.lower() if acc.exchange else ""
+            api_key = acc.api_key or ""
+            api_secret = acc.api_secret or ""
+            passphrase = acc.api_passphrase or ""
+            account_number = acc.account_number or ""
+
+            try:
+                if exchange == "upbit":
+                    balances = await fetch_upbit_balances(api_key, api_secret)
+                    for b in balances:
+                        holdings.append({
+                            "exchange": "upbit",
+                            "symbol": b.get("symbol", ""),
+                            "name": b.get("symbol", ""),
+                            "quantity": b.get("quantity", 0),
+                            "value_krw": b.get("value_krw", 0),
+                            "value_usd": 0,
+                            "currency": "KRW"
+                        })
+
+                elif exchange in ("kis_kr", "kis"):
+                    balances = await fetch_kis_kr_balances(api_key, api_secret, account_number)
+                    for b in balances:
+                        holdings.append({
+                            "exchange": "KIS_KR",
+                            "symbol": b.get("symbol", ""),
+                            "name": b.get("name", ""),
+                            "quantity": b.get("quantity", 0),
+                            "value_krw": b.get("value_krw", 0),
+                            "value_usd": 0,
+                            "profit_rate": b.get("profit_rate", 0),
+                            "currency": "KRW"
+                        })
+
+                elif exchange == "kis_us":
+                    balances = await fetch_kis_us_balances(api_key, api_secret, account_number)
+                    for b in balances:
+                        holdings.append({
+                            "exchange": "KIS_US",
+                            "symbol": b.get("symbol", ""),
+                            "name": b.get("name", ""),
+                            "quantity": b.get("quantity", 0),
+                            "value_krw": b.get("value_usd", 0) * usd_krw_rate,
+                            "value_usd": b.get("value_usd", 0),
+                            "currency": "USD"
+                        })
+
+                elif exchange == "binance":
+                    balances = await fetch_binance_balances(api_key, api_secret)
+                    for b in balances:
+                        holdings.append({
+                            "exchange": "binance",
+                            "symbol": b.get("symbol", ""),
+                            "name": b.get("symbol", ""),
+                            "quantity": b.get("quantity", 0),
+                            "value_krw": b.get("value_usd", 0) * usd_krw_rate,
+                            "value_usd": b.get("value_usd", 0),
+                            "currency": "USD"
+                        })
+
+                elif exchange == "okx":
+                    balances = await fetch_okx_balances(api_key, api_secret, passphrase)
+                    for b in balances:
+                        holdings.append({
+                            "exchange": "okx",
+                            "symbol": b.get("symbol", ""),
+                            "name": b.get("symbol", ""),
+                            "quantity": b.get("quantity", 0),
+                            "value_krw": b.get("value_usd", 0) * usd_krw_rate,
+                            "value_usd": b.get("value_usd", 0),
+                            "currency": "USD"
+                        })
+
+                elif exchange == "bybit":
+                    balances = await fetch_bybit_balances(api_key, api_secret)
+                    for b in balances:
+                        holdings.append({
+                            "exchange": "bybit",
+                            "symbol": b.get("symbol", ""),
+                            "name": b.get("symbol", ""),
+                            "quantity": b.get("quantity", 0),
+                            "value_krw": b.get("value_usd", 0) * usd_krw_rate,
+                            "value_usd": b.get("value_usd", 0),
+                            "currency": "USD"
+                        })
+
+            except Exception as e:
+                print(f"[Holdings] Balance fetch error for {exchange}: {e}")
+                continue
+
+    except Exception as e:
+        print(f"[Holdings] Account fetch error: {e}")
+
+    return {"holdings": holdings, "usd_krw_rate": usd_krw_rate}
+
+
+# =====================================================
+# 환율 조회 API
+# =====================================================
+@app.get("/api/exchange-rate")
+async def get_exchange_rate():
+    """USD/KRW 환율 조회"""
+    rate = await get_usd_krw_rate()
+    return {
+        "usd_krw": rate,
+        "updated": datetime.now().strftime("%Y-%m-%d %H:%M")
+    }
+
+
+# =====================================================
+# 매매 내역 API
+# =====================================================
+@app.get("/api/trades")
+async def get_trade_history(
+    exchange: str = Query(None, description="거래소 필터"),
+    symbol: str = Query(None, description="종목 필터"),
+    limit: int = Query(50, ge=1, le=500, description="조회 개수"),
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """매매 내역 조회"""
+    if not current_user:
+        return {"trades": []}
+
+    try:
+        # trade_history 테이블이 있으면 조회, 없으면 orders 테이블에서 조회
+        sql = """
+            SELECT id, symbol, side, qty as quantity, avg_px as price,
+                   (qty * avg_px) as total_amount, 'KRW' as currency,
+                   0 as fee, NULL as strategy_name, created_at as executed_at
+            FROM orders
+            WHERE status = 'filled'
+            ORDER BY created_at DESC
+            LIMIT :limit
+        """
+
+        if exchange:
+            sql = sql.replace("WHERE status = 'filled'",
+                              f"WHERE status = 'filled' AND symbol LIKE '%{exchange}%'")
+        if symbol:
+            sql = sql.replace("WHERE status = 'filled'",
+                              f"WHERE status = 'filled' AND symbol = '{symbol}'")
+
+        rows = db.execute(text(sql), {"limit": limit}).fetchall()
+
+        trades = []
+        for row in rows:
+            trades.append({
+                "id": row.id,
+                "exchange": "OKX",  # 추후 확장
+                "symbol": row.symbol or "",
+                "side": row.side or "",
+                "quantity": float(row.quantity or 0),
+                "price": float(row.price or 0),
+                "total_amount": float(row.total_amount or 0),
+                "currency": row.currency or "KRW",
+                "fee": float(row.fee or 0),
+                "strategy_name": row.strategy_name,
+                "executed_at": row.executed_at.isoformat() if row.executed_at else None
+            })
+
+        return {"trades": trades}
+
+    except Exception as e:
+        print(f"[Trades] Error: {e}")
+        return {"trades": []}
+
+
+# =====================================================
+# 포트폴리오 히스토리 (수익률 추이)
+# =====================================================
+@app.get("/api/portfolio/history")
+async def get_portfolio_history(
+    period: str = Query("1m", description="기간: 1w, 1m, 3m, 1y"),
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """
+    포트폴리오 수익률 추이 (스냅샷 기반)
+    - portfolio_snapshots 테이블에서 조회
+    - 스냅샷이 없으면 빈 배열 반환
+    """
+    if not current_user:
+        return {"data": [], "total_return": 0}
+
+    days_map = {"1w": 7, "1m": 30, "3m": 90, "1y": 365}
+    days = days_map.get(period, 30)
+
+    try:
+        sql = text("""
+            SELECT snapshot_date, total_asset_krw, total_krw, total_usd, usd_krw_rate
+            FROM portfolio_snapshots
+            WHERE user_id = :user_id
+            AND snapshot_date >= CURRENT_DATE - INTERVAL ':days days'
+            ORDER BY snapshot_date
+        """.replace(":days", str(days)))
+
+        rows = db.execute(sql, {"user_id": current_user.id}).fetchall()
+
+        if not rows:
+            return {"data": [], "total_return": 0, "period": period}
+
+        base_value = float(rows[0].total_asset_krw or 0)
+        data = []
+        for row in rows:
+            value = float(row.total_asset_krw or 0)
+            pct = ((value - base_value) / base_value * 100) if base_value > 0 else 0
+            data.append({
+                "date": row.snapshot_date.isoformat() if row.snapshot_date else "",
+                "value": value,
+                "return_pct": round(pct, 2)
+            })
+
+        total_return = data[-1]["return_pct"] if data else 0
+
+        return {"data": data, "total_return": total_return, "period": period}
+
+    except Exception as e:
+        print(f"[PortfolioHistory] Error: {e}")
+        return {"data": [], "total_return": 0, "period": period}
 
 
 class ActiveStrategyItem(BaseModel):
