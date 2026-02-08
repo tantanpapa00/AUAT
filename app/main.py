@@ -7141,7 +7141,7 @@ async def get_portfolio_summary(
         # 등록된 계정들 조회 (현재 사용자 계정만)
         try:
             accounts = db.execute(
-                text("SELECT id, name, exchange, api_key, api_secret, api_passphrase, account_number FROM accounts WHERE owner_id = :owner_id"),
+                text("SELECT id, name, exchange, api_key, api_secret, api_passphrase, account_number, is_mock FROM accounts WHERE owner_id = :owner_id"),
                 {"owner_id": current_user.id}
             ).fetchall()
 
@@ -7151,6 +7151,7 @@ async def get_portfolio_summary(
                 api_secret = acc.api_secret or ""
                 passphrase = acc.api_passphrase or ""
                 account_number = acc.account_number or ""
+                is_mock = acc.is_mock if hasattr(acc, 'is_mock') else False
 
                 try:
                     if exchange == "upbit":
@@ -7160,7 +7161,7 @@ async def get_portfolio_summary(
                             holdings.append({**b, "exchange": "upbit"})
 
                     elif exchange in ("kis_kr", "kis"):
-                        balances = await fetch_kis_kr_balances(api_key, api_secret, account_number)
+                        balances = await fetch_kis_kr_balances(api_key, api_secret, account_number, is_mock=is_mock)
                         for b in balances:
                             total_krw += b.get("value_krw", 0)
                             holdings.append({**b, "exchange": "KIS_KR"})
@@ -7294,7 +7295,7 @@ async def get_holdings(
 
     try:
         accounts = db.execute(
-            text("SELECT id, name, exchange, api_key, api_secret, api_passphrase, account_number FROM accounts WHERE owner_id = :owner_id"),
+            text("SELECT id, name, exchange, api_key, api_secret, api_passphrase, account_number, is_mock FROM accounts WHERE owner_id = :owner_id"),
             {"owner_id": current_user.id}
         ).fetchall()
         print(f"[Holdings DEBUG] Found {len(accounts)} accounts for owner_id={current_user.id}")
@@ -7305,8 +7306,9 @@ async def get_holdings(
             api_secret = acc.api_secret or ""
             passphrase = acc.api_passphrase or ""
             account_number = acc.account_number or ""
+            is_mock = acc.is_mock if hasattr(acc, 'is_mock') else False
 
-            print(f"[Holdings DEBUG] Processing account id={acc.id}, exchange='{exchange}', has_key={bool(api_key)}, has_secret={bool(api_secret)}")
+            print(f"[Holdings DEBUG] Processing account id={acc.id}, exchange='{exchange}', is_mock={is_mock}, has_key={bool(api_key)}, has_secret={bool(api_secret)}")
 
             try:
                 if exchange == "upbit":
@@ -7331,8 +7333,8 @@ async def get_holdings(
                         })
 
                 elif exchange in ("kis_kr", "kis"):
-                    print(f"[Holdings DEBUG] Calling fetch_kis_kr_balances for account_number={account_number}...")
-                    balances = await fetch_kis_kr_balances(api_key, api_secret, account_number)
+                    print(f"[Holdings DEBUG] Calling fetch_kis_kr_balances for account_number={account_number}, is_mock={is_mock}...")
+                    balances = await fetch_kis_kr_balances(api_key, api_secret, account_number, is_mock=is_mock)
                     print(f"[Holdings DEBUG] KIS_KR returned {len(balances)} items")
                     for b in balances:
                         quantity = b.get("quantity", 0)
