@@ -1406,19 +1406,37 @@ def api_create_strategy(payload: dict, db: Session = Depends(get_db)):
     if not payload.get("tv_secret"):
         raise HTTPException(status_code=400, detail="missing: tv_secret")
 
+    signal_params = payload.get("signal_params")
+
     try:
-        row = db.execute(
-            text("""
-                insert into strategies(name, tv_secret, is_active)
-                values (:name, :tv_secret, :is_active)
-                returning id
-            """),
-            {
-                "name": payload["name"],
-                "tv_secret": payload["tv_secret"],
-                "is_active": bool(payload.get("is_active", False)),
-            }
-        ).mappings().first()
+        if signal_params:
+            # signal_params 포함하여 저장
+            row = db.execute(
+                text("""
+                    insert into strategies(name, tv_secret, is_active, signal_params)
+                    values (:name, :tv_secret, :is_active, CAST(:signal_params AS jsonb))
+                    returning id
+                """),
+                {
+                    "name": payload["name"],
+                    "tv_secret": payload["tv_secret"],
+                    "is_active": bool(payload.get("is_active", False)),
+                    "signal_params": _safe_dumps(signal_params),
+                }
+            ).mappings().first()
+        else:
+            row = db.execute(
+                text("""
+                    insert into strategies(name, tv_secret, is_active)
+                    values (:name, :tv_secret, :is_active)
+                    returning id
+                """),
+                {
+                    "name": payload["name"],
+                    "tv_secret": payload["tv_secret"],
+                    "is_active": bool(payload.get("is_active", False)),
+                }
+            ).mappings().first()
         db.commit()
         return {"ok": True, "id": row["id"]}
     except Exception as e:

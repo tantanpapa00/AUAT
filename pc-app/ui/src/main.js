@@ -1596,7 +1596,7 @@ async function loadExchangeSelection() {
         }
 
         container.innerHTML = accounts.map(acc => `
-            <div class="exchange-card" data-exchange="${acc.exchange}" data-name="${acc.name}">
+            <div class="exchange-card" data-id="${acc.id}" data-exchange="${acc.exchange}" data-name="${acc.name}">
                 <div class="exchange-icon">${acc.exchange === 'OKX' ? '🪙' : '📈'}</div>
                 <div class="exchange-name">${acc.name}</div>
                 <div class="exchange-type">${acc.exchange}</div>
@@ -1607,7 +1607,7 @@ async function loadExchangeSelection() {
             card.addEventListener('click', () => {
                 container.querySelectorAll('.exchange-card').forEach(c => c.classList.remove('selected'));
                 card.classList.add('selected');
-                selectedExchange = { exchange: card.dataset.exchange, name: card.dataset.name };
+                selectedExchange = { id: parseInt(card.dataset.id), exchange: card.dataset.exchange, name: card.dataset.name };
                 document.getElementById('btn-tv-next-1').disabled = false;
             });
         });
@@ -1807,6 +1807,87 @@ function generateTemplate() {
     };
 
     return JSON.stringify(template, null, 2);
+}
+
+/**
+ * 전략/종목을 서버에 저장
+ * @returns {Promise<{ok: boolean, strategyId?: number, assetId?: number, error?: string}>}
+ */
+async function saveStrategyAndAsset() {
+    if (!selectedExchange || !selectedSymbol) {
+        return { ok: false, error: '거래소와 종목을 선택해주세요' };
+    }
+
+    const signalParams = collectSignalParams();
+    const strategyName = `${selectedExchange.exchange}_${selectedSymbol}_${Date.now()}`;
+    const tvSecret = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    try {
+        // 1. 전략 생성
+        const strategyRes = await fetch(`${API_BASE_URL}/api/strategies`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: strategyName,
+                tv_secret: tvSecret,
+                is_active: true,
+                signal_params: signalParams
+            })
+        });
+
+        if (!strategyRes.ok) {
+            const err = await strategyRes.json().catch(() => ({}));
+            throw new Error(err.detail || '전략 생성 실패');
+        }
+
+        const strategyData = await strategyRes.json();
+        const strategyId = strategyData.id;
+
+        // 2. signal_params 저장 (별도 API로 확실히 저장)
+        const paramsRes = await fetch(`${API_BASE_URL}/api/strategies/${strategyId}/signal-params-jsonb`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ signal_params: signalParams })
+        });
+
+        if (!paramsRes.ok) {
+            console.warn('signal_params 저장 실패, 계속 진행');
+        }
+
+        // 3. 종목(asset) 생성
+        const assetRes = await fetch(`${API_BASE_URL}/api/assets`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                account_id: selectedExchange.id,
+                strategy_id: strategyId,
+                symbol: selectedSymbol,
+                market: 'spot',
+                is_active: true
+            })
+        });
+
+        if (!assetRes.ok) {
+            const err = await assetRes.json().catch(() => ({}));
+            // 중복이면 OK (이미 존재)
+            if (assetRes.status !== 409) {
+                throw new Error(err.detail || '종목 연결 실패');
+            }
+        }
+
+        const assetData = await assetRes.json().catch(() => ({}));
+
+        return {
+            ok: true,
+            strategyId: strategyId,
+            assetId: assetData.id,
+            tvSecret: tvSecret
+        };
+
+    } catch (error) {
+        console.error('saveStrategyAndAsset error:', error);
+        return { ok: false, error: error.message };
+    }
 }
 
 /**
@@ -2013,16 +2094,44 @@ document.getElementById('btn-tv-next-1')?.addEventListener('click', () => update
 document.getElementById('btn-tv-prev-2')?.addEventListener('click', () => updateTVWizardUI(1));
 document.getElementById('btn-tv-next-2')?.addEventListener('click', () => updateTVWizardUI(3));
 document.getElementById('btn-tv-prev-3')?.addEventListener('click', () => updateTVWizardUI(2));
-document.getElementById('btn-tv-next-3')?.addEventListener('click', () => {
-    const templateCode = document.getElementById('template-code');
-    if (templateCode) templateCode.textContent = generateTemplate();
-
-    const webhookUrl = document.getElementById('webhook-url');
-    if (webhookUrl && auth.user) {
-        webhookUrl.textContent = `http://76.13.180.30/api/webhook/${auth.user.id || 'USER_ID'}`;
+document.getElementById('btn-tv-next-3')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btn-tv-next-3');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '저장 중...';
     }
 
-    updateTVWizardUI(4);
+    try {
+        // 서버에 전략/종목 저장
+        const result = await saveStrategyAndAsset();
+
+        if (!result.ok) {
+            showToast(result.error || '저장 실패', 'error');
+            return;
+        }
+
+        showToast('전략 및 종목이 저장되었습니다', 'success');
+
+        // 템플릿 생성
+        const templateCode = document.getElementById('template-code');
+        if (templateCode) templateCode.textContent = generateTemplate();
+
+        // 웹훅 URL 설정 (저장된 tvSecret 사용)
+        const webhookUrl = document.getElementById('webhook-url');
+        if (webhookUrl) {
+            webhookUrl.textContent = `${API_BASE_URL}/tv?secret=${result.tvSecret}`;
+        }
+
+        updateTVWizardUI(4);
+    } catch (error) {
+        console.error('btn-tv-next-3 error:', error);
+        showToast('저장 중 오류가 발생했습니다', 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '템플릿 생성';
+        }
+    }
 });
 document.getElementById('btn-tv-prev-4')?.addEventListener('click', () => updateTVWizardUI(3));
 document.getElementById('btn-tv-restart')?.addEventListener('click', () => {
