@@ -169,7 +169,8 @@ def _fetch_assets_for_home(conn):
 
 from .crud_accounts import (
     list_accounts, get_account, create_account, update_account,
-    delete_account, toggle_account, set_health
+    delete_account, toggle_account, set_health,
+    validate_exchange_fields, filter_account_payload
 )
 from .pine_parser import parse_pine_inputs
 
@@ -1131,6 +1132,9 @@ def api_list_accounts(db: Session = Depends(get_db)):
             "name": r.name,
             "exchange": r.exchange,
             "is_active": r.is_active,
+            "has_passphrase": bool(r.api_passphrase),
+            "has_account_number": bool(r.account_number),
+            "account_number": r.account_number[:4] + "****" if r.account_number and len(r.account_number) > 4 else None,
             "last_health_at": r.last_health_at,
             "last_health_ok": r.last_health_ok,
             "last_health_msg": r.last_health_msg,
@@ -1140,10 +1144,26 @@ def api_list_accounts(db: Session = Depends(get_db)):
 
 @app.post("/api/accounts")
 def api_create_account(payload: dict, db: Session = Depends(get_db)):
+    """
+    API 키 등록 (관리자용, 인증 없음)
+
+    거래소별 필수 필드:
+    - OKX: name, exchange, api_key, api_secret, api_passphrase
+    - Binance/Bybit/Upbit: name, exchange, api_key, api_secret
+    - KIS: name, exchange, api_key, api_secret, account_number
+    """
+    # 기본 필수 필드 검증
     required = ["name", "exchange", "api_key", "api_secret"]
     for k in required:
         if not payload.get(k):
             raise HTTPException(status_code=400, detail=f"missing: {k}")
+
+    # 거래소별 추가 필드 검증
+    exchange = payload.get("exchange", "").lower()
+    is_valid, error_msg = validate_exchange_fields(exchange, payload)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_msg)
+
     try:
         acc = create_account(db, payload)
         return {"ok": True, "id": acc.id}
@@ -1169,6 +1189,9 @@ async def api_user_accounts(
             "exchange": r.exchange,
             "is_active": r.is_active,
             "has_keys": True,
+            "has_passphrase": bool(r.api_passphrase),
+            "has_account_number": bool(r.account_number),
+            "account_number_masked": r.account_number[:4] + "****" if r.account_number and len(r.account_number) > 4 else None,
             "last_health_check": r.last_health_at.isoformat() if r.last_health_at else None,
             "health_status": r.last_health_msg or "OK" if r.last_health_ok else "Error",
         } for r in rows
@@ -1181,12 +1204,34 @@ async def api_user_create_account(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """API 키 등록 (JWT 인증 필요)"""
-    required = ["name", "exchange", "api_key", "api_secret"]
-    for k in required:
-        if not payload.get(k):
-            raise HTTPException(status_code=400, detail=f"missing: {k}")
+    """
+    API 키 등록 (JWT 인증 필요)
+
+    거래소별 필수 필드:
+    - OKX: name, exchange, api_key, api_secret, api_passphrase
+    - Binance: name, exchange, api_key, api_secret
+    - Bybit: name, exchange, api_key, api_secret
+    - Upbit: name, exchange, api_key, api_secret
+    - KIS (KIS_KR, KIS_US): name, exchange, api_key, api_secret, account_number
+    """
+    # 기본 필수 필드 검증
+    if not payload.get("name"):
+        raise HTTPException(status_code=400, detail="missing: name")
+    if not payload.get("exchange"):
+        raise HTTPException(status_code=400, detail="missing: exchange")
+    if not payload.get("api_key"):
+        raise HTTPException(status_code=400, detail="missing: api_key")
+    if not payload.get("api_secret"):
+        raise HTTPException(status_code=400, detail="missing: api_secret")
+
+    # 거래소별 추가 필드 검증
+    exchange = payload.get("exchange", "").lower()
+    is_valid, error_msg = validate_exchange_fields(exchange, payload)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_msg)
+
     try:
+        # 유효한 컬럼만 필터링하여 Account 생성
         acc = create_account(db, payload)
         return {"ok": True, "id": acc.id, "message": "API key registered successfully"}
     except IntegrityError:

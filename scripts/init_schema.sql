@@ -10,13 +10,14 @@ CREATE TABLE IF NOT EXISTS system_flags (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Users (Google OAuth)
+-- Users (Email/Password + Google OAuth)
 CREATE TABLE IF NOT EXISTS users (
     id BIGSERIAL PRIMARY KEY,
     email TEXT NOT NULL UNIQUE,
     name TEXT,
     picture TEXT,
     role TEXT NOT NULL DEFAULT 'user',
+    password_hash TEXT,                 -- bcrypt 해시 (자체 로그인용)
     google_id TEXT UNIQUE,
     plan TEXT NOT NULL DEFAULT 'free',
     plan_expires_at TIMESTAMPTZ,
@@ -29,13 +30,18 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id);
 
 -- Accounts
+-- 거래소별 필수 필드:
+-- OKX: api_key, api_secret, api_passphrase
+-- Binance/Bybit/Upbit: api_key, api_secret
+-- KIS (한국투자증권): api_key, api_secret, account_number
 CREATE TABLE IF NOT EXISTS accounts (
     id BIGSERIAL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     exchange TEXT NOT NULL,
     api_key TEXT NOT NULL,
     api_secret TEXT NOT NULL,
-    api_passphrase TEXT,
+    api_passphrase TEXT,                -- OKX passphrase
+    account_number TEXT,                -- KIS 계좌번호 (CANO-ACNT_PRDT_CD)
     is_active BOOLEAN NOT NULL DEFAULT false,
     last_health_at TIMESTAMPTZ,
     last_health_ok BOOLEAN,

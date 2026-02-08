@@ -14,7 +14,8 @@ class Account(Base):
     exchange = Column(Text, nullable=False)
     api_key = Column(Text, nullable=False)
     api_secret = Column(Text, nullable=False)
-    api_passphrase = Column(Text, nullable=True)
+    api_passphrase = Column(Text, nullable=True)  # OKX용 passphrase
+    account_number = Column(Text, nullable=True)  # KIS용 계좌번호 (CANO-ACNT_PRDT_CD)
 
     is_active = Column(Boolean, nullable=False, default=False)
 
