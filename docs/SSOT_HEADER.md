@@ -37,12 +37,19 @@
 - **is_mock 필드** - KIS 모의투자 지원 (`accounts.is_mock` 컬럼 추가)
 - **테스트 계정 정리** - `test-okx-temp`, `test-kis-temp` 삭제
 
+### OKX 평균단가/평가손익/수익률 구현
+- **거래내역 API** - `GET /api/v5/trade/fills-history` 연동
+- **이동평균법** - 매수 시 평균단가 재계산, 매도 시 수량만 감소
+- **cost_basis 테이블** - DB 캐싱 (6시간 TTL)
+- **프론트엔드 연동** - `fetch_okx_balances(include_cost_basis=True)`
+
 ### 커밋 목록
 - `1df2e32` fix: 긴급 수정 3건 - RTF/수익률/보유자산
 - `6aad6a7` fix: accounts 테이블 컬럼명 수정 (user_id → owner_id)
 - `0c7fc9c` fix: KIS 모의투자 is_mock 필드 지원 추가
 - `98e4ffa` fix: 계정 삭제 버튼에 data-exchange 속성 추가
 - `98759ec` feat: 보유자산 표시 개선 5건
+- `4b499f7` feat: OKX 보유자산 평균단가/평가손익/수익률 구현
 
 ## Day 8 Fixes
 - 종목명 쓰레기 데이터 제거 (`_clean_stock_name`)
