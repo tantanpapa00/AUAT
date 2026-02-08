@@ -1064,7 +1064,7 @@ function updateProfitChart(chartData) {
     if (profitChart) profitChart.destroy();
 
     const labels = chartData.data.map(d => d.date);
-    const values = chartData.data.map(d => d.value);
+    const values = chartData.data.map(d => parseFloat(d.value.toFixed(2)));
     const isPositive = chartData.period_profit_rate >= 0;
 
     profitChart = new Chart(ctx, {
@@ -1090,7 +1090,7 @@ function updateProfitChart(chartData) {
             scales: {
                 y: {
                     grid: { color: 'rgba(255,255,255,0.1)' },
-                    ticks: { color: '#9CA3AF', callback: (v) => v + '%' }
+                    ticks: { color: '#9CA3AF', callback: (v) => parseFloat(v.toFixed(2)) + '%' }
                 },
                 x: {
                     grid: { display: false },
