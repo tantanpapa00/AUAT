@@ -1019,6 +1019,8 @@ function updateSummaryCards(summary) {
     if (summary.allocation) {
         const alloc = summary.allocation;
         console.log('[Summary] Allocation from API:', alloc);
+
+        // 1. Chart.js 도넛차트 업데이트
         const allocData = [
             alloc.domestic || 0,
             alloc.foreign || 0,
@@ -1026,6 +1028,41 @@ function updateSummaryCards(summary) {
             alloc.cash || 0
         ];
         initAllocationChart(allocData);
+
+        // 2. 범례 퍼센트 텍스트 업데이트
+        const allocDomestic = document.getElementById('alloc-domestic');
+        const allocForeign = document.getElementById('alloc-foreign');
+        const allocCrypto = document.getElementById('alloc-crypto');
+        const allocCash = document.getElementById('alloc-cash');
+
+        if (allocDomestic) allocDomestic.textContent = (alloc.domestic || 0) + '%';
+        if (allocForeign) allocForeign.textContent = (alloc.foreign || 0) + '%';
+        if (allocCrypto) allocCrypto.textContent = (alloc.crypto || 0) + '%';
+        if (allocCash) allocCash.textContent = (alloc.cash || 0) + '%';
+
+        // 3. 테이블 퍼센트 업데이트
+        const domesticPct = document.getElementById('alloc-domestic-pct');
+        const foreignPct = document.getElementById('alloc-foreign-pct');
+        const cryptoPct = document.getElementById('alloc-crypto-pct');
+        const cashPct = document.getElementById('alloc-cash-pct');
+
+        if (domesticPct) domesticPct.textContent = (alloc.domestic || 0) + '%';
+        if (foreignPct) foreignPct.textContent = (alloc.foreign || 0) + '%';
+        if (cryptoPct) cryptoPct.textContent = (alloc.crypto || 0) + '%';
+        if (cashPct) cashPct.textContent = (alloc.cash || 0) + '%';
+
+        // 4. 테이블 금액 업데이트
+        const domesticValue = document.getElementById('alloc-domestic-value');
+        const foreignValue = document.getElementById('alloc-foreign-value');
+        const cryptoValue = document.getElementById('alloc-crypto-value');
+        const cashValue = document.getElementById('alloc-cash-value');
+
+        if (domesticValue) domesticValue.textContent = '₩' + Math.round(alloc.domestic_value || 0).toLocaleString('ko-KR');
+        if (foreignValue) foreignValue.textContent = '$' + (alloc.foreign_value || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        if (cryptoValue) cryptoValue.textContent = '$' + (alloc.crypto_value ? alloc.crypto_value / 1450 : 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        if (cashValue) cashValue.textContent = '₩' + Math.round(alloc.cash_value || 0).toLocaleString('ko-KR');
+
+        console.log('[Summary] Updated allocation legend & table');
     }
 }
 
