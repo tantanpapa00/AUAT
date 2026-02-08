@@ -50,6 +50,18 @@
 - **이동평균법** - 매수: `(기존총액 + 매수금액) / (기존수량 + 매수수량)`, 매도: 수량만 감소
 - **프론트엔드** - currency 필드 기반 ₩/$ 자동 표시
 
+### 보유자산 Allocation + UI 개선
+1. **5-카테고리 Allocation** - cash → cash_krw/cash_usd 분리
+   - cash_krw: 국내 예수금 (KIS 예수금)
+   - cash_usd: USD 스테이블코인 (OKX/Binance/Bybit USDT/USDC/BUSD/DAI/TUSD)
+   - domestic: 국내주식
+   - overseas: 해외주식
+   - crypto: 암호화폐
+
+2. **총자산 1원 단위 표시** - 만/억 포맷 → 1원 단위 (₩10,477,147)
+
+3. **평가액 컬럼 앰버 색상** - #F59E0B, font-weight: 600
+
 ### 커밋 목록
 - `1df2e32` fix: 긴급 수정 3건 - RTF/수익률/보유자산
 - `6aad6a7` fix: accounts 테이블 컬럼명 수정 (user_id → owner_id)
@@ -58,6 +70,8 @@
 - `98759ec` feat: 보유자산 표시 개선 5건
 - `4b499f7` feat: OKX 보유자산 평균단가/평가손익/수익률 구현
 - `0993868` feat: 전 거래소 평균단가/평가손익/수익률 구현
+- `5758628` style: 평가액 컬럼 앰버 색상 적용 (#F59E0B)
+- `7482588` fix: allocation 분류 로직 수정 + 디버그 로그 정리
 
 ## Day 8 Fixes
 - 종목명 쓰레기 데이터 제거 (`_clean_stock_name`)
