@@ -829,10 +829,34 @@ async def get_chart_data(code, period="3m"):
 
 # ===== 종목 상세 - 스탁이지 스타일 (Phase 1) =====
 
+def _parse_korean_market_cap(value_str: str) -> int:
+    """
+    한글 시가총액 파싱: "938조 8,546억" → 원 단위
+    """
+    if not value_str:
+        return 0
+    try:
+        value_str = value_str.replace(",", "").replace(" ", "")
+        total = 0
+        # 조 단위 추출
+        if "조" in value_str:
+            parts = value_str.split("조")
+            total += int(parts[0]) * 1_0000_0000_0000  # 1조 = 10^12
+            value_str = parts[1] if len(parts) > 1 else ""
+        # 억 단위 추출
+        if "억" in value_str:
+            parts = value_str.split("억")
+            total += int(parts[0]) * 100000000  # 1억 = 10^8
+        return total
+    except:
+        return 0
+
+
 async def get_stock_financial_summary(code: str):
     """
     종목 재무 요약 (요약 탭)
     - 네이버 모바일 API에서 매출액, 영업이익, EPS, PER, PBR 등
+    - 네이버 데스크톱에서 ROE, 부채비율, 영업이익률 등 추가 수집
     """
     cache_key = f"fin_summary_{code}"
     cached = _cached(cache_key, 3600)
@@ -852,15 +876,23 @@ async def get_stock_financial_summary(code: str):
         "bps": 0,
         "dividend_yield": 0,
         "roe": 0,
+        "roa": 0,
+        "debt_ratio": 0,
+        "reserve_ratio": 0,
+        "operating_margin": 0,
         "revenue": 0,
         "revenue_formatted": "",
+        "revenue_growth": 0,
         "operating_profit": 0,
         "operating_profit_formatted": "",
+        "operating_profit_growth": 0,
         "net_income": 0,
         "net_income_formatted": "",
         "high_52w": 0,
         "low_52w": 0,
         "foreign_ratio": 0,
+        "target_price": 0,
+        "recommendation": "",
     }
 
     try:
@@ -872,11 +904,8 @@ async def get_stock_financial_summary(code: str):
                 result["name"] = data.get("stockName", "")
                 result["market"] = data.get("stockExchangeName", "")
                 result["sector"] = data.get("industryName", "")
-                market_cap_raw = _parse_int(data.get("marketValue", "0"))
-                result["market_cap"] = market_cap_raw
-                result["market_cap_formatted"] = _format_korean_num(market_cap_raw)
 
-            # 2. Integration API (PER, PBR, 52주 고저)
+            # 2. Integration API (PER, PBR, 52주 고저, 시가총액, 외인비율, 배당률)
             r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/integration")
             if r.status_code == 200:
                 data = r.json()
@@ -891,16 +920,33 @@ async def get_stock_financial_summary(code: str):
                         result["eps"] = _parse_int(value.replace("원", "").replace(",", ""))
                     elif key == "bps":
                         result["bps"] = _parse_int(value.replace("원", "").replace(",", ""))
-                    elif key == "dividendYield":
+                    elif key == "dividendYieldRatio":  # 수정: dividendYield → dividendYieldRatio
                         result["dividend_yield"] = _parse_float(value.replace("%", ""))
-                    elif key == "roe":
-                        result["roe"] = _parse_float(value.replace("%", ""))
                     elif key == "highPriceOf52Weeks":
                         result["high_52w"] = _parse_price(value)
                     elif key == "lowPriceOf52Weeks":
                         result["low_52w"] = _parse_price(value)
-                    elif key == "foreignerRatio":
+                    elif key == "foreignRate":  # 수정: foreignerRatio → foreignRate
                         result["foreign_ratio"] = _parse_float(value.replace("%", ""))
+                    elif key == "marketValue":  # 시가총액 (예: "938조 8,546억")
+                        result["market_cap"] = _parse_korean_market_cap(value)
+                        result["market_cap_formatted"] = _format_korean_num(result["market_cap"])
+
+                # 컨센서스 정보 (목표가, 투자의견)
+                consensus = data.get("consensusInfo", {})
+                if consensus:
+                    result["target_price"] = _parse_int(consensus.get("priceTargetMean", "0"))
+                    recomm = _parse_float(consensus.get("recommMean", "0"))
+                    if recomm >= 4:
+                        result["recommendation"] = "적극매수"
+                    elif recomm >= 3.5:
+                        result["recommendation"] = "매수"
+                    elif recomm >= 2.5:
+                        result["recommendation"] = "보유"
+                    elif recomm >= 1.5:
+                        result["recommendation"] = "비중축소"
+                    else:
+                        result["recommendation"] = "매도"
 
             # 3. 재무 정보 (Summary) - chartIncomeStatement 형식
             r = await client.get(f"https://m.stock.naver.com/api/stock/{code}/finance/summary")
@@ -910,8 +956,6 @@ async def get_stock_financial_summary(code: str):
                 annual_data = data.get("chartIncomeStatement", {}).get("annual", {})
                 columns = annual_data.get("columns", [])
                 if len(columns) >= 3:
-                    # columns[0] = 기간 헤더, columns[1] = 매출액, columns[2] = 영업이익
-                    periods = columns[0] if columns else []
                     revenues = columns[1] if len(columns) > 1 else []
                     op_profits = columns[2] if len(columns) > 2 else []
                     # 최신 데이터 (마지막 값)
@@ -919,10 +963,94 @@ async def get_stock_financial_summary(code: str):
                         rev = _parse_int(revenues[-1]) * 100000000  # 억 단위 → 원
                         result["revenue"] = rev
                         result["revenue_formatted"] = _format_korean_num(rev)
+                        # 매출 성장률 계산
+                        if len(revenues) > 2:
+                            prev_rev = _parse_int(revenues[-2])
+                            if prev_rev > 0:
+                                result["revenue_growth"] = round((_parse_int(revenues[-1]) - prev_rev) / prev_rev * 100, 1)
                     if len(op_profits) > 1:
                         op = _parse_int(op_profits[-1]) * 100000000
                         result["operating_profit"] = op
                         result["operating_profit_formatted"] = _format_korean_num(op)
+                        # 영업이익 성장률 계산
+                        if len(op_profits) > 2:
+                            prev_op = _parse_int(op_profits[-2])
+                            if prev_op > 0:
+                                result["operating_profit_growth"] = round((_parse_int(op_profits[-1]) - prev_op) / prev_op * 100, 1)
+                        # 영업이익률 계산
+                        if result["revenue"] > 0:
+                            result["operating_margin"] = round(op / result["revenue"] * 100, 2)
+
+            # 4. 네이버 데스크톱 페이지에서 ROE, 부채비율 등 추가 크롤링
+            try:
+                desktop_headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                    "Accept-Language": "ko-KR,ko;q=0.9"
+                }
+                r = await client.get(f"https://finance.naver.com/item/main.naver?code={code}", headers=desktop_headers)
+                if r.status_code == 200:
+                    # EUC-KR 인코딩 처리
+                    r.encoding = "euc-kr"
+                    soup = BeautifulSoup(r.text, "lxml")
+
+                    # ROE 파싱 (클래스 th_cop_anal13)
+                    roe_th = soup.find("th", class_="th_cop_anal13")
+                    if roe_th:
+                        roe_tr = roe_th.find_parent("tr")
+                        if roe_tr:
+                            tds = roe_tr.find_all("td")
+                            for td in tds:
+                                txt = td.get_text(strip=True)
+                                if txt and txt != "-":
+                                    val = _parse_float(txt.replace(",", ""))
+                                    if val != 0:
+                                        result["roe"] = val
+                                        break
+
+                    # 부채비율 파싱 (클래스 th_cop_anal14)
+                    debt_th = soup.find("th", class_="th_cop_anal14")
+                    if debt_th:
+                        debt_tr = debt_th.find_parent("tr")
+                        if debt_tr:
+                            tds = debt_tr.find_all("td")
+                            for td in tds:
+                                txt = td.get_text(strip=True)
+                                if txt and txt != "-":
+                                    val = _parse_float(txt.replace(",", ""))
+                                    if val != 0:
+                                        result["debt_ratio"] = val
+                                        break
+
+                    # 영업이익률 파싱 (클래스 th_cop_anal11)
+                    opm_th = soup.find("th", class_="th_cop_anal11")
+                    if opm_th:
+                        opm_tr = opm_th.find_parent("tr")
+                        if opm_tr:
+                            tds = opm_tr.find_all("td")
+                            for td in tds:
+                                txt = td.get_text(strip=True)
+                                if txt and txt != "-":
+                                    val = _parse_float(txt.replace(",", ""))
+                                    if val != 0 and result["operating_margin"] == 0:
+                                        result["operating_margin"] = val
+                                        break
+
+                    # 유보율 파싱 (클래스 th_cop_anal16)
+                    rsv_th = soup.find("th", class_="th_cop_anal16")
+                    if rsv_th:
+                        rsv_tr = rsv_th.find_parent("tr")
+                        if rsv_tr:
+                            tds = rsv_tr.find_all("td")
+                            for td in tds:
+                                txt = td.get_text(strip=True)
+                                if txt and txt != "-":
+                                    val = _parse_float(txt.replace(",", ""))
+                                    if val != 0:
+                                        result["reserve_ratio"] = val
+                                        break
+
+            except Exception as e2:
+                print(f"[DataProvider] Desktop scraping error for {code}: {e2}")
 
         _set_cache(cache_key, result)
         return result
