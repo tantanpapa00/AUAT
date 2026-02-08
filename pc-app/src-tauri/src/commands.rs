@@ -906,6 +906,18 @@ pub async fn refresh_auth_token(refresh_token: String) -> Result<AuthTokens, Str
 // Portfolio API (Home Page Data)
 // =====================================================
 
+#[derive(Serialize, Deserialize, Default)]
+pub struct Allocation {
+    pub domestic: i32,
+    pub foreign: i32,
+    pub crypto: i32,
+    pub cash: i32,
+    pub domestic_value: f64,
+    pub foreign_value: f64,
+    pub crypto_value: f64,
+    pub cash_value: f64,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct PortfolioSummary {
     pub total_assets: f64,
@@ -916,6 +928,8 @@ pub struct PortfolioSummary {
     pub daily_change_rate: f64,
     pub active_strategies: i32,
     pub currency: String,
+    #[serde(default)]
+    pub allocation: Option<Allocation>,
 }
 
 #[tauri::command]
@@ -945,6 +959,10 @@ pub async fn get_portfolio_summary(access_token: String) -> Result<PortfolioSumm
                 daily_change_rate: 0.0,
                 active_strategies: 0,
                 currency: "KRW".to_string(),
+                allocation: Some(Allocation {
+                    domestic: 0, foreign: 0, crypto: 0, cash: 100,
+                    domestic_value: 0.0, foreign_value: 0.0, crypto_value: 0.0, cash_value: 0.0,
+                }),
             })
         }
     }
