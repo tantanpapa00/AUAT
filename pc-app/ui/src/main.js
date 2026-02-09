@@ -6781,11 +6781,10 @@ window.openStockDetail = openStockDetail;
 let mrSymbolAutocomplete = null;
 
 async function loadMrEngineTab() {
-    await loadMrSchedulerStatus();
-    await loadMrConfigs();
-    await loadMrSignals();
-    initMrSymbolAutocomplete();
+    // MR 리디자인 UI 초기화
+    initMrUiComponents();
     loadMrExchangeDropdown();
+    initMrSymbolAutocomplete();
 }
 
 async function loadMrSchedulerStatus() {
@@ -6915,6 +6914,240 @@ async function loadMrExchangeDropdown() {
     }
 }
 
+// =====================================================
+// MR UI 리디자인 - 아코디언/탭/트랜치 동적생성
+// =====================================================
+
+const DEFAULT_BUY_TRANCHES = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5];
+const DEFAULT_SELL_TRANCHES = [10, 20, 30, 5, 2.5, 1];
+
+// 아코디언 초기화
+function initMrAccordions() {
+    document.querySelectorAll('.mr-accordion-header').forEach(header => {
+        header.addEventListener('click', () => {
+            const accordion = header.closest('.mr-accordion');
+            const body = accordion.querySelector('.mr-accordion-body');
+            const icon = header.querySelector('.mr-accordion-icon');
+
+            if (body.style.display === 'none') {
+                body.style.display = 'block';
+                icon.textContent = '▼';
+                accordion.classList.add('open');
+            } else {
+                body.style.display = 'none';
+                icon.textContent = '▶';
+                accordion.classList.remove('open');
+            }
+        });
+    });
+}
+
+// 국면 탭 초기화
+function initMrRegimeTabs() {
+    document.querySelectorAll('.mr-regime-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            // 탭 활성화
+            document.querySelectorAll('.mr-regime-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+
+            // 콘텐츠 전환
+            const regime = tab.dataset.regime;
+            document.querySelectorAll('.mr-regime-content').forEach(c => {
+                c.style.display = 'none';
+                c.classList.remove('active');
+            });
+            const targetContent = document.getElementById(`mr-regime-${regime}`);
+            if (targetContent) {
+                targetContent.style.display = 'block';
+                targetContent.classList.add('active');
+            }
+        });
+    });
+}
+
+// 매수 트랜치 동적 렌더링
+function renderBuyTranches(count) {
+    const container = document.getElementById('mr-buy-tranches-container');
+    if (!container) return;
+
+    container.innerHTML = '';
+    for (let i = 0; i < count; i++) {
+        const defaultVal = DEFAULT_BUY_TRANCHES[i] || DEFAULT_BUY_TRANCHES[DEFAULT_BUY_TRANCHES.length - 1];
+        container.innerHTML += `
+            <div class="mr-tranche-item">
+                <label>BUY${i + 1}</label>
+                <input type="number" class="mr-buy-tranche-input" value="${defaultVal}"
+                       min="0" max="100" step="0.5" data-index="${i}"> %
+            </div>
+        `;
+    }
+    updateBuyTotal();
+    // 각 입력에 change 이벤트
+    container.querySelectorAll('.mr-buy-tranche-input').forEach(input => {
+        input.addEventListener('input', updateBuyTotal);
+    });
+}
+
+// 매도 트랜치 동적 렌더링
+function renderSellTranches(count) {
+    const container = document.getElementById('mr-sell-tranches-container');
+    if (!container) return;
+
+    container.innerHTML = '';
+    for (let i = 0; i < count; i++) {
+        const defaultVal = DEFAULT_SELL_TRANCHES[i] || DEFAULT_SELL_TRANCHES[DEFAULT_SELL_TRANCHES.length - 1];
+        container.innerHTML += `
+            <div class="mr-tranche-item">
+                <label>SELL${i + 1}</label>
+                <input type="number" class="mr-sell-tranche-input" value="${defaultVal}"
+                       min="0" max="100" step="0.5" data-index="${i}"> %
+            </div>
+        `;
+    }
+    updateSellTotal();
+    container.querySelectorAll('.mr-sell-tranche-input').forEach(input => {
+        input.addEventListener('input', updateSellTotal);
+    });
+}
+
+function updateBuyTotal() {
+    const inputs = document.querySelectorAll('.mr-buy-tranche-input');
+    let total = 0;
+    inputs.forEach(input => total += parseFloat(input.value) || 0);
+    const el = document.getElementById('mr-buy-total-pct');
+    if (el) el.textContent = total.toFixed(1);
+}
+
+function updateSellTotal() {
+    const inputs = document.querySelectorAll('.mr-sell-tranche-input');
+    let total = 0;
+    inputs.forEach(input => total += parseFloat(input.value) || 0);
+    const el = document.getElementById('mr-sell-total-pct');
+    if (el) el.textContent = total.toFixed(1);
+}
+
+// 트랜치 차수 변경 이벤트
+function initMrTrancheHandlers() {
+    const buyCountEl = document.getElementById('mr-buy-tranche-count');
+    const sellCountEl = document.getElementById('mr-sell-tranche-count');
+
+    if (buyCountEl) {
+        buyCountEl.addEventListener('change', (e) => {
+            renderBuyTranches(parseInt(e.target.value) || 10);
+        });
+    }
+    if (sellCountEl) {
+        sellCountEl.addEventListener('change', (e) => {
+            renderSellTranches(parseInt(e.target.value) || 6);
+        });
+    }
+
+    // 초기 렌더링
+    renderBuyTranches(10);
+    renderSellTranches(6);
+}
+
+// MR 설정 수집 함수
+function collectMrConfig() {
+    // 매수 트랜치 비중 수집
+    const buyTranches = [];
+    document.querySelectorAll('.mr-buy-tranche-input').forEach(input => {
+        buyTranches.push(parseFloat(input.value) || 0);
+    });
+
+    // 매도 트랜치 비중 수집
+    const sellTranches = [];
+    document.querySelectorAll('.mr-sell-tranche-input').forEach(input => {
+        sellTranches.push(parseFloat(input.value) || 0);
+    });
+
+    return {
+        // ① 거래소 + 종목
+        exchange: document.getElementById('mr-exchange')?.value || '',
+        symbol: document.getElementById('mr-symbol')?.value || '',
+
+        // ② 가용자금
+        cash_use_pct: parseFloat(document.getElementById('mr-cash-use-pct')?.value) || 55,
+        hard_cap_pct: parseFloat(document.getElementById('mr-hard-cap-pct')?.value) || 100,
+
+        // ③ 기본 설정
+        signal_tf: document.getElementById('mr-signal-tf')?.value || '30m',
+        htf_tf: document.getElementById('mr-htf')?.value || '1D',
+        osc_smooth_len: parseInt(document.getElementById('mr-osc-smooth')?.value) || 20,
+        osc_threshold: parseFloat(document.getElementById('mr-osc-threshold')?.value) || 1.0,
+        min_profit_pct: parseFloat(document.getElementById('mr-min-profit-pct')?.value) || 0.1,
+        fee_buffer_pct: parseFloat(document.getElementById('mr-fee-buffer-pct')?.value) || 0.2,
+        st_reversal_fix: document.getElementById('mr-st-reversal-fix')?.checked ?? true,
+        one_trade_per_bar: document.getElementById('mr-one-trade-per-bar')?.checked ?? true,
+
+        // ④ 트랜치
+        buy_tranches: buyTranches,
+        max_buy_tranches: buyTranches.length,
+        after_max_buy: document.querySelector('input[name="mr-after-max-buy"]:checked')?.value || 'extend',
+        sell_tranches: sellTranches,
+        max_sell_tranches: sellTranches.length,
+        after_max_sell: document.querySelector('input[name="mr-after-max-sell"]:checked')?.value || 'cycle',
+
+        // ⑤ 국면별 설정
+        use_4regime: document.getElementById('mr-use-4regime')?.checked ?? true,
+
+        // R1
+        r1_buy_mult: parseFloat(document.getElementById('mr-r1-buy-mult')?.value) || 1.0,
+        r1_sell_mult: parseFloat(document.getElementById('mr-r1-sell-mult')?.value) || 1.3,
+        r1_allow_osc_buy: document.getElementById('mr-r1-allow-osc-buy')?.checked ?? true,
+        r1_buy1_only: document.getElementById('mr-r1-buy1-only')?.checked ?? false,
+        r1_sell1_only: document.getElementById('mr-r1-sell1-only')?.checked ?? false,
+        r1_sell_mode: document.querySelector('input[name="mr-r1-sell-mode"]:checked')?.value || 'Normal',
+        r1_filt_below_avg: document.getElementById('mr-r1-filt-below-avg')?.checked ?? true,
+        r1_filt_prev_signal: document.getElementById('mr-r1-filt-prev-signal')?.checked ?? true,
+        r1_filt_prev_exec: document.getElementById('mr-r1-filt-prev-exec')?.checked ?? true,
+        r1_pullback_on: document.getElementById('mr-r1-pullback-on')?.checked ?? true,
+        r1_pullback_buy_mult: parseFloat(document.getElementById('mr-r1-pullback-mult')?.value) || 1.0,
+
+        // R2
+        r2_buy_mult: parseFloat(document.getElementById('mr-r2-buy-mult')?.value) || 0.0,
+        r2_sell_mult: parseFloat(document.getElementById('mr-r2-sell-mult')?.value) || 1.6,
+        r2_allow_osc_buy: document.getElementById('mr-r2-allow-osc-buy')?.checked ?? false,
+        r2_buy1_only: document.getElementById('mr-r2-buy1-only')?.checked ?? false,
+        r2_sell1_only: document.getElementById('mr-r2-sell1-only')?.checked ?? false,
+        r2_sell_mode: document.querySelector('input[name="mr-r2-sell-mode"]:checked')?.value || 'Alternate',
+        r2_filt_below_avg: document.getElementById('mr-r2-filt-below-avg')?.checked ?? false,
+        r2_filt_prev_signal: document.getElementById('mr-r2-filt-prev-signal')?.checked ?? false,
+        r2_filt_prev_exec: document.getElementById('mr-r2-filt-prev-exec')?.checked ?? false,
+
+        // R3
+        r3_buy_mult: parseFloat(document.getElementById('mr-r3-buy-mult')?.value) || 1.0,
+        r3_sell_mult: parseFloat(document.getElementById('mr-r3-sell-mult')?.value) || 1.3,
+        r3_allow_osc_buy: document.getElementById('mr-r3-allow-osc-buy')?.checked ?? true,
+        r3_buy1_only: document.getElementById('mr-r3-buy1-only')?.checked ?? true,
+        r3_sell1_only: document.getElementById('mr-r3-sell1-only')?.checked ?? false,
+        r3_sell_mode: document.querySelector('input[name="mr-r3-sell-mode"]:checked')?.value || 'Normal',
+        r3_filt_below_avg: document.getElementById('mr-r3-filt-below-avg')?.checked ?? false,
+        r3_filt_prev_signal: document.getElementById('mr-r3-filt-prev-signal')?.checked ?? true,
+        r3_filt_prev_exec: document.getElementById('mr-r3-filt-prev-exec')?.checked ?? true,
+        r3_breakout_on: document.getElementById('mr-r3-breakout-on')?.checked ?? true,
+        r3_breakout_buy_mult: parseFloat(document.getElementById('mr-r3-breakout-mult')?.value) || 1.0,
+
+        // R4
+        r4_buy_mult: parseFloat(document.getElementById('mr-r4-buy-mult')?.value) || 1.2,
+        r4_sell_mult: parseFloat(document.getElementById('mr-r4-sell-mult')?.value) || 0.7,
+        r4_allow_osc_buy: document.getElementById('mr-r4-allow-osc-buy')?.checked ?? true,
+        r4_buy1_only: document.getElementById('mr-r4-buy1-only')?.checked ?? false,
+        r4_sell1_only: document.getElementById('mr-r4-sell1-only')?.checked ?? false,
+        r4_sell_mode: document.querySelector('input[name="mr-r4-sell-mode"]:checked')?.value || 'Normal',
+        r4_filt_below_avg: document.getElementById('mr-r4-filt-below-avg')?.checked ?? true,
+        r4_filt_prev_signal: document.getElementById('mr-r4-filt-prev-signal')?.checked ?? true,
+        r4_filt_prev_exec: document.getElementById('mr-r4-filt-prev-exec')?.checked ?? false,
+    };
+}
+
+// MR UI 초기화 (탭 로드 시 호출)
+function initMrUiComponents() {
+    initMrAccordions();
+    initMrRegimeTabs();
+    initMrTrancheHandlers();
+}
+
 // MR 스케줄러 시작
 document.getElementById('btn-mr-start')?.addEventListener('click', async () => {
     try {
@@ -6944,141 +7177,107 @@ document.getElementById('btn-mr-refresh')?.addEventListener('click', async () =>
 });
 
 // MR 종목 추가
-document.getElementById('btn-mr-add-config')?.addEventListener('click', async () => {
-    const exchange = document.getElementById('mr-exchange')?.value;
-    const symbol = document.getElementById('mr-symbol')?.value;
-    const signalTf = document.getElementById('mr-signal-tf')?.value || '15m';
-    const htfTf = document.getElementById('mr-htf-tf')?.value || '4h';
-    const oscPreset = document.getElementById('mr-osc-preset')?.value || 'preset1';
-    const cashPct = parseFloat(document.getElementById('mr-cash-pct')?.value) || 90;
-    const hardCap = parseFloat(document.getElementById('mr-hard-cap')?.value) || 95;
-    const minProfit = parseFloat(document.getElementById('mr-min-profit')?.value) || 0.5;
-    const buyTranches = (document.getElementById('mr-buy-tranches')?.value || '25,50,75,100')
-        .split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
-    const sellTranches = (document.getElementById('mr-sell-tranches')?.value || '50,100')
-        .split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
-    const use4regime = document.getElementById('mr-use-4regime')?.checked ?? true;
-    const r1Pullback = document.getElementById('mr-r1-pullback')?.checked ?? true;
-    const r3Breakout = document.getElementById('mr-r3-breakout')?.checked ?? true;
+// MR 설정 저장 버튼
+document.getElementById('btn-mr-save')?.addEventListener('click', async () => {
+    const config = collectMrConfig();
 
-    if (!exchange || !symbol) {
+    if (!config.exchange || !config.symbol) {
         showToast('거래소와 종목을 선택해주세요', 'error');
         return;
     }
 
     try {
-        const config = {
-            signal_tf: signalTf,
-            htf_tf: htfTf,
-            osc_preset: oscPreset,
-            cash_use_pct: cashPct,
-            hard_cap_pct: hardCap,
-            min_profit_pct: minProfit,
-            buy_tranches: buyTranches,
-            sell_tranches: sellTranches,
-            use_4regime: use4regime,
-            r1_pullback_enabled: r1Pullback,
-            r3_breakout_enabled: r3Breakout,
-            exchange: exchange,
-            symbol: symbol
-        };
-
         await invoke('create_premium_config', {
             accessToken: auth.accessToken || '',
             config: config
         });
 
-        showToast('종목이 추가되었습니다', 'success');
-        document.getElementById('mr-symbol').value = '';
-        await loadMrConfigs();
+        showToast('설정이 저장되었습니다', 'success');
+    } catch (error) {
+        showToast('설정 저장 실패: ' + error, 'error');
+    }
+});
+
+// MR 전략 시작 버튼
+document.getElementById('btn-mr-start-strategy')?.addEventListener('click', async () => {
+    const config = collectMrConfig();
+
+    if (!config.exchange || !config.symbol) {
+        showToast('거래소와 종목을 선택해주세요', 'error');
+        return;
+    }
+
+    try {
+        // 설정 저장
+        const savedConfig = await invoke('create_premium_config', {
+            accessToken: auth.accessToken || '',
+            config: config
+        });
 
         // 스케줄러에 등록
         await invoke('register_to_scheduler', {
             accessToken: auth.accessToken || '',
-            assetId: config.asset_id || 0,
-            symbol: symbol,
-            exchange: exchange,
-            timeframe: signalTf,
-            htfTimeframe: htfTf
+            assetId: savedConfig?.asset_id || 0,
+            symbol: config.symbol,
+            exchange: config.exchange,
+            timeframe: config.signal_tf,
+            htfTimeframe: config.htf_tf
         });
+
+        // 스케줄러 시작
+        await invoke('start_scheduler', { accessToken: auth.accessToken || '' });
+
+        showToast('전략이 시작되었습니다', 'success');
     } catch (error) {
-        showToast('종목 추가 실패: ' + error, 'error');
+        showToast('전략 시작 실패: ' + error, 'error');
     }
 });
 
-// 수동 시그널 트리거
-async function triggerMrSignal(assetId) {
-    try {
-        const result = await invoke('trigger_signal', {
-            accessToken: auth.accessToken || '',
-            assetId: assetId
-        });
-
-        if (result.success) {
-            showToast(`시그널 생성: ${result.action || 'hold'} - ${result.reason_code || ''}`, 'success');
-        } else {
-            showToast(result.message || '시그널 없음', 'info');
-        }
-        await loadMrSignals();
-    } catch (error) {
-        showToast('시그널 트리거 실패: ' + error, 'error');
+// MR 빠른 백테스트 버튼
+document.getElementById('btn-mr-backtest-quick')?.addEventListener('click', () => {
+    // 백테스트 아코디언 열기
+    const accordion = document.getElementById('mr-section-backtest');
+    const body = accordion?.querySelector('.mr-accordion-body');
+    const icon = accordion?.querySelector('.mr-accordion-icon');
+    if (body && body.style.display === 'none') {
+        body.style.display = 'block';
+        if (icon) icon.textContent = '▼';
+        accordion?.classList.add('open');
     }
-}
-window.triggerMrSignal = triggerMrSignal;
-
-// MR 설정 삭제
-async function deleteMrConfig(assetId) {
-    if (!confirm('이 종목 설정을 삭제하시겠습니까?')) return;
-
-    try {
-        await invoke('delete_premium_config', {
-            accessToken: auth.accessToken || '',
-            assetId: assetId
-        });
-        showToast('삭제되었습니다', 'success');
-        await loadMrConfigs();
-    } catch (error) {
-        showToast('삭제 실패: ' + error, 'error');
-    }
-}
-window.deleteMrConfig = deleteMrConfig;
-
-// 역추세매매 탭 클릭 시 로드 (이미 위에서 처리되므로 중복 제거)
+});
 
 // MR 백테스트 실행
 let mrBacktestChart = null;
 
 document.getElementById('btn-mr-run-backtest')?.addEventListener('click', async () => {
-    const exchange = document.getElementById('mr-exchange')?.value || 'OKX';
-    const symbol = document.getElementById('mr-symbol')?.value || 'BTC-USDT';
+    const config = collectMrConfig();
     const days = parseInt(document.getElementById('mr-bt-days')?.value) || 365;
     const capital = parseFloat(document.getElementById('mr-bt-capital')?.value) || 10000000;
-    const signalTf = document.getElementById('mr-signal-tf')?.value || '1h';
-    const htfTf = document.getElementById('mr-htf-tf')?.value || '4h';
-    const oscPreset = document.getElementById('mr-osc-preset')?.value || 'preset1';
-    const cashPct = parseFloat(document.getElementById('mr-cash-pct')?.value) || 90;
-    const use4regime = document.getElementById('mr-use-4regime')?.checked ?? true;
-    const buyTranches = (document.getElementById('mr-buy-tranches')?.value || '25,50,75,100')
-        .split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
-    const sellTranches = (document.getElementById('mr-sell-tranches')?.value || '50,100')
-        .split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+
+    if (!config.exchange) config.exchange = 'OKX';
+    if (!config.symbol) config.symbol = 'BTC-USDT';
 
     showToast('백테스트 실행 중...', 'info');
 
     try {
         const result = await invoke('run_mr_backtest', {
             accessToken: auth.accessToken || '',
-            exchange: exchange,
-            symbol: symbol,
-            timeframe: signalTf,
-            htfTimeframe: htfTf,
+            exchange: config.exchange,
+            symbol: config.symbol,
+            timeframe: config.signal_tf,
+            htfTimeframe: config.htf_tf,
             days: days,
             initialCapital: capital,
-            oscPreset: oscPreset,
-            cashUsePct: cashPct,
-            use4regime: use4regime,
-            buyTranches: buyTranches,
-            sellTranches: sellTranches,
+            oscPreset: 'preset1',  // 새 UI에서는 직접 smooth/threshold 사용
+            cashUsePct: config.cash_use_pct,
+            use4regime: config.use_4regime,
+            buyTranches: config.buy_tranches,
+            sellTranches: config.sell_tranches,
+            // 리디자인 필드 추가 (백엔드에서 지원 시 사용)
+            oscSmoothLen: config.osc_smooth_len,
+            oscThreshold: config.osc_threshold,
+            minProfitPct: config.min_profit_pct,
+            feeBufferPct: config.fee_buffer_pct,
         });
 
         if (result.success) {

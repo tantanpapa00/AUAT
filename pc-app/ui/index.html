@@ -1494,189 +1494,464 @@
                         </div>
                     </section>
 
-                    <!-- 역추세매매 탭 (MR 프리미엄 엔진) -->
+                    <!-- 역추세매매 탭 (MR 프리미엄 엔진) - 리디자인 -->
                     <section class="strategy-content card" id="strategy-tab-reversal" style="display: none;">
-                        <h2>역추세매매 (MR 프리미엄 엔진)</h2>
-                        <p class="strategy-description">SPO 기반 평균회귀 전략 - 4국면 판별 + 캔들마감 시점 자동 신호 생성</p>
+                        <h2>역추세매매 설정</h2>
+                        <p class="strategy-description">SPO 기반 평균회귀 전략 - 파인스크립트 1:1 설정</p>
 
-                        <!-- 스케줄러 상태 -->
-                        <div class="mr-scheduler-status card-inner">
-                            <div class="status-header">
-                                <h4>스케줄러 상태</h4>
-                                <span class="scheduler-state" id="mr-scheduler-state">STOPPED</span>
-                            </div>
-                            <div class="status-info">
-                                <span>등록 종목: <strong id="mr-asset-count">0</strong>개</span>
-                                <span>활성 타임프레임: <strong id="mr-active-tfs">-</strong></span>
-                            </div>
-                            <div class="scheduler-controls">
-                                <button class="btn btn-success btn-sm" id="btn-mr-start">스케줄러 시작</button>
-                                <button class="btn btn-danger btn-sm" id="btn-mr-stop">스케줄러 중지</button>
-                                <button class="btn btn-secondary btn-sm" id="btn-mr-refresh">새로고침</button>
-                            </div>
-                        </div>
-
-                        <!-- 등록된 종목 목록 -->
-                        <div class="mr-configs-list card-inner">
-                            <h4>등록된 종목</h4>
-                            <div class="configs-table-wrapper">
-                                <table class="configs-table" id="mr-configs-table">
-                                    <thead>
-                                        <tr>
-                                            <th>종목</th>
-                                            <th>TF</th>
-                                            <th>프리셋</th>
-                                            <th>매수단계</th>
-                                            <th>매도단계</th>
-                                            <th>상태</th>
-                                            <th>액션</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="mr-configs-tbody">
-                                        <tr><td colspan="7" class="empty-state">등록된 종목이 없습니다</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <!-- 새 종목 추가 폼 -->
-                        <div class="mr-add-config card-inner">
-                            <h4>종목 추가</h4>
-                            <div class="strategy-form">
-                                <div class="form-row">
-                                    <div class="form-group">
+                        <!-- ① 거래소 + 종목 (항상 열림) -->
+                        <div class="mr-section" id="mr-section-basic">
+                            <h3 class="mr-section-header">거래소 + 종목</h3>
+                            <div class="mr-section-body">
+                                <div class="mr-row">
+                                    <div class="mr-field">
                                         <label>거래소</label>
                                         <select id="mr-exchange" class="form-select">
                                             <option value="">선택하세요</option>
+                                            <option value="OKX">OKX</option>
+                                            <option value="BINANCE">Binance</option>
+                                            <option value="BYBIT">Bybit</option>
+                                            <option value="UPBIT">Upbit</option>
                                         </select>
                                     </div>
-                                    <div class="form-group">
+                                    <div class="mr-field">
                                         <label>종목</label>
                                         <input type="text" id="mr-symbol" class="form-input" placeholder="예: BTC-USDT" autocomplete="off">
                                     </div>
                                 </div>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label>시그널 TF</label>
-                                        <select id="mr-signal-tf" class="form-select">
-                                            <option value="15m">15분</option>
-                                            <option value="1h">1시간</option>
-                                            <option value="4h">4시간</option>
-                                        </select>
+                            </div>
+                        </div>
+
+                        <!-- ② 가용자금 (항상 열림) -->
+                        <div class="mr-section" id="mr-section-capital">
+                            <h3 class="mr-section-header">가용자금</h3>
+                            <div class="mr-section-body">
+                                <div class="mr-row">
+                                    <div class="mr-field">
+                                        <label>가용자금 사용률 (%)</label>
+                                        <input type="number" id="mr-cash-use-pct" class="form-input" value="55" min="1" max="100" step="1">
+                                        <span class="mr-help">해당 계좌 가용자금 중 투입할 비율</span>
                                     </div>
-                                    <div class="form-group">
-                                        <label>HTF</label>
-                                        <select id="mr-htf-tf" class="form-select">
-                                            <option value="4h">4시간</option>
-                                            <option value="1D">1일</option>
-                                        </select>
+                                    <div class="mr-field">
+                                        <label>절대 노출 상한 (%)</label>
+                                        <input type="number" id="mr-hard-cap-pct" class="form-input" value="100" min="1" max="100" step="1">
+                                        <span class="mr-help">자산 대비 최대 노출 상한 (안전장치)</span>
                                     </div>
-                                    <div class="form-group">
-                                        <label>오실레이터 프리셋</label>
-                                        <select id="mr-osc-preset" class="form-select">
-                                            <option value="preset1">Preset 1 (기본)</option>
-                                            <option value="preset2">Preset 2 (보수적)</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label>현금 사용률 (%)</label>
-                                        <input type="number" id="mr-cash-pct" class="form-input" value="90" min="0" max="100">
-                                    </div>
-                                    <div class="form-group">
-                                        <label>하드캡 (%)</label>
-                                        <input type="number" id="mr-hard-cap" class="form-input" value="95" min="0" max="100">
-                                    </div>
-                                    <div class="form-group">
-                                        <label>최소 이익률 (%)</label>
-                                        <input type="number" id="mr-min-profit" class="form-input" value="0.5" step="0.1">
-                                    </div>
-                                </div>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label>매수 단계</label>
-                                        <input type="text" id="mr-buy-tranches" class="form-input" value="25,50,75,100" placeholder="25,50,75,100">
-                                    </div>
-                                    <div class="form-group">
-                                        <label>매도 단계</label>
-                                        <input type="text" id="mr-sell-tranches" class="form-input" value="50,100" placeholder="50,100">
-                                    </div>
-                                </div>
-                                <div class="form-row options-row">
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" id="mr-use-4regime" checked> 4-Regime 사용
-                                    </label>
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" id="mr-r1-pullback" checked> R1 풀백
-                                    </label>
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" id="mr-r3-breakout" checked> R3 브레이크아웃
-                                    </label>
-                                </div>
-                                <div class="form-actions">
-                                    <button class="btn btn-primary" id="btn-mr-add-config">종목 추가</button>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- MR 백테스트 섹션 -->
-                        <div class="mr-backtest card-inner">
-                            <h4>MR 전략 백테스트</h4>
-                            <div class="backtest-form">
-                                <div class="form-row">
-                                    <div class="form-group">
+                        <!-- ③ 기본 설정 (아코디언, 기본 접힘) -->
+                        <div class="mr-section mr-accordion" id="mr-section-settings">
+                            <h3 class="mr-accordion-header">
+                                <span class="mr-accordion-icon">▶</span> 기본 설정
+                            </h3>
+                            <div class="mr-accordion-body" style="display: none;">
+                                <!-- 타임프레임 -->
+                                <div class="mr-row">
+                                    <div class="mr-field">
+                                        <label>시그널 TF</label>
+                                        <select id="mr-signal-tf" class="form-select">
+                                            <option value="15m">15분</option>
+                                            <option value="30m" selected>30분</option>
+                                            <option value="1h">1시간</option>
+                                            <option value="4h">4시간</option>
+                                            <option value="1D">일봉</option>
+                                        </select>
+                                        <span class="mr-help">오실레이터 신호를 계산할 타임프레임</span>
+                                    </div>
+                                    <div class="mr-field">
+                                        <label>HTF (국면 판별)</label>
+                                        <select id="mr-htf" class="form-select">
+                                            <option value="4h">4시간</option>
+                                            <option value="1D" selected>일봉</option>
+                                            <option value="1W">주봉</option>
+                                        </select>
+                                        <span class="mr-help">VWMA50/200, Supertrend 등 국면 지표 계산용</span>
+                                    </div>
+                                </div>
+
+                                <!-- 오실레이터 -->
+                                <div class="mr-row">
+                                    <div class="mr-field">
+                                        <label>오실레이터 스무딩</label>
+                                        <input type="number" id="mr-osc-smooth" class="form-input" value="20" min="2" max="50" step="1">
+                                        <span class="mr-help">smoother 길이 (기본: 20)</span>
+                                    </div>
+                                    <div class="mr-field">
+                                        <label>오실레이터 임계값</label>
+                                        <input type="number" id="mr-osc-threshold" class="form-input" value="1.0" min="0.1" max="5.0" step="0.1">
+                                        <span class="mr-help">신호 발생 기준 (기본: 1.0)</span>
+                                    </div>
+                                </div>
+
+                                <!-- 매도 게이트 -->
+                                <div class="mr-row">
+                                    <div class="mr-field">
+                                        <label>매도허용 최소수익 (%)</label>
+                                        <input type="number" id="mr-min-profit-pct" class="form-input" value="0.1" min="0" max="10" step="0.01">
+                                        <span class="mr-help">이 수익률 이상일 때만 매도 실행</span>
+                                    </div>
+                                    <div class="mr-field">
+                                        <label>매도게이트 버퍼 (%)</label>
+                                        <input type="number" id="mr-fee-buffer-pct" class="form-input" value="0.2" min="0" max="5" step="0.01">
+                                        <span class="mr-help">백테스트 시 최소수익에 합산되는 버퍼</span>
+                                    </div>
+                                </div>
+
+                                <!-- 기타 옵션 -->
+                                <div class="mr-row">
+                                    <div class="mr-field">
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" id="mr-st-reversal-fix" checked>
+                                            HTF Supertrend 반전보정
+                                        </label>
+                                        <span class="mr-help">Supertrend 뒤집힐 때 튀는 값 보정</span>
+                                    </div>
+                                    <div class="mr-field">
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" id="mr-one-trade-per-bar" checked>
+                                            1봉 1주문 락
+                                        </label>
+                                        <span class="mr-help">같은 봉에서 중복 주문 방지</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ④ 매수/매도 차수 + 비중 (아코디언, 기본 접힘) -->
+                        <div class="mr-section mr-accordion" id="mr-section-tranches">
+                            <h3 class="mr-accordion-header">
+                                <span class="mr-accordion-icon">▶</span> 매수/매도 차수 + 비중
+                            </h3>
+                            <div class="mr-accordion-body" style="display: none;">
+                                <!-- 매수 비중 -->
+                                <div class="mr-subsection">
+                                    <h4>매수 비중</h4>
+                                    <div class="mr-row">
+                                        <div class="mr-field">
+                                            <label>매수 차수</label>
+                                            <input type="number" id="mr-buy-tranche-count" class="form-input" value="10" min="1" max="50" step="1">
+                                            <span class="mr-help">차수를 변경하면 비중 입력 칸이 자동 생성됩니다</span>
+                                        </div>
+                                    </div>
+                                    <div id="mr-buy-tranches-container" class="mr-tranches-grid">
+                                        <!-- JavaScript가 동적 생성 -->
+                                    </div>
+                                    <div class="mr-row" style="margin-top: 8px;">
+                                        <div class="mr-field">
+                                            <label>합계: <span id="mr-buy-total-pct">50</span>%</label>
+                                        </div>
+                                    </div>
+                                    <div class="mr-row">
+                                        <div class="mr-field">
+                                            <label>최대 차수 초과 시</label>
+                                            <div class="mr-radio-group">
+                                                <label><input type="radio" name="mr-after-max-buy" value="extend" checked> 반복 (마지막 비중)</label>
+                                                <label><input type="radio" name="mr-after-max-buy" value="cycle"> 처음부터</label>
+                                                <label><input type="radio" name="mr-after-max-buy" value="stop"> 중단</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <hr class="mr-divider">
+
+                                <!-- 매도 비중 -->
+                                <div class="mr-subsection">
+                                    <h4>매도 비중</h4>
+                                    <div class="mr-row">
+                                        <div class="mr-field">
+                                            <label>매도 차수</label>
+                                            <input type="number" id="mr-sell-tranche-count" class="form-input" value="6" min="1" max="20" step="1">
+                                        </div>
+                                    </div>
+                                    <div id="mr-sell-tranches-container" class="mr-tranches-grid">
+                                        <!-- JavaScript가 동적 생성 -->
+                                    </div>
+                                    <div class="mr-row" style="margin-top: 8px;">
+                                        <div class="mr-field">
+                                            <label>합계: <span id="mr-sell-total-pct">68.5</span>%</label>
+                                            <span class="mr-help">보유수량 대비 % (100% 이하 권장)</span>
+                                        </div>
+                                    </div>
+                                    <div class="mr-row">
+                                        <div class="mr-field">
+                                            <label>최대 차수 초과 시</label>
+                                            <div class="mr-radio-group">
+                                                <label><input type="radio" name="mr-after-max-sell" value="cycle" checked> 처음부터</label>
+                                                <label><input type="radio" name="mr-after-max-sell" value="extend"> 반복</label>
+                                                <label><input type="radio" name="mr-after-max-sell" value="stop"> 중단</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ⑤ 국면별 설정 (아코디언 + 내부 탭) -->
+                        <div class="mr-section mr-accordion" id="mr-section-regime">
+                            <h3 class="mr-accordion-header">
+                                <span class="mr-accordion-icon">▶</span> 국면별 설정
+                            </h3>
+                            <div class="mr-accordion-body" style="display: none;">
+                                <!-- 4-Regime 사용 토글 -->
+                                <div class="mr-row" style="margin-bottom: 12px;">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="mr-use-4regime" checked>
+                                        4국면 자동 판별 사용
+                                    </label>
+                                    <span class="mr-help">OFF 시 단일 국면으로 동작 (국면 무시)</span>
+                                </div>
+
+                                <!-- R1~R4 탭 -->
+                                <div class="mr-regime-tabs">
+                                    <button class="mr-regime-tab active" data-regime="r1">R1 상승장</button>
+                                    <button class="mr-regime-tab" data-regime="r2">R2 조정장</button>
+                                    <button class="mr-regime-tab" data-regime="r3">R3 반등장</button>
+                                    <button class="mr-regime-tab" data-regime="r4">R4 하락장</button>
+                                </div>
+
+                                <!-- R1 상승장 -->
+                                <div class="mr-regime-content active" id="mr-regime-r1">
+                                    <p class="mr-regime-desc">정배열(VWMA50>=200) + Supertrend 상승</p>
+                                    <div class="mr-row">
+                                        <div class="mr-field">
+                                            <label>매수 배수</label>
+                                            <input type="number" id="mr-r1-buy-mult" class="form-input" value="1.0" min="0" max="5" step="0.1">
+                                            <span class="mr-help">기본 매수금액 x 이 배수</span>
+                                        </div>
+                                        <div class="mr-field">
+                                            <label>매도 배수</label>
+                                            <input type="number" id="mr-r1-sell-mult" class="form-input" value="1.3" min="0" max="5" step="0.1">
+                                            <span class="mr-help">기본 매도수량 x 이 배수</span>
+                                        </div>
+                                    </div>
+                                    <div class="mr-row">
+                                        <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r1-allow-osc-buy" checked> OSC 매수 허용</label></div>
+                                        <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r1-buy1-only"> BUY1만 허용</label></div>
+                                        <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r1-sell1-only"> SELL1만 허용</label></div>
+                                    </div>
+                                    <div class="mr-row">
+                                        <div class="mr-field">
+                                            <label>매도 방식</label>
+                                            <div class="mr-radio-group">
+                                                <label><input type="radio" name="mr-r1-sell-mode" value="Normal" checked> 일반</label>
+                                                <label><input type="radio" name="mr-r1-sell-mode" value="Alternate"> 교대 (2회 중 1회)</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mr-subsection">
+                                        <h5>필터</h5>
+                                        <div class="mr-row">
+                                            <label class="checkbox-label"><input type="checkbox" id="mr-r1-filt-below-avg" checked> 평단가 이하 매수</label>
+                                            <label class="checkbox-label"><input type="checkbox" id="mr-r1-filt-prev-signal" checked> 직전 신호가보다 낮을 때</label>
+                                            <label class="checkbox-label"><input type="checkbox" id="mr-r1-filt-prev-exec" checked> 직전 체결가보다 낮을 때</label>
+                                        </div>
+                                    </div>
+                                    <div class="mr-subsection">
+                                        <h5>특수 트리거</h5>
+                                        <div class="mr-row">
+                                            <div class="mr-field">
+                                                <label class="checkbox-label"><input type="checkbox" id="mr-r1-pullback-on" checked> 눌림매수 1회</label>
+                                                <span class="mr-help">HULL MA 하락 전환 시 대기 -> OSC 신호 발생하면 1회 추가매수</span>
+                                            </div>
+                                            <div class="mr-field">
+                                                <label>눌림 배수</label>
+                                                <input type="number" id="mr-r1-pullback-mult" class="form-input" value="1.0" min="0" max="5" step="0.1">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- R2 조정장 -->
+                                <div class="mr-regime-content" id="mr-regime-r2" style="display: none;">
+                                    <p class="mr-regime-desc">정배열(VWMA50>=200) + Supertrend 하락</p>
+                                    <div class="mr-row">
+                                        <div class="mr-field">
+                                            <label>매수 배수</label>
+                                            <input type="number" id="mr-r2-buy-mult" class="form-input" value="0.0" min="0" max="5" step="0.1">
+                                            <span class="mr-help">0 = 매수 금지</span>
+                                        </div>
+                                        <div class="mr-field">
+                                            <label>매도 배수</label>
+                                            <input type="number" id="mr-r2-sell-mult" class="form-input" value="1.6" min="0" max="5" step="0.1">
+                                        </div>
+                                    </div>
+                                    <div class="mr-row">
+                                        <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r2-allow-osc-buy"> OSC 매수 허용</label><span class="mr-help">조정장에서는 기본 OFF</span></div>
+                                        <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r2-buy1-only"> BUY1만 허용</label></div>
+                                        <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r2-sell1-only"> SELL1만 허용</label></div>
+                                    </div>
+                                    <div class="mr-row">
+                                        <div class="mr-field">
+                                            <label>매도 방식</label>
+                                            <div class="mr-radio-group">
+                                                <label><input type="radio" name="mr-r2-sell-mode" value="Normal"> 일반</label>
+                                                <label><input type="radio" name="mr-r2-sell-mode" value="Alternate" checked> 교대</label>
+                                            </div>
+                                            <span class="mr-help">조정장에서는 교대매도 기본</span>
+                                        </div>
+                                    </div>
+                                    <div class="mr-subsection">
+                                        <h5>필터</h5>
+                                        <div class="mr-row">
+                                            <label class="checkbox-label"><input type="checkbox" id="mr-r2-filt-below-avg"> 평단가 이하 매수</label>
+                                            <label class="checkbox-label"><input type="checkbox" id="mr-r2-filt-prev-signal"> 직전 신호가보다 낮을 때</label>
+                                            <label class="checkbox-label"><input type="checkbox" id="mr-r2-filt-prev-exec"> 직전 체결가보다 낮을 때</label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- R3 반등장 -->
+                                <div class="mr-regime-content" id="mr-regime-r3" style="display: none;">
+                                    <p class="mr-regime-desc">역배열(VWMA50<200) + Supertrend 상승</p>
+                                    <div class="mr-row">
+                                        <div class="mr-field">
+                                            <label>매수 배수</label>
+                                            <input type="number" id="mr-r3-buy-mult" class="form-input" value="1.0" min="0" max="5" step="0.1">
+                                        </div>
+                                        <div class="mr-field">
+                                            <label>매도 배수</label>
+                                            <input type="number" id="mr-r3-sell-mult" class="form-input" value="1.3" min="0" max="5" step="0.1">
+                                        </div>
+                                    </div>
+                                    <div class="mr-row">
+                                        <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r3-allow-osc-buy" checked> OSC 매수 허용</label></div>
+                                        <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r3-buy1-only" checked> BUY1만 허용 (반복)</label><span class="mr-help">반등장에서 BUY1만 반복</span></div>
+                                        <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r3-sell1-only"> SELL1만 허용</label></div>
+                                    </div>
+                                    <div class="mr-row">
+                                        <div class="mr-field">
+                                            <label>매도 방식</label>
+                                            <div class="mr-radio-group">
+                                                <label><input type="radio" name="mr-r3-sell-mode" value="Normal" checked> 일반</label>
+                                                <label><input type="radio" name="mr-r3-sell-mode" value="Alternate"> 교대</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mr-subsection">
+                                        <h5>필터</h5>
+                                        <div class="mr-row">
+                                            <label class="checkbox-label"><input type="checkbox" id="mr-r3-filt-below-avg"> 평단가 이하 매수</label>
+                                            <label class="checkbox-label"><input type="checkbox" id="mr-r3-filt-prev-signal" checked> 직전 신호가보다 낮을 때</label>
+                                            <label class="checkbox-label"><input type="checkbox" id="mr-r3-filt-prev-exec" checked> 직전 체결가보다 낮을 때</label>
+                                        </div>
+                                    </div>
+                                    <div class="mr-subsection">
+                                        <h5>특수 트리거</h5>
+                                        <div class="mr-row">
+                                            <div class="mr-field">
+                                                <label class="checkbox-label"><input type="checkbox" id="mr-r3-breakout-on" checked> 돌파매수 1회</label>
+                                                <span class="mr-help">종가가 일목 선행스팬B를 상향 돌파 시 1회 추가매수 (음운 조건)</span>
+                                            </div>
+                                            <div class="mr-field">
+                                                <label>돌파 배수</label>
+                                                <input type="number" id="mr-r3-breakout-mult" class="form-input" value="1.0" min="0" max="5" step="0.1">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- R4 하락장 -->
+                                <div class="mr-regime-content" id="mr-regime-r4" style="display: none;">
+                                    <p class="mr-regime-desc">역배열(VWMA50<200) + Supertrend 하락</p>
+                                    <div class="mr-row">
+                                        <div class="mr-field">
+                                            <label>매수 배수</label>
+                                            <input type="number" id="mr-r4-buy-mult" class="form-input" value="1.2" min="0" max="5" step="0.1">
+                                            <span class="mr-help">하락장에서 매수 확대</span>
+                                        </div>
+                                        <div class="mr-field">
+                                            <label>매도 배수</label>
+                                            <input type="number" id="mr-r4-sell-mult" class="form-input" value="0.7" min="0" max="5" step="0.1">
+                                            <span class="mr-help">하락장에서 매도 축소</span>
+                                        </div>
+                                    </div>
+                                    <div class="mr-row">
+                                        <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r4-allow-osc-buy" checked> OSC 매수 허용</label></div>
+                                        <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r4-buy1-only"> BUY1만 허용</label></div>
+                                        <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r4-sell1-only"> SELL1만 허용</label></div>
+                                    </div>
+                                    <div class="mr-row">
+                                        <div class="mr-field">
+                                            <label>매도 방식</label>
+                                            <div class="mr-radio-group">
+                                                <label><input type="radio" name="mr-r4-sell-mode" value="Normal" checked> 일반</label>
+                                                <label><input type="radio" name="mr-r4-sell-mode" value="Alternate"> 교대</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mr-subsection">
+                                        <h5>필터</h5>
+                                        <div class="mr-row">
+                                            <label class="checkbox-label"><input type="checkbox" id="mr-r4-filt-below-avg" checked> 평단가 이하 매수</label>
+                                            <label class="checkbox-label"><input type="checkbox" id="mr-r4-filt-prev-signal" checked> 직전 신호가보다 낮을 때</label>
+                                            <label class="checkbox-label"><input type="checkbox" id="mr-r4-filt-prev-exec"> 직전 체결가보다 낮을 때</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 백테스트 섹션 -->
+                        <div class="mr-section mr-accordion" id="mr-section-backtest">
+                            <h3 class="mr-accordion-header">
+                                <span class="mr-accordion-icon">▶</span> 백테스트
+                            </h3>
+                            <div class="mr-accordion-body" style="display: none;">
+                                <div class="mr-row">
+                                    <div class="mr-field">
                                         <label>백테스트 기간 (일)</label>
                                         <input type="number" id="mr-bt-days" class="form-input" value="365" min="30" max="1000">
                                     </div>
-                                    <div class="form-group">
+                                    <div class="mr-field">
                                         <label>초기 자본</label>
                                         <input type="number" id="mr-bt-capital" class="form-input" value="10000000">
                                     </div>
                                 </div>
                                 <button class="btn btn-primary" id="btn-mr-run-backtest">백테스트 실행</button>
-                            </div>
 
-                            <!-- 백테스트 결과 -->
-                            <div class="backtest-result" id="mr-backtest-result" style="display: none;">
-                                <div class="result-metrics">
-                                    <div class="metric-card">
-                                        <span class="metric-label">총 수익률</span>
-                                        <span class="metric-value" id="mr-bt-total-return">+0.00%</span>
+                                <!-- 백테스트 결과 -->
+                                <div class="backtest-result" id="mr-backtest-result" style="display: none;">
+                                    <div class="result-metrics">
+                                        <div class="metric-card">
+                                            <span class="metric-label">총 수익률</span>
+                                            <span class="metric-value" id="mr-bt-total-return">+0.00%</span>
+                                        </div>
+                                        <div class="metric-card">
+                                            <span class="metric-label">연평균 수익률</span>
+                                            <span class="metric-value" id="mr-bt-cagr">+0.00%</span>
+                                        </div>
+                                        <div class="metric-card">
+                                            <span class="metric-label">최대 낙폭</span>
+                                            <span class="metric-value negative" id="mr-bt-mdd">-0.00%</span>
+                                        </div>
+                                        <div class="metric-card">
+                                            <span class="metric-label">샤프 비율</span>
+                                            <span class="metric-value" id="mr-bt-sharpe">0.00</span>
+                                        </div>
+                                        <div class="metric-card">
+                                            <span class="metric-label">승률</span>
+                                            <span class="metric-value" id="mr-bt-winrate">0.0%</span>
+                                        </div>
+                                        <div class="metric-card">
+                                            <span class="metric-label">총 거래</span>
+                                            <span class="metric-value" id="mr-bt-trades">0회</span>
+                                        </div>
                                     </div>
-                                    <div class="metric-card">
-                                        <span class="metric-label">연평균 수익률</span>
-                                        <span class="metric-value" id="mr-bt-cagr">+0.00%</span>
+                                    <div class="result-chart">
+                                        <canvas id="mr-backtest-chart"></canvas>
                                     </div>
-                                    <div class="metric-card">
-                                        <span class="metric-label">최대 낙폭</span>
-                                        <span class="metric-value negative" id="mr-bt-mdd">-0.00%</span>
-                                    </div>
-                                    <div class="metric-card">
-                                        <span class="metric-label">샤프 비율</span>
-                                        <span class="metric-value" id="mr-bt-sharpe">0.00</span>
-                                    </div>
-                                    <div class="metric-card">
-                                        <span class="metric-label">승률</span>
-                                        <span class="metric-value" id="mr-bt-winrate">0.0%</span>
-                                    </div>
-                                    <div class="metric-card">
-                                        <span class="metric-label">총 거래</span>
-                                        <span class="metric-value" id="mr-bt-trades">0회</span>
-                                    </div>
-                                </div>
-                                <div class="result-chart">
-                                    <canvas id="mr-backtest-chart"></canvas>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- 최근 시그널 -->
-                        <div class="mr-signals card-inner">
-                            <h4>최근 시그널</h4>
-                            <div class="signals-list" id="mr-signals-list">
-                                <p class="empty-state">시그널 기록이 없습니다</p>
-                            </div>
+                        <!-- 하단 액션 버튼 -->
+                        <div class="mr-actions">
+                            <button class="btn btn-secondary" id="btn-mr-backtest-quick">백테스트</button>
+                            <button class="btn btn-primary" id="btn-mr-save">저장</button>
+                            <button class="btn btn-danger" id="btn-mr-start-strategy">전략 시작</button>
                         </div>
                     </section>
 

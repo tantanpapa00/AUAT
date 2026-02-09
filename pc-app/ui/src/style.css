@@ -7288,3 +7288,206 @@ body {
     width: 100% !important;
     height: 100% !important;
 }
+
+/* =====================================================
+   MR (역추세매매) UI 리디자인 스타일
+   ===================================================== */
+
+/* MR 섹션 기본 */
+.mr-section {
+    margin-bottom: 16px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--bg-card2);
+}
+.mr-section-header,
+.mr-accordion-header {
+    padding: 12px 16px;
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    background: rgba(255,255,255,0.05);
+    color: var(--text-primary);
+}
+.mr-section-body,
+.mr-accordion-body {
+    padding: 16px;
+}
+
+/* MR 아코디언 */
+.mr-accordion-header {
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.2s;
+}
+.mr-accordion-header:hover {
+    background: rgba(255,255,255,0.08);
+}
+.mr-accordion-icon {
+    font-size: 12px;
+    transition: transform 0.2s;
+}
+.mr-accordion.open .mr-accordion-icon {
+    transform: rotate(90deg);
+}
+
+/* MR 필드 행 */
+.mr-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+.mr-field {
+    flex: 1;
+    min-width: 150px;
+}
+.mr-field label {
+    display: block;
+    font-size: 13px;
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 4px;
+}
+.mr-field input[type="number"],
+.mr-field select {
+    width: 100%;
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    color: #fff;
+    font-size: 14px;
+}
+.mr-field input[type="number"]:focus,
+.mr-field select:focus {
+    outline: none;
+    border-color: var(--info);
+}
+.mr-help {
+    display: block;
+    font-size: 11px;
+    color: rgba(255,255,255,0.4);
+    margin-top: 2px;
+}
+
+/* MR 트랜치 그리드 */
+.mr-tranches-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-top: 8px;
+}
+@media (max-width: 768px) {
+    .mr-tranches-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+.mr-tranche-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.mr-tranche-item label {
+    font-size: 12px;
+    color: rgba(255,255,255,0.6);
+    min-width: 50px;
+    margin-bottom: 0;
+}
+.mr-tranche-item input {
+    width: 60px;
+    padding: 4px 8px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 4px;
+    color: #fff;
+    font-size: 13px;
+    text-align: center;
+}
+
+/* MR 국면 탭 */
+.mr-regime-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    border-bottom: 2px solid rgba(255,255,255,0.1);
+    padding-bottom: 0;
+}
+.mr-regime-tab {
+    padding: 8px 16px;
+    background: transparent;
+    border: none;
+    color: rgba(255,255,255,0.5);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.2s;
+}
+.mr-regime-tab:hover {
+    color: rgba(255,255,255,0.8);
+}
+.mr-regime-tab.active {
+    color: var(--info);
+    border-bottom-color: var(--info);
+}
+.mr-regime-content {
+    display: none;
+}
+.mr-regime-content.active {
+    display: block;
+}
+.mr-regime-desc {
+    font-size: 12px;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 12px;
+    font-style: italic;
+}
+
+/* MR 라디오/체크박스 그룹 */
+.mr-radio-group {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+.mr-radio-group label,
+.mr-subsection label.checkbox-label {
+    font-size: 13px;
+    color: rgba(255,255,255,0.7);
+    cursor: pointer;
+}
+
+/* MR 서브섹션 */
+.mr-subsection {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+}
+.mr-subsection h4,
+.mr-subsection h5 {
+    font-size: 13px;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+/* MR 구분선 */
+.mr-divider {
+    border: none;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    margin: 16px 0;
+}
+
+/* MR 액션 버튼 */
+.mr-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
