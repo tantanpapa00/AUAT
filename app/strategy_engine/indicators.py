@@ -509,3 +509,287 @@ def crossunder(series1: np.ndarray, series2: np.ndarray) -> np.ndarray:
         Boolean array where True indicates crossunder occurred
     """
     return crossover(series2, series1)
+
+
+# ============================================================
+# Trend Strategy Indicators (Stock Trend Auto v7)
+# ============================================================
+
+def calc_rsi(close: np.ndarray, length: int) -> np.ndarray:
+    """
+    Relative Strength Index.
+
+    PineScript: ta.rsi(close, length)
+
+    Formula:
+        RSI = 100 - 100 / (1 + RS)
+        RS = avg_gain / avg_loss
+
+    Args:
+        close: Close price series
+        length: RSI period
+
+    Returns:
+        RSI values (0-100)
+    """
+    n = len(close)
+    if n < length + 1:
+        return np.full(n, np.nan)
+
+    # Calculate price changes
+    delta = np.diff(close)
+    delta = np.insert(delta, 0, 0)  # Prepend 0 for first element
+
+    gains = np.where(delta > 0, delta, 0.0)
+    losses = np.where(delta < 0, -delta, 0.0)
+
+    # Use RMA (Wilder's smoothing) - alpha = 1/length
+    alpha = 1.0 / length
+
+    avg_gain = np.zeros(n)
+    avg_loss = np.zeros(n)
+
+    # Initial SMA for first 'length' periods
+    if n > length:
+        avg_gain[length] = np.mean(gains[1:length + 1])
+        avg_loss[length] = np.mean(losses[1:length + 1])
+
+        # RMA for subsequent periods
+        for i in range(length + 1, n):
+            avg_gain[i] = alpha * gains[i] + (1 - alpha) * avg_gain[i - 1]
+            avg_loss[i] = alpha * losses[i] + (1 - alpha) * avg_loss[i - 1]
+
+    # Calculate RSI
+    rsi = np.full(n, np.nan)
+    for i in range(length, n):
+        if avg_loss[i] == 0:
+            rsi[i] = 100.0
+        else:
+            rs = avg_gain[i] / avg_loss[i]
+            rsi[i] = 100.0 - (100.0 / (1.0 + rs))
+
+    return rsi
+
+
+def calc_hvi(
+    high: np.ndarray,
+    low: np.ndarray,
+    close: np.ndarray,
+    volume: np.ndarray,
+    length: int = 200,
+    divisor: float = 3.6
+) -> dict:
+    """
+    Historical Volatility Indicator (HVI) by LazyBear.
+
+    PineScript logic from Stock Trend Auto v7:
+        rng = high - low
+        rngAvg = ta.sma(rng, length)
+        volA = ta.sma(volume, length)
+
+        high1 = high[1], low1 = low[1], mid1 = hl2[1]
+        u1 = mid1 + (high1 - low1) / divisor
+        d1 = mid1 - (high1 - low1) / divisor
+
+        r_enabled = (rng > rngAvg and close < d1 and volume > volA) or (close < mid1)
+        g_enabled = (close > mid1) or (rng > rngAvg and close > u1 and volume > volA)
+                    or (high > high1 and rng < rngAvg/1.5 and volume < volA)
+                    or (low < low1 and rng < rngAvg/1.5 and volume > volA)
+
+    Args:
+        high: High price series
+        low: Low price series
+        close: Close price series
+        volume: Volume series
+        length: HVI length (default 200)
+        divisor: Range divisor (default 3.6)
+
+    Returns:
+        dict with:
+            - 'g_enabled': np.ndarray(bool) - Green enabled (bullish)
+            - 'r_enabled': np.ndarray(bool) - Red enabled (bearish)
+            - 'gr_enabled': np.ndarray(bool) - Gray enabled (neutral)
+    """
+    n = len(close)
+    if n < length + 1:
+        return {
+            'g_enabled': np.full(n, False),
+            'r_enabled': np.full(n, False),
+            'gr_enabled': np.full(n, False),
+        }
+
+    # Range and averages
+    rng = high - low
+    rng_avg = calc_sma(rng, length)
+    vol_avg = calc_sma(volume, length)
+
+    # Previous bar values (shifted by 1)
+    high1 = np.roll(high, 1)
+    low1 = np.roll(low, 1)
+    mid1 = (high1 + low1) / 2
+    high1[0] = np.nan
+    low1[0] = np.nan
+    mid1[0] = np.nan
+
+    # Upper and lower thresholds
+    range1 = high1 - low1
+    u1 = mid1 + range1 / divisor
+    d1 = mid1 - range1 / divisor
+
+    # Red (bearish) conditions
+    r_enabled1 = (rng > rng_avg) & (close < d1) & (volume > vol_avg)
+    r_enabled2 = close < mid1
+    r_enabled = r_enabled1 | r_enabled2
+
+    # Green (bullish) conditions
+    g_enabled1 = close > mid1
+    g_enabled2 = (rng > rng_avg) & (close > u1) & (volume > vol_avg)
+    g_enabled3 = (high > high1) & (rng < rng_avg / 1.5) & (volume < vol_avg)
+    g_enabled4 = (low < low1) & (rng < rng_avg / 1.5) & (volume > vol_avg)
+    g_enabled = g_enabled1 | g_enabled2 | g_enabled3 | g_enabled4
+
+    # Gray (neutral) conditions
+    gr_enabled1 = (rng > rng_avg) & (close > d1) & (close < u1) & (volume > vol_avg) & \
+                  (volume < vol_avg * 1.5) & (volume > np.roll(volume, 1))
+    gr_enabled2 = (rng < rng_avg / 1.5) & (volume < vol_avg / 1.5)
+    gr_enabled3 = (close > d1) & (close < u1)
+    gr_enabled = gr_enabled1 | gr_enabled2 | gr_enabled3
+
+    # Handle NaN values
+    g_enabled = np.where(np.isnan(rng_avg) | np.isnan(vol_avg), False, g_enabled)
+    r_enabled = np.where(np.isnan(rng_avg) | np.isnan(vol_avg), False, r_enabled)
+    gr_enabled = np.where(np.isnan(rng_avg) | np.isnan(vol_avg), False, gr_enabled)
+
+    return {
+        'g_enabled': g_enabled.astype(bool),
+        'r_enabled': r_enabled.astype(bool),
+        'gr_enabled': gr_enabled.astype(bool),
+    }
+
+
+def calc_qqe_mod(
+    close: np.ndarray,
+    rsi_length: int = 6,
+    rsi_smoothing: int = 5,
+    qqe_factor: float = 3.0
+) -> dict:
+    """
+    QQE MOD (Quantitative Qualitative Estimation) indicator.
+
+    PineScript logic from Stock Trend Auto v7:
+        calculateQQE(rsiLength, smoothingFactor, qqeFactor, source) =>
+            wildersLength = rsiLength * 2 - 1
+            rsi = ta.rsi(source, rsiLength)
+            smoothedRsi = ta.ema(rsi, smoothingFactor)
+            atrRsi = math.abs(smoothedRsi[1] - smoothedRsi)
+            smoothedAtrRsi = ta.ema(atrRsi, wildersLength)
+            dynamicAtrRsi = smoothedAtrRsi * qqeFactor
+
+            longBand/shortBand trailing logic...
+            trendDirection based on crossovers...
+
+        qqePos = primaryRSI > 50
+
+    Args:
+        close: Close price series
+        rsi_length: RSI period (default 6)
+        rsi_smoothing: RSI EMA smoothing (default 5)
+        qqe_factor: QQE factor (default 3.0)
+
+    Returns:
+        dict with:
+            - 'primary_rsi': np.ndarray - Smoothed RSI values
+            - 'qqe_line': np.ndarray - QQE trend line
+            - 'is_positive': np.ndarray(bool) - primaryRSI > 50
+            - 'trend_dir': np.ndarray - Trend direction (1=up, -1=down)
+    """
+    n = len(close)
+    wilders_length = rsi_length * 2 - 1
+
+    if n < max(rsi_length, rsi_smoothing, wilders_length) + 10:
+        return {
+            'primary_rsi': np.full(n, np.nan),
+            'qqe_line': np.full(n, np.nan),
+            'is_positive': np.full(n, False),
+            'trend_dir': np.zeros(n, dtype=int),
+        }
+
+    # Step 1: Calculate RSI
+    rsi = calc_rsi(close, rsi_length)
+
+    # Step 2: Smooth RSI with EMA
+    smoothed_rsi = calc_ema(rsi, rsi_smoothing)
+
+    # Step 3: ATR of RSI (absolute difference)
+    atr_rsi = np.zeros(n)
+    for i in range(1, n):
+        if not np.isnan(smoothed_rsi[i]) and not np.isnan(smoothed_rsi[i - 1]):
+            atr_rsi[i] = abs(smoothed_rsi[i] - smoothed_rsi[i - 1])
+
+    # Step 4: Smooth ATR RSI
+    smoothed_atr_rsi = calc_ema(atr_rsi, wilders_length)
+
+    # Step 5: Dynamic ATR RSI
+    dynamic_atr_rsi = smoothed_atr_rsi * qqe_factor
+
+    # Step 6: Calculate bands with trailing logic
+    long_band = np.zeros(n)
+    short_band = np.zeros(n)
+    trend_dir = np.zeros(n, dtype=int)
+    qqe_line = np.zeros(n)
+
+    for i in range(1, n):
+        if np.isnan(smoothed_rsi[i]) or np.isnan(dynamic_atr_rsi[i]):
+            long_band[i] = long_band[i - 1]
+            short_band[i] = short_band[i - 1]
+            trend_dir[i] = trend_dir[i - 1]
+            qqe_line[i] = qqe_line[i - 1]
+            continue
+
+        new_long_band = smoothed_rsi[i] - dynamic_atr_rsi[i]
+        new_short_band = smoothed_rsi[i] + dynamic_atr_rsi[i]
+
+        # Long band: trailing up
+        if smoothed_rsi[i - 1] > long_band[i - 1] and smoothed_rsi[i] > long_band[i - 1]:
+            long_band[i] = max(long_band[i - 1], new_long_band)
+        else:
+            long_band[i] = new_long_band
+
+        # Short band: trailing down
+        if smoothed_rsi[i - 1] < short_band[i - 1] and smoothed_rsi[i] < short_band[i - 1]:
+            short_band[i] = min(short_band[i - 1], new_short_band)
+        else:
+            short_band[i] = new_short_band
+
+        # Trend direction based on crossovers
+        # Cross above short band -> trend up
+        if smoothed_rsi[i] > short_band[i - 1] and smoothed_rsi[i - 1] <= short_band[i - 1]:
+            trend_dir[i] = 1
+        # Cross below long band -> trend down
+        elif smoothed_rsi[i] < long_band[i - 1] and smoothed_rsi[i - 1] >= long_band[i - 1]:
+            trend_dir[i] = -1
+        else:
+            trend_dir[i] = trend_dir[i - 1]
+
+        # QQE line follows the appropriate band
+        qqe_line[i] = long_band[i] if trend_dir[i] == 1 else short_band[i]
+
+    # Is positive: primaryRSI > 50
+    is_positive = smoothed_rsi > 50
+
+    return {
+        'primary_rsi': smoothed_rsi,
+        'qqe_line': qqe_line,
+        'is_positive': np.where(np.isnan(smoothed_rsi), False, is_positive).astype(bool),
+        'trend_dir': trend_dir,
+    }
+
+
+def calc_vwma_simple(close: np.ndarray, volume: np.ndarray, length: int) -> np.ndarray:
+    """
+    Simple VWMA for HTF data without numpy volume check.
+
+    Same as calc_vwma but with simpler handling.
+    Used for HTF VWMA(156) calculation.
+    """
+    return calc_vwma(close, volume, length)

@@ -31,12 +31,23 @@ from .models import (
     HTFIndicators,
     OscillatorData,
 )
-from .indicators import calc_spo
+from .indicators import (
+    calc_spo,
+    calc_supertrend,
+    calc_hvi,
+    calc_qqe_mod,
+    calc_vwma,
+)
 from .regime_detector import detect_regime, calc_htf_indicators
 from .signal_generator import (
     calc_osc_data,
     generate_mr_signal,
     update_state_after_execution,
+)
+from .signal_generator_trend import (
+    TrendConfig,
+    TrendState,
+    generate_trend_signal,
 )
 from .position_manager import (
     PositionInfo,
@@ -425,3 +436,210 @@ async def save_signal_event(
     except Exception as e:
         logger.error(f"Failed to save signal: {e}")
         return False
+
+
+# ============================================================
+# Trend Strategy Processing
+# ============================================================
+
+async def process_asset_trend(
+    asset_id: int,
+    symbol: str,
+    exchange: str,
+    config: TrendConfig,
+    state: TrendState,
+    position: PositionInfo,
+    equity: float,
+) -> Tuple[Optional[SignalEvent], Optional[SignalSnapshot], TrendState]:
+    """
+    Process a single asset for Trend strategy signal generation.
+
+    Args:
+        asset_id: Asset ID
+        symbol: Trading symbol
+        exchange: Exchange name
+        config: Trend strategy configuration
+        state: Current trend strategy state
+        position: Current position info
+        equity: Account equity
+
+    Returns:
+        Tuple of (signal_event, snapshot, updated_state)
+    """
+    cache = get_candle_cache()
+    current_ts = int(datetime.now(timezone.utc).timestamp() * 1000)
+
+    # 1. Fetch entry_tf candles
+    entry_candles = await cache.get_candles(
+        exchange=exchange,
+        symbol=symbol,
+        timeframe=config.entry_tf,
+        count=350,
+    )
+
+    if entry_candles.count < 250:
+        logger.warning(f"Insufficient entry candles for {symbol}: {entry_candles.count}")
+        return None, None, state
+
+    # 2. Fetch exit_tf candles (may be same as entry_tf)
+    if config.exit_tf == config.entry_tf:
+        exit_candles = entry_candles
+    else:
+        exit_candles = await cache.get_candles(
+            exchange=exchange,
+            symbol=symbol,
+            timeframe=config.exit_tf,
+            count=350,
+        )
+
+    if exit_candles.count < 250:
+        logger.warning(f"Insufficient exit candles for {symbol}: {exit_candles.count}")
+        return None, None, state
+
+    # 3. Fetch HTF candles for VWMA
+    htf_candles = await cache.get_candles(
+        exchange=exchange,
+        symbol=symbol,
+        timeframe=config.htf_tf,
+        count=200,  # Need 156+ for VWMA
+    )
+
+    if htf_candles.count < config.htf_vwma_len:
+        logger.warning(f"Insufficient HTF candles for {symbol}: {htf_candles.count}")
+        return None, None, state
+
+    # 4. Calculate Entry indicators (entry_tf)
+    entry_st_value, entry_st_dir = calc_supertrend(
+        entry_candles.highs, entry_candles.lows, entry_candles.closes,
+        config.st_atr_len, config.st_factor
+    )
+
+    entry_hvi = calc_hvi(
+        entry_candles.highs, entry_candles.lows, entry_candles.closes,
+        entry_candles.volumes, config.hvi_length, config.hvi_divisor
+    )
+
+    entry_qqe = calc_qqe_mod(
+        entry_candles.closes,
+        config.qqe_rsi_length, config.qqe_rsi_smoothing, config.qqe_factor
+    )
+
+    # 5. Calculate HTF VWMA
+    htf_vwma = calc_vwma(htf_candles.closes, htf_candles.volumes, config.htf_vwma_len)
+
+    # 6. Calculate Exit indicators (exit_tf)
+    exit_st_value, exit_st_dir = calc_supertrend(
+        exit_candles.highs, exit_candles.lows, exit_candles.closes,
+        config.exit_st_atr_len, config.exit_st_factor
+    )
+
+    exit_spo = calc_spo(
+        exit_candles.closes,
+        smooth_len=config.exit_spo_smooth_len,
+        threshold=config.exit_spo_threshold,
+        std_len=config.exit_spo_std_len,
+        hma_len=config.exit_spo_hma_len,
+    )
+    exit_spo_norm = exit_spo[0]  # normalized_osc
+
+    # 7. Update state with position info
+    state.in_position = position.has_position
+    if position.has_position:
+        state.position_qty = position.quantity
+        if state.entry_price == 0:
+            state.entry_price = position.avg_price
+
+    # 8. Generate signal
+    signal_result, new_state = generate_trend_signal(
+        entry_close=entry_candles.closes,
+        entry_st_dir=entry_st_dir,
+        entry_hvi=entry_hvi,
+        entry_qqe=entry_qqe,
+        htf_vwma=htf_vwma,
+        exit_close=exit_candles.closes,
+        exit_st_dir=exit_st_dir,
+        exit_spo_norm=exit_spo_norm,
+        config=config,
+        state=state,
+        current_ts=current_ts,
+    )
+
+    # 9. If no actionable signal, return early
+    if signal_result.action == "hold":
+        return None, None, new_state
+
+    # 10. Create signal event and snapshot
+    signal_id = generate_signal_id(asset_id, current_ts)
+    snapshot_id = generate_snapshot_id(asset_id, current_ts)
+
+    # Determine side
+    side = "entry" if signal_result.action == "buy" else "exit"
+
+    # TF warning for short timeframes
+    tf_warning = config.entry_tf in ["1m", "3m", "5m"]
+
+    # Current candle OHLCV
+    ohlcv = {
+        "o": float(entry_candles.opens[-1]),
+        "h": float(entry_candles.highs[-1]),
+        "l": float(entry_candles.lows[-1]),
+        "c": float(entry_candles.closes[-1]),
+        "v": float(entry_candles.volumes[-1]),
+    }
+
+    # Indicator snapshot
+    indicators = {
+        "entry_st_dir": int(entry_st_dir[-1]),
+        "hvi_green": bool(entry_hvi['g_enabled'][-1]) if len(entry_hvi['g_enabled']) > 0 else False,
+        "qqe_positive": bool(entry_qqe['is_positive'][-1]) if len(entry_qqe['is_positive']) > 0 else False,
+        "htf_vwma": float(htf_vwma[-1]) if not np.isnan(htf_vwma[-1]) else 0.0,
+        "exit_st_dir": int(exit_st_dir[-1]),
+        "exit_spo_norm": float(exit_spo_norm[-1]) if not np.isnan(exit_spo_norm[-1]) else 0.0,
+    }
+
+    signal_event = SignalEvent(
+        signal_id=signal_id,
+        asset_id=asset_id,
+        symbol=symbol,
+        exchange=exchange,
+        market="spot",
+        side=side,
+        action=signal_result.action,
+        premium_mode="trend",
+        params_version="v1.0",
+        reason_code=signal_result.reason_code,
+        reason_text=signal_result.reason_text,
+        snapshot_id=snapshot_id,
+        tf=config.entry_tf,
+        tf_warning=tf_warning,
+        price_hint=float(entry_candles.closes[-1]),
+        tranche=new_state.sell_stage if signal_result.action == "sell" else 0,
+        tranche_pct=signal_result.tranche_pct,
+        regime=0,  # Trend doesn't use regime
+        ts=current_ts,
+        created_at=datetime.now(timezone.utc),
+    )
+
+    snapshot = SignalSnapshot(
+        snapshot_id=snapshot_id,
+        signal_id=signal_id,
+        asset_id=asset_id,
+        symbol=symbol,
+        exchange=exchange,
+        ts=current_ts,
+        tf=config.entry_tf,
+        ohlcv=ohlcv,
+        indicators=indicators,
+        premium_mode="trend",
+        params_version="v1.0",
+        reason_code=signal_result.reason_code,
+        reason_text=signal_result.reason_text,
+        created_at=datetime.now(timezone.utc),
+    )
+
+    logger.info(
+        f"Trend Signal: {signal_id} | {symbol} | {signal_result.action} | "
+        f"{signal_result.reason_code}"
+    )
+
+    return signal_event, snapshot, new_state

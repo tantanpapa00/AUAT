@@ -3340,3 +3340,116 @@ pub async fn run_mr_backtest(
         Err(format!("백테스트 실행 실패: {}", error_text))
     }
 }
+
+// ============================================================================
+// Trend Backtest Command (추세매매)
+// ============================================================================
+
+#[tauri::command]
+pub async fn run_trend_backtest(
+    access_token: String,
+    exchange: String,
+    symbol: String,
+    entry_tf: Option<String>,
+    exit_tf: Option<String>,
+    htf_tf: Option<String>,
+    days: Option<i32>,
+    initial_capital: Option<f64>,
+    // Entry 지표
+    st_atr_len: Option<i32>,
+    st_factor: Option<f64>,
+    hvi_length: Option<i32>,
+    hvi_divisor: Option<f64>,
+    qqe_rsi_length: Option<i32>,
+    qqe_rsi_smoothing: Option<i32>,
+    qqe_factor: Option<f64>,
+    htf_vwma_len: Option<i32>,
+    // Exit 지표
+    exit_st_atr_len: Option<i32>,
+    exit_st_factor: Option<f64>,
+    exit_spo_smooth_len: Option<i32>,
+    exit_spo_threshold: Option<f64>,
+    exit_spo_std_len: Option<i32>,
+    exit_spo_hma_len: Option<i32>,
+    // Exit 조건
+    hard_sl_pct: Option<f64>,
+    tp1_pct: Option<f64>,
+    tp1_sell_pct: Option<f64>,
+    use_spo_split: Option<bool>,
+    use_st_flip_exit: Option<bool>,
+    // 분할매도
+    sell_tranches: Option<Vec<f64>>,
+    max_sell_tranches: Option<i32>,
+    after_max_sell: Option<String>,
+    // 익절 게이트
+    use_profit_gate: Option<bool>,
+    min_profit_pct: Option<f64>,
+    fee_buffer_pct: Option<f64>,
+    // 포지션
+    cash_use_pct: Option<f64>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .unwrap();
+    let url = format!("{}/api/premium/backtest/trend", VPS_SERVER_URL);
+
+    let body = serde_json::json!({
+        "exchange": exchange,
+        "symbol": symbol,
+        "entry_tf": entry_tf.unwrap_or_else(|| "1D".to_string()),
+        "exit_tf": exit_tf.unwrap_or_else(|| "1D".to_string()),
+        "htf_tf": htf_tf.unwrap_or_else(|| "1W".to_string()),
+        "days": days.unwrap_or(365),
+        "initial_capital": initial_capital.unwrap_or(10000000.0),
+        // Entry 지표
+        "st_atr_len": st_atr_len.unwrap_or(10),
+        "st_factor": st_factor.unwrap_or(3.0),
+        "hvi_length": hvi_length.unwrap_or(200),
+        "hvi_divisor": hvi_divisor.unwrap_or(3.6),
+        "qqe_rsi_length": qqe_rsi_length.unwrap_or(6),
+        "qqe_rsi_smoothing": qqe_rsi_smoothing.unwrap_or(5),
+        "qqe_factor": qqe_factor.unwrap_or(3.0),
+        "htf_vwma_len": htf_vwma_len.unwrap_or(156),
+        // Exit 지표
+        "exit_st_atr_len": exit_st_atr_len.unwrap_or(10),
+        "exit_st_factor": exit_st_factor.unwrap_or(3.0),
+        "exit_spo_smooth_len": exit_spo_smooth_len.unwrap_or(4),
+        "exit_spo_threshold": exit_spo_threshold.unwrap_or(1.0),
+        "exit_spo_std_len": exit_spo_std_len.unwrap_or(50),
+        "exit_spo_hma_len": exit_spo_hma_len.unwrap_or(30),
+        // Exit 조건
+        "hard_sl_pct": hard_sl_pct.unwrap_or(7.0),
+        "tp1_pct": tp1_pct.unwrap_or(21.0),
+        "tp1_sell_pct": tp1_sell_pct.unwrap_or(50.0),
+        "use_spo_split": use_spo_split.unwrap_or(true),
+        "use_st_flip_exit": use_st_flip_exit.unwrap_or(true),
+        // 분할매도
+        "sell_tranches": sell_tranches.unwrap_or_else(|| vec![10.0, 20.0, 30.0, 5.0, 2.5, 1.0]),
+        "max_sell_tranches": max_sell_tranches.unwrap_or(6),
+        "after_max_sell": after_max_sell.unwrap_or_else(|| "cycle".to_string()),
+        // 익절 게이트
+        "use_profit_gate": use_profit_gate.unwrap_or(true),
+        "min_profit_pct": min_profit_pct.unwrap_or(0.10),
+        "fee_buffer_pct": fee_buffer_pct.unwrap_or(0.20),
+        // 포지션
+        "cash_use_pct": cash_use_pct.unwrap_or(100.0),
+    });
+
+    let resp = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .json(&body)
+        .timeout(std::time::Duration::from_secs(60))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        let error_text = resp.text().await.unwrap_or_default();
+        Err(format!("추세매매 백테스트 실행 실패: {}", error_text))
+    }
+}

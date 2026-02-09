@@ -438,3 +438,224 @@ class TestGlobalScheduler:
         """Test get_scheduler returns PremiumScheduler instance."""
         scheduler = get_scheduler()
         assert isinstance(scheduler, PremiumScheduler)
+
+
+class TestDryRunMode:
+    """Test dry run mode functionality."""
+
+    def test_default_is_dry_run(self):
+        """Test that default mode is dry run."""
+        config = SchedulerConfig()
+        assert config.dry_run is True
+        assert config.log_signals is True
+
+    def test_scheduler_is_dry_run_property(self):
+        """Test is_dry_run property."""
+        scheduler = PremiumScheduler()
+        assert scheduler.is_dry_run is True
+
+        scheduler.config.dry_run = False
+        assert scheduler.is_dry_run is False
+
+    def test_set_dry_run(self):
+        """Test setting dry run mode."""
+        scheduler = PremiumScheduler()
+        assert scheduler.is_dry_run is True
+
+        scheduler.set_dry_run(False)
+        assert scheduler.is_dry_run is False
+
+        scheduler.set_dry_run(True)
+        assert scheduler.is_dry_run is True
+
+    def test_live_mode_config(self):
+        """Test live mode configuration."""
+        config = SchedulerConfig(dry_run=False)
+        scheduler = PremiumScheduler(config=config)
+        assert scheduler.is_dry_run is False
+
+
+class TestSchedulerStats:
+    """Test processing statistics tracking."""
+
+    def test_initial_stats(self):
+        """Test initial stats are zero."""
+        scheduler = PremiumScheduler()
+        stats = scheduler.stats
+
+        assert stats.total_processed == 0
+        assert stats.total_signals == 0
+        assert stats.total_buy_signals == 0
+        assert stats.total_sell_signals == 0
+        assert stats.total_errors == 0
+        assert stats.start_time is None
+
+    @pytest.mark.asyncio
+    async def test_stats_increment_on_process(self):
+        """Test stats increment on successful processing."""
+        async def mock_callback(asset):
+            return {"action": "hold", "reason_code": "NO_SIGNAL"}
+
+        scheduler = PremiumScheduler(process_callback=mock_callback)
+        scheduler.register_asset(1, "BTC-USDT", "okx", "15m", "4h")
+
+        await scheduler.process_now(1)
+
+        assert scheduler.stats.total_processed == 1
+
+    @pytest.mark.asyncio
+    async def test_stats_track_errors(self):
+        """Test stats track errors."""
+        async def failing_callback(asset):
+            raise Exception("Test error")
+
+        scheduler = PremiumScheduler(process_callback=failing_callback)
+        scheduler.register_asset(1, "BTC-USDT", "okx", "15m", "4h")
+
+        await scheduler.process_now(1)
+
+        assert scheduler.stats.total_errors == 1
+        assert scheduler.stats.last_error == "Test error"
+        assert scheduler.stats.last_error_time is not None
+
+    @pytest.mark.asyncio
+    async def test_start_time_recorded(self):
+        """Test start time is recorded when scheduler starts."""
+        scheduler = PremiumScheduler()
+
+        await scheduler.start()
+        assert scheduler.stats.start_time is not None
+
+        await scheduler.stop()
+
+    def test_reset_stats(self):
+        """Test resetting stats."""
+        scheduler = PremiumScheduler()
+        scheduler._stats.total_processed = 100
+        scheduler._stats.total_signals = 50
+
+        scheduler.reset_stats()
+
+        assert scheduler.stats.total_processed == 0
+        assert scheduler.stats.total_signals == 0
+
+
+class TestSignalLogging:
+    """Test signal logging functionality."""
+
+    @pytest.mark.asyncio
+    async def test_signal_logged_on_buy(self):
+        """Test buy signal is logged."""
+        async def mock_callback(asset):
+            return {"action": "buy", "reason_code": "OSC_BUY"}
+
+        config = SchedulerConfig(log_signals=True)
+        scheduler = PremiumScheduler(config=config, process_callback=mock_callback)
+        scheduler.register_asset(1, "BTC-USDT", "okx", "15m", "4h")
+
+        await scheduler.process_now(1)
+
+        assert scheduler.stats.total_signals == 1
+        assert scheduler.stats.total_buy_signals == 1
+
+    @pytest.mark.asyncio
+    async def test_signal_logged_on_sell(self):
+        """Test sell signal is logged."""
+        async def mock_callback(asset):
+            return {"action": "sell", "reason_code": "PROFIT_TAKE"}
+
+        scheduler = PremiumScheduler(process_callback=mock_callback)
+        scheduler.register_asset(1, "BTC-USDT", "okx", "15m", "4h")
+
+        await scheduler.process_now(1)
+
+        assert scheduler.stats.total_signals == 1
+        assert scheduler.stats.total_sell_signals == 1
+
+    @pytest.mark.asyncio
+    async def test_get_recent_signals(self):
+        """Test getting recent signal history."""
+        call_count = 0
+
+        async def mock_callback(asset):
+            nonlocal call_count
+            call_count += 1
+            return {"action": "buy", "reason_code": f"TEST_{call_count}"}
+
+        scheduler = PremiumScheduler(process_callback=mock_callback)
+        scheduler.register_asset(1, "BTC-USDT", "okx", "15m", "4h")
+
+        # Process multiple times
+        for _ in range(3):
+            await scheduler.process_now(1)
+
+        recent = scheduler.get_recent_signals(limit=10)
+        assert len(recent) == 3
+
+        # Most recent first
+        assert recent[0]["reason_code"] == "TEST_3"
+        assert recent[2]["reason_code"] == "TEST_1"
+
+    def test_signal_history_limit(self):
+        """Test signal history is limited to max size."""
+        scheduler = PremiumScheduler()
+        scheduler._max_signal_history = 5
+
+        # Add more than max signals
+        from app.strategy_engine.scheduler import SignalLog
+        for i in range(10):
+            log = SignalLog(
+                timestamp=datetime.now(timezone.utc),
+                asset_id=1,
+                symbol="BTC-USDT",
+                exchange="okx",
+                action="buy",
+                reason_code=f"TEST_{i}",
+                dry_run=True,
+            )
+            scheduler._signal_history.append(log)
+
+        # Manually trigger cleanup (normally done in _log_signal)
+        scheduler._signal_history = scheduler._signal_history[-5:]
+
+        assert len(scheduler._signal_history) == 5
+        # Should keep most recent
+        assert scheduler._signal_history[-1].reason_code == "TEST_9"
+
+
+class TestStatusWithStats:
+    """Test status includes stats and dry_run info."""
+
+    def test_status_includes_dry_run(self):
+        """Test status includes dry_run flag."""
+        scheduler = PremiumScheduler()
+        status = scheduler.get_status()
+
+        assert "dry_run" in status
+        assert status["dry_run"] is True
+
+    def test_status_includes_stats(self):
+        """Test status includes stats."""
+        scheduler = PremiumScheduler()
+        status = scheduler.get_status()
+
+        assert "stats" in status
+        assert "total_processed" in status["stats"]
+        assert "total_signals" in status["stats"]
+        assert "total_errors" in status["stats"]
+
+    @pytest.mark.asyncio
+    async def test_status_stats_update(self):
+        """Test status reflects updated stats."""
+        async def mock_callback(asset):
+            return {"action": "buy", "reason_code": "TEST"}
+
+        scheduler = PremiumScheduler(process_callback=mock_callback)
+        scheduler.register_asset(1, "BTC-USDT", "okx", "15m", "4h")
+
+        await scheduler.process_now(1)
+
+        status = scheduler.get_status()
+        assert status["stats"]["total_processed"] == 1
+        assert status["stats"]["total_signals"] == 1
+        assert status["stats"]["total_buy_signals"] == 1

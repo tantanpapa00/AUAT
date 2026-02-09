@@ -175,6 +175,8 @@ fn main() {
             commands::get_signal_events,
             // MR Backtest (Phase 5)
             commands::run_mr_backtest,
+            // Trend Backtest (추세매매)
+            commands::run_trend_backtest,
         ])
         .setup(|app| {
             // 앱 시작 시 VPS 서버 연결 확인 (로컬 서버 시작 없음)

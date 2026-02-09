@@ -14,6 +14,8 @@
 - Day 10: DONE (홈 대시보드 개선 - 거래내역 + 활성전략 관리)
 - Day 11: DONE (역추세매매 프리미엄 엔진 Phase 1 - 지표 파이썬 재구현)
 - Day 12: DONE (역추세매매 프리미엄 엔진 Phase 2~5 - 시세/실행/스케줄러/API/UI/백테스트)
+- Day 13: DONE (역추세매매 프리미엄 엔진 Phase 6 - 라이브 테스트 준비)
+- Day 14: DONE (추세매매 프리미엄 엔진 - HVI/QQE/백테스트/API)
 
 ## Quick Commands
 - Syntax: `python -m compileall app`
@@ -248,6 +250,136 @@ pub async fn delete_asset(access_token: String, asset_id: i64) -> Result<serde_j
 - `96215bb` fix: PC앱 홈 레이아웃 위아래 배치 + 버튼 텍스트 변경
 - `fda77a6` fix: toggleAsset/deleteAsset window에 등록 (Vite 모듈 스코프)
 
+## 역추세매매(MR) 프리미엄 엔진 - 전체 요약
+
+### Phase 요약 (MR 엔진)
+| Phase | 내용 | 파일 수 | 테스트 |
+|-------|------|--------|--------|
+| Phase 1 | 지표 파이썬 재구현 (SPO/HMA/Ichimoku/Supertrend) | 6개 | 47개 |
+| Phase 2 | 시세/실행 모듈 (Candle/Position/Hub) | 4개 | +60개 |
+| Phase 3 | 스케줄러 + FastAPI | 2개 | +58개 |
+| Phase 4 | PC앱 UI (Rust 13개 + JS) | - | - |
+| Phase 5 | 백테스트 엔진 | 1개 | +20개 |
+| Phase 6 | 라이브 테스트 준비 (DRY-RUN) | 1개 | +31개 |
+| **MR 소계** | - | **14개** | **216개** |
+
+### Phase 요약 (Trend 엔진)
+| Phase | 내용 | 파일 | 테스트 |
+|-------|------|------|--------|
+| Phase 1 | 지표 추가 (RSI/HVI/QQE) | indicators.py | +22개 |
+| Phase 2 | 신호 생성기 | signal_generator_trend.py | +20개 |
+| Phase 3 | 백테스트 엔진 | backtest_engine_trend.py | +27개 |
+| Phase 4 | DB + Hub 확장 | migrate_trend_tables.sql, hub_integration.py | - |
+| Phase 5 | API + Rust | premium_routes.py, commands.rs | - |
+| **Trend 소계** | - | **5개** | **69개** |
+
+### 전체 현황
+| 엔진 | 테스트 | 비고 |
+|------|--------|------|
+| MR (역추세매매) | 216개 | 4국면 매매 |
+| Trend (추세매매) | 69개 | HVI+QQE+VWMA |
+| **총합** | **285개** | - |
+
+### 파일 구조 (MR + Trend 통합)
+```
+app/strategy_engine/
+├── __init__.py              # 모듈 초기화
+├── presets.py               # OSC_PRESETS, HTF_DEFAULTS
+├── models.py                # Candle, SignalResult, MRConfig, StrategyState
+├── indicators.py            # SPO, VWMA, HMA, Ichimoku, Supertrend, RSI, HVI, QQE
+├── regime_detector.py       # 4국면 판별 (R1~R4)
+├── signal_generator.py      # MR 매수/매도 신호 생성
+├── signal_generator_trend.py # Trend 매수/매도 신호 생성
+├── candle_fetcher.py        # 거래소 OHLCV 조회 + 캐시
+├── position_manager.py      # 트랜치 기반 포지션 계산
+├── hub_integration.py       # 시그널 → 주문 브릿지 (MR + Trend)
+├── scheduler.py             # 봉 확정 주기 스케줄러
+├── backtest_engine.py       # MR 백테스트 엔진
+└── backtest_engine_trend.py # Trend 백테스트 엔진
+
+app/premium_routes.py        # FastAPI 프리미엄 API (/backtest/mr, /backtest/trend)
+
+scripts/
+├── migrate_premium_tables.sql  # MR DB 마이그레이션
+├── migrate_trend_tables.sql    # Trend DB 마이그레이션
+└── validate_live.py            # 라이브 검증 스크립트
+```
+
+### 아키텍처 (MR + Trend)
+```
+┌─────────────────────────────────────────────────────────────┐
+│                       PC앱 (Tauri)                          │
+│  MR 엔진 탭 │ Trend 엔진 탭 │ 백테스트 UI │ 시그널 모니터링 │
+└────────────────────────┬────────────────────────────────────┘
+                         │ Rust Commands (15개)
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│                FastAPI (premium_routes.py)                  │
+│  /configs │ /scheduler │ /backtest/mr │ /backtest/trend     │
+└────────────────────────┬────────────────────────────────────┘
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│                     Strategy Engine                         │
+│  ┌────────────┐  ┌────────────┐  ┌────────────────────────┐ │
+│  │ Indicators │  │MR Signal   │  │ Trend Signal           │ │
+│  │SPO/HMA/RSI │  │Generator   │  │ Generator              │ │
+│  │HVI/QQE/ST  │  │(4국면매매) │  │(HVI+QQE+VWMA)          │ │
+│  └─────┬──────┘  └─────┬──────┘  └──────────┬─────────────┘ │
+│        │               │                     │              │
+│        ▼               ▼                     ▼              │
+│  ┌────────────┐  ┌────────────┐  ┌────────────────────────┐ │
+│  │  Candle    │  │  Position  │  │    Hub Integration     │ │
+│  │  Fetcher   │  │  Manager   │  │ process_asset_mr/trend │ │
+│  └─────┬──────┘  └────────────┘  └──────────┬─────────────┘ │
+│        │                                     │              │
+│        ▼                                     ▼              │
+│  ┌────────────┐  ┌────────────┐  ┌────────────────────────┐ │
+│  │ Scheduler  │  │ Backtest   │  │ Backtest Trend         │ │
+│  │ (DRY-RUN)  │  │ Engine MR  │  │ Engine                 │ │
+│  └─────┬──────┘  └────────────┘  └────────────────────────┘ │
+└────────┼────────────────────────────────────────────────────┘
+         ▼
+┌──────────────┐            ┌──────────────────────────────────┐
+│ 거래소 API   │            │ PostgreSQL                       │
+│OKX/Binance/..│            │premium_configs (strategy_type)   │
+└──────────────┘            └──────────────────────────────────┘
+```
+
+### 4국면 매매 정책
+| 국면 | 조건 | 매수 | 매도 |
+|------|------|------|------|
+| R1 | 정배열+ST상승 | 눌림 1회 (1.0x) | 확대 (1.3x) |
+| R2 | 정배열+ST하락 | 금지 (0x) | 확대 (1.6x) |
+| R3 | 역배열+ST상승 | 돌파 1회 (1.0x) | 일반 (1.3x) |
+| R4 | 역배열+ST하락 | 확대 (1.2x) | 축소 (0.7x) |
+
+### 테스트 현황 (285개 PASS)
+| 파일 | 테스트 수 | 비고 |
+|------|----------|------|
+| test_indicators.py | 24 | MR 지표 |
+| test_indicators_trend.py | 22 | Trend 지표 (HVI/QQE) |
+| test_signal_generator.py | 23 | MR 신호 |
+| test_signal_generator_trend.py | 20 | Trend 신호 |
+| test_candle_fetcher.py | 15 | 시세 조회 |
+| test_position_manager.py | 28 | 포지션 계산 |
+| test_hub_integration.py | 17 | 허브 연동 |
+| test_scheduler.py | 52 | 스케줄러 |
+| test_premium_routes.py | 22 | API |
+| test_backtest_engine.py | 20 | MR 백테스트 |
+| test_backtest_trend.py | 27 | Trend 백테스트 |
+| test_integration.py | 15 | 통합 |
+
+### 라이브 검증 사용법
+```bash
+# 페이퍼 트레이딩 (기본)
+python scripts/validate_live.py --symbol BTC-USDT --duration 1h
+
+# 실거래 모드
+python scripts/validate_live.py --symbol BTC-USDT --duration 1h --live
+```
+
+---
+
 ## Day 11: 역추세매매 프리미엄 엔진 Phase 1 (2026-02-09)
 
 ### 엔진 코어 구현 (파인스크립트 1:1 재구현)
@@ -470,6 +602,307 @@ pub async fn run_mr_backtest(
 
 **커밋**:
 - `826a479` feat: 역추세매매(MR) 프리미엄 엔진 Phase 5 - 백테스트
+
+### Phase 6: 라이브 테스트 준비 (2026-02-09)
+
+**스케줄러 개선** (`app/strategy_engine/scheduler.py`):
+```python
+@dataclass
+class SchedulerConfig:
+    dry_run: bool = True      # 페이퍼 트레이딩 모드
+    log_signals: bool = True  # 시그널 로깅
+
+@dataclass
+class ProcessingStats:
+    total_processed: int      # 처리된 자산 수
+    total_signals: int        # 생성된 시그널 수
+    total_buy_signals: int    # 매수 시그널 수
+    total_sell_signals: int   # 매도 시그널 수
+    total_errors: int         # 에러 수
+    start_time: datetime      # 시작 시간
+
+@dataclass
+class SignalLog:
+    timestamp, asset_id, symbol, exchange
+    action, reason_code, dry_run, executed
+```
+
+**신규 메서드**:
+- `scheduler.is_dry_run` - DRY-RUN 모드 확인
+- `scheduler.set_dry_run(enabled)` - DRY-RUN 모드 전환
+- `scheduler.reset_stats()` - 통계 초기화
+- `scheduler.get_recent_signals(limit)` - 최근 시그널 조회
+- `scheduler.stats` - 처리 통계 (ProcessingStats)
+- `scheduler.signal_history` - 시그널 히스토리 (List[SignalLog])
+
+**라이브 검증 스크립트** (`scripts/validate_live.py`):
+```bash
+# 사용법
+python scripts/validate_live.py --symbol BTC-USDT --exchange okx --duration 1h
+python scripts/validate_live.py --config config.json --duration 24h --dry-run
+python scripts/validate_live.py --live  # 실거래 모드
+
+# 출력
+validation_result.json    # 검증 결과
+validation_signals.jsonl  # 시그널 로그
+validate_live.log        # 실행 로그
+```
+
+**검증 결과 (ValidationResult)**:
+- duration_seconds: 검증 소요 시간
+- total_checks: 처리된 체크 수
+- signals_generated: 생성된 시그널 수
+- buy_signals / sell_signals: 매수/매도 시그널 수
+- errors: 에러 발생 수
+- success: 성공 여부
+
+**통합 테스트** (`tests/test_integration.py` - 15개):
+- `TestSignalIdGeneration` - 시그널 ID 생성
+- `TestProcessAssetIntegration` - 자산 처리 통합
+- `TestSignalToOrderIntegration` - 시그널 → 주문 변환
+- `TestSchedulerIntegration` - 스케줄러 라이프사이클
+- `TestFullPipelineIntegration` - 전체 파이프라인 테스트
+- `TestSignalEventStructure` - 시그널 이벤트 구조
+- `TestPositionTracking` - 포지션 트래킹
+
+**스케줄러 테스트 추가** (`tests/test_scheduler.py` - 16개 추가, 총 52개):
+- `TestDryRunMode` - DRY-RUN 모드 테스트 (4개)
+- `TestSchedulerStats` - 처리 통계 테스트 (5개)
+- `TestSignalLogging` - 시그널 로깅 테스트 (4개)
+- `TestStatusWithStats` - 상태 + 통계 테스트 (3개)
+
+**테스트 현황**: 총 216개 PASS (전체 strategy_engine 테스트)
+
+## Day 14: 추세매매(Trend) 프리미엄 엔진 (2026-02-09)
+
+### 개요
+**정본 소스**: Stock Trend Auto v7 (PineScript)
+
+**Entry 조건** (4가지 모두 충족):
+1. Supertrend 상승 (st_dir < 0 = bullish)
+2. HVI 초록 (g_enabled = True)
+3. QQE 양수 (primary_rsi > 50)
+4. close > HTF VWMA(156)
+
+**Exit 우선순위**:
+1. Hard SL: entry_close <= entry_price * (1 - hard_sl_pct/100)
+2. TP1: exit_close >= entry_price * (1 + tp1_pct/100)
+3. SPO Split: SPO signal_dn 발생 시 분할 매도
+4. ST Flip: Supertrend 하락 전환 시 전량 청산
+
+### Phase 요약
+| Phase | 내용 | 파일 | 테스트 |
+|-------|------|------|--------|
+| Phase 1 | 지표 추가 (RSI, HVI, QQE MOD) | indicators.py | +22개 |
+| Phase 2 | 신호 생성기 (TrendConfig/State) | signal_generator_trend.py | +20개 |
+| Phase 3 | 백테스트 엔진 | backtest_engine_trend.py | +27개 |
+| Phase 4 | DB 마이그레이션 + Hub 확장 | migrate_trend_tables.sql, hub_integration.py | - |
+| Phase 5 | API 엔드포인트 + Rust 명령어 | premium_routes.py, commands.rs | - |
+| Phase 6 | 테스트 작성 및 검증 | test_*_trend.py | 69개 |
+| **총합** | - | **8개** | **69개** |
+
+### 파일 구조
+```
+app/strategy_engine/
+├── signal_generator_trend.py  # TrendConfig, TrendState, generate_trend_signal
+├── backtest_engine_trend.py   # run_trend_backtest
+├── hub_integration.py         # process_asset_trend (수정)
+├── indicators.py              # calc_rsi, calc_hvi, calc_qqe_mod (추가)
+
+app/
+├── premium_routes.py          # /backtest/trend 엔드포인트 (수정)
+
+scripts/
+├── migrate_trend_tables.sql   # DB 마이그레이션
+
+pc-app/src-tauri/src/
+├── commands.rs                # run_trend_backtest (추가)
+├── main.rs                    # 명령어 등록 (수정)
+
+tests/
+├── test_indicators_trend.py   # HVI, QQE, VWMA 테스트 (22개)
+├── test_signal_generator_trend.py  # Entry/Exit 로직 테스트 (20개)
+├── test_backtest_trend.py     # 백테스트 엔진 테스트 (27개)
+```
+
+### 지표 구현 (indicators.py 추가)
+
+**calc_rsi(close, length)** - Relative Strength Index:
+```python
+# RSI = 100 - 100/(1 + RS)
+# RS = Avg Gain / Avg Loss (Wilder smoothing)
+```
+
+**calc_hvi(high, low, close, volume, length, divisor)** - Historical Volatility Indicator:
+```python
+# LazyBear's HVI
+# Returns: {'g_enabled', 'r_enabled', 'gr_enabled'}
+# g_enabled: 초록 = 상승 추세
+# r_enabled: 빨강 = 하락 추세
+```
+
+**calc_qqe_mod(close, rsi_length, rsi_smoothing, qqe_factor)** - QQE MOD:
+```python
+# Quantitative Qualitative Estimation
+# Returns: {'primary_rsi', 'qqe_line', 'is_positive', 'trend_dir'}
+# is_positive: RSI smoothed > 50
+```
+
+### TrendConfig 설정 (signal_generator_trend.py)
+```python
+@dataclass
+class TrendConfig:
+    # 타임프레임
+    entry_tf: str = "1D"      # 매수 판단 타임프레임
+    exit_tf: str = "1D"       # 매도 판단 타임프레임
+    htf_tf: str = "1W"        # HTF VWMA 기준 타임프레임
+
+    # Entry 지표
+    st_atr_len: int = 10
+    st_factor: float = 3.0
+    hvi_length: int = 200
+    hvi_divisor: float = 3.6
+    qqe_rsi_length: int = 6
+    qqe_rsi_smoothing: int = 5
+    qqe_factor: float = 3.0
+    htf_vwma_len: int = 156
+
+    # Exit 조건
+    hard_sl_pct: float = 7.0          # 하드 손절 %
+    tp1_pct: float = 21.0             # TP1 목표 %
+    tp1_sell_pct: float = 50.0        # TP1 매도 비율 %
+    use_spo_split: bool = True        # SPO 분할매도
+    use_st_flip_exit: bool = True     # ST 전환 청산
+
+    # SPO Split 분할매도
+    sell_tranches: List[float] = [10.0, 20.0, 30.0, 5.0, 2.5, 1.0]
+    max_sell_tranches: int = 6
+    after_max_sell: str = "cycle"     # extend/cycle/stop
+
+    # 익절 게이트
+    use_profit_gate: bool = True
+    min_profit_pct: float = 0.10
+    fee_buffer_pct: float = 0.20
+```
+
+### TrendState 상태 (signal_generator_trend.py)
+```python
+@dataclass
+class TrendState:
+    in_position: bool = False
+    entry_price: float = 0.0
+    entry_ts: int = 0
+    position_qty: float = 0.0
+    highest_since_entry: float = 0.0
+    tp1_triggered: bool = False        # TP1 발동 여부
+    sell_stage: int = 0                # SPO 분할매도 차수
+    last_st_dir: int = 0               # 마지막 ST 방향
+```
+
+### Reason Codes
+| 코드 | 설명 |
+|------|------|
+| TREND_ENTRY_FULL | 추세매매 진입 (4조건 충족) |
+| TREND_EXIT_HARD_SL | 하드 손절 발동 (전량 청산) |
+| TREND_EXIT_TP1 | 목표 익절 TP1 도달 (비율 청산) |
+| TREND_EXIT_SPO_SPLIT | SPO 분할매도 (SELL1~6) |
+| TREND_EXIT_ST_FLIP | Supertrend 전환 (전량 청산) |
+
+### API 엔드포인트
+**POST /api/premium/backtest/trend** - 추세매매 백테스트:
+```json
+// Request
+{
+  "exchange": "okx",
+  "symbol": "BTC-USDT",
+  "entry_tf": "1D",
+  "exit_tf": "1D",
+  "htf_tf": "1W",
+  "days": 365,
+  "initial_capital": 10000000,
+  "hard_sl_pct": 7.0,
+  "tp1_pct": 21.0,
+  ...
+}
+
+// Response
+{
+  "success": true,
+  "message": "추세매매 백테스트 완료: 400봉, 12거래",
+  "metrics": {
+    "total_return_pct": 45.2,
+    "cagr_pct": 38.5,
+    "max_drawdown_pct": -12.3,
+    "sharpe_ratio": 1.8,
+    "win_rate_pct": 75.0,
+    ...
+  },
+  "equity_curve": [...],
+  "trades": [...],
+  "signals_count": 24
+}
+```
+
+### Rust Command (commands.rs)
+```rust
+#[tauri::command]
+pub async fn run_trend_backtest(
+    access_token: String,
+    exchange: String,
+    symbol: String,
+    entry_tf: Option<String>,
+    exit_tf: Option<String>,
+    htf_tf: Option<String>,
+    days: Option<i32>,
+    initial_capital: Option<f64>,
+    // Entry 지표
+    st_atr_len: Option<i32>,
+    hvi_length: Option<i32>,
+    qqe_rsi_length: Option<i32>,
+    // Exit 조건
+    hard_sl_pct: Option<f64>,
+    tp1_pct: Option<f64>,
+    use_spo_split: Option<bool>,
+    ...
+) -> Result<serde_json::Value, String>
+```
+
+### DB 마이그레이션 (migrate_trend_tables.sql)
+
+**premium_configs 테이블 추가 컬럼**:
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| strategy_type | VARCHAR(20) | mr/trend 구분 |
+| trend_entry_tf | VARCHAR(10) | 매수 타임프레임 |
+| trend_exit_tf | VARCHAR(10) | 매도 타임프레임 |
+| trend_htf_tf | VARCHAR(10) | HTF VWMA 타임프레임 |
+| trend_st_* | various | Entry Supertrend 설정 |
+| trend_hvi_* | various | HVI 설정 |
+| trend_qqe_* | various | QQE 설정 |
+| trend_exit_* | various | Exit 지표 설정 |
+| trend_hard_sl_pct | FLOAT | 하드 손절 % |
+| trend_tp1_pct | FLOAT | TP1 목표 % |
+| trend_sell_tranches | JSONB | 분할매도 비율 |
+
+**strategy_states 테이블 추가 컬럼**:
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| trend_in_position | BOOLEAN | 포지션 보유 여부 |
+| trend_entry_price | FLOAT | 진입가 |
+| trend_tp1_triggered | BOOLEAN | TP1 발동 여부 |
+| trend_sell_stage | INTEGER | 분할매도 차수 |
+
+### 테스트 현황 (69개 PASS)
+| 파일 | 테스트 수 |
+|------|----------|
+| test_indicators_trend.py | 22 |
+| test_signal_generator_trend.py | 20 |
+| test_backtest_trend.py | 27 |
+
+### 전체 테스트 현황
+```
+285 passed (MR 216개 + Trend 69개)
+```
 
 ## Day 8 Fixes
 - 종목명 쓰레기 데이터 제거 (`_clean_stock_name`)

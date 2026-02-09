@@ -924,3 +924,193 @@ async def run_mr_backtest_endpoint(
             trades=[],
             signals_count=0,
         )
+
+
+# ============================================================================
+# Trend Backtest Endpoints (추세매매)
+# ============================================================================
+
+class TrendBacktestRequest(BaseModel):
+    """Request model for Trend backtest."""
+    exchange: str = Field(..., description="거래소 (okx, binance, etc)")
+    symbol: str = Field(..., description="종목 심볼 (BTC-USDT)")
+    entry_tf: str = Field(default="1D", description="매수 판단 타임프레임")
+    exit_tf: str = Field(default="1D", description="매도 판단 타임프레임")
+    htf_tf: str = Field(default="1W", description="HTF VWMA 기준 타임프레임")
+    days: int = Field(default=365, ge=30, le=1000, description="백테스트 기간 (일)")
+    initial_capital: float = Field(default=10000000, ge=1000)
+
+    # Entry 지표 설정
+    st_atr_len: int = Field(default=10, ge=1, le=50)
+    st_factor: float = Field(default=3.0, ge=0.5, le=10.0)
+    hvi_length: int = Field(default=200, ge=10, le=500)
+    hvi_divisor: float = Field(default=3.6, ge=1.0, le=10.0)
+    qqe_rsi_length: int = Field(default=6, ge=2, le=50)
+    qqe_rsi_smoothing: int = Field(default=5, ge=1, le=20)
+    qqe_factor: float = Field(default=3.0, ge=0.5, le=10.0)
+    htf_vwma_len: int = Field(default=156, ge=10, le=500)
+
+    # Exit 지표 설정
+    exit_st_atr_len: int = Field(default=10, ge=1, le=50)
+    exit_st_factor: float = Field(default=3.0, ge=0.5, le=10.0)
+    exit_spo_smooth_len: int = Field(default=4, ge=1, le=20)
+    exit_spo_threshold: float = Field(default=1.0, ge=0.0, le=5.0)
+    exit_spo_std_len: int = Field(default=50, ge=10, le=200)
+    exit_spo_hma_len: int = Field(default=30, ge=5, le=100)
+
+    # Exit 조건
+    hard_sl_pct: float = Field(default=7.0, ge=1.0, le=30.0)
+    tp1_pct: float = Field(default=21.0, ge=1.0, le=100.0)
+    tp1_sell_pct: float = Field(default=50.0, ge=10.0, le=100.0)
+    use_spo_split: bool = Field(default=True)
+    use_st_flip_exit: bool = Field(default=True)
+
+    # 분할매도 설정
+    sell_tranches: List[float] = Field(default=[10.0, 20.0, 30.0, 5.0, 2.5, 1.0])
+    max_sell_tranches: int = Field(default=6, ge=1, le=10)
+    after_max_sell: str = Field(default="cycle")
+
+    # 익절 게이트
+    use_profit_gate: bool = Field(default=True)
+    min_profit_pct: float = Field(default=0.10, ge=0.0, le=10.0)
+    fee_buffer_pct: float = Field(default=0.20, ge=0.0, le=5.0)
+
+    # 포지션 사이징
+    cash_use_pct: float = Field(default=100.0, ge=0, le=100)
+
+
+class TrendBacktestResponse(BaseModel):
+    """Response model for Trend backtest."""
+    success: bool
+    message: str
+    metrics: Dict[str, Any]
+    equity_curve: List[Dict[str, Any]]
+    trades: List[Dict[str, Any]]
+    signals_count: int
+
+
+@router.post("/backtest/trend", response_model=TrendBacktestResponse)
+async def run_trend_backtest_endpoint(
+    request: TrendBacktestRequest,
+):
+    """
+    추세매매(Trend) 전략 백테스트 실행.
+
+    Entry: Supertrend 상승 + HVI 초록 + QQE 양수 + close > HTF VWMA156
+    Exit: Hard SL > TP1 > SPO Split > ST Flip (우선순위순)
+    """
+    from .strategy_engine.backtest_engine_trend import (
+        run_trend_backtest,
+        generate_trend_sample_candles,
+        generate_weekly_candles_from_daily,
+    )
+    from .strategy_engine.signal_generator_trend import TrendConfig
+
+    try:
+        # Trend 설정 생성
+        config = TrendConfig(
+            entry_tf=request.entry_tf,
+            exit_tf=request.exit_tf,
+            htf_tf=request.htf_tf,
+            st_atr_len=request.st_atr_len,
+            st_factor=request.st_factor,
+            hvi_length=request.hvi_length,
+            hvi_divisor=request.hvi_divisor,
+            qqe_rsi_length=request.qqe_rsi_length,
+            qqe_rsi_smoothing=request.qqe_rsi_smoothing,
+            qqe_factor=request.qqe_factor,
+            htf_vwma_len=request.htf_vwma_len,
+            exit_st_atr_len=request.exit_st_atr_len,
+            exit_st_factor=request.exit_st_factor,
+            exit_spo_smooth_len=request.exit_spo_smooth_len,
+            exit_spo_threshold=request.exit_spo_threshold,
+            exit_spo_std_len=request.exit_spo_std_len,
+            exit_spo_hma_len=request.exit_spo_hma_len,
+            hard_sl_pct=request.hard_sl_pct,
+            tp1_pct=request.tp1_pct,
+            tp1_sell_pct=request.tp1_sell_pct,
+            use_spo_split=request.use_spo_split,
+            use_st_flip_exit=request.use_st_flip_exit,
+            sell_tranches=request.sell_tranches,
+            max_sell_tranches=request.max_sell_tranches,
+            after_max_sell=request.after_max_sell,
+            use_profit_gate=request.use_profit_gate,
+            min_profit_pct=request.min_profit_pct,
+            fee_buffer_pct=request.fee_buffer_pct,
+            cash_use_pct=request.cash_use_pct,
+        )
+
+        # 일봉 캔들 데이터 생성 (상승 추세 포함)
+        daily_candles = generate_trend_sample_candles(
+            days=request.days,
+            base_price=50000.0 if "BTC" in request.symbol.upper() else 1000.0,
+            volatility=0.015,
+            trend=0.0002,  # 상승 추세
+            seed=hash(f"{request.exchange}_{request.symbol}") % 100000,
+        )
+
+        # 주봉 캔들 생성 (HTF용)
+        weekly_candles = generate_weekly_candles_from_daily(daily_candles)
+
+        # 백테스트 실행
+        result = run_trend_backtest(
+            candles=daily_candles,
+            htf_candles=weekly_candles,
+            config=config,
+            initial_capital=request.initial_capital,
+        )
+
+        # 결과 변환
+        trades_list = []
+        for t in result.trades:
+            trades_list.append({
+                "bar_index": t.bar_index,
+                "timestamp": t.timestamp,
+                "action": t.action,
+                "price": t.price,
+                "quantity": t.quantity,
+                "tranche": t.tranche,
+                "reason_code": t.reason_code,
+                "pnl": t.pnl,
+                "pnl_pct": t.pnl_pct,
+            })
+
+        # equity_curve 샘플링 (너무 많으면 줄임)
+        equity_curve = result.equity_curve
+        if len(equity_curve) > 500:
+            step = len(equity_curve) // 500
+            equity_curve = equity_curve[::step]
+
+        return TrendBacktestResponse(
+            success=result.success,
+            message=result.message,
+            metrics={
+                "total_return_pct": round(result.metrics.total_return_pct, 2),
+                "cagr_pct": round(result.metrics.cagr_pct, 2),
+                "max_drawdown_pct": round(result.metrics.max_drawdown_pct, 2),
+                "sharpe_ratio": round(result.metrics.sharpe_ratio, 2),
+                "win_rate_pct": round(result.metrics.win_rate_pct, 1),
+                "total_trades": result.metrics.total_trades,
+                "winning_trades": result.metrics.winning_trades,
+                "losing_trades": result.metrics.losing_trades,
+                "avg_win_pct": round(result.metrics.avg_win_pct, 2),
+                "avg_loss_pct": round(result.metrics.avg_loss_pct, 2),
+                "profit_factor": round(result.metrics.profit_factor, 2),
+                "max_consecutive_wins": result.metrics.max_consecutive_wins,
+                "max_consecutive_losses": result.metrics.max_consecutive_losses,
+            },
+            equity_curve=equity_curve,
+            trades=trades_list,
+            signals_count=len(result.signals),
+        )
+
+    except Exception as e:
+        logger.error(f"Trend 백테스트 오류: {e}")
+        return TrendBacktestResponse(
+            success=False,
+            message=f"백테스트 오류: {str(e)}",
+            metrics={},
+            equity_curve=[],
+            trades=[],
+            signals_count=0,
+        )

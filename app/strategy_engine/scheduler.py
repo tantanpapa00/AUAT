@@ -133,6 +133,38 @@ class SchedulerConfig:
     max_concurrent_assets: int = 10  # Max assets to process simultaneously
     batch_interval_seconds: float = 1.0  # Interval between batches
 
+    # Live trading control
+    dry_run: bool = True  # Dry run mode - signals generated but orders not executed
+    log_signals: bool = True  # Log all generated signals
+    log_level: str = "INFO"  # Logging level (DEBUG, INFO, WARNING, ERROR)
+
+
+@dataclass
+class ProcessingStats:
+    """Processing statistics for monitoring."""
+    total_processed: int = 0
+    total_signals: int = 0
+    total_buy_signals: int = 0
+    total_sell_signals: int = 0
+    total_errors: int = 0
+    last_error: Optional[str] = None
+    last_error_time: Optional[datetime] = None
+    start_time: Optional[datetime] = None
+
+
+@dataclass
+class SignalLog:
+    """Log entry for generated signal."""
+    timestamp: datetime
+    asset_id: int
+    symbol: str
+    exchange: str
+    action: str  # buy, sell, hold
+    reason_code: str
+    dry_run: bool
+    executed: bool = False
+    error: Optional[str] = None
+
 
 class PremiumScheduler:
     """
@@ -140,6 +172,7 @@ class PremiumScheduler:
 
     Manages timing of strategy evaluation for multiple assets.
     Triggers process_asset() at candle boundaries.
+    Supports dry_run mode for paper trading validation.
     """
 
     def __init__(
@@ -163,6 +196,26 @@ class PremiumScheduler:
         self._timeframe_assets: Dict[str, Set[int]] = {}  # tf -> asset_ids
         self._task: Optional[asyncio.Task] = None
         self._lock = asyncio.Lock()
+
+        # Monitoring and logging
+        self._stats = ProcessingStats()
+        self._signal_history: List[SignalLog] = []
+        self._max_signal_history = 1000  # Keep last 1000 signals
+
+    @property
+    def is_dry_run(self) -> bool:
+        """Check if running in dry run mode."""
+        return self.config.dry_run
+
+    @property
+    def stats(self) -> ProcessingStats:
+        """Get processing statistics."""
+        return self._stats
+
+    @property
+    def signal_history(self) -> List[SignalLog]:
+        """Get signal history."""
+        return self._signal_history.copy()
 
     @property
     def state(self) -> SchedulerState:
@@ -283,8 +336,11 @@ class PremiumScheduler:
             return
 
         self._state = SchedulerState.RUNNING
+        self._stats.start_time = datetime.now(timezone.utc)
         self._task = asyncio.create_task(self._run_loop())
-        logger.info("Scheduler started")
+
+        mode = "DRY-RUN (paper trading)" if self.config.dry_run else "LIVE"
+        logger.warning(f"Scheduler started in {mode} mode with {len(self._assets)} assets")
 
     async def stop(self):
         """Stop the scheduler."""
@@ -407,36 +463,97 @@ class PremiumScheduler:
                 await asyncio.sleep(self.config.batch_interval_seconds)
 
     async def _process_asset(self, asset: ScheduledAsset):
-        """Process a single asset."""
-        try:
-            logger.debug(f"Processing asset {asset.asset_id} ({asset.symbol})")
+        """Process a single asset with comprehensive logging."""
+        now = datetime.now(timezone.utc)
+        dry_run_prefix = "[DRY-RUN] " if self.config.dry_run else ""
 
+        try:
+            logger.info(
+                f"{dry_run_prefix}Processing asset {asset.asset_id} "
+                f"({asset.symbol}@{asset.exchange}) TF={asset.timeframe}"
+            )
+
+            result = None
             if self.process_callback:
-                success = await self.process_callback(asset)
+                result = await self.process_callback(asset)
+                success = result is not False  # Allow True or signal data
             else:
                 # No callback, just mark as processed
                 success = True
 
             # Update tracking
-            now = datetime.now(timezone.utc)
             asset.last_processed = now
             asset.last_bar_time = get_current_bar_open_time(asset.timeframe)
+            self._stats.total_processed += 1
 
             if success:
                 asset.error_count = 0
+
+                # Log signal if returned
+                if result and isinstance(result, dict):
+                    self._log_signal(asset, result, now)
             else:
                 asset.error_count += 1
 
+            logger.info(
+                f"{dry_run_prefix}Completed asset {asset.asset_id} "
+                f"({asset.symbol}) success={success}"
+            )
+
         except Exception as e:
-            logger.error(f"Error processing asset {asset.asset_id}: {e}")
+            error_msg = str(e)
+            logger.error(
+                f"{dry_run_prefix}Error processing asset {asset.asset_id} "
+                f"({asset.symbol}): {error_msg}"
+            )
             asset.error_count += 1
+            self._stats.total_errors += 1
+            self._stats.last_error = error_msg
+            self._stats.last_error_time = now
 
         # Disable if too many errors
         if asset.error_count >= self.config.max_consecutive_errors:
             logger.warning(
-                f"Disabling asset {asset.asset_id} after {asset.error_count} errors"
+                f"{dry_run_prefix}Disabling asset {asset.asset_id} "
+                f"after {asset.error_count} consecutive errors"
             )
             asset.enabled = False
+
+    def _log_signal(self, asset: ScheduledAsset, result: dict, timestamp: datetime):
+        """Log a generated signal to history."""
+        action = result.get("action", "hold")
+        reason_code = result.get("reason_code", "UNKNOWN")
+
+        signal_log = SignalLog(
+            timestamp=timestamp,
+            asset_id=asset.asset_id,
+            symbol=asset.symbol,
+            exchange=asset.exchange,
+            action=action,
+            reason_code=reason_code,
+            dry_run=self.config.dry_run,
+            executed=not self.config.dry_run and action != "hold",
+        )
+
+        # Update stats
+        self._stats.total_signals += 1
+        if action == "buy":
+            self._stats.total_buy_signals += 1
+        elif action == "sell":
+            self._stats.total_sell_signals += 1
+
+        # Add to history (with size limit)
+        self._signal_history.append(signal_log)
+        if len(self._signal_history) > self._max_signal_history:
+            self._signal_history = self._signal_history[-self._max_signal_history:]
+
+        # Log the signal
+        if self.config.log_signals:
+            dry_run_tag = "[DRY-RUN]" if self.config.dry_run else "[LIVE]"
+            logger.info(
+                f"{dry_run_tag} SIGNAL: {asset.symbol}@{asset.exchange} "
+                f"action={action} reason={reason_code}"
+            )
 
     async def process_now(self, asset_id: int) -> bool:
         """
@@ -456,11 +573,22 @@ class PremiumScheduler:
         return asset.error_count == 0
 
     def get_status(self) -> Dict[str, Any]:
-        """Get scheduler status."""
+        """Get scheduler status with monitoring data."""
         return {
             "state": self._state.value,
+            "dry_run": self.config.dry_run,
             "asset_count": len(self._assets),
             "active_timeframes": list(self._timeframe_assets.keys()),
+            "stats": {
+                "total_processed": self._stats.total_processed,
+                "total_signals": self._stats.total_signals,
+                "total_buy_signals": self._stats.total_buy_signals,
+                "total_sell_signals": self._stats.total_sell_signals,
+                "total_errors": self._stats.total_errors,
+                "last_error": self._stats.last_error,
+                "last_error_time": self._stats.last_error_time.isoformat() if self._stats.last_error_time else None,
+                "start_time": self._stats.start_time.isoformat() if self._stats.start_time else None,
+            },
             "assets": [
                 {
                     "asset_id": a.asset_id,
@@ -474,6 +602,39 @@ class PremiumScheduler:
                 for a in self._assets.values()
             ],
         }
+
+    def reset_stats(self):
+        """Reset processing statistics."""
+        self._stats = ProcessingStats()
+        self._signal_history.clear()
+        logger.info("Scheduler stats reset")
+
+    def set_dry_run(self, enabled: bool):
+        """Enable or disable dry run mode."""
+        old_mode = self.config.dry_run
+        self.config.dry_run = enabled
+        logger.warning(
+            f"Dry run mode changed: {old_mode} -> {enabled} "
+            f"({'PAPER TRADING' if enabled else 'LIVE TRADING'})"
+        )
+
+    def get_recent_signals(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Get recent signal history."""
+        recent = self._signal_history[-limit:]
+        return [
+            {
+                "timestamp": s.timestamp.isoformat(),
+                "asset_id": s.asset_id,
+                "symbol": s.symbol,
+                "exchange": s.exchange,
+                "action": s.action,
+                "reason_code": s.reason_code,
+                "dry_run": s.dry_run,
+                "executed": s.executed,
+                "error": s.error,
+            }
+            for s in reversed(recent)
+        ]
 
 
 # Global scheduler instance

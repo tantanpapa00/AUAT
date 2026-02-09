@@ -3271,23 +3271,20 @@ document.querySelectorAll('.strategy-tab').forEach(tab => {
 
         document.querySelectorAll('.strategy-content').forEach(c => c.style.display = 'none');
         document.getElementById(`strategy-tab-${tab.dataset.tab}`).style.display = 'block';
+
+        // 역추세매매 탭 클릭 시 MR 엔진 로드
+        if (tab.dataset.tab === 'reversal') {
+            loadMrEngineTab();
+        }
+        // 추세매매 탭 클릭 시 Trend 거래소 로드
+        if (tab.dataset.tab === 'trend') {
+            loadTrendExchangeDropdown();
+        }
     });
 });
 
-// Sliders
-['reversal-rsi-period', 'reversal-overbought', 'reversal-oversold', 'trend-short-ma', 'trend-long-ma'].forEach(id => {
-    const slider = document.getElementById(id);
-    if (slider) {
-        slider.addEventListener('input', () => {
-            document.getElementById(`${id}-val`).textContent = slider.value;
-        });
-    }
-});
-
-// Backtest buttons
+// Backtest buttons (커스텀 탭 전용)
 document.getElementById('btn-run-backtest')?.addEventListener('click', runBacktest);
-document.getElementById('btn-backtest-reversal')?.addEventListener('click', runBacktest);
-document.getElementById('btn-backtest-trend')?.addEventListener('click', runBacktest);
 
 async function runBacktest() {
     showToast('백테스팅 실행 중...', 'info');
@@ -7046,10 +7043,7 @@ async function deleteMrConfig(assetId) {
 }
 window.deleteMrConfig = deleteMrConfig;
 
-// MR 엔진 탭 클릭 시 로드
-document.querySelector('.strategy-tab[data-tab="mr-engine"]')?.addEventListener('click', () => {
-    loadMrEngineTab();
-});
+// 역추세매매 탭 클릭 시 로드 (이미 위에서 처리되므로 중복 제거)
 
 // MR 백테스트 실행
 let mrBacktestChart = null;
@@ -7155,6 +7149,164 @@ function drawMrBacktestChart(equityCurve) {
                 data: data,
                 borderColor: 'rgb(59, 130, 246)',
                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                fill: true,
+                tension: 0.1,
+                pointRadius: 0,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+            },
+            scales: {
+                x: { display: false },
+                y: {
+                    ticks: {
+                        callback: function(value) {
+                            return (value / 1000000).toFixed(1) + 'M';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// =====================================================
+// Trend 백테스트 (추세매매)
+// =====================================================
+let trendBacktestChart = null;
+
+async function loadTrendExchangeDropdown() {
+    const select = document.getElementById('trend-exchange');
+    if (!select) return;
+
+    try {
+        let accounts = [];
+        try {
+            accounts = await invoke('get_accounts_list', { accessToken: auth.accessToken || '' });
+        } catch { }
+
+        if (!accounts || accounts.length === 0) {
+            accounts = await invoke('list_local_accounts');
+        }
+
+        select.innerHTML = '<option value="">선택하세요</option>';
+        accounts.forEach(acc => {
+            const exName = acc.exchange?.toUpperCase() || acc.exchange_name?.toUpperCase() || 'UNKNOWN';
+            select.innerHTML += `<option value="${exName}">${exName}</option>`;
+        });
+    } catch (error) {
+        console.error('거래소 드롭다운 로드 실패:', error);
+        select.innerHTML = '<option value="OKX">OKX</option><option value="BINANCE">Binance</option>';
+    }
+}
+
+document.getElementById('btn-trend-run-backtest')?.addEventListener('click', async () => {
+    const exchange = document.getElementById('trend-exchange')?.value || 'OKX';
+    const symbol = document.getElementById('trend-symbol')?.value || 'BTC-USDT';
+    const entryTf = document.getElementById('trend-entry-tf')?.value || '1D';
+    const exitTf = document.getElementById('trend-exit-tf')?.value || '1D';
+    const htfTf = document.getElementById('trend-htf-tf')?.value || '1W';
+    const days = parseInt(document.getElementById('trend-bt-days')?.value) || 365;
+    const capital = parseFloat(document.getElementById('trend-bt-capital')?.value) || 10000000;
+    const hardSlPct = parseFloat(document.getElementById('trend-hard-sl')?.value) || 7.0;
+    const tp1Pct = parseFloat(document.getElementById('trend-tp1-pct')?.value) || 21.0;
+    const tp1SellPct = parseFloat(document.getElementById('trend-tp1-sell')?.value) || 50.0;
+    const useSpoSplit = document.getElementById('trend-use-spo-split')?.checked ?? true;
+    const useStFlipExit = document.getElementById('trend-use-st-flip')?.checked ?? true;
+    const useProfitGate = document.getElementById('trend-use-profit-gate')?.checked ?? true;
+
+    showToast('추세매매 백테스트 실행 중...', 'info');
+
+    try {
+        const result = await invoke('run_trend_backtest', {
+            accessToken: auth.accessToken || '',
+            exchange: exchange,
+            symbol: symbol,
+            entryTf: entryTf,
+            exitTf: exitTf,
+            htfTf: htfTf,
+            days: days,
+            initialCapital: capital,
+            hardSlPct: hardSlPct,
+            tp1Pct: tp1Pct,
+            tp1SellPct: tp1SellPct,
+            useSpoSplit: useSpoSplit,
+            useStFlipExit: useStFlipExit,
+            useProfitGate: useProfitGate,
+        });
+
+        if (result.success) {
+            displayTrendBacktestResult(result);
+            showToast('추세매매 백테스트 완료', 'success');
+        } else {
+            showToast(result.message || '백테스트 실패', 'error');
+        }
+    } catch (error) {
+        showToast('백테스트 오류: ' + error, 'error');
+    }
+});
+
+function displayTrendBacktestResult(result) {
+    const resultEl = document.getElementById('trend-backtest-result');
+    if (!resultEl) return;
+
+    resultEl.style.display = 'block';
+
+    const m = result.metrics || {};
+
+    // 메트릭 표시
+    const totalReturn = m.total_return_pct || 0;
+    document.getElementById('trend-bt-total-return').textContent =
+        (totalReturn >= 0 ? '+' : '') + totalReturn.toFixed(2) + '%';
+    document.getElementById('trend-bt-total-return').className =
+        'metric-value ' + (totalReturn >= 0 ? 'positive' : 'negative');
+
+    document.getElementById('trend-bt-cagr').textContent =
+        (m.cagr_pct >= 0 ? '+' : '') + (m.cagr_pct || 0).toFixed(2) + '%';
+
+    document.getElementById('trend-bt-mdd').textContent =
+        (m.max_drawdown_pct || 0).toFixed(2) + '%';
+
+    document.getElementById('trend-bt-sharpe').textContent =
+        (m.sharpe_ratio || 0).toFixed(2);
+
+    document.getElementById('trend-bt-winrate').textContent =
+        (m.win_rate_pct || 0).toFixed(1) + '%';
+
+    document.getElementById('trend-bt-trades').textContent =
+        (m.total_trades || 0) + '회';
+
+    // 차트 그리기
+    drawTrendBacktestChart(result.equity_curve || []);
+}
+
+function drawTrendBacktestChart(equityCurve) {
+    const canvas = document.getElementById('trend-backtest-chart');
+    if (!canvas || !window.Chart) return;
+
+    const ctx = canvas.getContext('2d');
+
+    // 기존 차트 제거
+    if (trendBacktestChart) {
+        trendBacktestChart.destroy();
+    }
+
+    const labels = equityCurve.map((_, i) => i);
+    const data = equityCurve.map(p => p.equity);
+
+    trendBacktestChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: '자산 추이',
+                data: data,
+                borderColor: 'rgb(16, 185, 129)',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
                 fill: true,
                 tension: 0.1,
                 pointRadius: 0,

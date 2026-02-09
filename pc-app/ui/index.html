@@ -1358,9 +1358,8 @@
                     <div class="strategy-tabs">
                         <button class="strategy-tab active" data-tab="status">전략현황</button>
                         <button class="strategy-tab" data-tab="custom">커스텀</button>
-                        <button class="strategy-tab" data-tab="reversal">역추세</button>
-                        <button class="strategy-tab" data-tab="trend">추세</button>
-                        <button class="strategy-tab" data-tab="mr-engine">MR 엔진</button>
+                        <button class="strategy-tab" data-tab="reversal">역추세매매</button>
+                        <button class="strategy-tab" data-tab="trend">추세매매</button>
                     </div>
 
                     <!-- 전략현황 탭 -->
@@ -1369,7 +1368,7 @@
                         <div class="strategies-list" id="strategies-list">
                             <div class="empty-state">
                                 <p>설정된 전략이 없습니다.</p>
-                                <p>커스텀/역추세/추세 탭에서 전략을 추가하세요.</p>
+                                <p>커스텀/역추세매매/추세매매 탭에서 전략을 추가하세요.</p>
                             </div>
                         </div>
                     </section>
@@ -1495,108 +1494,10 @@
                         </div>
                     </section>
 
-                    <!-- 역추세 전략 탭 -->
+                    <!-- 역추세매매 탭 (MR 프리미엄 엔진) -->
                     <section class="strategy-content card" id="strategy-tab-reversal" style="display: none;">
-                        <h2>역추세 전략 (RSI 기반)</h2>
-                        <p class="strategy-description">RSI 과매수/과매도 구간에서 반대 방향으로 진입하는 전략입니다.</p>
-
-                        <div class="strategy-form">
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>거래소</label>
-                                    <select id="reversal-exchange" class="form-select">
-                                        <option value="">선택하세요</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label>종목</label>
-                                    <input type="text" id="reversal-symbol" class="form-input" placeholder="예: BTC-USDT" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-                                </div>
-                            </div>
-
-                            <div class="slider-group">
-                                <label>RSI 기간: <span id="reversal-rsi-period-val">14</span></label>
-                                <input type="range" id="reversal-rsi-period" min="7" max="21" value="14">
-                            </div>
-                            <div class="slider-group">
-                                <label>과매수 기준: <span id="reversal-overbought-val">70</span></label>
-                                <input type="range" id="reversal-overbought" min="60" max="90" value="70">
-                            </div>
-                            <div class="slider-group">
-                                <label>과매도 기준: <span id="reversal-oversold-val">30</span></label>
-                                <input type="range" id="reversal-oversold" min="10" max="40" value="30">
-                            </div>
-
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>주문 수량 (%)</label>
-                                    <input type="number" id="reversal-qty" class="form-input" value="100">
-                                </div>
-                                <div class="form-group">
-                                    <label>손절 (%)</label>
-                                    <input type="number" id="reversal-sl" class="form-input" placeholder="선택">
-                                </div>
-                                <div class="form-group">
-                                    <label>익절 (%)</label>
-                                    <input type="number" id="reversal-tp" class="form-input" placeholder="선택">
-                                </div>
-                            </div>
-
-                            <button class="btn btn-primary" id="btn-backtest-reversal">백테스팅 실행</button>
-                        </div>
-                    </section>
-
-                    <!-- 추세 전략 탭 -->
-                    <section class="strategy-content card" id="strategy-tab-trend" style="display: none;">
-                        <h2>추세 전략 (이동평균 크로스)</h2>
-                        <p class="strategy-description">단기 이동평균이 장기 이동평균을 크로스할 때 진입하는 전략입니다.</p>
-
-                        <div class="strategy-form">
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>거래소</label>
-                                    <select id="trend-exchange" class="form-select">
-                                        <option value="">선택하세요</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label>종목</label>
-                                    <input type="text" id="trend-symbol" class="form-input" placeholder="예: BTC-USDT" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-                                </div>
-                            </div>
-
-                            <div class="slider-group">
-                                <label>단기 이동평균: <span id="trend-short-ma-val">20</span></label>
-                                <input type="range" id="trend-short-ma" min="5" max="50" value="20">
-                            </div>
-                            <div class="slider-group">
-                                <label>장기 이동평균: <span id="trend-long-ma-val">60</span></label>
-                                <input type="range" id="trend-long-ma" min="20" max="200" value="60">
-                            </div>
-
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>주문 수량 (%)</label>
-                                    <input type="number" id="trend-qty" class="form-input" value="100">
-                                </div>
-                                <div class="form-group">
-                                    <label>손절 (%)</label>
-                                    <input type="number" id="trend-sl" class="form-input" placeholder="선택">
-                                </div>
-                                <div class="form-group">
-                                    <label>익절 (%)</label>
-                                    <input type="number" id="trend-tp" class="form-input" placeholder="선택">
-                                </div>
-                            </div>
-
-                            <button class="btn btn-primary" id="btn-backtest-trend">백테스팅 실행</button>
-                        </div>
-                    </section>
-
-                    <!-- MR 엔진 탭 (Premium Strategy Engine) -->
-                    <section class="strategy-content card" id="strategy-tab-mr-engine" style="display: none;">
-                        <h2>MR 프리미엄 엔진</h2>
-                        <p class="strategy-description">SPO 기반 평균회귀 전략 - 캔들마감 시점에 자동 신호 생성</p>
+                        <h2>역추세매매 (MR 프리미엄 엔진)</h2>
+                        <p class="strategy-description">SPO 기반 평균회귀 전략 - 4국면 판별 + 캔들마감 시점 자동 신호 생성</p>
 
                         <!-- 스케줄러 상태 -->
                         <div class="mr-scheduler-status card-inner">
@@ -1776,6 +1677,152 @@
                             <div class="signals-list" id="mr-signals-list">
                                 <p class="empty-state">시그널 기록이 없습니다</p>
                             </div>
+                        </div>
+                    </section>
+
+                    <!-- 추세매매 탭 (Trend 프리미엄 엔진) -->
+                    <section class="strategy-content card" id="strategy-tab-trend" style="display: none;">
+                        <h2>추세매매 (Trend 프리미엄 엔진)</h2>
+                        <p class="strategy-description">Supertrend + HVI + QQE + HTF VWMA 기반 추세추종 전략</p>
+
+                        <!-- Trend 백테스트 섹션 -->
+                        <div class="trend-backtest card-inner">
+                            <h4>Trend 전략 백테스트</h4>
+                            <div class="backtest-form">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>거래소</label>
+                                        <select id="trend-exchange" class="form-select">
+                                            <option value="">선택하세요</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>종목</label>
+                                        <input type="text" id="trend-symbol" class="form-input" placeholder="예: BTC-USDT" autocomplete="off">
+                                    </div>
+                                </div>
+
+                                <!-- 타임프레임 설정 -->
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Entry TF (매수)</label>
+                                        <select id="trend-entry-tf" class="form-select">
+                                            <option value="1h">1시간</option>
+                                            <option value="4h">4시간</option>
+                                            <option value="1D" selected>1일</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Exit TF (매도)</label>
+                                        <select id="trend-exit-tf" class="form-select">
+                                            <option value="1h">1시간</option>
+                                            <option value="4h">4시간</option>
+                                            <option value="1D" selected>1일</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>HTF (VWMA)</label>
+                                        <select id="trend-htf-tf" class="form-select">
+                                            <option value="1D">1일</option>
+                                            <option value="1W" selected>1주</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Exit 조건 -->
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Hard SL (%)</label>
+                                        <input type="number" id="trend-hard-sl" class="form-input" value="7" min="1" max="30" step="0.5">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>TP1 목표 (%)</label>
+                                        <input type="number" id="trend-tp1-pct" class="form-input" value="21" min="1" max="100" step="1">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>TP1 매도비율 (%)</label>
+                                        <input type="number" id="trend-tp1-sell" class="form-input" value="50" min="10" max="100" step="5">
+                                    </div>
+                                </div>
+
+                                <!-- 옵션 -->
+                                <div class="form-row options-row">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="trend-use-spo-split" checked> SPO 분할매도
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="trend-use-st-flip" checked> ST 전환 청산
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="trend-use-profit-gate" checked> 익절 게이트
+                                    </label>
+                                </div>
+
+                                <!-- 백테스트 기간 -->
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>백테스트 기간 (일)</label>
+                                        <input type="number" id="trend-bt-days" class="form-input" value="365" min="30" max="1000">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>초기 자본</label>
+                                        <input type="number" id="trend-bt-capital" class="form-input" value="10000000">
+                                    </div>
+                                </div>
+
+                                <button class="btn btn-primary" id="btn-trend-run-backtest">백테스트 실행</button>
+                            </div>
+
+                            <!-- 백테스트 결과 -->
+                            <div class="backtest-result" id="trend-backtest-result" style="display: none;">
+                                <div class="result-metrics">
+                                    <div class="metric-card">
+                                        <span class="metric-label">총 수익률</span>
+                                        <span class="metric-value" id="trend-bt-total-return">+0.00%</span>
+                                    </div>
+                                    <div class="metric-card">
+                                        <span class="metric-label">연평균 수익률</span>
+                                        <span class="metric-value" id="trend-bt-cagr">+0.00%</span>
+                                    </div>
+                                    <div class="metric-card">
+                                        <span class="metric-label">최대 낙폭</span>
+                                        <span class="metric-value negative" id="trend-bt-mdd">-0.00%</span>
+                                    </div>
+                                    <div class="metric-card">
+                                        <span class="metric-label">샤프 비율</span>
+                                        <span class="metric-value" id="trend-bt-sharpe">0.00</span>
+                                    </div>
+                                    <div class="metric-card">
+                                        <span class="metric-label">승률</span>
+                                        <span class="metric-value" id="trend-bt-winrate">0.0%</span>
+                                    </div>
+                                    <div class="metric-card">
+                                        <span class="metric-label">총 거래</span>
+                                        <span class="metric-value" id="trend-bt-trades">0회</span>
+                                    </div>
+                                </div>
+                                <div class="result-chart">
+                                    <canvas id="trend-backtest-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Entry 조건 안내 -->
+                        <div class="trend-info card-inner">
+                            <h4>Entry 조건 (4가지 모두 충족)</h4>
+                            <ul class="condition-list">
+                                <li><strong>Supertrend 상승</strong> - ST direction &lt; 0 (bullish)</li>
+                                <li><strong>HVI 초록</strong> - Historical Volatility Indicator g_enabled</li>
+                                <li><strong>QQE 양수</strong> - Smoothed RSI &gt; 50</li>
+                                <li><strong>HTF VWMA 상위</strong> - close &gt; VWMA(156)</li>
+                            </ul>
+                            <h4>Exit 우선순위</h4>
+                            <ol class="condition-list">
+                                <li><strong>Hard SL</strong> - 지정 손절선 도달 시 전량 청산</li>
+                                <li><strong>TP1</strong> - 목표 익절 도달 시 비율 청산</li>
+                                <li><strong>SPO Split</strong> - SPO 신호 시 분할 매도 (SELL1~6)</li>
+                                <li><strong>ST Flip</strong> - Supertrend 하락 전환 시 전량 청산</li>
+                            </ol>
                         </div>
                     </section>
 
