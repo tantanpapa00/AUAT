@@ -6779,6 +6779,279 @@ document.getElementById('btn-ai-analysis')?.addEventListener('click', () => {
 window.openStockDetail = openStockDetail;
 
 // =====================================================
+// MR Premium Engine (Phase 4)
+// =====================================================
+let mrSymbolAutocomplete = null;
+
+async function loadMrEngineTab() {
+    await loadMrSchedulerStatus();
+    await loadMrConfigs();
+    await loadMrSignals();
+    initMrSymbolAutocomplete();
+    loadMrExchangeDropdown();
+}
+
+async function loadMrSchedulerStatus() {
+    try {
+        const status = await invoke('get_scheduler_status', {
+            accessToken: auth.accessToken || ''
+        });
+
+        const stateEl = document.getElementById('mr-scheduler-state');
+        const countEl = document.getElementById('mr-asset-count');
+        const tfsEl = document.getElementById('mr-active-tfs');
+
+        if (stateEl) {
+            stateEl.textContent = status.state?.toUpperCase() || 'STOPPED';
+            stateEl.className = 'scheduler-state state-' + (status.state || 'stopped');
+        }
+        if (countEl) countEl.textContent = status.asset_count || 0;
+        if (tfsEl) tfsEl.textContent = status.active_timeframes?.join(', ') || '-';
+    } catch (error) {
+        console.error('스케줄러 상태 로드 실패:', error);
+    }
+}
+
+async function loadMrConfigs() {
+    const tbody = document.getElementById('mr-configs-tbody');
+    if (!tbody) return;
+
+    try {
+        const configs = await invoke('get_premium_configs', {
+            accessToken: auth.accessToken || ''
+        });
+
+        if (!configs || configs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">등록된 종목이 없습니다</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = configs.map(config => {
+            const stateInfo = config.state || {};
+            return `
+                <tr data-asset-id="${config.asset_id}">
+                    <td>${config.symbol || 'Asset #' + config.asset_id}</td>
+                    <td>${config.signal_tf}</td>
+                    <td>${config.osc_preset}</td>
+                    <td>${stateInfo.buy_stage || 0}/${(config.buy_tranches?.length || 4)}</td>
+                    <td>${stateInfo.sell_stage || 0}/${(config.sell_tranches?.length || 2)}</td>
+                    <td><span class="status-badge ${config.enabled ? 'active' : 'inactive'}">${config.enabled ? '활성' : '비활성'}</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-icon" onclick="triggerMrSignal(${config.asset_id})" title="수동 시그널">▶</button>
+                        <button class="btn btn-sm btn-icon btn-danger" onclick="deleteMrConfig(${config.asset_id})" title="삭제">✕</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('MR 설정 로드 실패:', error);
+        tbody.innerHTML = '<tr><td colspan="7" class="error-state">로드 실패: ' + error + '</td></tr>';
+    }
+}
+
+async function loadMrSignals() {
+    const list = document.getElementById('mr-signals-list');
+    if (!list) return;
+
+    try {
+        const events = await invoke('get_signal_events', {
+            accessToken: auth.accessToken || '',
+            limit: 10
+        });
+
+        if (!events || events.length === 0) {
+            list.innerHTML = '<p class="empty-state">시그널 기록이 없습니다</p>';
+            return;
+        }
+
+        list.innerHTML = events.map(event => {
+            const actionClass = event.action === 'buy' ? 'signal-buy' : 'signal-sell';
+            const actionText = event.action === 'buy' ? '매수' : '매도';
+            const time = new Date(event.timestamp).toLocaleString('ko-KR');
+            return `
+                <div class="signal-item ${actionClass}">
+                    <span class="signal-action">${actionText}</span>
+                    <span class="signal-asset">${event.symbol || 'Asset #' + event.asset_id}</span>
+                    <span class="signal-reason">${event.reason_code || '-'}</span>
+                    <span class="signal-time">${time}</span>
+                </div>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('시그널 로드 실패:', error);
+    }
+}
+
+function initMrSymbolAutocomplete() {
+    const input = document.getElementById('mr-symbol');
+    if (!input || mrSymbolAutocomplete) return;
+
+    mrSymbolAutocomplete = createSymbolAutocomplete(input, (symbol) => {
+        if (symbol) {
+            input.dataset.selectedCode = symbol.code;
+            input.dataset.selectedExchange = symbol.exchange;
+        }
+    });
+}
+
+async function loadMrExchangeDropdown() {
+    const select = document.getElementById('mr-exchange');
+    if (!select) return;
+
+    try {
+        let accounts = [];
+        try {
+            accounts = await invoke('get_accounts_list', { accessToken: auth.accessToken || '' });
+        } catch { }
+
+        if (!accounts || accounts.length === 0) {
+            accounts = await invoke('list_local_accounts');
+        }
+
+        select.innerHTML = '<option value="">선택하세요</option>';
+        accounts.forEach(acc => {
+            const exName = acc.exchange?.toUpperCase() || acc.exchange_name?.toUpperCase() || 'UNKNOWN';
+            select.innerHTML += `<option value="${exName}">${exName}</option>`;
+        });
+    } catch (error) {
+        console.error('거래소 드롭다운 로드 실패:', error);
+    }
+}
+
+// MR 스케줄러 시작
+document.getElementById('btn-mr-start')?.addEventListener('click', async () => {
+    try {
+        await invoke('start_scheduler', { accessToken: auth.accessToken || '' });
+        showToast('스케줄러가 시작되었습니다', 'success');
+        await loadMrSchedulerStatus();
+    } catch (error) {
+        showToast('스케줄러 시작 실패: ' + error, 'error');
+    }
+});
+
+// MR 스케줄러 중지
+document.getElementById('btn-mr-stop')?.addEventListener('click', async () => {
+    try {
+        await invoke('stop_scheduler_premium', { accessToken: auth.accessToken || '' });
+        showToast('스케줄러가 중지되었습니다', 'info');
+        await loadMrSchedulerStatus();
+    } catch (error) {
+        showToast('스케줄러 중지 실패: ' + error, 'error');
+    }
+});
+
+// MR 새로고침
+document.getElementById('btn-mr-refresh')?.addEventListener('click', async () => {
+    await loadMrEngineTab();
+    showToast('새로고침 완료', 'info');
+});
+
+// MR 종목 추가
+document.getElementById('btn-mr-add-config')?.addEventListener('click', async () => {
+    const exchange = document.getElementById('mr-exchange')?.value;
+    const symbol = document.getElementById('mr-symbol')?.value;
+    const signalTf = document.getElementById('mr-signal-tf')?.value || '15m';
+    const htfTf = document.getElementById('mr-htf-tf')?.value || '4h';
+    const oscPreset = document.getElementById('mr-osc-preset')?.value || 'preset1';
+    const cashPct = parseFloat(document.getElementById('mr-cash-pct')?.value) || 90;
+    const hardCap = parseFloat(document.getElementById('mr-hard-cap')?.value) || 95;
+    const minProfit = parseFloat(document.getElementById('mr-min-profit')?.value) || 0.5;
+    const buyTranches = (document.getElementById('mr-buy-tranches')?.value || '25,50,75,100')
+        .split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+    const sellTranches = (document.getElementById('mr-sell-tranches')?.value || '50,100')
+        .split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+    const use4regime = document.getElementById('mr-use-4regime')?.checked ?? true;
+    const r1Pullback = document.getElementById('mr-r1-pullback')?.checked ?? true;
+    const r3Breakout = document.getElementById('mr-r3-breakout')?.checked ?? true;
+
+    if (!exchange || !symbol) {
+        showToast('거래소와 종목을 선택해주세요', 'error');
+        return;
+    }
+
+    try {
+        const config = {
+            signal_tf: signalTf,
+            htf_tf: htfTf,
+            osc_preset: oscPreset,
+            cash_use_pct: cashPct,
+            hard_cap_pct: hardCap,
+            min_profit_pct: minProfit,
+            buy_tranches: buyTranches,
+            sell_tranches: sellTranches,
+            use_4regime: use4regime,
+            r1_pullback_enabled: r1Pullback,
+            r3_breakout_enabled: r3Breakout,
+            exchange: exchange,
+            symbol: symbol
+        };
+
+        await invoke('create_premium_config', {
+            accessToken: auth.accessToken || '',
+            config: config
+        });
+
+        showToast('종목이 추가되었습니다', 'success');
+        document.getElementById('mr-symbol').value = '';
+        await loadMrConfigs();
+
+        // 스케줄러에 등록
+        await invoke('register_to_scheduler', {
+            accessToken: auth.accessToken || '',
+            assetId: config.asset_id || 0,
+            symbol: symbol,
+            exchange: exchange,
+            timeframe: signalTf,
+            htfTimeframe: htfTf
+        });
+    } catch (error) {
+        showToast('종목 추가 실패: ' + error, 'error');
+    }
+});
+
+// 수동 시그널 트리거
+async function triggerMrSignal(assetId) {
+    try {
+        const result = await invoke('trigger_signal', {
+            accessToken: auth.accessToken || '',
+            assetId: assetId
+        });
+
+        if (result.success) {
+            showToast(`시그널 생성: ${result.action || 'hold'} - ${result.reason_code || ''}`, 'success');
+        } else {
+            showToast(result.message || '시그널 없음', 'info');
+        }
+        await loadMrSignals();
+    } catch (error) {
+        showToast('시그널 트리거 실패: ' + error, 'error');
+    }
+}
+window.triggerMrSignal = triggerMrSignal;
+
+// MR 설정 삭제
+async function deleteMrConfig(assetId) {
+    if (!confirm('이 종목 설정을 삭제하시겠습니까?')) return;
+
+    try {
+        await invoke('delete_premium_config', {
+            accessToken: auth.accessToken || '',
+            assetId: assetId
+        });
+        showToast('삭제되었습니다', 'success');
+        await loadMrConfigs();
+    } catch (error) {
+        showToast('삭제 실패: ' + error, 'error');
+    }
+}
+window.deleteMrConfig = deleteMrConfig;
+
+// MR 엔진 탭 클릭 시 로드
+document.querySelector('.strategy-tab[data-tab="mr-engine"]')?.addEventListener('click', () => {
+    loadMrEngineTab();
+});
+
+// =====================================================
 // Initialize App
 // =====================================================
 (async () => {

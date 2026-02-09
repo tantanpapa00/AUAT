@@ -2959,3 +2959,327 @@ pub async fn create_asset(
         Err(format!("종목 연결 실패: {}", error_text))
     }
 }
+
+// =====================================================
+// Premium Strategy API (Phase 4)
+// =====================================================
+
+#[derive(Serialize, Deserialize)]
+pub struct PremiumConfig {
+    pub id: Option<i64>,
+    pub asset_id: i64,
+    pub signal_tf: String,
+    pub htf_tf: String,
+    pub osc_preset: String,
+    pub cash_use_pct: f64,
+    pub hard_cap_pct: f64,
+    pub min_profit_pct: f64,
+    pub buy_tranches: Vec<i32>,
+    pub sell_tranches: Vec<i32>,
+    pub use_4regime: bool,
+    pub r1_pullback_enabled: bool,
+    pub r3_breakout_enabled: bool,
+}
+
+#[tauri::command]
+pub async fn get_premium_configs(access_token: String) -> Result<Vec<serde_json::Value>, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/premium/configs", VPS_SERVER_URL);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: Vec<serde_json::Value> = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Ok(vec![])
+    }
+}
+
+#[tauri::command]
+pub async fn get_premium_config(access_token: String, asset_id: i64) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/premium/configs/{}", VPS_SERVER_URL, asset_id);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("프리미엄 설정을 찾을 수 없습니다".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn create_premium_config(
+    access_token: String,
+    config: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/premium/configs", VPS_SERVER_URL);
+
+    let resp = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .json(&config)
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        let error_text = resp.text().await.unwrap_or_default();
+        Err(format!("프리미엄 설정 생성 실패: {}", error_text))
+    }
+}
+
+#[tauri::command]
+pub async fn update_premium_config(
+    access_token: String,
+    asset_id: i64,
+    config: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/premium/configs/{}", VPS_SERVER_URL, asset_id);
+
+    let resp = client
+        .put(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .json(&config)
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        let error_text = resp.text().await.unwrap_or_default();
+        Err(format!("프리미엄 설정 수정 실패: {}", error_text))
+    }
+}
+
+#[tauri::command]
+pub async fn delete_premium_config(access_token: String, asset_id: i64) -> Result<String, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/premium/configs/{}", VPS_SERVER_URL, asset_id);
+
+    let resp = client
+        .delete(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        Ok("프리미엄 설정이 삭제되었습니다".to_string())
+    } else {
+        let error_text = resp.text().await.unwrap_or_default();
+        Err(format!("프리미엄 설정 삭제 실패: {}", error_text))
+    }
+}
+
+#[tauri::command]
+pub async fn get_strategy_state(access_token: String, asset_id: i64) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/premium/states/{}", VPS_SERVER_URL, asset_id);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("전략 상태를 찾을 수 없습니다".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn reset_strategy_state(access_token: String, asset_id: i64) -> Result<String, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/premium/states/{}/reset", VPS_SERVER_URL, asset_id);
+
+    let resp = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        Ok("전략 상태가 초기화되었습니다".to_string())
+    } else {
+        let error_text = resp.text().await.unwrap_or_default();
+        Err(format!("전략 상태 초기화 실패: {}", error_text))
+    }
+}
+
+#[tauri::command]
+pub async fn get_scheduler_status(access_token: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/premium/scheduler/status", VPS_SERVER_URL);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Ok(serde_json::json!({
+            "state": "unknown",
+            "asset_count": 0,
+            "active_timeframes": [],
+            "assets": []
+        }))
+    }
+}
+
+#[tauri::command]
+pub async fn start_scheduler(access_token: String) -> Result<String, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/premium/scheduler/start", VPS_SERVER_URL);
+
+    let resp = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        Ok("스케줄러가 시작되었습니다".to_string())
+    } else {
+        let error_text = resp.text().await.unwrap_or_default();
+        Err(format!("스케줄러 시작 실패: {}", error_text))
+    }
+}
+
+#[tauri::command]
+pub async fn stop_scheduler_premium(access_token: String) -> Result<String, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/premium/scheduler/stop", VPS_SERVER_URL);
+
+    let resp = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        Ok("스케줄러가 중지되었습니다".to_string())
+    } else {
+        let error_text = resp.text().await.unwrap_or_default();
+        Err(format!("스케줄러 중지 실패: {}", error_text))
+    }
+}
+
+#[tauri::command]
+pub async fn register_to_scheduler(access_token: String, asset_id: i64) -> Result<String, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/premium/scheduler/register/{}", VPS_SERVER_URL, asset_id);
+
+    let resp = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        Ok("스케줄러에 등록되었습니다".to_string())
+    } else {
+        let error_text = resp.text().await.unwrap_or_default();
+        Err(format!("스케줄러 등록 실패: {}", error_text))
+    }
+}
+
+#[tauri::command]
+pub async fn trigger_signal(access_token: String, asset_id: i64) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/premium/signal/trigger", VPS_SERVER_URL);
+
+    let body = serde_json::json!({
+        "asset_id": asset_id
+    });
+
+    let resp = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .json(&body)
+        .timeout(std::time::Duration::from_secs(30))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        let error_text = resp.text().await.unwrap_or_default();
+        Err(format!("시그널 트리거 실패: {}", error_text))
+    }
+}
+
+#[tauri::command]
+pub async fn get_signal_events(
+    access_token: String,
+    asset_id: Option<i64>,
+    limit: Option<i32>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let mut url = format!("{}/api/premium/signals?limit={}", VPS_SERVER_URL, limit.unwrap_or(50));
+
+    if let Some(aid) = asset_id {
+        url.push_str(&format!("&asset_id={}", aid));
+    }
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: Vec<serde_json::Value> = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Ok(vec![])
+    }
+}

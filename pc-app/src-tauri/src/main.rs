@@ -159,6 +159,20 @@ fn main() {
             commands::create_strategy_with_params,
             commands::save_signal_params,
             commands::create_asset,
+            // Premium Strategy Engine (Phase 4)
+            commands::get_premium_configs,
+            commands::get_premium_config,
+            commands::create_premium_config,
+            commands::update_premium_config,
+            commands::delete_premium_config,
+            commands::get_strategy_state,
+            commands::reset_strategy_state,
+            commands::get_scheduler_status,
+            commands::start_scheduler,
+            commands::stop_scheduler_premium,
+            commands::register_to_scheduler,
+            commands::trigger_signal,
+            commands::get_signal_events,
         ])
         .setup(|app| {
             // 앱 시작 시 VPS 서버 연결 확인 (로컬 서버 시작 없음)

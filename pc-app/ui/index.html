@@ -1360,6 +1360,7 @@
                         <button class="strategy-tab" data-tab="custom">커스텀</button>
                         <button class="strategy-tab" data-tab="reversal">역추세</button>
                         <button class="strategy-tab" data-tab="trend">추세</button>
+                        <button class="strategy-tab" data-tab="mr-engine">MR 엔진</button>
                     </div>
 
                     <!-- 전략현황 탭 -->
@@ -1589,6 +1590,141 @@
                             </div>
 
                             <button class="btn btn-primary" id="btn-backtest-trend">백테스팅 실행</button>
+                        </div>
+                    </section>
+
+                    <!-- MR 엔진 탭 (Premium Strategy Engine) -->
+                    <section class="strategy-content card" id="strategy-tab-mr-engine" style="display: none;">
+                        <h2>MR 프리미엄 엔진</h2>
+                        <p class="strategy-description">SPO 기반 평균회귀 전략 - 캔들마감 시점에 자동 신호 생성</p>
+
+                        <!-- 스케줄러 상태 -->
+                        <div class="mr-scheduler-status card-inner">
+                            <div class="status-header">
+                                <h4>스케줄러 상태</h4>
+                                <span class="scheduler-state" id="mr-scheduler-state">STOPPED</span>
+                            </div>
+                            <div class="status-info">
+                                <span>등록 종목: <strong id="mr-asset-count">0</strong>개</span>
+                                <span>활성 타임프레임: <strong id="mr-active-tfs">-</strong></span>
+                            </div>
+                            <div class="scheduler-controls">
+                                <button class="btn btn-success btn-sm" id="btn-mr-start">스케줄러 시작</button>
+                                <button class="btn btn-danger btn-sm" id="btn-mr-stop">스케줄러 중지</button>
+                                <button class="btn btn-secondary btn-sm" id="btn-mr-refresh">새로고침</button>
+                            </div>
+                        </div>
+
+                        <!-- 등록된 종목 목록 -->
+                        <div class="mr-configs-list card-inner">
+                            <h4>등록된 종목</h4>
+                            <div class="configs-table-wrapper">
+                                <table class="configs-table" id="mr-configs-table">
+                                    <thead>
+                                        <tr>
+                                            <th>종목</th>
+                                            <th>TF</th>
+                                            <th>프리셋</th>
+                                            <th>매수단계</th>
+                                            <th>매도단계</th>
+                                            <th>상태</th>
+                                            <th>액션</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="mr-configs-tbody">
+                                        <tr><td colspan="7" class="empty-state">등록된 종목이 없습니다</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- 새 종목 추가 폼 -->
+                        <div class="mr-add-config card-inner">
+                            <h4>종목 추가</h4>
+                            <div class="strategy-form">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>거래소</label>
+                                        <select id="mr-exchange" class="form-select">
+                                            <option value="">선택하세요</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>종목</label>
+                                        <input type="text" id="mr-symbol" class="form-input" placeholder="예: BTC-USDT" autocomplete="off">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>시그널 TF</label>
+                                        <select id="mr-signal-tf" class="form-select">
+                                            <option value="15m">15분</option>
+                                            <option value="1h">1시간</option>
+                                            <option value="4h">4시간</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>HTF</label>
+                                        <select id="mr-htf-tf" class="form-select">
+                                            <option value="4h">4시간</option>
+                                            <option value="1D">1일</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>오실레이터 프리셋</label>
+                                        <select id="mr-osc-preset" class="form-select">
+                                            <option value="preset1">Preset 1 (기본)</option>
+                                            <option value="preset2">Preset 2 (보수적)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>현금 사용률 (%)</label>
+                                        <input type="number" id="mr-cash-pct" class="form-input" value="90" min="0" max="100">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>하드캡 (%)</label>
+                                        <input type="number" id="mr-hard-cap" class="form-input" value="95" min="0" max="100">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>최소 이익률 (%)</label>
+                                        <input type="number" id="mr-min-profit" class="form-input" value="0.5" step="0.1">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>매수 단계</label>
+                                        <input type="text" id="mr-buy-tranches" class="form-input" value="25,50,75,100" placeholder="25,50,75,100">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>매도 단계</label>
+                                        <input type="text" id="mr-sell-tranches" class="form-input" value="50,100" placeholder="50,100">
+                                    </div>
+                                </div>
+                                <div class="form-row options-row">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="mr-use-4regime" checked> 4-Regime 사용
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="mr-r1-pullback" checked> R1 풀백
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="mr-r3-breakout" checked> R3 브레이크아웃
+                                    </label>
+                                </div>
+                                <div class="form-actions">
+                                    <button class="btn btn-primary" id="btn-mr-add-config">종목 추가</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 최근 시그널 -->
+                        <div class="mr-signals card-inner">
+                            <h4>최근 시그널</h4>
+                            <div class="signals-list" id="mr-signals-list">
+                                <p class="empty-state">시그널 기록이 없습니다</p>
+                            </div>
                         </div>
                     </section>
 

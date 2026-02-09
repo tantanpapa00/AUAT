@@ -13,7 +13,7 @@
 - Day 9: DONE (긴급 수정 + 보유자산 + 계정관리 + 전략설정 v2 UI)
 - Day 10: DONE (홈 대시보드 개선 - 거래내역 + 활성전략 관리)
 - Day 11: DONE (역추세매매 프리미엄 엔진 Phase 1 - 지표 파이썬 재구현)
-- Day 12: DONE (역추세매매 프리미엄 엔진 Phase 2~3 - 시세/실행/스케줄러/API)
+- Day 12: DONE (역추세매매 프리미엄 엔진 Phase 2~4 - 시세/실행/스케줄러/API/UI)
 
 ## Quick Commands
 - Syntax: `python -m compileall app`
@@ -382,6 +382,47 @@ app/strategy_engine/
 
 **커밋**:
 - `76aa6cf` feat: 역추세매매(MR) 프리미엄 엔진 Phase 3 - 스케줄러 + API
+
+### Phase 4: PC앱 UI (2026-02-09)
+
+**Rust Commands** (`pc-app/src-tauri/src/commands.rs`):
+```rust
+// Premium Strategy API (13개)
+get_premium_configs       // 전체 설정 조회
+get_premium_config        // 개별 설정 조회
+create_premium_config     // 설정 생성
+update_premium_config     // 설정 수정
+delete_premium_config     // 설정 삭제
+get_strategy_state        // 전략 상태 조회
+reset_strategy_state      // 전략 상태 초기화
+get_scheduler_status      // 스케줄러 상태
+start_scheduler           // 스케줄러 시작
+stop_scheduler_premium    // 스케줄러 중지
+register_to_scheduler     // 종목 등록
+trigger_signal            // 수동 시그널
+get_signal_events         // 시그널 이벤트 조회
+```
+
+**PC앱 UI** (`pc-app/ui/index.html` + `src/main.js`):
+- MR 엔진 탭 추가 (프리미엄 전략 → MR 엔진)
+- 스케줄러 상태 표시 (running/stopped/paused)
+- 등록 종목 테이블 (심볼/TF/프리셋/매수단계/매도단계/상태)
+- 종목 추가 폼 (오실레이터 프리셋, 단계, 필터 설정)
+- 최근 시그널 목록 (매수/매도/시간/사유코드)
+
+**JavaScript 함수**:
+- `loadMrEngineTab()` - MR 탭 초기화
+- `loadMrSchedulerStatus()` - 스케줄러 상태 갱신
+- `loadMrConfigs()` - 설정 목록 렌더링
+- `loadMrSignals()` - 시그널 이벤트 렌더링
+- `triggerMrSignal(assetId)` - 수동 시그널 트리거
+- `deleteMrConfig(assetId)` - 설정 삭제
+
+**CSS 스타일** (`pc-app/ui/src/style.css`):
+- `.mr-scheduler-status` - 스케줄러 상태 박스
+- `.scheduler-state.state-*` - 상태별 색상
+- `.configs-table` - 설정 테이블
+- `.signal-item.signal-buy/sell` - 시그널 카드
 
 ## Day 8 Fixes
 - 종목명 쓰레기 데이터 제거 (`_clean_stock_name`)
