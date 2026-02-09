@@ -1462,6 +1462,8 @@ async function loadActiveStrategies() {
             const statusClass = isRunning ? 'running' : 'paused';
             const statusText = isRunning ? '실행중' : '일시정지';
             const rowClass = isRunning ? '' : ' class="paused-row"';
+            // 전략명에서 특수문자 이스케이프
+            const safeName = s.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
             return `
             <tr${rowClass}>
@@ -1472,10 +1474,10 @@ async function loadActiveStrategies() {
                 <td><span class="strategy-status-badge ${statusClass}">${statusText}</span></td>
                 <td class="strategy-actions-cell">
                     ${isRunning
-                        ? `<button class="btn-action btn-pause" onclick="toggleAsset(${s.id}, '${s.name}')" title="일시정지">⏸</button>`
-                        : `<button class="btn-action btn-resume" onclick="toggleAsset(${s.id}, '${s.name}')" title="재개">▶</button>`
+                        ? `<button class="btn-action btn-pause" onclick="toggleAsset(${s.id}, '${safeName}')">정지</button>`
+                        : `<button class="btn-action btn-resume" onclick="toggleAsset(${s.id}, '${safeName}')">재개</button>`
                     }
-                    <button class="btn-action btn-delete" onclick="deleteAsset(${s.id}, '${s.name}')" title="삭제">🗑</button>
+                    <button class="btn-action btn-delete" onclick="deleteAsset(${s.id}, '${safeName}')">삭제</button>
                 </td>
             </tr>
             `;
@@ -1489,8 +1491,9 @@ async function loadActiveStrategies() {
 async function toggleAsset(assetId, name) {
     console.log('[toggleAsset] called with assetId:', assetId, 'name:', name);
     try {
-        console.log('[toggleAsset] invoking toggle_asset...');
-        const res = await invoke('toggle_asset', { accessToken: auth.accessToken, asset_id: assetId });
+        console.log('[toggleAsset] invoking toggle_asset with assetId:', assetId);
+        // Tauri는 camelCase → snake_case 자동 변환 (strategyId → strategy_id 패턴 따름)
+        const res = await invoke('toggle_asset', { accessToken: auth.accessToken, assetId: assetId });
         console.log('[toggleAsset] response:', res);
         const statusText = res.is_active ? '재개' : '일시정지';
         showToast(`${name} 전략이 ${statusText}되었습니다.`);
@@ -1505,7 +1508,7 @@ async function deleteAsset(assetId, name) {
     if (!confirm(`"${name}" 전략을 삭제하시겠습니까?\n삭제 후 복구할 수 없습니다.`)) return;
     console.log('[deleteAsset] called with assetId:', assetId);
     try {
-        const res = await invoke('delete_asset', { accessToken: auth.accessToken, asset_id: assetId });
+        const res = await invoke('delete_asset', { accessToken: auth.accessToken, assetId: assetId });
         console.log('[deleteAsset] response:', res);
         showToast(`${name} 전략이 삭제되었습니다.`);
         await loadActiveStrategies();

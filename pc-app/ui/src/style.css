@@ -3023,6 +3023,13 @@ body {
     .holdings-table th, .holdings-table td { padding: 8px 4px; }
 }
 
+/* 활성전략 + 거래내역 섹션: 전체 너비 (위아래 배치) */
+.strategies-section,
+.trades-section {
+    grid-column: 1 / -1;
+    width: 100%;
+}
+
 /* 활성 전략 테이블 */
 .strategies-table-wrapper {
     overflow-x: auto;
@@ -3032,11 +3039,12 @@ body {
     width: 100%;
     border-collapse: collapse;
     font-size: 13px;
+    table-layout: fixed;
 }
 
 .strategies-table th {
     text-align: left;
-    padding: 12px 10px;
+    padding: 10px 8px;
     border-bottom: 2px solid var(--border);
     font-weight: 600;
     color: var(--text-secondary);
@@ -3044,8 +3052,16 @@ body {
     white-space: nowrap;
 }
 
+/* 컬럼 너비 지정 */
+.strategies-table th:nth-child(1) { width: 25%; } /* 전략명 */
+.strategies-table th:nth-child(2) { width: 18%; } /* 종목 */
+.strategies-table th:nth-child(3) { width: 12%; } /* 거래소 */
+.strategies-table th:nth-child(4) { width: 12%; } /* 오늘거래 */
+.strategies-table th:nth-child(5) { width: 13%; } /* 상태 */
+.strategies-table th:nth-child(6) { width: 20%; } /* 액션 */
+
 .strategies-table td {
-    padding: 12px 10px;
+    padding: 10px 8px;
     border-bottom: 1px solid var(--border);
     vertical-align: middle;
 }
@@ -3061,7 +3077,7 @@ body {
 .strategy-name-cell {
     font-weight: 600;
     color: var(--text-primary);
-    max-width: 180px;
+    max-width: 200px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -3070,18 +3086,20 @@ body {
 .strategy-symbol-cell {
     font-family: 'SF Mono', Consolas, monospace;
     color: var(--text-primary);
+    font-size: 12px;
 }
 
 .strategy-trades-cell {
     color: var(--text-secondary);
+    font-size: 12px;
 }
 
 .strategy-status-badge {
     display: inline-block;
-    padding: 4px 10px;
-    border-radius: 20px;
+    padding: 3px 8px;
+    border-radius: 12px;
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 600;
     white-space: nowrap;
 }
 
@@ -3097,28 +3115,26 @@ body {
 
 .strategy-actions-cell {
     display: flex;
-    gap: 6px;
+    gap: 4px;
     white-space: nowrap;
 }
 
 .btn-action {
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    border-radius: 6px;
-    font-size: 14px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
     cursor: pointer;
     border: 1px solid var(--border);
     background: var(--bg-card);
     transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    white-space: nowrap;
 }
 
 .btn-action.btn-pause {
     background: rgba(245, 158, 11, 0.1);
     border-color: #f59e0b;
+    color: #f59e0b;
 }
 
 .btn-action.btn-pause:hover {
@@ -3128,6 +3144,7 @@ body {
 .btn-action.btn-resume {
     background: rgba(16, 185, 129, 0.1);
     border-color: #10b981;
+    color: #10b981;
 }
 
 .btn-action.btn-resume:hover {
@@ -3137,6 +3154,7 @@ body {
 .btn-action.btn-delete {
     background: rgba(239, 68, 68, 0.1);
     border-color: #ef4444;
+    color: #ef4444;
 }
 
 .btn-action.btn-delete:hover {
