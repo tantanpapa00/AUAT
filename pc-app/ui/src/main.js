@@ -1518,6 +1518,10 @@ async function deleteAsset(assetId, name) {
     }
 }
 
+// Vite 모듈 스코프 문제 해결: 인라인 onclick에서 접근 가능하도록 window에 등록
+window.toggleAsset = toggleAsset;
+window.deleteAsset = deleteAsset;
+
 // =====================================================
 // 거래 내역 로드
 // =====================================================
