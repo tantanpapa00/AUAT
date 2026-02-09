@@ -13,7 +13,7 @@
 - Day 9: DONE (긴급 수정 + 보유자산 + 계정관리 + 전략설정 v2 UI)
 - Day 10: DONE (홈 대시보드 개선 - 거래내역 + 활성전략 관리)
 - Day 11: DONE (역추세매매 프리미엄 엔진 Phase 1 - 지표 파이썬 재구현)
-- Day 12: DONE (역추세매매 프리미엄 엔진 Phase 2~4 - 시세/실행/스케줄러/API/UI)
+- Day 12: DONE (역추세매매 프리미엄 엔진 Phase 2~5 - 시세/실행/스케줄러/API/UI/백테스트)
 
 ## Quick Commands
 - Syntax: `python -m compileall app`
@@ -423,6 +423,53 @@ get_signal_events         // 시그널 이벤트 조회
 - `.scheduler-state.state-*` - 상태별 색상
 - `.configs-table` - 설정 테이블
 - `.signal-item.signal-buy/sell` - 시그널 카드
+
+### Phase 5: 백테스트 (2026-02-09)
+
+**신규 파일**:
+- `app/strategy_engine/backtest_engine.py` - MR 전략 백테스트 엔진
+- `tests/test_backtest_engine.py` - 백테스트 테스트 (20개)
+
+**백테스트 엔진 핵심 클래스**:
+```python
+@dataclass
+class BacktestMetrics:
+    total_return_pct: float  # 총 수익률
+    cagr_pct: float          # 연환산 수익률
+    max_drawdown_pct: float  # 최대 낙폭
+    sharpe_ratio: float      # 샤프 비율
+    win_rate_pct: float      # 승률
+    total_trades: int        # 총 거래 수
+    profit_factor: float     # 이익비율
+
+def run_mr_backtest(candles, config, initial_capital) -> BacktestResult
+def generate_sample_candles(days, base_price) -> List[Candle]
+```
+
+**API 엔드포인트**:
+- `POST /api/premium/backtest/mr` - MR 백테스트 실행
+
+**Rust Command**:
+```rust
+#[tauri::command]
+pub async fn run_mr_backtest(
+    access_token, exchange, symbol, timeframe,
+    days, initial_capital, osc_preset, ...
+) -> Result<serde_json::Value, String>
+```
+
+**PC앱 UI** (`pc-app/ui/index.html`):
+- MR 엔진 탭 백테스트 섹션
+- 메트릭 카드 6개 (수익률/CAGR/MDD/샤프/승률/거래수)
+- 자산 추이 차트 (Chart.js)
+
+**JavaScript 함수**:
+- `runMrBacktest()` - 백테스트 실행
+- `displayMrBacktestResult()` - 결과 표시
+- `drawMrBacktestChart()` - 차트 그리기
+
+**커밋**:
+- `826a479` feat: 역추세매매(MR) 프리미엄 엔진 Phase 5 - 백테스트
 
 ## Day 8 Fixes
 - 종목명 쓰레기 데이터 제거 (`_clean_stock_name`)
