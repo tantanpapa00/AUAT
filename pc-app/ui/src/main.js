@@ -1431,8 +1431,8 @@ function formatUSD(value) {
 document.getElementById('holdings-exchange-filter')?.addEventListener('change', renderHoldings);
 
 async function loadActiveStrategies() {
-    const container = document.getElementById('active-strategies-list');
-    if (!container) return;
+    const tbody = document.getElementById('strategies-tbody');
+    if (!tbody) return;
 
     try {
         let strategies = [];
@@ -1442,50 +1442,42 @@ async function loadActiveStrategies() {
         // API가 { strategies: [...] } 또는 [...] 형태일 수 있음
         if (strategies.strategies) strategies = strategies.strategies;
 
-        if (strategies.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <p>활성 전략이 없습니다.</p>
-                    <p>전략설정에서 전략을 추가하세요.</p>
-                    <button class="btn btn-primary" onclick="navigateTo('tv-connect')">전략 추가하기</button>
-                </div>
+        if (!strategies || strategies.length === 0) {
+            tbody.innerHTML = `
+                <tr class="empty-row">
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <p>활성 전략이 없습니다.</p>
+                            <p>전략설정에서 전략을 추가하세요.</p>
+                            <button class="btn btn-primary" onclick="navigateTo('tv-connect')">전략 추가하기</button>
+                        </div>
+                    </td>
+                </tr>
             `;
             return;
         }
 
-        container.innerHTML = strategies.map(s => {
+        tbody.innerHTML = strategies.map(s => {
             const isRunning = s.status === 'running';
-            const cardClass = isRunning ? '' : ' paused';
             const statusClass = isRunning ? 'running' : 'paused';
             const statusText = isRunning ? '실행중' : '일시정지';
+            const rowClass = isRunning ? '' : ' class="paused-row"';
 
             return `
-            <div class="strategy-card${cardClass}">
-                <div class="strategy-card-header">
-                    <h4>${s.name}</h4>
-                    <span class="strategy-status ${statusClass}">${statusText}</span>
-                </div>
-                <div class="strategy-card-body">
-                    <div class="strategy-info">
-                        <span class="strategy-info-label">대상 자산</span>
-                        <span class="strategy-info-value">${s.symbol}</span>
-                    </div>
-                    <div class="strategy-info">
-                        <span class="strategy-info-label">거래소</span>
-                        <span class="strategy-info-value">${s.exchange}</span>
-                    </div>
-                    <div class="strategy-trades-today">
-                        오늘 거래: <strong>${s.trades_today}회</strong>
-                    </div>
-                </div>
-                <div class="strategy-actions">
+            <tr${rowClass}>
+                <td class="strategy-name-cell" title="${s.name}">${s.name}</td>
+                <td class="strategy-symbol-cell">${s.symbol}</td>
+                <td>${s.exchange}</td>
+                <td class="strategy-trades-cell">${s.trades_today}건</td>
+                <td><span class="strategy-status-badge ${statusClass}">${statusText}</span></td>
+                <td class="strategy-actions-cell">
                     ${isRunning
-                        ? `<button class="btn-pause" onclick="toggleAsset(${s.id}, '${s.name}')">⏸ 일시정지</button>`
-                        : `<button class="btn-resume" onclick="toggleAsset(${s.id}, '${s.name}')">▶ 재개</button>`
+                        ? `<button class="btn-action btn-pause" onclick="toggleAsset(${s.id}, '${s.name}')" title="일시정지">⏸</button>`
+                        : `<button class="btn-action btn-resume" onclick="toggleAsset(${s.id}, '${s.name}')" title="재개">▶</button>`
                     }
-                    <button class="btn-delete" onclick="deleteAsset(${s.id}, '${s.name}')">🗑</button>
-                </div>
-            </div>
+                    <button class="btn-action btn-delete" onclick="deleteAsset(${s.id}, '${s.name}')" title="삭제">🗑</button>
+                </td>
+            </tr>
             `;
         }).join('');
 
@@ -1495,23 +1487,30 @@ async function loadActiveStrategies() {
 }
 
 async function toggleAsset(assetId, name) {
+    console.log('[toggleAsset] called with assetId:', assetId, 'name:', name);
     try {
+        console.log('[toggleAsset] invoking toggle_asset...');
         const res = await invoke('toggle_asset', { accessToken: auth.accessToken, asset_id: assetId });
+        console.log('[toggleAsset] response:', res);
         const statusText = res.is_active ? '재개' : '일시정지';
         showToast(`${name} 전략이 ${statusText}되었습니다.`);
         await loadActiveStrategies();
     } catch (e) {
+        console.error('[toggleAsset] error:', e);
         showToast(`전략 변경 실패: ${e}`, 'error');
     }
 }
 
 async function deleteAsset(assetId, name) {
     if (!confirm(`"${name}" 전략을 삭제하시겠습니까?\n삭제 후 복구할 수 없습니다.`)) return;
+    console.log('[deleteAsset] called with assetId:', assetId);
     try {
-        await invoke('delete_asset', { accessToken: auth.accessToken, asset_id: assetId });
+        const res = await invoke('delete_asset', { accessToken: auth.accessToken, asset_id: assetId });
+        console.log('[deleteAsset] response:', res);
         showToast(`${name} 전략이 삭제되었습니다.`);
         await loadActiveStrategies();
     } catch (e) {
+        console.error('[deleteAsset] error:', e);
         showToast(`전략 삭제 실패: ${e}`, 'error');
     }
 }

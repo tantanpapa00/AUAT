@@ -441,12 +441,30 @@
                             <h2>활성 전략</h2>
                             <button class="btn btn-secondary btn-sm" id="btn-refresh-strategies">새로고침</button>
                         </div>
-                        <div class="active-strategies-grid" id="active-strategies-list">
-                            <div class="empty-state">
-                                <p>활성 전략이 없습니다.</p>
-                                <p>전략설정에서 전략을 추가하세요.</p>
-                                <button class="btn btn-primary" onclick="navigateTo('tv-connect')">전략 추가하기</button>
-                            </div>
+                        <div class="strategies-table-wrapper">
+                            <table class="strategies-table">
+                                <thead>
+                                    <tr>
+                                        <th>전략명</th>
+                                        <th>종목</th>
+                                        <th>거래소</th>
+                                        <th>오늘거래</th>
+                                        <th>상태</th>
+                                        <th>액션</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="strategies-tbody">
+                                    <tr class="empty-row">
+                                        <td colspan="6">
+                                            <div class="empty-state">
+                                                <p>활성 전략이 없습니다.</p>
+                                                <p>전략설정에서 전략을 추가하세요.</p>
+                                                <button class="btn btn-primary" onclick="navigateTo('tv-connect')">전략 추가하기</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </section>
 
