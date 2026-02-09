@@ -57,6 +57,15 @@ from .scheduler import (
     seconds_until_bar_close,
 )
 
+# Phase 5: Backtest Engine
+from .backtest_engine import (
+    BacktestTrade,
+    BacktestMetrics,
+    BacktestResult,
+    run_mr_backtest,
+    generate_sample_candles,
+)
+
 __all__ = [
     # Models
     "Candle",
@@ -107,4 +116,10 @@ __all__ = [
     "get_current_bar_open_time",
     "get_next_bar_close_time",
     "seconds_until_bar_close",
+    # Phase 5: Backtest Engine
+    "BacktestTrade",
+    "BacktestMetrics",
+    "BacktestResult",
+    "run_mr_backtest",
+    "generate_sample_candles",
 ]

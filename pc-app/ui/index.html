@@ -1719,6 +1719,57 @@
                             </div>
                         </div>
 
+                        <!-- MR 백테스트 섹션 -->
+                        <div class="mr-backtest card-inner">
+                            <h4>MR 전략 백테스트</h4>
+                            <div class="backtest-form">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>백테스트 기간 (일)</label>
+                                        <input type="number" id="mr-bt-days" class="form-input" value="365" min="30" max="1000">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>초기 자본</label>
+                                        <input type="number" id="mr-bt-capital" class="form-input" value="10000000">
+                                    </div>
+                                </div>
+                                <button class="btn btn-primary" id="btn-mr-run-backtest">백테스트 실행</button>
+                            </div>
+
+                            <!-- 백테스트 결과 -->
+                            <div class="backtest-result" id="mr-backtest-result" style="display: none;">
+                                <div class="result-metrics">
+                                    <div class="metric-card">
+                                        <span class="metric-label">총 수익률</span>
+                                        <span class="metric-value" id="mr-bt-total-return">+0.00%</span>
+                                    </div>
+                                    <div class="metric-card">
+                                        <span class="metric-label">연평균 수익률</span>
+                                        <span class="metric-value" id="mr-bt-cagr">+0.00%</span>
+                                    </div>
+                                    <div class="metric-card">
+                                        <span class="metric-label">최대 낙폭</span>
+                                        <span class="metric-value negative" id="mr-bt-mdd">-0.00%</span>
+                                    </div>
+                                    <div class="metric-card">
+                                        <span class="metric-label">샤프 비율</span>
+                                        <span class="metric-value" id="mr-bt-sharpe">0.00</span>
+                                    </div>
+                                    <div class="metric-card">
+                                        <span class="metric-label">승률</span>
+                                        <span class="metric-value" id="mr-bt-winrate">0.0%</span>
+                                    </div>
+                                    <div class="metric-card">
+                                        <span class="metric-label">총 거래</span>
+                                        <span class="metric-value" id="mr-bt-trades">0회</span>
+                                    </div>
+                                </div>
+                                <div class="result-chart">
+                                    <canvas id="mr-backtest-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- 최근 시그널 -->
                         <div class="mr-signals card-inner">
                             <h4>최근 시그널</h4>

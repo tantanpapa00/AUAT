@@ -3283,3 +3283,60 @@ pub async fn get_signal_events(
         Ok(vec![])
     }
 }
+
+// ============================================================================
+// MR Backtest Command (Phase 5)
+// ============================================================================
+
+#[tauri::command]
+pub async fn run_mr_backtest(
+    access_token: String,
+    exchange: String,
+    symbol: String,
+    timeframe: Option<String>,
+    htf_timeframe: Option<String>,
+    days: Option<i32>,
+    initial_capital: Option<f64>,
+    osc_preset: Option<String>,
+    cash_use_pct: Option<f64>,
+    use_4regime: Option<bool>,
+    buy_tranches: Option<Vec<i32>>,
+    sell_tranches: Option<Vec<i32>>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .unwrap();
+    let url = format!("{}/api/premium/backtest/mr", VPS_SERVER_URL);
+
+    let body = serde_json::json!({
+        "exchange": exchange,
+        "symbol": symbol,
+        "timeframe": timeframe.unwrap_or_else(|| "1h".to_string()),
+        "htf_timeframe": htf_timeframe.unwrap_or_else(|| "4h".to_string()),
+        "days": days.unwrap_or(365),
+        "initial_capital": initial_capital.unwrap_or(10000000.0),
+        "osc_preset": osc_preset.unwrap_or_else(|| "preset1".to_string()),
+        "cash_use_pct": cash_use_pct.unwrap_or(90.0),
+        "use_4regime": use_4regime.unwrap_or(true),
+        "buy_tranches": buy_tranches.unwrap_or_else(|| vec![25, 50, 75, 100]),
+        "sell_tranches": sell_tranches.unwrap_or_else(|| vec![50, 100]),
+    });
+
+    let resp = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .json(&body)
+        .timeout(std::time::Duration::from_secs(60))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        let error_text = resp.text().await.unwrap_or_default();
+        Err(format!("백테스트 실행 실패: {}", error_text))
+    }
+}

@@ -797,3 +797,130 @@ async def get_signal(
         "processed": signal_row[18],
         "snapshot": snapshot,
     }
+
+
+# ============================================================================
+# Backtest Endpoints (Phase 5)
+# ============================================================================
+
+class MRBacktestRequest(BaseModel):
+    """Request model for MR backtest."""
+    exchange: str = Field(..., description="거래소 (okx, binance, etc)")
+    symbol: str = Field(..., description="종목 심볼 (BTC-USDT)")
+    timeframe: str = Field(default="1h", description="타임프레임")
+    htf_timeframe: str = Field(default="4h", description="HTF 타임프레임")
+    days: int = Field(default=365, ge=30, le=1000, description="백테스트 기간 (일)")
+    initial_capital: float = Field(default=10000000, ge=1000)
+    osc_preset: str = Field(default="preset1")
+    cash_use_pct: float = Field(default=90.0, ge=0, le=100)
+    use_4regime: bool = Field(default=True)
+    buy_tranches: List[int] = Field(default=[25, 50, 75, 100])
+    sell_tranches: List[int] = Field(default=[50, 100])
+
+
+class MRBacktestResponse(BaseModel):
+    """Response model for MR backtest."""
+    success: bool
+    message: str
+    metrics: Dict[str, Any]
+    equity_curve: List[Dict[str, Any]]
+    trades: List[Dict[str, Any]]
+    signals_count: int
+
+
+@router.post("/backtest/mr", response_model=MRBacktestResponse)
+async def run_mr_backtest_endpoint(
+    request: MRBacktestRequest,
+):
+    """
+    MR 프리미엄 전략 백테스트 실행.
+
+    샘플 데이터 또는 캐시된 OHLCV 데이터로 백테스트를 실행합니다.
+    """
+    from .strategy_engine.backtest_engine import (
+        run_mr_backtest,
+        generate_sample_candles,
+        BacktestResult,
+    )
+    from .strategy_engine.models import MRConfig
+
+    try:
+        # MR 설정 생성
+        config = MRConfig(
+            osc_preset=request.osc_preset,
+            cash_use_pct=request.cash_use_pct,
+            use_4regime=request.use_4regime,
+            buy_tranches=request.buy_tranches,
+            sell_tranches=request.sell_tranches,
+        )
+
+        # 캔들 데이터 생성 (실제 운영시 candle_fetcher 사용)
+        # 여기서는 샘플 데이터로 테스트
+        candles = generate_sample_candles(
+            days=request.days,
+            base_price=50000.0 if "BTC" in request.symbol.upper() else 1000.0,
+            seed=hash(f"{request.exchange}_{request.symbol}") % 100000,
+        )
+
+        # 백테스트 실행
+        result = run_mr_backtest(
+            candles=candles,
+            htf_candles=None,  # HTF 없으면 동일 데이터 사용
+            config=config,
+            initial_capital=request.initial_capital,
+        )
+
+        # 결과 변환
+        trades_list = []
+        for t in result.trades:
+            trades_list.append({
+                "bar_index": t.bar_index,
+                "timestamp": t.timestamp,
+                "action": t.action,
+                "price": t.price,
+                "quantity": t.quantity,
+                "tranche": t.tranche,
+                "reason_code": t.reason_code,
+                "pnl": t.pnl,
+                "pnl_pct": t.pnl_pct,
+            })
+
+        # equity_curve 샘플링 (너무 많으면 줄임)
+        equity_curve = result.equity_curve
+        if len(equity_curve) > 500:
+            step = len(equity_curve) // 500
+            equity_curve = equity_curve[::step]
+
+        return MRBacktestResponse(
+            success=result.success,
+            message=result.message,
+            metrics={
+                "total_return_pct": round(result.metrics.total_return_pct, 2),
+                "cagr_pct": round(result.metrics.cagr_pct, 2),
+                "max_drawdown_pct": round(result.metrics.max_drawdown_pct, 2),
+                "sharpe_ratio": round(result.metrics.sharpe_ratio, 2),
+                "win_rate_pct": round(result.metrics.win_rate_pct, 1),
+                "total_trades": result.metrics.total_trades,
+                "winning_trades": result.metrics.winning_trades,
+                "losing_trades": result.metrics.losing_trades,
+                "avg_win_pct": round(result.metrics.avg_win_pct, 2),
+                "avg_loss_pct": round(result.metrics.avg_loss_pct, 2),
+                "profit_factor": round(result.metrics.profit_factor, 2),
+                "max_consecutive_wins": result.metrics.max_consecutive_wins,
+                "max_consecutive_losses": result.metrics.max_consecutive_losses,
+            },
+            equity_curve=equity_curve,
+            trades=trades_list,
+            signals_count=len(result.signals),
+        )
+
+    except Exception as e:
+        logger.error(f"MR 백테스트 오류: {e}")
+        return MRBacktestResponse(
+            success=False,
+            message=f"백테스트 오류: {str(e)}",
+            metrics={},
+            equity_curve=[],
+            trades=[],
+            signals_count=0,
+        )

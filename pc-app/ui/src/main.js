@@ -7051,6 +7051,135 @@ document.querySelector('.strategy-tab[data-tab="mr-engine"]')?.addEventListener(
     loadMrEngineTab();
 });
 
+// MR 백테스트 실행
+let mrBacktestChart = null;
+
+document.getElementById('btn-mr-run-backtest')?.addEventListener('click', async () => {
+    const exchange = document.getElementById('mr-exchange')?.value || 'OKX';
+    const symbol = document.getElementById('mr-symbol')?.value || 'BTC-USDT';
+    const days = parseInt(document.getElementById('mr-bt-days')?.value) || 365;
+    const capital = parseFloat(document.getElementById('mr-bt-capital')?.value) || 10000000;
+    const signalTf = document.getElementById('mr-signal-tf')?.value || '1h';
+    const htfTf = document.getElementById('mr-htf-tf')?.value || '4h';
+    const oscPreset = document.getElementById('mr-osc-preset')?.value || 'preset1';
+    const cashPct = parseFloat(document.getElementById('mr-cash-pct')?.value) || 90;
+    const use4regime = document.getElementById('mr-use-4regime')?.checked ?? true;
+    const buyTranches = (document.getElementById('mr-buy-tranches')?.value || '25,50,75,100')
+        .split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+    const sellTranches = (document.getElementById('mr-sell-tranches')?.value || '50,100')
+        .split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+
+    showToast('백테스트 실행 중...', 'info');
+
+    try {
+        const result = await invoke('run_mr_backtest', {
+            accessToken: auth.accessToken || '',
+            exchange: exchange,
+            symbol: symbol,
+            timeframe: signalTf,
+            htfTimeframe: htfTf,
+            days: days,
+            initialCapital: capital,
+            oscPreset: oscPreset,
+            cashUsePct: cashPct,
+            use4regime: use4regime,
+            buyTranches: buyTranches,
+            sellTranches: sellTranches,
+        });
+
+        if (result.success) {
+            displayMrBacktestResult(result);
+            showToast('백테스트 완료', 'success');
+        } else {
+            showToast(result.message || '백테스트 실패', 'error');
+        }
+    } catch (error) {
+        showToast('백테스트 오류: ' + error, 'error');
+    }
+});
+
+function displayMrBacktestResult(result) {
+    const resultEl = document.getElementById('mr-backtest-result');
+    if (!resultEl) return;
+
+    resultEl.style.display = 'block';
+
+    const m = result.metrics || {};
+
+    // 메트릭 표시
+    const totalReturn = m.total_return_pct || 0;
+    document.getElementById('mr-bt-total-return').textContent =
+        (totalReturn >= 0 ? '+' : '') + totalReturn.toFixed(2) + '%';
+    document.getElementById('mr-bt-total-return').className =
+        'metric-value ' + (totalReturn >= 0 ? 'positive' : 'negative');
+
+    document.getElementById('mr-bt-cagr').textContent =
+        (m.cagr_pct >= 0 ? '+' : '') + (m.cagr_pct || 0).toFixed(2) + '%';
+
+    document.getElementById('mr-bt-mdd').textContent =
+        (m.max_drawdown_pct || 0).toFixed(2) + '%';
+
+    document.getElementById('mr-bt-sharpe').textContent =
+        (m.sharpe_ratio || 0).toFixed(2);
+
+    document.getElementById('mr-bt-winrate').textContent =
+        (m.win_rate_pct || 0).toFixed(1) + '%';
+
+    document.getElementById('mr-bt-trades').textContent =
+        (m.total_trades || 0) + '회';
+
+    // 차트 그리기
+    drawMrBacktestChart(result.equity_curve || []);
+}
+
+function drawMrBacktestChart(equityCurve) {
+    const canvas = document.getElementById('mr-backtest-chart');
+    if (!canvas || !window.Chart) return;
+
+    const ctx = canvas.getContext('2d');
+
+    // 기존 차트 제거
+    if (mrBacktestChart) {
+        mrBacktestChart.destroy();
+    }
+
+    const labels = equityCurve.map((_, i) => i);
+    const data = equityCurve.map(p => p.equity);
+
+    mrBacktestChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: '자산 추이',
+                data: data,
+                borderColor: 'rgb(59, 130, 246)',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                fill: true,
+                tension: 0.1,
+                pointRadius: 0,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+            },
+            scales: {
+                x: { display: false },
+                y: {
+                    ticks: {
+                        callback: function(value) {
+                            return (value / 1000000).toFixed(1) + 'M';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
 // =====================================================
 // Initialize App
 // =====================================================

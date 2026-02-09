@@ -7235,3 +7235,56 @@ body {
     color: var(--text-muted);
     font-size: 11px;
 }
+
+/* MR Backtest Styles (Phase 5) */
+.mr-backtest {
+    margin-bottom: 16px;
+}
+.backtest-form {
+    margin-bottom: 16px;
+}
+.backtest-result {
+    margin-top: 16px;
+}
+.result-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.metric-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+}
+.metric-label {
+    display: block;
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+.metric-value {
+    display: block;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.metric-value.positive {
+    color: #22c55e;
+}
+.metric-value.negative {
+    color: #ef4444;
+}
+.result-chart {
+    height: 250px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+}
+.result-chart canvas {
+    width: 100% !important;
+    height: 100% !important;
+}

@@ -173,6 +173,8 @@ fn main() {
             commands::register_to_scheduler,
             commands::trigger_signal,
             commands::get_signal_events,
+            // MR Backtest (Phase 5)
+            commands::run_mr_backtest,
         ])
         .setup(|app| {
             // 앱 시작 시 VPS 서버 연결 확인 (로컬 서버 시작 없음)
