@@ -7928,56 +7928,60 @@ async def get_exchange_rate():
 async def get_trade_history(
     exchange: str = Query(None, description="거래소 필터"),
     symbol: str = Query(None, description="종목 필터"),
-    limit: int = Query(50, ge=1, le=500, description="조회 개수"),
+    limit: int = Query(10, ge=1, le=500, description="조회 개수"),
+    offset: int = Query(0, ge=0, description="건너뛸 개수"),
     current_user: User = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """매매 내역 조회"""
+    """매매 내역 조회 (실패 건 포함)"""
     if not current_user:
-        return {"trades": []}
+        return {"trades": [], "total": 0}
 
     try:
-        # trade_history 테이블이 있으면 조회, 없으면 orders 테이블에서 조회
+        # 전체 개수 조회
+        count_sql = "SELECT COUNT(*) FROM orders"
+        total = db.execute(text(count_sql)).scalar() or 0
+
+        # 매매 내역 조회 (실패 건 포함)
         sql = """
-            SELECT id, symbol, side, qty as quantity, avg_px as price,
-                   (qty * avg_px) as total_amount, 'KRW' as currency,
-                   0 as fee, NULL as strategy_name, created_at as executed_at
-            FROM orders
-            WHERE status = 'filled'
-            ORDER BY created_at DESC
-            LIMIT :limit
+            SELECT o.id, o.symbol, o.side, o.qty, o.filled_qty, o.avg_px,
+                   o.status, o.submit_status, o.submit_err,
+                   o.reason_code, o.reason_text,
+                   o.created_at as executed_at,
+                   a.id as asset_id, s.name as strategy_name, acc.name as exchange_name
+            FROM orders o
+            LEFT JOIN assets a ON a.id = o.asset_id
+            LEFT JOIN strategies s ON s.id = a.strategy_id
+            LEFT JOIN accounts acc ON acc.id = a.account_id
+            ORDER BY o.created_at DESC
+            LIMIT :limit OFFSET :offset
         """
 
-        if exchange:
-            sql = sql.replace("WHERE status = 'filled'",
-                              f"WHERE status = 'filled' AND symbol LIKE '%{exchange}%'")
-        if symbol:
-            sql = sql.replace("WHERE status = 'filled'",
-                              f"WHERE status = 'filled' AND symbol = '{symbol}'")
-
-        rows = db.execute(text(sql), {"limit": limit}).fetchall()
+        rows = db.execute(text(sql), {"limit": limit, "offset": offset}).fetchall()
 
         trades = []
         for row in rows:
             trades.append({
                 "id": row.id,
-                "exchange": "OKX",  # 추후 확장
+                "exchange": row.exchange_name or "OKX",
                 "symbol": row.symbol or "",
                 "side": row.side or "",
-                "quantity": float(row.quantity or 0),
-                "price": float(row.price or 0),
-                "total_amount": float(row.total_amount or 0),
-                "currency": row.currency or "KRW",
-                "fee": float(row.fee or 0),
-                "strategy_name": row.strategy_name,
-                "executed_at": row.executed_at.isoformat() if row.executed_at else None
+                "quantity": float(row.filled_qty or row.qty or 0),
+                "price": float(row.avg_px or 0),
+                "total_amount": float((row.filled_qty or row.qty or 0) * (row.avg_px or 0)),
+                "status": row.status or "unknown",
+                "submit_err": row.submit_err or "",
+                "reason_code": row.reason_code or "",
+                "reason_text": row.reason_text or "",
+                "strategy_name": row.strategy_name or "",
+                "executed_at": row.executed_at.isoformat() if row.executed_at else ""
             })
 
-        return {"trades": trades}
+        return {"trades": trades, "total": total}
 
     except Exception as e:
         print(f"[Trades] Error: {e}")
-        return {"trades": []}
+        return {"trades": [], "total": 0}
 
 
 # =====================================================

@@ -116,6 +116,8 @@ fn main() {
             commands::get_strategies,
             commands::toggle_strategy,
             commands::delete_strategy,
+            commands::toggle_asset,
+            commands::delete_asset,
             // Admin (PHASE 7)
             commands::admin_get_users,
             commands::admin_update_user_plan,

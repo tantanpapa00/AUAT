@@ -975,6 +975,7 @@ async function loadHomePage() {
     await loadPortfolioChart(currentPeriod);
     await loadHoldings();  // 자산배분 차트도 함께 업데이트
     await loadActiveStrategies();
+    await loadRecentTrades();
 }
 
 async function loadPortfolioSummary() {
@@ -1438,6 +1439,8 @@ async function loadActiveStrategies() {
         if (auth.accessToken) {
             strategies = await invoke('get_active_strategies', { accessToken: auth.accessToken });
         }
+        // API가 { strategies: [...] } 또는 [...] 형태일 수 있음
+        if (strategies.strategies) strategies = strategies.strategies;
 
         if (strategies.length === 0) {
             container.innerHTML = `
@@ -1450,13 +1453,17 @@ async function loadActiveStrategies() {
             return;
         }
 
-        container.innerHTML = strategies.map(s => `
-            <div class="strategy-card">
+        container.innerHTML = strategies.map(s => {
+            const isRunning = s.status === 'running';
+            const cardClass = isRunning ? '' : ' paused';
+            const statusClass = isRunning ? 'running' : 'paused';
+            const statusText = isRunning ? '실행중' : '일시정지';
+
+            return `
+            <div class="strategy-card${cardClass}">
                 <div class="strategy-card-header">
                     <h4>${s.name}</h4>
-                    <span class="strategy-status ${s.status === 'running' ? 'running' : 'stopped'}">
-                        ${s.status === 'running' ? '실행중' : '정지'}
-                    </span>
+                    <span class="strategy-status ${statusClass}">${statusText}</span>
                 </div>
                 <div class="strategy-card-body">
                     <div class="strategy-info">
@@ -1471,11 +1478,135 @@ async function loadActiveStrategies() {
                         오늘 거래: <strong>${s.trades_today}회</strong>
                     </div>
                 </div>
+                <div class="strategy-actions">
+                    ${isRunning
+                        ? `<button class="btn-pause" onclick="toggleAsset(${s.id}, '${s.name}')">⏸ 일시정지</button>`
+                        : `<button class="btn-resume" onclick="toggleAsset(${s.id}, '${s.name}')">▶ 재개</button>`
+                    }
+                    <button class="btn-delete" onclick="deleteAsset(${s.id}, '${s.name}')">🗑</button>
+                </div>
             </div>
-        `).join('');
+            `;
+        }).join('');
 
     } catch (e) {
         console.error('Failed to load active strategies:', e);
+    }
+}
+
+async function toggleAsset(assetId, name) {
+    try {
+        const res = await invoke('toggle_asset', { accessToken: auth.accessToken, asset_id: assetId });
+        const statusText = res.is_active ? '재개' : '일시정지';
+        showToast(`${name} 전략이 ${statusText}되었습니다.`);
+        await loadActiveStrategies();
+    } catch (e) {
+        showToast(`전략 변경 실패: ${e}`, 'error');
+    }
+}
+
+async function deleteAsset(assetId, name) {
+    if (!confirm(`"${name}" 전략을 삭제하시겠습니까?\n삭제 후 복구할 수 없습니다.`)) return;
+    try {
+        await invoke('delete_asset', { accessToken: auth.accessToken, asset_id: assetId });
+        showToast(`${name} 전략이 삭제되었습니다.`);
+        await loadActiveStrategies();
+    } catch (e) {
+        showToast(`전략 삭제 실패: ${e}`, 'error');
+    }
+}
+
+// =====================================================
+// 거래 내역 로드
+// =====================================================
+let tradesOffset = 0;
+const TRADES_LIMIT = 10;
+
+async function loadRecentTrades(append = false) {
+    const tbody = document.getElementById('trades-tbody');
+    const moreBtn = document.getElementById('trades-more');
+    if (!tbody) return;
+
+    try {
+        if (!append) tradesOffset = 0;
+        if (!auth.accessToken) return;
+
+        const data = await invoke('get_trade_history', {
+            accessToken: auth.accessToken,
+            exchange: null,
+            symbol: null,
+            limit: TRADES_LIMIT,
+            offset: tradesOffset
+        });
+        const trades = data.trades || [];
+        const total = data.total || trades.length;
+
+        if (trades.length === 0 && !append) {
+            tbody.innerHTML = `
+                <tr class="empty-row">
+                    <td colspan="6">
+                        <div class="empty-state"><p>거래 내역이 없습니다.</p></div>
+                    </td>
+                </tr>
+            `;
+            if (moreBtn) moreBtn.style.display = 'none';
+            return;
+        }
+
+        const rowsHtml = trades.map(trade => {
+            const side = (trade.side || '').toLowerCase();
+            const sideText = side.includes('buy') ? '매수' : side.includes('sell') ? '매도' : trade.side || '-';
+            const sideClass = side.includes('buy') ? 'buy' : 'sell';
+
+            const status = (trade.status || 'filled').toLowerCase();
+            const statusText = status === 'filled' ? '체결' :
+                              status === 'failed' ? '실패' :
+                              status === 'skipped' ? '스킵' :
+                              status === 'sent' ? '전송' : status;
+            const statusClass = status === 'filled' ? 'filled' :
+                               status === 'failed' || status === 'skipped' ? 'failed' : 'pending';
+
+            const qty = trade.quantity || 0;
+            const price = trade.price || 0;
+            const time = trade.executed_at ? new Date(trade.executed_at).toLocaleString('ko-KR') : '-';
+
+            const errorMsg = trade.submit_err || trade.reason_text || trade.reason_code || '';
+            const hasError = (status === 'failed' || status === 'skipped') && errorMsg;
+
+            let html = `
+                <tr>
+                    <td>${time}</td>
+                    <td style="font-family: monospace;">${trade.symbol || '-'}</td>
+                    <td><span class="trade-side ${sideClass}">${sideText}</span></td>
+                    <td>${formatQuantity(qty)}</td>
+                    <td>${price > 0 ? formatCurrency(price, trade.exchange) : '-'}</td>
+                    <td><span class="trade-status ${statusClass}">${statusText}</span></td>
+                </tr>`;
+
+            if (hasError) {
+                html += `
+                <tr class="trade-error-row">
+                    <td colspan="6">
+                        <div class="trade-error-msg">
+                            <span>⚠️</span>
+                            <span>사유: ${errorMsg}</span>
+                        </div>
+                    </td>
+                </tr>`;
+            }
+            return html;
+        }).join('');
+
+        if (append) {
+            tbody.insertAdjacentHTML('beforeend', rowsHtml);
+        } else {
+            tbody.innerHTML = rowsHtml;
+        }
+
+        tradesOffset += trades.length;
+        if (moreBtn) moreBtn.style.display = tradesOffset < total ? 'block' : 'none';
+    } catch (e) {
+        console.error('Failed to load trades:', e);
     }
 }
 
@@ -1541,6 +1672,8 @@ document.querySelectorAll('.period-tab').forEach(tab => {
 // Refresh buttons
 document.getElementById('btn-refresh-holdings')?.addEventListener('click', loadHoldings);
 document.getElementById('btn-refresh-strategies')?.addEventListener('click', loadActiveStrategies);
+document.getElementById('btn-refresh-trades')?.addEventListener('click', () => loadRecentTrades(false));
+document.getElementById('btn-load-more-trades')?.addEventListener('click', () => loadRecentTrades(true));
 
 // Emergency stop button
 document.getElementById('btn-emergency-stop')?.addEventListener('click', async () => {

@@ -449,6 +449,40 @@
                             </div>
                         </div>
                     </section>
+
+                    <!-- 최근 거래 내역 -->
+                    <section class="card trades-section">
+                        <div class="card-header">
+                            <h2>최근 거래 내역</h2>
+                            <button class="btn btn-secondary btn-sm" id="btn-refresh-trades">새로고침</button>
+                        </div>
+                        <div class="trades-table-wrapper">
+                            <table class="trades-table">
+                                <thead>
+                                    <tr>
+                                        <th>시간</th>
+                                        <th>종목</th>
+                                        <th>구분</th>
+                                        <th>수량</th>
+                                        <th>가격</th>
+                                        <th>상태</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="trades-tbody">
+                                    <tr class="empty-row">
+                                        <td colspan="6">
+                                            <div class="empty-state">
+                                                <p>거래 내역이 없습니다.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="trades-more" id="trades-more" style="display: none;">
+                            <button class="btn btn-secondary btn-sm" id="btn-load-more-trades">더보기</button>
+                        </div>
+                    </section>
                 </div>
 
                 <!-- 긴급 정지 버튼 -->

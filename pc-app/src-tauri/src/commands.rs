@@ -1167,8 +1167,18 @@ pub struct TradeItem {
     pub quantity: f64,
     pub price: f64,
     pub total_amount: f64,
+    #[serde(default)]
     pub currency: String,
+    #[serde(default)]
     pub fee: f64,
+    #[serde(default)]
+    pub status: String,
+    #[serde(default)]
+    pub submit_err: String,
+    #[serde(default)]
+    pub reason_code: String,
+    #[serde(default)]
+    pub reason_text: String,
     pub strategy_name: Option<String>,
     pub executed_at: Option<String>,
 }
@@ -1176,6 +1186,8 @@ pub struct TradeItem {
 #[derive(Serialize, Deserialize)]
 pub struct TradeHistoryResponse {
     pub trades: Vec<TradeItem>,
+    #[serde(default)]
+    pub total: i32,
 }
 
 #[tauri::command]
@@ -1184,9 +1196,14 @@ pub async fn get_trade_history(
     exchange: Option<String>,
     symbol: Option<String>,
     limit: Option<i32>,
+    offset: Option<i32>,
 ) -> Result<TradeHistoryResponse, String> {
     let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
-    let mut url = format!("{}/api/trades?limit={}", VPS_SERVER_URL, limit.unwrap_or(50));
+    let mut url = format!("{}/api/trades?limit={}&offset={}",
+        VPS_SERVER_URL,
+        limit.unwrap_or(10),
+        offset.unwrap_or(0)
+    );
     if let Some(ex) = exchange {
         url.push_str(&format!("&exchange={}", ex));
     }
@@ -1205,7 +1222,7 @@ pub async fn get_trade_history(
         Ok(r) if r.status().is_success() => {
             r.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
         }
-        Ok(_) | Err(_) => Ok(TradeHistoryResponse { trades: vec![] }),
+        Ok(_) | Err(_) => Ok(TradeHistoryResponse { trades: vec![], total: 0 }),
     }
 }
 
@@ -1984,6 +2001,48 @@ pub async fn delete_strategy(access_token: String, strategy_id: i64) -> Result<s
         Ok(data)
     } else {
         Err("전략 삭제 실패".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn toggle_asset(access_token: String, asset_id: i64) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/assets/{}/toggle", VPS_SERVER_URL, asset_id);
+
+    let resp = client
+        .put(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("자산 토글 실패".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn delete_asset(access_token: String, asset_id: i64) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/assets/{}", VPS_SERVER_URL, asset_id);
+
+    let resp = client
+        .delete(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("자산 삭제 실패".to_string())
     }
 }
 

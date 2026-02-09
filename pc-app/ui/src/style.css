@@ -6921,3 +6921,129 @@ body {
     align-items: center;
     gap: 8px;
 }
+
+/* =====================================================
+   거래내역 테이블
+   ===================================================== */
+.trades-table-wrapper {
+    overflow-x: auto;
+}
+.trades-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.trades-table th {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 2px solid var(--border);
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+.trades-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+}
+.trade-side {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.trade-side.buy {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+}
+.trade-side.sell {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+}
+.trade-status {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+}
+.trade-status.filled {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+}
+.trade-status.failed {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+}
+.trade-status.skipped {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+}
+.trade-status.pending {
+    background: rgba(107, 114, 128, 0.15);
+    color: #9ca3af;
+}
+.trade-error-row td {
+    padding: 4px 12px 10px 12px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(239, 68, 68, 0.05);
+}
+.trade-error-msg {
+    font-size: 12px;
+    color: #ef4444;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.trades-more {
+    text-align: center;
+    padding: 16px;
+}
+
+/* 활성 전략 카드 - 일시정지/삭제 버튼 */
+.strategy-card.paused {
+    opacity: 0.6;
+    border-style: dashed;
+}
+.strategy-status.paused {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+}
+.strategy-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+.strategy-actions button {
+    flex: 1;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    transition: all 0.2s;
+}
+.strategy-actions .btn-pause {
+    background: rgba(245, 158, 11, 0.1);
+    border-color: #f59e0b;
+    color: #f59e0b;
+}
+.strategy-actions .btn-resume {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: #10b981;
+    color: #10b981;
+}
+.strategy-actions .btn-delete {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: #ef4444;
+    color: #ef4444;
+    flex: 0 0 auto;
+    padding: 6px 14px;
+}
+.strategy-actions button:hover {
+    filter: brightness(1.2);
+}
