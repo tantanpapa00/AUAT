@@ -13,7 +13,7 @@
 - Day 9: DONE (긴급 수정 + 보유자산 + 계정관리 + 전략설정 v2 UI)
 - Day 10: DONE (홈 대시보드 개선 - 거래내역 + 활성전략 관리)
 - Day 11: DONE (역추세매매 프리미엄 엔진 Phase 1 - 지표 파이썬 재구현)
-- Day 12: DONE (역추세매매 프리미엄 엔진 Phase 2 - 시세/실행 모듈)
+- Day 12: DONE (역추세매매 프리미엄 엔진 Phase 2~3 - 시세/실행/스케줄러/API)
 
 ## Quick Commands
 - Syntax: `python -m compileall app`
@@ -344,6 +344,44 @@ scripts/
 
 **커밋**:
 - `ea1d8a2` feat: 역추세매매(MR) 프리미엄 엔진 Phase 2 - 시세/실행 모듈
+
+### Phase 3: 스케줄러 + API (2026-02-09)
+
+**신규 파일**:
+```
+app/
+├── premium_routes.py    # FastAPI 프리미엄 엔드포인트
+
+app/strategy_engine/
+└── scheduler.py         # 봉 확정 주기 실행
+```
+
+**scheduler.py** - 봉 확정 주기 스케줄러:
+- `PremiumScheduler` - 다중 자산 스케줄링 클래스
+- 타임프레임별 봉 마감 시간 계산 (`get_next_bar_close_time`)
+- 자산 등록/해제, 활성화/비활성화
+- 에러 카운트 기반 자동 비활성화 (max_consecutive_errors)
+- 배치 처리 지원 (max_concurrent_assets)
+
+**premium_routes.py** - FastAPI 프리미엄 API:
+| 엔드포인트 | 설명 |
+|------------|------|
+| `GET/POST /api/premium/configs` | 프리미엄 설정 목록/생성 |
+| `GET/PUT/DELETE /api/premium/configs/{asset_id}` | 설정 조회/수정/삭제 |
+| `GET /api/premium/states/{asset_id}` | 전략 상태 조회 |
+| `POST /api/premium/states/{asset_id}/reset` | 상태 리셋 |
+| `GET/POST /api/premium/scheduler/status` | 스케줄러 상태/시작 |
+| `POST /api/premium/scheduler/stop/pause/resume` | 스케줄러 제어 |
+| `POST /api/premium/scheduler/register/{asset_id}` | 자산 등록 |
+| `POST /api/premium/signal/trigger` | 수동 시그널 트리거 |
+| `GET /api/premium/signals` | 시그널 이벤트 목록 |
+
+**테스트 (58개 추가, 총 165개 PASS)**:
+- `tests/test_scheduler.py` - 스케줄러 테스트 (36개)
+- `tests/test_premium_routes.py` - API 모델 테스트 (22개)
+
+**커밋**:
+- `76aa6cf` feat: 역추세매매(MR) 프리미엄 엔진 Phase 3 - 스케줄러 + API
 
 ## Day 8 Fixes
 - 종목명 쓰레기 데이터 제거 (`_clean_stock_name`)
