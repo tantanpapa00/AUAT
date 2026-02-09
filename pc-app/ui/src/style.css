@@ -3027,74 +3027,160 @@ body {
 .active-strategies-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 15px;
+    gap: 16px;
 }
 
-.strategy-card {
+.active-strategies-grid .strategy-card {
     background: var(--bg-light);
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 16px;
+    display: flex;
+    flex-direction: column;
+    transition: all 0.2s;
 }
 
-.strategy-card-header {
+.active-strategies-grid .strategy-card:hover {
+    border-color: var(--primary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.active-strategies-grid .strategy-card.paused {
+    opacity: 0.7;
+    border-style: dashed;
+}
+
+.active-strategies-grid .strategy-card-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
+    margin-bottom: 12px;
+    gap: 12px;
+}
+
+.active-strategies-grid .strategy-card-header h4 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.active-strategies-grid .strategy-status {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.active-strategies-grid .strategy-status.running {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+}
+
+.active-strategies-grid .strategy-status.paused {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+}
+
+.active-strategies-grid .strategy-status.stopped {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+}
+
+.active-strategies-grid .strategy-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
     margin-bottom: 12px;
 }
 
-.strategy-card-header h4 {
-    margin: 0;
-    font-size: 0.95rem;
-    color: var(--text-primary);
-}
-
-.strategy-status {
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 0.7rem;
-    font-weight: 600;
-    text-transform: uppercase;
-}
-
-.strategy-status.running {
-    background: rgba(34, 197, 94, 0.2);
-    color: #00C853;
-}
-
-.strategy-status.stopped {
-    background: rgba(239, 68, 68, 0.2);
-    color: #FF1744;
-}
-
-.strategy-card-body {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.strategy-info {
+.active-strategies-grid .strategy-info {
     display: flex;
     justify-content: space-between;
-    font-size: 0.8rem;
+    align-items: center;
+    font-size: 13px;
 }
 
-.strategy-info-label {
+.active-strategies-grid .strategy-info-label {
     color: var(--text-muted);
 }
 
-.strategy-info-value {
+.active-strategies-grid .strategy-info-value {
     color: var(--text-primary);
     font-weight: 500;
+    font-family: 'SF Mono', Consolas, monospace;
 }
 
-.strategy-trades-today {
-    margin-top: 8px;
+.active-strategies-grid .strategy-trades-today {
+    margin-top: 4px;
     padding-top: 8px;
     border-top: 1px solid var(--border);
-    font-size: 0.8rem;
+    font-size: 13px;
     color: var(--text-secondary);
+}
+
+.active-strategies-grid .strategy-trades-today strong {
+    color: var(--text-primary);
+}
+
+/* 전략 카드 액션 버튼 */
+.active-strategies-grid .strategy-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+
+.active-strategies-grid .strategy-actions button {
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    transition: all 0.2s;
+}
+
+.active-strategies-grid .strategy-actions .btn-pause {
+    flex: 1;
+    background: rgba(245, 158, 11, 0.1);
+    border-color: #f59e0b;
+    color: #f59e0b;
+}
+
+.active-strategies-grid .strategy-actions .btn-pause:hover {
+    background: rgba(245, 158, 11, 0.2);
+}
+
+.active-strategies-grid .strategy-actions .btn-resume {
+    flex: 1;
+    background: rgba(16, 185, 129, 0.1);
+    border-color: #10b981;
+    color: #10b981;
+}
+
+.active-strategies-grid .strategy-actions .btn-resume:hover {
+    background: rgba(16, 185, 129, 0.2);
+}
+
+.active-strategies-grid .strategy-actions .btn-delete {
+    flex: 0 0 auto;
+    padding: 8px 12px;
+    background: rgba(239, 68, 68, 0.1);
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+.active-strategies-grid .strategy-actions .btn-delete:hover {
+    background: rgba(239, 68, 68, 0.2);
 }
 
 .strategy-trades-today strong {
@@ -4017,7 +4103,8 @@ body {
     min-height: 200px;
 }
 
-.strategy-card {
+/* 전략 목록 페이지용 (TV Connect 등) */
+.strategies-list .strategy-item {
     background: var(--bg-light);
     border: 1px solid var(--border);
     border-radius: 10px;
@@ -4028,18 +4115,18 @@ body {
     align-items: center;
 }
 
-.strategy-card-info h4 {
+.strategy-item-info h4 {
     margin: 0 0 5px 0;
     color: var(--text-primary);
 }
 
-.strategy-card-info p {
+.strategy-item-info p {
     margin: 0;
     font-size: 0.85rem;
     color: var(--text-muted);
 }
 
-.strategy-card-actions {
+.strategy-item-actions {
     display: flex;
     gap: 10px;
     align-items: center;
@@ -7000,50 +7087,4 @@ body {
     padding: 16px;
 }
 
-/* 활성 전략 카드 - 일시정지/삭제 버튼 */
-.strategy-card.paused {
-    opacity: 0.6;
-    border-style: dashed;
-}
-.strategy-status.paused {
-    background: rgba(245, 158, 11, 0.15);
-    color: #f59e0b;
-}
-.strategy-actions {
-    display: flex;
-    gap: 8px;
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid var(--border);
-}
-.strategy-actions button {
-    flex: 1;
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    border: 1px solid var(--border);
-    background: var(--bg-card);
-    transition: all 0.2s;
-}
-.strategy-actions .btn-pause {
-    background: rgba(245, 158, 11, 0.1);
-    border-color: #f59e0b;
-    color: #f59e0b;
-}
-.strategy-actions .btn-resume {
-    background: rgba(16, 185, 129, 0.1);
-    border-color: #10b981;
-    color: #10b981;
-}
-.strategy-actions .btn-delete {
-    background: rgba(239, 68, 68, 0.1);
-    border-color: #ef4444;
-    color: #ef4444;
-    flex: 0 0 auto;
-    padding: 6px 14px;
-}
-.strategy-actions button:hover {
-    filter: brightness(1.2);
-}
+/* 활성 전략 카드 스타일은 .active-strategies-grid 섹션에서 정의됨 (3026줄) */
