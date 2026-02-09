@@ -228,6 +228,10 @@ app.add_middleware(
     secret_key=os.getenv("JWT_SECRET_KEY", "bbooster-secret-key-change-in-production"),
 )
 
+# Premium Strategy Router (Phase 3)
+from .premium_routes import router as premium_router
+app.include_router(premium_router)
+
 
 @app.get("/api/auth/google/login")
 async def auth_google_login(request: Request):

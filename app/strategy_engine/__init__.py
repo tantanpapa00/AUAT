@@ -46,6 +46,16 @@ from .hub_integration import (
     process_asset,
     signal_to_order_request,
 )
+from .scheduler import (
+    PremiumScheduler,
+    SchedulerConfig,
+    ScheduledAsset,
+    get_scheduler,
+    get_tf_seconds,
+    get_current_bar_open_time,
+    get_next_bar_close_time,
+    seconds_until_bar_close,
+)
 
 __all__ = [
     # Models
@@ -88,4 +98,13 @@ __all__ = [
     "SignalSnapshot",
     "process_asset",
     "signal_to_order_request",
+    # Phase 3: Scheduler
+    "PremiumScheduler",
+    "SchedulerConfig",
+    "ScheduledAsset",
+    "get_scheduler",
+    "get_tf_seconds",
+    "get_current_bar_open_time",
+    "get_next_bar_close_time",
+    "seconds_until_bar_close",
 ]
