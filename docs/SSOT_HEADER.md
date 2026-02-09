@@ -11,6 +11,7 @@
 - Day 7: DONE (종목분석 개편 + 10 버그 수정)
 - Day 8: DONE (종목검색/네이버API/자동완성/파싱 수정)
 - Day 9: DONE (긴급 수정 + 보유자산 + 계정관리 + 전략설정 v2 UI)
+- Day 10: DONE (홈 대시보드 개선 - 거래내역 + 활성전략 관리)
 
 ## Quick Commands
 - Syntax: `python -m compileall app`
@@ -197,6 +198,53 @@ class TickerInfo:
 
 **커밋:**
 - `c4196cf` fix: /tv 잔고 파싱 키 수정 (quantity 사용)
+
+## Day 10: 홈 대시보드 개선 (2026-02-09)
+
+### 웹 대시보드 (dashboard.html)
+1. **거래내역 섹션** - offset 파라미터, 실패주문 포함, total count
+2. **활성전략 관리** - paused 포함 (soft_deleted=0), toggle/delete 버튼
+3. **타임라인 확장** - reason_code, reason_text, side, qty, filled_qty, avg_px
+
+**API 변경:**
+- `GET /api/trades` - offset, limit, include_failed, total 반환
+- `GET /api/strategies/active` - paused 포함 조회
+- `PUT /api/assets/{id}/toggle` - 전략 일시정지/재개
+- `DELETE /api/assets/{id}` - 전략 삭제
+
+### PC앱 대시보드 (Tauri invoke)
+1. **거래내역 테이블** - 최근 10건, 페이지네이션, 상태별 색상
+2. **활성전략 테이블** - 전략명/종목/거래소/오늘거래/상태/액션
+3. **Toggle/Delete 버튼** - Rust commands 연동
+
+**Tauri 아키텍처:**
+```
+JavaScript (main.js) → invoke() → Rust commands (commands.rs) → HTTP API
+```
+
+**추가된 Rust Commands:**
+```rust
+#[tauri::command]
+pub async fn toggle_asset(access_token: String, asset_id: i64) -> Result<serde_json::Value, String>
+
+#[tauri::command]
+pub async fn delete_asset(access_token: String, asset_id: i64) -> Result<serde_json::Value, String>
+```
+
+### 해결한 이슈
+1. **CSS 충돌** - 중복 .strategy-card 정의 제거
+2. **이모지 깨짐** - ⏸▶🗑 → 정지/재개/삭제 텍스트로 변경
+3. **Tauri 파라미터** - camelCase (assetId) → snake_case (asset_id) 자동 변환
+4. **Vite 모듈 스코프** - `window.toggleAsset`, `window.deleteAsset` 등록
+5. **레이아웃** - grid-column: 1/-1 (전체 너비), 위아래 배치
+
+**커밋:**
+- `34f87c0` feat: 홈 대시보드 개선 - 거래내역 + 활성전략 관리
+- `366e19c` feat: PC앱 홈 대시보드 개선 - 거래내역 + 활성전략 관리
+- `e4c05d8` fix: PC앱 활성전략 카드 레이아웃 수정
+- `3ad21b7` fix: PC앱 홈 활성전략 테이블 형태로 변경 + 디버깅 로그
+- `96215bb` fix: PC앱 홈 레이아웃 위아래 배치 + 버튼 텍스트 변경
+- `fda77a6` fix: toggleAsset/deleteAsset window에 등록 (Vite 모듈 스코프)
 
 ## Day 8 Fixes
 - 종목명 쓰레기 데이터 제거 (`_clean_stock_name`)
