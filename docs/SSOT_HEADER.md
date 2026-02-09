@@ -13,6 +13,7 @@
 - Day 9: DONE (긴급 수정 + 보유자산 + 계정관리 + 전략설정 v2 UI)
 - Day 10: DONE (홈 대시보드 개선 - 거래내역 + 활성전략 관리)
 - Day 11: DONE (역추세매매 프리미엄 엔진 Phase 1 - 지표 파이썬 재구현)
+- Day 12: DONE (역추세매매 프리미엄 엔진 Phase 2 - 시세/실행 모듈)
 
 ## Quick Commands
 - Syntax: `python -m compileall app`
@@ -292,6 +293,57 @@ app/strategy_engine/
 
 **커밋**:
 - `96e3983` feat: 역추세매매(MR) 프리미엄 엔진 Phase 1 - 지표 파이썬 재구현
+
+## Day 12: 역추세매매 프리미엄 엔진 Phase 2 (2026-02-09)
+
+### 시세 + 실행 모듈 구현
+
+**신규 파일**:
+```
+app/strategy_engine/
+├── candle_fetcher.py    # 거래소 OHLCV 조회 + 메모리 캐시
+├── position_manager.py  # 트랜치 기반 포지션 계산
+└── hub_integration.py   # 시그널 → 주문 실행 브릿지
+
+scripts/
+└── migrate_premium_tables.sql  # DB 마이그레이션
+```
+
+**candle_fetcher.py** - 거래소 OHLCV 조회:
+- OKX, Binance, Bybit, Upbit 지원
+- `CandleData` 데이터클래스 (numpy 배열)
+- `CandleCache` 메모리 캐시 (싱글톤)
+- `fetch_candles_from_exchange()` 비동기 조회
+
+**position_manager.py** - 트랜치 기반 포지션 계산:
+- A-type 공식: `spend = available * cash_use_pct * tranche_pct`
+- `calculate_buy_quantity()` - 매수 수량 계산
+- `calculate_sell_quantity()` - 매도 수량 계산
+- `update_position_after_fill()` - 체결 후 포지션 업데이트 (이동평균)
+- `get_effective_tranche_stage()` - 트랜치 순환/정지 처리
+
+**hub_integration.py** - 시그널 → 주문 브릿지:
+- `SignalEvent` - 허브용 시그널 이벤트 스키마
+- `SignalSnapshot` - 감사 추적용 스냅샷
+- `process_asset()` - 자산 처리 메인 진입점
+- `signal_to_order_request()` - 시그널 → 주문 요청 변환
+
+**DB 마이그레이션 (migrate_premium_tables.sql)**:
+| 테이블 | 용도 |
+|--------|------|
+| premium_configs | 프리미엄 엔진 설정 |
+| strategy_states | 전략 상태 (buy_stage, sell_stage 등) |
+| candles | 캔들 데이터 캐시 |
+| signal_events | 시그널 이벤트 기록 |
+| signal_snapshots | 시그널 스냅샷 (감사 추적) |
+
+**테스트 (60개 추가, 총 107개 PASS)**:
+- `tests/test_candle_fetcher.py` - 캔들 조회/캐시 테스트 (15개)
+- `tests/test_position_manager.py` - 포지션 계산 테스트 (28개)
+- `tests/test_hub_integration.py` - 허브 연동 테스트 (17개)
+
+**커밋**:
+- `ea1d8a2` feat: 역추세매매(MR) 프리미엄 엔진 Phase 2 - 시세/실행 모듈
 
 ## Day 8 Fixes
 - 종목명 쓰레기 데이터 제거 (`_clean_stock_name`)
