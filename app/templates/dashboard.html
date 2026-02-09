@@ -347,6 +347,128 @@
       color: #92400e;
     }
 
+    .trade-error-row td {
+      padding: 4px 12px 10px 12px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(239, 68, 68, 0.03);
+    }
+    .trade-error-msg {
+      font-size: 12px;
+      color: #991b1b;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .trades-more {
+      text-align: center;
+      padding: 16px;
+    }
+    .trades-more button {
+      background: var(--card2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 24px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--muted);
+      transition: all 0.2s;
+    }
+    .trades-more button:hover {
+      border-color: var(--pri);
+      color: var(--pri);
+    }
+
+    /* 활성 전략 카드 */
+    .strategy-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    .strategy-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 20px;
+      transition: all 0.2s;
+    }
+    .strategy-card:hover {
+      box-shadow: var(--shadow);
+      border-color: var(--pri2);
+    }
+    .strategy-card.paused {
+      opacity: 0.6;
+      border-style: dashed;
+    }
+    .strategy-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .strategy-name {
+      font-weight: 700;
+      font-size: 15px;
+    }
+    .strategy-badge {
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .strategy-badge.running {
+      background: #dcfce7;
+      color: #166534;
+    }
+    .strategy-badge.paused {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .strategy-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .strategy-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .strategy-actions button {
+      flex: 1;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--text);
+      transition: all 0.2s;
+    }
+    .strategy-actions button:hover {
+      border-color: var(--pri);
+      color: var(--pri);
+    }
+    .strategy-actions .btn-pause {
+      background: rgba(245, 158, 11, 0.08);
+      border-color: #f59e0b;
+      color: #92400e;
+    }
+    .strategy-actions .btn-resume {
+      background: rgba(16, 185, 129, 0.08);
+      border-color: #10b981;
+      color: #166534;
+    }
+    .strategy-actions .btn-delete {
+      background: rgba(239, 68, 68, 0.08);
+      border-color: #ef4444;
+      color: #991b1b;
+      flex: 0 0 auto;
+      padding: 8px 14px;
+    }
+
     /* 긴급 정지 버튼 */
     .estop-float {
       position: fixed;
@@ -677,6 +799,25 @@
             </tr>
           </tbody>
         </table>
+        <div class="trades-more" id="tradesMore" style="display: none;">
+          <button onclick="loadMoreTrades()">더보기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 활성 전략 관리 -->
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="card-header">
+        <h3>활성 전략</h3>
+        <button class="btn" onclick="loadActiveStrategies()">새로고침</button>
+      </div>
+      <div class="card-body">
+        <div class="strategy-grid" id="strategyGrid">
+          <div class="empty-state">
+            <div class="empty-state-icon">🤖</div>
+            <div>전략을 불러오는 중...</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -986,6 +1127,7 @@
       loadChart('daily'),
       loadAssets(),
       loadTrades(),
+      loadActiveStrategies(),
       loadEstopStatus()
     ]);
   }
@@ -1155,14 +1297,20 @@
     });
   }
 
-  async function loadTrades() {
+  let tradesOffset = 0;
+  const TRADES_LIMIT = 10;
+
+  async function loadTrades(append = false) {
     try {
-      const data = await api('/api/timeline?limit=10');
+      if (!append) tradesOffset = 0;
+      const data = await api(`/api/timeline?limit=${TRADES_LIMIT}&offset=${tradesOffset}`);
       const trades = data.items || data || [];
+      const total = data.total || 0;
 
       const tbody = document.getElementById('tradesBody');
+      const moreBtn = document.getElementById('tradesMore');
 
-      if (trades.length === 0) {
+      if (trades.length === 0 && !append) {
         tbody.innerHTML = `
           <tr>
             <td colspan="6" style="text-align: center; color: var(--muted); padding: 40px;">
@@ -1170,36 +1318,141 @@
             </td>
           </tr>
         `;
+        moreBtn.style.display = 'none';
         return;
       }
 
-      tbody.innerHTML = trades.map(trade => {
-        const side = (trade.side || trade.event_type || '').toLowerCase();
+      const rowsHtml = trades.map(trade => {
+        const detail = trade.detail || {};
+        const side = (detail.side || trade.side || trade.event_type || '').toLowerCase();
         const sideText = side.includes('buy') || side.includes('long') ? '매수' :
                          side.includes('sell') || side.includes('short') ? '매도' :
                          trade.event_type || '-';
         const sideClass = side.includes('buy') || side.includes('long') ? 'buy' : 'sell';
 
-        const status = (trade.status || trade.reason_code || 'filled').toLowerCase();
+        const status = (detail.status || trade.status || trade.reason_code || 'filled').toLowerCase();
         const statusText = status === 'filled' ? '체결' :
                           status === 'failed' ? '실패' :
+                          status === 'sent' ? '전송' :
                           status === 'pending' ? '대기' : status;
         const statusClass = status === 'filled' ? 'filled' :
                            status === 'failed' ? 'failed' : 'pending';
 
-        return `
+        const qty = detail.filled_qty || detail.qty || trade.qty || trade.filled_qty || 0;
+        const price = detail.avg_px || trade.price || trade.avg_px || 0;
+        const symbol = detail.symbol || trade.symbol || '-';
+
+        const errorMsg = detail.error || detail.reason_text || detail.reason_code || '';
+        const hasError = status === 'failed' && errorMsg;
+
+        let html = `
           <tr>
             <td>${formatDateTime(trade.created_at)}</td>
-            <td style="font-family: var(--mono);">${trade.symbol || '-'}</td>
+            <td style="font-family: var(--mono);">${symbol}</td>
             <td><span class="trade-side ${sideClass}">${sideText}</span></td>
-            <td>${formatNumber(trade.qty || trade.filled_qty || 0)}</td>
-            <td>${formatCurrency(trade.price || trade.avg_px || 0)}</td>
+            <td>${formatNumber(qty)}</td>
+            <td>${price > 0 ? formatCurrency(price) : '-'}</td>
             <td><span class="trade-status ${statusClass}">${statusText}</span></td>
-          </tr>
+          </tr>`;
+
+        if (hasError) {
+          html += `
+          <tr class="trade-error-row">
+            <td colspan="6">
+              <div class="trade-error-msg">
+                <span>⚠️</span>
+                <span>실패 사유: ${errorMsg}</span>
+              </div>
+            </td>
+          </tr>`;
+        }
+        return html;
+      }).join('');
+
+      if (append) {
+        tbody.insertAdjacentHTML('beforeend', rowsHtml);
+      } else {
+        tbody.innerHTML = rowsHtml;
+      }
+
+      tradesOffset += trades.length;
+      moreBtn.style.display = tradesOffset < total ? 'block' : 'none';
+    } catch (e) {
+      console.error('거래 내역 로드 실패:', e);
+    }
+  }
+
+  function loadMoreTrades() {
+    loadTrades(true);
+  }
+
+  async function loadActiveStrategies() {
+    try {
+      const data = await api('/api/strategies/active');
+      const strategies = data.strategies || [];
+      const grid = document.getElementById('strategyGrid');
+
+      if (strategies.length === 0) {
+        grid.innerHTML = `
+          <div class="empty-state" style="grid-column: 1 / -1;">
+            <div class="empty-state-icon">🤖</div>
+            <div>등록된 전략이 없습니다</div>
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = strategies.map(s => {
+        const isRunning = s.status === 'running';
+        const badgeClass = isRunning ? 'running' : 'paused';
+        const badgeText = isRunning ? '실행 중' : '일시정지';
+        const cardClass = isRunning ? '' : ' paused';
+
+        return `
+          <div class="strategy-card${cardClass}">
+            <div class="strategy-header">
+              <div class="strategy-name">${s.name}</div>
+              <span class="strategy-badge ${badgeClass}">${badgeText}</span>
+            </div>
+            <div class="strategy-meta">
+              <span>📊 ${s.symbol}</span>
+              <span>🏦 ${s.exchange}</span>
+              <span>📈 오늘 거래: ${s.trades_today}건</span>
+            </div>
+            <div class="strategy-actions">
+              ${isRunning
+                ? `<button class="btn-pause" onclick="toggleStrategy(${s.id}, '${s.name}')">⏸ 일시정지</button>`
+                : `<button class="btn-resume" onclick="toggleStrategy(${s.id}, '${s.name}')">▶ 재개</button>`
+              }
+              <button class="btn-delete" onclick="deleteStrategy(${s.id}, '${s.name}')">🗑</button>
+            </div>
+          </div>
         `;
       }).join('');
     } catch (e) {
-      console.error('거래 내역 로드 실패:', e);
+      console.error('활성 전략 로드 실패:', e);
+    }
+  }
+
+  async function toggleStrategy(assetId, name) {
+    try {
+      const res = await api(`/api/assets/${assetId}/toggle`, { method: 'PUT' });
+      const statusText = res.is_active ? '재개' : '일시정지';
+      showToast(`${name} 전략이 ${statusText}되었습니다`);
+      await loadActiveStrategies();
+    } catch (e) {
+      showToast(`전략 변경 실패: ${e.message}`);
+    }
+  }
+
+  async function deleteStrategy(assetId, name) {
+    if (!confirm(`"${name}" 전략을 삭제하시겠습니까?\n삭제 후 복구할 수 없습니다.`)) return;
+    try {
+      await api(`/api/assets/${assetId}`, { method: 'DELETE' });
+      showToast(`${name} 전략이 삭제되었습니다`);
+      await loadActiveStrategies();
+    } catch (e) {
+      showToast(`전략 삭제 실패: ${e.message}`);
     }
   }
 
@@ -1449,6 +1702,7 @@
     if (auth.isLoggedIn()) {
       loadSummary();
       loadTrades();
+      loadActiveStrategies();
     }
   }, 60000);
 </script>

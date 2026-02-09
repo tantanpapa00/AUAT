@@ -1444,36 +1444,45 @@ def api_create_strategy(payload: dict, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-# @app.put("/api/strategies/{strategy_id}")
-# def api_update_strategy(strategy_id: int, payload: dict, db: Session = Depends(get_db)):
-#     allowed = {"name", "tv_secret", "is_active"}
-#     payload = {k: v for k, v in payload.items() if k in allowed}
+@app.put("/api/strategies/{strategy_id}")
+async def api_update_strategy(
+    strategy_id: int,
+    request: Request,
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """전략 수정 API"""
+    payload = await request.json()
+    allowed = {"name", "tv_secret", "is_active"}
+    payload = {k: v for k, v in payload.items() if k in allowed}
 
-#     if not payload:
-#         return {"ok": True}
+    if not payload:
+        return {"ok": True, "strategy_id": strategy_id}
 
-#     sets = []
-#     params = {"id": strategy_id}
-#     for k, v in payload.items():
-#         sets.append(f"{k} = :{k}")
-#         params[k] = v
+    sets = []
+    params = {"id": strategy_id}
+    for k, v in payload.items():
+        sets.append(f"{k} = :{k}")
+        params[k] = v
 
-#     q = f"""
-#         update strategies
-#         set {", ".join(sets)}, updated_at = now()
-#         where id = :id
-#         returning id
-#     """
-#     try:
-#         row = db.execute(text(q), params).mappings().first()
-#         if not row:
-#             db.rollback()
-#             raise HTTPException(status_code=404, detail="Strategy not found")
-#         db.commit()
-#         return {"ok": True}
-#     except Exception as e:
-#         db.rollback()
-#         raise HTTPException(status_code=400, detail=str(e))
+    q = f"""
+        update strategies
+        set {", ".join(sets)}, updated_at = now()
+        where id = :id
+        returning id
+    """
+    try:
+        row = db.execute(text(q), params).mappings().first()
+        if not row:
+            db.rollback()
+            raise HTTPException(status_code=404, detail="Strategy not found")
+        db.commit()
+        return {"ok": True, "strategy_id": strategy_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # @app.delete("/api/strategies/{strategy_id}")
@@ -7416,6 +7425,12 @@ def api_timeline(
                 o.status,
                 o.submit_status,
                 o.submit_err,
+                o.reason_code,
+                o.reason_text,
+                o.side,
+                o.qty,
+                o.filled_qty,
+                o.avg_px,
                 o.created_at,
                 a.symbol
             FROM orders o
@@ -7469,7 +7484,18 @@ def api_timeline(
                 order_id=row.id,
                 account_id=None,
                 summary=summary,
-                detail={"status": row.status, "submit_status": row.submit_status, "error": row.submit_err},
+                detail={
+                    "status": row.status,
+                    "submit_status": row.submit_status,
+                    "error": row.submit_err,
+                    "reason_code": row.reason_code,
+                    "reason_text": row.reason_text,
+                    "side": row.side,
+                    "qty": float(row.qty) if row.qty else 0,
+                    "filled_qty": float(row.filled_qty) if row.filled_qty else 0,
+                    "avg_px": float(row.avg_px) if row.avg_px else 0,
+                    "symbol": row.symbol
+                },
                 created_at=row.created_at.isoformat() if row.created_at else ""
             ))
 
@@ -8010,10 +8036,12 @@ async def get_portfolio_history(
 
 class ActiveStrategyItem(BaseModel):
     id: int
+    strategy_id: int = 0
     name: str
     symbol: str
     exchange: str
     status: str = "running"
+    is_active: bool = True
     trades_today: int = 0
 
 
@@ -8022,35 +8050,100 @@ async def get_active_strategies(
     current_user: User = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """활성 전략 목록"""
+    """활성 전략 목록 (일시정지 포함)"""
     strategies = []
 
     if current_user:
         try:
             sql = text("""
-                SELECT a.id, s.name as strategy_name, a.symbol, acc.name as exchange
+                SELECT a.id, a.strategy_id, a.is_active,
+                       s.name as strategy_name, s.is_active as strategy_active,
+                       a.symbol, acc.name as exchange
                 FROM assets a
                 JOIN strategies s ON s.id = a.strategy_id
                 JOIN accounts acc ON acc.id = a.account_id
-                WHERE a.is_active = true
+                WHERE a.soft_deleted = 0
                 ORDER BY a.id
             """)
-            rows = db.execute(sql).fetchall()
+            rows = db.execute(sql).mappings().fetchall()
 
             for row in rows:
                 today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
                 trades_sql = text("SELECT COUNT(*) FROM orders WHERE asset_id = :asset_id AND created_at >= :today_start")
-                trades_count = db.execute(trades_sql, {"asset_id": row.id, "today_start": today_start}).scalar() or 0
+                trades_count = db.execute(trades_sql, {"asset_id": row["id"], "today_start": today_start}).scalar() or 0
 
+                is_running = row["is_active"] and row["strategy_active"]
                 strategies.append(ActiveStrategyItem(
-                    id=row.id, name=row.strategy_name or f"Strategy #{row.id}",
-                    symbol=row.symbol or "N/A", exchange=row.exchange or "N/A",
-                    status="running", trades_today=trades_count
+                    id=row["id"],
+                    strategy_id=row["strategy_id"],
+                    name=row["strategy_name"] or f"Strategy #{row['id']}",
+                    symbol=row["symbol"] or "N/A",
+                    exchange=row["exchange"] or "N/A",
+                    status="running" if is_running else "paused",
+                    is_active=is_running,
+                    trades_today=trades_count
                 ))
         except Exception as e:
             print(f"Failed to load active strategies: {e}")
 
     return {"strategies": strategies}
+
+
+@app.put("/api/assets/{asset_id}/toggle")
+async def toggle_asset_active(
+    asset_id: int,
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """자산(전략-종목 연결) 활성/비활성 토글"""
+    try:
+        row = db.execute(
+            text("SELECT id, is_active FROM assets WHERE id = :id"),
+            {"id": asset_id}
+        ).mappings().first()
+        if not row:
+            raise HTTPException(status_code=404, detail="Asset not found")
+
+        new_active = not row["is_active"]
+        db.execute(
+            text("UPDATE assets SET is_active = :active, updated_at = now() WHERE id = :id"),
+            {"active": new_active, "id": asset_id}
+        )
+        db.commit()
+        return {"ok": True, "is_active": new_active, "asset_id": asset_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/api/assets/{asset_id}")
+async def delete_asset(
+    asset_id: int,
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """자산(전략-종목 연결) 소프트 삭제"""
+    try:
+        row = db.execute(
+            text("SELECT id FROM assets WHERE id = :id AND soft_deleted = 0"),
+            {"id": asset_id}
+        ).mappings().first()
+        if not row:
+            raise HTTPException(status_code=404, detail="Asset not found")
+
+        db.execute(
+            text("UPDATE assets SET soft_deleted = 1, is_active = false, updated_at = now() WHERE id = :id"),
+            {"id": asset_id}
+        )
+        db.commit()
+        return {"ok": True, "deleted": True, "asset_id": asset_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/api/system/emergency-stop")

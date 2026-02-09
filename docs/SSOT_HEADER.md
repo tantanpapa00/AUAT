@@ -129,6 +129,75 @@ Hub 로직: `effective = deep_merge(strategies.signal_params, assets.signal_para
 - `4c119f7` feat: 전략설정 Phase 4 - Hub 매매 로직 통합
 - `001ca81` feat: 전략설정 v2 - PC앱 UI 개편 + 백엔드 구조 업데이트
 
+### PC앱 템플릿 생성 + /tv 웹훅 자동 수량 계산 (2026-02-09)
+
+**문제 1: PC앱 "템플릿 생성" 버튼이 서버에 저장 안 됨**
+- 원인: JavaScript에서 fetch() 직접 호출 → Tauri 아키텍처 위반
+- 해결: Rust commands 추가 + JS에서 invoke() 호출로 변경
+
+**Tauri 아키텍처:**
+```
+JavaScript (main.js) → invoke() → Rust commands (commands.rs) → HTTP API (서버)
+```
+
+**추가된 Rust Commands (`pc-app/src-tauri/src/commands.rs`):**
+```rust
+#[tauri::command]
+pub async fn create_strategy_with_params(
+    access_token: String, name: String, tv_secret: String,
+    signal_params: serde_json::Value,
+) -> Result<serde_json::Value, String>
+
+#[tauri::command]
+pub async fn save_signal_params(
+    access_token: String, strategy_id: i64,
+    signal_params: serde_json::Value,
+) -> Result<serde_json::Value, String>
+
+#[tauri::command]
+pub async fn create_asset(
+    access_token: String, account_id: i64, strategy_id: i64,
+    symbol: String, market: String,
+) -> Result<serde_json::Value, String>
+```
+
+**문제 2: /tv 웹훅 자동 수량 계산 안 됨**
+- 원인: get_connector()가 빈 환경변수에서 API 키 읽음
+- 해결: DB accounts 테이블에서 API 키 조회 + data_provider 함수 사용
+
+**추가된 커넥터 메서드:**
+- `get_ticker(symbol: str) -> TickerInfo` - 현재가 조회 (Public API)
+- 구현: OKX, Binance, Bybit, KIS 전 커넥터
+
+**TickerInfo 데이터클래스 (`app/connectors/base.py`):**
+```python
+@dataclass(frozen=True)
+class TickerInfo:
+    ok: bool
+    exchange: str
+    symbol: str
+    last: Optional[float] = None
+    bid: Optional[float] = None
+    ask: Optional[float] = None
+    high24h: Optional[float] = None
+    low24h: Optional[float] = None
+    vol24h: Optional[float] = None
+```
+
+**/tv 웹훅 자동 수량 계산 흐름:**
+1. DB에서 계정 API 키 조회 (`accounts` 테이블)
+2. data_provider로 잔고 조회 (fetch_okx_balances 등)
+3. get_ticker로 현재가 조회 (Public API)
+4. effective_params 기반 수량 계산
+5. 주문 실행
+
+**잔고 파싱 키 수정:**
+- 수정 전: `b.get("available", 0)`, `b.get("free", 0)`, `b.get("total", 0)`
+- 수정 후: `b.get("quantity", 0)` - data_provider 반환 구조에 맞춤
+
+**커밋:**
+- `c4196cf` fix: /tv 잔고 파싱 키 수정 (quantity 사용)
+
 ## Day 8 Fixes
 - 종목명 쓰레기 데이터 제거 (`_clean_stock_name`)
 - 섹터 데이터 수정 (업종 지수 기반)
