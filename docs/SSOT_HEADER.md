@@ -12,6 +12,7 @@
 - Day 8: DONE (종목검색/네이버API/자동완성/파싱 수정)
 - Day 9: DONE (긴급 수정 + 보유자산 + 계정관리 + 전략설정 v2 UI)
 - Day 10: DONE (홈 대시보드 개선 - 거래내역 + 활성전략 관리)
+- Day 11: DONE (역추세매매 프리미엄 엔진 Phase 1 - 지표 파이썬 재구현)
 
 ## Quick Commands
 - Syntax: `python -m compileall app`
@@ -245,6 +246,52 @@ pub async fn delete_asset(access_token: String, asset_id: i64) -> Result<serde_j
 - `3ad21b7` fix: PC앱 홈 활성전략 테이블 형태로 변경 + 디버깅 로그
 - `96215bb` fix: PC앱 홈 레이아웃 위아래 배치 + 버튼 텍스트 변경
 - `fda77a6` fix: toggleAsset/deleteAsset window에 등록 (Vite 모듈 스코프)
+
+## Day 11: 역추세매매 프리미엄 엔진 Phase 1 (2026-02-09)
+
+### 엔진 코어 구현 (파인스크립트 1:1 재구현)
+**정본 소스**: `scripts/역추세매매 현물 v0.4.txt`
+
+**신규 파일**:
+```
+app/strategy_engine/
+├── __init__.py          # 모듈 초기화
+├── presets.py           # OSC_PRESETS, HTF_DEFAULTS
+├── models.py            # Candle, SignalResult, MRConfig
+├── indicators.py        # SPO, VWMA, HMA, Ichimoku, Supertrend
+├── regime_detector.py   # 4국면 판별 (R1~R4)
+└── signal_generator.py  # 매수/매도 신호 생성
+```
+
+**지표 구현 (indicators.py)**:
+- `smoother_f(src, length)` - EMA 변형 (PineScript smoother_F)
+- `calc_spo(close, ...)` - Smooth Price Oscillator (normalized_osc, BB bands)
+- `calc_vwma(close, volume, length)` - Volume Weighted Moving Average
+- `calc_hma(close, length)` - Hull Moving Average
+- `calc_ichimoku(high, low, ...)` - 일목균형표 (tenkan, kijun, senkouA/B)
+- `calc_supertrend(high, low, close, atr_len, factor)` - Supertrend
+
+**4국면 엔진 (regime_detector.py)**:
+| 국면 | 조건 | 매수 정책 | 매도 정책 |
+|------|------|-----------|-----------|
+| R1 | 정배열 + ST상승 | 눌림 1회 트리거 | 확대 (1.3x) |
+| R2 | 정배열 + ST하락 | 금지 (0x) | 확대 (1.6x) |
+| R3 | 역배열 + ST상승 | 돌파 1회 트리거 | 일반 (1.3x) |
+| R4 | 역배열 + ST하락 | 확대 (1.2x) | 축소 (0.7x) |
+
+**신호 생성 (signal_generator.py)**:
+- OSC 매수: `sig_up_raw = osc < -threshold AND crossover`
+- OSC 매도: `sig_dn_raw = osc > threshold AND crossunder`
+- R1 눌림: HULL 하락 시 armed → osc_trigger 시 1회 fire
+- R3 돌파: senkouB 상향돌파 시 1회 fire
+- 익절 게이트: `close >= avg * (1 + min_profit + fee_buffer)`
+
+**테스트 (47개 PASS)**:
+- `tests/test_indicators.py` - 지표 계산 테스트 (24개)
+- `tests/test_signal_generator.py` - 신호 생성 테스트 (23개)
+
+**커밋**:
+- `96e3983` feat: 역추세매매(MR) 프리미엄 엔진 Phase 1 - 지표 파이썬 재구현
 
 ## Day 8 Fixes
 - 종목명 쓰레기 데이터 제거 (`_clean_stock_name`)
