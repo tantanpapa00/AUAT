@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 _CONNECTOR_CACHE: Dict[str, "Connector"] = {}
 
 # Supported exchanges
-SUPPORTED_EXCHANGES = ["OKX", "KIS", "BINANCE", "BYBIT"]
+SUPPORTED_EXCHANGES = ["OKX", "KIS", "KIS_KR", "KIS_US", "BINANCE", "BYBIT", "UPBIT"]
 
 
 def _norm_exchange(exchange: str | None) -> str:
@@ -26,10 +26,16 @@ def _norm_exchange(exchange: str | None) -> str:
         return "OKX"
     if ex in ("KOREAINVESTMENT", "KOREA INVESTMENT", "KOREA_INVESTMENT", "KOREAINVESTMENTSEC"):
         return "KIS"
+    if ex in ("KIS_KR", "KIS-KR", "KISKR"):
+        return "KIS_KR"
+    if ex in ("KIS_US", "KIS-US", "KISUS"):
+        return "KIS_US"
     if ex in ("BINANCE.COM", "BINANCESPOT"):
         return "BINANCE"
     if ex in ("BYBIT.COM", "BYBITSPOT"):
         return "BYBIT"
+    if ex in ("UPBIT.COM", "UPBITSPOT"):
+        return "UPBIT"
     return ex
 
 
@@ -53,15 +59,22 @@ def get_connector(exchange: str) -> Optional["Connector"]:
     if ex == "OKX":
         from .okx import OKXConnector
         conn = OKXConnector()
-    elif ex == "KIS":
+    elif ex in ("KIS", "KIS_KR"):
         from .kis import KISConnector
         conn = KISConnector()
+    elif ex == "KIS_US":
+        # KIS_US는 현재 미지원 (해외주식 주문 API 별도 구현 필요)
+        # 캐시하지 않고 None 반환
+        return None
     elif ex == "BINANCE":
         from .binance import BinanceConnector
         conn = BinanceConnector()
     elif ex == "BYBIT":
         from .bybit import BybitConnector
         conn = BybitConnector()
+    elif ex == "UPBIT":
+        # UPBIT은 현재 미지원 (커넥터 미구현)
+        return None
 
     if conn is not None:
         _CONNECTOR_CACHE[ex] = conn

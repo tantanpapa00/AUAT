@@ -5608,37 +5608,111 @@ def _okx_extract_ids(okx_res: object) -> tuple[str | None, str | None, dict | No
 
 
 def _maybe_send_to_broker(db, order_id: int):
-    # ORDER_SUBMIT_ENABLE / DRY_RUN 은 기존 코드의 env 플래그를 그대로 존중
-    o = db.execute(_sql_text("SELECT * FROM orders WHERE id=:id LIMIT 1"), {"id": order_id}).mappings().first()
+    """
+    전 거래소 주문 실행 (OKX, Binance, Bybit, Upbit, KIS_KR, KIS_US)
+    - ORDER_SUBMIT_ENABLE / DRY_RUN 환경변수 존중
+    - 거래소별 connector.place_order() 호출
+    """
+    # 주문 + 계정 정보 조회 (exchange 포함)
+    o = db.execute(_sql_text("""
+        SELECT o.*, acc.exchange as account_exchange
+        FROM orders o
+        LEFT JOIN accounts acc ON acc.id = o.account_id
+        WHERE o.id = :id
+        LIMIT 1
+    """), {"id": order_id}).mappings().first()
     if not o:
         return {"ok": False, "reason": "order_not_found"}
+
+    # 거래소 결정 (order.exchange > account.exchange > 기본값 OKX)
+    exchange = (o.get("exchange") or o.get("account_exchange") or "OKX").upper()
 
     if str(os.getenv("ORDER_SUBMIT_ENABLE", "0")) != "1":
         db.execute(_sql_text("""
             UPDATE orders SET status='skipped', reason='submit_disabled', updated_at=:u WHERE id=:id
         """), {"u": _now_kst_iso(), "id": order_id})
         db.commit()
-        return {"ok": True, "skipped": True, "reason": "submit_disabled"}
+        return {"ok": True, "skipped": True, "reason": "submit_disabled", "exchange": exchange}
 
     if str(os.getenv("DRY_RUN", "0")) == "1":
         db.execute(_sql_text("""
             UPDATE orders SET status='dry_run', reason='dry_run', updated_at=:u WHERE id=:id
         """), {"u": _now_kst_iso(), "id": order_id})
         db.commit()
-        return {"ok": True, "dry_run": True}
+        return {"ok": True, "dry_run": True, "exchange": exchange}
 
-    # OKX spot market 주문만 최소 지원
+    # 거래소별 커넥터 분기
+    symbol = o["symbol"]
+    side = o["side"]
+    qty = float(o["qty"])
+    order_type = o.get("order_type") or "market"
+
     try:
-        _clid = _mk_okx_clordid(int(order_id), o.get("alert_id"))
-        res = okx_place_order(
-            symbol=o["symbol"],
-            side=o["side"],
-            qty=float(o["qty"]),
-            order_type=o.get("order_type") or "market",
-            payload={"source": "tv", "order_id": int(order_id), "alert_id": o.get("alert_id"), "clOrdId": _clid},
-        )
+        # 거래소별 처리
+        if exchange == "OKX":
+            # 기존 OKX 로직 유지 (legacy 호환)
+            _clid = _mk_okx_clordid(int(order_id), o.get("alert_id"))
+            res = okx_place_order(
+                symbol=symbol,
+                side=side,
+                qty=qty,
+                order_type=order_type,
+                payload={"source": "tv", "order_id": int(order_id), "alert_id": o.get("alert_id"), "clOrdId": _clid},
+            )
+            return _handle_okx_response(db, order_id, o, res, _clid)
+
+        elif exchange == "BINANCE":
+            conn = get_connector("BINANCE")
+            if not conn:
+                raise ValueError("BINANCE 커넥터 초기화 실패")
+            res = conn.place_order(
+                symbol=symbol,
+                side=side,
+                qty=qty,
+                order_type=order_type,
+                payload={"source": "tv", "order_id": int(order_id)},
+            )
+            return _handle_connector_response(db, order_id, exchange, res)
+
+        elif exchange == "BYBIT":
+            conn = get_connector("BYBIT")
+            if not conn:
+                raise ValueError("BYBIT 커넥터 초기화 실패")
+            res = conn.place_order(
+                symbol=symbol,
+                side=side,
+                qty=qty,
+                order_type=order_type,
+                payload={"source": "tv", "order_id": int(order_id)},
+            )
+            return _handle_connector_response(db, order_id, exchange, res)
+
+        elif exchange == "UPBIT":
+            # Upbit은 커넥터 미구현 상태
+            raise ValueError("UPBIT 커넥터 미구현 - 추후 지원 예정")
+
+        elif exchange in ("KIS", "KIS_KR"):
+            conn = get_connector("KIS")
+            if not conn:
+                raise ValueError("KIS 커넥터 초기화 실패")
+            res = conn.place_order(
+                symbol=symbol,
+                side=side,
+                qty=qty,
+                order_type=order_type,
+                payload={"source": "tv", "order_id": int(order_id)},
+            )
+            return _handle_connector_response(db, order_id, "KIS_KR", res)
+
+        elif exchange == "KIS_US":
+            # KIS_US는 해외주식 - 현재 KIS 커넥터가 국내만 지원
+            raise ValueError("KIS_US 해외주식 주문 미구현 - 추후 지원 예정")
+
+        else:
+            raise ValueError(f"지원하지 않는 거래소: {exchange}")
+
     except Exception as e:
-        rmsg = f"send_failed: {e}"
+        rmsg = f"send_failed: [{exchange}] {e}"
         ss = "submit_terminal" if _is_terminal_submit_error(rmsg) else "submit_failed"
         db.execute(_sql_text("""
             UPDATE orders
@@ -5651,17 +5725,18 @@ def _maybe_send_to_broker(db, order_id: int):
              WHERE id=:id
         """), {"r": rmsg, "ss": ss, "u": _now_kst_iso(), "id": order_id})
         db.commit()
-        return {"ok": False, "reason": rmsg, "submit_status": ss}
+        return {"ok": False, "reason": rmsg, "submit_status": ss, "exchange": exchange}
 
-        # res 파싱 (dict(legacy) 또는 PlaceOrderResult(new connector))
+
+def _handle_okx_response(db, order_id: int, o: dict, res, _clid: str):
+    """OKX 응답 처리 (기존 로직 분리)"""
     okx_ok = True
     okx_order_id = None
     okx_clord_id = None
     err_code = None
     err_msg = None
-    
+
     if isinstance(res, dict):
-        # OKX raw response style: {"code":"0","data":[{"ordId":"...","clOrdId":"...","sCode":"0","sMsg":"..."}], ...}
         if "code" in res:
             okx_ok = str(res.get("code")) == "0"
             err_code = str(res.get("code"))
@@ -5670,23 +5745,20 @@ def _maybe_send_to_broker(db, order_id: int):
         if isinstance(data, list) and data:
             okx_order_id = (data[0].get("ordId") or None)
             okx_clord_id = (data[0].get("clOrdId") or None)
-            # per-item errors
             if err_code is None:
                 err_code = data[0].get("sCode")
             if err_msg is None:
                 err_msg = data[0].get("sMsg")
     else:
-        # PlaceOrderResult
         okx_ok = bool(getattr(res, "ok", False))
         okx_order_id = getattr(res, "okx_order_id", None) or None
         okx_clord_id = (getattr(res, "clord_id", None) or getattr(res, "okx_clord_id", None) or None)
         err_code = getattr(res, "err_code", None)
         err_msg = getattr(res, "err_msg", None)
-    
+
     if not okx_clord_id:
         okx_clord_id = _clid
-    
-    # OK는 맞는데 ordId가 비어있을 때: clOrdId로 1회 조회해서 회복
+
     if okx_ok and (not okx_order_id) and okx_clord_id:
         try:
             g = okx_get_order(symbol=o.get("symbol"), okx_clord_id=okx_clord_id)
@@ -5695,8 +5767,7 @@ def _maybe_send_to_broker(db, order_id: int):
                 okx_order_id = d[0].get("ordId") or None
         except Exception:
             pass
-    
-    # OKX 자체 실패면 즉시 실패 처리 (터미널 여부는 기존 휴리스틱 재사용)
+
     if not okx_ok:
         rmsg = f"send_failed: okx_error: {err_code}: {err_msg}"
         ss = "submit_terminal" if _is_terminal_submit_error(rmsg) else "submit_failed"
@@ -5707,9 +5778,8 @@ def _maybe_send_to_broker(db, order_id: int):
             {"oid": order_id, "ss": ss, "err": rmsg, "nsa": _utcnow() + _dt.timedelta(seconds=5)},
         )
         db.commit()
-        return False, rmsg
+        return {"ok": False, "reason": rmsg, "exchange": "OKX"}
 
-# ordId 없으면 submit_failed로 마감(폴링 대상에서 제외)
     if not okx_order_id:
         db.execute(_sql_text("""
             UPDATE orders
@@ -5725,9 +5795,8 @@ def _maybe_send_to_broker(db, order_id: int):
              WHERE id=:id
         """), {"r": "send_failed: okx_no_ordId", "u": _now_kst_iso(), "id": order_id})
         db.commit()
-        return {"ok": False, "reason": "send_failed: okx_no_ordId"}
+        return {"ok": False, "reason": "send_failed: okx_no_ordId", "exchange": "OKX"}
 
-    # 전송 성공: submitted + 폴링 예약(next_check_at)
     db.execute(_sql_text("""
         UPDATE orders
            SET status='sent',
@@ -5746,7 +5815,54 @@ def _maybe_send_to_broker(db, order_id: int):
          WHERE id=:id
     """), {"oid": okx_order_id, "cid": okx_clord_id, "u": _now_kst_iso(), "id": order_id})
     db.commit()
-    return {"ok": True, "okx_order_id": okx_order_id}
+    return {"ok": True, "okx_order_id": okx_order_id, "exchange": "OKX"}
+
+
+def _handle_connector_response(db, order_id: int, exchange: str, res):
+    """통합 커넥터 응답 처리 (Binance, Bybit, KIS 등)"""
+    from app.connectors.base import PlaceOrderResult
+
+    if isinstance(res, PlaceOrderResult):
+        if not res.ok:
+            rmsg = f"send_failed: [{exchange}] {res.err_code}: {res.err_msg}"
+            ss = "submit_terminal" if _is_terminal_submit_error(rmsg) else "submit_failed"
+            db.execute(_sql_text("""
+                UPDATE orders
+                   SET status='failed',
+                       reason=:r,
+                       updated_at=:u,
+                       last_checked_at=now(),
+                       submit_status=:ss,
+                       submit_err=:r
+                 WHERE id=:id
+            """), {"r": rmsg, "ss": ss, "u": _now_kst_iso(), "id": order_id})
+            db.commit()
+            return {"ok": False, "reason": rmsg, "exchange": exchange}
+
+        # 성공
+        exch_order_id = res.exchange_order_id or res.okx_order_id or ""
+        db.execute(_sql_text("""
+            UPDATE orders
+               SET status='sent',
+                   reason=NULL,
+                   exchange_order_id=:exch_oid,
+                   updated_at=:u,
+                   last_checked_at=now(),
+                   submit_status='submitted',
+                   submit_err=NULL,
+                   exch_status='sent'
+             WHERE id=:id
+        """), {"exch_oid": exch_order_id, "u": _now_kst_iso(), "id": order_id})
+        db.commit()
+        return {"ok": True, "exchange_order_id": exch_order_id, "exchange": exchange}
+    else:
+        # 예상치 못한 응답 형식
+        rmsg = f"send_failed: [{exchange}] unexpected response type: {type(res)}"
+        db.execute(_sql_text("""
+            UPDATE orders SET status='failed', reason=:r, updated_at=:u WHERE id=:id
+        """), {"r": rmsg, "u": _now_kst_iso(), "id": order_id})
+        db.commit()
+        return {"ok": False, "reason": rmsg, "exchange": exchange}
 # === /AUTOFIX_COMPAT_TV_HELPERS ===
 
 
