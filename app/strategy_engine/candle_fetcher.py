@@ -978,7 +978,7 @@ async def fetch_candles_for_backtest(
     symbol = symbol.upper()
 
     # 지원 거래소 확인
-    supported_exchanges = ["OKX", "BINANCE", "BYBIT", "KIS_KR", "KIS_US"]
+    supported_exchanges = ["OKX", "BINANCE", "BYBIT", "UPBIT", "KIS_KR", "KIS_US"]
     if exchange not in supported_exchanges:
         raise ValueError(
             f"{exchange} 거래소의 백테스트는 아직 지원되지 않습니다. "
@@ -1078,6 +1078,8 @@ async def fetch_candles_for_backtest(
         all_candles = await _fetch_binance_paginated(symbol, timeframe, needed, timeout, ctx)
     elif exchange == "BYBIT":
         all_candles = await _fetch_bybit_paginated(symbol, timeframe, needed, timeout, ctx)
+    elif exchange == "UPBIT":
+        all_candles = await _fetch_upbit_paginated(symbol, timeframe, needed, timeout, ctx)
     elif exchange == "KIS_KR":
         all_candles = await _fetch_kis_kr_paginated(symbol, timeframe, needed, timeout)
     elif exchange == "KIS_US":
@@ -1166,6 +1168,8 @@ async def _fetch_incremental(
             return await _fetch_binance_paginated(symbol, timeframe, needed, timeout, ctx)
         elif exchange == "BYBIT":
             return await _fetch_bybit_paginated(symbol, timeframe, needed, timeout, ctx)
+        elif exchange == "UPBIT":
+            return await _fetch_upbit_paginated(symbol, timeframe, needed, timeout, ctx)
         elif exchange == "KIS_KR":
             return await _fetch_kis_kr_paginated(symbol, timeframe, needed, timeout)
         elif exchange == "KIS_US":
@@ -1174,6 +1178,89 @@ async def _fetch_incremental(
         logger.warning(f"증분 조회 실패: {e}")
         return []
     return []
+
+
+async def _fetch_upbit_paginated(
+    symbol: str,
+    timeframe: str,
+    needed: int,
+    timeout: int,
+    ctx,
+) -> List[Candle]:
+    """Upbit 페이지네이션 조회 (200개씩)"""
+    import urllib.request
+    import asyncio
+
+    all_candles = []
+    tf_path = get_exchange_tf("UPBIT", timeframe)
+    # Upbit symbol: KRW-BTC -> KRW-BTC
+    upbit_symbol = symbol.upper()
+    start_time = time.time()
+
+    # Upbit은 to 파라미터로 이전 데이터 조회
+    to_param = ""
+
+    while len(all_candles) < needed:
+        if time.time() - start_time > timeout:
+            raise ValueError(f"시세 조회 시간 초과 ({timeout}초)")
+
+        url = f"https://api.upbit.com/v1/candles/{tf_path}?market={upbit_symbol}&count=200"
+        if to_param:
+            url += f"&to={to_param}"
+
+        req = urllib.request.Request(url, headers={
+            "Accept": "application/json",
+            "User-Agent": "bbooster-hub/1.0",
+        })
+
+        try:
+            with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except Exception as e:
+            logger.warning(f"Upbit 페이지네이션 에러: {e}")
+            break
+
+        if not data or not isinstance(data, list):
+            break
+
+        for c in data:
+            ts_str = c.get("candle_date_time_utc", "")
+            try:
+                dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+                ts = int(dt.timestamp() * 1000)
+            except:
+                ts = c.get("timestamp", 0)
+
+            all_candles.append(Candle(
+                ts=ts,
+                o=float(c.get("opening_price", 0)),
+                h=float(c.get("high_price", 0)),
+                l=float(c.get("low_price", 0)),
+                c=float(c.get("trade_price", 0)),
+                v=float(c.get("candle_acc_trade_volume", 0)),
+            ))
+
+        # 다음 페이지로 (가장 오래된 캔들의 시간)
+        if data:
+            oldest_time = data[-1].get("candle_date_time_utc", "")
+            if oldest_time and oldest_time != to_param:
+                to_param = oldest_time
+            else:
+                break
+        else:
+            break
+
+        # Rate limit 방지
+        await asyncio.sleep(0.2)
+
+        # 더 이상 데이터가 없으면 중단
+        if len(data) < 200:
+            break
+
+    # 시간순 정렬 (과거 → 최신)
+    all_candles.sort(key=lambda c: c.ts)
+
+    return all_candles
 
 
 async def _fetch_kis_kr_paginated(
