@@ -32,6 +32,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgresql://${DB_USER:-bbooster}:${DB_PASSWORD:-bbooster_secret}@db:5432/${DB_NAME:-bbooster}
       TV_SECRET: ${TV_SECRET:-changeme}
