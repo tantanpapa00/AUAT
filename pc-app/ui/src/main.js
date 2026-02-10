@@ -7522,13 +7522,17 @@ function drawMrBacktestChart(equityCurve, initialCapital = 10000000) {
 
     const ctx = canvas.getContext('2d');
 
-    // 기존 차트 완전 제거
-    if (window.mrBacktestChart) {
+    // 기존 차트 완전 제거 (instanceof Chart 체크)
+    if (window.mrBacktestChart instanceof Chart) {
         window.mrBacktestChart.destroy();
         window.mrBacktestChart = null;
     }
 
     if (!equityCurve || equityCurve.length === 0) return;
+
+    // canvas 크기 리셋 (무한 확장 방지)
+    canvas.style.height = '100%';
+    canvas.style.width = '100%';
 
     // 초기자본 추출 (첫 데이터 또는 전달된 값)
     const initCap = equityCurve[0]?.equity || initialCapital;
