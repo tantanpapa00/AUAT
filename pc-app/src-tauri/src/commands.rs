@@ -3300,8 +3300,8 @@ pub async fn run_mr_backtest(
     osc_preset: Option<String>,
     cash_use_pct: Option<f64>,
     use_4regime: Option<bool>,
-    buy_tranches: Option<Vec<i32>>,
-    sell_tranches: Option<Vec<i32>>,
+    buy_tranches: Option<Vec<f64>>,
+    sell_tranches: Option<Vec<f64>>,
 ) -> Result<serde_json::Value, String> {
     let client = reqwest::Client::builder()
         .danger_accept_invalid_certs(true)
@@ -3319,8 +3319,8 @@ pub async fn run_mr_backtest(
         "osc_preset": osc_preset.unwrap_or_else(|| "preset1".to_string()),
         "cash_use_pct": cash_use_pct.unwrap_or(90.0),
         "use_4regime": use_4regime.unwrap_or(true),
-        "buy_tranches": buy_tranches.unwrap_or_else(|| vec![25, 50, 75, 100]),
-        "sell_tranches": sell_tranches.unwrap_or_else(|| vec![50, 100]),
+        "buy_tranches": buy_tranches.unwrap_or_else(|| vec![25.0, 50.0, 75.0, 100.0]),
+        "sell_tranches": sell_tranches.unwrap_or_else(|| vec![50.0, 100.0]),
     });
 
     let resp = client
