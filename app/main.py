@@ -890,6 +890,18 @@ def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
 
+@app.get("/terms", response_class=HTMLResponse)
+def terms_page(request: Request):
+    """Terms of Service page (이용약관)"""
+    return templates.TemplateResponse("terms.html", {"request": request})
+
+
+@app.get("/privacy", response_class=HTMLResponse)
+def privacy_page(request: Request):
+    """Privacy Policy page (개인정보처리방침)"""
+    return templates.TemplateResponse("privacy.html", {"request": request})
+
+
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request):
     """Web Dashboard - Main app (requires authentication)"""
