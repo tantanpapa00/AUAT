@@ -7413,6 +7413,18 @@ function displayMrBacktestResult(result) {
     document.getElementById('mr-bt-trades').textContent =
         (m.total_trades || 0) + '회';
 
+    // 손익비 (Profit Factor)
+    const profitFactorEl = document.getElementById('mr-bt-profit-factor');
+    if (profitFactorEl) {
+        profitFactorEl.textContent = (m.profit_factor || 0).toFixed(2);
+    }
+
+    // 메시지 표시
+    const messageEl = document.getElementById('mr-bt-message');
+    if (messageEl) {
+        messageEl.textContent = result.message || '';
+    }
+
     // 차트 그리기
     drawMrBacktestChart(result.equity_curve || []);
 }
