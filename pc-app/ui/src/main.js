@@ -2,6 +2,9 @@ import { invoke } from '@tauri-apps/api/tauri';
 import { open } from '@tauri-apps/api/shell';
 import { API_BASE_URL, CONNECTION_TIMEOUT, MAX_RETRIES } from './config.js';
 
+// 디버깅용 전역 노출
+window.invokeCmd = invoke;
+
 // =====================================================
 // Authentication State
 // =====================================================
@@ -7269,6 +7272,8 @@ document.getElementById('btn-mr-backtest-quick')?.addEventListener('click', () =
 let mrBacktestChart = null;
 
 document.getElementById('btn-mr-run-backtest')?.addEventListener('click', async () => {
+    console.log('[MR 백테스트] 시작');
+
     const config = collectMrConfig();
     const days = parseInt(document.getElementById('mr-bt-days')?.value) || 365;
     const capital = parseFloat(document.getElementById('mr-bt-capital')?.value) || 10000000;
@@ -7276,9 +7281,12 @@ document.getElementById('btn-mr-run-backtest')?.addEventListener('click', async 
     if (!config.exchange) config.exchange = 'OKX';
     if (!config.symbol) config.symbol = 'BTC-USDT';
 
+    console.log('[MR 백테스트] config:', JSON.stringify(config).substring(0, 300));
+
     showToast('백테스트 실행 중...', 'info');
 
     try {
+        console.log('[MR 백테스트] invoke 호출');
         const result = await invoke('run_mr_backtest', {
             accessToken: auth.accessToken || '',
             exchange: config.exchange,
@@ -7317,6 +7325,8 @@ document.getElementById('btn-mr-run-backtest')?.addEventListener('click', async 
             r4AllowOscBuy: config.r4_allow_osc_buy,
         });
 
+        console.log('[MR 백테스트] 결과:', JSON.stringify(result).substring(0, 300));
+
         if (result.success) {
             displayMrBacktestResult(result);
             showToast('백테스트 완료', 'success');
@@ -7327,6 +7337,7 @@ document.getElementById('btn-mr-run-backtest')?.addEventListener('click', async 
             displayMrBacktestError(errorMsg);
         }
     } catch (error) {
+        console.error('[MR 백테스트] 에러:', error);
         // 에러 메시지 한글 변환
         let errorMsg = String(error);
 
