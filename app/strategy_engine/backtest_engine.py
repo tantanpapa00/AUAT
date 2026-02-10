@@ -146,7 +146,7 @@ def run_mr_backtest(
     htf_volumes = np.array([c.v for c in htf_candles])
 
     # 각 봉에 대해 시뮬레이션
-    lookback = min(50, len(candles) - 1)  # 지표 계산에 필요한 최소 봉 수
+    lookback = min(200, len(candles) - 1)  # 지표 계산에 필요한 최소 봉 수 (HTF 지표용 200)
 
     for i in range(lookback, len(candles)):
         candle = candles[i]
@@ -207,7 +207,7 @@ def run_mr_backtest(
             current_ts=candle.ts,
         )
 
-        if signal.action != "hold":
+        if signal.action != "none":
             signals.append({
                 "bar_index": i,
                 "timestamp": candle.ts,
