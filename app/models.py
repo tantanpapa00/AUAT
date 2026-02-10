@@ -1,10 +1,35 @@
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import Column, BigInteger, Text, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, BigInteger, Text, Boolean, DateTime, ForeignKey, Float, Index, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
 
 class Base(DeclarativeBase):
     pass
+
+
+class CandleCache(Base):
+    """
+    캔들 데이터 캐시 (PostgreSQL)
+    백테스트용 캔들 데이터를 거래소에서 조회 후 저장하여 재사용
+    """
+    __tablename__ = "candles"
+
+    id = Column(BigInteger, primary_key=True)
+    exchange = Column(Text, nullable=False)   # OKX, BINANCE, BYBIT
+    symbol = Column(Text, nullable=False)     # BTC-USDT
+    timeframe = Column(Text, nullable=False)  # 1h, 4h, 1D
+    ts = Column(BigInteger, nullable=False)   # timestamp (ms)
+    o = Column(Float, nullable=False)         # open
+    h = Column(Float, nullable=False)         # high
+    l = Column(Float, nullable=False)         # low
+    c = Column(Float, nullable=False)         # close
+    v = Column(Float, nullable=False)         # volume
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index('ix_candles_lookup', 'exchange', 'symbol', 'timeframe', 'ts'),
+        UniqueConstraint('exchange', 'symbol', 'timeframe', 'ts', name='uq_candles'),
+    )
 
 class Account(Base):
     __tablename__ = "accounts"

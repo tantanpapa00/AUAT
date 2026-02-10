@@ -19,10 +19,31 @@ import json
 import logging
 
 import numpy as np
+from sqlalchemy.orm import Session
 
 from .models import Candle
 
 logger = logging.getLogger(__name__)
+
+
+def _get_db_session() -> Optional[Session]:
+    """Get database session for candle caching."""
+    try:
+        from app.db import SessionLocal
+        return SessionLocal()
+    except Exception as e:
+        logger.warning(f"DB session 생성 실패 (캐시 비활성화): {e}")
+        return None
+
+
+def _get_candle_cache_model():
+    """Get CandleCache model."""
+    try:
+        from app.models import CandleCache
+        return CandleCache
+    except Exception as e:
+        logger.warning(f"CandleCache 모델 로드 실패: {e}")
+        return None
 
 
 # Timeframe to milliseconds mapping
@@ -609,9 +630,11 @@ async def fetch_candles_for_backtest(
     timeout: int = 30,
 ) -> List[Candle]:
     """
-    백테스트용 과거 캔들을 거래소 API에서 조회.
+    백테스트용 과거 캔들을 조회 (DB 캐싱 지원).
 
-    OKX, Binance, Bybit 지원 (페이지네이션으로 장기간 데이터 수집)
+    1. DB에서 캐시된 캔들 조회
+    2. 부족한 부분만 거래소 API에서 조회
+    3. 새로 조회한 캔들은 DB에 저장
 
     Args:
         exchange: 거래소 (OKX, BINANCE, BYBIT)
@@ -631,6 +654,7 @@ async def fetch_candles_for_backtest(
     import asyncio
 
     exchange = exchange.upper()
+    symbol = symbol.upper()
 
     # 지원 거래소 확인
     if exchange not in ["OKX", "BINANCE", "BYBIT"]:
@@ -651,9 +675,53 @@ async def fetch_candles_for_backtest(
     # 최소 300봉 필요 (OSC bb_len=250 + HTF 지표 계산용)
     needed = max(needed, 300)
 
-    all_candles: List[Candle] = []
-    ctx = ssl.create_default_context()
     start_time = time.time()
+    tf_ms = TF_TO_MS.get(timeframe, 3600 * 1000)
+    now_ms = int(time.time() * 1000)
+
+    # 시작 시간 계산 (현재 - days)
+    start_ms = now_ms - (days * 24 * 60 * 60 * 1000)
+
+    # DB 캐시 체크
+    db = _get_db_session()
+    CandleCache = _get_candle_cache_model()
+    cached_candles: List[Candle] = []
+    need_exchange_fetch = True
+
+    if db and CandleCache:
+        try:
+            # DB에서 캐시된 캔들 조회
+            cached_rows = db.query(CandleCache).filter(
+                CandleCache.exchange == exchange,
+                CandleCache.symbol == symbol,
+                CandleCache.timeframe == timeframe,
+                CandleCache.ts >= start_ms,
+            ).order_by(CandleCache.ts).all()
+
+            if cached_rows:
+                cached_candles = [
+                    Candle(ts=r.ts, o=r.o, h=r.h, l=r.l, c=r.c, v=r.v)
+                    for r in cached_rows
+                ]
+                logger.info(f"DB 캐시: {len(cached_candles)}봉 (필요: {needed}봉)")
+
+                # 캐시된 데이터가 충분하고 최근 데이터가 있는지 확인
+                if len(cached_candles) >= needed:
+                    last_ts = cached_candles[-1].ts
+                    # 마지막 캔들이 현재 시간 기준 2봉 이내인지 (최신 데이터)
+                    if now_ms - last_ts < tf_ms * 2:
+                        logger.info(f"캐시 HIT: {len(cached_candles)}봉, {time.time() - start_time:.2f}초")
+                        db.close()
+                        return cached_candles[-needed:]
+                    else:
+                        # 마지막 캔들 이후부터 조회 필요
+                        logger.info(f"캐시 부분 사용: {len(cached_candles)}봉, 이후 데이터 추가 조회")
+        except Exception as e:
+            logger.warning(f"DB 캐시 조회 실패: {e}")
+
+    # 거래소에서 조회
+    ctx = ssl.create_default_context()
+    all_candles: List[Candle] = []
 
     if exchange == "OKX":
         all_candles = await _fetch_okx_paginated(symbol, timeframe, needed, timeout, ctx)
@@ -664,6 +732,8 @@ async def fetch_candles_for_backtest(
 
     # 결과 검증
     if len(all_candles) < 50:
+        if db:
+            db.close()
         raise ValueError(
             f"시세 데이터가 부족합니다: {len(all_candles)}봉 조회됨 "
             f"(최소 50봉 필요). 기간을 늘리거나 타임프레임을 변경해보세요."
@@ -675,6 +745,40 @@ async def fetch_candles_for_backtest(
     # 필요한 봉수만 반환 (API가 더 많이 줄 수 있음)
     if len(all_candles) > needed:
         all_candles = all_candles[-needed:]
+
+    # DB에 저장 (새로 조회한 캔들만)
+    if db and CandleCache:
+        try:
+            # 기존 캐시된 타임스탬프 set
+            cached_ts_set = {c.ts for c in cached_candles}
+            new_candles = [c for c in all_candles if c.ts not in cached_ts_set]
+
+            if new_candles:
+                # Bulk insert (upsert 대신 간단히 insert, 중복은 무시)
+                for c in new_candles:
+                    try:
+                        db.add(CandleCache(
+                            exchange=exchange,
+                            symbol=symbol,
+                            timeframe=timeframe,
+                            ts=c.ts,
+                            o=c.o,
+                            h=c.h,
+                            l=c.l,
+                            c=c.c,
+                            v=c.v,
+                        ))
+                    except Exception:
+                        pass  # 중복 무시
+                db.commit()
+                logger.info(f"DB 캐시 저장: {len(new_candles)}봉 추가")
+        except Exception as e:
+            logger.warning(f"DB 캐시 저장 실패: {e}")
+            db.rollback()
+        finally:
+            db.close()
+    elif db:
+        db.close()
 
     logger.info(f"백테스트 캔들 조회 완료: {exchange} {symbol} {timeframe}, "
                 f"{len(all_candles)}봉, {time.time() - start_time:.1f}초")
