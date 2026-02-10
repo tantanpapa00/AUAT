@@ -7460,7 +7460,8 @@ function displayMrBacktestResult(result) {
 
     // 자산 추이 차트
     if (result.equity_curve && result.equity_curve.length > 0) {
-        drawMrBacktestChart(result.equity_curve);
+        const initCap = m.initial_capital || 10000000;
+        drawMrBacktestChart(result.equity_curve, initCap);
     }
 
     // 거래 내역 테이블
@@ -7515,46 +7516,166 @@ function renderMrTradesTable(trades) {
     }).join('');
 }
 
-function drawMrBacktestChart(equityCurve) {
+function drawMrBacktestChart(equityCurve, initialCapital = 10000000) {
     const canvas = document.getElementById('mr-backtest-chart');
     if (!canvas || !window.Chart) return;
 
     const ctx = canvas.getContext('2d');
 
-    // 기존 차트 제거
-    if (mrBacktestChart) {
-        mrBacktestChart.destroy();
+    // 기존 차트 완전 제거
+    if (window.mrBacktestChart) {
+        window.mrBacktestChart.destroy();
+        window.mrBacktestChart = null;
     }
 
-    const labels = equityCurve.map((_, i) => i);
+    if (!equityCurve || equityCurve.length === 0) return;
+
+    // 초기자본 추출 (첫 데이터 또는 전달된 값)
+    const initCap = equityCurve[0]?.equity || initialCapital;
+
+    // 날짜 라벨 생성
+    const labels = equityCurve.map(p => {
+        if (p.timestamp) {
+            const d = new Date(p.timestamp);
+            return `${d.getMonth() + 1}/${d.getDate()}`;
+        }
+        return '';
+    });
+
     const data = equityCurve.map(p => p.equity);
 
-    mrBacktestChart = new Chart(ctx, {
+    // 수익/손실 구간별 색상을 위한 segment 설정
+    const segmentColor = (ctx) => {
+        const value = ctx.p0?.parsed?.y;
+        if (value === undefined) return '#22C55E';
+        return value >= initCap ? '#22C55E' : '#EF4444';
+    };
+
+    // Gradient fill 생성
+    const createGradient = (color, alpha) => {
+        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+        gradient.addColorStop(0, color.replace(')', `, ${alpha})`).replace('rgb', 'rgba'));
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        return gradient;
+    };
+
+    // 최종 자산 기준으로 전체 색상 결정
+    const finalEquity = data[data.length - 1] || initCap;
+    const isProfitable = finalEquity >= initCap;
+    const mainColor = isProfitable ? '#22C55E' : '#EF4444';
+    const fillGradient = ctx.createLinearGradient(0, 0, 0, 300);
+    fillGradient.addColorStop(0, isProfitable ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)');
+    fillGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+    // Y축 포맷 함수
+    const formatAmount = (value) => {
+        if (value >= 100000000) return (value / 100000000).toFixed(1) + '억';
+        if (value >= 10000) return (value / 10000).toFixed(0) + '만';
+        return value.toLocaleString();
+    };
+
+    window.mrBacktestChart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: labels,
-            datasets: [{
-                label: '자산 추이',
-                data: data,
-                borderColor: 'rgb(59, 130, 246)',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                fill: true,
-                tension: 0.1,
-                pointRadius: 0,
-            }]
+            datasets: [
+                // 초기자본 기준선
+                {
+                    label: '초기자본',
+                    data: Array(data.length).fill(initCap),
+                    borderColor: 'rgba(156, 163, 175, 0.5)',
+                    borderDash: [5, 5],
+                    borderWidth: 1,
+                    pointRadius: 0,
+                    fill: false,
+                },
+                // 자산 추이
+                {
+                    label: '자산',
+                    data: data,
+                    borderColor: mainColor,
+                    backgroundColor: fillGradient,
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.2,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    pointHoverBackgroundColor: mainColor,
+                    segment: {
+                        borderColor: ctx => {
+                            const y = ctx.p0?.parsed?.y;
+                            return y >= initCap ? '#22C55E' : '#EF4444';
+                        }
+                    }
+                }
+            ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
             plugins: {
                 legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(17, 24, 39, 0.95)',
+                    titleColor: '#E5E7EB',
+                    bodyColor: '#D1D5DB',
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 1,
+                    padding: 12,
+                    displayColors: false,
+                    callbacks: {
+                        title: (items) => {
+                            const idx = items[0]?.dataIndex;
+                            if (idx !== undefined && equityCurve[idx]?.timestamp) {
+                                const d = new Date(equityCurve[idx].timestamp);
+                                return d.toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
+                            }
+                            return '';
+                        },
+                        label: (item) => {
+                            if (item.datasetIndex === 0) return null; // 기준선은 숨김
+                            const value = item.raw;
+                            const diff = value - initCap;
+                            const pct = ((diff / initCap) * 100).toFixed(2);
+                            const sign = diff >= 0 ? '+' : '';
+                            return [
+                                `자산: ${formatAmount(value)}원`,
+                                `수익: ${sign}${formatAmount(diff)}원 (${sign}${pct}%)`
+                            ];
+                        }
+                    }
+                }
             },
             scales: {
-                x: { display: false },
-                y: {
+                x: {
+                    display: true,
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.05)',
+                        drawBorder: false,
+                    },
                     ticks: {
+                        color: '#6B7280',
+                        font: { size: 10 },
+                        maxTicksLimit: 8,
+                        maxRotation: 0,
+                    }
+                },
+                y: {
+                    display: true,
+                    beginAtZero: false,
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.05)',
+                        drawBorder: false,
+                    },
+                    ticks: {
+                        color: '#6B7280',
+                        font: { size: 10 },
                         callback: function(value) {
-                            return (value / 1000000).toFixed(1) + 'M';
+                            return formatAmount(value);
                         }
                     }
                 }
