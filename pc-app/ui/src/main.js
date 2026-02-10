@@ -6897,8 +6897,8 @@ async function loadMrExchangeDropdown() {
     const select = document.getElementById('mr-exchange');
     if (!select) return;
 
-    // 기본 거래소 목록 (항상 포함)
-    const defaultExchanges = ['OKX', 'BINANCE', 'BYBIT', 'UPBIT'];
+    // 기본 거래소 목록 (항상 포함) - KIS 추가
+    const defaultExchanges = ['OKX', 'BINANCE', 'BYBIT', 'UPBIT', 'KIS_KR', 'KIS_US'];
 
     try {
         let accounts = [];
@@ -6935,6 +6935,67 @@ async function loadMrExchangeDropdown() {
             const displayName = EXCHANGE_DISPLAY[ex] || ex;
             select.innerHTML += `<option value="${ex}">${displayName}</option>`;
         });
+    }
+
+    // KIS 거래소 선택 시 타임프레임 제한
+    select.addEventListener('change', () => {
+        updateMrTimeframeOptions(select.value);
+    });
+}
+
+/**
+ * 거래소에 따라 타임프레임 옵션 활성화/비활성화
+ * KIS는 일봉/주봉/월봉만 지원
+ */
+function updateMrTimeframeOptions(exchange) {
+    const signalTfSelect = document.getElementById('mr-signal-tf');
+    const htfSelect = document.getElementById('mr-htf');
+
+    const isKIS = exchange === 'KIS_KR' || exchange === 'KIS_US';
+    const kisAllowedTfs = ['1D', '1W', '1M'];
+
+    // 시그널 TF 옵션 처리
+    if (signalTfSelect) {
+        Array.from(signalTfSelect.options).forEach(opt => {
+            if (isKIS) {
+                opt.disabled = !kisAllowedTfs.includes(opt.value);
+            } else {
+                opt.disabled = false;
+            }
+        });
+
+        // KIS인데 현재 선택이 분봉이면 일봉으로 변경
+        if (isKIS && !kisAllowedTfs.includes(signalTfSelect.value)) {
+            signalTfSelect.value = '1D';
+        }
+    }
+
+    // HTF 옵션 처리
+    if (htfSelect) {
+        Array.from(htfSelect.options).forEach(opt => {
+            if (isKIS) {
+                opt.disabled = !kisAllowedTfs.includes(opt.value);
+            } else {
+                opt.disabled = false;
+            }
+        });
+
+        // KIS인데 현재 선택이 분봉이면 일봉으로 변경
+        if (isKIS && !kisAllowedTfs.includes(htfSelect.value)) {
+            htfSelect.value = '1D';
+        }
+    }
+
+    // KIS 선택 시 안내 메시지 (거래소 헬프 텍스트 변경)
+    const exchangeHelpEl = document.querySelector('#mr-section-target .mr-help');
+    if (exchangeHelpEl) {
+        if (isKIS) {
+            exchangeHelpEl.textContent = '한국투자증권: 일봉/주봉만 지원 (분봉 불가)';
+            exchangeHelpEl.style.color = '#f59e0b';
+        } else {
+            exchangeHelpEl.textContent = '백테스트할 거래소를 선택하세요';
+            exchangeHelpEl.style.color = '';
+        }
     }
 }
 

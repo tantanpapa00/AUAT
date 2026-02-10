@@ -85,6 +85,21 @@ EXCHANGE_TF_MAP: Dict[str, Dict[str, str]] = {
         "15m": "minutes/15", "30m": "minutes/30", "1h": "minutes/60",
         "4h": "minutes/240", "1D": "days", "1W": "weeks",
     },
+    # KIS는 일봉/주봉/월봉만 지원 (분봉은 당일만 가능)
+    "KIS_KR": {
+        "1D": "D", "1W": "W", "1M": "M",
+    },
+    "KIS_US": {
+        "1D": "0", "1W": "1", "1M": "2",  # GUBN 파라미터 값
+    },
+}
+
+# KIS 토큰 캐시 (모듈 레벨)
+_kis_token_cache: Dict[str, Any] = {
+    "token": None,
+    "expires_at": None,
+    "app_key": None,
+    "app_secret": None,
 }
 
 
@@ -161,6 +176,10 @@ async def fetch_candles_from_exchange(
         return await _fetch_bybit_candles(symbol, timeframe, limit, end_time)
     elif exchange == "UPBIT":
         return await _fetch_upbit_candles(symbol, timeframe, limit, end_time)
+    elif exchange == "KIS_KR":
+        return await _fetch_kis_kr_candles(symbol, timeframe, limit, end_time)
+    elif exchange == "KIS_US":
+        return await _fetch_kis_us_candles(symbol, timeframe, limit, end_time)
     else:
         raise ValueError(f"Unsupported exchange: {exchange}")
 
@@ -449,6 +468,307 @@ async def _fetch_upbit_candles(
     )
 
 
+async def _get_kis_token() -> Optional[str]:
+    """KIS API 토큰 가져오기 (캐싱 포함)"""
+    import os
+    from datetime import datetime, timezone
+
+    global _kis_token_cache
+
+    # 환경변수에서 키 가져오기
+    app_key = os.getenv("KIS_APP_KEY", "").strip()
+    app_secret = os.getenv("KIS_APP_SECRET", "").strip()
+    is_mock = os.getenv("KIS_MOCK", "true").lower() == "true"
+
+    if not app_key or not app_secret:
+        logger.warning("KIS_APP_KEY 또는 KIS_APP_SECRET이 설정되지 않았습니다")
+        return None
+
+    # 캐시된 토큰이 유효한지 확인
+    if (_kis_token_cache.get("token") and
+        _kis_token_cache.get("expires_at") and
+        _kis_token_cache.get("app_key") == app_key and
+        datetime.now(timezone.utc) < _kis_token_cache["expires_at"]):
+        return _kis_token_cache["token"]
+
+    # 새 토큰 발급
+    try:
+        from app.kis_api import get_kis_token, KISToken
+        token_obj = await get_kis_token(app_key, app_secret, is_mock)
+        if token_obj:
+            _kis_token_cache["token"] = token_obj.access_token
+            _kis_token_cache["expires_at"] = token_obj.expires_at
+            _kis_token_cache["app_key"] = app_key
+            _kis_token_cache["app_secret"] = app_secret
+            logger.info(f"KIS 토큰 발급 완료 (만료: {token_obj.expires_at})")
+            return token_obj.access_token
+    except Exception as e:
+        logger.error(f"KIS 토큰 발급 실패: {e}")
+
+    return None
+
+
+async def _fetch_kis_kr_candles(
+    symbol: str,
+    timeframe: str,
+    limit: int,
+    end_time: Optional[int],
+) -> CandleData:
+    """
+    KIS 국내주식 캔들 조회 (일봉/주봉/월봉)
+
+    Args:
+        symbol: 종목코드 6자리 (예: "005930" 삼성전자)
+        timeframe: "1D", "1W", "1M"
+        limit: 조회할 봉 수
+        end_time: 종료 시간 (ms, 미사용)
+    """
+    import urllib.request
+    import ssl
+    import os
+
+    # KIS API 설정
+    app_key = os.getenv("KIS_APP_KEY", "").strip()
+    app_secret = os.getenv("KIS_APP_SECRET", "").strip()
+    is_mock = os.getenv("KIS_MOCK", "true").lower() == "true"
+
+    access_token = await _get_kis_token()
+    if not access_token:
+        logger.error("KIS 토큰 없음 - 국내주식 캔들 조회 불가")
+        return _empty_candle_data("KIS_KR", symbol, timeframe)
+
+    # URL 설정
+    base_url = "https://openapivts.koreainvestment.com:29443" if is_mock else "https://openapi.koreainvestment.com:9443"
+    url = f"{base_url}/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice"
+
+    # 타임프레임 변환
+    period_code = get_exchange_tf("KIS_KR", timeframe)
+    if not period_code:
+        period_code = "D"
+
+    # 날짜 계산
+    end_date = datetime.now().strftime("%Y%m%d")
+    # 여유있게 조회 (일봉 기준 limit일 + 여유분)
+    days_back = limit * 2 if timeframe == "1D" else limit * 14
+    start_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y%m%d")
+
+    headers = {
+        "Content-Type": "application/json; charset=utf-8",
+        "authorization": f"Bearer {access_token}",
+        "appkey": app_key,
+        "appsecret": app_secret,
+        "tr_id": "FHKST03010100",
+        "custtype": "P",
+    }
+
+    params = {
+        "FID_COND_MRKT_DIV_CODE": "J",
+        "FID_INPUT_ISCD": symbol,
+        "FID_INPUT_DATE_1": start_date,
+        "FID_INPUT_DATE_2": end_date,
+        "FID_PERIOD_DIV_CODE": period_code,
+        "FID_ORG_ADJ_PRC": "0",  # 수정주가
+    }
+
+    query_string = "&".join([f"{k}={v}" for k, v in params.items()])
+    full_url = f"{url}?{query_string}"
+
+    ctx = ssl.create_default_context()
+    req = urllib.request.Request(full_url, headers=headers)
+
+    try:
+        with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        logger.error(f"KIS_KR 캔들 조회 에러: {e}")
+        return _empty_candle_data("KIS_KR", symbol, timeframe)
+
+    if data.get("rt_cd") != "0":
+        logger.warning(f"KIS_KR 캔들 조회 실패: {data.get('msg1', 'Unknown error')}")
+        return _empty_candle_data("KIS_KR", symbol, timeframe)
+
+    # output2가 캔들 데이터 (최신→과거 순서)
+    candles_raw = data.get("output2", [])
+    if not candles_raw:
+        logger.warning(f"KIS_KR 캔들 데이터 없음: {symbol}")
+        return _empty_candle_data("KIS_KR", symbol, timeframe)
+
+    # 역순 정렬 (과거→최신)
+    candles_raw.reverse()
+
+    # limit 적용
+    candles_raw = candles_raw[-limit:] if len(candles_raw) > limit else candles_raw
+
+    n = len(candles_raw)
+    timestamps = np.zeros(n)
+    opens = np.zeros(n)
+    highs = np.zeros(n)
+    lows = np.zeros(n)
+    closes = np.zeros(n)
+    volumes = np.zeros(n)
+
+    for i, c in enumerate(candles_raw):
+        # 날짜 -> timestamp 변환 (YYYYMMDD -> ms)
+        date_str = c.get("stck_bsop_date", "")
+        if date_str:
+            try:
+                dt = datetime.strptime(date_str, "%Y%m%d")
+                timestamps[i] = dt.timestamp() * 1000
+            except:
+                timestamps[i] = 0
+
+        opens[i] = float(c.get("stck_oprc", 0) or 0)
+        highs[i] = float(c.get("stck_hgpr", 0) or 0)
+        lows[i] = float(c.get("stck_lwpr", 0) or 0)
+        closes[i] = float(c.get("stck_clpr", 0) or 0)
+        volumes[i] = float(c.get("acml_vol", 0) or 0)
+
+    logger.info(f"KIS_KR 캔들 조회 완료: {symbol} {timeframe} {n}봉")
+
+    return CandleData(
+        exchange="KIS_KR",
+        symbol=symbol,
+        timeframe=timeframe,
+        timestamps=timestamps,
+        opens=opens,
+        highs=highs,
+        lows=lows,
+        closes=closes,
+        volumes=volumes,
+    )
+
+
+async def _fetch_kis_us_candles(
+    symbol: str,
+    timeframe: str,
+    limit: int,
+    end_time: Optional[int],
+) -> CandleData:
+    """
+    KIS 해외주식 캔들 조회 (일봉/주봉/월봉)
+
+    Args:
+        symbol: 종목심볼 (예: "AAPL", "SPY")
+        timeframe: "1D", "1W", "1M"
+        limit: 조회할 봉 수
+        end_time: 종료 시간 (ms, 미사용)
+    """
+    import urllib.request
+    import ssl
+    import os
+
+    # KIS API 설정
+    app_key = os.getenv("KIS_APP_KEY", "").strip()
+    app_secret = os.getenv("KIS_APP_SECRET", "").strip()
+    is_mock = os.getenv("KIS_MOCK", "true").lower() == "true"
+
+    access_token = await _get_kis_token()
+    if not access_token:
+        logger.error("KIS 토큰 없음 - 해외주식 캔들 조회 불가")
+        return _empty_candle_data("KIS_US", symbol, timeframe)
+
+    # URL 설정
+    base_url = "https://openapivts.koreainvestment.com:29443" if is_mock else "https://openapi.koreainvestment.com:9443"
+    url = f"{base_url}/uapi/overseas-price/v1/quotations/dailyprice"
+
+    # 타임프레임 변환 (GUBN: 0=일, 1=주, 2=월)
+    gubn = get_exchange_tf("KIS_US", timeframe)
+    if not gubn:
+        gubn = "0"
+
+    # 거래소 코드 자동 판별 (NAS -> NYS -> AMS 순서로 시도)
+    exchanges_to_try = ["NAS", "NYS", "AMS"]
+
+    for excd in exchanges_to_try:
+        headers = {
+            "Content-Type": "application/json; charset=utf-8",
+            "authorization": f"Bearer {access_token}",
+            "appkey": app_key,
+            "appsecret": app_secret,
+            "tr_id": "HHDFS76240000",
+            "custtype": "P",
+        }
+
+        params = {
+            "AUTH": "",
+            "EXCD": excd,
+            "SYMB": symbol.upper(),
+            "GUBN": gubn,
+            "BYMD": "",  # 빈값이면 최신부터
+            "MODP": "1",  # 수정주가
+        }
+
+        query_string = "&".join([f"{k}={v}" for k, v in params.items()])
+        full_url = f"{url}?{query_string}"
+
+        ctx = ssl.create_default_context()
+        req = urllib.request.Request(full_url, headers=headers)
+
+        try:
+            with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except Exception as e:
+            logger.warning(f"KIS_US 캔들 조회 에러 ({excd}): {e}")
+            continue
+
+        if data.get("rt_cd") != "0":
+            # 다른 거래소로 재시도
+            continue
+
+        # output2가 캔들 데이터 (최신→과거 순서)
+        candles_raw = data.get("output2", [])
+        if not candles_raw:
+            continue
+
+        # 역순 정렬 (과거→최신)
+        candles_raw.reverse()
+
+        # limit 적용
+        candles_raw = candles_raw[-limit:] if len(candles_raw) > limit else candles_raw
+
+        n = len(candles_raw)
+        timestamps = np.zeros(n)
+        opens = np.zeros(n)
+        highs = np.zeros(n)
+        lows = np.zeros(n)
+        closes = np.zeros(n)
+        volumes = np.zeros(n)
+
+        for i, c in enumerate(candles_raw):
+            # 날짜 -> timestamp 변환 (YYYYMMDD -> ms)
+            date_str = c.get("xymd", "")
+            if date_str:
+                try:
+                    dt = datetime.strptime(date_str, "%Y%m%d")
+                    timestamps[i] = dt.timestamp() * 1000
+                except:
+                    timestamps[i] = 0
+
+            opens[i] = float(c.get("open", 0) or 0)
+            highs[i] = float(c.get("high", 0) or 0)
+            lows[i] = float(c.get("low", 0) or 0)
+            closes[i] = float(c.get("clos", 0) or 0)
+            volumes[i] = float(c.get("tvol", 0) or 0)
+
+        logger.info(f"KIS_US 캔들 조회 완료: {symbol} ({excd}) {timeframe} {n}봉")
+
+        return CandleData(
+            exchange="KIS_US",
+            symbol=symbol,
+            timeframe=timeframe,
+            timestamps=timestamps,
+            opens=opens,
+            highs=highs,
+            lows=lows,
+            closes=closes,
+            volumes=volumes,
+        )
+
+    # 모든 거래소에서 실패
+    logger.error(f"KIS_US 캔들 조회 실패: {symbol} - 모든 거래소(NAS/NYS/AMS)에서 데이터 없음")
+    return _empty_candle_data("KIS_US", symbol, timeframe)
+
+
 def _empty_candle_data(exchange: str, symbol: str, timeframe: str) -> CandleData:
     """Return empty CandleData for error cases."""
     return CandleData(
@@ -658,16 +978,20 @@ async def fetch_candles_for_backtest(
     symbol = symbol.upper()
 
     # 지원 거래소 확인
-    if exchange in ["KIS_KR", "KIS_US", "KIS"]:
-        raise ValueError(
-            "주식 백테스트는 현재 준비 중입니다. "
-            "암호화폐 거래소(OKX, Binance, Bybit)에서 먼저 이용해주세요."
-        )
-    if exchange not in ["OKX", "BINANCE", "BYBIT"]:
+    supported_exchanges = ["OKX", "BINANCE", "BYBIT", "KIS_KR", "KIS_US"]
+    if exchange not in supported_exchanges:
         raise ValueError(
             f"{exchange} 거래소의 백테스트는 아직 지원되지 않습니다. "
-            f"OKX, Binance, Bybit 중에서 선택해주세요."
+            f"지원 거래소: {', '.join(supported_exchanges)}"
         )
+
+    # KIS는 일봉/주봉/월봉만 지원
+    if exchange in ["KIS_KR", "KIS_US"]:
+        if timeframe not in ["1D", "1W", "1M"]:
+            raise ValueError(
+                f"한국투자증권({exchange})은 일봉/주봉/월봉만 지원합니다. "
+                f"(선택됨: {timeframe}, 가능: 1D, 1W, 1M)"
+            )
 
     # 타임프레임 확인
     if timeframe not in BARS_PER_DAY:
@@ -754,6 +1078,10 @@ async def fetch_candles_for_backtest(
         all_candles = await _fetch_binance_paginated(symbol, timeframe, needed, timeout, ctx)
     elif exchange == "BYBIT":
         all_candles = await _fetch_bybit_paginated(symbol, timeframe, needed, timeout, ctx)
+    elif exchange == "KIS_KR":
+        all_candles = await _fetch_kis_kr_paginated(symbol, timeframe, needed, timeout)
+    elif exchange == "KIS_US":
+        all_candles = await _fetch_kis_us_paginated(symbol, timeframe, needed, timeout)
 
     # 결과 검증
     if len(all_candles) < 50:
@@ -838,10 +1166,247 @@ async def _fetch_incremental(
             return await _fetch_binance_paginated(symbol, timeframe, needed, timeout, ctx)
         elif exchange == "BYBIT":
             return await _fetch_bybit_paginated(symbol, timeframe, needed, timeout, ctx)
+        elif exchange == "KIS_KR":
+            return await _fetch_kis_kr_paginated(symbol, timeframe, needed, timeout)
+        elif exchange == "KIS_US":
+            return await _fetch_kis_us_paginated(symbol, timeframe, needed, timeout)
     except Exception as e:
         logger.warning(f"증분 조회 실패: {e}")
         return []
     return []
+
+
+async def _fetch_kis_kr_paginated(
+    symbol: str,
+    timeframe: str,
+    needed: int,
+    timeout: int,
+) -> List[Candle]:
+    """KIS 국내주식 페이지네이션 조회 (최대 100일씩, 구간 분할)"""
+    import os
+    import urllib.request
+    import ssl
+    import asyncio
+
+    # KIS API 설정
+    app_key = os.getenv("KIS_APP_KEY", "").strip()
+    app_secret = os.getenv("KIS_APP_SECRET", "").strip()
+    is_mock = os.getenv("KIS_MOCK", "true").lower() == "true"
+
+    access_token = await _get_kis_token()
+    if not access_token:
+        raise ValueError("KIS 토큰 발급 실패 - 국내주식 캔들 조회 불가")
+
+    base_url = "https://openapivts.koreainvestment.com:29443" if is_mock else "https://openapi.koreainvestment.com:9443"
+    url = f"{base_url}/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice"
+
+    period_code = get_exchange_tf("KIS_KR", timeframe) or "D"
+
+    all_candles = []
+    start_time = time.time()
+
+    # 구간별 조회 (100일씩)
+    end_date = datetime.now()
+    days_per_request = 100
+
+    while len(all_candles) < needed:
+        if time.time() - start_time > timeout:
+            raise ValueError(f"시세 조회 시간 초과 ({timeout}초)")
+
+        start_date = end_date - timedelta(days=days_per_request)
+
+        headers = {
+            "Content-Type": "application/json; charset=utf-8",
+            "authorization": f"Bearer {access_token}",
+            "appkey": app_key,
+            "appsecret": app_secret,
+            "tr_id": "FHKST03010100",
+            "custtype": "P",
+        }
+
+        params = {
+            "FID_COND_MRKT_DIV_CODE": "J",
+            "FID_INPUT_ISCD": symbol,
+            "FID_INPUT_DATE_1": start_date.strftime("%Y%m%d"),
+            "FID_INPUT_DATE_2": end_date.strftime("%Y%m%d"),
+            "FID_PERIOD_DIV_CODE": period_code,
+            "FID_ORG_ADJ_PRC": "0",
+        }
+
+        query_string = "&".join([f"{k}={v}" for k, v in params.items()])
+        full_url = f"{url}?{query_string}"
+
+        ctx = ssl.create_default_context()
+        req = urllib.request.Request(full_url, headers=headers)
+
+        try:
+            with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except Exception as e:
+            logger.warning(f"KIS_KR 페이지네이션 에러: {e}")
+            break
+
+        if data.get("rt_cd") != "0":
+            logger.warning(f"KIS_KR API 에러: {data.get('msg1', '')}")
+            break
+
+        candles_raw = data.get("output2", [])
+        if not candles_raw:
+            break
+
+        for c in candles_raw:
+            date_str = c.get("stck_bsop_date", "")
+            if not date_str:
+                continue
+            try:
+                dt = datetime.strptime(date_str, "%Y%m%d")
+                ts = int(dt.timestamp() * 1000)
+            except:
+                continue
+
+            all_candles.append(Candle(
+                ts=ts,
+                o=float(c.get("stck_oprc", 0) or 0),
+                h=float(c.get("stck_hgpr", 0) or 0),
+                l=float(c.get("stck_lwpr", 0) or 0),
+                c=float(c.get("stck_clpr", 0) or 0),
+                v=float(c.get("acml_vol", 0) or 0),
+            ))
+
+        # 다음 구간으로
+        end_date = start_date - timedelta(days=1)
+
+        # Rate limit 방지
+        await asyncio.sleep(0.5)
+
+        # 더 이상 과거 데이터가 없으면 중단
+        if len(candles_raw) < 10:
+            break
+
+    # 시간순 정렬 (과거 → 최신)
+    all_candles.sort(key=lambda c: c.ts)
+
+    return all_candles
+
+
+async def _fetch_kis_us_paginated(
+    symbol: str,
+    timeframe: str,
+    needed: int,
+    timeout: int,
+) -> List[Candle]:
+    """KIS 해외주식 페이지네이션 조회 (BYMD로 과거 이동)"""
+    import os
+    import urllib.request
+    import ssl
+    import asyncio
+
+    # KIS API 설정
+    app_key = os.getenv("KIS_APP_KEY", "").strip()
+    app_secret = os.getenv("KIS_APP_SECRET", "").strip()
+    is_mock = os.getenv("KIS_MOCK", "true").lower() == "true"
+
+    access_token = await _get_kis_token()
+    if not access_token:
+        raise ValueError("KIS 토큰 발급 실패 - 해외주식 캔들 조회 불가")
+
+    base_url = "https://openapivts.koreainvestment.com:29443" if is_mock else "https://openapi.koreainvestment.com:9443"
+    url = f"{base_url}/uapi/overseas-price/v1/quotations/dailyprice"
+
+    gubn = get_exchange_tf("KIS_US", timeframe) or "0"
+
+    # 거래소 자동 판별 (NAS -> NYS -> AMS)
+    exchanges_to_try = ["NAS", "NYS", "AMS"]
+
+    all_candles = []
+    start_time = time.time()
+
+    for excd in exchanges_to_try:
+        all_candles = []
+        bymd = ""  # 처음에는 빈값 (최신부터)
+
+        while len(all_candles) < needed:
+            if time.time() - start_time > timeout:
+                raise ValueError(f"시세 조회 시간 초과 ({timeout}초)")
+
+            headers = {
+                "Content-Type": "application/json; charset=utf-8",
+                "authorization": f"Bearer {access_token}",
+                "appkey": app_key,
+                "appsecret": app_secret,
+                "tr_id": "HHDFS76240000",
+                "custtype": "P",
+            }
+
+            params = {
+                "AUTH": "",
+                "EXCD": excd,
+                "SYMB": symbol.upper(),
+                "GUBN": gubn,
+                "BYMD": bymd,
+                "MODP": "1",
+            }
+
+            query_string = "&".join([f"{k}={v}" for k, v in params.items()])
+            full_url = f"{url}?{query_string}"
+
+            ctx = ssl.create_default_context()
+            req = urllib.request.Request(full_url, headers=headers)
+
+            try:
+                with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+            except Exception as e:
+                logger.warning(f"KIS_US 페이지네이션 에러 ({excd}): {e}")
+                break
+
+            if data.get("rt_cd") != "0":
+                break
+
+            candles_raw = data.get("output2", [])
+            if not candles_raw:
+                break
+
+            for c in candles_raw:
+                date_str = c.get("xymd", "")
+                if not date_str:
+                    continue
+                try:
+                    dt = datetime.strptime(date_str, "%Y%m%d")
+                    ts = int(dt.timestamp() * 1000)
+                except:
+                    continue
+
+                all_candles.append(Candle(
+                    ts=ts,
+                    o=float(c.get("open", 0) or 0),
+                    h=float(c.get("high", 0) or 0),
+                    l=float(c.get("low", 0) or 0),
+                    c=float(c.get("clos", 0) or 0),
+                    v=float(c.get("tvol", 0) or 0),
+                ))
+
+            # 다음 페이지로 (가장 오래된 날짜 이전으로)
+            if candles_raw:
+                oldest_date = candles_raw[-1].get("xymd", "")
+                if oldest_date and oldest_date != bymd:
+                    bymd = oldest_date
+                else:
+                    break
+            else:
+                break
+
+            # Rate limit 방지
+            await asyncio.sleep(0.5)
+
+        # 데이터를 찾았으면 루프 종료
+        if all_candles:
+            break
+
+    # 시간순 정렬 (과거 → 최신)
+    all_candles.sort(key=lambda c: c.ts)
+
+    return all_candles
 
 
 async def _fetch_okx_paginated(
