@@ -7287,7 +7287,20 @@ document.getElementById('btn-mr-run-backtest')?.addEventListener('click', async 
 
     console.log('[MR 백테스트] config:', JSON.stringify(config).substring(0, 300));
 
-    showToast('백테스트 실행 중...', 'info');
+    // 로딩 표시
+    const btn = document.getElementById('btn-mr-run-backtest');
+    const loadingEl = document.getElementById('mr-backtest-loading');
+    const errorEl = document.getElementById('mr-backtest-error');
+    const resultEl = document.getElementById('mr-backtest-result');
+
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '분석 중...';
+        btn.classList.add('btn-loading');
+    }
+    if (loadingEl) loadingEl.style.display = 'block';
+    if (errorEl) errorEl.style.display = 'none';
+    if (resultEl) resultEl.style.display = 'none';
 
     try {
         console.log('[MR 백테스트] invoke 호출');
@@ -7335,109 +7348,171 @@ document.getElementById('btn-mr-run-backtest')?.addEventListener('click', async 
             displayMrBacktestResult(result);
             showToast('백테스트 완료', 'success');
         } else {
-            // 서버에서 온 한글 에러 메시지 표시
             const errorMsg = result.error || result.message || '백테스트 실패';
-            showToast(errorMsg, 'error');
             displayMrBacktestError(errorMsg);
+            showToast(errorMsg, 'error');
         }
     } catch (error) {
         console.error('[MR 백테스트] 에러:', error);
-        // 에러 메시지 한글 변환
-        let errorMsg = String(error);
-
-        if (errorMsg.includes('Not Found') || errorMsg.includes('404')) {
-            errorMsg = '백테스트 API를 찾을 수 없습니다. 서버 상태를 확인해주세요.';
-        } else if (errorMsg.includes('Gateway Time-out') || errorMsg.includes('504') || errorMsg.includes('timeout')) {
-            errorMsg = '서버 응답 시간이 초과되었습니다. 기간을 줄여보세요.';
-        } else if (errorMsg.includes('fetch') || errorMsg.includes('network') || errorMsg.includes('Failed to fetch')) {
-            errorMsg = '서버에 연결할 수 없습니다. 네트워크를 확인해주세요.';
-        } else if (errorMsg.includes('int_from_float')) {
-            errorMsg = '매수/매도 비중에 소수점이 포함되어 있습니다. 서버 업데이트가 필요합니다.';
-        } else if (errorMsg.includes('JSON')) {
-            errorMsg = '서버 응답을 처리할 수 없습니다. 잠시 후 다시 시도해주세요.';
-        }
-
-        // 서버에서 온 한글 에러는 그대로 표시
-        try {
-            const parsed = JSON.parse(String(error));
-            if (parsed.error) errorMsg = parsed.error;
-            if (parsed.detail) errorMsg = parsed.detail;
-            if (parsed.message) errorMsg = parsed.message;
-        } catch {}
-
-        showToast(errorMsg, 'error');
+        const errorMsg = humanizeMrError(error);
         displayMrBacktestError(errorMsg);
+        showToast(errorMsg, 'error');
+    } finally {
+        // 로딩 해제
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '백테스트 실행';
+            btn.classList.remove('btn-loading');
+        }
+        if (loadingEl) loadingEl.style.display = 'none';
     }
 });
 
-function displayMrBacktestError(errorMsg) {
-    const resultEl = document.getElementById('mr-backtest-result');
-    if (!resultEl) return;
+function humanizeMrError(error) {
+    const msg = String(error);
+    if (msg.includes('timed out') || msg.includes('timeout') || msg.includes('Gateway Time-out') || msg.includes('504'))
+        return '서버 응답 시간이 초과되었습니다. 기간을 줄이거나 잠시 후 다시 시도해주세요.';
+    if (msg.includes('429') || msg.includes('Too Many Requests'))
+        return '거래소 요청 제한에 걸렸습니다. 1~2분 후 다시 시도해주세요.';
+    if (msg.includes('KIS_KR') || msg.includes('KIS_US'))
+        return '주식 백테스트는 현재 준비 중입니다. OKX, Binance, Bybit에서 이용 가능합니다.';
+    if (msg.includes('network') || msg.includes('fetch') || msg.includes('Failed to fetch'))
+        return '서버에 연결할 수 없습니다. 네트워크를 확인해주세요.';
+    if (msg.includes('Not Found') || msg.includes('404'))
+        return '백테스트 API를 찾을 수 없습니다. 서버 상태를 확인해주세요.';
+    if (msg.includes('int_from_float'))
+        return '매수/매도 비중에 소수점이 포함되어 있습니다. 정수로 입력해주세요.';
+    if (msg.includes('JSON'))
+        return '서버 응답을 처리할 수 없습니다. 잠시 후 다시 시도해주세요.';
+    try {
+        const p = JSON.parse(msg);
+        if (p.error) return p.error;
+        if (p.detail) return typeof p.detail === 'string' ? p.detail : JSON.stringify(p.detail);
+        if (p.message) return p.message;
+    } catch {}
+    return msg;
+}
 
-    resultEl.style.display = 'block';
-    resultEl.innerHTML = `
-        <div class="backtest-error">
-            <h4 style="color: var(--danger); margin-bottom: 8px;">백테스트 실패</h4>
-            <p style="color: var(--text-secondary);">${errorMsg}</p>
-        </div>
-    `;
+function displayMrBacktestError(errorMsg) {
+    const errorEl = document.getElementById('mr-backtest-error');
+    const resultEl = document.getElementById('mr-backtest-result');
+
+    if (resultEl) resultEl.style.display = 'none';
+    if (errorEl) {
+        errorEl.innerHTML = `<strong style="color:#EF4444;">⚠️ 백테스트 실패</strong><br><span style="color:#9CA3AF;">${errorMsg}</span>`;
+        errorEl.style.display = 'block';
+    }
 }
 
 function displayMrBacktestResult(result) {
+    const errorEl = document.getElementById('mr-backtest-error');
     const resultEl = document.getElementById('mr-backtest-result');
-    if (!resultEl) return;
 
-    resultEl.style.display = 'block';
+    if (!result || !result.success) {
+        displayMrBacktestError(result?.error || result?.message || '결과를 받지 못했습니다.');
+        return;
+    }
+
+    if (errorEl) errorEl.style.display = 'none';
+    if (resultEl) resultEl.style.display = 'block';
 
     const m = result.metrics || {};
 
-    // 메트릭 표시 (null 체크 추가)
-    const totalReturn = m.total_return_pct || 0;
-    const totalReturnEl = document.getElementById('mr-bt-total-return');
-    if (totalReturnEl) {
-        totalReturnEl.textContent = (totalReturn >= 0 ? '+' : '') + totalReturn.toFixed(2) + '%';
-        totalReturnEl.className = 'metric-value ' + (totalReturn >= 0 ? 'positive' : 'negative');
+    // null-safe 헬퍼
+    const set = (id, value, color) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = value;
+        if (color) el.style.color = color;
+    };
+
+    // 색상 헬퍼
+    const pnlColor = (v) => (v || 0) >= 0 ? '#22C55E' : '#EF4444';
+
+    // 핵심 메트릭
+    const totalReturn = m.total_return_pct ?? 0;
+    set('mr-bt-return', `${totalReturn >= 0 ? '+' : ''}${totalReturn.toFixed(2)}%`, pnlColor(totalReturn));
+    set('mr-bt-cagr', `${(m.cagr_pct ?? 0).toFixed(2)}%`);
+    set('mr-bt-mdd', `${(m.max_drawdown_pct ?? 0).toFixed(2)}%`, '#EF4444');
+
+    // 최종 자본
+    const fc = m.final_capital;
+    if (fc != null) {
+        set('mr-bt-final-capital', fc >= 10000 ? `${(fc / 10000).toFixed(0)}만원` : `${Math.round(fc).toLocaleString()}원`);
+    } else {
+        set('mr-bt-final-capital', '--');
     }
 
-    const cagrEl = document.getElementById('mr-bt-cagr');
-    if (cagrEl) {
-        cagrEl.textContent = (m.cagr_pct >= 0 ? '+' : '') + (m.cagr_pct || 0).toFixed(2) + '%';
+    // 거래 메트릭
+    set('mr-bt-winrate', `${(m.win_rate_pct ?? 0).toFixed(1)}%`);
+    set('mr-bt-trades', `${m.total_trades ?? 0}회`);
+    set('mr-bt-profit-factor', (m.profit_factor ?? 0).toFixed(2));
+    set('mr-bt-sharpe', (m.sharpe_ratio ?? 0).toFixed(2));
+
+    // 수익/손실 메트릭
+    set('mr-bt-avg-profit', m.avg_profit_pct != null ? `+${Math.abs(m.avg_profit_pct).toFixed(2)}%` : '--', '#22C55E');
+    set('mr-bt-avg-loss', m.avg_loss_pct != null ? `${m.avg_loss_pct.toFixed(2)}%` : '--', '#EF4444');
+    set('mr-bt-max-profit', m.max_profit_pct != null ? `+${Math.abs(m.max_profit_pct).toFixed(2)}%` : '--', '#22C55E');
+    set('mr-bt-max-loss', m.max_loss_pct != null ? `${m.max_loss_pct.toFixed(2)}%` : '--', '#EF4444');
+
+    // 메시지
+    set('mr-bt-message', result.message || '');
+
+    // 자산 추이 차트
+    if (result.equity_curve && result.equity_curve.length > 0) {
+        drawMrBacktestChart(result.equity_curve);
     }
 
-    const mddEl = document.getElementById('mr-bt-mdd');
-    if (mddEl) {
-        mddEl.textContent = (m.max_drawdown_pct || 0).toFixed(2) + '%';
+    // 거래 내역 테이블
+    renderMrTradesTable(result.trades || []);
+}
+
+function renderMrTradesTable(trades) {
+    const tbody = document.getElementById('mr-bt-trades-body');
+    const countEl = document.getElementById('mr-bt-trade-count');
+    if (!tbody) return;
+
+    if (countEl) countEl.textContent = `총 ${trades.length}건`;
+
+    if (trades.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px; color:#6B7280;">거래 내역이 없습니다</td></tr>';
+        return;
     }
 
-    const sharpeEl = document.getElementById('mr-bt-sharpe');
-    if (sharpeEl) {
-        sharpeEl.textContent = (m.sharpe_ratio || 0).toFixed(2);
-    }
+    let cumPnl = 0;
+    tbody.innerHTML = trades.map((t, idx) => {
+        const isBuy = (t.action === 'buy' || t.action === 'BUY' || t.action === '매수');
+        const typeColor = isBuy ? '#3B82F6' : '#EF4444';
+        const typeText = isBuy ? '매수' : '매도';
 
-    const winrateEl = document.getElementById('mr-bt-winrate');
-    if (winrateEl) {
-        winrateEl.textContent = (m.win_rate_pct || 0).toFixed(1) + '%';
-    }
+        // 누적 손익 계산
+        if (!isBuy && t.pnl != null) {
+            cumPnl += t.pnl;
+        }
 
-    const tradesEl = document.getElementById('mr-bt-trades');
-    if (tradesEl) {
-        tradesEl.textContent = (m.total_trades || 0) + '회';
-    }
+        const pnlColor = (t.pnl_pct || 0) >= 0 ? '#22C55E' : '#EF4444';
+        const pnlText = t.pnl_pct != null && !isBuy ? `${t.pnl_pct > 0 ? '+' : ''}${t.pnl_pct.toFixed(2)}%` : '-';
+        const cumText = !isBuy && t.pnl != null ? Math.round(cumPnl).toLocaleString() : '-';
 
-    // 손익비 (Profit Factor)
-    const profitFactorEl = document.getElementById('mr-bt-profit-factor');
-    if (profitFactorEl) {
-        profitFactorEl.textContent = (m.profit_factor || 0).toFixed(2);
-    }
+        let dateStr = '';
+        if (t.timestamp) {
+            const d = new Date(t.timestamp);
+            dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        }
 
-    // 메시지 표시
-    const messageEl = document.getElementById('mr-bt-message');
-    if (messageEl) {
-        messageEl.textContent = result.message || '';
-    }
+        const trancheText = t.tranche != null ? (isBuy ? `B${t.tranche}` : `S${t.tranche}`) : '-';
 
-    // 차트 그리기
-    drawMrBacktestChart(result.equity_curve || []);
+        return `<tr>
+            <td style="padding:6px 4px; color:#9CA3AF;">${idx + 1}</td>
+            <td style="padding:6px 4px; color:${typeColor}; font-weight:600;">${typeText}</td>
+            <td style="padding:6px 4px; color:#D1D5DB;">${dateStr}</td>
+            <td style="padding:6px 4px; text-align:right; color:#E5E7EB;">${t.price ? Number(t.price).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '-'}</td>
+            <td style="padding:6px 4px; text-align:right; color:#D1D5DB;">${t.quantity != null ? Number(t.quantity).toFixed(6) : '-'}</td>
+            <td style="padding:6px 4px; color:#9CA3AF;">${trancheText}</td>
+            <td style="padding:6px 4px; text-align:right; color:${pnlColor};">${pnlText}</td>
+            <td style="padding:6px 4px; text-align:right; color:#D1D5DB;">${cumText}</td>
+        </tr>`;
+    }).join('');
 }
 
 function drawMrBacktestChart(equityCurve) {

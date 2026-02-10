@@ -949,10 +949,14 @@ async def run_mr_backtest_endpoint(
                 error=result.message,
             )
 
-        # 결과 변환
+        # 결과 변환 - trades 확장
         trades_list = []
-        for t in result.trades:
+        cumulative_pnl = 0.0
+        for idx, t in enumerate(result.trades):
+            if t.action == "sell" and t.pnl is not None:
+                cumulative_pnl += t.pnl
             trades_list.append({
+                "no": idx + 1,
                 "bar_index": t.bar_index,
                 "timestamp": t.timestamp,
                 "action": t.action,
@@ -962,6 +966,7 @@ async def run_mr_backtest_endpoint(
                 "reason_code": t.reason_code,
                 "pnl": t.pnl,
                 "pnl_pct": t.pnl_pct,
+                "cumulative_pnl": cumulative_pnl if t.action == "sell" else None,
             })
 
         # equity_curve 샘플링 (최대 200포인트로 제한)
@@ -969,6 +974,16 @@ async def run_mr_backtest_endpoint(
         if len(equity_curve) > 200:
             step = max(1, len(equity_curve) // 200)
             equity_curve = equity_curve[::step]
+
+        # 추가 메트릭 계산
+        sell_trades = [t for t in result.trades if t.action == "sell" and t.pnl_pct is not None]
+        max_profit_pct = max((t.pnl_pct for t in sell_trades if t.pnl_pct > 0), default=None)
+        max_loss_pct = min((t.pnl_pct for t in sell_trades if t.pnl_pct <= 0), default=None)
+
+        # 최종 자본 계산
+        final_capital = request.initial_capital
+        if equity_curve:
+            final_capital = equity_curve[-1].get("equity", request.initial_capital)
 
         return MRBacktestResponse(
             success=True,
@@ -987,6 +1002,12 @@ async def run_mr_backtest_endpoint(
                 "profit_factor": round(result.metrics.profit_factor, 2),
                 "max_consecutive_wins": result.metrics.max_consecutive_wins,
                 "max_consecutive_losses": result.metrics.max_consecutive_losses,
+                # 추가 메트릭
+                "avg_profit_pct": round(result.metrics.avg_win_pct, 2) if result.metrics.avg_win_pct else None,
+                "max_profit_pct": round(max_profit_pct, 2) if max_profit_pct is not None else None,
+                "max_loss_pct": round(max_loss_pct, 2) if max_loss_pct is not None else None,
+                "final_capital": round(final_capital, 0),
+                "initial_capital": request.initial_capital,
             },
             equity_curve=equity_curve,
             trades=trades_list,

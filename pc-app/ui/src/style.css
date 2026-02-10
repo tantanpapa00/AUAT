@@ -7500,3 +7500,47 @@ body {
     padding-top: 16px;
     border-top: 1px solid rgba(255,255,255,0.1);
 }
+
+/* =====================================================
+   MR 백테스트 개선
+   ===================================================== */
+
+/* 로딩 스피너 애니메이션 */
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* 메트릭 카드 */
+.mr-metric-card {
+    background: rgba(255,255,255,0.05);
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.mr-metric-card .metric-label {
+    color: #9CA3AF;
+    font-size: 11px;
+    margin-bottom: 4px;
+}
+
+.mr-metric-card .metric-value {
+    font-size: 18px;
+    font-weight: bold;
+    color: #E5E7EB;
+}
+
+/* 거래 내역 테이블 */
+#mr-bt-trades-table tbody tr {
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+#mr-bt-trades-table tbody tr:hover {
+    background: rgba(255,255,255,0.03);
+}
+
+/* 백테스트 로딩 버튼 상태 */
+.btn-loading {
+    opacity: 0.6;
+    pointer-events: none;
+}

@@ -657,6 +657,11 @@ async def fetch_candles_for_backtest(
     symbol = symbol.upper()
 
     # 지원 거래소 확인
+    if exchange in ["KIS_KR", "KIS_US", "KIS"]:
+        raise ValueError(
+            "주식 백테스트는 현재 준비 중입니다. "
+            "암호화폐 거래소(OKX, Binance, Bybit)에서 먼저 이용해주세요."
+        )
     if exchange not in ["OKX", "BINANCE", "BYBIT"]:
         raise ValueError(
             f"{exchange} 거래소의 백테스트는 아직 지원되지 않습니다. "
