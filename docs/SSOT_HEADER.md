@@ -5,7 +5,7 @@
 - SSOT: docs/FINISH_SSOT.md, docs/PROJECT_STATUS.md
 - Rules: docs/AI_RULES.md (MUST read first)
 
-## Current Status (2026-02-09)
+## Current Status (2026-02-10)
 - Week A~D: DONE (브랜드/사이트/PC앱/Android APK 기반)
 - Day 6: DONE (대시보드 개편 + 구독 플랜)
 - Day 7: DONE (종목분석 개편 + 10 버그 수정)
@@ -16,6 +16,7 @@
 - Day 12: DONE (역추세매매 프리미엄 엔진 Phase 2~5 - 시세/실행/스케줄러/API/UI/백테스트)
 - Day 13: DONE (역추세매매 프리미엄 엔진 Phase 6 - 라이브 테스트 준비)
 - Day 14: DONE (추세매매 프리미엄 엔진 - HVI/QQE/백테스트/API)
+- Day 15: DONE (백테스트 벡터화 최적화 - 20초 → 0.3초)
 
 ## Quick Commands
 - Syntax: `python -m compileall app`
@@ -903,6 +904,63 @@ pub async fn run_trend_backtest(
 ```
 285 passed (MR 216개 + Trend 69개)
 ```
+
+## Day 15: 백테스트 벡터화 최적화 (2026-02-10)
+
+### 문제
+- 백테스트 시그널 계산이 너무 느림 (2000봉 이상에서 20초+)
+- 매 봉마다 지표 재계산 (for 루프 O(n²) 복잡도)
+- 타임아웃 발생 (1h 365일 = 8760봉)
+
+### 해결: 벡터화 사전 계산
+
+**backtest_engine.py 추가 함수**:
+```python
+def precompute_spo_arrays(closes, preset) -> Dict[str, np.ndarray]
+    # 전체 시리즈에서 SPO 지표 한 번만 계산
+    # normalized_osc, upper_band, lower_band, basis, line_short, line_long
+
+def precompute_signal_arrays(normalized_osc, threshold) -> Dict[str, np.ndarray]
+    # sig_up_raw, sig_dn_raw 배열 사전 계산 (벡터화)
+
+def precompute_htf_arrays(htf_closes, htf_highs, htf_lows, htf_volumes) -> Dict[str, np.ndarray]
+    # VWMA50, VWMA200, HMA, Supertrend, Ichimoku 한 번에 계산
+
+def get_htf_indicators_at_index(htf_arrays, idx) -> HTFIndicators
+    # 사전 계산된 배열에서 인덱스로 HTFIndicators 추출
+
+def get_osc_data_at_index(spo_arrays, sig_arrays, closes, idx) -> OscillatorData
+    # 사전 계산된 배열에서 인덱스로 OscillatorData 추출
+```
+
+**indicators.py 벡터화 최적화**:
+| 함수 | 기존 | 최적화 |
+|------|------|--------|
+| calc_wma | for 루프 | np.convolve |
+| calc_stdev | for 루프 + np.std | cumsum 기반 (E[X²]-E[X]²) |
+| calc_highest | for 루프 | sliding_window_view + np.max |
+| calc_lowest | for 루프 | sliding_window_view + np.min |
+| calc_vwma | for 루프 | cumsum 기반 rolling sum |
+| calc_atr | for 루프 (TR) | 벡터화 True Range 계산 |
+
+### 성능 결과
+| 타임프레임 | 봉 수 | 최적화 전 | 최적화 후 | 목표 | 개선율 |
+|-----------|------|----------|----------|------|--------|
+| 4h 365일 | 2,190 | 20.6초 | **0.07초** | <5초 ✓ | 294x |
+| 1h 365일 | 8,760 | ~80초 | **0.30초** | <10초 ✓ | 267x |
+
+### 알고리즘 복잡도
+- **기존**: O(n × lookback × indicator_cost) ≈ O(n²)
+- **최적화**: O(n × indicator_cost) ≈ O(n)
+
+### 커밋
+- `cc68791` perf: 백테스트 시그널 계산 벡터화 최적화 (20초→0.3초)
+
+### PC앱 빌드
+- MSI: `pc-app\src-tauri\target\release\bundle\msi\BBooster_1.0.0_x64_en-US.msi`
+- NSIS: `pc-app\src-tauri\target\release\bundle\nsis\BBooster_1.0.0_x64-setup.exe`
+
+---
 
 ## Day 8 Fixes
 - 종목명 쓰레기 데이터 제거 (`_clean_stock_name`)
