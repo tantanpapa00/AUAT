@@ -42,27 +42,27 @@ class OscillatorData:
 class HTFIndicators:
     """Higher Timeframe indicators for regime detection."""
     # VWMA
-    vwma50: float
-    vwma200: float
+    vwma50: float = 0.0
+    vwma200: float = 0.0
 
     # Hull MA
-    hull: float
-    hull_up: bool                   # hull > hull[1]
-    hull_dn: bool                   # hull < hull[1]
+    hull: float = 0.0
+    hull_up: bool = False           # hull > hull[1]
+    hull_dn: bool = False           # hull < hull[1]
 
     # Ichimoku
-    tenkan: float
-    kijun: float
-    senkou_a: float
-    senkou_b: float
-    cloud_upper: float
-    cloud_lower: float
-    cloud_bull: bool                # senkou_a > senkou_b
-    cloud_bear: bool                # senkou_a < senkou_b
+    tenkan: float = 0.0
+    kijun: float = 0.0
+    senkou_a: float = 0.0
+    senkou_b: float = 0.0
+    cloud_upper: float = 0.0
+    cloud_lower: float = 0.0
+    cloud_bull: bool = False        # senkou_a > senkou_b
+    cloud_bear: bool = False        # senkou_a < senkou_b
 
     # Supertrend
-    st_value: float
-    st_direction: int               # 1 = up, -1 = down
+    st_value: float = 0.0
+    st_direction: int = 1           # 1 = up, -1 = down
 
     # Derived
     bull_stack: bool = False        # vwma50 >= vwma200

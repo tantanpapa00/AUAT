@@ -110,10 +110,10 @@ def run_mr_backtest(
     Returns:
         BacktestResult: 백테스트 결과
     """
-    if len(candles) < 300:
+    if len(candles) < 50:
         return BacktestResult(
             success=False,
-            message=f"데이터 부족: 최소 300봉 필요 (현재 {len(candles)}봉)",
+            message=f"시세 데이터가 부족합니다: {len(candles)}봉 (최소 50봉 필요). 기간을 늘리거나 타임프레임을 변경해보세요.",
             metrics=BacktestMetrics(),
         )
 
@@ -146,7 +146,7 @@ def run_mr_backtest(
     htf_volumes = np.array([c.v for c in htf_candles])
 
     # 각 봉에 대해 시뮬레이션
-    lookback = 300  # 지표 계산에 필요한 최소 봉 수
+    lookback = min(50, len(candles) - 1)  # 지표 계산에 필요한 최소 봉 수
 
     for i in range(lookback, len(candles)):
         candle = candles[i]

@@ -7321,12 +7321,52 @@ document.getElementById('btn-mr-run-backtest')?.addEventListener('click', async 
             displayMrBacktestResult(result);
             showToast('백테스트 완료', 'success');
         } else {
-            showToast(result.message || '백테스트 실패', 'error');
+            // 서버에서 온 한글 에러 메시지 표시
+            const errorMsg = result.error || result.message || '백테스트 실패';
+            showToast(errorMsg, 'error');
+            displayMrBacktestError(errorMsg);
         }
     } catch (error) {
-        showToast('백테스트 오류: ' + error, 'error');
+        // 에러 메시지 한글 변환
+        let errorMsg = String(error);
+
+        if (errorMsg.includes('Not Found') || errorMsg.includes('404')) {
+            errorMsg = '백테스트 API를 찾을 수 없습니다. 서버 상태를 확인해주세요.';
+        } else if (errorMsg.includes('Gateway Time-out') || errorMsg.includes('504') || errorMsg.includes('timeout')) {
+            errorMsg = '서버 응답 시간이 초과되었습니다. 기간을 줄여보세요.';
+        } else if (errorMsg.includes('fetch') || errorMsg.includes('network') || errorMsg.includes('Failed to fetch')) {
+            errorMsg = '서버에 연결할 수 없습니다. 네트워크를 확인해주세요.';
+        } else if (errorMsg.includes('int_from_float')) {
+            errorMsg = '매수/매도 비중에 소수점이 포함되어 있습니다. 서버 업데이트가 필요합니다.';
+        } else if (errorMsg.includes('JSON')) {
+            errorMsg = '서버 응답을 처리할 수 없습니다. 잠시 후 다시 시도해주세요.';
+        }
+
+        // 서버에서 온 한글 에러는 그대로 표시
+        try {
+            const parsed = JSON.parse(String(error));
+            if (parsed.error) errorMsg = parsed.error;
+            if (parsed.detail) errorMsg = parsed.detail;
+            if (parsed.message) errorMsg = parsed.message;
+        } catch {}
+
+        showToast(errorMsg, 'error');
+        displayMrBacktestError(errorMsg);
     }
 });
+
+function displayMrBacktestError(errorMsg) {
+    const resultEl = document.getElementById('mr-backtest-result');
+    if (!resultEl) return;
+
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = `
+        <div class="backtest-error">
+            <h4 style="color: var(--danger); margin-bottom: 8px;">백테스트 실패</h4>
+            <p style="color: var(--text-secondary);">${errorMsg}</p>
+        </div>
+    `;
+}
 
 function displayMrBacktestResult(result) {
     const resultEl = document.getElementById('mr-backtest-result');

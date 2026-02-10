@@ -805,24 +805,26 @@ async def get_signal(
 
 class MRBacktestRequest(BaseModel):
     """Request model for MR backtest."""
-    exchange: str = Field(..., description="거래소 (okx, binance, etc)")
+    exchange: str = Field(..., description="거래소 (OKX, BINANCE, BYBIT)")
     symbol: str = Field(..., description="종목 심볼 (BTC-USDT)")
     timeframe: str = Field(default="30m", description="시그널 타임프레임")
     htf_tf: str = Field(default="1D", description="HTF 타임프레임")
-    days: int = Field(default=365, ge=30, le=1000, description="백테스트 기간 (일)")
+    days: int = Field(default=365, ge=7, le=1000, description="백테스트 기간 (일)")
     initial_capital: float = Field(default=10000000, ge=1000)
 
     # 오실레이터 설정
     osc_preset: str = Field(default="custom")
-    osc_smooth_len: int = Field(default=20, ge=2, le=100)
+    osc_smooth_len: int = Field(default=4, ge=2, le=100)
     osc_threshold: float = Field(default=1.0, ge=0.1, le=5.0)
 
     # 자금관리
     cash_use_pct: float = Field(default=55.0, ge=0, le=100)
     min_profit_pct: float = Field(default=0.1, ge=0, le=50)
     fee_buffer_pct: float = Field(default=0.2, ge=0, le=5)
-    buy_tranches: List[float] = Field(default=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5])
-    sell_tranches: List[float] = Field(default=[10, 20, 30, 5, 2.5, 1])
+    buy_tranches: List[float] = Field(default=[5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0])
+    sell_tranches: List[float] = Field(default=[10.0, 20.0, 30.0, 5.0, 2.5, 1.0])
+    max_buy_tranches: int = Field(default=10, ge=1, le=20)
+    max_sell_tranches: int = Field(default=6, ge=1, le=20)
 
     # 국면 설정
     use_4regime: bool = Field(default=True)
@@ -853,11 +855,12 @@ class MRBacktestRequest(BaseModel):
 class MRBacktestResponse(BaseModel):
     """Response model for MR backtest."""
     success: bool
-    message: str
-    metrics: Dict[str, Any]
-    equity_curve: List[Dict[str, Any]]
-    trades: List[Dict[str, Any]]
-    signals_count: int
+    message: str = ""
+    error: Optional[str] = None
+    metrics: Dict[str, Any] = {}
+    equity_curve: List[Dict[str, Any]] = []
+    trades: List[Dict[str, Any]] = []
+    signals_count: int = 0
 
 
 @router.post("/backtest/mr", response_model=MRBacktestResponse)
@@ -867,17 +870,37 @@ async def run_mr_backtest_endpoint(
     """
     MR 프리미엄 전략 백테스트 실행.
 
-    샘플 데이터 또는 캐시된 OHLCV 데이터로 백테스트를 실행합니다.
+    실제 거래소 OHLCV 데이터로 백테스트를 실행합니다.
     """
-    from .strategy_engine.backtest_engine import (
-        run_mr_backtest,
-        generate_sample_candles,
-        BacktestResult,
-    )
+    from .strategy_engine.backtest_engine import run_mr_backtest
+    from .strategy_engine.candle_fetcher import fetch_candles_for_backtest
     from .strategy_engine.models import MRConfig
 
     try:
-        # MR 설정 생성 (모든 국면별 파라미터 포함)
+        # ① 실제 거래소 캔들 조회 (시그널 TF)
+        candles = await fetch_candles_for_backtest(
+            exchange=request.exchange,
+            symbol=request.symbol,
+            timeframe=request.timeframe,
+            days=request.days,
+            timeout=60,
+        )
+
+        # ② HTF 캔들 조회 (국면 판별용)
+        htf_candles = None
+        if request.use_4regime and request.htf_tf and request.htf_tf != request.timeframe:
+            try:
+                htf_candles = await fetch_candles_for_backtest(
+                    exchange=request.exchange,
+                    symbol=request.symbol,
+                    timeframe=request.htf_tf,
+                    days=request.days,
+                    timeout=30,
+                )
+            except ValueError:
+                pass  # HTF 조회 실패 시 단일 국면으로 진행
+
+        # ③ MR 설정 생성 (모든 국면별 파라미터 포함)
         config = MRConfig(
             osc_preset=request.osc_preset,
             osc_smooth_len=request.osc_smooth_len,
@@ -888,6 +911,8 @@ async def run_mr_backtest_endpoint(
             use_4regime=request.use_4regime,
             buy_tranches=request.buy_tranches,
             sell_tranches=request.sell_tranches,
+            max_buy_tranches=request.max_buy_tranches,
+            max_sell_tranches=request.max_sell_tranches,
             # R1
             r1_buy_mult=request.r1_buy_mult,
             r1_sell_mult=request.r1_sell_mult,
@@ -908,21 +933,21 @@ async def run_mr_backtest_endpoint(
             r4_allow_osc_buy=request.r4_allow_osc_buy,
         )
 
-        # 캔들 데이터 생성 (TODO: 실제 거래소 시세로 교체)
-        # 현재는 샘플 데이터로 테스트
-        candles = generate_sample_candles(
-            days=request.days,
-            base_price=50000.0 if "BTC" in request.symbol.upper() else 1000.0,
-            seed=hash(f"{request.exchange}_{request.symbol}") % 100000,
-        )
-
-        # 백테스트 실행
+        # ④ 백테스트 실행
         result = run_mr_backtest(
             candles=candles,
-            htf_candles=None,  # HTF 없으면 동일 데이터 사용
+            htf_candles=htf_candles,
             config=config,
             initial_capital=request.initial_capital,
         )
+
+        # 백테스트 실패 시
+        if not result.success:
+            return MRBacktestResponse(
+                success=False,
+                message=result.message,
+                error=result.message,
+            )
 
         # 결과 변환
         trades_list = []
@@ -946,8 +971,8 @@ async def run_mr_backtest_endpoint(
             equity_curve = equity_curve[::step]
 
         return MRBacktestResponse(
-            success=result.success,
-            message=result.message,
+            success=True,
+            message=f"백테스트 완료: {len(candles)}봉 분석, {result.metrics.total_trades}거래",
             metrics={
                 "total_return_pct": round(result.metrics.total_return_pct, 2),
                 "cagr_pct": round(result.metrics.cagr_pct, 2),
@@ -968,15 +993,21 @@ async def run_mr_backtest_endpoint(
             signals_count=len(result.signals),
         )
 
-    except Exception as e:
-        logger.error(f"MR 백테스트 오류: {e}")
+    except ValueError as e:
+        # 사용자 친화적 에러 (한글)
+        logger.warning(f"MR 백테스트 입력 오류: {e}")
         return MRBacktestResponse(
             success=False,
-            message=f"백테스트 오류: {str(e)}",
-            metrics={},
-            equity_curve=[],
-            trades=[],
-            signals_count=0,
+            message=str(e),
+            error=str(e),
+        )
+    except Exception as e:
+        # 예상치 못한 에러
+        logger.error(f"MR 백테스트 오류: {e}", exc_info=True)
+        return MRBacktestResponse(
+            success=False,
+            message=f"백테스트 실행 중 오류가 발생했습니다. 설정을 확인해주세요. ({type(e).__name__})",
+            error=f"백테스트 실행 중 오류가 발생했습니다. 설정을 확인해주세요. ({type(e).__name__})",
         )
 
 

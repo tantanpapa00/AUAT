@@ -587,3 +587,284 @@ _candle_cache = CandleCache()
 def get_candle_cache() -> CandleCache:
     """Get the global candle cache instance."""
     return _candle_cache
+
+
+# ============================================================================
+# 백테스트용 과거 캔들 조회 함수 (페이지네이션 지원)
+# ============================================================================
+
+# TF별 봉/일 계산
+BARS_PER_DAY: Dict[str, float] = {
+    "1m": 1440, "3m": 480, "5m": 288, "15m": 96, "30m": 48,
+    "1h": 24, "2h": 12, "4h": 6, "6h": 4, "12h": 2,
+    "1D": 1, "1W": 1/7,
+}
+
+
+async def fetch_candles_for_backtest(
+    exchange: str,
+    symbol: str,
+    timeframe: str,
+    days: int,
+    timeout: int = 30,
+) -> List[Candle]:
+    """
+    백테스트용 과거 캔들을 거래소 API에서 조회.
+
+    OKX, Binance, Bybit 지원 (페이지네이션으로 장기간 데이터 수집)
+
+    Args:
+        exchange: 거래소 (OKX, BINANCE, BYBIT)
+        symbol: 종목 심볼 (BTC-USDT)
+        timeframe: 타임프레임 (1m, 5m, 15m, 30m, 1h, 4h, 1D 등)
+        days: 조회 기간 (일)
+        timeout: 전체 타임아웃 (초)
+
+    Returns:
+        List[Candle]: oldest first 정렬된 캔들 목록
+
+    Raises:
+        ValueError: 시세 조회 실패 시 한글 에러 메시지
+    """
+    import urllib.request
+    import ssl
+    import asyncio
+
+    exchange = exchange.upper()
+
+    # 지원 거래소 확인
+    if exchange not in ["OKX", "BINANCE", "BYBIT"]:
+        raise ValueError(
+            f"{exchange} 거래소의 백테스트는 아직 지원되지 않습니다. "
+            f"OKX, Binance, Bybit 중에서 선택해주세요."
+        )
+
+    # 타임프레임 확인
+    if timeframe not in BARS_PER_DAY:
+        raise ValueError(f"지원하지 않는 타임프레임입니다: {timeframe}")
+
+    # 필요 봉수 계산
+    needed = int(days * BARS_PER_DAY[timeframe])
+    if needed < 1:
+        raise ValueError(f"요청 기간이 너무 짧습니다: {days}일 × {timeframe}")
+
+    # 최소 50봉 필요 (지표 계산용)
+    needed = max(needed, 50)
+
+    all_candles: List[Candle] = []
+    ctx = ssl.create_default_context()
+    start_time = time.time()
+
+    if exchange == "OKX":
+        all_candles = await _fetch_okx_paginated(symbol, timeframe, needed, timeout, ctx)
+    elif exchange == "BINANCE":
+        all_candles = await _fetch_binance_paginated(symbol, timeframe, needed, timeout, ctx)
+    elif exchange == "BYBIT":
+        all_candles = await _fetch_bybit_paginated(symbol, timeframe, needed, timeout, ctx)
+
+    # 결과 검증
+    if len(all_candles) < 50:
+        raise ValueError(
+            f"시세 데이터가 부족합니다: {len(all_candles)}봉 조회됨 "
+            f"(최소 50봉 필요). 기간을 늘리거나 타임프레임을 변경해보세요."
+        )
+
+    # oldest first 정렬
+    all_candles.sort(key=lambda c: c.ts)
+
+    logger.info(f"백테스트 캔들 조회 완료: {exchange} {symbol} {timeframe}, "
+                f"{len(all_candles)}봉, {time.time() - start_time:.1f}초")
+
+    return all_candles
+
+
+async def _fetch_okx_paginated(
+    symbol: str,
+    timeframe: str,
+    needed: int,
+    timeout: int,
+    ctx,
+) -> List[Candle]:
+    """OKX 페이지네이션 조회 (100개씩)"""
+    import urllib.request
+
+    all_candles = []
+    after = ""
+    bar = get_exchange_tf("OKX", timeframe)
+    inst_id = symbol.upper()
+    start_time = time.time()
+
+    while len(all_candles) < needed:
+        # 타임아웃 체크
+        if time.time() - start_time > timeout:
+            raise ValueError(f"시세 조회 시간 초과 ({timeout}초). 기간을 줄여보세요.")
+
+        url = f"https://www.okx.com/api/v5/market/history-candles?instId={inst_id}&bar={bar}&limit=100"
+        if after:
+            url += f"&after={after}"
+
+        req = urllib.request.Request(url, headers={
+            "Accept": "application/json",
+            "User-Agent": "bbooster-hub/1.0",
+        })
+
+        try:
+            with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except Exception as e:
+            raise ValueError(f"OKX 연결 실패: {str(e)}")
+
+        if data.get("code") != "0":
+            msg = data.get("msg", "알 수 없는 오류")
+            if "instrument" in msg.lower() or "not found" in msg.lower():
+                raise ValueError(f"종목을 찾을 수 없습니다: {symbol}. 종목명을 확인해주세요 (예: BTC-USDT)")
+            raise ValueError(f"거래소 API 오류: {msg}")
+
+        bars = data.get("data", [])
+        if not bars:
+            break
+
+        for bar_data in bars:
+            # OKX: [ts, o, h, l, c, vol, volCcy, volCcyQuote, confirm]
+            all_candles.append(Candle(
+                ts=int(bar_data[0]),
+                o=float(bar_data[1]),
+                h=float(bar_data[2]),
+                l=float(bar_data[3]),
+                c=float(bar_data[4]),
+                v=float(bar_data[5]),
+            ))
+
+        after = bars[-1][0]
+
+        if len(bars) < 100:
+            break
+
+    return all_candles
+
+
+async def _fetch_binance_paginated(
+    symbol: str,
+    timeframe: str,
+    needed: int,
+    timeout: int,
+    ctx,
+) -> List[Candle]:
+    """Binance 페이지네이션 조회 (1000개씩)"""
+    import urllib.request
+
+    all_candles = []
+    end_time = None
+    interval = get_exchange_tf("BINANCE", timeframe)
+    binance_symbol = symbol.replace("-", "").upper()
+    start_time = time.time()
+
+    while len(all_candles) < needed:
+        if time.time() - start_time > timeout:
+            raise ValueError(f"시세 조회 시간 초과 ({timeout}초). 기간을 줄여보세요.")
+
+        url = f"https://api.binance.com/api/v3/klines?symbol={binance_symbol}&interval={interval}&limit=1000"
+        if end_time:
+            url += f"&endTime={end_time}"
+
+        req = urllib.request.Request(url, headers={
+            "Accept": "application/json",
+            "User-Agent": "bbooster-hub/1.0",
+        })
+
+        try:
+            with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+                bars = json.loads(resp.read().decode("utf-8"))
+        except Exception as e:
+            raise ValueError(f"Binance 연결 실패: {str(e)}")
+
+        if isinstance(bars, dict) and bars.get("code"):
+            msg = bars.get("msg", "알 수 없는 오류")
+            if "invalid symbol" in msg.lower():
+                raise ValueError(f"종목을 찾을 수 없습니다: {symbol}. 종목명을 확인해주세요 (예: BTC-USDT)")
+            raise ValueError(f"거래소 API 오류: {msg}")
+
+        if not bars:
+            break
+
+        for bar_data in bars:
+            # Binance: [openTime, o, h, l, c, vol, closeTime, ...]
+            all_candles.append(Candle(
+                ts=int(bar_data[0]),
+                o=float(bar_data[1]),
+                h=float(bar_data[2]),
+                l=float(bar_data[3]),
+                c=float(bar_data[4]),
+                v=float(bar_data[5]),
+            ))
+
+        end_time = bars[0][0] - 1  # 이전 페이지
+
+        if len(bars) < 1000:
+            break
+
+    return all_candles
+
+
+async def _fetch_bybit_paginated(
+    symbol: str,
+    timeframe: str,
+    needed: int,
+    timeout: int,
+    ctx,
+) -> List[Candle]:
+    """Bybit 페이지네이션 조회 (200개씩)"""
+    import urllib.request
+
+    all_candles = []
+    end = None
+    interval = get_exchange_tf("BYBIT", timeframe)
+    bybit_symbol = symbol.replace("-", "").upper()
+    start_time = time.time()
+
+    while len(all_candles) < needed:
+        if time.time() - start_time > timeout:
+            raise ValueError(f"시세 조회 시간 초과 ({timeout}초). 기간을 줄여보세요.")
+
+        url = f"https://api.bybit.com/v5/market/kline?category=spot&symbol={bybit_symbol}&interval={interval}&limit=200"
+        if end:
+            url += f"&end={end}"
+
+        req = urllib.request.Request(url, headers={
+            "Accept": "application/json",
+            "User-Agent": "bbooster-hub/1.0",
+        })
+
+        try:
+            with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except Exception as e:
+            raise ValueError(f"Bybit 연결 실패: {str(e)}")
+
+        if data.get("retCode") != 0:
+            msg = data.get("retMsg", "알 수 없는 오류")
+            if "symbol" in msg.lower() or "invalid" in msg.lower():
+                raise ValueError(f"종목을 찾을 수 없습니다: {symbol}. 종목명을 확인해주세요 (예: BTC-USDT)")
+            raise ValueError(f"거래소 API 오류: {msg}")
+
+        bars = data.get("result", {}).get("list", [])
+        if not bars:
+            break
+
+        for bar_data in bars:
+            # Bybit: [startTime, o, h, l, c, vol, turnover]
+            all_candles.append(Candle(
+                ts=int(bar_data[0]),
+                o=float(bar_data[1]),
+                h=float(bar_data[2]),
+                l=float(bar_data[3]),
+                c=float(bar_data[4]),
+                v=float(bar_data[5]),
+            ))
+
+        end = bars[-1][0]
+
+        if len(bars) < 200:
+            break
+
+    return all_candles

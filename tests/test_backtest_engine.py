@@ -177,12 +177,12 @@ class TestRunMrBacktest:
 
     def test_backtest_insufficient_data(self):
         """Test backtest with insufficient data."""
-        candles = generate_sample_candles(days=5)  # 120 candles < 300
+        candles = generate_sample_candles(days=1)[:30]  # 30 candles < 50
 
         result = run_mr_backtest(candles)
 
         assert result.success is False
-        assert "데이터 부족" in result.message
+        assert "시세 데이터가 부족합니다" in result.message
 
     def test_backtest_with_sample_data(self):
         """Test backtest with sample data."""
