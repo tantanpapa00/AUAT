@@ -7975,9 +7975,7 @@ async def get_trade_history(
 
         rows = db.execute(text(sql), {"limit": limit, "offset": offset}).fetchall()
 
-        trades = []
-        for row in rows:
-            # 빈 문자열 → 0 변환 헬퍼
+        # 빈 문자열 → 0 변환 헬퍼
         def safe_float(val, default=0.0):
             if val is None or val == '':
                 return default
@@ -7986,10 +7984,12 @@ async def get_trade_history(
             except (ValueError, TypeError):
                 return default
 
-        qty = safe_float(row.filled_qty) or safe_float(row.qty)
-        price = safe_float(row.avg_px)
+        trades = []
+        for row in rows:
+            qty = safe_float(row.filled_qty) or safe_float(row.qty)
+            price = safe_float(row.avg_px)
 
-        trades.append({
+            trades.append({
                 "id": row.id,
                 "exchange": row.exchange_name or "OKX",
                 "symbol": row.symbol or "",
