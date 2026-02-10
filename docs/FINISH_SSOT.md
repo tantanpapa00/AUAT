@@ -1,5 +1,5 @@
 # FINISH_SSOT.md (완성품 전용 SSOT / COPY-PASTE)
-- Last updated: 2026-02-07 KST
+- Last updated: 2026-02-11 KST
 - Owner: 기훈(작가님)
 
 > 이 문서는 "완성품(외관+내관+도로+조경)" 제작만을 위한 SSOT이다.
@@ -315,6 +315,97 @@
   ```
 
 - Commits: `18a940c`, `992ec00`
+
+## Day 15 (2026-02-10) — DONE ✅
+- **백테스트 신호 계산 벡터화 최적화**
+  - [x] 지표 계산 벡터화 (indicators.py)
+    - `calc_wma`: for loop → np.convolve
+    - `calc_stdev`: for loop → cumsum 기반 E[X²]-E[X]² 공식
+    - `calc_highest/calc_lowest`: for loop → sliding_window_view + np.max/np.min
+    - `calc_vwma`: for loop → cumsum 기반 rolling sum
+    - `calc_atr`: 벡터화된 True Range 계산
+  - [x] SPO 오실레이터 사전 계산 (backtest_engine.py)
+    - `precompute_spo_arrays()`: 전체 시리즈 SPO 한 번에 계산
+    - `precompute_signal_arrays()`: sig_up_raw/sig_dn_raw 배열 벡터화
+    - `precompute_htf_arrays()`: VWMA50/200, HMA, Supertrend, Ichimoku 사전 계산
+    - `get_htf_indicators_at_index()`: 사전 계산된 배열에서 인덱스로 접근
+    - `get_osc_data_at_index()`: 사전 계산된 배열에서 인덱스로 접근
+  - [x] 메인 루프 최적화
+    - 기존: 매 바마다 지표 재계산 (O(n²))
+    - 개선: 사전 계산 후 인덱스 접근 (O(n))
+
+- **성능 측정 결과**
+  | 조건 | 개선 전 | 개선 후 | 배수 |
+  |------|---------|---------|------|
+  | 4h 365d (2190 bars) | 20.6s | 0.07s | 294x |
+  | 1h 365d (8760 bars) | - | 0.25s | - |
+  | 15m 365d (35040 bars) | - | 1.0s | - |
+
+- **검증**
+  - 거래 횟수 동일 (16 trades) - 로직 정확성 확인
+  - 캔들 DB 캐시 HIT 시 0.1초 이내
+  - 목표 달성: 4h 365d < 5s ✅, 1h 365d < 10s ✅
+
+- **Tauri PC 앱 빌드**
+  - [x] `cargo tauri build` 성공
+  - [x] MSI 설치 패키지 생성: `BBooster_1.0.0_x64_en-US.msi`
+  - [x] NSIS 설치 프로그램 생성: `BBooster_1.0.0_x64-setup.exe`
+  - Rust 컴파일 경고 15개 (dead_code, unused) - 정상 작동에 영향 없음
+
+- **수정된 파일**
+  - `app/strategy_engine/backtest_engine.py` — 벡터화 사전 계산 함수 추가
+  - `app/strategy_engine/indicators.py` — 지표 함수 벡터화
+
+- Commit: `8c960e9`
+
+## Day 16 (2026-02-11) — DONE ✅
+- **백테스트 UI TradingView 스타일 동기화**
+  - [x] 에퀴티 커브 Y축 퍼센트(%) 표시로 변경
+  - [x] 0% 기준선 추가 (손익분기점)
+  - [x] Chart.js segment 컬러링 (수익=초록, 손실=빨강)
+  - [x] 툴팁에 금액 + 퍼센트 동시 표시
+
+- **화폐단위 자동 결정 시스템**
+  - [x] `getMrCurrency(exchange, symbol)` 함수 추가
+    - KIS_KR, UPBIT → KRW (원)
+    - KIS_US → USD ($)
+    - USDT/USDC/BTC 페어 자동 감지
+  - [x] `formatMrAmount(value, currency)` 함수 추가
+    - KRW: 1,234,567원
+    - USD: $1,234.56
+    - USDT/USDC/BTC: 1,234.56 USDT
+  - [x] 만원/억 단위 축약 제거 (정확한 금액 표시)
+
+- **수익지수(Profit Factor) ∞ 처리**
+  - [x] `formatProfitFactor()` 함수 추가
+  - [x] 문자열 "Infinity" 처리
+  - [x] Number 변환 후 >= 999 → ∞ 표시
+  - [x] null/undefined → '--' 표시
+
+- **거래소 드롭다운 개선**
+  - [x] `EXCHANGE_DISPLAY` 객체로 한글명 매핑
+    - OKX → OKX
+    - BINANCE → 바이낸스
+    - BYBIT → 바이비트
+    - UPBIT → 업비트
+    - KIS_KR → 한투증권(국내)
+    - KIS_US → 한투증권(해외)
+  - [x] index.html 드롭다운에 KIS_KR/KIS_US 옵션 추가
+
+- **백엔드 수정**
+  - [x] `MRBacktestResponse`에 `symbol` 필드 추가 (화폐단위 결정용)
+
+- **PC 앱 빌드**
+  - [x] npm run build (프론트엔드)
+  - [x] cargo tauri build (설치 패키지)
+  - [x] 4개 타임프레임 테스트 (1D/4h/1h/30m) 완료
+
+- **수정된 파일**
+  - `app/premium_routes.py` — symbol 필드 추가
+  - `pc-app/ui/src/main.js` — 화폐단위/∞처리/거래소명 함수
+  - `pc-app/ui/index.html` — 거래소 드롭다운 옵션
+
+- Commits: `53f3519`, `02daa30`, `04db84e`
 
 ---
 

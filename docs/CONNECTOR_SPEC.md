@@ -1,7 +1,7 @@
 # CONNECTOR_SPEC.md (SSOT)
-- Last updated: 2026-02-04 KST
+- Last updated: 2026-02-10 KST
 - Owner: 기훈(작가님)
-- Status: Week 13 Day 1
+- Status: Week 15 Day 1
 
 > NOTE: 이 파일은 거래소 커넥터 인터페이스의 '진실(SSOT)'입니다.
 
@@ -18,6 +18,24 @@
 | Upbit | 암호화폐 | Spot (KRW/USDT) | DONE | Week 13 Day 1 |
 
 > **원칙**: 선물(Futures)/레버리지 전면 미지원. Spot만 지원.
+
+## 1-1) 백테스트/프리로딩 지원 상태
+
+| Exchange | 백테스트 | 프리로딩 | 일봉 | 분봉 | 비고 |
+|----------|---------|---------|------|------|------|
+| Binance | ✅ | ✅ | ✅ | ✅ (1m~1w) | 1회 1000개, 제한 없음 |
+| OKX | ✅ | ✅ | ✅ | ✅ (1m~1w) | 1회 100개, VPS 429 주의 |
+| Bybit | ✅ | ✅ | ✅ | ✅ (1m~1w) | 1회 200개 |
+| Upbit | ✅ | ✅ | ✅ | ✅ (1m~1w) | 1회 200개, 원화마켓 |
+| KIS_KR | ✅ (일봉) | ✅ (일봉) | ✅ | ❌ 당일만 | 분봉 과거조회 불가 |
+| KIS_US | ✅ (일봉) | ✅ (일봉) | ✅ | ❌ 당일만 | 분봉 과거조회 불가 |
+
+### 프리로딩 대상 종목 (candle_preloader.py)
+- **Binance**: BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, BNBUSDT
+- **OKX**: BTC-USDT, ETH-USDT, SOL-USDT
+- **Bybit**: BTCUSDT, ETHUSDT
+- **KIS_KR**: 005930(삼성전자), 000660(SK하이닉스) — 일봉만
+- **KIS_US**: AAPL, TSLA — 일봉만
 
 ---
 

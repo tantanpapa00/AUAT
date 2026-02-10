@@ -5,18 +5,43 @@
 - SSOT: docs/FINISH_SSOT.md, docs/PROJECT_STATUS.md
 - Rules: docs/AI_RULES.md (MUST read first)
 
-## Current Status (2026-02-10)
+## Current Status (2026-02-11)
 - Week A~D: DONE (브랜드/사이트/PC앱/Android APK 기반)
-- Day 6: DONE (대시보드 개편 + 구독 플랜)
-- Day 7: DONE (종목분석 개편 + 10 버그 수정)
-- Day 8: DONE (종목검색/네이버API/자동완성/파싱 수정)
-- Day 9: DONE (긴급 수정 + 보유자산 + 계정관리 + 전략설정 v2 UI)
-- Day 10: DONE (홈 대시보드 개선 - 거래내역 + 활성전략 관리)
-- Day 11: DONE (역추세매매 프리미엄 엔진 Phase 1 - 지표 파이썬 재구현)
-- Day 12: DONE (역추세매매 프리미엄 엔진 Phase 2~5 - 시세/실행/스케줄러/API/UI/백테스트)
-- Day 13: DONE (역추세매매 프리미엄 엔진 Phase 6 - 라이브 테스트 준비)
-- Day 14: DONE (추세매매 프리미엄 엔진 - HVI/QQE/백테스트/API)
-- Day 15: DONE (백테스트 벡터화 최적화 - 20초 → 0.3초)
+- Day 6~14: DONE (대시보드/종목분석/계정관리/전략설정/MR엔진/Trend엔진)
+- Day 15: DONE (백테스트 벡터화 최적화 20초→0.3초)
+- Day 16: DONE (트레이딩뷰 백테스트 동일화 + UI 개편)
+
+## Day 16 완료사항 (2026-02-11)
+- 백테스트 트레이딩뷰 동일화:
+  - 상단 5카드 (총손익/최대자본감소/총거래횟수/수익성거래/수익지수)
+  - 수익률 테이블 3열 (전체/매수/매도)
+  - 차트 Y축 수익률(%), 0% 기준선
+  - 거래내역 수익금+수익률 컬럼
+  - 수수료 0.1% 포함, 미실현 손익 계산
+- 화폐단위 개편:
+  - getMrCurrency(): exchange+symbol 기반 결정 (USDT/USDC/KRW/USD)
+  - formatMrAmount(): 만원/억 축약 제거, 원본 금액 표시
+  - 차트 툴팁 만원/억 완전 제거
+- 수익지수 ∞ 처리 (profit_factor >= 999)
+- 거래소 한글화:
+  - 드롭다운: 바이낸스/바이비트/업비트/한투증권(국내)/한투증권(해외)
+  - index.html에 KIS_KR/KIS_US 옵션 추가
+- 테스트: pytest 285 passed
+- PC앱 빌드: BBooster_1.0.0_x64-setup.exe
+
+## 남은 버그/미완성
+| # | 문제 | 상태 |
+|---|------|------|
+| 1 | KIS_KR 캔들 조회 미구현 | ❌ |
+| 2 | KIS_US 캔들 조회 미구현 | ❌ |
+| 3 | OKX VPS IP 429 차단 | ⚠️ |
+| 4 | 샤프지수 미표시 | ❌ |
+
+## Phase 1 로드맵 (역추세매매 완성)
+- P0: 백테스트 UI 마무리 (1일) - 대부분 완료
+- P1: 전 거래소 캔들 + 백테스트 (2~3일)
+- P2: 모의거래 테스트 (2일)
+- P3: 완성 선언 (0.5일)
 
 ## Quick Commands
 - Syntax: `python -m compileall app`
