@@ -7391,27 +7391,38 @@ function displayMrBacktestResult(result) {
 
     const m = result.metrics || {};
 
-    // 메트릭 표시
+    // 메트릭 표시 (null 체크 추가)
     const totalReturn = m.total_return_pct || 0;
-    document.getElementById('mr-bt-total-return').textContent =
-        (totalReturn >= 0 ? '+' : '') + totalReturn.toFixed(2) + '%';
-    document.getElementById('mr-bt-total-return').className =
-        'metric-value ' + (totalReturn >= 0 ? 'positive' : 'negative');
+    const totalReturnEl = document.getElementById('mr-bt-total-return');
+    if (totalReturnEl) {
+        totalReturnEl.textContent = (totalReturn >= 0 ? '+' : '') + totalReturn.toFixed(2) + '%';
+        totalReturnEl.className = 'metric-value ' + (totalReturn >= 0 ? 'positive' : 'negative');
+    }
 
-    document.getElementById('mr-bt-cagr').textContent =
-        (m.cagr_pct >= 0 ? '+' : '') + (m.cagr_pct || 0).toFixed(2) + '%';
+    const cagrEl = document.getElementById('mr-bt-cagr');
+    if (cagrEl) {
+        cagrEl.textContent = (m.cagr_pct >= 0 ? '+' : '') + (m.cagr_pct || 0).toFixed(2) + '%';
+    }
 
-    document.getElementById('mr-bt-mdd').textContent =
-        (m.max_drawdown_pct || 0).toFixed(2) + '%';
+    const mddEl = document.getElementById('mr-bt-mdd');
+    if (mddEl) {
+        mddEl.textContent = (m.max_drawdown_pct || 0).toFixed(2) + '%';
+    }
 
-    document.getElementById('mr-bt-sharpe').textContent =
-        (m.sharpe_ratio || 0).toFixed(2);
+    const sharpeEl = document.getElementById('mr-bt-sharpe');
+    if (sharpeEl) {
+        sharpeEl.textContent = (m.sharpe_ratio || 0).toFixed(2);
+    }
 
-    document.getElementById('mr-bt-winrate').textContent =
-        (m.win_rate_pct || 0).toFixed(1) + '%';
+    const winrateEl = document.getElementById('mr-bt-winrate');
+    if (winrateEl) {
+        winrateEl.textContent = (m.win_rate_pct || 0).toFixed(1) + '%';
+    }
 
-    document.getElementById('mr-bt-trades').textContent =
-        (m.total_trades || 0) + '회';
+    const tradesEl = document.getElementById('mr-bt-trades');
+    if (tradesEl) {
+        tradesEl.textContent = (m.total_trades || 0) + '회';
+    }
 
     // 손익비 (Profit Factor)
     const profitFactorEl = document.getElementById('mr-bt-profit-factor');
