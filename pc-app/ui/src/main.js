@@ -7487,9 +7487,10 @@ function formatMrAmountSigned(value, currency) {
 
 // ===== 수익지수 포맷 (Infinity 처리) =====
 function formatProfitFactor(value) {
-    if (value == null) return '--';
-    if (!isFinite(value) || value === Infinity || value === 'Infinity' || value >= 999) return '∞';
-    return Number(value).toFixed(3);
+    if (value == null || value === '' || value === undefined) return '--';
+    const num = Number(value);
+    if (!isFinite(num) || num >= 999 || value === Infinity || value === 'Infinity') return '∞';
+    return num.toFixed(3);
 }
 
 // ===== 거래소 표시명 =====
