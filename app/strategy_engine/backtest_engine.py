@@ -7,6 +7,12 @@ Phase 5: 역추세매매(MR) 프리미엄 전략 백테스트
 - MR signal_generator 실행
 - 트랜치 기반 포지션 관리
 - 성과 지표 계산 (수익률, MDD, 샤프비율, 승률)
+
+Phase 5.1: 벡터화 최적화 (2000봉 20초 → 5초 이내)
+- 전체 시리즈에서 SPO 지표 한 번만 계산
+- sig_up_raw, sig_dn_raw 배열 사전 계산
+- HTF 지표 사전 계산
+- 루프에서는 인덱스 접근만
 """
 
 from typing import List, Dict, Optional, Any
@@ -20,6 +26,237 @@ from .indicators import calc_spo, calc_vwma, calc_hma, calc_ichimoku, calc_super
 from .regime_detector import detect_regime, calc_htf_indicators
 from .signal_generator import generate_mr_signal, calc_osc_data
 from .presets import OSC_PRESETS, HTF_DEFAULTS
+
+
+# ============================================================
+# 벡터화 사전 계산 함수들
+# ============================================================
+
+def precompute_spo_arrays(
+    closes: np.ndarray,
+    preset: str = "preset1"
+) -> Dict[str, np.ndarray]:
+    """
+    전체 시리즈에서 SPO 지표를 한 번에 계산.
+
+    Returns:
+        Dict with normalized_osc, upper_band, lower_band, basis, line_short, line_long arrays
+    """
+    params = OSC_PRESETS.get(preset, OSC_PRESETS["preset1"])
+
+    normalized_osc, upper_band, lower_band, basis, line_short, line_long = calc_spo(
+        closes,
+        smooth_len=params["smooth_len"],
+        threshold=params["threshold"],
+        std_len=params["std_len"],
+        hma_len=params["hma_len"],
+        bb_len=params["bb_len"],
+        bb_mult=params["bb_mult"],
+    )
+
+    return {
+        "normalized_osc": normalized_osc,
+        "upper_band": upper_band,
+        "lower_band": lower_band,
+        "basis": basis,
+        "line_short": line_short,
+        "line_long": line_long,
+        "threshold": params["threshold"],
+    }
+
+
+def precompute_signal_arrays(
+    normalized_osc: np.ndarray,
+    threshold: float
+) -> Dict[str, np.ndarray]:
+    """
+    전체 시리즈에서 sig_up_raw, sig_dn_raw 배열을 한 번에 계산.
+
+    sig_up_raw: osc < -threshold AND osc가 상승 반전 (이전에 하락하다가 상승)
+    sig_dn_raw: osc > threshold AND osc가 하락 반전 (이전에 상승하다가 하락)
+    """
+    n = len(normalized_osc)
+    sig_up_raw = np.zeros(n, dtype=bool)
+    sig_dn_raw = np.zeros(n, dtype=bool)
+
+    if n < 3:
+        return {"sig_up_raw": sig_up_raw, "sig_dn_raw": sig_dn_raw}
+
+    # 벡터화: osc[i] vs osc[i-1] vs osc[i-2]
+    osc = normalized_osc
+
+    # osc[2:] = current, osc[1:-1] = prev, osc[:-2] = prev_prev
+    osc_curr = osc[2:]
+    osc_prev = osc[1:-1]
+    osc_prev_prev = osc[:-2]
+
+    # sig_up: osc < -threshold AND osc_curr > osc_prev AND osc_prev <= osc_prev_prev
+    sig_up_cond = (
+        (osc_curr < -threshold) &
+        (osc_curr > osc_prev) &
+        (osc_prev <= osc_prev_prev) &
+        ~np.isnan(osc_curr) &
+        ~np.isnan(osc_prev) &
+        ~np.isnan(osc_prev_prev)
+    )
+    sig_up_raw[2:] = sig_up_cond
+
+    # sig_dn: osc > threshold AND osc_curr < osc_prev AND osc_prev >= osc_prev_prev
+    sig_dn_cond = (
+        (osc_curr > threshold) &
+        (osc_curr < osc_prev) &
+        (osc_prev >= osc_prev_prev) &
+        ~np.isnan(osc_curr) &
+        ~np.isnan(osc_prev) &
+        ~np.isnan(osc_prev_prev)
+    )
+    sig_dn_raw[2:] = sig_dn_cond
+
+    return {"sig_up_raw": sig_up_raw, "sig_dn_raw": sig_dn_raw}
+
+
+def precompute_htf_arrays(
+    htf_closes: np.ndarray,
+    htf_highs: np.ndarray,
+    htf_lows: np.ndarray,
+    htf_volumes: np.ndarray,
+) -> Dict[str, np.ndarray]:
+    """
+    전체 HTF 시리즈에서 모든 지표를 한 번에 계산.
+
+    Returns:
+        Dict with vwma50, vwma200, hull, st_value, st_direction, tenkan, kijun, senkou_a, senkou_b arrays
+    """
+    n = len(htf_closes)
+
+    # VWMA
+    vwma50 = calc_vwma(htf_closes, htf_volumes, HTF_DEFAULTS["vwma50_len"])
+    vwma200 = calc_vwma(htf_closes, htf_volumes, HTF_DEFAULTS["vwma200_len"])
+
+    # Hull MA
+    hull = calc_hma(htf_closes, HTF_DEFAULTS["hull_len"])
+
+    # Supertrend
+    st_value, st_direction = calc_supertrend(
+        htf_highs, htf_lows, htf_closes,
+        HTF_DEFAULTS["st_atr_len"], HTF_DEFAULTS["st_factor"]
+    )
+    # Invert direction (PineScript default)
+    st_direction = -st_direction
+
+    # Ichimoku
+    tenkan, kijun, senkou_a, senkou_b = calc_ichimoku(
+        htf_highs, htf_lows,
+        HTF_DEFAULTS["ichi_tenkan"],
+        HTF_DEFAULTS["ichi_kijun"],
+        HTF_DEFAULTS["ichi_senkou"],
+    )
+
+    return {
+        "vwma50": vwma50,
+        "vwma200": vwma200,
+        "hull": hull,
+        "st_value": st_value,
+        "st_direction": st_direction.astype(int),
+        "tenkan": tenkan,
+        "kijun": kijun,
+        "senkou_a": senkou_a,
+        "senkou_b": senkou_b,
+    }
+
+
+def get_htf_indicators_at_index(
+    htf_arrays: Dict[str, np.ndarray],
+    idx: int
+) -> HTFIndicators:
+    """
+    사전 계산된 HTF 배열에서 특정 인덱스의 HTFIndicators 추출.
+    """
+    def safe_get(arr: np.ndarray, i: int) -> float:
+        if i < 0 or i >= len(arr):
+            return 0.0
+        val = arr[i]
+        return 0.0 if np.isnan(val) else float(val)
+
+    v50 = safe_get(htf_arrays["vwma50"], idx)
+    v200 = safe_get(htf_arrays["vwma200"], idx)
+    h = safe_get(htf_arrays["hull"], idx)
+    h_prev = safe_get(htf_arrays["hull"], idx - 1) if idx > 0 else h
+    t = safe_get(htf_arrays["tenkan"], idx)
+    k = safe_get(htf_arrays["kijun"], idx)
+    sa = safe_get(htf_arrays["senkou_a"], idx)
+    sb = safe_get(htf_arrays["senkou_b"], idx)
+    st_v = safe_get(htf_arrays["st_value"], idx)
+    st_d = int(htf_arrays["st_direction"][idx]) if idx < len(htf_arrays["st_direction"]) else 0
+
+    cloud_upper = max(sa, sb)
+    cloud_lower = min(sa, sb)
+    cloud_bull = sa > sb
+    cloud_bear = sa < sb
+    bull_stack = v50 >= v200
+    bear_stack = v50 < v200
+    hull_up = h > h_prev
+    hull_dn = h < h_prev
+
+    return HTFIndicators(
+        vwma50=v50,
+        vwma200=v200,
+        hull=h,
+        hull_up=hull_up,
+        hull_dn=hull_dn,
+        tenkan=t,
+        kijun=k,
+        senkou_a=sa,
+        senkou_b=sb,
+        cloud_upper=cloud_upper,
+        cloud_lower=cloud_lower,
+        cloud_bull=cloud_bull,
+        cloud_bear=cloud_bear,
+        st_value=st_v,
+        st_direction=st_d,
+        bull_stack=bull_stack,
+        bear_stack=bear_stack,
+    )
+
+
+def get_osc_data_at_index(
+    spo_arrays: Dict[str, np.ndarray],
+    sig_arrays: Dict[str, np.ndarray],
+    closes: np.ndarray,
+    idx: int
+) -> OscillatorData:
+    """
+    사전 계산된 SPO/신호 배열에서 특정 인덱스의 OscillatorData 추출.
+    """
+    def safe_get(arr: np.ndarray, i: int) -> float:
+        if i < 0 or i >= len(arr):
+            return 0.0
+        val = arr[i]
+        return 0.0 if np.isnan(val) else float(val)
+
+    osc_curr = safe_get(spo_arrays["normalized_osc"], idx)
+    ub = safe_get(spo_arrays["upper_band"], idx)
+    lb = safe_get(spo_arrays["lower_band"], idx)
+    bs = safe_get(spo_arrays["basis"], idx)
+    ls = safe_get(spo_arrays["line_short"], idx)
+    ll = safe_get(spo_arrays["line_long"], idx)
+    osc_raw = ls - ll
+
+    sig_up = sig_arrays["sig_up_raw"][idx] if idx < len(sig_arrays["sig_up_raw"]) else False
+    sig_dn = sig_arrays["sig_dn_raw"][idx] if idx < len(sig_arrays["sig_dn_raw"]) else False
+
+    return OscillatorData(
+        normalized_osc=osc_curr,
+        upper_band=ub,
+        lower_band=lb,
+        basis=bs,
+        threshold=spo_arrays["threshold"],
+        line_short=ls,
+        line_long=ll,
+        oscillator_raw=osc_raw,
+        sig_up_raw=bool(sig_up),
+        sig_dn_raw=bool(sig_dn),
+    )
 
 
 @dataclass
@@ -98,7 +335,7 @@ def run_mr_backtest(
     fee_rate: float = 0.001,  # 0.1% 수수료
 ) -> BacktestResult:
     """
-    MR 프리미엄 전략 백테스트 실행
+    MR 프리미엄 전략 백테스트 실행 (벡터화 최적화 버전)
 
     Args:
         candles: 시그널 타임프레임 캔들 데이터
@@ -145,6 +382,24 @@ def run_mr_backtest(
     htf_lows = np.array([c.l for c in htf_candles])
     htf_volumes = np.array([c.v for c in htf_candles])
 
+    # ============================================================
+    # 벡터화 최적화: 전체 시리즈에서 지표 사전 계산
+    # ============================================================
+    # 1. SPO 지표 사전 계산 (전체 시리즈에서 한 번만)
+    spo_arrays = precompute_spo_arrays(closes, config.osc_preset)
+
+    # 2. 신호 배열 사전 계산 (sig_up_raw, sig_dn_raw)
+    sig_arrays = precompute_signal_arrays(
+        spo_arrays["normalized_osc"],
+        spo_arrays["threshold"]
+    )
+
+    # 3. HTF 지표 사전 계산 (전체 HTF 시리즈에서 한 번만)
+    htf_arrays = precompute_htf_arrays(htf_closes, htf_highs, htf_lows, htf_volumes)
+
+    # HTF 비율 계산 (시그널TF → HTF 인덱스 매핑용)
+    htf_ratio = len(htf_candles) / len(candles)
+
     # 각 봉에 대해 시뮬레이션
     # OSC preset1: bb_len=250 필요, HTF 지표: 200 필요 → 300으로 설정
     lookback = min(300, len(candles) - 1)
@@ -164,35 +419,50 @@ def run_mr_backtest(
             "cash": capital,
         })
 
-        # 지표 데이터 슬라이스
-        slice_closes = closes[max(0, i - lookback + 1):i + 1]
-        slice_highs = highs[max(0, i - lookback + 1):i + 1]
-        slice_lows = lows[max(0, i - lookback + 1):i + 1]
-        slice_volumes = volumes[max(0, i - lookback + 1):i + 1]
+        # ============================================================
+        # 기존 코드 (매 봉마다 지표 재계산 - 느림)
+        # ============================================================
+        # # 지표 데이터 슬라이스
+        # slice_closes = closes[max(0, i - lookback + 1):i + 1]
+        # slice_highs = highs[max(0, i - lookback + 1):i + 1]
+        # slice_lows = lows[max(0, i - lookback + 1):i + 1]
+        # slice_volumes = volumes[max(0, i - lookback + 1):i + 1]
+        #
+        # # 오실레이터 데이터 계산
+        # osc_data = calc_osc_data(slice_closes, config.osc_preset)
+        #
+        # # HTF 지표 계산 (비율로 매핑)
+        # htf_idx = min(int(i * htf_ratio), len(htf_candles) - 1)
+        # htf_slice_closes = htf_closes[max(0, htf_idx - lookback + 1):htf_idx + 1]
+        # htf_slice_highs = htf_highs[max(0, htf_idx - lookback + 1):htf_idx + 1]
+        # htf_slice_lows = htf_lows[max(0, htf_idx - lookback + 1):htf_idx + 1]
+        # htf_slice_volumes = htf_volumes[max(0, htf_idx - lookback + 1):htf_idx + 1]
+        #
+        # if len(htf_slice_closes) >= 200:
+        #     htf_ind = calc_htf_indicators(
+        #         htf_slice_closes, htf_slice_highs, htf_slice_lows, htf_slice_volumes
+        #     )
+        # else:
+        #     htf_ind = HTFIndicators()
+        # ============================================================
 
-        # 오실레이터 데이터 계산
-        osc_data = calc_osc_data(slice_closes, config.osc_preset)
+        # 벡터화: 사전 계산된 배열에서 인덱스로 접근
+        osc_data = get_osc_data_at_index(spo_arrays, sig_arrays, closes, i)
 
-        # HTF 지표 계산 (비율로 매핑)
-        htf_ratio = len(htf_candles) / len(candles)
+        # HTF 지표 (비율로 매핑)
         htf_idx = min(int(i * htf_ratio), len(htf_candles) - 1)
-        htf_slice_closes = htf_closes[max(0, htf_idx - lookback + 1):htf_idx + 1]
-        htf_slice_highs = htf_highs[max(0, htf_idx - lookback + 1):htf_idx + 1]
-        htf_slice_lows = htf_lows[max(0, htf_idx - lookback + 1):htf_idx + 1]
-        htf_slice_volumes = htf_volumes[max(0, htf_idx - lookback + 1):htf_idx + 1]
-
-        if len(htf_slice_closes) >= 200:
-            htf_ind = calc_htf_indicators(
-                htf_slice_closes, htf_slice_highs, htf_slice_lows, htf_slice_volumes
-            )
-        else:
-            htf_ind = HTFIndicators()
+        htf_ind = get_htf_indicators_at_index(htf_arrays, htf_idx)
 
         # 국면 판별
         regime = detect_regime(htf_ind, config.use_4regime)
         state.current_regime = regime
 
         # 신호 생성
+        # 슬라이스 데이터는 여전히 generate_mr_signal에 필요 (breakout 조건 등)
+        slice_closes = closes[max(0, i - 10):i + 1]  # 최소한의 슬라이스만 (10봉)
+        slice_highs = highs[max(0, i - 10):i + 1]
+        slice_lows = lows[max(0, i - 10):i + 1]
+
         signal, state = generate_mr_signal(
             close=slice_closes,
             high=slice_highs,

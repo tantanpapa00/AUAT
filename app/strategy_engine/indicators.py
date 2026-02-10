@@ -81,7 +81,7 @@ def calc_sma(src: np.ndarray, length: int) -> np.ndarray:
 
 def calc_wma(src: np.ndarray, length: int) -> np.ndarray:
     """
-    Weighted Moving Average.
+    Weighted Moving Average (벡터화 최적화).
 
     Formula: sum(src[i] * weight[i]) / sum(weights)
     where weights = [1, 2, 3, ..., length]
@@ -99,13 +99,21 @@ def calc_wma(src: np.ndarray, length: int) -> np.ndarray:
     weights = np.arange(1, length + 1, dtype=float)
     weight_sum = weights.sum()
 
+    # 벡터화: np.convolve 사용
+    # convolve는 weights를 뒤집어서 적용하므로 weights[::-1] 사용
+    conv = np.convolve(src, weights[::-1], mode='valid')
     out = np.full(len(src), np.nan)
-
-    for i in range(length - 1, len(src)):
-        window = src[i - length + 1:i + 1]
-        out[i] = np.sum(window * weights) / weight_sum
+    out[length - 1:] = conv / weight_sum
 
     return out
+
+    # ============================================================
+    # 기존 for 루프 코드 (느림)
+    # ============================================================
+    # for i in range(length - 1, len(src)):
+    #     window = src[i - length + 1:i + 1]
+    #     out[i] = np.sum(window * weights) / weight_sum
+    # return out
 
 
 def calc_hma(close: np.ndarray, length: int) -> np.ndarray:
@@ -143,7 +151,7 @@ def calc_hma(close: np.ndarray, length: int) -> np.ndarray:
 
 def calc_stdev(src: np.ndarray, length: int) -> np.ndarray:
     """
-    Rolling Standard Deviation.
+    Rolling Standard Deviation (벡터화 최적화).
 
     PineScript: ta.stdev(src, length)
 
@@ -157,54 +165,106 @@ def calc_stdev(src: np.ndarray, length: int) -> np.ndarray:
     if len(src) < length:
         return np.full(len(src), np.nan)
 
-    out = np.full(len(src), np.nan)
+    # 벡터화: sliding_window_view 또는 cumsum 기반 계산
+    # E[X^2] - E[X]^2 공식 사용
+    n = len(src)
+    out = np.full(n, np.nan)
 
-    for i in range(length - 1, len(src)):
-        window = src[i - length + 1:i + 1]
-        out[i] = np.std(window, ddof=0)  # Population std (PineScript default)
+    # Cumsum으로 rolling sum과 rolling sum of squares 계산
+    cumsum = np.cumsum(np.insert(src, 0, 0))
+    cumsum_sq = np.cumsum(np.insert(src ** 2, 0, 0))
+
+    # Rolling mean and variance
+    roll_sum = cumsum[length:] - cumsum[:-length]
+    roll_sum_sq = cumsum_sq[length:] - cumsum_sq[:-length]
+
+    roll_mean = roll_sum / length
+    roll_var = roll_sum_sq / length - roll_mean ** 2
+
+    # Handle numerical errors (variance should be >= 0)
+    roll_var = np.maximum(roll_var, 0)
+    out[length - 1:] = np.sqrt(roll_var)
 
     return out
+
+    # ============================================================
+    # 기존 for 루프 코드 (느림)
+    # ============================================================
+    # for i in range(length - 1, len(src)):
+    #     window = src[i - length + 1:i + 1]
+    #     out[i] = np.std(window, ddof=0)  # Population std (PineScript default)
+    # return out
 
 
 def calc_highest(src: np.ndarray, length: int) -> np.ndarray:
     """
-    Rolling Highest.
+    Rolling Highest (벡터화 최적화).
 
     PineScript: ta.highest(src, length)
     """
     if len(src) < length:
         return np.full(len(src), np.nan)
 
-    out = np.full(len(src), np.nan)
+    n = len(src)
+    out = np.full(n, np.nan)
 
-    for i in range(length - 1, len(src)):
-        window = src[i - length + 1:i + 1]
-        out[i] = np.max(window)
+    # numpy sliding_window_view 사용 (numpy 1.20+)
+    try:
+        from numpy.lib.stride_tricks import sliding_window_view
+        windows = sliding_window_view(src, length)
+        out[length - 1:] = np.max(windows, axis=1)
+    except (ImportError, AttributeError):
+        # Fallback: for 루프 (older numpy)
+        for i in range(length - 1, n):
+            out[i] = np.max(src[i - length + 1:i + 1])
 
     return out
+
+    # ============================================================
+    # 기존 for 루프 코드 (느림)
+    # ============================================================
+    # for i in range(length - 1, len(src)):
+    #     window = src[i - length + 1:i + 1]
+    #     out[i] = np.max(window)
+    # return out
 
 
 def calc_lowest(src: np.ndarray, length: int) -> np.ndarray:
     """
-    Rolling Lowest.
+    Rolling Lowest (벡터화 최적화).
 
     PineScript: ta.lowest(src, length)
     """
     if len(src) < length:
         return np.full(len(src), np.nan)
 
-    out = np.full(len(src), np.nan)
+    n = len(src)
+    out = np.full(n, np.nan)
 
-    for i in range(length - 1, len(src)):
-        window = src[i - length + 1:i + 1]
-        out[i] = np.min(window)
+    # numpy sliding_window_view 사용 (numpy 1.20+)
+    try:
+        from numpy.lib.stride_tricks import sliding_window_view
+        windows = sliding_window_view(src, length)
+        out[length - 1:] = np.min(windows, axis=1)
+    except (ImportError, AttributeError):
+        # Fallback: for 루프 (older numpy)
+        for i in range(length - 1, n):
+            out[i] = np.min(src[i - length + 1:i + 1])
 
     return out
+
+    # ============================================================
+    # 기존 for 루프 코드 (느림)
+    # ============================================================
+    # for i in range(length - 1, len(src)):
+    #     window = src[i - length + 1:i + 1]
+    #     out[i] = np.min(window)
+    # return out
 
 
 def calc_vwma(close: np.ndarray, volume: np.ndarray, length: int) -> np.ndarray:
     """
-    Volume Weighted Moving Average.
+    Volume Weighted Moving Average (벡터화 최적화).
 
     PineScript: ta.vwma(close, length)
 
@@ -221,54 +281,85 @@ def calc_vwma(close: np.ndarray, volume: np.ndarray, length: int) -> np.ndarray:
     if len(close) < length or len(volume) < length:
         return np.full(len(close), np.nan)
 
-    out = np.full(len(close), np.nan)
+    n = len(close)
+    out = np.full(n, np.nan)
 
     cv = close * volume  # close * volume
 
-    for i in range(length - 1, len(close)):
-        cv_sum = np.sum(cv[i - length + 1:i + 1])
-        v_sum = np.sum(volume[i - length + 1:i + 1])
+    # 벡터화: cumsum으로 rolling sum 계산
+    cumsum_cv = np.cumsum(np.insert(cv, 0, 0))
+    cumsum_v = np.cumsum(np.insert(volume, 0, 0))
 
-        if v_sum > 0:
-            out[i] = cv_sum / v_sum
-        else:
-            out[i] = close[i]  # Fallback to close if no volume
+    roll_cv = cumsum_cv[length:] - cumsum_cv[:-length]
+    roll_v = cumsum_v[length:] - cumsum_v[:-length]
+
+    # Division with fallback for zero volume
+    with np.errstate(divide='ignore', invalid='ignore'):
+        result = roll_cv / roll_v
+        # Replace inf/nan with close values (fallback)
+        mask = ~np.isfinite(result)
+        result[mask] = close[length - 1:][mask]
+
+    out[length - 1:] = result
 
     return out
+
+    # ============================================================
+    # 기존 for 루프 코드 (느림)
+    # ============================================================
+    # for i in range(length - 1, len(close)):
+    #     cv_sum = np.sum(cv[i - length + 1:i + 1])
+    #     v_sum = np.sum(volume[i - length + 1:i + 1])
+    #     if v_sum > 0:
+    #         out[i] = cv_sum / v_sum
+    #     else:
+    #         out[i] = close[i]  # Fallback to close if no volume
+    # return out
 
 
 def calc_atr(high: np.ndarray, low: np.ndarray, close: np.ndarray, length: int) -> np.ndarray:
     """
-    Average True Range.
+    Average True Range (벡터화 최적화).
 
     PineScript: ta.atr(length)
 
     Formula: RMA of True Range
     True Range = max(high - low, abs(high - close[1]), abs(low - close[1]))
     """
-    if len(high) < 2:
-        return np.full(len(high), np.nan)
+    n = len(high)
+    if n < 2:
+        return np.full(n, np.nan)
 
-    # True Range
-    tr = np.zeros(len(high))
+    # 벡터화: True Range 계산
+    hl = high - low
+    prev_close = np.roll(close, 1)
+    prev_close[0] = close[0]  # 첫 번째 값 처리
+
+    hc = np.abs(high - prev_close)
+    lc = np.abs(low - prev_close)
+
+    tr = np.maximum(hl, np.maximum(hc, lc))
     tr[0] = high[0] - low[0]
 
-    for i in range(1, len(high)):
-        hl = high[i] - low[i]
-        hc = abs(high[i] - close[i - 1])
-        lc = abs(low[i] - close[i - 1])
-        tr[i] = max(hl, hc, lc)
-
-    # RMA (same as EMA but with different alpha)
-    # PineScript RMA: alpha = 1/length
+    # RMA (Wilder's smoothing) - alpha = 1/length
+    # RMA는 재귀적이므로 for 루프 유지 (numba 없이는 벡터화 어려움)
     alpha = 1.0 / length
-    out = np.zeros(len(tr))
+    out = np.zeros(n)
     out[0] = tr[0]
 
-    for i in range(1, len(tr)):
+    for i in range(1, n):
         out[i] = alpha * tr[i] + (1 - alpha) * out[i - 1]
 
     return out
+
+    # ============================================================
+    # 기존 코드 (True Range 계산 부분 for 루프 - 이제 벡터화됨)
+    # ============================================================
+    # for i in range(1, len(high)):
+    #     hl = high[i] - low[i]
+    #     hc = abs(high[i] - close[i - 1])
+    #     lc = abs(low[i] - close[i - 1])
+    #     tr[i] = max(hl, hc, lc)
 
 
 def calc_supertrend(
