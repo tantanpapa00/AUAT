@@ -925,6 +925,7 @@ class MRBacktestResponse(BaseModel):
     message: str = ""
     error: Optional[str] = None
     exchange: Optional[str] = None  # 화폐 단위 결정용
+    symbol: Optional[str] = None    # 화폐 단위 결정용 (USDT/USDC 등)
     metrics: Dict[str, Any] = {}
     equity_curve: List[Dict[str, Any]] = []
     trades: List[Dict[str, Any]] = []
@@ -1077,6 +1078,7 @@ async def run_mr_backtest_endpoint(
             success=True,
             message=f"백테스트 완료: {len(candles)}봉 분석, {m.total_trades}거래",
             exchange=request.exchange,  # 화폐 단위 결정용
+            symbol=request.symbol,      # 화폐 단위 결정용 (USDT/USDC 등)
             metrics={
                 # === 기본 ===
                 "initial_capital": round(m.initial_capital, 0),
