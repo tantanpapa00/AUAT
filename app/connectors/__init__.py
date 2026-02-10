@@ -63,9 +63,9 @@ def get_connector(exchange: str) -> Optional["Connector"]:
         from .kis import KISConnector
         conn = KISConnector()
     elif ex == "KIS_US":
-        # KIS_US는 현재 미지원 (해외주식 주문 API 별도 구현 필요)
-        # 캐시하지 않고 None 반환
-        return None
+        # KIS_US도 KISConnector 사용 (place_order_overseas 메서드 호출 필요)
+        from .kis import KISConnector
+        conn = KISConnector()
     elif ex == "BINANCE":
         from .binance import BinanceConnector
         conn = BinanceConnector()
@@ -73,8 +73,8 @@ def get_connector(exchange: str) -> Optional["Connector"]:
         from .bybit import BybitConnector
         conn = BybitConnector()
     elif ex == "UPBIT":
-        # UPBIT은 현재 미지원 (커넥터 미구현)
-        return None
+        from .upbit import UpbitConnector
+        conn = UpbitConnector()
 
     if conn is not None:
         _CONNECTOR_CACHE[ex] = conn

@@ -687,3 +687,147 @@ class KISConnector(Connector):
             err_code="not_implemented",
             err_msg="KIS get_ticker not implemented yet",
         )
+
+    # ---------------------
+    # 해외주식 API (KIS_US)
+    # ---------------------
+    def get_overseas_price(self, symbol: str, exchange_code: str = "NAS") -> Optional[float]:
+        """
+        KIS 해외주식 현재가 조회
+        exchange_code: NAS(나스닥), NYS(뉴욕), AMS(아멕스)
+        Returns: 현재가 (float) or None
+        """
+        # 거래소 코드 자동 시도 (NAS → NYS → AMS)
+        exchanges_to_try = [exchange_code] if exchange_code else ["NAS", "NYS", "AMS"]
+        if exchange_code not in exchanges_to_try:
+            exchanges_to_try = [exchange_code] + ["NAS", "NYS", "AMS"]
+
+        for excd in exchanges_to_try:
+            ok, status, j, raw = self.request(
+                method="GET",
+                path="/uapi/overseas-price/v1/quotations/price",
+                params={
+                    "AUTH": "",
+                    "EXCD": excd,
+                    "SYMB": symbol.upper(),
+                },
+                headers={
+                    "tr_id": "HHDFS00000300",
+                    "custtype": "P",
+                },
+                require_token=True,
+            )
+
+            if not ok or status != 200:
+                continue
+
+            rt_cd = (j or {}).get("rt_cd")
+            if rt_cd != "0":
+                continue
+
+            output = (j or {}).get("output") or {}
+            last_price = output.get("last") or output.get("stck_prpr")
+            if last_price:
+                try:
+                    return float(last_price)
+                except (ValueError, TypeError):
+                    continue
+
+        return None
+
+    def place_order_overseas(
+        self,
+        *,
+        symbol: str,
+        side: Side,
+        qty: float,
+        price: float,
+        exchange_code: str = "NASD",
+        payload: Optional[Dict[str, Any]] = None,
+    ) -> PlaceOrderResult:
+        """
+        KIS 해외주식 주문 (지정가)
+        exchange_code: NASD(나스닥), NYSE(뉴욕), AMEX(아멕스) - D가 붙음
+        price: 현재가 (get_overseas_price로 미리 조회)
+        """
+        import os as _os
+
+        cano = (_os.getenv("KIS_CANO") or "").strip()
+        acnt_prdt_cd = (_os.getenv("KIS_ACNT_PRDT_CD") or "01").strip()
+        if not cano:
+            return PlaceOrderResult(
+                ok=False, exchange="KIS_US", symbol=symbol, side=side,
+                qty=float(qty), order_type="limit",
+                err_code="missing_env", err_msg="KIS_CANO missing",
+            )
+
+        # TR ID: 미국 주식
+        # 모의: VTTS0311U(매수), VTTS0312U(매도)
+        # 실전: TTTS0311U(매수), TTTS0312U(매도)
+        if side == "buy":
+            tr_id = "TTTS0311U" if self.svr == "prod" else "VTTS0311U"
+        else:
+            tr_id = "TTTS0312U" if self.svr == "prod" else "VTTS0312U"
+
+        # 거래소코드 정규화 (NAS → NASD 등)
+        excd_map = {"NAS": "NASD", "NYS": "NYSE", "AMS": "AMEX"}
+        ovrs_excg_cd = excd_map.get(exchange_code.upper(), exchange_code.upper())
+
+        body = {
+            "CANO": cano[:8],
+            "ACNT_PRDT_CD": acnt_prdt_cd[:2] if len(acnt_prdt_cd) >= 2 else "01",
+            "OVRS_EXCG_CD": ovrs_excg_cd,
+            "PDNO": symbol.upper(),
+            "ORD_DVSN": "00",  # 지정가
+            "ORD_QTY": str(int(qty)),
+            "OVRS_ORD_UNPR": f"{price:.2f}",
+        }
+
+        try:
+            ok_hk, hk = self.make_hashkey(body=body)
+            headers = {"tr_id": tr_id, "custtype": "P", "tr_cont": ""}
+            if ok_hk and hk:
+                headers["hashkey"] = hk
+
+            req_ok, status, j, raw = self.request(
+                method="POST",
+                path="/uapi/overseas-stock/v1/trading/order",
+                json_body=body,
+                headers=headers,
+                require_token=True,
+            )
+
+            if not req_ok or status != 200:
+                return PlaceOrderResult(
+                    ok=False, exchange="KIS_US", symbol=symbol, side=side,
+                    qty=float(qty), order_type="limit",
+                    err_code=f"http_{status}", err_msg=raw[:200] if raw else "request_failed",
+                    raw={"status": status, "raw": raw},
+                )
+
+            rt_cd = (j or {}).get("rt_cd")
+            output = (j or {}).get("output") or {}
+            odno = output.get("ODNO") or output.get("odno")  # 주문번호
+            ord_tmd = output.get("ORD_TMD")  # 주문시각
+
+            if rt_cd != "0":
+                return PlaceOrderResult(
+                    ok=False, exchange="KIS_US", symbol=symbol, side=side,
+                    qty=float(qty), order_type="limit",
+                    err_code=rt_cd, err_msg=(j or {}).get("msg1", "kis_us_error"),
+                    raw=j,
+                )
+
+            return PlaceOrderResult(
+                ok=True, exchange="KIS_US", symbol=symbol, side=side,
+                qty=float(qty), order_type="limit",
+                exchange_order_id=odno,
+                raw={"odno": odno, "ord_tmd": ord_tmd, "response": j},
+            )
+
+        except Exception as e:
+            return PlaceOrderResult(
+                ok=False, exchange="KIS_US", symbol=symbol, side=side,
+                qty=float(qty), order_type="limit",
+                err_code="exception", err_msg=f"{type(e).__name__}: {e}",
+            )

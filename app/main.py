@@ -5688,8 +5688,19 @@ def _maybe_send_to_broker(db, order_id: int):
             return _handle_connector_response(db, order_id, exchange, res)
 
         elif exchange == "UPBIT":
-            # Upbit은 커넥터 미구현 상태
-            raise ValueError("UPBIT 커넥터 미구현 - 추후 지원 예정")
+            conn = get_connector("UPBIT")
+            if not conn:
+                raise ValueError("UPBIT 커넥터 초기화 실패 (API 키 확인 필요)")
+            # Upbit 시장가 매수는 금액 기준, 매도는 수량 기준
+            # qty는 매수 시 KRW 금액, 매도 시 코인 수량으로 해석
+            res = conn.place_order(
+                symbol=symbol,
+                side=side,
+                qty=qty,
+                order_type="market",
+                payload={"source": "tv", "order_id": int(order_id)},
+            )
+            return _handle_connector_response(db, order_id, exchange, res)
 
         elif exchange in ("KIS", "KIS_KR"):
             conn = get_connector("KIS")
@@ -5705,8 +5716,29 @@ def _maybe_send_to_broker(db, order_id: int):
             return _handle_connector_response(db, order_id, "KIS_KR", res)
 
         elif exchange == "KIS_US":
-            # KIS_US는 해외주식 - 현재 KIS 커넥터가 국내만 지원
-            raise ValueError("KIS_US 해외주식 주문 미구현 - 추후 지원 예정")
+            # KIS_US 해외주식: 현재가 조회 → 지정가 주문
+            conn = get_connector("KIS_US")
+            if not conn:
+                raise ValueError("KIS_US 커넥터 초기화 실패")
+
+            # 거래소 코드 추정 (NAS → NYS → AMS 순서로 시도)
+            exchange_code = "NAS"  # 기본값 나스닥
+
+            # 1. 현재가 조회
+            current_price = conn.get_overseas_price(symbol, exchange_code)
+            if not current_price:
+                raise ValueError(f"KIS_US 현재가 조회 실패: {symbol}")
+
+            # 2. 지정가 주문 (현재가로)
+            res = conn.place_order_overseas(
+                symbol=symbol,
+                side=side,
+                qty=qty,
+                price=current_price,
+                exchange_code=exchange_code,
+                payload={"source": "tv", "order_id": int(order_id)},
+            )
+            return _handle_connector_response(db, order_id, exchange, res)
 
         else:
             raise ValueError(f"지원하지 않는 거래소: {exchange}")
