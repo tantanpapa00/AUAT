@@ -759,10 +759,12 @@ async def fetch_candles_for_backtest(
             new_candles = [c for c in all_candles if c.ts not in cached_ts_set]
 
             if new_candles:
-                # Bulk insert (upsert 대신 간단히 insert, 중복은 무시)
+                # Bulk insert with ON CONFLICT DO NOTHING (PostgreSQL)
+                from sqlalchemy.dialects.postgresql import insert as pg_insert
+                inserted_count = 0
                 for c in new_candles:
                     try:
-                        db.add(CandleCache(
+                        stmt = pg_insert(CandleCache).values(
                             exchange=exchange,
                             symbol=symbol,
                             timeframe=timeframe,
@@ -772,11 +774,15 @@ async def fetch_candles_for_backtest(
                             l=c.l,
                             c=c.c,
                             v=c.v,
-                        ))
+                        ).on_conflict_do_nothing(
+                            index_elements=['exchange', 'symbol', 'timeframe', 'ts']
+                        )
+                        db.execute(stmt)
+                        inserted_count += 1
                     except Exception:
-                        pass  # 중복 무시
+                        pass  # 개별 에러 무시
                 db.commit()
-                logger.info(f"DB 캐시 저장: {len(new_candles)}봉 추가")
+                logger.info(f"DB 캐시 저장: {inserted_count}봉 시도")
         except Exception as e:
             logger.warning(f"DB 캐시 저장 실패: {e}")
             db.rollback()

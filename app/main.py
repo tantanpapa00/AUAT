@@ -7977,14 +7977,26 @@ async def get_trade_history(
 
         trades = []
         for row in rows:
-            trades.append({
+            # 빈 문자열 → 0 변환 헬퍼
+        def safe_float(val, default=0.0):
+            if val is None or val == '':
+                return default
+            try:
+                return float(val)
+            except (ValueError, TypeError):
+                return default
+
+        qty = safe_float(row.filled_qty) or safe_float(row.qty)
+        price = safe_float(row.avg_px)
+
+        trades.append({
                 "id": row.id,
                 "exchange": row.exchange_name or "OKX",
                 "symbol": row.symbol or "",
                 "side": row.side or "",
-                "quantity": float(row.filled_qty or row.qty or 0),
-                "price": float(row.avg_px or 0),
-                "total_amount": float((row.filled_qty or row.qty or 0) * (row.avg_px or 0)),
+                "quantity": qty,
+                "price": price,
+                "total_amount": qty * price,
                 "status": row.status or "unknown",
                 "submit_err": row.submit_err or "",
                 "reason_code": row.reason_code or "",
