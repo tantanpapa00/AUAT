@@ -3941,6 +3941,10 @@ body {
     color: var(--text-primary);
     font-size: 0.9rem;
 }
+.form-select option {
+    background: var(--bg-dark);
+    color: var(--text-primary);
+}
 
 .form-input {
     width: 100%;
@@ -6413,7 +6417,7 @@ body {
     border: 1px solid var(--border);
     border-radius: 0 0 8px 8px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    z-index: 200;
+    z-index: 9999;
 }
 
 .autocomplete-item {
@@ -7298,7 +7302,7 @@ body {
     margin-bottom: 16px;
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 8px;
-    overflow: hidden;
+    overflow: visible;
     background: var(--bg-card2);
 }
 .mr-section-header,
@@ -7356,11 +7360,16 @@ body {
 .mr-field select {
     width: 100%;
     padding: 8px 12px;
-    background: rgba(255,255,255,0.05);
+    background: #1a1a2e;
     border: 1px solid rgba(255,255,255,0.15);
     border-radius: 6px;
     color: #fff;
     font-size: 14px;
+}
+.mr-field select option {
+    background: #1a1a2e;
+    color: #fff;
+    padding: 8px;
 }
 .mr-field input[type="number"]:focus,
 .mr-field select:focus {

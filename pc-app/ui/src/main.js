@@ -6894,6 +6894,9 @@ async function loadMrExchangeDropdown() {
     const select = document.getElementById('mr-exchange');
     if (!select) return;
 
+    // 기본 거래소 목록 (항상 포함)
+    const defaultExchanges = ['OKX', 'BINANCE', 'BYBIT', 'UPBIT'];
+
     try {
         let accounts = [];
         try {
@@ -6901,16 +6904,32 @@ async function loadMrExchangeDropdown() {
         } catch { }
 
         if (!accounts || accounts.length === 0) {
-            accounts = await invoke('list_local_accounts');
+            try {
+                accounts = await invoke('list_local_accounts');
+            } catch { }
         }
 
+        // 등록된 계정의 거래소 추출
+        const registeredExchanges = new Set();
+        (accounts || []).forEach(acc => {
+            const exName = acc.exchange?.toUpperCase() || acc.exchange_name?.toUpperCase();
+            if (exName) registeredExchanges.add(exName);
+        });
+
+        // 기본 + 등록된 거래소 합치기 (중복 제거)
+        const allExchanges = [...new Set([...defaultExchanges, ...registeredExchanges])];
+
         select.innerHTML = '<option value="">선택하세요</option>';
-        accounts.forEach(acc => {
-            const exName = acc.exchange?.toUpperCase() || acc.exchange_name?.toUpperCase() || 'UNKNOWN';
-            select.innerHTML += `<option value="${exName}">${exName}</option>`;
+        allExchanges.forEach(ex => {
+            select.innerHTML += `<option value="${ex}">${ex}</option>`;
         });
     } catch (error) {
         console.error('거래소 드롭다운 로드 실패:', error);
+        // 에러 시에도 기본 거래소 표시
+        select.innerHTML = '<option value="">선택하세요</option>';
+        defaultExchanges.forEach(ex => {
+            select.innerHTML += `<option value="${ex}">${ex}</option>`;
+        });
     }
 }
 
@@ -7265,19 +7284,37 @@ document.getElementById('btn-mr-run-backtest')?.addEventListener('click', async 
             exchange: config.exchange,
             symbol: config.symbol,
             timeframe: config.signal_tf,
-            htfTimeframe: config.htf_tf,
+            htfTf: config.htf_tf,
             days: days,
             initialCapital: capital,
-            oscPreset: 'preset1',  // 새 UI에서는 직접 smooth/threshold 사용
-            cashUsePct: config.cash_use_pct,
-            use4regime: config.use_4regime,
-            buyTranches: config.buy_tranches,
-            sellTranches: config.sell_tranches,
-            // 리디자인 필드 추가 (백엔드에서 지원 시 사용)
+            // 오실레이터 설정
+            oscPreset: 'custom',
             oscSmoothLen: config.osc_smooth_len,
             oscThreshold: config.osc_threshold,
+            // 자금관리
+            cashUsePct: config.cash_use_pct,
             minProfitPct: config.min_profit_pct,
             feeBufferPct: config.fee_buffer_pct,
+            buyTranches: config.buy_tranches,
+            sellTranches: config.sell_tranches,
+            // R1 국면 (역배열+ST상승)
+            r1BuyMult: config.r1_buy_mult,
+            r1SellMult: config.r1_sell_mult,
+            r1AllowOscBuy: config.r1_allow_osc_buy,
+            r1PullbackOn: config.r1_pullback_on,
+            // R2 국면 (역배열+ST하락)
+            r2BuyMult: config.r2_buy_mult,
+            r2SellMult: config.r2_sell_mult,
+            r2AllowOscBuy: config.r2_allow_osc_buy,
+            // R3 국면 (정배열+ST상승)
+            r3BuyMult: config.r3_buy_mult,
+            r3SellMult: config.r3_sell_mult,
+            r3AllowOscBuy: config.r3_allow_osc_buy,
+            r3BreakoutOn: config.r3_breakout_on,
+            // R4 국면 (정배열+ST하락)
+            r4BuyMult: config.r4_buy_mult,
+            r4SellMult: config.r4_sell_mult,
+            r4AllowOscBuy: config.r4_allow_osc_buy,
         });
 
         if (result.success) {

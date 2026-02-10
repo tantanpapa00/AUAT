@@ -3294,14 +3294,37 @@ pub async fn run_mr_backtest(
     exchange: String,
     symbol: String,
     timeframe: Option<String>,
-    htf_timeframe: Option<String>,
+    htf_tf: Option<String>,
     days: Option<i32>,
     initial_capital: Option<f64>,
+    // 오실레이터 설정
     osc_preset: Option<String>,
+    osc_smooth_len: Option<i32>,
+    osc_threshold: Option<f64>,
+    // 자금관리
     cash_use_pct: Option<f64>,
-    use_4regime: Option<bool>,
+    min_profit_pct: Option<f64>,
+    fee_buffer_pct: Option<f64>,
     buy_tranches: Option<Vec<f64>>,
     sell_tranches: Option<Vec<f64>>,
+    // R1 국면 (역배열+ST상승)
+    r1_buy_mult: Option<f64>,
+    r1_sell_mult: Option<f64>,
+    r1_allow_osc_buy: Option<bool>,
+    r1_pullback_on: Option<bool>,
+    // R2 국면 (역배열+ST하락)
+    r2_buy_mult: Option<f64>,
+    r2_sell_mult: Option<f64>,
+    r2_allow_osc_buy: Option<bool>,
+    // R3 국면 (정배열+ST상승)
+    r3_buy_mult: Option<f64>,
+    r3_sell_mult: Option<f64>,
+    r3_allow_osc_buy: Option<bool>,
+    r3_breakout_on: Option<bool>,
+    // R4 국면 (정배열+ST하락)
+    r4_buy_mult: Option<f64>,
+    r4_sell_mult: Option<f64>,
+    r4_allow_osc_buy: Option<bool>,
 ) -> Result<serde_json::Value, String> {
     let client = reqwest::Client::builder()
         .danger_accept_invalid_certs(true)
@@ -3312,22 +3335,45 @@ pub async fn run_mr_backtest(
     let body = serde_json::json!({
         "exchange": exchange,
         "symbol": symbol,
-        "timeframe": timeframe.unwrap_or_else(|| "1h".to_string()),
-        "htf_timeframe": htf_timeframe.unwrap_or_else(|| "4h".to_string()),
+        "timeframe": timeframe.unwrap_or_else(|| "30m".to_string()),
+        "htf_tf": htf_tf.unwrap_or_else(|| "1D".to_string()),
         "days": days.unwrap_or(365),
         "initial_capital": initial_capital.unwrap_or(10000000.0),
-        "osc_preset": osc_preset.unwrap_or_else(|| "preset1".to_string()),
-        "cash_use_pct": cash_use_pct.unwrap_or(90.0),
-        "use_4regime": use_4regime.unwrap_or(true),
-        "buy_tranches": buy_tranches.unwrap_or_else(|| vec![25.0, 50.0, 75.0, 100.0]),
-        "sell_tranches": sell_tranches.unwrap_or_else(|| vec![50.0, 100.0]),
+        // 오실레이터 설정
+        "osc_preset": osc_preset.unwrap_or_else(|| "custom".to_string()),
+        "osc_smooth_len": osc_smooth_len.unwrap_or(20),
+        "osc_threshold": osc_threshold.unwrap_or(1.0),
+        // 자금관리
+        "cash_use_pct": cash_use_pct.unwrap_or(55.0),
+        "min_profit_pct": min_profit_pct.unwrap_or(0.1),
+        "fee_buffer_pct": fee_buffer_pct.unwrap_or(0.2),
+        "buy_tranches": buy_tranches.unwrap_or_else(|| vec![5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]),
+        "sell_tranches": sell_tranches.unwrap_or_else(|| vec![10.0, 20.0, 30.0, 5.0, 2.5, 1.0]),
+        // R1 국면
+        "r1_buy_mult": r1_buy_mult.unwrap_or(1.0),
+        "r1_sell_mult": r1_sell_mult.unwrap_or(1.0),
+        "r1_allow_osc_buy": r1_allow_osc_buy.unwrap_or(true),
+        "r1_pullback_on": r1_pullback_on.unwrap_or(true),
+        // R2 국면
+        "r2_buy_mult": r2_buy_mult.unwrap_or(1.0),
+        "r2_sell_mult": r2_sell_mult.unwrap_or(1.0),
+        "r2_allow_osc_buy": r2_allow_osc_buy.unwrap_or(true),
+        // R3 국면
+        "r3_buy_mult": r3_buy_mult.unwrap_or(0.5),
+        "r3_sell_mult": r3_sell_mult.unwrap_or(1.0),
+        "r3_allow_osc_buy": r3_allow_osc_buy.unwrap_or(true),
+        "r3_breakout_on": r3_breakout_on.unwrap_or(false),
+        // R4 국면
+        "r4_buy_mult": r4_buy_mult.unwrap_or(0.5),
+        "r4_sell_mult": r4_sell_mult.unwrap_or(1.0),
+        "r4_allow_osc_buy": r4_allow_osc_buy.unwrap_or(true),
     });
 
     let resp = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", access_token))
         .json(&body)
-        .timeout(std::time::Duration::from_secs(60))
+        .timeout(std::time::Duration::from_secs(120))
         .send()
         .await
         .map_err(|e| format!("네트워크 오류: {}", e))?;

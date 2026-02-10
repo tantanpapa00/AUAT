@@ -151,7 +151,9 @@ class MRConfig:
     # Basic
     signal_tf: str = "30m"          # Signal timeframe
     htf_tf: str = "1D"              # HTF timeframe
-    osc_preset: str = "preset1"     # "preset1" or "preset2"
+    osc_preset: str = "preset1"     # "preset1" or "preset2" or "custom"
+    osc_smooth_len: int = 20        # Oscillator smoothing length
+    osc_threshold: float = 1.0      # Oscillator threshold
 
     # Cash management
     cash_use_pct: float = 55.0      # % of available cash to use

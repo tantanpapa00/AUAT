@@ -45,8 +45,8 @@ class PremiumConfigBase(BaseModel):
     min_profit_pct: float = Field(default=0.5, ge=0, le=100)
 
     # Tranches
-    buy_tranches: List[int] = Field(default=[25, 50, 75, 100])
-    sell_tranches: List[int] = Field(default=[50, 100])
+    buy_tranches: List[float] = Field(default=[25.0, 50.0, 75.0, 100.0])
+    sell_tranches: List[float] = Field(default=[50.0, 100.0])
     buy_after_max: str = Field(default="extend")  # extend, cycle, stop
     sell_after_max: str = Field(default="extend")
     buy_stage_1_only: bool = Field(default=False)
@@ -807,15 +807,47 @@ class MRBacktestRequest(BaseModel):
     """Request model for MR backtest."""
     exchange: str = Field(..., description="거래소 (okx, binance, etc)")
     symbol: str = Field(..., description="종목 심볼 (BTC-USDT)")
-    timeframe: str = Field(default="1h", description="타임프레임")
-    htf_timeframe: str = Field(default="4h", description="HTF 타임프레임")
+    timeframe: str = Field(default="30m", description="시그널 타임프레임")
+    htf_tf: str = Field(default="1D", description="HTF 타임프레임")
     days: int = Field(default=365, ge=30, le=1000, description="백테스트 기간 (일)")
     initial_capital: float = Field(default=10000000, ge=1000)
-    osc_preset: str = Field(default="preset1")
-    cash_use_pct: float = Field(default=90.0, ge=0, le=100)
+
+    # 오실레이터 설정
+    osc_preset: str = Field(default="custom")
+    osc_smooth_len: int = Field(default=20, ge=2, le=100)
+    osc_threshold: float = Field(default=1.0, ge=0.1, le=5.0)
+
+    # 자금관리
+    cash_use_pct: float = Field(default=55.0, ge=0, le=100)
+    min_profit_pct: float = Field(default=0.1, ge=0, le=50)
+    fee_buffer_pct: float = Field(default=0.2, ge=0, le=5)
+    buy_tranches: List[float] = Field(default=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5])
+    sell_tranches: List[float] = Field(default=[10, 20, 30, 5, 2.5, 1])
+
+    # 국면 설정
     use_4regime: bool = Field(default=True)
-    buy_tranches: List[int] = Field(default=[25, 50, 75, 100])
-    sell_tranches: List[int] = Field(default=[50, 100])
+
+    # R1 상승장
+    r1_buy_mult: float = Field(default=1.0, ge=0, le=5)
+    r1_sell_mult: float = Field(default=1.3, ge=0, le=5)
+    r1_allow_osc_buy: bool = Field(default=True)
+    r1_pullback_on: bool = Field(default=True)
+
+    # R2 조정장
+    r2_buy_mult: float = Field(default=0.0, ge=0, le=5)
+    r2_sell_mult: float = Field(default=1.6, ge=0, le=5)
+    r2_allow_osc_buy: bool = Field(default=False)
+
+    # R3 반등장
+    r3_buy_mult: float = Field(default=1.0, ge=0, le=5)
+    r3_sell_mult: float = Field(default=1.3, ge=0, le=5)
+    r3_allow_osc_buy: bool = Field(default=True)
+    r3_breakout_on: bool = Field(default=True)
+
+    # R4 하락장
+    r4_buy_mult: float = Field(default=1.2, ge=0, le=5)
+    r4_sell_mult: float = Field(default=0.7, ge=0, le=5)
+    r4_allow_osc_buy: bool = Field(default=True)
 
 
 class MRBacktestResponse(BaseModel):
@@ -845,17 +877,39 @@ async def run_mr_backtest_endpoint(
     from .strategy_engine.models import MRConfig
 
     try:
-        # MR 설정 생성
+        # MR 설정 생성 (모든 국면별 파라미터 포함)
         config = MRConfig(
             osc_preset=request.osc_preset,
+            osc_smooth_len=request.osc_smooth_len,
+            osc_threshold=request.osc_threshold,
             cash_use_pct=request.cash_use_pct,
+            min_profit_pct=request.min_profit_pct,
+            fee_buffer_pct=request.fee_buffer_pct,
             use_4regime=request.use_4regime,
             buy_tranches=request.buy_tranches,
             sell_tranches=request.sell_tranches,
+            # R1
+            r1_buy_mult=request.r1_buy_mult,
+            r1_sell_mult=request.r1_sell_mult,
+            r1_allow_osc_buy=request.r1_allow_osc_buy,
+            r1_pullback_on=request.r1_pullback_on,
+            # R2
+            r2_buy_mult=request.r2_buy_mult,
+            r2_sell_mult=request.r2_sell_mult,
+            r2_allow_osc_buy=request.r2_allow_osc_buy,
+            # R3
+            r3_buy_mult=request.r3_buy_mult,
+            r3_sell_mult=request.r3_sell_mult,
+            r3_allow_osc_buy=request.r3_allow_osc_buy,
+            r3_breakout_on=request.r3_breakout_on,
+            # R4
+            r4_buy_mult=request.r4_buy_mult,
+            r4_sell_mult=request.r4_sell_mult,
+            r4_allow_osc_buy=request.r4_allow_osc_buy,
         )
 
-        # 캔들 데이터 생성 (실제 운영시 candle_fetcher 사용)
-        # 여기서는 샘플 데이터로 테스트
+        # 캔들 데이터 생성 (TODO: 실제 거래소 시세로 교체)
+        # 현재는 샘플 데이터로 테스트
         candles = generate_sample_candles(
             days=request.days,
             base_price=50000.0 if "BTC" in request.symbol.upper() else 1000.0,
