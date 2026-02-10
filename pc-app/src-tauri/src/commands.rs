@@ -3285,6 +3285,61 @@ pub async fn get_signal_events(
 }
 
 // ============================================================================
+// Candle Preload Command (캔들 사전 로딩)
+// ============================================================================
+
+#[tauri::command]
+pub async fn preload_candles(
+    access_token: String,
+    exchange: String,
+    symbol: String,
+    timeframe: Option<String>,
+    days: Option<i32>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .unwrap();
+    let url = format!("{}/api/premium/backtest/preload", VPS_SERVER_URL);
+
+    let body = serde_json::json!({
+        "exchange": exchange,
+        "symbol": symbol,
+        "timeframe": timeframe.unwrap_or_else(|| "1h".to_string()),
+        "days": days.unwrap_or(365),
+    });
+
+    let resp = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .json(&body)
+        .timeout(std::time::Duration::from_secs(120))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    let status = resp.status();
+    let text = resp.text().await.map_err(|e| format!("응답 읽기 실패: {}", e))?;
+
+    if status.is_success() {
+        let data: serde_json::Value = serde_json::from_str(&text)
+            .map_err(|e| format!("JSON 파싱 실패: {}", e))?;
+        Ok(data)
+    } else {
+        // 에러 응답에서 메시지 추출
+        if let Ok(err_data) = serde_json::from_str::<serde_json::Value>(&text) {
+            let msg = err_data.get("message")
+                .or_else(|| err_data.get("error"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("캔들 로드 실패");
+            Err(msg.to_string())
+        } else {
+            Err(format!("서버 에러 ({})", status))
+        }
+    }
+}
+
+// ============================================================================
 // MR Backtest Command (Phase 5)
 // ============================================================================
 

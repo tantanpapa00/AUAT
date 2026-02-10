@@ -7290,12 +7290,17 @@ document.getElementById('btn-mr-run-backtest')?.addEventListener('click', async 
     // 로딩 표시
     const btn = document.getElementById('btn-mr-run-backtest');
     const loadingEl = document.getElementById('mr-backtest-loading');
+    const loadingMsgEl = document.getElementById('mr-backtest-loading-msg');
     const errorEl = document.getElementById('mr-backtest-error');
     const resultEl = document.getElementById('mr-backtest-result');
 
+    const setLoadingMsg = (msg) => {
+        if (loadingMsgEl) loadingMsgEl.textContent = msg;
+    };
+
     if (btn) {
         btn.disabled = true;
-        btn.textContent = '분석 중...';
+        btn.textContent = '준비 중...';
         btn.classList.add('btn-loading');
     }
     if (loadingEl) loadingEl.style.display = 'block';
@@ -7303,7 +7308,29 @@ document.getElementById('btn-mr-run-backtest')?.addEventListener('click', async 
     if (resultEl) resultEl.style.display = 'none';
 
     try {
+        // 1단계: 캔들 프리로드 (시세 데이터 준비)
+        setLoadingMsg('시세 데이터 준비 중...');
+        console.log('[MR 백테스트] 프리로드 시작');
+
+        const preloadResult = await invoke('preload_candles', {
+            accessToken: auth.accessToken || '',
+            exchange: config.exchange,
+            symbol: config.symbol,
+            timeframe: config.signal_tf,
+            days: days,
+        });
+
+        if (!preloadResult.success) {
+            throw new Error(preloadResult.message || '시세 데이터 로드 실패');
+        }
+
+        console.log('[MR 백테스트] 프리로드 완료:', preloadResult.candles, '봉,', preloadResult.time_sec, '초');
+
+        // 2단계: 백테스트 실행
+        setLoadingMsg('전략 분석 중...');
+        if (btn) btn.textContent = '분석 중...';
         console.log('[MR 백테스트] invoke 호출');
+
         const result = await invoke('run_mr_backtest', {
             accessToken: auth.accessToken || '',
             exchange: config.exchange,

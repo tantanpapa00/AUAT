@@ -173,6 +173,8 @@ fn main() {
             commands::register_to_scheduler,
             commands::trigger_signal,
             commands::get_signal_events,
+            // Candle Preload
+            commands::preload_candles,
             // MR Backtest (Phase 5)
             commands::run_mr_backtest,
             // Trend Backtest (추세매매)

@@ -690,19 +690,18 @@ async def fetch_candles_for_backtest(
 
     # DB 캐시 체크
     db = _get_db_session()
-    CandleCache = _get_candle_cache_model()
+    CandleCacheModel = _get_candle_cache_model()
     cached_candles: List[Candle] = []
-    need_exchange_fetch = True
 
-    if db and CandleCache:
+    if db and CandleCacheModel:
         try:
             # DB에서 캐시된 캔들 조회
-            cached_rows = db.query(CandleCache).filter(
-                CandleCache.exchange == exchange,
-                CandleCache.symbol == symbol,
-                CandleCache.timeframe == timeframe,
-                CandleCache.ts >= start_ms,
-            ).order_by(CandleCache.ts).all()
+            cached_rows = db.query(CandleCacheModel).filter(
+                CandleCacheModel.exchange == exchange,
+                CandleCacheModel.symbol == symbol,
+                CandleCacheModel.timeframe == timeframe,
+                CandleCacheModel.ts >= start_ms,
+            ).order_by(CandleCacheModel.ts).all()
 
             if cached_rows:
                 cached_candles = [
@@ -719,13 +718,33 @@ async def fetch_candles_for_backtest(
                         logger.info(f"캐시 HIT: {len(cached_candles)}봉, {time.time() - start_time:.2f}초")
                         db.close()
                         return cached_candles[-needed:]
-                    else:
-                        # 마지막 캔들 이후부터 조회 필요
-                        logger.info(f"캐시 부분 사용: {len(cached_candles)}봉, 이후 데이터 추가 조회")
+
+                # 캐시는 있지만 최신 데이터 필요 → 증분 조회
+                if len(cached_candles) >= needed * 0.8:  # 80% 이상 있으면 증분 조회
+                    last_ts = cached_candles[-1].ts
+                    new_candles = await _fetch_incremental(
+                        exchange, symbol, timeframe, last_ts, now_ms, timeout
+                    )
+                    if new_candles:
+                        # 새 캔들 DB에 저장
+                        _save_candles_to_db(db, CandleCacheModel, exchange, symbol, timeframe, new_candles)
+                        # 기존 캐시 + 새 캔들 합치기
+                        all_candles = cached_candles + new_candles
+                        all_candles.sort(key=lambda c: c.ts)
+                        # 중복 제거
+                        seen = set()
+                        unique = []
+                        for c in all_candles:
+                            if c.ts not in seen:
+                                seen.add(c.ts)
+                                unique.append(c)
+                        db.close()
+                        logger.info(f"증분 조회 완료: 캐시 {len(cached_candles)} + 새로 {len(new_candles)} = {len(unique)}봉")
+                        return unique[-needed:] if len(unique) > needed else unique
         except Exception as e:
             logger.warning(f"DB 캐시 조회 실패: {e}")
 
-    # 거래소에서 조회
+    # 거래소에서 전체 조회
     ctx = ssl.create_default_context()
     all_candles: List[Candle] = []
 
@@ -752,43 +771,10 @@ async def fetch_candles_for_backtest(
     if len(all_candles) > needed:
         all_candles = all_candles[-needed:]
 
-    # DB에 저장 (새로 조회한 캔들만)
-    if db and CandleCache:
-        try:
-            # 기존 캐시된 타임스탬프 set
-            cached_ts_set = {c.ts for c in cached_candles}
-            new_candles = [c for c in all_candles if c.ts not in cached_ts_set]
-
-            if new_candles:
-                # Bulk insert with ON CONFLICT DO NOTHING (PostgreSQL)
-                from sqlalchemy.dialects.postgresql import insert as pg_insert
-                inserted_count = 0
-                for c in new_candles:
-                    try:
-                        stmt = pg_insert(CandleCache).values(
-                            exchange=exchange,
-                            symbol=symbol,
-                            timeframe=timeframe,
-                            ts=c.ts,
-                            o=c.o,
-                            h=c.h,
-                            l=c.l,
-                            c=c.c,
-                            v=c.v,
-                        ).on_conflict_do_nothing(
-                            index_elements=['exchange', 'symbol', 'timeframe', 'ts']
-                        )
-                        db.execute(stmt)
-                        inserted_count += 1
-                    except Exception:
-                        pass  # 개별 에러 무시
-                db.commit()
-                logger.info(f"DB 캐시 저장: {inserted_count}봉 시도")
-        except Exception as e:
-            logger.warning(f"DB 캐시 저장 실패: {e}")
-            db.rollback()
-        finally:
-            db.close()
+    # DB에 저장
+    if db and CandleCacheModel:
+        _save_candles_to_db(db, CandleCacheModel, exchange, symbol, timeframe, all_candles)
+        db.close()
     elif db:
         db.close()
 
@@ -796,6 +782,66 @@ async def fetch_candles_for_backtest(
                 f"{len(all_candles)}봉, {time.time() - start_time:.1f}초")
 
     return all_candles
+
+
+def _save_candles_to_db(db, CandleCacheModel, exchange: str, symbol: str, timeframe: str, candles: List[Candle]):
+    """캔들 DB 저장 (ON CONFLICT DO NOTHING)"""
+    try:
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+        for c in candles:
+            try:
+                stmt = pg_insert(CandleCacheModel).values(
+                    exchange=exchange,
+                    symbol=symbol,
+                    timeframe=timeframe,
+                    ts=c.ts,
+                    o=c.o,
+                    h=c.h,
+                    l=c.l,
+                    c=c.c,
+                    v=c.v,
+                ).on_conflict_do_nothing(
+                    index_elements=['exchange', 'symbol', 'timeframe', 'ts']
+                )
+                db.execute(stmt)
+            except Exception:
+                pass
+        db.commit()
+        logger.info(f"DB 캐시 저장: {len(candles)}봉")
+    except Exception as e:
+        logger.warning(f"DB 캐시 저장 실패: {e}")
+        db.rollback()
+
+
+async def _fetch_incremental(
+    exchange: str,
+    symbol: str,
+    timeframe: str,
+    from_ts: int,
+    to_ts: int,
+    timeout: int,
+) -> List[Candle]:
+    """마지막 캔들 이후 증분 조회"""
+    import ssl
+    ctx = ssl.create_default_context()
+    tf_ms = TF_TO_MS.get(timeframe, 3600 * 1000)
+    needed = int((to_ts - from_ts) / tf_ms) + 10  # 약간 여유
+    needed = min(needed, 500)  # 최대 500봉
+
+    if needed < 1:
+        return []
+
+    try:
+        if exchange == "OKX":
+            return await _fetch_okx_paginated(symbol, timeframe, needed, timeout, ctx)
+        elif exchange == "BINANCE":
+            return await _fetch_binance_paginated(symbol, timeframe, needed, timeout, ctx)
+        elif exchange == "BYBIT":
+            return await _fetch_bybit_paginated(symbol, timeframe, needed, timeout, ctx)
+    except Exception as e:
+        logger.warning(f"증분 조회 실패: {e}")
+        return []
+    return []
 
 
 async def _fetch_okx_paginated(

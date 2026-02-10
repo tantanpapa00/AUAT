@@ -874,6 +874,22 @@ async def _startup_kis_master():
     asyncio.create_task(background_cache_check())
 
 
+# 캔들 프리로더 시작 (주요 종목 자동 캐싱)
+@app.on_event("startup")
+async def _startup_candle_preloader():
+    """앱 시작 시 캔들 프리로더 백그라운드 실행"""
+    import asyncio
+    from .candle_preloader import preload_loop
+
+    # 30초 후 시작 (DB/네트워크 준비 대기)
+    async def delayed_start():
+        await asyncio.sleep(30)
+        print("[Preloader] Starting candle preloader...")
+        await preload_loop()
+
+    asyncio.create_task(delayed_start())
+
+
 # ---- Web Dashboard Templates ----
 templates = Jinja2Templates(directory="app/templates")
 

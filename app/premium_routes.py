@@ -800,6 +800,73 @@ async def get_signal(
 
 
 # ============================================================================
+# Candle Preload API (캔들 사전 로딩)
+# ============================================================================
+
+class PreloadRequest(BaseModel):
+    """캔들 프리로드 요청"""
+    exchange: str = Field(..., description="거래소 (OKX, BINANCE, BYBIT)")
+    symbol: str = Field(..., description="종목 심볼 (BTC-USDT)")
+    timeframe: str = Field(default="1h", description="타임프레임")
+    days: int = Field(default=365, ge=7, le=1000, description="기간 (일)")
+
+
+class PreloadResponse(BaseModel):
+    """캔들 프리로드 응답"""
+    success: bool
+    candles: int = 0
+    cached: bool = False
+    time_sec: float = 0.0
+    message: str = ""
+
+
+@router.post("/backtest/preload", response_model=PreloadResponse)
+async def preload_candles(request: PreloadRequest):
+    """
+    캔들 데이터를 사전 로딩하여 DB에 캐시.
+    백테스트 실행 전에 호출하면 백테스트가 빨라짐.
+    """
+    import time
+    from .strategy_engine.candle_fetcher import fetch_candles_for_backtest
+
+    start_time = time.time()
+
+    try:
+        candles = await fetch_candles_for_backtest(
+            exchange=request.exchange,
+            symbol=request.symbol,
+            timeframe=request.timeframe,
+            days=request.days,
+            timeout=90,
+        )
+
+        elapsed = time.time() - start_time
+        cached = elapsed < 2.0  # 2초 이내면 캐시에서 가져온 것
+
+        return PreloadResponse(
+            success=True,
+            candles=len(candles),
+            cached=cached,
+            time_sec=round(elapsed, 2),
+            message=f"{'캐시에서 로드' if cached else '거래소에서 다운로드'}: {len(candles)}봉",
+        )
+
+    except ValueError as e:
+        return PreloadResponse(
+            success=False,
+            message=str(e),
+            time_sec=round(time.time() - start_time, 2),
+        )
+    except Exception as e:
+        logger.error(f"캔들 프리로드 오류: {e}")
+        return PreloadResponse(
+            success=False,
+            message=f"캔들 로드 실패: {type(e).__name__}",
+            time_sec=round(time.time() - start_time, 2),
+        )
+
+
+# ============================================================================
 # Backtest Endpoints (Phase 5)
 # ============================================================================
 
