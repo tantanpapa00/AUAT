@@ -977,8 +977,8 @@ async def run_mr_backtest_endpoint(
 
         # 추가 메트릭 계산
         sell_trades = [t for t in result.trades if t.action == "sell" and t.pnl_pct is not None]
-        max_profit_pct = max((t.pnl_pct for t in sell_trades if t.pnl_pct > 0), default=None)
-        max_loss_pct = min((t.pnl_pct for t in sell_trades if t.pnl_pct <= 0), default=None)
+        max_profit_pct = max((t.pnl_pct for t in sell_trades if t.pnl_pct > 0), default=0.0)
+        max_loss_pct = min((t.pnl_pct for t in sell_trades if t.pnl_pct <= 0), default=0.0)
 
         # 최종 자본 계산
         final_capital = request.initial_capital
@@ -1003,9 +1003,9 @@ async def run_mr_backtest_endpoint(
                 "max_consecutive_wins": result.metrics.max_consecutive_wins,
                 "max_consecutive_losses": result.metrics.max_consecutive_losses,
                 # 추가 메트릭
-                "avg_profit_pct": round(result.metrics.avg_win_pct, 2) if result.metrics.avg_win_pct else None,
-                "max_profit_pct": round(max_profit_pct, 2) if max_profit_pct is not None else None,
-                "max_loss_pct": round(max_loss_pct, 2) if max_loss_pct is not None else None,
+                "avg_profit_pct": round(result.metrics.avg_win_pct, 2) if result.metrics.avg_win_pct else 0.0,
+                "max_profit_pct": round(max_profit_pct, 2),
+                "max_loss_pct": round(max_loss_pct, 2),
                 "final_capital": round(final_capital, 0),
                 "initial_capital": request.initial_capital,
             },

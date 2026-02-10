@@ -17,6 +17,7 @@ from datetime import datetime, timezone, timedelta
 import time
 import json
 import logging
+import urllib.error
 
 import numpy as np
 from sqlalchemy.orm import Session
@@ -804,8 +805,9 @@ async def _fetch_okx_paginated(
     timeout: int,
     ctx,
 ) -> List[Candle]:
-    """OKX 페이지네이션 조회 (100개씩)"""
+    """OKX 페이지네이션 조회 (100개씩, 429 시 1회 재시도)"""
     import urllib.request
+    import asyncio
 
     all_candles = []
     after = ""
@@ -827,11 +829,25 @@ async def _fetch_okx_paginated(
             "User-Agent": "bbooster-hub/1.0",
         })
 
-        try:
-            with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-        except Exception as e:
-            raise ValueError(f"OKX 연결 실패: {str(e)}")
+        data = None
+        for attempt in range(2):  # 최대 2회 시도
+            try:
+                with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                break
+            except urllib.error.HTTPError as e:
+                if e.code == 429 and attempt == 0:
+                    logger.warning("OKX 429 Rate Limit, 3초 대기 후 재시도")
+                    await asyncio.sleep(3)
+                    continue
+                elif e.code == 429:
+                    raise ValueError("OKX 요청이 제한되었습니다. 2~3분 후 다시 시도해주세요.")
+                raise ValueError(f"OKX 연결 실패: HTTP {e.code}")
+            except Exception as e:
+                raise ValueError(f"OKX 연결 실패: {str(e)}")
+
+        if data is None:
+            raise ValueError("OKX 요청이 제한되었습니다. 2~3분 후 다시 시도해주세요.")
 
         if data.get("code") != "0":
             msg = data.get("msg", "알 수 없는 오류")

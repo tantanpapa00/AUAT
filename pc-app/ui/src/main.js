@@ -7345,7 +7345,7 @@ document.getElementById('btn-mr-run-backtest')?.addEventListener('click', async 
         console.log('[MR 백테스트] 결과:', JSON.stringify(result).substring(0, 300));
 
         if (result.success) {
-            displayMrBacktestResult(result);
+            displayMrBacktestResult(result, config.exchange);
             showToast('백테스트 완료', 'success');
         } else {
             const errorMsg = result.error || result.message || '백테스트 실패';
@@ -7404,7 +7404,7 @@ function displayMrBacktestError(errorMsg) {
     }
 }
 
-function displayMrBacktestResult(result) {
+function displayMrBacktestResult(result, exchange) {
     const errorEl = document.getElementById('mr-backtest-error');
     const resultEl = document.getElementById('mr-backtest-result');
 
@@ -7417,6 +7417,15 @@ function displayMrBacktestResult(result) {
     if (resultEl) resultEl.style.display = 'block';
 
     const m = result.metrics || {};
+
+    // 거래소별 화폐 단위
+    const ex = (exchange || '').toUpperCase();
+    const getCurrency = () => {
+        if (ex === 'KIS_KR') return { unit: '원', large: '만원', factor: 10000 };
+        if (ex === 'KIS_US') return { unit: '$', large: '$', factor: 1 };
+        return { unit: 'USDT', large: 'USDT', factor: 1 };  // OKX, BINANCE, BYBIT
+    };
+    const curr = getCurrency();
 
     // null-safe 헬퍼
     const set = (id, value, color) => {
@@ -7435,10 +7444,16 @@ function displayMrBacktestResult(result) {
     set('mr-bt-cagr', `${(m.cagr_pct ?? 0).toFixed(2)}%`);
     set('mr-bt-mdd', `${(m.max_drawdown_pct ?? 0).toFixed(2)}%`, '#EF4444');
 
-    // 최종 자본
+    // 최종 자본 (화폐 단위 적용)
     const fc = m.final_capital;
     if (fc != null) {
-        set('mr-bt-final-capital', fc >= 10000 ? `${(fc / 10000).toFixed(0)}만원` : `${Math.round(fc).toLocaleString()}원`);
+        if (curr.unit === '원') {
+            set('mr-bt-final-capital', fc >= 10000 ? `${(fc / 10000).toFixed(0)}만원` : `${Math.round(fc).toLocaleString()}원`);
+        } else if (curr.unit === '$') {
+            set('mr-bt-final-capital', `$${Number(fc).toLocaleString(undefined, { maximumFractionDigits: 2 })}`);
+        } else {
+            set('mr-bt-final-capital', `${Number(fc).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${curr.unit}`);
+        }
     } else {
         set('mr-bt-final-capital', '--');
     }
@@ -7446,14 +7461,26 @@ function displayMrBacktestResult(result) {
     // 거래 메트릭
     set('mr-bt-winrate', `${(m.win_rate_pct ?? 0).toFixed(1)}%`);
     set('mr-bt-trades', `${m.total_trades ?? 0}회`);
-    set('mr-bt-profit-factor', (m.profit_factor ?? 0).toFixed(2));
+
+    // 손익비: 손실 거래 0이면 ∞
+    const pf = m.profit_factor ?? 0;
+    if (pf === 0 && m.total_trades > 0 && m.losing_trades === 0) {
+        set('mr-bt-profit-factor', '∞');
+    } else {
+        set('mr-bt-profit-factor', pf.toFixed(2));
+    }
     set('mr-bt-sharpe', (m.sharpe_ratio ?? 0).toFixed(2));
 
-    // 수익/손실 메트릭
-    set('mr-bt-avg-profit', m.avg_profit_pct != null ? `+${Math.abs(m.avg_profit_pct).toFixed(2)}%` : '--', '#22C55E');
-    set('mr-bt-avg-loss', m.avg_loss_pct != null ? `${m.avg_loss_pct.toFixed(2)}%` : '--', '#EF4444');
-    set('mr-bt-max-profit', m.max_profit_pct != null ? `+${Math.abs(m.max_profit_pct).toFixed(2)}%` : '--', '#22C55E');
-    set('mr-bt-max-loss', m.max_loss_pct != null ? `${m.max_loss_pct.toFixed(2)}%` : '--', '#EF4444');
+    // 수익/손실 메트릭 (0이면 0.00%로 표시)
+    const avgProfit = m.avg_profit_pct ?? 0;
+    const avgLoss = m.avg_loss_pct ?? 0;
+    const maxProfit = m.max_profit_pct ?? 0;
+    const maxLoss = m.max_loss_pct ?? 0;
+
+    set('mr-bt-avg-profit', `+${Math.abs(avgProfit).toFixed(2)}%`, '#22C55E');
+    set('mr-bt-avg-loss', `${avgLoss.toFixed(2)}%`, '#EF4444');
+    set('mr-bt-max-profit', `+${Math.abs(maxProfit).toFixed(2)}%`, '#22C55E');
+    set('mr-bt-max-loss', `${maxLoss.toFixed(2)}%`, '#EF4444');
 
     // 메시지
     set('mr-bt-message', result.message || '');
@@ -7501,7 +7528,10 @@ function renderMrTradesTable(trades) {
             dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
         }
 
-        const trancheText = t.tranche != null ? (isBuy ? `B${t.tranche}` : `S${t.tranche}`) : '-';
+        // 거래 차수: B0 → 매수1차, S0 → 매도1차
+        const trancheText = t.tranche != null
+            ? (isBuy ? `매수${t.tranche + 1}차` : `매도${t.tranche + 1}차`)
+            : '-';
 
         return `<tr>
             <td style="padding:6px 4px; color:#9CA3AF;">${idx + 1}</td>

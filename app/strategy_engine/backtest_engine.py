@@ -273,13 +273,26 @@ def run_mr_backtest(
     # 마지막 포지션 정리
     if position.quantity > 0:
         last_price = candles[-1].c
-        pnl = position.remove(position.quantity, last_price)
-        proceeds = position.quantity * last_price
+        last_qty = position.quantity
+        pnl = position.remove(last_qty, last_price)
+        proceeds = last_qty * last_price
         fee = proceeds * fee_rate
         capital += proceeds - fee
 
     # 최종 자산
     final_equity = capital
+
+    # 최종 equity_curve 업데이트 (마지막 포지션 청산 반영)
+    if equity_curve:
+        last_candle = candles[-1]
+        equity_curve.append({
+            "bar_index": len(candles) - 1,
+            "timestamp": last_candle.ts,
+            "equity": final_equity,
+            "position_qty": 0,
+            "position_value": 0,
+            "cash": final_equity,
+        })
 
     # 성과 지표 계산
     metrics = calculate_metrics(
