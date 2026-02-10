@@ -673,19 +673,90 @@ class KISConnector(Connector):
                 raw={"error": "exception", "detail": f"{type(e).__name__}: {e}"},
             )]
 
-    def get_ticker(self, symbol: str) -> TickerInfo:
+    def get_domestic_price(self, symbol: str) -> Optional[Dict[str, Any]]:
         """
-        KIS 현재가 조회 (국내주식시세/주식현재가)
-        TODO: 실제 KIS API 호출 구현 필요
+        KIS 국내주식 현재가 조회
+        symbol: "005930" (삼성전자), "000660" (SK하이닉스) 등 6자리 종목코드
+        Returns: {"price": 55000, "open": 54500, "high": 56000, "low": 54000, "volume": 12345678}
+                 or None on failure
         """
-        # KIS는 현재가 조회를 위해 별도 API 호출 필요
-        # 일단 미구현 상태로 반환
+        ok, status, j, raw = self.request(
+            method="GET",
+            path="/uapi/domestic-stock/v1/quotations/inquire-price",
+            params={
+                "FID_COND_MRKT_DIV_CODE": "J",  # J: 주식, ETF, ETN
+                "FID_INPUT_ISCD": symbol,
+            },
+            headers={
+                "tr_id": "FHKST01010100",
+                "custtype": "P",
+            },
+            require_token=True,
+        )
+
+        if not ok or status != 200:
+            return None
+
+        rt_cd = (j or {}).get("rt_cd")
+        if rt_cd != "0":
+            return None
+
+        output = (j or {}).get("output") or {}
+        try:
+            return {
+                "price": float(output.get("stck_prpr", 0)),
+                "open": float(output.get("stck_oprc", 0)),
+                "high": float(output.get("stck_hgpr", 0)),
+                "low": float(output.get("stck_lwpr", 0)),
+                "volume": int(output.get("acml_vol", 0)),
+                "change": float(output.get("prdy_vrss", 0)),
+                "change_pct": float(output.get("prdy_ctrt", 0)),
+            }
+        except (ValueError, TypeError):
+            return None
+
+    def get_ticker(self, symbol: str, market: str = "KR") -> TickerInfo:
+        """
+        KIS 통합 현재가 조회
+        market="KR": 국내주식 (get_domestic_price)
+        market="US": 해외주식 (get_overseas_price)
+        """
+        if market == "US":
+            price = self.get_overseas_price(symbol)
+            if price is None:
+                return TickerInfo(
+                    ok=False,
+                    exchange=self.exchange,
+                    symbol=symbol,
+                    err_code="price_fetch_failed",
+                    err_msg="Failed to get overseas price",
+                )
+            return TickerInfo(
+                ok=True,
+                exchange=self.exchange,
+                symbol=symbol,
+                last=price,
+            )
+
+        # market == "KR" (default)
+        data = self.get_domestic_price(symbol)
+        if data is None:
+            return TickerInfo(
+                ok=False,
+                exchange=self.exchange,
+                symbol=symbol,
+                err_code="price_fetch_failed",
+                err_msg="Failed to get domestic price",
+            )
         return TickerInfo(
-            ok=False,
+            ok=True,
             exchange=self.exchange,
             symbol=symbol,
-            err_code="not_implemented",
-            err_msg="KIS get_ticker not implemented yet",
+            last=data["price"],
+            high24h=data.get("high"),
+            low24h=data.get("low"),
+            vol24h=float(data.get("volume", 0)),
+            raw=data,
         )
 
     # ---------------------
