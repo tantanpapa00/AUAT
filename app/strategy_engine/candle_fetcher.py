@@ -475,13 +475,19 @@ async def _get_kis_token() -> Optional[str]:
 
     global _kis_token_cache
 
-    # 환경변수에서 키 가져오기
+    # 환경변수에서 키 가져오기 (KIS_APP_KEY 우선, 없으면 KIS_PAPER_APP_KEY)
     app_key = os.getenv("KIS_APP_KEY", "").strip()
     app_secret = os.getenv("KIS_APP_SECRET", "").strip()
+
+    # KIS_APP_KEY가 없으면 PAPER 키 사용 (VPS 환경)
+    if not app_key or not app_secret:
+        app_key = os.getenv("KIS_PAPER_APP_KEY", "").strip()
+        app_secret = os.getenv("KIS_PAPER_APP_SECRET", "").strip()
+
     is_mock = os.getenv("KIS_MOCK", "true").lower() == "true"
 
     if not app_key or not app_secret:
-        logger.warning("KIS_APP_KEY 또는 KIS_APP_SECRET이 설정되지 않았습니다")
+        logger.warning("KIS_APP_KEY 또는 KIS_PAPER_APP_KEY가 설정되지 않았습니다")
         return None
 
     # 캐시된 토큰이 유효한지 확인
@@ -527,9 +533,12 @@ async def _fetch_kis_kr_candles(
     import ssl
     import os
 
-    # KIS API 설정
+    # KIS API 설정 (KIS_APP_KEY 우선, 없으면 KIS_PAPER_APP_KEY)
     app_key = os.getenv("KIS_APP_KEY", "").strip()
     app_secret = os.getenv("KIS_APP_SECRET", "").strip()
+    if not app_key or not app_secret:
+        app_key = os.getenv("KIS_PAPER_APP_KEY", "").strip()
+        app_secret = os.getenv("KIS_PAPER_APP_SECRET", "").strip()
     is_mock = os.getenv("KIS_MOCK", "true").lower() == "true"
 
     access_token = await _get_kis_token()
@@ -660,6 +669,10 @@ async def _fetch_kis_us_candles(
     # KIS API 설정
     app_key = os.getenv("KIS_APP_KEY", "").strip()
     app_secret = os.getenv("KIS_APP_SECRET", "").strip()
+    # KIS_APP_KEY가 없으면 PAPER 키 사용 (VPS 환경)
+    if not app_key or not app_secret:
+        app_key = os.getenv("KIS_PAPER_APP_KEY", "").strip()
+        app_secret = os.getenv("KIS_PAPER_APP_SECRET", "").strip()
     is_mock = os.getenv("KIS_MOCK", "true").lower() == "true"
 
     access_token = await _get_kis_token()
@@ -1278,6 +1291,10 @@ async def _fetch_kis_kr_paginated(
     # KIS API 설정
     app_key = os.getenv("KIS_APP_KEY", "").strip()
     app_secret = os.getenv("KIS_APP_SECRET", "").strip()
+    # KIS_APP_KEY가 없으면 PAPER 키 사용 (VPS 환경)
+    if not app_key or not app_secret:
+        app_key = os.getenv("KIS_PAPER_APP_KEY", "").strip()
+        app_secret = os.getenv("KIS_PAPER_APP_SECRET", "").strip()
     is_mock = os.getenv("KIS_MOCK", "true").lower() == "true"
 
     access_token = await _get_kis_token()
@@ -1391,6 +1408,10 @@ async def _fetch_kis_us_paginated(
     # KIS API 설정
     app_key = os.getenv("KIS_APP_KEY", "").strip()
     app_secret = os.getenv("KIS_APP_SECRET", "").strip()
+    # KIS_APP_KEY가 없으면 PAPER 키 사용 (VPS 환경)
+    if not app_key or not app_secret:
+        app_key = os.getenv("KIS_PAPER_APP_KEY", "").strip()
+        app_secret = os.getenv("KIS_PAPER_APP_SECRET", "").strip()
     is_mock = os.getenv("KIS_MOCK", "true").lower() == "true"
 
     access_token = await _get_kis_token()
