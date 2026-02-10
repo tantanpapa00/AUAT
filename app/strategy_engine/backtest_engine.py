@@ -146,7 +146,8 @@ def run_mr_backtest(
     htf_volumes = np.array([c.v for c in htf_candles])
 
     # 각 봉에 대해 시뮬레이션
-    lookback = min(200, len(candles) - 1)  # 지표 계산에 필요한 최소 봉 수 (HTF 지표용 200)
+    # OSC preset1: bb_len=250 필요, HTF 지표: 200 필요 → 300으로 설정
+    lookback = min(300, len(candles) - 1)
 
     for i in range(lookback, len(candles)):
         candle = candles[i]
