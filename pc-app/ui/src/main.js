@@ -7083,10 +7083,14 @@ function collectMrConfig() {
         sellTranches.push(parseFloat(input.value) || 0);
     });
 
+    // 종목 심볼: 자동완성에서 선택 시 dataset.selectedCode (BTC-USDT), 없으면 입력값
+    const symbolInput = document.getElementById('mr-symbol');
+    const symbolValue = symbolInput?.dataset?.selectedCode || symbolInput?.value || '';
+
     return {
         // ① 거래소 + 종목
         exchange: document.getElementById('mr-exchange')?.value || '',
-        symbol: document.getElementById('mr-symbol')?.value || '',
+        symbol: symbolValue,
 
         // ② 가용자금
         cash_use_pct: parseFloat(document.getElementById('mr-cash-use-pct')?.value) || 55,

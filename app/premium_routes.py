@@ -964,10 +964,10 @@ async def run_mr_backtest_endpoint(
                 "pnl_pct": t.pnl_pct,
             })
 
-        # equity_curve 샘플링 (너무 많으면 줄임)
+        # equity_curve 샘플링 (최대 200포인트로 제한)
         equity_curve = result.equity_curve
-        if len(equity_curve) > 500:
-            step = len(equity_curve) // 500
+        if len(equity_curve) > 200:
+            step = max(1, len(equity_curve) // 200)
             equity_curve = equity_curve[::step]
 
         return MRBacktestResponse(
@@ -1160,10 +1160,10 @@ async def run_trend_backtest_endpoint(
                 "pnl_pct": t.pnl_pct,
             })
 
-        # equity_curve 샘플링 (너무 많으면 줄임)
+        # equity_curve 샘플링 (최대 200포인트로 제한)
         equity_curve = result.equity_curve
-        if len(equity_curve) > 500:
-            step = len(equity_curve) // 500
+        if len(equity_curve) > 200:
+            step = max(1, len(equity_curve) // 200)
             equity_curve = equity_curve[::step]
 
         return TrendBacktestResponse(
