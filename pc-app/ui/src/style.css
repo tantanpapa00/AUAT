@@ -7530,6 +7530,22 @@ body {
     color: #E5E7EB;
 }
 
+.mr-metric-card .metric-sub {
+    font-size: 12px;
+    color: #9CA3AF;
+    margin-top: 2px;
+}
+
+/* 수익률 테이블 (트레이딩뷰 3열) */
+#mr-bt-performance-table tbody tr {
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+#mr-bt-performance-table td {
+    padding: 8px;
+    color: #D1D5DB;
+}
+
 /* 거래 내역 테이블 */
 #mr-bt-trades-table tbody tr {
     border-bottom: 1px solid rgba(255,255,255,0.05);

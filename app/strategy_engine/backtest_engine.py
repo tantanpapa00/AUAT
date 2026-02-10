@@ -271,11 +271,15 @@ class BacktestTrade:
     reason_code: str
     pnl: Optional[float] = None
     pnl_pct: Optional[float] = None
+    commission: float = 0.0  # 이 거래의 수수료
 
 
 @dataclass
 class BacktestMetrics:
-    """백테스트 성과 지표"""
+    """백테스트 성과 지표 (트레이딩뷰 동일 구조)"""
+    # 기본
+    initial_capital: float = 0.0
+    final_capital: float = 0.0
     total_return_pct: float = 0.0
     cagr_pct: float = 0.0
     max_drawdown_pct: float = 0.0
@@ -289,6 +293,46 @@ class BacktestMetrics:
     profit_factor: float = 0.0
     max_consecutive_wins: int = 0
     max_consecutive_losses: int = 0
+
+    # 트레이딩뷰 추가 필드
+    net_profit: float = 0.0           # 순손익 금액
+    net_profit_pct: float = 0.0       # 순손익 %
+    gross_profit: float = 0.0         # 총수익 금액
+    gross_profit_pct: float = 0.0     # 총수익 %
+    gross_loss: float = 0.0           # 총손실 금액 (양수로)
+    gross_loss_pct: float = 0.0       # 총손실 %
+    max_drawdown: float = 0.0         # 최대 자본 감소 금액
+    commission_paid: float = 0.0      # 지불된 수수료 총액
+    expected_value: float = 0.0       # 기대수익 (순손익 / 총거래)
+    unrealized_pnl: float = 0.0       # 미실현 손익 금액
+    unrealized_pnl_pct: float = 0.0   # 미실현 손익 %
+
+    # 매수/매도 분리 통계
+    buy_net_profit: float = 0.0
+    buy_net_profit_pct: float = 0.0
+    buy_gross_profit: float = 0.0
+    buy_gross_profit_pct: float = 0.0
+    buy_gross_loss: float = 0.0
+    buy_gross_loss_pct: float = 0.0
+    buy_profit_factor: float = 0.0
+    buy_commission: float = 0.0
+    buy_expected_value: float = 0.0
+    buy_trades: int = 0
+    buy_winning: int = 0
+    buy_losing: int = 0
+
+    sell_net_profit: float = 0.0      # 역추세는 0
+    sell_net_profit_pct: float = 0.0
+    sell_gross_profit: float = 0.0
+    sell_gross_profit_pct: float = 0.0
+    sell_gross_loss: float = 0.0
+    sell_gross_loss_pct: float = 0.0
+    sell_profit_factor: float = 0.0
+    sell_commission: float = 0.0
+    sell_expected_value: float = 0.0
+    sell_trades: int = 0
+    sell_winning: int = 0
+    sell_losing: int = 0
 
 
 @dataclass
@@ -365,6 +409,7 @@ def run_mr_backtest(
     state = StrategyState()
     position = Position()
     capital = initial_capital
+    total_commission = 0.0  # 수수료 누적
 
     # 결과 저장
     trades: List[BacktestTrade] = []
@@ -410,10 +455,12 @@ def run_mr_backtest(
 
         # 현재 자산 평가
         equity = capital + (position.quantity * price)
+        pct = ((equity - initial_capital) / initial_capital) * 100 if initial_capital > 0 else 0.0
         equity_curve.append({
             "bar_index": i,
             "timestamp": candle.ts,
             "equity": equity,
+            "pct": round(pct, 2),  # 수익률 %
             "position_qty": position.quantity,
             "position_value": position.quantity * price,
             "cash": capital,
@@ -497,6 +544,7 @@ def run_mr_backtest(
 
                 if use_amount > 0:
                     fee = use_amount * fee_rate
+                    total_commission += fee  # 수수료 누적
                     net_amount = use_amount - fee
                     qty = net_amount / price
 
@@ -511,6 +559,7 @@ def run_mr_backtest(
                         quantity=qty,
                         tranche=state.buy_stage,
                         reason_code=signal.reason_code,
+                        commission=fee,  # 이 거래의 수수료
                     ))
 
             elif signal.action == "sell" and position.quantity > 0:
@@ -519,14 +568,16 @@ def run_mr_backtest(
                 sell_qty = position.quantity * sell_pct
 
                 if sell_qty > 0:
+                    avg_price_before = position.avg_price  # 매도 전 평균단가 저장
                     pnl = position.remove(sell_qty, price)
                     proceeds = sell_qty * price
                     fee = proceeds * fee_rate
+                    total_commission += fee  # 수수료 누적
                     net_proceeds = proceeds - fee
                     pnl -= fee  # 수수료 차감
 
                     capital += net_proceeds
-                    pnl_pct = (price - position.avg_price) / position.avg_price * 100 if position.avg_price > 0 else 0
+                    pnl_pct = (price - avg_price_before) / avg_price_before * 100 if avg_price_before > 0 else 0
 
                     trades.append(BacktestTrade(
                         bar_index=i,
@@ -538,15 +589,27 @@ def run_mr_backtest(
                         reason_code=signal.reason_code,
                         pnl=pnl,
                         pnl_pct=pnl_pct,
+                        commission=fee,  # 이 거래의 수수료
                     ))
 
-    # 마지막 포지션 정리
+    # 미실현 손익 계산 (포지션 강제 청산 전)
+    unrealized_pnl = 0.0
+    unrealized_pnl_pct = 0.0
+    if position.quantity > 0:
+        last_price = candles[-1].c
+        # 미실현 PnL = (현재가 - 평균단가) * 수량 - 예상 매도 수수료
+        estimated_sell_fee = position.quantity * last_price * fee_rate
+        unrealized_pnl = (last_price - position.avg_price) * position.quantity - estimated_sell_fee
+        unrealized_pnl_pct = (unrealized_pnl / initial_capital) * 100 if initial_capital > 0 else 0
+
+    # 마지막 포지션 정리 (백테스트 종료 시 강제 청산)
     if position.quantity > 0:
         last_price = candles[-1].c
         last_qty = position.quantity
         pnl = position.remove(last_qty, last_price)
         proceeds = last_qty * last_price
         fee = proceeds * fee_rate
+        total_commission += fee  # 수수료 누적
         capital += proceeds - fee
 
     # 최종 자산
@@ -555,10 +618,12 @@ def run_mr_backtest(
     # 최종 equity_curve 업데이트 (마지막 포지션 청산 반영)
     if equity_curve:
         last_candle = candles[-1]
+        final_pct = ((final_equity - initial_capital) / initial_capital) * 100 if initial_capital > 0 else 0.0
         equity_curve.append({
             "bar_index": len(candles) - 1,
             "timestamp": last_candle.ts,
             "equity": final_equity,
+            "pct": round(final_pct, 2),  # 수익률 %
             "position_qty": 0,
             "position_value": 0,
             "cash": final_equity,
@@ -570,6 +635,9 @@ def run_mr_backtest(
         trades=trades,
         initial_capital=initial_capital,
         final_equity=final_equity,
+        total_commission=total_commission,
+        unrealized_pnl=unrealized_pnl,
+        unrealized_pnl_pct=unrealized_pnl_pct,
     )
 
     return BacktestResult(
@@ -587,15 +655,23 @@ def calculate_metrics(
     trades: List[BacktestTrade],
     initial_capital: float,
     final_equity: float,
+    total_commission: float = 0.0,
+    unrealized_pnl: float = 0.0,
+    unrealized_pnl_pct: float = 0.0,
 ) -> BacktestMetrics:
-    """성과 지표 계산"""
+    """성과 지표 계산 (트레이딩뷰 동일 구조)"""
     metrics = BacktestMetrics()
+
+    # 기본 자본 정보
+    metrics.initial_capital = initial_capital
+    metrics.final_capital = final_equity
 
     if not equity_curve:
         return metrics
 
+    # === 기본 메트릭 ===
     # 총 수익률
-    metrics.total_return_pct = (final_equity - initial_capital) / initial_capital * 100
+    metrics.total_return_pct = (final_equity - initial_capital) / initial_capital * 100 if initial_capital > 0 else 0
 
     # CAGR (연환산 수익률)
     days = len(equity_curve)
@@ -606,12 +682,17 @@ def calculate_metrics(
     # MDD (최대 낙폭)
     peak = initial_capital
     max_dd = 0
+    max_dd_amount = 0
     for point in equity_curve:
         eq = point["equity"]
         peak = max(peak, eq)
         dd = (peak - eq) / peak * 100 if peak > 0 else 0
-        max_dd = max(max_dd, dd)
+        dd_amount = peak - eq
+        if dd > max_dd:
+            max_dd = dd
+            max_dd_amount = dd_amount
     metrics.max_drawdown_pct = -max_dd
+    metrics.max_drawdown = -max_dd_amount
 
     # 샤프 비율
     if len(equity_curve) > 1:
@@ -628,54 +709,112 @@ def calculate_metrics(
             if std_ret > 0:
                 metrics.sharpe_ratio = avg_ret / std_ret * math.sqrt(252)
 
-    # 거래 통계
+    # === 수수료 & 미실현 손익 ===
+    metrics.commission_paid = total_commission
+    metrics.unrealized_pnl = unrealized_pnl
+    metrics.unrealized_pnl_pct = unrealized_pnl_pct
+
+    # === 거래 통계 ===
     sell_trades = [t for t in trades if t.action == "sell" and t.pnl is not None]
+    buy_trades = [t for t in trades if t.action == "buy"]
     metrics.total_trades = len(sell_trades)
 
+    # 총수익 / 총손실 계산
+    wins = [t for t in sell_trades if t.pnl > 0]
+    losses = [t for t in sell_trades if t.pnl <= 0]
+
+    gross_profit = sum(t.pnl for t in wins) if wins else 0
+    gross_loss = abs(sum(t.pnl for t in losses)) if losses else 0
+    net_profit = gross_profit - gross_loss
+
+    metrics.gross_profit = gross_profit
+    metrics.gross_profit_pct = (gross_profit / initial_capital) * 100 if initial_capital > 0 else 0
+    metrics.gross_loss = gross_loss
+    metrics.gross_loss_pct = (gross_loss / initial_capital) * 100 if initial_capital > 0 else 0
+    metrics.net_profit = net_profit
+    metrics.net_profit_pct = (net_profit / initial_capital) * 100 if initial_capital > 0 else 0
+
+    # 승/패 통계
+    metrics.winning_trades = len(wins)
+    metrics.losing_trades = len(losses)
+    metrics.win_rate_pct = len(wins) / len(sell_trades) * 100 if sell_trades else 0
+
+    if wins:
+        total_win = sum(t.pnl for t in wins)
+        metrics.avg_win_pct = (total_win / len(wins)) / initial_capital * 100
+
+    if losses:
+        total_loss = sum(t.pnl for t in losses)
+        metrics.avg_loss_pct = (total_loss / len(losses)) / initial_capital * 100
+
+    # Profit Factor
+    if gross_loss > 0:
+        metrics.profit_factor = gross_profit / gross_loss
+    elif gross_profit > 0:
+        metrics.profit_factor = float('inf')
+
+    # 기대수익
     if sell_trades:
-        wins = [t for t in sell_trades if t.pnl > 0]
-        losses = [t for t in sell_trades if t.pnl <= 0]
+        metrics.expected_value = net_profit / len(sell_trades)
 
-        metrics.winning_trades = len(wins)
-        metrics.losing_trades = len(losses)
-        metrics.win_rate_pct = len(wins) / len(sell_trades) * 100
+    # 연속 승/패
+    current_streak = 0
+    max_win_streak = 0
+    max_loss_streak = 0
+    last_was_win = None
 
-        if wins:
-            total_win = sum(t.pnl for t in wins)
-            metrics.avg_win_pct = (total_win / len(wins)) / initial_capital * 100
+    for t in sell_trades:
+        is_win = t.pnl > 0
+        if last_was_win is None or is_win == last_was_win:
+            current_streak += 1
+        else:
+            current_streak = 1
 
-        if losses:
-            total_loss = sum(t.pnl for t in losses)
-            metrics.avg_loss_pct = (total_loss / len(losses)) / initial_capital * 100
+        if is_win:
+            max_win_streak = max(max_win_streak, current_streak)
+        else:
+            max_loss_streak = max(max_loss_streak, current_streak)
 
-        # Profit Factor
-        total_wins = sum(t.pnl for t in wins) if wins else 0
-        total_losses = abs(sum(t.pnl for t in losses)) if losses else 0
-        if total_losses > 0:
-            metrics.profit_factor = total_wins / total_losses
+        last_was_win = is_win
 
-        # 연속 승/패
-        current_streak = 0
-        max_win_streak = 0
-        max_loss_streak = 0
-        last_was_win = None
+    metrics.max_consecutive_wins = max_win_streak
+    metrics.max_consecutive_losses = max_loss_streak
 
-        for t in sell_trades:
-            is_win = t.pnl > 0
-            if last_was_win is None or is_win == last_was_win:
-                current_streak += 1
-            else:
-                current_streak = 1
+    # === 매수/매도 분리 통계 ===
+    # 역추세 매매에서 매수는 "진입", 매도는 "청산"
+    # 손익은 매도 시점에 계산됨 → 모든 손익은 "매수 포지션"의 손익
+    # 따라서 buy_* 에 전체 통계를 넣고, sell_* 은 0으로
 
-            if is_win:
-                max_win_streak = max(max_win_streak, current_streak)
-            else:
-                max_loss_streak = max(max_loss_streak, current_streak)
+    # 매수 수수료 계산
+    buy_commission = sum(t.commission for t in buy_trades)
+    sell_commission = sum(t.commission for t in sell_trades)
 
-            last_was_win = is_win
+    metrics.buy_trades = len(sell_trades)  # 매수 포지션 = 청산(매도) 건수
+    metrics.buy_winning = len(wins)
+    metrics.buy_losing = len(losses)
+    metrics.buy_gross_profit = gross_profit
+    metrics.buy_gross_profit_pct = metrics.gross_profit_pct
+    metrics.buy_gross_loss = gross_loss
+    metrics.buy_gross_loss_pct = metrics.gross_loss_pct
+    metrics.buy_net_profit = net_profit
+    metrics.buy_net_profit_pct = metrics.net_profit_pct
+    metrics.buy_profit_factor = metrics.profit_factor
+    metrics.buy_commission = buy_commission + sell_commission  # 매수+매도 수수료 합
+    metrics.buy_expected_value = metrics.expected_value
 
-        metrics.max_consecutive_wins = max_win_streak
-        metrics.max_consecutive_losses = max_loss_streak
+    # 매도 분리 (역추세에서는 공매도 없음)
+    metrics.sell_trades = 0
+    metrics.sell_winning = 0
+    metrics.sell_losing = 0
+    metrics.sell_gross_profit = 0
+    metrics.sell_gross_profit_pct = 0
+    metrics.sell_gross_loss = 0
+    metrics.sell_gross_loss_pct = 0
+    metrics.sell_net_profit = 0
+    metrics.sell_net_profit_pct = 0
+    metrics.sell_profit_factor = 0
+    metrics.sell_commission = 0
+    metrics.sell_expected_value = 0
 
     return metrics
 

@@ -924,6 +924,7 @@ class MRBacktestResponse(BaseModel):
     success: bool
     message: str = ""
     error: Optional[str] = None
+    exchange: Optional[str] = None  # 화폐 단위 결정용
     metrics: Dict[str, Any] = {}
     equity_curve: List[Dict[str, Any]] = []
     trades: List[Dict[str, Any]] = []
@@ -1016,24 +1017,47 @@ async def run_mr_backtest_endpoint(
                 error=result.message,
             )
 
-        # 결과 변환 - trades 확장
+        # 결과 변환 - trades 확장 (트레이딩뷰 동일)
         trades_list = []
         cumulative_pnl = 0.0
         for idx, t in enumerate(result.trades):
             if t.action == "sell" and t.pnl is not None:
                 cumulative_pnl += t.pnl
+
+            # 거래 타입 (한글)
+            type_text = "매수" if t.action == "buy" else "매도"
+
+            # 차수 (B0→매수1차, S0→매도1차)
+            if t.action == "buy":
+                tranche_text = f"매수{t.tranche + 1}차"
+            else:
+                tranche_text = f"매도{t.tranche + 1}차"
+
+            # 날짜 포맷
+            from datetime import datetime
+            date_str = ""
+            if t.timestamp:
+                dt = datetime.fromtimestamp(t.timestamp / 1000)
+                date_str = dt.strftime("%Y-%m-%d %H:%M")
+
             trades_list.append({
                 "no": idx + 1,
+                "type": type_text,
+                "date": date_str,
                 "bar_index": t.bar_index,
                 "timestamp": t.timestamp,
                 "action": t.action,
-                "price": t.price,
+                "price": round(t.price, 2),
+                "qty": round(t.quantity, 6),
                 "quantity": t.quantity,
-                "tranche": t.tranche,
+                "tranche": tranche_text,
+                "tranche_idx": t.tranche,
                 "reason_code": t.reason_code,
-                "pnl": t.pnl,
-                "pnl_pct": t.pnl_pct,
-                "cumulative_pnl": cumulative_pnl if t.action == "sell" else None,
+                "pnl": round(t.pnl, 2) if t.pnl is not None else None,
+                "pnl_pct": round(t.pnl_pct, 2) if t.pnl_pct is not None else None,
+                "cumulative_pnl": round(cumulative_pnl, 2) if t.action == "sell" else None,
+                "commission": round(t.commission, 4) if t.commission else 0,
+                "regime": getattr(t, 'regime', None),
             })
 
         # equity_curve 샘플링 (최대 200포인트로 제한)
@@ -1047,34 +1071,75 @@ async def run_mr_backtest_endpoint(
         max_profit_pct = max((t.pnl_pct for t in sell_trades if t.pnl_pct > 0), default=0.0)
         max_loss_pct = min((t.pnl_pct for t in sell_trades if t.pnl_pct <= 0), default=0.0)
 
-        # 최종 자본 계산
-        final_capital = request.initial_capital
-        if equity_curve:
-            final_capital = equity_curve[-1].get("equity", request.initial_capital)
+        m = result.metrics  # 편의상 alias
 
         return MRBacktestResponse(
             success=True,
-            message=f"백테스트 완료: {len(candles)}봉 분석, {result.metrics.total_trades}거래",
+            message=f"백테스트 완료: {len(candles)}봉 분석, {m.total_trades}거래",
+            exchange=request.exchange,  # 화폐 단위 결정용
             metrics={
-                "total_return_pct": round(result.metrics.total_return_pct, 2),
-                "cagr_pct": round(result.metrics.cagr_pct, 2),
-                "max_drawdown_pct": round(result.metrics.max_drawdown_pct, 2),
-                "sharpe_ratio": round(result.metrics.sharpe_ratio, 2),
-                "win_rate_pct": round(result.metrics.win_rate_pct, 1),
-                "total_trades": result.metrics.total_trades,
-                "winning_trades": result.metrics.winning_trades,
-                "losing_trades": result.metrics.losing_trades,
-                "avg_win_pct": round(result.metrics.avg_win_pct, 2),
-                "avg_loss_pct": round(result.metrics.avg_loss_pct, 2),
-                "profit_factor": round(result.metrics.profit_factor, 2),
-                "max_consecutive_wins": result.metrics.max_consecutive_wins,
-                "max_consecutive_losses": result.metrics.max_consecutive_losses,
-                # 추가 메트릭
-                "avg_profit_pct": round(result.metrics.avg_win_pct, 2) if result.metrics.avg_win_pct else 0.0,
+                # === 기본 ===
+                "initial_capital": round(m.initial_capital, 0),
+                "final_capital": round(m.final_capital, 0),
+                "total_return_pct": round(m.total_return_pct, 2),
+                "cagr_pct": round(m.cagr_pct, 2),
+                "max_drawdown_pct": round(m.max_drawdown_pct, 2),
+                "sharpe_ratio": round(m.sharpe_ratio, 2),
+                "win_rate_pct": round(m.win_rate_pct, 1),
+                "total_trades": m.total_trades,
+                "winning_trades": m.winning_trades,
+                "losing_trades": m.losing_trades,
+                "profit_factor": round(m.profit_factor, 3) if m.profit_factor != float('inf') else 999.99,
+
+                # === 트레이딩뷰 추가 필드 ===
+                "net_profit": round(m.net_profit, 2),
+                "net_profit_pct": round(m.net_profit_pct, 2),
+                "gross_profit": round(m.gross_profit, 2),
+                "gross_profit_pct": round(m.gross_profit_pct, 2),
+                "gross_loss": round(m.gross_loss, 2),
+                "gross_loss_pct": round(m.gross_loss_pct, 2),
+                "max_drawdown": round(m.max_drawdown, 2),
+                "commission_paid": round(m.commission_paid, 4),
+                "expected_value": round(m.expected_value, 2),
+                "unrealized_pnl": round(m.unrealized_pnl, 2),
+                "unrealized_pnl_pct": round(m.unrealized_pnl_pct, 2),
+
+                # === 매수 분리 ===
+                "buy_net_profit": round(m.buy_net_profit, 2),
+                "buy_net_profit_pct": round(m.buy_net_profit_pct, 2),
+                "buy_gross_profit": round(m.buy_gross_profit, 2),
+                "buy_gross_profit_pct": round(m.buy_gross_profit_pct, 2),
+                "buy_gross_loss": round(m.buy_gross_loss, 2),
+                "buy_gross_loss_pct": round(m.buy_gross_loss_pct, 2),
+                "buy_profit_factor": round(m.buy_profit_factor, 3) if m.buy_profit_factor != float('inf') else 999.99,
+                "buy_commission": round(m.buy_commission, 4),
+                "buy_expected_value": round(m.buy_expected_value, 2),
+                "buy_trades": m.buy_trades,
+                "buy_winning": m.buy_winning,
+                "buy_losing": m.buy_losing,
+
+                # === 매도 분리 (역추세는 0) ===
+                "sell_net_profit": 0,
+                "sell_net_profit_pct": 0,
+                "sell_gross_profit": 0,
+                "sell_gross_profit_pct": 0,
+                "sell_gross_loss": 0,
+                "sell_gross_loss_pct": 0,
+                "sell_profit_factor": 0,
+                "sell_commission": 0,
+                "sell_expected_value": 0,
+                "sell_trades": 0,
+                "sell_winning": 0,
+                "sell_losing": 0,
+
+                # === 기존 호환 ===
+                "avg_win_pct": round(m.avg_win_pct, 2),
+                "avg_loss_pct": round(m.avg_loss_pct, 2),
+                "max_consecutive_wins": m.max_consecutive_wins,
+                "max_consecutive_losses": m.max_consecutive_losses,
+                "avg_profit_pct": round(m.avg_win_pct, 2) if m.avg_win_pct else 0.0,
                 "max_profit_pct": round(max_profit_pct, 2),
                 "max_loss_pct": round(max_loss_pct, 2),
-                "final_capital": round(final_capital, 0),
-                "initial_capital": request.initial_capital,
             },
             equity_curve=equity_curve,
             trades=trades_list,
