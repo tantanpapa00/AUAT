@@ -159,7 +159,12 @@ class UpbitConnector(Connector):
         )
 
         if not ok or not j:
-            return BalanceSplit(total=0, available=0, trading=0, ccy=ccy)
+            return BalanceSplit(
+                ok=False, exchange=self.exchange, ccy=ccy,
+                total=0, trading=0, funding=0,
+                err_code=f"http_{status}" if status else "request_failed",
+                err_msg=str(raw)[:100] if raw else "request_failed",
+            )
 
         ccy_upper = ccy.upper()
         for acc in j if isinstance(j, list) else []:
@@ -167,13 +172,17 @@ class UpbitConnector(Connector):
                 balance = float(acc.get("balance", 0))
                 locked = float(acc.get("locked", 0))
                 return BalanceSplit(
+                    ok=True, exchange=self.exchange, ccy=ccy_upper,
                     total=balance + locked,
-                    available=balance,
                     trading=balance,
-                    ccy=ccy_upper,
+                    funding=locked,
+                    raw=acc,
                 )
 
-        return BalanceSplit(total=0, available=0, trading=0, ccy=ccy)
+        return BalanceSplit(
+            ok=True, exchange=self.exchange, ccy=ccy,
+            total=0, trading=0, funding=0,
+        )
 
     def place_order(
         self,
