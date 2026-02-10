@@ -648,8 +648,8 @@ async def fetch_candles_for_backtest(
     if needed < 1:
         raise ValueError(f"요청 기간이 너무 짧습니다: {days}일 × {timeframe}")
 
-    # 최소 50봉 필요 (지표 계산용)
-    needed = max(needed, 50)
+    # 최소 300봉 필요 (OSC bb_len=250 + HTF 지표 계산용)
+    needed = max(needed, 300)
 
     all_candles: List[Candle] = []
     ctx = ssl.create_default_context()
@@ -671,6 +671,10 @@ async def fetch_candles_for_backtest(
 
     # oldest first 정렬
     all_candles.sort(key=lambda c: c.ts)
+
+    # 필요한 봉수만 반환 (API가 더 많이 줄 수 있음)
+    if len(all_candles) > needed:
+        all_candles = all_candles[-needed:]
 
     logger.info(f"백테스트 캔들 조회 완료: {exchange} {symbol} {timeframe}, "
                 f"{len(all_candles)}봉, {time.time() - start_time:.1f}초")
