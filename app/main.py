@@ -5820,7 +5820,7 @@ def _handle_okx_response(db, order_id: int, o: dict, res, _clid: str):
             _sql_text(
                 "UPDATE orders SET status='failed', submit_status=:ss, submit_err=:err, next_check_at=NULL, next_submit_at=:nsa WHERE id=:oid"
             ),
-            {"oid": order_id, "ss": ss, "err": rmsg, "nsa": _utcnow() + _dt.timedelta(seconds=5)},
+            {"oid": order_id, "ss": ss, "err": rmsg, "nsa": datetime.utcnow() + timedelta(seconds=5)},
         )
         db.commit()
         return {"ok": False, "reason": rmsg, "exchange": "OKX"}
