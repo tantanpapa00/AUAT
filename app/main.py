@@ -3946,9 +3946,19 @@ async def tv_webhook(request: Request, db: Session = Depends(get_db)):
             pass  # TODO: 향후 로그에 warning 기록
 
         # 3-1) asset 먼저 조회 (qty 계산에 필요)
-        # market 자동 추론: -SWAP 접미사면 swap, 그 외 spot
+        # market 자동 추론:
+        # - 숫자 6자리(국내주식) 또는 영문 1~5자(미국주식) → stock
+        # - -SWAP/PERP 접미사 → swap
+        # - 그 외 → spot
         _sym = str(symbol).strip().upper()
-        _market = "swap" if _sym.endswith("-SWAP") or _sym.endswith("PERP") else "spot"
+        if _sym.isdigit() and len(_sym) == 6:
+            _market = "stock"  # 국내주식 (예: 005930)
+        elif _sym.isalpha() and 1 <= len(_sym) <= 5:
+            _market = "stock"  # 미국주식 (예: AAPL, TSLA)
+        elif _sym.endswith("-SWAP") or _sym.endswith("PERP"):
+            _market = "swap"  # 선물
+        else:
+            _market = "spot"  # 현물
         asset = _resolve_asset(db, strategy_id, str(symbol).strip(), market=_market)
         if not asset:
             code = "asset_not_found"
