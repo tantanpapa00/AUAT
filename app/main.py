@@ -3946,7 +3946,10 @@ async def tv_webhook(request: Request, db: Session = Depends(get_db)):
             pass  # TODO: 향후 로그에 warning 기록
 
         # 3-1) asset 먼저 조회 (qty 계산에 필요)
-        asset = _resolve_asset(db, strategy_id, str(symbol).strip(), market="spot")
+        # market 자동 추론: -SWAP 접미사면 swap, 그 외 spot
+        _sym = str(symbol).strip().upper()
+        _market = "swap" if _sym.endswith("-SWAP") or _sym.endswith("PERP") else "spot"
+        asset = _resolve_asset(db, strategy_id, str(symbol).strip(), market=_market)
         if not asset:
             code = "asset_not_found"
             detail = f"자산 미등록: symbol='{symbol}'이 전략에 등록되지 않음 (자산 추가 필요)"
