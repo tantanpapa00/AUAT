@@ -7477,11 +7477,15 @@ body {
     border-top: 1px solid rgba(255,255,255,0.08);
 }
 .mr-subsection h4,
-.mr-subsection h5 {
+.mr-subsection h5,
+.mr-subsection-header {
     font-size: 13px;
     color: rgba(255,255,255,0.5);
-    margin-bottom: 8px;
+    margin: 12px 0 8px;
     font-weight: 500;
+}
+.mr-subsection-header .mr-help {
+    font-weight: normal;
 }
 
 /* MR 구분선 */

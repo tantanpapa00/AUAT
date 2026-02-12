@@ -8127,6 +8127,9 @@ async function loadTrendExchangeDropdown() {
     const select = document.getElementById('trend-exchange');
     if (!select) return;
 
+    // 기본 거래소 목록 (항상 포함) - MR과 동일
+    const defaultExchanges = ['OKX', 'BINANCE', 'BYBIT', 'UPBIT', 'KIS_KR', 'KIS_US'];
+
     try {
         let accounts = [];
         try {
@@ -8134,18 +8137,34 @@ async function loadTrendExchangeDropdown() {
         } catch { }
 
         if (!accounts || accounts.length === 0) {
-            accounts = await invoke('list_local_accounts');
+            try {
+                accounts = await invoke('list_local_accounts');
+            } catch { }
         }
 
+        // 등록된 계정의 거래소 추출
+        const registeredExchanges = new Set();
+        (accounts || []).forEach(acc => {
+            const exName = acc.exchange?.toUpperCase() || acc.exchange_name?.toUpperCase();
+            if (exName) registeredExchanges.add(exName);
+        });
+
+        // 기본 + 등록된 거래소 합치기 (중복 제거)
+        const allExchanges = [...new Set([...defaultExchanges, ...registeredExchanges])];
+
         select.innerHTML = '<option value="">선택하세요</option>';
-        accounts.forEach(acc => {
-            const exName = acc.exchange?.toUpperCase() || acc.exchange_name?.toUpperCase() || 'UNKNOWN';
-            const displayName = EXCHANGE_DISPLAY[exName] || exName;
-            select.innerHTML += `<option value="${exName}">${displayName}</option>`;
+        allExchanges.forEach(ex => {
+            const displayName = EXCHANGE_DISPLAY[ex] || ex;
+            select.innerHTML += `<option value="${ex}">${displayName}</option>`;
         });
     } catch (error) {
         console.error('거래소 드롭다운 로드 실패:', error);
-        select.innerHTML = '<option value="OKX">OKX</option><option value="BINANCE">Binance</option>';
+        // 에러 시에도 기본 거래소 표시
+        select.innerHTML = '<option value="">선택하세요</option>';
+        defaultExchanges.forEach(ex => {
+            const displayName = EXCHANGE_DISPLAY[ex] || ex;
+            select.innerHTML += `<option value="${ex}">${displayName}</option>`;
+        });
     }
 }
 
