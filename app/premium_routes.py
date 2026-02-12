@@ -929,6 +929,7 @@ class MRBacktestResponse(BaseModel):
     metrics: Dict[str, Any] = {}
     equity_curve: List[Dict[str, Any]] = []
     trades: List[Dict[str, Any]] = []
+    candles: List[Dict[str, Any]] = []  # 캔들차트용 OHLCV 데이터
     signals_count: int = 0
 
 
@@ -1074,6 +1075,20 @@ async def run_mr_backtest_endpoint(
 
         m = result.metrics  # 편의상 alias
 
+        # 캔들 데이터 (차트용, 최대 1000개로 샘플링)
+        candle_data = []
+        step = max(1, len(candles) // 1000)
+        for i in range(0, len(candles), step):
+            c = candles[i]
+            candle_data.append({
+                "time": c["timestamp"] // 1000,  # Unix 초 단위
+                "open": c["open"],
+                "high": c["high"],
+                "low": c["low"],
+                "close": c["close"],
+                "volume": c.get("volume", 0),
+            })
+
         return MRBacktestResponse(
             success=True,
             message=f"백테스트 완료: {len(candles)}봉 분석, {m.total_trades}거래",
@@ -1145,6 +1160,7 @@ async def run_mr_backtest_endpoint(
             },
             equity_curve=equity_curve,
             trades=trades_list,
+            candles=candle_data,
             signals_count=len(result.signals),
         )
 
@@ -1260,6 +1276,7 @@ class TrendBacktestResponse(BaseModel):
     metrics: Dict[str, Any] = {}
     equity_curve: List[Dict[str, Any]] = []
     trades: List[Dict[str, Any]] = []
+    candles: List[Dict[str, Any]] = []  # 캔들차트용 OHLCV 데이터
     signals_count: int = 0
 
 
@@ -1437,6 +1454,20 @@ async def run_trend_backtest_endpoint(
 
         m = result.metrics  # 편의상 alias
 
+        # 캔들 데이터 (차트용, 최대 1000개로 샘플링)
+        candle_data = []
+        step = max(1, len(candles) // 1000)
+        for i in range(0, len(candles), step):
+            c = candles[i]
+            candle_data.append({
+                "time": c["timestamp"] // 1000,  # Unix 초 단위
+                "open": c["open"],
+                "high": c["high"],
+                "low": c["low"],
+                "close": c["close"],
+                "volume": c.get("volume", 0),
+            })
+
         return TrendBacktestResponse(
             success=True,
             message=f"백테스트 완료: {len(candles)}봉 분석, {m.total_trades}거래",
@@ -1508,6 +1539,7 @@ async def run_trend_backtest_endpoint(
             },
             equity_curve=equity_curve,
             trades=trades_list,
+            candles=candle_data,
             signals_count=len(result.signals),
         )
 

@@ -952,6 +952,45 @@ def api_health():
     return {"ok": True, "status": "running"}
 
 
+@app.get("/api/debug/master-cache")
+async def api_debug_master_cache():
+    """
+    Debug endpoint for KIS master cache status.
+    Returns cache status, stock counts by market, and sample stocks.
+    """
+    cache = get_master_cache()
+    if not cache.is_valid():
+        await refresh_master_cache()
+        cache = get_master_cache()
+
+    # 마켓별 카운트
+    market_counts = {}
+    etf_count = 0
+    sample_by_market = {}
+
+    for key, stock in cache.stocks.items():
+        market = stock.market or "UNKNOWN"
+        if market not in market_counts:
+            market_counts[market] = 0
+            sample_by_market[market] = []
+        market_counts[market] += 1
+        if stock.is_etf:
+            etf_count += 1
+        # 마켓당 5개 샘플
+        if len(sample_by_market[market]) < 5:
+            sample_by_market[market].append({"code": stock.code, "name": stock.name, "is_etf": stock.is_etf})
+
+    return {
+        "ok": True,
+        "total_stocks": len(cache.stocks),
+        "etf_count": etf_count,
+        "last_updated": cache.last_updated.isoformat() if cache.last_updated else None,
+        "is_valid": cache.is_valid(),
+        "market_counts": market_counts,
+        "samples": sample_by_market,
+    }
+
+
 # # ---- Home API (Dashboard) ----
 @app.get("/api/home")
 def api_home():

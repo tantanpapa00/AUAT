@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/tauri';
 import { open } from '@tauri-apps/api/shell';
+import { createChart, ColorType, CrosshairMode } from 'lightweight-charts';
 import { API_BASE_URL, CONNECTION_TIMEOUT, MAX_RETRIES } from './config.js';
 
 // 디버깅용 전역 노출
@@ -7807,6 +7808,100 @@ function getExchangeDisplay(exchange) {
     return EXCHANGE_DISPLAY[(exchange || '').toUpperCase()] || exchange;
 }
 
+// ===== 캔들 차트 생성 (TradingView Lightweight Charts) =====
+// 차트 인스턴스 저장용
+window.mrCandleChartInstance = null;
+window.trendCandleChartInstance = null;
+
+function createBacktestCandleChart(containerId, candles, trades) {
+    const container = document.getElementById(containerId);
+    if (!container) {
+        console.warn(`Candle chart container not found: ${containerId}`);
+        return null;
+    }
+
+    // 기존 차트 제거
+    container.innerHTML = '';
+
+    if (!candles || candles.length === 0) {
+        container.innerHTML = '<div style="color:#6B7280; text-align:center; padding:40px;">캔들 데이터가 없습니다</div>';
+        return null;
+    }
+
+    // 차트 생성
+    const chart = createChart(container, {
+        layout: {
+            background: { type: ColorType.Solid, color: 'transparent' },
+            textColor: '#9CA3AF',
+        },
+        grid: {
+            vertLines: { color: 'rgba(255,255,255,0.05)' },
+            horzLines: { color: 'rgba(255,255,255,0.05)' },
+        },
+        crosshair: {
+            mode: CrosshairMode.Normal,
+        },
+        rightPriceScale: {
+            borderColor: 'rgba(255,255,255,0.1)',
+        },
+        timeScale: {
+            borderColor: 'rgba(255,255,255,0.1)',
+            timeVisible: true,
+            secondsVisible: false,
+        },
+        width: container.clientWidth,
+        height: 400,
+    });
+
+    // 캔들스틱 시리즈 추가
+    const candleSeries = chart.addCandlestickSeries({
+        upColor: '#22C55E',
+        downColor: '#EF4444',
+        borderUpColor: '#22C55E',
+        borderDownColor: '#EF4444',
+        wickUpColor: '#22C55E',
+        wickDownColor: '#EF4444',
+    });
+
+    // 캔들 데이터 설정
+    candleSeries.setData(candles);
+
+    // 거래 마커 추가 (있는 경우)
+    if (trades && trades.length > 0) {
+        const markers = [];
+        trades.forEach(t => {
+            if (!t.timestamp) return;
+            const time = Math.floor(t.timestamp / 1000);
+            const isBuy = t.action === 'buy';
+            markers.push({
+                time: time,
+                position: isBuy ? 'belowBar' : 'aboveBar',
+                color: isBuy ? '#22C55E' : '#EF4444',
+                shape: isBuy ? 'arrowUp' : 'arrowDown',
+                text: isBuy ? 'B' : 'S',
+            });
+        });
+        if (markers.length > 0) {
+            // 시간순 정렬 (필수)
+            markers.sort((a, b) => a.time - b.time);
+            candleSeries.setMarkers(markers);
+        }
+    }
+
+    // 차트 크기 맞추기
+    chart.timeScale().fitContent();
+
+    // 리사이즈 처리
+    const resizeObserver = new ResizeObserver(entries => {
+        if (entries.length === 0 || entries[0].target !== container) return;
+        const newWidth = entries[0].contentRect.width;
+        chart.applyOptions({ width: newWidth });
+    });
+    resizeObserver.observe(container);
+
+    return chart;
+}
+
 function displayMrBacktestResult(result, exchange, symbol) {
     const errorEl = document.getElementById('mr-backtest-error');
     const resultEl = document.getElementById('mr-backtest-result');
@@ -7870,6 +7965,14 @@ function displayMrBacktestResult(result, exchange, symbol) {
     // ===== 자산 추이 차트 (Y축 수익률%) =====
     if (result.equity_curve && result.equity_curve.length > 0) {
         drawMrBacktestChart(result.equity_curve, m.initial_capital || 10000000, currency);
+    }
+
+    // ===== 캔들 차트 (TradingView Lightweight Charts) =====
+    if (result.candles && result.candles.length > 0) {
+        if (window.mrCandleChartInstance) {
+            window.mrCandleChartInstance.remove();
+        }
+        window.mrCandleChartInstance = createBacktestCandleChart('mr-candle-chart', result.candles, result.trades);
     }
 
     // ===== 거래 내역 테이블 =====
@@ -8397,6 +8500,14 @@ function displayTrendBacktestResult(result) {
     // ===== 자산 추이 차트 (Y축 수익률%) =====
     if (result.equity_curve && result.equity_curve.length > 0) {
         drawTrendBacktestChart(result.equity_curve, m.initial_capital || 10000000, currency);
+    }
+
+    // ===== 캔들 차트 (TradingView Lightweight Charts) =====
+    if (result.candles && result.candles.length > 0) {
+        if (window.trendCandleChartInstance) {
+            window.trendCandleChartInstance.remove();
+        }
+        window.trendCandleChartInstance = createBacktestCandleChart('trend-candle-chart', result.candles, result.trades);
     }
 
     // ===== 거래 내역 테이블 =====

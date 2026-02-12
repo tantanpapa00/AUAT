@@ -293,13 +293,17 @@ async def refresh_master_cache(force: bool = False):
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        for result in results:
-            if isinstance(result, dict):
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                market_name = list(MASTER_URLS.keys())[i] if i < len(MASTER_URLS) else f"task_{i}"
+                print(f"[KIS] Error downloading {market_name} master: {type(result).__name__}: {result}")
+            elif isinstance(result, dict):
+                print(f"[KIS] Loaded {len(result)} stocks from one market")
                 all_stocks.update(result)
 
         # 다운로드 실패 시 하드코딩 폴백
         if len(all_stocks) < 100:
-            print("[KIS] Using fallback hardcoded stocks")
+            print(f"[KIS] Only {len(all_stocks)} stocks loaded, using fallback hardcoded stocks")
             all_stocks.update(_get_fallback_stocks())
 
         _master_cache.stocks = all_stocks
@@ -341,6 +345,12 @@ def _get_fallback_stocks() -> Dict[str, StockMaster]:
         ("JNJ", "Johnson & Johnson"), ("WMT", "Walmart"), ("PG", "Procter & Gamble"),
         ("MA", "Mastercard"), ("UNH", "UnitedHealth"), ("HD", "Home Depot"),
         ("BAC", "Bank of America"), ("XOM", "Exxon Mobil"), ("CVX", "Chevron"),
+        ("KO", "Coca-Cola"), ("PEP", "PepsiCo"), ("DIS", "Walt Disney"),
+        ("MRK", "Merck"), ("ABT", "Abbott"), ("TMO", "Thermo Fisher"),
+        ("ORCL", "Oracle"), ("LLY", "Eli Lilly"), ("NKE", "Nike"),
+        ("MCD", "McDonald's"), ("IBM", "IBM"), ("GS", "Goldman Sachs"),
+        ("CAT", "Caterpillar"), ("RTX", "Raytheon"), ("HON", "Honeywell"),
+        ("SBUX", "Starbucks"), ("F", "Ford"), ("GM", "General Motors"),
     ]
     for code, name in nyse:
         fallback[code] = StockMaster(code=code, name=name, market="NYSE")
@@ -352,15 +362,40 @@ def _get_fallback_stocks() -> Dict[str, StockMaster]:
         ("TSLA", "Tesla"), ("AVGO", "Broadcom"), ("COST", "Costco"),
         ("NFLX", "Netflix"), ("AMD", "AMD"), ("INTC", "Intel"),
         ("QCOM", "Qualcomm"), ("ADBE", "Adobe"), ("CRM", "Salesforce"),
+        ("PYPL", "PayPal"), ("GOOG", "Alphabet Class C"), ("CSCO", "Cisco"),
+        ("PDD", "PDD Holdings"), ("BKNG", "Booking Holdings"), ("MU", "Micron"),
+        ("MRVL", "Marvell"), ("LRCX", "Lam Research"), ("KLAC", "KLA Corp"),
+        ("PANW", "Palo Alto Networks"), ("SNPS", "Synopsys"), ("CDNS", "Cadence"),
+        ("ABNB", "Airbnb"), ("UBER", "Uber"), ("DASH", "DoorDash"),
+        ("COIN", "Coinbase"), ("ZM", "Zoom"), ("SQ", "Block (Square)"),
     ]
     for code, name in nasdaq:
         fallback[code] = StockMaster(code=code, name=name, market="NASDAQ")
 
-    # ETF
+    # ETF (미국 주요 ETF 확장)
     etfs = [
+        # 국내 ETF
         ("069500", "KODEX 200", "KOSPI"), ("229200", "KODEX 코스닥150", "KOSDAQ"),
-        ("SPY", "SPDR S&P 500 ETF", "NYSE"), ("QQQ", "Invesco QQQ", "NASDAQ"),
-        ("IWM", "iShares Russell 2000", "NYSE"), ("DIA", "SPDR Dow Jones", "NYSE"),
+        ("114800", "KODEX 인버스", "KOSPI"), ("252670", "KODEX 200선물인버스2X", "KOSPI"),
+        ("122630", "KODEX 레버리지", "KOSPI"), ("233740", "KODEX 코스닥150레버리지", "KOSDAQ"),
+        # 미국 지수 ETF
+        ("SPY", "SPDR S&P 500 ETF", "NYSE"), ("QQQ", "Invesco QQQ Trust", "NASDAQ"),
+        ("IWM", "iShares Russell 2000 ETF", "NYSE"), ("DIA", "SPDR Dow Jones ETF", "NYSE"),
+        ("IVV", "iShares Core S&P 500", "NYSE"), ("VOO", "Vanguard S&P 500 ETF", "NYSE"),
+        ("VTI", "Vanguard Total Stock Market", "NYSE"), ("VEA", "Vanguard FTSE Developed Markets", "NYSE"),
+        ("EEM", "iShares MSCI Emerging Markets", "NYSE"), ("VWO", "Vanguard FTSE Emerging Markets", "NYSE"),
+        # 레버리지/인버스 ETF
+        ("TQQQ", "ProShares UltraPro QQQ", "NASDAQ"), ("SQQQ", "ProShares UltraPro Short QQQ", "NASDAQ"),
+        ("SPXL", "Direxion Daily S&P 500 Bull 3X", "NYSE"), ("SPXS", "Direxion Daily S&P 500 Bear 3X", "NYSE"),
+        ("SOXL", "Direxion Daily Semiconductor Bull 3X", "NYSE"), ("SOXS", "Direxion Daily Semiconductor Bear 3X", "NYSE"),
+        ("UPRO", "ProShares UltraPro S&P 500", "NYSE"), ("SSO", "ProShares Ultra S&P 500", "NYSE"),
+        # 섹터 ETF
+        ("XLK", "Technology Select Sector SPDR", "NYSE"), ("XLF", "Financial Select Sector SPDR", "NYSE"),
+        ("XLV", "Health Care Select Sector SPDR", "NYSE"), ("XLE", "Energy Select Sector SPDR", "NYSE"),
+        ("SMH", "VanEck Semiconductor ETF", "NASDAQ"), ("ARKK", "ARK Innovation ETF", "NYSE"),
+        # 채권/금 ETF
+        ("TLT", "iShares 20+ Year Treasury Bond", "NASDAQ"), ("BND", "Vanguard Total Bond Market", "NASDAQ"),
+        ("GLD", "SPDR Gold Shares", "NYSE"), ("SLV", "iShares Silver Trust", "NYSE"),
     ]
     for code, name, market in etfs:
         fallback[code] = StockMaster(code=code, name=name, market=market, is_etf=True)
