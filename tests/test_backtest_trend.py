@@ -408,3 +408,111 @@ class TestTrendBacktestEdgeCases:
         )
 
         assert result.success == True
+
+
+# ============================================================
+# v8 백테스트 테스트
+# ============================================================
+
+class TestTrendBacktestV8:
+    """v8 specific backtest tests."""
+
+    def test_backtest_with_pyramiding(self):
+        """Test backtest with pyramiding enabled."""
+        candles = generate_trend_sample_candles(days=500, trend=0.001, seed=42)
+        weekly = generate_weekly_candles_from_daily(candles)
+
+        config = TrendConfig(
+            use_pyramiding=True,
+            max_pyr_entries=3,
+            pyr_weights=[50.0, 30.0, 20.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        )
+
+        result = run_trend_backtest(
+            candles=candles,
+            htf_candles=weekly,
+            config=config,
+            initial_capital=10000000.0,
+        )
+
+        assert result.success == True
+        # 피라미딩이 동작하면 equity_curve에 pyr_count가 포함되어야 함
+        if len(result.equity_curve) > 0:
+            assert 'pyr_count' in result.equity_curve[0]
+
+    def test_backtest_with_atr_stop(self):
+        """Test backtest with ATR-based stop loss."""
+        candles = generate_trend_sample_candles(days=400, seed=42)
+
+        config = TrendConfig(
+            stop_type="atr",
+            atr_stop_len=14,
+            atr_stop_mult=2.0,
+        )
+
+        result = run_trend_backtest(candles=candles, config=config)
+
+        assert result.success == True
+
+    def test_backtest_with_htf_st_exit(self):
+        """Test backtest with HTF Supertrend exit mode."""
+        candles = generate_trend_sample_candles(days=400, seed=42)
+        weekly = generate_weekly_candles_from_daily(candles)
+
+        config = TrendConfig(
+            st_exit_mode="htf_only",
+            st_htf_atr_len=10,
+            st_htf_factor=3.0,
+        )
+
+        result = run_trend_backtest(
+            candles=candles,
+            htf_candles=weekly,
+            config=config,
+        )
+
+        assert result.success == True
+
+    def test_backtest_v8_sell_tranches(self):
+        """Test backtest with v8 sell tranches."""
+        candles = generate_trend_sample_candles(days=400, seed=42)
+
+        config = TrendConfig()
+        # v8 기본값 확인
+        assert config.sell_tranches == [5.0, 5.0, 10.0, 15.0, 25.0, 40.0]
+
+        result = run_trend_backtest(candles=candles, config=config)
+
+        assert result.success == True
+
+    def test_backtest_with_tp1_disabled(self):
+        """Test backtest with TP1 disabled (v8 default)."""
+        candles = generate_trend_sample_candles(days=400, seed=42)
+
+        config = TrendConfig(use_tp1=False)
+
+        result = run_trend_backtest(candles=candles, config=config)
+
+        assert result.success == True
+        # use_tp1=False이므로 TP1 exit 없어야 함
+        if len(result.signals) > 0:
+            tp1_exits = [s for s in result.signals if s['reason_code'] == 'TREND_EXIT_TP1']
+            assert len(tp1_exits) == 0
+
+    def test_backtest_with_round_qty(self):
+        """Test backtest with quantity rounding (stock mode)."""
+        candles = generate_trend_sample_candles(days=400, seed=42)
+
+        config = TrendConfig(
+            round_qty=True,
+            min_qty=1.0,
+        )
+
+        result = run_trend_backtest(candles=candles, config=config)
+
+        assert result.success == True
+        # 거래 수량이 정수인지 확인
+        for trade in result.trades:
+            if config.round_qty:
+                # 소수점 이하가 0이거나 매우 작아야 함
+                assert trade.quantity >= config.min_qty

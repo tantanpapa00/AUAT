@@ -7918,6 +7918,30 @@ async function loadTrendExchangeDropdown() {
     }
 }
 
+// v8: 손절 타입 변경 시 ATR 설정 표시/숨김
+document.getElementById('trend-stop-type')?.addEventListener('change', (e) => {
+    const isAtr = e.target.value === 'atr';
+    const atrLenGroup = document.getElementById('trend-atr-stop-len-group');
+    const atrMultGroup = document.getElementById('trend-atr-stop-mult-group');
+    if (atrLenGroup) atrLenGroup.style.display = isAtr ? 'block' : 'none';
+    if (atrMultGroup) atrMultGroup.style.display = isAtr ? 'block' : 'none';
+});
+
+// v8: 피라미딩 토글 시 설정 표시/숨김
+document.getElementById('trend-use-pyramiding')?.addEventListener('change', (e) => {
+    const pyrSettings = document.getElementById('trend-pyr-settings');
+    if (pyrSettings) pyrSettings.style.display = e.target.checked ? 'flex' : 'none';
+});
+
+// v8: ST Exit Mode 변경 시 HTF 설정 표시/숨김
+document.getElementById('trend-st-exit-mode')?.addEventListener('change', (e) => {
+    const showHtf = ['htf_only', 'both'].includes(e.target.value);
+    const htfLenGroup = document.getElementById('trend-htf-st-len-group');
+    const htfFactorGroup = document.getElementById('trend-htf-st-factor-group');
+    if (htfLenGroup) htfLenGroup.style.display = showHtf ? 'block' : 'none';
+    if (htfFactorGroup) htfFactorGroup.style.display = showHtf ? 'block' : 'none';
+});
+
 document.getElementById('btn-trend-run-backtest')?.addEventListener('click', async () => {
     const exchange = document.getElementById('trend-exchange')?.value || 'OKX';
     const symbol = document.getElementById('trend-symbol')?.value || 'BTC-USDT';
@@ -7932,6 +7956,20 @@ document.getElementById('btn-trend-run-backtest')?.addEventListener('click', asy
     const useSpoSplit = document.getElementById('trend-use-spo-split')?.checked ?? true;
     const useStFlipExit = document.getElementById('trend-use-st-flip')?.checked ?? true;
     const useProfitGate = document.getElementById('trend-use-profit-gate')?.checked ?? true;
+
+    // v8 신규 설정
+    const useTp1 = document.getElementById('trend-use-tp1')?.checked ?? false;
+    const usePyramiding = document.getElementById('trend-use-pyramiding')?.checked ?? true;
+    const useHtfFilter = document.getElementById('trend-use-htf-filter')?.checked ?? true;
+    const maxPyrEntries = parseInt(document.getElementById('trend-max-pyr')?.value) || 4;
+    const pyrHighLen = parseInt(document.getElementById('trend-pyr-high-len')?.value) || 60;
+    const pyrCooldown = parseInt(document.getElementById('trend-pyr-cooldown')?.value) || 5;
+    const stopType = document.getElementById('trend-stop-type')?.value || 'fixed';
+    const atrStopLen = parseInt(document.getElementById('trend-atr-stop-len')?.value) || 14;
+    const atrStopMult = parseFloat(document.getElementById('trend-atr-stop-mult')?.value) || 2.0;
+    const stExitMode = document.getElementById('trend-st-exit-mode')?.value || 'current_tf';
+    const stHtfAtrLen = parseInt(document.getElementById('trend-st-htf-atr-len')?.value) || 10;
+    const stHtfFactor = parseFloat(document.getElementById('trend-st-htf-factor')?.value) || 3.0;
 
     showToast('추세매매 백테스트 실행 중...', 'info');
 
@@ -7951,6 +7989,19 @@ document.getElementById('btn-trend-run-backtest')?.addEventListener('click', asy
             useSpoSplit: useSpoSplit,
             useStFlipExit: useStFlipExit,
             useProfitGate: useProfitGate,
+            // v8 신규 파라미터
+            useTp1: useTp1,
+            usePyramiding: usePyramiding,
+            useHtfFilter: useHtfFilter,
+            maxPyrEntries: maxPyrEntries,
+            pyrHighLen: pyrHighLen,
+            pyrCooldown: pyrCooldown,
+            stopType: stopType,
+            atrStopLen: atrStopLen,
+            atrStopMult: atrStopMult,
+            stExitMode: stExitMode,
+            stHtfAtrLen: stHtfAtrLen,
+            stHtfFactor: stHtfFactor,
         });
 
         if (result.success) {

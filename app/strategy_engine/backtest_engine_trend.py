@@ -1,9 +1,14 @@
 # app/strategy_engine/backtest_engine_trend.py
 """
-Trend Strategy Backtest Engine.
+Trend Strategy Backtest Engine (v8).
 
 추세매매 전략 백테스트 엔진.
 기존 BacktestResult, BacktestMetrics 재사용.
+
+v8 신규 기능:
+- 피라미딩 (추가매수) 지원
+- ATR 기반 손절
+- HTF Supertrend (st_exit_mode)
 """
 
 from typing import List, Optional, Dict, Any
@@ -30,6 +35,7 @@ from .indicators import (
     calc_qqe_mod,
     calc_spo,
     calc_vwma,
+    calc_atr,  # v8: ATR 기반 손절용
 )
 
 
@@ -41,7 +47,7 @@ def run_trend_backtest(
     fee_rate: float = 0.00015,  # 0.015% 수수료
 ) -> BacktestResult:
     """
-    추세매매 전략 백테스트 실행.
+    추세매매 전략 백테스트 실행 (v8).
 
     Args:
         candles: 시그널 타임프레임 캔들 데이터 (entry_tf = exit_tf 가정)
@@ -52,6 +58,11 @@ def run_trend_backtest(
 
     Returns:
         BacktestResult: 백테스트 결과
+
+    v8 신규:
+        - 피라미딩 지원 (복수 진입, 평균단가 계산)
+        - ATR 기반 손절
+        - HTF Supertrend (st_exit_mode)
     """
     if len(candles) < 300:
         return BacktestResult(
@@ -84,6 +95,8 @@ def run_trend_backtest(
     volumes = np.array([c.v for c in candles])
 
     htf_closes = np.array([c.c for c in htf_candles])
+    htf_highs = np.array([c.h for c in htf_candles])
+    htf_lows = np.array([c.l for c in htf_candles])
     htf_volumes = np.array([c.v for c in htf_candles])
 
     # 지표 계산에 필요한 최소 봉 수
@@ -102,6 +115,8 @@ def run_trend_backtest(
             "position_qty": position.quantity,
             "position_value": position.quantity * price,
             "cash": capital,
+            "avg_entry_price": position.avg_price,  # v8: 평균단가 추가
+            "pyr_count": state.pyr_count,           # v8: 피라미딩 횟수
         })
 
         # 슬라이스 데이터
@@ -114,6 +129,8 @@ def run_trend_backtest(
         htf_ratio = len(htf_candles) / len(candles)
         htf_idx = min(int(i * htf_ratio), len(htf_candles) - 1)
         htf_slice_closes = htf_closes[max(0, htf_idx - lookback + 1):htf_idx + 1]
+        htf_slice_highs = htf_highs[max(0, htf_idx - lookback + 1):htf_idx + 1]
+        htf_slice_lows = htf_lows[max(0, htf_idx - lookback + 1):htf_idx + 1]
         htf_slice_volumes = htf_volumes[max(0, htf_idx - lookback + 1):htf_idx + 1]
 
         # Entry 지표 계산
@@ -153,7 +170,21 @@ def run_trend_backtest(
         )
         spo_norm = spo_result[0]  # normalized_osc
 
-        # 신호 생성
+        # v8: ATR 계산 (ATR 기반 손절용)
+        entry_atr = None
+        if config.stop_type == "atr":
+            entry_atr = calc_atr(slice_highs, slice_lows, slice_closes, config.atr_stop_len)
+
+        # v8: HTF Supertrend 계산 (st_exit_mode용)
+        htf_st_dir = None
+        if config.st_exit_mode in ("htf_only", "both"):
+            if len(htf_slice_closes) >= config.st_htf_atr_len + 1:
+                _, htf_st_dir = calc_supertrend(
+                    htf_slice_highs, htf_slice_lows, htf_slice_closes,
+                    config.st_htf_atr_len, config.st_htf_factor
+                )
+
+        # 신호 생성 (v8: 추가 파라미터 전달)
         signal, state = generate_trend_signal(
             entry_close=slice_closes,
             entry_st_dir=st_dir,
@@ -166,6 +197,11 @@ def run_trend_backtest(
             config=config,
             state=state,
             current_ts=candle.ts,
+            # v8 추가 파라미터
+            htf_st_dir=htf_st_dir,
+            entry_atr=entry_atr,
+            entry_high=slice_highs,
+            bar_index=i,
         )
 
         if signal.action != "hold":
@@ -175,11 +211,12 @@ def run_trend_backtest(
                 "action": signal.action,
                 "reason_code": signal.reason_code,
                 "tranche_pct": signal.tranche_pct,
+                "pyr_count": state.pyr_count,  # v8
             })
 
             # 거래 실행
             if signal.action == "buy" and capital > 0:
-                # 매수
+                # 매수 (1차 진입 또는 피라미딩)
                 use_pct = signal.tranche_pct / 100.0
                 use_amount = capital * use_pct
                 use_amount = min(use_amount, capital)
@@ -189,18 +226,29 @@ def run_trend_backtest(
                     net_amount = use_amount - fee
                     qty = net_amount / price
 
-                    position.add(qty, price)
-                    capital -= use_amount
+                    # v8: 수량 반올림 (주식용)
+                    if config.round_qty:
+                        qty = max(config.min_qty, round(qty))
+                    qty = max(config.min_qty, qty)
 
-                    trades.append(BacktestTrade(
-                        bar_index=i,
-                        timestamp=candle.ts,
-                        action="buy",
-                        price=price,
-                        quantity=qty,
-                        tranche=0,
-                        reason_code=signal.reason_code,
-                    ))
+                    # 재계산 (반올림 후)
+                    actual_amount = qty * price
+                    if actual_amount <= capital:
+                        position.add(qty, price)
+                        capital -= actual_amount + (actual_amount * fee_rate)
+
+                        # v8: 평균단가 업데이트
+                        state.avg_entry_price = position.avg_price
+
+                        trades.append(BacktestTrade(
+                            bar_index=i,
+                            timestamp=candle.ts,
+                            action="buy",
+                            price=price,
+                            quantity=qty,
+                            tranche=state.pyr_count,  # v8: 피라미딩 차수
+                            reason_code=signal.reason_code,
+                        ))
 
             elif signal.action == "sell" and position.quantity > 0:
                 # 매도
@@ -208,7 +256,15 @@ def run_trend_backtest(
                 sell_qty = position.quantity * sell_pct
                 sell_qty = min(sell_qty, position.quantity)
 
+                # v8: 수량 반올림
+                if config.round_qty:
+                    sell_qty = round(sell_qty)
+                    if sell_qty < config.min_qty and position.quantity >= config.min_qty:
+                        sell_qty = config.min_qty
+                sell_qty = min(sell_qty, position.quantity)
+
                 if sell_qty > 0:
+                    avg_price_before = position.avg_price
                     pnl = position.remove(sell_qty, price)
                     proceeds = sell_qty * price
                     fee = proceeds * fee_rate
@@ -216,7 +272,7 @@ def run_trend_backtest(
                     pnl -= fee
 
                     capital += net_proceeds
-                    pnl_pct = (price - position.avg_price) / position.avg_price * 100 if position.avg_price > 0 else 0
+                    pnl_pct = (price - avg_price_before) / avg_price_before * 100 if avg_price_before > 0 else 0
 
                     trades.append(BacktestTrade(
                         bar_index=i,
@@ -236,10 +292,14 @@ def run_trend_backtest(
                         state.entry_price = 0.0
                         state.tp1_triggered = False
                         state.sell_stage = 0
+                        state.pyr_count = 0
+                        state.avg_entry_price = 0.0
+                        state.total_cost = 0.0
 
     # 마지막 포지션 정리
     if position.quantity > 0:
         last_price = candles[-1].c
+        avg_price_before = position.avg_price
         pnl = position.remove(position.quantity, last_price)
         proceeds = position.quantity * last_price
         fee = proceeds * fee_rate

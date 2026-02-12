@@ -37,6 +37,7 @@ from .indicators import (
     calc_hvi,
     calc_qqe_mod,
     calc_vwma,
+    calc_atr,  # v8: ATR 기반 손절용
 )
 from .regime_detector import detect_regime, calc_htf_indicators
 from .signal_generator import (
@@ -542,14 +543,36 @@ async def process_asset_trend(
     )
     exit_spo_norm = exit_spo[0]  # normalized_osc
 
+    # v8: ATR 계산 (ATR 기반 손절용)
+    entry_atr = None
+    if config.stop_type == "atr":
+        entry_atr = calc_atr(
+            entry_candles.highs, entry_candles.lows, entry_candles.closes,
+            config.atr_stop_len
+        )
+
+    # v8: HTF Supertrend 계산 (st_exit_mode용)
+    htf_st_dir = None
+    if config.st_exit_mode in ("htf_only", "both"):
+        _, htf_st_dir = calc_supertrend(
+            htf_candles.highs, htf_candles.lows, htf_candles.closes,
+            config.st_htf_atr_len, config.st_htf_factor
+        )
+
+    # v8: bar_index 계산 (피라미딩 쿨다운용)
+    bar_index = entry_candles.count - 1
+
     # 7. Update state with position info
     state.in_position = position.has_position
     if position.has_position:
         state.position_qty = position.quantity
         if state.entry_price == 0:
             state.entry_price = position.avg_price
+        # v8: 평균단가 업데이트
+        if state.avg_entry_price == 0:
+            state.avg_entry_price = position.avg_price
 
-    # 8. Generate signal
+    # 8. Generate signal (v8: 추가 파라미터 전달)
     signal_result, new_state = generate_trend_signal(
         entry_close=entry_candles.closes,
         entry_st_dir=entry_st_dir,
@@ -562,6 +585,11 @@ async def process_asset_trend(
         config=config,
         state=state,
         current_ts=current_ts,
+        # v8 추가 파라미터
+        htf_st_dir=htf_st_dir,
+        entry_atr=entry_atr,
+        entry_high=entry_candles.highs,
+        bar_index=bar_index,
     )
 
     # 9. If no actionable signal, return early
@@ -587,7 +615,7 @@ async def process_asset_trend(
         "v": float(entry_candles.volumes[-1]),
     }
 
-    # Indicator snapshot
+    # Indicator snapshot (v8: 추가 필드)
     indicators = {
         "entry_st_dir": int(entry_st_dir[-1]),
         "hvi_green": bool(entry_hvi['g_enabled'][-1]) if len(entry_hvi['g_enabled']) > 0 else False,
@@ -595,7 +623,16 @@ async def process_asset_trend(
         "htf_vwma": float(htf_vwma[-1]) if not np.isnan(htf_vwma[-1]) else 0.0,
         "exit_st_dir": int(exit_st_dir[-1]),
         "exit_spo_norm": float(exit_spo_norm[-1]) if not np.isnan(exit_spo_norm[-1]) else 0.0,
+        # v8 필드
+        "pyr_count": new_state.pyr_count,
+        "avg_entry_price": new_state.avg_entry_price,
+        "stop_type": config.stop_type,
+        "st_exit_mode": config.st_exit_mode,
     }
+    if entry_atr is not None and len(entry_atr) > 0:
+        indicators["entry_atr"] = float(entry_atr[-1]) if not np.isnan(entry_atr[-1]) else 0.0
+    if htf_st_dir is not None and len(htf_st_dir) > 0:
+        indicators["htf_st_dir"] = int(htf_st_dir[-1])
 
     signal_event = SignalEvent(
         signal_id=signal_id,
@@ -606,14 +643,14 @@ async def process_asset_trend(
         side=side,
         action=signal_result.action,
         premium_mode="trend",
-        params_version="v1.0",
+        params_version="v2.0",  # v8 버전
         reason_code=signal_result.reason_code,
         reason_text=signal_result.reason_text,
         snapshot_id=snapshot_id,
         tf=config.entry_tf,
         tf_warning=tf_warning,
         price_hint=float(entry_candles.closes[-1]),
-        tranche=new_state.sell_stage if signal_result.action == "sell" else 0,
+        tranche=new_state.pyr_count if signal_result.action == "buy" else new_state.sell_stage,  # v8: 피라미딩 차수
         tranche_pct=signal_result.tranche_pct,
         regime=0,  # Trend doesn't use regime
         ts=current_ts,

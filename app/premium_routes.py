@@ -1171,7 +1171,7 @@ async def run_mr_backtest_endpoint(
 # ============================================================================
 
 class TrendBacktestRequest(BaseModel):
-    """Request model for Trend backtest."""
+    """Request model for Trend backtest (v8)."""
     exchange: str = Field(..., description="거래소 (okx, binance, etc)")
     symbol: str = Field(..., description="종목 심볼 (BTC-USDT)")
     entry_tf: str = Field(default="1D", description="매수 판단 타임프레임")
@@ -1180,9 +1180,9 @@ class TrendBacktestRequest(BaseModel):
     days: int = Field(default=365, ge=30, le=1000, description="백테스트 기간 (일)")
     initial_capital: float = Field(default=10000000, ge=1000)
 
-    # Entry 지표 설정
-    st_atr_len: int = Field(default=10, ge=1, le=50)
-    st_factor: float = Field(default=3.0, ge=0.5, le=10.0)
+    # Entry 지표 설정 (v8: st_atr_len=20, st_factor=5.0)
+    st_atr_len: int = Field(default=20, ge=1, le=50)
+    st_factor: float = Field(default=5.0, ge=0.5, le=10.0)
     hvi_length: int = Field(default=200, ge=10, le=500)
     hvi_divisor: float = Field(default=3.6, ge=1.0, le=10.0)
     qqe_rsi_length: int = Field(default=6, ge=2, le=50)
@@ -1190,9 +1190,9 @@ class TrendBacktestRequest(BaseModel):
     qqe_factor: float = Field(default=3.0, ge=0.5, le=10.0)
     htf_vwma_len: int = Field(default=156, ge=10, le=500)
 
-    # Exit 지표 설정
-    exit_st_atr_len: int = Field(default=10, ge=1, le=50)
-    exit_st_factor: float = Field(default=3.0, ge=0.5, le=10.0)
+    # Exit 지표 설정 (v8: exit_st_atr_len=20, exit_st_factor=5.0)
+    exit_st_atr_len: int = Field(default=20, ge=1, le=50)
+    exit_st_factor: float = Field(default=5.0, ge=0.5, le=10.0)
     exit_spo_smooth_len: int = Field(default=4, ge=1, le=20)
     exit_spo_threshold: float = Field(default=1.0, ge=0.0, le=5.0)
     exit_spo_std_len: int = Field(default=50, ge=10, le=200)
@@ -1205,8 +1205,8 @@ class TrendBacktestRequest(BaseModel):
     use_spo_split: bool = Field(default=True)
     use_st_flip_exit: bool = Field(default=True)
 
-    # 분할매도 설정
-    sell_tranches: List[float] = Field(default=[10.0, 20.0, 30.0, 5.0, 2.5, 1.0])
+    # 분할매도 설정 (v8: 역피라미드 [5,5,10,15,25,40])
+    sell_tranches: List[float] = Field(default=[5.0, 5.0, 10.0, 15.0, 25.0, 40.0])
     max_sell_tranches: int = Field(default=6, ge=1, le=10)
     after_max_sell: str = Field(default="cycle")
 
@@ -1217,6 +1217,42 @@ class TrendBacktestRequest(BaseModel):
 
     # 포지션 사이징
     cash_use_pct: float = Field(default=100.0, ge=0, le=100)
+
+    # ============ v8 신규 필드 ============
+    # 피라미딩 (추가매수)
+    use_pyramiding: bool = Field(default=True, description="피라미딩 사용 여부")
+    max_pyr_entries: int = Field(default=4, ge=1, le=10, description="최대 피라미딩 횟수")
+    pyr_high_len: int = Field(default=60, ge=5, le=200, description="N-bar 최고가 기준 봉수")
+    pyr_cooldown: int = Field(default=5, ge=1, le=50, description="피라미딩 쿨다운 (봉)")
+    pyr_refill_after_sell: bool = Field(default=False, description="분할매도 후 피라미딩 카운트 리필")
+    pyr_weights: List[float] = Field(
+        default=[40.0, 30.0, 20.0, 10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        description="피라미딩 가중치 (%)"
+    )
+
+    # 손절 타입 (v8: ATR 기반 손절 지원)
+    stop_type: str = Field(default="fixed", description="손절 타입 (fixed/atr)")
+    atr_stop_len: int = Field(default=14, ge=5, le=50, description="ATR 손절 기간")
+    atr_stop_mult: float = Field(default=2.0, ge=0.5, le=5.0, description="ATR 손절 배수")
+
+    # ST Exit Mode (v8: HTF Supertrend)
+    st_exit_mode: str = Field(default="current_tf", description="ST Exit 모드 (current_tf/htf_only/both/none)")
+    st_htf_tf: str = Field(default="1W", description="HTF Supertrend 타임프레임")
+    st_htf_atr_len: int = Field(default=10, ge=1, le=50, description="HTF ST ATR 기간")
+    st_htf_factor: float = Field(default=3.0, ge=0.5, le=10.0, description="HTF ST Factor")
+
+    # v8 토글
+    use_tp1: bool = Field(default=False, description="TP1 사용 여부 (v8 기본 OFF)")
+    st_invert: bool = Field(default=False, description="Supertrend 반전")
+    use_htf_filter: bool = Field(default=True, description="HTF VWMA 필터 사용")
+
+    # Entry Guard (v8)
+    enter_only_on_setup_start: bool = Field(default=True, description="조건 시작시에만 진입")
+    use_live_guard: bool = Field(default=False, description="실시간 가드 (백테스트 OFF)")
+
+    # 수량 반올림 (주식용)
+    round_qty: bool = Field(default=True, description="수량 정수 반올림")
+    min_qty: float = Field(default=1.0, ge=0.0001, description="최소 수량")
 
 
 class TrendBacktestResponse(BaseModel):
@@ -1247,7 +1283,7 @@ async def run_trend_backtest_endpoint(
     from .strategy_engine.signal_generator_trend import TrendConfig
 
     try:
-        # Trend 설정 생성
+        # Trend 설정 생성 (v8)
         config = TrendConfig(
             entry_tf=request.entry_tf,
             exit_tf=request.exit_tf,
@@ -1278,6 +1314,27 @@ async def run_trend_backtest_endpoint(
             min_profit_pct=request.min_profit_pct,
             fee_buffer_pct=request.fee_buffer_pct,
             cash_use_pct=request.cash_use_pct,
+            # v8 신규 필드
+            use_pyramiding=request.use_pyramiding,
+            max_pyr_entries=request.max_pyr_entries,
+            pyr_high_len=request.pyr_high_len,
+            pyr_cooldown=request.pyr_cooldown,
+            pyr_refill_after_sell=request.pyr_refill_after_sell,
+            pyr_weights=request.pyr_weights,
+            stop_type=request.stop_type,
+            atr_stop_len=request.atr_stop_len,
+            atr_stop_mult=request.atr_stop_mult,
+            st_exit_mode=request.st_exit_mode,
+            st_htf_tf=request.st_htf_tf,
+            st_htf_atr_len=request.st_htf_atr_len,
+            st_htf_factor=request.st_htf_factor,
+            use_tp1=request.use_tp1,
+            st_invert=request.st_invert,
+            use_htf_filter=request.use_htf_filter,
+            enter_only_on_setup_start=request.enter_only_on_setup_start,
+            use_live_guard=request.use_live_guard,
+            round_qty=request.round_qty,
+            min_qty=request.min_qty,
         )
 
         # 일봉 캔들 데이터 생성 (상승 추세 포함)

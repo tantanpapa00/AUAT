@@ -2094,6 +2094,75 @@
                                     </label>
                                 </div>
 
+                                <!-- v8 신규 옵션 -->
+                                <div class="form-row options-row">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="trend-use-tp1"> TP1 사용 (v8 기본 OFF)
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="trend-use-pyramiding" checked> 피라미딩 (추가매수)
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="trend-use-htf-filter" checked> HTF VWMA 필터
+                                    </label>
+                                </div>
+
+                                <!-- v8: 피라미딩 설정 -->
+                                <div id="trend-pyr-settings" class="form-row">
+                                    <div class="form-group">
+                                        <label>최대 추가매수</label>
+                                        <input type="number" id="trend-max-pyr" class="form-input" value="4" min="1" max="10">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>N-bar 최고가</label>
+                                        <input type="number" id="trend-pyr-high-len" class="form-input" value="60" min="5" max="200">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>쿨다운 (봉)</label>
+                                        <input type="number" id="trend-pyr-cooldown" class="form-input" value="5" min="1" max="50">
+                                    </div>
+                                </div>
+
+                                <!-- v8: 손절 타입 -->
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>손절 타입</label>
+                                        <select id="trend-stop-type" class="form-select">
+                                            <option value="fixed" selected>Fixed (고정%)</option>
+                                            <option value="atr">ATR 기반</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group" id="trend-atr-stop-len-group" style="display: none;">
+                                        <label>ATR 기간</label>
+                                        <input type="number" id="trend-atr-stop-len" class="form-input" value="14" min="5" max="50">
+                                    </div>
+                                    <div class="form-group" id="trend-atr-stop-mult-group" style="display: none;">
+                                        <label>ATR 배수</label>
+                                        <input type="number" id="trend-atr-stop-mult" class="form-input" value="2.0" min="0.5" max="5" step="0.1">
+                                    </div>
+                                </div>
+
+                                <!-- v8: ST Exit Mode -->
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>ST Exit Mode</label>
+                                        <select id="trend-st-exit-mode" class="form-select">
+                                            <option value="current_tf" selected>현재 TF만</option>
+                                            <option value="htf_only">HTF만</option>
+                                            <option value="both">둘 다</option>
+                                            <option value="none">사용 안함</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group" id="trend-htf-st-len-group">
+                                        <label>HTF ST ATR 기간</label>
+                                        <input type="number" id="trend-st-htf-atr-len" class="form-input" value="10" min="1" max="50">
+                                    </div>
+                                    <div class="form-group" id="trend-htf-st-factor-group">
+                                        <label>HTF ST Factor</label>
+                                        <input type="number" id="trend-st-htf-factor" class="form-input" value="3.0" min="0.5" max="10" step="0.1">
+                                    </div>
+                                </div>
+
                                 <!-- 백테스트 기간 -->
                                 <div class="form-row">
                                     <div class="form-group">

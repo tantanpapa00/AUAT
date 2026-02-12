@@ -14,9 +14,9 @@ ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_entry_tf VARCHAR(10) 
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_exit_tf VARCHAR(10) DEFAULT '1D';
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_htf_tf VARCHAR(10) DEFAULT '1W';
 
--- Entry 지표 (entry_tf 기준)
-ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_st_atr_len INTEGER DEFAULT 10;
-ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_st_factor FLOAT DEFAULT 3.0;
+-- Entry 지표 (entry_tf 기준) - v8: st_atr_len=20, st_factor=5.0
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_st_atr_len INTEGER DEFAULT 20;
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_st_factor FLOAT DEFAULT 5.0;
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_hvi_length INTEGER DEFAULT 200;
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_hvi_divisor FLOAT DEFAULT 3.6;
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_qqe_rsi_length INTEGER DEFAULT 6;
@@ -24,9 +24,9 @@ ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_qqe_rsi_smoothing INT
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_qqe_factor FLOAT DEFAULT 3.0;
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_htf_vwma_len INTEGER DEFAULT 156;
 
--- Exit 지표 (exit_tf 기준)
-ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_exit_st_atr_len INTEGER DEFAULT 10;
-ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_exit_st_factor FLOAT DEFAULT 3.0;
+-- Exit 지표 (exit_tf 기준) - v8: exit_st_atr_len=20, exit_st_factor=5.0
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_exit_st_atr_len INTEGER DEFAULT 20;
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_exit_st_factor FLOAT DEFAULT 5.0;
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_exit_spo_smooth_len INTEGER DEFAULT 4;
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_exit_spo_threshold FLOAT DEFAULT 1.0;
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_exit_spo_std_len INTEGER DEFAULT 50;
@@ -39,8 +39,8 @@ ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_tp1_sell_pct FLOAT DE
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_use_spo_split BOOLEAN DEFAULT true;
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_use_st_flip_exit BOOLEAN DEFAULT true;
 
--- 분할매도 설정
-ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_sell_tranches JSONB DEFAULT '[10.0, 20.0, 30.0, 5.0, 2.5, 1.0]';
+-- 분할매도 설정 (v8: 역피라미드 [5,5,10,15,25,40])
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_sell_tranches JSONB DEFAULT '[5.0, 5.0, 10.0, 15.0, 25.0, 40.0]';
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_max_sell_tranches INTEGER DEFAULT 6;
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_after_max_sell VARCHAR(10) DEFAULT 'cycle';
 
@@ -48,6 +48,42 @@ ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_after_max_sell VARCHA
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_use_profit_gate BOOLEAN DEFAULT true;
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_min_profit_pct FLOAT DEFAULT 0.10;
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_fee_buffer_pct FLOAT DEFAULT 0.20;
+
+-- ============================================================
+-- v8 신규 컬럼 (피라미딩, ATR 손절, ST Exit Mode)
+-- ============================================================
+
+-- 피라미딩 (추가매수)
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_use_pyramiding BOOLEAN DEFAULT true;
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_max_pyr_entries INTEGER DEFAULT 4;
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_pyr_high_len INTEGER DEFAULT 60;
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_pyr_cooldown INTEGER DEFAULT 5;
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_pyr_refill_after_sell BOOLEAN DEFAULT false;
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_pyr_weights JSONB DEFAULT '[40.0, 30.0, 20.0, 10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]';
+
+-- 손절 타입 (v8: ATR 기반 손절 지원)
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_stop_type VARCHAR(10) DEFAULT 'fixed';
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_atr_stop_len INTEGER DEFAULT 14;
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_atr_stop_mult FLOAT DEFAULT 2.0;
+
+-- ST Exit Mode (v8: HTF Supertrend)
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_st_exit_mode VARCHAR(20) DEFAULT 'current_tf';
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_st_htf_tf VARCHAR(10) DEFAULT '1W';
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_st_htf_atr_len INTEGER DEFAULT 10;
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_st_htf_factor FLOAT DEFAULT 3.0;
+
+-- v8 토글
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_use_tp1 BOOLEAN DEFAULT false;
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_st_invert BOOLEAN DEFAULT false;
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_use_htf_filter BOOLEAN DEFAULT true;
+
+-- Entry Guard (v8)
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_enter_only_on_setup_start BOOLEAN DEFAULT true;
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_use_live_guard BOOLEAN DEFAULT false;
+
+-- 수량 반올림 (주식용)
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_round_qty BOOLEAN DEFAULT true;
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_min_qty FLOAT DEFAULT 1.0;
 
 -- ============================================================
 -- 2. strategy_states 테이블에 추세매매 상태 컬럼 추가
@@ -61,6 +97,15 @@ ALTER TABLE strategy_states ADD COLUMN IF NOT EXISTS trend_highest_since_entry F
 ALTER TABLE strategy_states ADD COLUMN IF NOT EXISTS trend_tp1_triggered BOOLEAN DEFAULT false;
 ALTER TABLE strategy_states ADD COLUMN IF NOT EXISTS trend_sell_stage INTEGER DEFAULT 0;
 ALTER TABLE strategy_states ADD COLUMN IF NOT EXISTS trend_last_st_dir INTEGER DEFAULT 0;
+
+-- v8 피라미딩 상태
+ALTER TABLE strategy_states ADD COLUMN IF NOT EXISTS trend_pyr_count INTEGER DEFAULT 0;
+ALTER TABLE strategy_states ADD COLUMN IF NOT EXISTS trend_last_pyr_bar INTEGER DEFAULT -999;
+ALTER TABLE strategy_states ADD COLUMN IF NOT EXISTS trend_pyr_highest FLOAT DEFAULT 0;
+ALTER TABLE strategy_states ADD COLUMN IF NOT EXISTS trend_avg_entry_price FLOAT DEFAULT 0;
+ALTER TABLE strategy_states ADD COLUMN IF NOT EXISTS trend_total_cost FLOAT DEFAULT 0;
+ALTER TABLE strategy_states ADD COLUMN IF NOT EXISTS trend_setup_start_bar INTEGER DEFAULT -999;
+ALTER TABLE strategy_states ADD COLUMN IF NOT EXISTS trend_prev_setup_met BOOLEAN DEFAULT false;
 
 -- ============================================================
 -- 3. 인덱스 추가
@@ -81,11 +126,22 @@ COMMENT ON COLUMN strategy_states.trend_in_position IS '추세매매 포지션 �
 COMMENT ON COLUMN strategy_states.trend_tp1_triggered IS 'TP1 발동 여부 (중복 방지)';
 COMMENT ON COLUMN strategy_states.trend_sell_stage IS 'SPO 분할매도 차수 (0=SELL1, 1=SELL2, ...)';
 
+-- v8 코멘트
+COMMENT ON COLUMN premium_configs.trend_use_pyramiding IS 'v8: 피라미딩(추가매수) 사용 여부';
+COMMENT ON COLUMN premium_configs.trend_max_pyr_entries IS 'v8: 최대 피라미딩 횟수';
+COMMENT ON COLUMN premium_configs.trend_pyr_high_len IS 'v8: N-bar 최고가 기준 봉수';
+COMMENT ON COLUMN premium_configs.trend_pyr_cooldown IS 'v8: 피라미딩 쿨다운 봉수';
+COMMENT ON COLUMN premium_configs.trend_stop_type IS 'v8: 손절 타입 (fixed/atr)';
+COMMENT ON COLUMN premium_configs.trend_st_exit_mode IS 'v8: ST Exit 모드 (current_tf/htf_only/both/none)';
+COMMENT ON COLUMN premium_configs.trend_use_tp1 IS 'v8: TP1 사용 여부 (기본 OFF)';
+COMMENT ON COLUMN strategy_states.trend_pyr_count IS 'v8: 피라미딩 차수 (0=1차, 1=2차...)';
+COMMENT ON COLUMN strategy_states.trend_avg_entry_price IS 'v8: 평균 진입가 (피라미딩 포함)';
+
 -- ============================================================
 -- 완료 메시지
 -- ============================================================
 
 DO $$
 BEGIN
-    RAISE NOTICE '추세매매(Trend) 테이블 마이그레이션 완료';
+    RAISE NOTICE '추세매매(Trend) v8 테이블 마이그레이션 완료';
 END $$;

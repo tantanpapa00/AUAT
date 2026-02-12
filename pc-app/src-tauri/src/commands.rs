@@ -3456,7 +3456,7 @@ pub async fn run_trend_backtest(
     htf_tf: Option<String>,
     days: Option<i32>,
     initial_capital: Option<f64>,
-    // Entry 지표
+    // Entry 지표 (v8: st_atr_len=20, st_factor=5.0)
     st_atr_len: Option<i32>,
     st_factor: Option<f64>,
     hvi_length: Option<i32>,
@@ -3465,7 +3465,7 @@ pub async fn run_trend_backtest(
     qqe_rsi_smoothing: Option<i32>,
     qqe_factor: Option<f64>,
     htf_vwma_len: Option<i32>,
-    // Exit 지표
+    // Exit 지표 (v8: exit_st_atr_len=20, exit_st_factor=5.0)
     exit_st_atr_len: Option<i32>,
     exit_st_factor: Option<f64>,
     exit_spo_smooth_len: Option<i32>,
@@ -3478,7 +3478,7 @@ pub async fn run_trend_backtest(
     tp1_sell_pct: Option<f64>,
     use_spo_split: Option<bool>,
     use_st_flip_exit: Option<bool>,
-    // 분할매도
+    // 분할매도 (v8: 역피라미드 [5,5,10,15,25,40])
     sell_tranches: Option<Vec<f64>>,
     max_sell_tranches: Option<i32>,
     after_max_sell: Option<String>,
@@ -3488,6 +3488,33 @@ pub async fn run_trend_backtest(
     fee_buffer_pct: Option<f64>,
     // 포지션
     cash_use_pct: Option<f64>,
+    // ============ v8 신규 파라미터 ============
+    // 피라미딩
+    use_pyramiding: Option<bool>,
+    max_pyr_entries: Option<i32>,
+    pyr_high_len: Option<i32>,
+    pyr_cooldown: Option<i32>,
+    pyr_refill_after_sell: Option<bool>,
+    pyr_weights: Option<Vec<f64>>,
+    // 손절 타입
+    stop_type: Option<String>,
+    atr_stop_len: Option<i32>,
+    atr_stop_mult: Option<f64>,
+    // ST Exit Mode
+    st_exit_mode: Option<String>,
+    st_htf_tf: Option<String>,
+    st_htf_atr_len: Option<i32>,
+    st_htf_factor: Option<f64>,
+    // v8 토글
+    use_tp1: Option<bool>,
+    st_invert: Option<bool>,
+    use_htf_filter: Option<bool>,
+    // Entry Guard
+    enter_only_on_setup_start: Option<bool>,
+    use_live_guard: Option<bool>,
+    // 수량 반올림
+    round_qty: Option<bool>,
+    min_qty: Option<f64>,
 ) -> Result<serde_json::Value, String> {
     let client = reqwest::Client::builder()
         .danger_accept_invalid_certs(true)
@@ -3503,18 +3530,18 @@ pub async fn run_trend_backtest(
         "htf_tf": htf_tf.unwrap_or_else(|| "1W".to_string()),
         "days": days.unwrap_or(365),
         "initial_capital": initial_capital.unwrap_or(10000000.0),
-        // Entry 지표
-        "st_atr_len": st_atr_len.unwrap_or(10),
-        "st_factor": st_factor.unwrap_or(3.0),
+        // Entry 지표 (v8: st_atr_len=20, st_factor=5.0)
+        "st_atr_len": st_atr_len.unwrap_or(20),
+        "st_factor": st_factor.unwrap_or(5.0),
         "hvi_length": hvi_length.unwrap_or(200),
         "hvi_divisor": hvi_divisor.unwrap_or(3.6),
         "qqe_rsi_length": qqe_rsi_length.unwrap_or(6),
         "qqe_rsi_smoothing": qqe_rsi_smoothing.unwrap_or(5),
         "qqe_factor": qqe_factor.unwrap_or(3.0),
         "htf_vwma_len": htf_vwma_len.unwrap_or(156),
-        // Exit 지표
-        "exit_st_atr_len": exit_st_atr_len.unwrap_or(10),
-        "exit_st_factor": exit_st_factor.unwrap_or(3.0),
+        // Exit 지표 (v8: exit_st_atr_len=20, exit_st_factor=5.0)
+        "exit_st_atr_len": exit_st_atr_len.unwrap_or(20),
+        "exit_st_factor": exit_st_factor.unwrap_or(5.0),
         "exit_spo_smooth_len": exit_spo_smooth_len.unwrap_or(4),
         "exit_spo_threshold": exit_spo_threshold.unwrap_or(1.0),
         "exit_spo_std_len": exit_spo_std_len.unwrap_or(50),
@@ -3525,8 +3552,8 @@ pub async fn run_trend_backtest(
         "tp1_sell_pct": tp1_sell_pct.unwrap_or(50.0),
         "use_spo_split": use_spo_split.unwrap_or(true),
         "use_st_flip_exit": use_st_flip_exit.unwrap_or(true),
-        // 분할매도
-        "sell_tranches": sell_tranches.unwrap_or_else(|| vec![10.0, 20.0, 30.0, 5.0, 2.5, 1.0]),
+        // 분할매도 (v8: 역피라미드 [5,5,10,15,25,40])
+        "sell_tranches": sell_tranches.unwrap_or_else(|| vec![5.0, 5.0, 10.0, 15.0, 25.0, 40.0]),
         "max_sell_tranches": max_sell_tranches.unwrap_or(6),
         "after_max_sell": after_max_sell.unwrap_or_else(|| "cycle".to_string()),
         // 익절 게이트
@@ -3535,6 +3562,33 @@ pub async fn run_trend_backtest(
         "fee_buffer_pct": fee_buffer_pct.unwrap_or(0.20),
         // 포지션
         "cash_use_pct": cash_use_pct.unwrap_or(100.0),
+        // ============ v8 신규 필드 ============
+        // 피라미딩
+        "use_pyramiding": use_pyramiding.unwrap_or(true),
+        "max_pyr_entries": max_pyr_entries.unwrap_or(4),
+        "pyr_high_len": pyr_high_len.unwrap_or(60),
+        "pyr_cooldown": pyr_cooldown.unwrap_or(5),
+        "pyr_refill_after_sell": pyr_refill_after_sell.unwrap_or(false),
+        "pyr_weights": pyr_weights.unwrap_or_else(|| vec![40.0, 30.0, 20.0, 10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+        // 손절 타입
+        "stop_type": stop_type.unwrap_or_else(|| "fixed".to_string()),
+        "atr_stop_len": atr_stop_len.unwrap_or(14),
+        "atr_stop_mult": atr_stop_mult.unwrap_or(2.0),
+        // ST Exit Mode
+        "st_exit_mode": st_exit_mode.unwrap_or_else(|| "current_tf".to_string()),
+        "st_htf_tf": st_htf_tf.unwrap_or_else(|| "1W".to_string()),
+        "st_htf_atr_len": st_htf_atr_len.unwrap_or(10),
+        "st_htf_factor": st_htf_factor.unwrap_or(3.0),
+        // v8 토글
+        "use_tp1": use_tp1.unwrap_or(false),
+        "st_invert": st_invert.unwrap_or(false),
+        "use_htf_filter": use_htf_filter.unwrap_or(true),
+        // Entry Guard
+        "enter_only_on_setup_start": enter_only_on_setup_start.unwrap_or(true),
+        "use_live_guard": use_live_guard.unwrap_or(false),
+        // 수량 반올림
+        "round_qty": round_qty.unwrap_or(true),
+        "min_qty": min_qty.unwrap_or(1.0),
     });
 
     let resp = client
