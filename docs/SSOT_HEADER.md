@@ -46,6 +46,13 @@
 - e4aa7d0 feat: 추세매매 백테스트에 MR 동일 구조 적용
 - 594437f feat: 백테스트 캔들차트 추가 + KIS 마스터 캐시 개선
 - 0a2a1d8 perf: 추세매매 백테스트 벡터화 최적화 (20~50배 속도 향상)
+- 581373a fix: KIS_US 해외주식/ETF 검색 수정
+
+### KIS_US 해외주식/ETF 검색 수정
+- 해외 마스터 파싱 개선 (탭 구분자 처리)
+- US fallback 항상 병합 (_get_us_fallback_stocks)
+- NYSE 29개, NASDAQ 32개, ETF 24개 = 총 85개 US 종목
+- AAPL, MSFT, GOOGL, SPY, QQQ, TQQQ 등 검색 가능
 
 ### 추세매매 벡터화 최적화
 - 기존: 매 봉마다 지표 재계산 → O(N × lookback × 지표수) = 15~30초
