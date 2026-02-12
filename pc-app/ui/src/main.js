@@ -7906,6 +7906,52 @@ function createBacktestCandleChart(containerId, candles, trades) {
     // 캔들 데이터 설정
     candleSeries.setData(candles);
 
+    // SMA 계산 함수
+    function calcSMA(data, period) {
+        const result = [];
+        for (let i = period - 1; i < data.length; i++) {
+            let sum = 0;
+            for (let j = i - period + 1; j <= i; j++) {
+                sum += data[j].close;
+            }
+            result.push({ time: data[i].time, value: sum / period });
+        }
+        return result;
+    }
+
+    // 20일선 (노란색)
+    if (candles.length >= 20) {
+        const sma20Series = chart.addLineSeries({
+            color: '#FBBF24',
+            lineWidth: 1,
+            lastValueVisible: false,
+            priceLineVisible: false,
+        });
+        sma20Series.setData(calcSMA(candles, 20));
+    }
+
+    // 50일선 (주황색)
+    if (candles.length >= 50) {
+        const sma50Series = chart.addLineSeries({
+            color: '#F97316',
+            lineWidth: 1,
+            lastValueVisible: false,
+            priceLineVisible: false,
+        });
+        sma50Series.setData(calcSMA(candles, 50));
+    }
+
+    // 200일선 (파란색)
+    if (candles.length >= 200) {
+        const sma200Series = chart.addLineSeries({
+            color: '#3B82F6',
+            lineWidth: 1,
+            lastValueVisible: false,
+            priceLineVisible: false,
+        });
+        sma200Series.setData(calcSMA(candles, 200));
+    }
+
     // 거래 마커 추가 (있는 경우)
     if (trades && trades.length > 0) {
         const markers = [];
