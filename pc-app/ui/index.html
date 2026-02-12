@@ -2295,6 +2295,13 @@
                                 </div>
                                 <button class="btn btn-primary" id="btn-trend-run-backtest">백테스트 실행</button>
 
+                                <!-- 로딩 표시 -->
+                                <div id="trend-backtest-loading" style="display:none; text-align:center; padding:40px;">
+                                    <div style="display:inline-block; width:32px; height:32px; border:3px solid rgba(255,255,255,0.1); border-top-color:#10B981; border-radius:50%; animation:spin 1s linear infinite;"></div>
+                                    <div id="trend-backtest-loading-msg" style="font-size:14px; color:#9CA3AF; margin-top:12px;">시세 데이터 준비 중...</div>
+                                    <div style="font-size:12px; color:#6B7280; margin-top:4px;">첫 조회 시 다소 시간이 걸릴 수 있습니다</div>
+                                </div>
+
                                 <!-- 백테스트 에러 -->
                                 <div id="trend-backtest-error" style="display:none; padding:20px; background:rgba(239,68,68,0.1); border-radius:8px; margin-top:16px;"></div>
 

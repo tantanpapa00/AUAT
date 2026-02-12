@@ -8179,16 +8179,59 @@ async function loadTrendExchangeDropdown() {
 
 // 백테스트 실행 이벤트 핸들러
 document.getElementById('btn-trend-run-backtest')?.addEventListener('click', async () => {
+    console.log('[Trend 백테스트] 시작');
+
     const cfg = collectTrendConfig();
 
-    if (!cfg.exchange || !cfg.symbol) {
-        showToast('거래소와 종목을 선택해주세요', 'error');
-        return;
-    }
+    if (!cfg.exchange) cfg.exchange = 'OKX';
+    if (!cfg.symbol) cfg.symbol = 'BTC-USDT';
 
-    showToast('추세매매 백테스트 실행 중...', 'info');
+    console.log('[Trend 백테스트] config:', JSON.stringify(cfg).substring(0, 300));
+
+    // 로딩 표시
+    const btn = document.getElementById('btn-trend-run-backtest');
+    const loadingEl = document.getElementById('trend-backtest-loading');
+    const loadingMsgEl = document.getElementById('trend-backtest-loading-msg');
+    const errorEl = document.getElementById('trend-backtest-error');
+    const resultEl = document.getElementById('trend-backtest-result');
+
+    const setLoadingMsg = (msg) => {
+        if (loadingMsgEl) loadingMsgEl.textContent = msg;
+    };
+
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '준비 중...';
+        btn.classList.add('btn-loading');
+    }
+    if (loadingEl) loadingEl.style.display = 'block';
+    if (errorEl) errorEl.style.display = 'none';
+    if (resultEl) resultEl.style.display = 'none';
 
     try {
+        // 1단계: 캔들 프리로드 (시세 데이터 준비)
+        setLoadingMsg('시세 데이터 준비 중...');
+        console.log('[Trend 백테스트] 프리로드 시작');
+
+        const preloadResult = await invoke('preload_candles', {
+            accessToken: auth.accessToken || '',
+            exchange: cfg.exchange,
+            symbol: cfg.symbol,
+            timeframe: cfg.signal_tf,
+            days: cfg.days,
+        });
+
+        if (!preloadResult.success) {
+            throw new Error(preloadResult.message || '시세 데이터 로드 실패');
+        }
+
+        console.log('[Trend 백테스트] 프리로드 완료:', preloadResult.candles, '봉,', preloadResult.time_sec, '초');
+
+        // 2단계: 백테스트 실행
+        setLoadingMsg('전략 분석 중...');
+        if (btn) btn.textContent = '분석 중...';
+        console.log('[Trend 백테스트] invoke 호출');
+
         const result = await invoke('run_trend_backtest', {
             accessToken: auth.accessToken || '',
             exchange: cfg.exchange,
@@ -8228,21 +8271,36 @@ document.getElementById('btn-trend-run-backtest')?.addEventListener('click', asy
             atrStopMult: cfg.atr_stop_mult,
         });
 
-        displayTrendBacktestResult(result);
+        console.log('[Trend 백테스트] 결과:', JSON.stringify(result).substring(0, 300));
+
         if (result.success) {
-            showToast('추세매매 백테스트 완료', 'success');
+            displayTrendBacktestResult(result);
+            showToast('백테스트 완료', 'success');
         } else {
-            showToast(result.message || result.error || '백테스트 실패', 'error');
+            const errorMsg = result.error || result.message || '백테스트 실패';
+            if (errorEl) {
+                errorEl.style.display = 'block';
+                errorEl.innerHTML = `<span style="color:#EF4444;">${errorMsg}</span>`;
+            }
+            showToast(errorMsg, 'error');
         }
     } catch (error) {
-        const errorEl = document.getElementById('trend-backtest-error');
-        const resultEl = document.getElementById('trend-backtest-result');
+        console.error('[Trend 백테스트] 에러:', error);
+        const errorMsg = humanizeMrError(error);
         if (errorEl) {
             errorEl.style.display = 'block';
-            errorEl.innerHTML = `<span style="color:#EF4444;">⚠️ ${error}</span>`;
+            errorEl.innerHTML = `<span style="color:#EF4444;">${errorMsg}</span>`;
         }
         if (resultEl) resultEl.style.display = 'none';
-        showToast('백테스트 오류: ' + error, 'error');
+        showToast(errorMsg, 'error');
+    } finally {
+        // 로딩 해제
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '백테스트 실행';
+            btn.classList.remove('btn-loading');
+        }
+        if (loadingEl) loadingEl.style.display = 'none';
     }
 });
 
