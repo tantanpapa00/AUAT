@@ -174,13 +174,14 @@ function createSymbolAutocomplete(inputElement, onSelect, options = {}) {
     if (!inputElement) return null;
 
     const {
-        exchange = 'all',
+        exchange: initialExchange = 'all',
         category = 'all',
         showBadge = true,
         maxResults = 10
     } = options;
 
     // 상태
+    let currentExchange = initialExchange;  // 변경 가능한 exchange
     let selectedSymbol = null;
     let dropdownVisible = false;
     let highlightedIndex = -1;
@@ -214,7 +215,7 @@ function createSymbolAutocomplete(inputElement, onSelect, options = {}) {
             const result = await invokeWithTimeout('search_symbols', {
                 accessToken: auth.accessToken || '',
                 query: query,
-                exchange: exchange !== 'all' ? exchange : null
+                exchange: currentExchange !== 'all' ? currentExchange : null
             }, 5000);
 
             const symbols = result?.symbols || result || [];
@@ -367,6 +368,12 @@ function createSymbolAutocomplete(inputElement, onSelect, options = {}) {
         getSelected: () => selectedSymbol,
         isValid: () => !!selectedSymbol,
         clear: clearSelection,
+        setExchange: (newExchange) => {
+            currentExchange = newExchange || 'all';
+            // 선택 초기화 + 입력 필드 초기화
+            clearSelection();
+        },
+        getExchange: () => currentExchange,
         destroy: () => {
             wrapper.parentNode.insertBefore(inputElement, wrapper);
             wrapper.remove();
@@ -1828,6 +1835,11 @@ function updateTVWizardUI(step) {
         if (content) content.style.display = i === step ? 'block' : 'none';
     }
 
+    // Step 2 진입 시 선택된 거래소로 자동완성 필터 업데이트
+    if (step === 2 && tvAssetAutocomplete && selectedExchange) {
+        tvAssetAutocomplete.setExchange(selectedExchange.exchange);
+    }
+
     // Step 3 진입 시 조건부 필드 초기화 (v2)
     if (step === 3) {
         updateSignalParamsConditionalFields();
@@ -2352,8 +2364,10 @@ function initTVAssetAutocomplete() {
 // 2. Premium Strategy: 커스텀 전략 종목 선택
 function initCustomSymbolAutocomplete() {
     const input = document.getElementById('custom-symbol');
+    const exchangeSelect = document.getElementById('custom-exchange');
     if (!input || customSymbolAutocomplete) return;
 
+    const initialExchange = exchangeSelect?.value || 'all';
     customSymbolAutocomplete = createSymbolAutocomplete(input, (symbol) => {
         if (symbol) {
             input.dataset.selectedCode = symbol.code;
@@ -2362,7 +2376,14 @@ function initCustomSymbolAutocomplete() {
             delete input.dataset.selectedCode;
             delete input.dataset.selectedExchange;
         }
-    }, { exchange: 'all', showBadge: true });
+    }, { exchange: initialExchange, showBadge: true });
+
+    // 거래소 변경 시 자동완성 필터 업데이트
+    exchangeSelect?.addEventListener('change', () => {
+        if (customSymbolAutocomplete) {
+            customSymbolAutocomplete.setExchange(exchangeSelect.value);
+        }
+    });
 }
 
 // 3. Premium Strategy: 역추세 전략 종목 선택
@@ -2384,8 +2405,10 @@ function initReversalSymbolAutocomplete() {
 // 4. Premium Strategy: 추세 전략 종목 선택
 function initTrendSymbolAutocomplete() {
     const input = document.getElementById('trend-symbol');
+    const exchangeSelect = document.getElementById('trend-exchange');
     if (!input || trendSymbolAutocomplete) return;
 
+    const initialExchange = exchangeSelect?.value || 'all';
     trendSymbolAutocomplete = createSymbolAutocomplete(input, (symbol) => {
         if (symbol) {
             input.dataset.selectedCode = symbol.code;
@@ -2394,7 +2417,14 @@ function initTrendSymbolAutocomplete() {
             delete input.dataset.selectedCode;
             delete input.dataset.selectedExchange;
         }
-    }, { exchange: 'all', showBadge: true });
+    }, { exchange: initialExchange, showBadge: true });
+
+    // 거래소 변경 시 자동완성 필터 업데이트
+    exchangeSelect?.addEventListener('change', () => {
+        if (trendSymbolAutocomplete) {
+            trendSymbolAutocomplete.setExchange(exchangeSelect.value);
+        }
+    });
 }
 
 // 5. Stock KR: 종목 검색 자동완성
@@ -6885,12 +6915,21 @@ async function loadMrSignals() {
 
 function initMrSymbolAutocomplete() {
     const input = document.getElementById('mr-symbol');
+    const exchangeSelect = document.getElementById('mr-exchange');
     if (!input || mrSymbolAutocomplete) return;
 
+    const initialExchange = exchangeSelect?.value || 'all';
     mrSymbolAutocomplete = createSymbolAutocomplete(input, (symbol) => {
         if (symbol) {
             input.dataset.selectedCode = symbol.code;
             input.dataset.selectedExchange = symbol.exchange;
+        }
+    }, { exchange: initialExchange, showBadge: true });
+
+    // 거래소 변경 시 자동완성 필터 업데이트
+    exchangeSelect?.addEventListener('change', () => {
+        if (mrSymbolAutocomplete) {
+            mrSymbolAutocomplete.setExchange(exchangeSelect.value);
         }
     });
 }
@@ -8422,14 +8461,7 @@ document.getElementById('btn-trend-backtest-quick')?.addEventListener('click', (
     document.getElementById('btn-trend-run-backtest')?.click();
 });
 
-// 종목 자동완성 연결 (거래소 변경 시)
-document.getElementById('trend-exchange')?.addEventListener('change', () => {
-    const symbolInput = document.getElementById('trend-symbol');
-    const exchange = document.getElementById('trend-exchange')?.value;
-    if (symbolInput && exchange) {
-        createSymbolAutocomplete(symbolInput, exchange);
-    }
-});
+// 종목 자동완성 연결 - initTrendSymbolAutocomplete()에서 처리
 
 function displayTrendBacktestResult(result) {
     // 에러 표시
