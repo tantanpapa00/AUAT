@@ -3279,9 +3279,10 @@ document.querySelectorAll('.strategy-tab').forEach(tab => {
         if (tab.dataset.tab === 'reversal') {
             loadMrEngineTab();
         }
-        // 추세매매 탭 클릭 시 Trend 거래소 로드
+        // 추세매매 탭 클릭 시 Trend 초기화
         if (tab.dataset.tab === 'trend') {
             loadTrendExchangeDropdown();
+            initTrendDynamicUI();
         }
     });
 });
@@ -7303,7 +7304,7 @@ function collectTrendConfig() {
         pyr_high_len: parseInt(document.getElementById('trend-pyr-high-len')?.value) || 60,
         pyr_cooldown: parseInt(document.getElementById('trend-pyr-cooldown')?.value) || 5,
         pyr_refill_after_sell: document.getElementById('trend-pyr-refill')?.checked ?? false,
-        pyr_weights: pyrWeights,
+        pyr_weights: pyrWeights.length > 0 ? pyrWeights : [40, 30, 20, 10],
 
         // 추세전환 전량매도
         use_st_exit: document.getElementById('trend-use-st-exit')?.checked ?? true,
@@ -7315,8 +7316,8 @@ function collectTrendConfig() {
 
         // 과매수구간 분할매도
         use_spo_split: document.getElementById('trend-use-spo')?.checked ?? true,
-        sell_tranches: sellTranches,
-        max_sell_tranches: sellTranches.length,
+        sell_tranches: sellTranches.length > 0 ? sellTranches : [5, 5, 10, 15, 25, 40],
+        max_sell_tranches: parseInt(document.getElementById('trend-max-sell-tranches')?.value) || 6,
         after_max_sell: document.getElementById('trend-after-max-sell')?.value || 'cycle',
         use_profit_gate: document.getElementById('trend-use-profit-gate')?.checked ?? true,
 
@@ -7402,7 +7403,18 @@ function renderTrendSellTranches(count) {
 /**
  * Trend 동적 UI 핸들러 초기화
  */
+let _trendDynamicUIInitialized = false;
 function initTrendDynamicUI() {
+    // 초기 렌더링 (항상 실행 - 탭 전환 시 재렌더링 필요)
+    const maxPyr = parseInt(document.getElementById('trend-max-pyr')?.value) || 4;
+    const maxSell = parseInt(document.getElementById('trend-max-sell-tranches')?.value) || 6;
+    renderTrendPyrWeights(maxPyr);
+    renderTrendSellTranches(maxSell);
+
+    // 이벤트 리스너는 한 번만 등록
+    if (_trendDynamicUIInitialized) return;
+    _trendDynamicUIInitialized = true;
+
     // 피라미딩 최대 횟수 변경 → 비중칸 동적 생성
     document.getElementById('trend-max-pyr')?.addEventListener('change', (e) => {
         renderTrendPyrWeights(parseInt(e.target.value) || 4);
@@ -7462,10 +7474,6 @@ function initTrendDynamicUI() {
             }
         });
     });
-
-    // 초기 렌더링
-    renderTrendPyrWeights(4);
-    renderTrendSellTranches(6);
 }
 
 // MR 스케줄러 시작
