@@ -29,6 +29,14 @@
   - 버튼 상태 관리 (disabled + 텍스트 변경)
   - 콘솔 로깅 + 에러 처리 humanizeMrError
 - KIS_KR 백테스트 정상 동작 확인 (SK하이닉스 1000일 → 2거래)
+- **백테스트 캔들차트 추가 (TradingView Lightweight Charts):**
+  - MR/Trend 백테스트 응답에 candles 필드 추가
+  - 캔들차트 컨테이너 및 createBacktestCandleChart 함수 구현
+  - 거래 마커(매수/매도) 표시 지원
+- **KIS 마스터 캐시 개선:**
+  - refresh_master_cache 에러 로깅 개선
+  - 미국 주식/ETF fallback 목록 대폭 확장 (SPY, QQQ, TQQQ 등)
+  - /api/debug/master-cache 디버그 엔드포인트 추가
 - 테스트: pytest 340 passed
 - PC앱 빌드: BBooster_1.0.0_x64-setup.exe
 
@@ -36,9 +44,10 @@
 - 431d870 fix: Rust recursion_limit 증가
 - 654cdc2 fix: MR 백테스트 custom 프리셋 파라미터 적용 안되는 버그 수정
 - e4aa7d0 feat: 추세매매 백테스트에 MR 동일 구조 적용
+- 594437f feat: 백테스트 캔들차트 추가 + KIS 마스터 캐시 개선
 
 ### 내일 이어서 할 것
-- 추세매매 백테스트 최종 확인
+- PC앱 빌드 및 캔들차트 테스트
 - Phase 3 커스텀전략 시작
 
 ## Day 16 완료사항 (2026-02-11)
