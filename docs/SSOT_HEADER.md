@@ -52,6 +52,37 @@
 - 76f0314 fix: 백테스트 캔들 데이터 접근 TypeError 수정
 - e194d63 fix: lightweight-charts v3.8.0 다운그레이드 + ES 모듈 통일
 - 9faa8a0 docs: SSOT 캔들차트 검증 결과 추가
+- 41f2c3b fix: 최소봉수 동적계산 + 캔들차트 방어코드 강화
+
+### 최소봉수 동적계산 + 백테스트 안정화 (최종)
+**문제**: 300봉 하드코딩 → KIS 365일 백테스트 실패
+**수정**:
+- MR: preset1=300봉, preset2=250봉, custom=150봉 (동적)
+- Trend: max(HVI+50, VWMA+20, SPO+30, 피라미딩+20, ST*3, 100)
+
+**15개 자체 테스트 전부 통과**:
+| # | 전략 | 거래소 | 종목 | TF | 기간 | 거래수 | 상태 |
+|---|------|--------|------|-----|------|--------|------|
+| 1 | MR | OKX | BTC | 1h | 365일 | 83 | OK |
+| 2 | MR | BINANCE | BTC | 1h | 365일 | 84 | OK |
+| 3 | MR | KIS_KR | 삼성 | 1D | 365일 | 1 | OK |
+| 4 | MR | KIS_KR | 삼성 | 1D | 730일 | 6 | OK |
+| 5 | MR | KIS_US | AAPL | 1D | 365일 | 0 | OK |
+| 6 | MR | KIS_US | AAPL | 1D | 730일 | 3 | OK |
+| 7 | Trend | OKX | BTC | 1D | 365일 | 0 | OK |
+| 8 | Trend | OKX | BTC | 1D | 730일 | 3 | OK |
+| 9 | Trend | BINANCE | BTC | 1D | 730일 | 3 | OK |
+| 10 | Trend | KIS_KR | 삼성 | 1D | 365일 | 6 | OK |
+| 11 | Trend | KIS_KR | 삼성 | 1D | 730일 | 21 | OK |
+| 12 | Trend | KIS_KR | 삼성 | 1D | 1000일 | 63 | OK |
+| 13 | Trend | KIS_US | AAPL | 1D | 365일 | 2 | OK |
+| 14 | Trend | KIS_US | AAPL | 1D | 730일 | 5 | OK |
+| 15 | Trend | KIS_US | AAPL | 1D | 1000일 | 27 | OK |
+
+**캔들차트 방어코드 강화**:
+- try-catch 에러 처리 추가
+- Array.isArray 타입 체크 추가
+- trades 빈배열 초기화
 
 ### 캔들차트 구현 검증 완료 (최종)
 - **lightweight-charts v3.8.0**: `addCandlestickSeries` API 호환 확인
