@@ -22,14 +22,22 @@
 - 이모지 제거, 글자크기 MR 동일화
 - 거래소 6개 드롭다운 완료
 - Rust recursion_limit 512 증가 (serde_json 매크로 확장 한계)
+- **MR 백테스트 custom 프리셋 버그 수정** (osc_smooth_len/osc_threshold 무시 문제)
+- **추세매매 백테스트에 MR 동일 구조 적용:**
+  - 프리로드 단계 추가 (preload_candles)
+  - 로딩 UI 추가 (스피너 + 메시지)
+  - 버튼 상태 관리 (disabled + 텍스트 변경)
+  - 콘솔 로깅 + 에러 처리 humanizeMrError
+- KIS_KR 백테스트 정상 동작 확인 (SK하이닉스 1000일 → 2거래)
 - 테스트: pytest 340 passed
+- PC앱 빌드: BBooster_1.0.0_x64-setup.exe
 
-### 미해결
-- preload_candles 커맨드 에러 (KIS_KR 백테스트 실패) - 원인 조사 필요
-- PC앱 cargo tauri build 후 실제 동작 확인 필요
+### 커밋
+- 431d870 fix: Rust recursion_limit 증가
+- 654cdc2 fix: MR 백테스트 custom 프리셋 파라미터 적용 안되는 버그 수정
+- e4aa7d0 feat: 추세매매 백테스트에 MR 동일 구조 적용
 
 ### 내일 이어서 할 것
-- preload_candles 버그 수정
 - 추세매매 백테스트 최종 확인
 - Phase 3 커스텀전략 시작
 
@@ -54,8 +62,8 @@
 ## 남은 버그/미완성
 | # | 문제 | 상태 |
 |---|------|------|
-| 1 | KIS_KR 캔들 조회 미구현 | ❌ |
-| 2 | KIS_US 캔들 조회 미구현 | ❌ |
+| 1 | KIS_KR 캔들 조회 | ✅ 완료 |
+| 2 | KIS_US 캔들 조회 | ✅ 완료 |
 | 3 | OKX VPS IP 429 차단 | ⚠️ |
 | 4 | 샤프지수 미표시 | ❌ |
 
