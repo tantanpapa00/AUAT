@@ -2,6 +2,7 @@
     all(not(debug_assertions), target_os = "windows"),
     windows_subsystem = "windows"
 )]
+#![recursion_limit = "512"]
 
 use std::process::Child;
 use std::sync::Mutex;
