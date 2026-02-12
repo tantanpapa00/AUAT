@@ -9,14 +9,13 @@
 -- strategy_type 컬럼 (mr/trend 구분)
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS strategy_type VARCHAR(20) DEFAULT 'mr';
 
--- 타임프레임 분리 (핵심!)
-ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_entry_tf VARCHAR(10) DEFAULT '1D';
-ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_exit_tf VARCHAR(10) DEFAULT '1D';
-ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_htf_tf VARCHAR(10) DEFAULT '1W';
+-- 타임프레임 (v8 최종: 2개로 단순화)
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_signal_tf VARCHAR(10) DEFAULT '1D';
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_exit_tf VARCHAR(10) DEFAULT '1W';
 
--- Entry 지표 (entry_tf 기준) - v8 파인스크립트: stAtrLen=10, stFactor=3.0
-ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_st_atr_len INTEGER DEFAULT 10;
-ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_st_factor FLOAT DEFAULT 3.0;
+-- Supertrend (작가님 확정: 20/5.0)
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_st_atr_len INTEGER DEFAULT 20;
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_st_factor FLOAT DEFAULT 5.0;
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_hvi_length INTEGER DEFAULT 200;
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_hvi_divisor FLOAT DEFAULT 3.6;
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_qqe_rsi_length INTEGER DEFAULT 6;
@@ -24,9 +23,7 @@ ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_qqe_rsi_smoothing INT
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_qqe_factor FLOAT DEFAULT 3.0;
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_htf_vwma_len INTEGER DEFAULT 156;
 
--- Exit 지표 (exit_tf 기준) - v8 파인스크립트: 동일 ST 사용
-ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_exit_st_atr_len INTEGER DEFAULT 10;
-ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_exit_st_factor FLOAT DEFAULT 3.0;
+-- SPO 지표 (signal_tf 기준 분할매도용)
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_exit_spo_smooth_len INTEGER DEFAULT 4;
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_exit_spo_threshold FLOAT DEFAULT 1.0;
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_exit_spo_std_len INTEGER DEFAULT 50;
@@ -66,11 +63,8 @@ ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_stop_type VARCHAR(10)
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_atr_stop_len INTEGER DEFAULT 14;
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_atr_stop_mult FLOAT DEFAULT 2.0;
 
--- ST Exit Mode (v8: HTF Supertrend)
-ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_st_exit_mode VARCHAR(20) DEFAULT 'current_tf';
-ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_st_htf_tf VARCHAR(10) DEFAULT '1W';
-ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_st_htf_atr_len INTEGER DEFAULT 10;
-ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_st_htf_factor FLOAT DEFAULT 3.0;
+-- ST 전량매도 (exit_tf의 ST 사용)
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_use_st_exit BOOLEAN DEFAULT true;
 
 -- v8 토글
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_use_tp1 BOOLEAN DEFAULT false;
@@ -118,9 +112,8 @@ CREATE INDEX IF NOT EXISTS idx_premium_configs_strategy_type ON premium_configs(
 -- ============================================================
 
 COMMENT ON COLUMN premium_configs.strategy_type IS '전략 타입: mr(역추세매매), trend(추세매매)';
-COMMENT ON COLUMN premium_configs.trend_entry_tf IS '매수 판단 타임프레임 (15m/30m/1h/4h/1D/1W)';
-COMMENT ON COLUMN premium_configs.trend_exit_tf IS '매도 판단 타임프레임 (15m/30m/1h/4h/1D/1W)';
-COMMENT ON COLUMN premium_configs.trend_htf_tf IS 'HTF VWMA 기준 타임프레임 (보통 주봉)';
+COMMENT ON COLUMN premium_configs.trend_signal_tf IS '기준 TF (매수 + SPO + SL + TP1)';
+COMMENT ON COLUMN premium_configs.trend_exit_tf IS '매도기준 TF (ST 전량매도 + HTF VWMA 필터)';
 
 COMMENT ON COLUMN strategy_states.trend_in_position IS '추세매매 포지션 보유 여부';
 COMMENT ON COLUMN strategy_states.trend_tp1_triggered IS 'TP1 발동 여부 (중복 방지)';
@@ -132,7 +125,7 @@ COMMENT ON COLUMN premium_configs.trend_max_pyr_entries IS 'v8: 최대 피라미
 COMMENT ON COLUMN premium_configs.trend_pyr_high_len IS 'v8: N-bar 최고가 기준 봉수';
 COMMENT ON COLUMN premium_configs.trend_pyr_cooldown IS 'v8: 피라미딩 쿨다운 봉수';
 COMMENT ON COLUMN premium_configs.trend_stop_type IS 'v8: 손절 타입 (fixed/atr)';
-COMMENT ON COLUMN premium_configs.trend_st_exit_mode IS 'v8: ST Exit 모드 (current_tf/htf_only/both/none)';
+COMMENT ON COLUMN premium_configs.trend_use_st_exit IS 'v8: ST 전량매도 사용 여부';
 COMMENT ON COLUMN premium_configs.trend_use_tp1 IS 'v8: TP1 사용 여부 (기본 OFF)';
 COMMENT ON COLUMN strategy_states.trend_pyr_count IS 'v8: 피라미딩 차수 (0=1차, 1=2차...)';
 COMMENT ON COLUMN strategy_states.trend_avg_entry_price IS 'v8: 평균 진입가 (피라미딩 포함)';

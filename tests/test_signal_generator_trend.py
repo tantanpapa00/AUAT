@@ -25,14 +25,13 @@ class TestTrendConfig:
         """Test default configuration values."""
         config = TrendConfig()
 
-        # Timeframes
-        assert config.entry_tf == "1D"
-        assert config.exit_tf == "1D"
-        assert config.htf_tf == "1W"
+        # 타임프레임 (v8 최종: 2개로 단순화)
+        assert config.signal_tf == "1D"   # 기준 TF
+        assert config.exit_tf == "1W"     # 매도기준 TF
 
-        # Entry 지표 (v8 파인스크립트: stAtrLen=10, stFactor=3.0)
-        assert config.st_atr_len == 10
-        assert config.st_factor == 3.0
+        # Supertrend (작가님 확정: 20/5.0)
+        assert config.st_atr_len == 20
+        assert config.st_factor == 5.0
         assert config.hvi_length == 200
         assert config.hvi_divisor == 3.6
         assert config.qqe_rsi_length == 6
@@ -56,8 +55,8 @@ class TestTrendConfig:
         assert config.use_pyramiding == True
         assert config.max_pyr_entries == 4
         assert config.stop_type == "fixed"
-        assert config.st_exit_mode == "current_tf"
-        assert config.use_tp1 == False  # v8에서 기본 OFF
+        assert config.use_st_exit == True   # ST 전량매도
+        assert config.use_tp1 == False      # v8에서 기본 OFF
         assert config.st_invert == False
         assert config.use_htf_filter == True
         assert config.enter_only_on_setup_start == True
@@ -65,14 +64,14 @@ class TestTrendConfig:
     def test_custom_values(self):
         """Test custom configuration."""
         config = TrendConfig(
-            entry_tf="4h",
-            exit_tf="1h",
+            signal_tf="4h",
+            exit_tf="1D",
             hard_sl_pct=5.0,
             tp1_pct=15.0,
         )
 
-        assert config.entry_tf == "4h"
-        assert config.exit_tf == "1h"
+        assert config.signal_tf == "4h"
+        assert config.exit_tf == "1D"
         assert config.hard_sl_pct == 5.0
         assert config.tp1_pct == 15.0
 
@@ -574,7 +573,6 @@ class TestTrendSignalReasonCodes:
             "TREND_EXIT_ST_FLIP",
             # v8 추가
             "TREND_EXIT_ATR_SL",
-            "TREND_EXIT_HTF_ST_FLIP",
         ]
 
         # Just verify the codes are strings we use
@@ -838,8 +836,8 @@ class TestTrendV8StopType:
         assert signal.reason_code == "TREND_EXIT_HARD_SL"
 
 
-class TestTrendV8StExitMode:
-    """Test v8 ST Exit Mode (4가지 모드)."""
+class TestTrendV8StExit:
+    """Test v8 ST Exit (use_st_exit boolean)."""
 
     def _create_position_state(self, entry_price=100.0):
         """Create state with existing position."""
@@ -855,19 +853,17 @@ class TestTrendV8StExitMode:
             avg_entry_price=entry_price,
         )
 
-    def test_st_exit_current_tf(self):
-        """Test current TF ST exit mode."""
+    def test_st_exit_enabled(self):
+        """Test ST exit when enabled."""
         entry_price = 100.0
         state = self._create_position_state(entry_price)
 
         n = 50
         close = np.array([102.0] * n)
-        # Current TF ST flip
+        # exit_tf ST flip: prev bullish (-1) -> curr bearish (1)
         exit_st_dir = np.array([-1] * (n - 1) + [1])
-        # HTF ST no flip
-        htf_st_dir = np.array([-1] * n)
 
-        config = TrendConfig(st_exit_mode="current_tf", use_st_flip_exit=True)
+        config = TrendConfig(use_st_exit=True)
 
         signal, new_state = generate_trend_signal(
             entry_close=close,
@@ -881,78 +877,13 @@ class TestTrendV8StExitMode:
             config=config,
             state=state,
             current_ts=1700000000000,
-            htf_st_dir=htf_st_dir,
         )
 
         assert signal.action == "sell"
         assert signal.reason_code == "TREND_EXIT_ST_FLIP"
 
-    def test_st_exit_htf_only(self):
-        """Test HTF only ST exit mode."""
-        entry_price = 100.0
-        state = self._create_position_state(entry_price)
-
-        n = 50
-        close = np.array([102.0] * n)
-        # Current TF no flip
-        exit_st_dir = np.array([-1] * n)
-        # HTF ST flip
-        htf_st_dir = np.array([-1] * (n - 1) + [1])
-
-        config = TrendConfig(st_exit_mode="htf_only", use_st_flip_exit=True)
-
-        signal, new_state = generate_trend_signal(
-            entry_close=close,
-            entry_st_dir=np.array([-1] * n),
-            entry_hvi={'g_enabled': np.array([True] * n)},
-            entry_qqe={'is_positive': np.array([True] * n)},
-            htf_vwma=np.array([90.0] * n),
-            exit_close=close,
-            exit_st_dir=exit_st_dir,
-            exit_spo_norm=np.array([0.0] * n),
-            config=config,
-            state=state,
-            current_ts=1700000000000,
-            htf_st_dir=htf_st_dir,
-        )
-
-        assert signal.action == "sell"
-        assert signal.reason_code == "TREND_EXIT_HTF_ST_FLIP"
-
-    def test_st_exit_both(self):
-        """Test Both ST exit mode (any flip triggers)."""
-        entry_price = 100.0
-        state = self._create_position_state(entry_price)
-
-        n = 50
-        close = np.array([102.0] * n)
-        # Current TF flip
-        exit_st_dir = np.array([-1] * (n - 1) + [1])
-        # HTF no flip
-        htf_st_dir = np.array([-1] * n)
-
-        config = TrendConfig(st_exit_mode="both", use_st_flip_exit=True)
-
-        signal, new_state = generate_trend_signal(
-            entry_close=close,
-            entry_st_dir=np.array([-1] * n),
-            entry_hvi={'g_enabled': np.array([True] * n)},
-            entry_qqe={'is_positive': np.array([True] * n)},
-            htf_vwma=np.array([90.0] * n),
-            exit_close=close,
-            exit_st_dir=exit_st_dir,
-            exit_spo_norm=np.array([0.0] * n),
-            config=config,
-            state=state,
-            current_ts=1700000000000,
-            htf_st_dir=htf_st_dir,
-        )
-
-        assert signal.action == "sell"
-        assert signal.reason_code == "TREND_EXIT_ST_FLIP"
-
-    def test_st_exit_none(self):
-        """Test None ST exit mode (no ST exit)."""
+    def test_st_exit_disabled(self):
+        """Test ST exit skipped when disabled."""
         entry_price = 100.0
         state = self._create_position_state(entry_price)
 
@@ -961,7 +892,7 @@ class TestTrendV8StExitMode:
         # ST flip 발생
         exit_st_dir = np.array([-1] * (n - 1) + [1])
 
-        config = TrendConfig(st_exit_mode="none", use_st_flip_exit=True)
+        config = TrendConfig(use_st_exit=False)
 
         signal, new_state = generate_trend_signal(
             entry_close=close,
@@ -977,7 +908,7 @@ class TestTrendV8StExitMode:
             current_ts=1700000000000,
         )
 
-        # st_exit_mode="none"이므로 ST exit 안함
+        # use_st_exit=False이므로 ST exit 안함
         assert signal.action == "hold"
 
 

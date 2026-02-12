@@ -454,15 +454,14 @@ class TestTrendBacktestV8:
 
         assert result.success == True
 
-    def test_backtest_with_htf_st_exit(self):
-        """Test backtest with HTF Supertrend exit mode."""
+    def test_backtest_with_st_exit(self):
+        """Test backtest with ST exit enabled/disabled."""
         candles = generate_trend_sample_candles(days=400, seed=42)
         weekly = generate_weekly_candles_from_daily(candles)
 
+        # Test with ST exit enabled
         config = TrendConfig(
-            st_exit_mode="htf_only",
-            st_htf_atr_len=10,
-            st_htf_factor=3.0,
+            use_st_exit=True,
         )
 
         result = run_trend_backtest(

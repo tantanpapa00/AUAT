@@ -1171,18 +1171,17 @@ async def run_mr_backtest_endpoint(
 # ============================================================================
 
 class TrendBacktestRequest(BaseModel):
-    """Request model for Trend backtest (v8)."""
+    """Request model for Trend backtest (v8 최종)."""
     exchange: str = Field(..., description="거래소 (okx, binance, etc)")
     symbol: str = Field(..., description="종목 심볼 (BTC-USDT)")
-    entry_tf: str = Field(default="1D", description="매수 판단 타임프레임")
-    exit_tf: str = Field(default="1D", description="매도 판단 타임프레임")
-    htf_tf: str = Field(default="1W", description="HTF VWMA 기준 타임프레임")
+    signal_tf: str = Field(default="1D", description="기준 TF (매수 + SPO + SL + TP1)")
+    exit_tf: str = Field(default="1W", description="매도기준 TF (ST 전량매도 + HTF VWMA)")
     days: int = Field(default=365, ge=30, le=1000, description="백테스트 기간 (일)")
     initial_capital: float = Field(default=10000000, ge=1000)
 
-    # Entry 지표 설정 (v8 파인스크립트: stAtrLen=10, stFactor=3.0)
-    st_atr_len: int = Field(default=10, ge=1, le=50)
-    st_factor: float = Field(default=3.0, ge=0.5, le=10.0)
+    # Supertrend 설정 (작가님 확정: 20/5.0)
+    st_atr_len: int = Field(default=20, ge=1, le=50)
+    st_factor: float = Field(default=5.0, ge=0.5, le=10.0)
     hvi_length: int = Field(default=200, ge=10, le=500)
     hvi_divisor: float = Field(default=3.6, ge=1.0, le=10.0)
     qqe_rsi_length: int = Field(default=6, ge=2, le=50)
@@ -1190,9 +1189,7 @@ class TrendBacktestRequest(BaseModel):
     qqe_factor: float = Field(default=3.0, ge=0.5, le=10.0)
     htf_vwma_len: int = Field(default=156, ge=10, le=500)
 
-    # Exit 지표 설정 (v8 파인스크립트: 동일 ST 사용)
-    exit_st_atr_len: int = Field(default=10, ge=1, le=50)
-    exit_st_factor: float = Field(default=3.0, ge=0.5, le=10.0)
+    # SPO 지표 설정 (signal_tf 기준)
     exit_spo_smooth_len: int = Field(default=4, ge=1, le=20)
     exit_spo_threshold: float = Field(default=1.0, ge=0.0, le=5.0)
     exit_spo_std_len: int = Field(default=50, ge=10, le=200)
@@ -1235,11 +1232,8 @@ class TrendBacktestRequest(BaseModel):
     atr_stop_len: int = Field(default=14, ge=5, le=50, description="ATR 손절 기간")
     atr_stop_mult: float = Field(default=2.0, ge=0.5, le=5.0, description="ATR 손절 배수")
 
-    # ST Exit Mode (v8: HTF Supertrend)
-    st_exit_mode: str = Field(default="current_tf", description="ST Exit 모드 (current_tf/htf_only/both/none)")
-    st_htf_tf: str = Field(default="1W", description="HTF Supertrend 타임프레임")
-    st_htf_atr_len: int = Field(default=10, ge=1, le=50, description="HTF ST ATR 기간")
-    st_htf_factor: float = Field(default=3.0, ge=0.5, le=10.0, description="HTF ST Factor")
+    # ST 전량매도 (exit_tf의 ST 사용)
+    use_st_exit: bool = Field(default=True, description="ST 하락 전환 시 전량매도")
 
     # v8 토글
     use_tp1: bool = Field(default=False, description="TP1 사용 여부 (v8 기본 OFF)")
@@ -1284,34 +1278,33 @@ async def run_trend_backtest_endpoint(
     from .strategy_engine.signal_generator_trend import TrendConfig
 
     try:
-        # ① 실제 거래소 캔들 조회 (Entry TF)
+        # ① 실제 거래소 캔들 조회 (signal_tf 기준)
         candles = await fetch_candles_for_backtest(
             exchange=request.exchange,
             symbol=request.symbol,
-            timeframe=request.entry_tf,
+            timeframe=request.signal_tf,
             days=request.days,
             timeout=60,
         )
 
-        # ② HTF 캔들 조회 (VWMA 기준)
+        # ② exit_tf 캔들 조회 (HTF VWMA + ST 전량매도 기준)
         htf_candles = None
-        if request.htf_tf and request.htf_tf != request.entry_tf:
+        if request.exit_tf and request.exit_tf != request.signal_tf:
             try:
                 htf_candles = await fetch_candles_for_backtest(
                     exchange=request.exchange,
                     symbol=request.symbol,
-                    timeframe=request.htf_tf,
+                    timeframe=request.exit_tf,
                     days=request.days,
                     timeout=30,
                 )
             except ValueError:
-                pass  # HTF 조회 실패 시 단일 TF로 진행
+                pass  # exit_tf 조회 실패 시 signal_tf 단독 사용
 
-        # ③ Trend 설정 생성 (v8)
+        # ③ Trend 설정 생성 (v8 최종 - TF 단순화)
         config = TrendConfig(
-            entry_tf=request.entry_tf,
+            signal_tf=request.signal_tf,
             exit_tf=request.exit_tf,
-            htf_tf=request.htf_tf,
             st_atr_len=request.st_atr_len,
             st_factor=request.st_factor,
             hvi_length=request.hvi_length,
@@ -1320,8 +1313,6 @@ async def run_trend_backtest_endpoint(
             qqe_rsi_smoothing=request.qqe_rsi_smoothing,
             qqe_factor=request.qqe_factor,
             htf_vwma_len=request.htf_vwma_len,
-            exit_st_atr_len=request.exit_st_atr_len,
-            exit_st_factor=request.exit_st_factor,
             exit_spo_smooth_len=request.exit_spo_smooth_len,
             exit_spo_threshold=request.exit_spo_threshold,
             exit_spo_std_len=request.exit_spo_std_len,
@@ -1348,10 +1339,7 @@ async def run_trend_backtest_endpoint(
             stop_type=request.stop_type,
             atr_stop_len=request.atr_stop_len,
             atr_stop_mult=request.atr_stop_mult,
-            st_exit_mode=request.st_exit_mode,
-            st_htf_tf=request.st_htf_tf,
-            st_htf_atr_len=request.st_htf_atr_len,
-            st_htf_factor=request.st_htf_factor,
+            use_st_exit=request.use_st_exit,
             use_tp1=request.use_tp1,
             st_invert=request.st_invert,
             use_htf_filter=request.use_htf_filter,

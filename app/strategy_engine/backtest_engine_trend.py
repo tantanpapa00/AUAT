@@ -155,10 +155,11 @@ def run_trend_backtest(
         else:
             htf_vwma = np.full(len(htf_slice_closes), np.nan)
 
-        # Exit 지표 계산 (같은 TF 사용)
+        # Exit ST 계산 (exit_tf 데이터 = htf_candles 사용)
+        # Note: exit_tf ST는 htf 데이터에서 계산
         exit_st_value, exit_st_dir = calc_supertrend(
-            slice_highs, slice_lows, slice_closes,
-            config.exit_st_atr_len, config.exit_st_factor
+            htf_slice_highs, htf_slice_lows, htf_slice_closes,
+            config.st_atr_len, config.st_factor
         )
 
         spo_result = calc_spo(
@@ -175,30 +176,19 @@ def run_trend_backtest(
         if config.stop_type == "atr":
             entry_atr = calc_atr(slice_highs, slice_lows, slice_closes, config.atr_stop_len)
 
-        # v8: HTF Supertrend 계산 (st_exit_mode용)
-        htf_st_dir = None
-        if config.st_exit_mode in ("htf_only", "both"):
-            if len(htf_slice_closes) >= config.st_htf_atr_len + 1:
-                _, htf_st_dir = calc_supertrend(
-                    htf_slice_highs, htf_slice_lows, htf_slice_closes,
-                    config.st_htf_atr_len, config.st_htf_factor
-                )
-
-        # 신호 생성 (v8: 추가 파라미터 전달)
+        # 신호 생성 (v8 최종: TF 단순화)
         signal, state = generate_trend_signal(
             entry_close=slice_closes,
             entry_st_dir=st_dir,
             entry_hvi=hvi_result,
             entry_qqe=qqe_result,
             htf_vwma=htf_vwma,
-            exit_close=slice_closes,
+            exit_close=htf_slice_closes,
             exit_st_dir=exit_st_dir,
             exit_spo_norm=spo_norm,
             config=config,
             state=state,
             current_ts=candle.ts,
-            # v8 추가 파라미터
-            htf_st_dir=htf_st_dir,
             entry_atr=entry_atr,
             entry_high=slice_highs,
             bar_index=i,

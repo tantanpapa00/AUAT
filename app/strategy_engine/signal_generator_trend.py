@@ -27,26 +27,23 @@ from .models import SignalResult
 
 @dataclass
 class TrendConfig:
-    """추세매매 설정 (premium_configs에서 로드) - v8"""
+    """추세매매 설정 (premium_configs에서 로드) - v8 최종"""
 
-    # 타임프레임 분리 (핵심!)
-    entry_tf: str = "1D"      # 매수 판단 타임프레임
-    exit_tf: str = "1D"       # 매도 판단 타임프레임
-    htf_tf: str = "1W"        # HTF VWMA 기준 타임프레임
+    # 타임프레임 (단순화: 2개만)
+    signal_tf: str = "1D"     # 기준 TF (매수 + SPO + SL + TP1)
+    exit_tf: str = "1W"       # 매도기준 TF (ST 전량매도 + HTF VWMA 필터)
 
-    # Entry 지표 (entry_tf 기준)
-    st_atr_len: int = 10      # v8 파인스크립트: stAtrLen=10
-    st_factor: float = 3.0    # v8 파인스크립트: stFactor=3.0
+    # 슈퍼트렌드 (작가님 확정: 20/5.0)
+    st_atr_len: int = 20      # ATR 길이
+    st_factor: float = 5.0    # 팩터
     hvi_length: int = 200
     hvi_divisor: float = 3.6
     qqe_rsi_length: int = 6
     qqe_rsi_smoothing: int = 5
     qqe_factor: float = 3.0
-    htf_vwma_len: int = 156   # HTF VWMA 길이
+    htf_vwma_len: int = 156   # HTF VWMA 길이 (exit_tf에서 계산)
 
-    # Exit 지표 (exit_tf 기준)
-    exit_st_atr_len: int = 10   # v8 동일 ST 사용
-    exit_st_factor: float = 3.0 # v8 동일 ST 사용
+    # Exit 지표 (signal_tf 기준 SPO용)
     exit_spo_smooth_len: int = 4
     exit_spo_threshold: float = 1.0
     exit_spo_std_len: int = 50
@@ -89,11 +86,8 @@ class TrendConfig:
     atr_stop_len: int = 14               # ATR 손절용 ATR 길이
     atr_stop_mult: float = 2.0           # ATR 손절 배수
 
-    # ST Exit Mode (전량매도 기준)
-    st_exit_mode: str = "current_tf"     # "current_tf" | "htf_only" | "both" | "none"
-    st_htf_tf: str = "1W"                # HTF Supertrend 타임프레임
-    st_htf_atr_len: int = 10             # HTF Supertrend ATR 길이
-    st_htf_factor: float = 3.0           # HTF Supertrend Factor
+    # ST 전량매도 (exit_tf의 ST 사용)
+    use_st_exit: bool = True             # ST 하락 전환 시 전량매도
 
     # TP1 토글 (v8에서 기본 OFF)
     use_tp1: bool = False                # TP1 사용 여부 (v7에서는 항상 ON이었음!)
@@ -146,45 +140,48 @@ class TrendState:
 
 
 def generate_trend_signal(
-    # Entry 판단용 (entry_tf 캔들로 계산한 지표)
-    entry_close: np.ndarray,
-    entry_st_dir: np.ndarray,        # Supertrend direction (-1=bullish, 1=bearish)
+    # 기준 TF 데이터 (signal_tf 캔들로 계산한 지표)
+    entry_close: np.ndarray,          # signal_tf close
+    entry_st_dir: np.ndarray,         # signal_tf Supertrend direction (-1=bullish, 1=bearish)
     entry_hvi: dict,                  # calc_hvi() result
     entry_qqe: dict,                  # calc_qqe_mod() result
-    htf_vwma: np.ndarray,             # HTF VWMA(156)
+    htf_vwma: np.ndarray,             # exit_tf VWMA (HTF 필터)
 
-    # Exit 판단용 (exit_tf 캔들로 계산한 지표)
-    exit_close: np.ndarray,
-    exit_st_dir: np.ndarray,          # Exit TF Supertrend direction
-    exit_spo_norm: np.ndarray,        # Normalized SPO oscillator
+    # 매도기준 TF 데이터 (exit_tf 캔들로 계산한 지표)
+    exit_close: np.ndarray,           # exit_tf close
+    exit_st_dir: np.ndarray,          # exit_tf Supertrend direction (전량매도용)
+    exit_spo_norm: np.ndarray,        # signal_tf SPO oscillator (분할매도용)
 
     # 상태 및 설정
     config: TrendConfig,
     state: TrendState,
     current_ts: int,
 
-    # v8 추가 파라미터 (하위 호환: 기본값 None)
-    htf_st_dir: Optional[np.ndarray] = None,   # HTF Supertrend direction (st_exit_mode용)
+    # 추가 파라미터
     entry_atr: Optional[np.ndarray] = None,    # ATR 값 (ATR 손절용)
     entry_high: Optional[np.ndarray] = None,   # high 배열 (피라미딩 N봉 신고가용)
     bar_index: int = 0,                        # 현재 봉 인덱스 (피라미딩 쿨다운용)
 ) -> Tuple[SignalResult, TrendState]:
     """
-    추세매매 신호 생성 (v8).
+    추세매매 신호 생성 (v8 최종).
 
-    Entry 조건 (4가지 모두 충족, entry_tf 기준):
-    1. Supertrend 상승 (st_dir < 0 = bullish) - st_invert 적용
+    TF 구조 (단순화):
+    - signal_tf: 기준 TF (매수 + SPO 분할매도 + SL + TP1)
+    - exit_tf: 매도기준 TF (ST 전량매도 + HTF VWMA 필터)
+
+    Entry 조건 (4가지 모두 충족, signal_tf 기준):
+    1. Supertrend 상승 (st_dir < 0 = bullish)
     2. HVI 초록 (g_enabled = True)
     3. QQE 양수 (primary_rsi > 50)
-    4. close > HTF VWMA(156) - use_htf_filter=False면 스킵
+    4. close > exit_tf VWMA - use_htf_filter=False면 스킵
 
-    Exit 우선순위 (exit_tf 기준):
-    1. Hard SL: Fixed% 또는 ATR-based (stop_type에 따라)
+    Exit 우선순위:
+    1. Hard SL: Fixed% 또는 ATR-based (signal_tf 기준)
     2. TP1: use_tp1=True일 때만
-    3. SPO Split: use_spo_split=True일 때만
-    4. ST Flip: st_exit_mode에 따라 (current_tf/htf_only/both/none)
+    3. SPO Split: use_spo_split=True일 때만 (signal_tf 기준)
+    4. ST Flip: use_st_exit=True일 때 exit_tf ST 하락 전환
 
-    피라미딩 (v8 신규):
+    피라미딩 (v8):
     - 포지션 보유 중 N봉 신고가 돌파 시 추가매수
     - 최대 max_pyr_entries회까지
 
@@ -219,10 +216,6 @@ def generate_trend_signal(
     curr_exit_st_dir = exit_st_dir[-1] if len(exit_st_dir) > 0 else 1
     prev_exit_st_dir = exit_st_dir[-2] if len(exit_st_dir) > 1 else curr_exit_st_dir
 
-    # HTF ST direction (v8)
-    curr_htf_st_dir = htf_st_dir[-1] if htf_st_dir is not None and len(htf_st_dir) > 0 else curr_exit_st_dir
-    prev_htf_st_dir = htf_st_dir[-2] if htf_st_dir is not None and len(htf_st_dir) > 1 else curr_htf_st_dir
-
     # ATR 값 (v8)
     curr_atr = entry_atr[-1] if entry_atr is not None and len(entry_atr) > 0 and not np.isnan(entry_atr[-1]) else 0.0
 
@@ -231,8 +224,6 @@ def generate_trend_signal(
         curr_entry_st_dir = -curr_entry_st_dir
         curr_exit_st_dir = -curr_exit_st_dir
         prev_exit_st_dir = -prev_exit_st_dir
-        curr_htf_st_dir = -curr_htf_st_dir
-        prev_htf_st_dir = -prev_htf_st_dir
 
     # HVI/QQE 조건
     hvi_green = entry_hvi.get('g_enabled', np.array([False]))[-1] if len(entry_hvi.get('g_enabled', [])) > 0 else False
@@ -355,47 +346,28 @@ def generate_trend_signal(
                             regime=0,
                         ), new_state
 
-        # Exit 4: ST Flip (Supertrend 전환) - st_exit_mode에 따라 (v8)
-        st_flip_triggered = False
-        st_flip_source = ""
-
-        if config.st_exit_mode == "current_tf":
-            # 현재 TF Supertrend 전환만 체크
+        # Exit 4: ST Flip (exit_tf Supertrend 하락 전환)
+        if config.use_st_exit:
+            # exit_tf ST가 bullish→bearish 전환 체크
             st_bear_flip = (prev_exit_st_dir < 0) and (curr_exit_st_dir >= 0)
-            st_flip_triggered = st_bear_flip
-            st_flip_source = "현재TF"
-        elif config.st_exit_mode == "htf_only":
-            # HTF Supertrend 전환만 체크
-            htf_bear_flip = (prev_htf_st_dir < 0) and (curr_htf_st_dir >= 0)
-            st_flip_triggered = htf_bear_flip
-            st_flip_source = "HTF"
-        elif config.st_exit_mode == "both":
-            # 둘 중 하나라도 전환
-            curr_tf_flip = (prev_exit_st_dir < 0) and (curr_exit_st_dir >= 0)
-            htf_flip = (prev_htf_st_dir < 0) and (curr_htf_st_dir >= 0)
-            st_flip_triggered = curr_tf_flip or htf_flip
-            st_flip_source = "현재TF" if curr_tf_flip else "HTF"
-        # else: "none" - ST 전량매도 안함
 
-        if st_flip_triggered and config.use_st_flip_exit:
-            # 상태 리셋
-            new_state.in_position = False
-            new_state.entry_price = 0.0
-            new_state.tp1_triggered = False
-            new_state.sell_stage = 0
-            new_state.pyr_count = 0
-            new_state.avg_entry_price = 0.0
-            new_state.total_cost = 0.0
+            if st_bear_flip:
+                # 상태 리셋
+                new_state.in_position = False
+                new_state.entry_price = 0.0
+                new_state.tp1_triggered = False
+                new_state.sell_stage = 0
+                new_state.pyr_count = 0
+                new_state.avg_entry_price = 0.0
+                new_state.total_cost = 0.0
 
-            reason_code = "TREND_EXIT_HTF_ST_FLIP" if st_flip_source == "HTF" else "TREND_EXIT_ST_FLIP"
-
-            return SignalResult(
-                action="sell",
-                reason_code=reason_code,
-                reason_text=f"추세전환 전량청산: {st_flip_source} Supertrend 하락",
-                tranche_pct=100.0,
-                regime=0,
-            ), new_state
+                return SignalResult(
+                    action="sell",
+                    reason_code="TREND_EXIT_ST_FLIP",
+                    reason_text="추세전환 전량청산: exit_tf Supertrend 하락",
+                    tranche_pct=100.0,
+                    regime=0,
+                ), new_state
 
         # ──────────────────────────────────────────────────────
         # 피라미딩 (추가매수) 체크 (v8)
