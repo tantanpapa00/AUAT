@@ -50,6 +50,19 @@
 - 3492b8b fix: US fallback 종목 대폭 확장 (SCHD, PLTR 등 200+ 종목)
 - 7adec5b fix: 종목 자동완성 거래소별 필터링 (전 탭 동일 적용)
 - 76f0314 fix: 백테스트 캔들 데이터 접근 TypeError 수정
+- e194d63 fix: lightweight-charts v3.8.0 다운그레이드 + ES 모듈 통일
+
+### 캔들차트 구현 검증 완료
+- **lightweight-charts v5.1.0 → v3.8.0**: `addCandlestickSeries` API 호환
+- **ES 모듈 통일**: 전역 `LightweightCharts` → import `createChart`
+- **백엔드 candles 데이터**: MR/Trend 모두 정상 반환
+  - 형식: `{time, open, high, low, close, volume}`
+  - time: Unix 초 단위, trades.timestamp: 밀리초 (프론트 /1000 처리)
+- **프론트 함수 검증**:
+  - `createBacktestCandleChart()`: null/빈배열 방어 코드 있음
+  - `displayMrBacktestResult()`, `displayTrendBacktestResult()` 호출 확인
+  - HTML 컨테이너: `mr-candle-chart`, `trend-candle-chart` 존재
+- **전 거래소 테스트**: 6개 거래소 MR/Trend 모두 candles 반환 확인
 
 ### 종목 자동완성 거래소 필터링 (4개 탭 전부 적용)
 - **문제**: KIS_US 선택 후 "ko" 검색 → 국내 KODEX ETF 나옴
