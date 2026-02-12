@@ -34,15 +34,30 @@ from .presets import OSC_PRESETS, HTF_DEFAULTS
 
 def precompute_spo_arrays(
     closes: np.ndarray,
-    preset: str = "preset1"
+    preset: str = "preset1",
+    custom_smooth_len: Optional[int] = None,
+    custom_threshold: Optional[float] = None,
 ) -> Dict[str, np.ndarray]:
     """
     전체 시리즈에서 SPO 지표를 한 번에 계산.
 
+    Args:
+        closes: 종가 배열
+        preset: 프리셋 이름 ("preset1", "preset2", "custom")
+        custom_smooth_len: custom 프리셋일 때 사용할 smooth_len
+        custom_threshold: custom 프리셋일 때 사용할 threshold
+
     Returns:
         Dict with normalized_osc, upper_band, lower_band, basis, line_short, line_long arrays
     """
-    params = OSC_PRESETS.get(preset, OSC_PRESETS["preset1"])
+    # custom 프리셋이면 사용자 지정 값 사용, 아니면 프리셋 값
+    if preset == "custom" and custom_smooth_len is not None:
+        params = OSC_PRESETS.get("preset1", OSC_PRESETS["preset1"]).copy()
+        params["smooth_len"] = custom_smooth_len
+        if custom_threshold is not None:
+            params["threshold"] = custom_threshold
+    else:
+        params = OSC_PRESETS.get(preset, OSC_PRESETS["preset1"])
 
     normalized_osc, upper_band, lower_band, basis, line_short, line_long = calc_spo(
         closes,
@@ -431,7 +446,12 @@ def run_mr_backtest(
     # 벡터화 최적화: 전체 시리즈에서 지표 사전 계산
     # ============================================================
     # 1. SPO 지표 사전 계산 (전체 시리즈에서 한 번만)
-    spo_arrays = precompute_spo_arrays(closes, config.osc_preset)
+    spo_arrays = precompute_spo_arrays(
+        closes,
+        config.osc_preset,
+        custom_smooth_len=config.osc_smooth_len if config.osc_preset == "custom" else None,
+        custom_threshold=config.osc_threshold if config.osc_preset == "custom" else None,
+    )
 
     # 2. 신호 배열 사전 계산 (sig_up_raw, sig_dn_raw)
     sig_arrays = precompute_signal_arrays(
