@@ -2046,7 +2046,21 @@
                             </div>
                         </div>
 
-                        <!-- ② 백테스트 기간 (항상 열림) -->
+                        <!-- ② 가용자금 (항상 열림) -->
+                        <div class="mr-section" id="trend-section-capital">
+                            <h3 class="mr-section-header">가용자금</h3>
+                            <div class="mr-section-body">
+                                <div class="mr-row">
+                                    <div class="mr-field">
+                                        <label>가용자금 사용률 (%)</label>
+                                        <input type="number" id="trend-cash-use-pct" class="form-input" value="100" min="1" max="100" step="1">
+                                        <span class="mr-help">해당 계좌 가용자금 중 투입할 비율</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ③ 백테스트 기간 (항상 열림) -->
                         <div class="mr-section" id="trend-section-period">
                             <h3 class="mr-section-header">백테스트 기간</h3>
                             <div class="mr-section-body">
@@ -2216,43 +2230,44 @@
                                     <span class="mr-help">SPO 신호 시 단계별 매도</span>
                                 </div>
 
-                                <!-- 매도 비중 -->
-                                <div class="mr-subsection">
-                                    <h4>매도 비중 (SELL1~6)</h4>
+                                <div id="trend-spo-settings">
+                                    <!-- 매도 비중 -->
+                                    <div class="mr-subsection">
+                                        <h4>매도 비중 (SELL1~6)</h4>
+                                        <div class="mr-row">
+                                            <div class="mr-field">
+                                                <label>매도 차수</label>
+                                                <input type="number" id="trend-sell-tranche-count" class="form-input" value="6" min="1" max="10" step="1">
+                                            </div>
+                                        </div>
+                                        <div id="trend-sell-tranches-container" class="mr-tranches-grid">
+                                            <!-- JavaScript가 동적 생성 -->
+                                        </div>
+                                        <div class="mr-row" style="margin-top: 8px;">
+                                            <div class="mr-field">
+                                                <label>합계: <span id="trend-sell-total-pct">100</span>%</label>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div class="mr-row">
                                         <div class="mr-field">
-                                            <label>매도 차수</label>
-                                            <input type="number" id="trend-sell-tranche-count" class="form-input" value="6" min="1" max="10" step="1">
+                                            <label>최대 차수 초과 시</label>
+                                            <div class="mr-radio-group">
+                                                <label><input type="radio" name="trend-after-max-sell" value="cycle" checked> 처음부터</label>
+                                                <label><input type="radio" name="trend-after-max-sell" value="extend"> 반복</label>
+                                                <label><input type="radio" name="trend-after-max-sell" value="stop"> 중단</label>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div id="trend-sell-tranches-container" class="mr-tranches-grid">
-                                        <!-- JavaScript가 동적 생성 -->
-                                    </div>
-                                    <div class="mr-row" style="margin-top: 8px;">
-                                        <div class="mr-field">
-                                            <label>합계: <span id="trend-sell-total-pct">100</span>%</label>
-                                        </div>
-                                    </div>
-                                </div>
 
-                                <div class="mr-row">
-                                    <div class="mr-field">
-                                        <label>최대 차수 초과 시</label>
-                                        <div class="mr-radio-group">
-                                            <label><input type="radio" name="trend-after-max-sell" value="cycle" checked> 처음부터</label>
-                                            <label><input type="radio" name="trend-after-max-sell" value="extend"> 반복</label>
-                                            <label><input type="radio" name="trend-after-max-sell" value="stop"> 중단</label>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- 익절 게이트 -->
-                                <div class="mr-subsection">
-                                    <h4>익절 게이트</h4>
-                                    <div class="mr-row">
-                                        <div class="mr-field">
-                                            <label class="checkbox-label">
-                                                <input type="checkbox" id="trend-use-profit-gate" checked>
+                                    <!-- 익절 게이트 -->
+                                    <div class="mr-subsection">
+                                        <h4>익절 게이트</h4>
+                                        <div class="mr-row">
+                                            <div class="mr-field">
+                                                <label class="checkbox-label">
+                                                    <input type="checkbox" id="trend-use-profit-gate" checked>
                                                 익절 게이트 사용
                                             </label>
                                             <span class="mr-help">최소 수익 이상일 때만 매도</span>
@@ -2267,6 +2282,7 @@
                                             <label>수수료 버퍼 (%)</label>
                                             <input type="number" id="trend-fee-buffer-pct" class="form-input" value="0.20" min="0" max="5" step="0.01">
                                         </div>
+                                    </div>
                                     </div>
                                 </div>
                             </div>
@@ -2319,14 +2335,16 @@
                                             <span class="mr-help">v8 기본 OFF</span>
                                         </div>
                                     </div>
-                                    <div class="mr-row">
-                                        <div class="mr-field">
-                                            <label>TP1 목표 (%)</label>
-                                            <input type="number" id="trend-tp1-pct" class="form-input" value="21" min="1" max="100" step="1">
-                                        </div>
-                                        <div class="mr-field">
-                                            <label>TP1 매도비율 (%)</label>
-                                            <input type="number" id="trend-tp1-sell" class="form-input" value="50" min="10" max="100" step="5">
+                                    <div id="trend-tp1-settings" style="display: none;">
+                                        <div class="mr-row">
+                                            <div class="mr-field">
+                                                <label>TP1 목표 (%)</label>
+                                                <input type="number" id="trend-tp1-pct" class="form-input" value="21" min="1" max="100" step="1">
+                                            </div>
+                                            <div class="mr-field">
+                                                <label>TP1 매도비율 (%)</label>
+                                                <input type="number" id="trend-tp1-sell" class="form-input" value="50" min="10" max="100" step="5">
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

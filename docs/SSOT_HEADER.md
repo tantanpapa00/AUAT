@@ -5,11 +5,28 @@
 - SSOT: docs/FINISH_SSOT.md, docs/PROJECT_STATUS.md
 - Rules: docs/AI_RULES.md (MUST read first)
 
-## Current Status (2026-02-11)
+## Current Status (2026-02-12)
 - Week A~D: DONE (브랜드/사이트/PC앱/Android APK 기반)
 - Day 6~14: DONE (대시보드/종목분석/계정관리/전략설정/MR엔진/Trend엔진)
 - Day 15: DONE (백테스트 벡터화 최적화 20초→0.3초)
 - Day 16: DONE (트레이딩뷰 백테스트 동일화 + UI 개편)
+- Day 17: DONE (추세매매 최종 종합 업그레이드)
+
+## Day 17 완료사항 (2026-02-12)
+- 추세매매 최종 종합 업그레이드:
+  - 영역 1: TF 구조 단순화 (3개→2개: signal_tf, exit_tf)
+  - 영역 2: ST 기본값 확정 (ATR 20, Factor 5.0)
+  - 영역 3: PC앱 UI 전면 재설계 (MR 스타일 아코디언)
+  - 영역 4: main.js 이벤트 + 동적 UI (collectTrendConfig, 토글 핸들러)
+  - 영역 5: 백엔드 TF 구조 + API 정리
+  - 영역 6: 파인 비교 + 무결성 테스트 추가
+- 신규 테스트 파일:
+  - tests/test_signal_pine_comparison.py (18개)
+  - tests/test_backtest_integrity.py (16개)
+- 테스트: pytest 340 passed (285 → 340)
+- 커밋:
+  - 6fb3ee3 feat: 추세매매 PC앱 UI 전면 재설계 + 동적 UI 기능
+  - f031978 refactor: 추세매매 TF 구조 단순화 + ST 기본값 확정
 
 ## Day 16 완료사항 (2026-02-11)
 - 백테스트 트레이딩뷰 동일화:
@@ -927,7 +944,7 @@ pub async fn run_trend_backtest(
 
 ### 전체 테스트 현황
 ```
-285 passed (MR 216개 + Trend 69개)
+340 passed (MR 216개 + Trend 69개 + 파인비교/무결성 55개)
 ```
 
 ## Day 15: 백테스트 벡터화 최적화 (2026-02-10)
