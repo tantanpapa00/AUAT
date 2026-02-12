@@ -35,8 +35,8 @@ class TrendConfig:
     htf_tf: str = "1W"        # HTF VWMA 기준 타임프레임
 
     # Entry 지표 (entry_tf 기준)
-    st_atr_len: int = 20
-    st_factor: float = 5.0
+    st_atr_len: int = 10      # v8 파인스크립트: stAtrLen=10
+    st_factor: float = 3.0    # v8 파인스크립트: stFactor=3.0
     hvi_length: int = 200
     hvi_divisor: float = 3.6
     qqe_rsi_length: int = 6
@@ -45,8 +45,8 @@ class TrendConfig:
     htf_vwma_len: int = 156   # HTF VWMA 길이
 
     # Exit 지표 (exit_tf 기준)
-    exit_st_atr_len: int = 20
-    exit_st_factor: float = 5.0
+    exit_st_atr_len: int = 10   # v8 동일 ST 사용
+    exit_st_factor: float = 3.0 # v8 동일 ST 사용
     exit_spo_smooth_len: int = 4
     exit_spo_threshold: float = 1.0
     exit_spo_std_len: int = 50

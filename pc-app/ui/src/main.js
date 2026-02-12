@@ -8004,77 +8004,232 @@ document.getElementById('btn-trend-run-backtest')?.addEventListener('click', asy
             stHtfFactor: stHtfFactor,
         });
 
+        displayTrendBacktestResult(result);
         if (result.success) {
-            displayTrendBacktestResult(result);
             showToast('추세매매 백테스트 완료', 'success');
         } else {
-            showToast(result.message || '백테스트 실패', 'error');
+            showToast(result.message || result.error || '백테스트 실패', 'error');
         }
     } catch (error) {
+        const errorEl = document.getElementById('trend-backtest-error');
+        const resultEl = document.getElementById('trend-backtest-result');
+        if (errorEl) {
+            errorEl.style.display = 'block';
+            errorEl.innerHTML = `<span style="color:#EF4444;">⚠️ ${error}</span>`;
+        }
+        if (resultEl) resultEl.style.display = 'none';
         showToast('백테스트 오류: ' + error, 'error');
     }
 });
 
 function displayTrendBacktestResult(result) {
+    // 에러 표시
+    const errorEl = document.getElementById('trend-backtest-error');
     const resultEl = document.getElementById('trend-backtest-result');
     if (!resultEl) return;
 
+    if (!result.success) {
+        if (errorEl) {
+            errorEl.style.display = 'block';
+            errorEl.innerHTML = `<span style="color:#EF4444;">⚠️ ${result.error || result.message || '알 수 없는 오류'}</span>`;
+        }
+        resultEl.style.display = 'none';
+        return;
+    }
+
+    if (errorEl) errorEl.style.display = 'none';
     resultEl.style.display = 'block';
 
+    // 화폐 단위 결정 (MR과 동일)
+    const exchange = document.getElementById('trend-exchange')?.value || 'OKX';
+    const symbol = document.getElementById('trend-symbol')?.value || 'BTC-USDT';
+    const currency = getMrCurrency(result.exchange || exchange, result.symbol || symbol);
+
     const m = result.metrics || {};
+    const fmtAmt = (v) => formatMrAmount(v, currency);
 
-    // 메트릭 표시
-    const totalReturn = m.total_return_pct || 0;
-    document.getElementById('trend-bt-total-return').textContent =
-        (totalReturn >= 0 ? '+' : '') + totalReturn.toFixed(2) + '%';
-    document.getElementById('trend-bt-total-return').className =
-        'metric-value ' + (totalReturn >= 0 ? 'positive' : 'negative');
+    // null-safe 헬퍼
+    const set = (id, value, color) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.innerHTML = value;
+        if (color) el.style.color = color;
+    };
 
-    document.getElementById('trend-bt-cagr').textContent =
-        (m.cagr_pct >= 0 ? '+' : '') + (m.cagr_pct || 0).toFixed(2) + '%';
+    // 색상 헬퍼
+    const pnlColor = (v) => (Number(v) || 0) >= 0 ? '#22C55E' : '#EF4444';
 
-    document.getElementById('trend-bt-mdd').textContent =
-        (m.max_drawdown_pct || 0).toFixed(2) + '%';
+    // 메시지
+    set('trend-bt-message', result.message || '');
 
-    document.getElementById('trend-bt-sharpe').textContent =
-        (m.sharpe_ratio || 0).toFixed(2);
+    // ===== 상단 카드 5개 (트레이딩뷰 동일) =====
+    // 1. 총 손익
+    set('trend-bt-net-profit', fmtAmt(m.net_profit), pnlColor(m.net_profit));
+    const netPct = m.net_profit_pct ?? 0;
+    set('trend-bt-net-profit-pct', `${netPct > 0 ? '+' : ''}${netPct.toFixed(2)}%`, pnlColor(netPct));
 
-    document.getElementById('trend-bt-winrate').textContent =
-        (m.win_rate_pct || 0).toFixed(1) + '%';
+    // 2. 최대 자본 감소
+    set('trend-bt-mdd', fmtAmt(m.max_drawdown));
+    const mddPct = m.max_drawdown_pct ?? 0;
+    set('trend-bt-mdd-pct', `${mddPct.toFixed(2)}%`);
 
-    document.getElementById('trend-bt-trades').textContent =
-        (m.total_trades || 0) + '회';
+    // 3. 총 거래횟수
+    set('trend-bt-total-trades', `${m.total_trades ?? 0}회`);
 
-    // 차트 그리기
-    drawTrendBacktestChart(result.equity_curve || []);
+    // 4. 수익성 거래 (승률 + n/n)
+    set('trend-bt-winrate', `${(m.win_rate_pct ?? 0).toFixed(1)}%`, pnlColor((m.win_rate_pct ?? 0) - 50));
+    const wt = m.winning_trades ?? 0;
+    const lt = m.losing_trades ?? 0;
+    set('trend-bt-winrate-detail', `${wt}/${wt + lt}`);
+
+    // 5. 수익지수
+    set('trend-bt-profit-factor', formatProfitFactor(m.profit_factor));
+
+    // ===== 수익률 테이블 (전체/매수/매도 3열) =====
+    renderTrendPerformanceTable(m, currency, fmtAmt);
+
+    // ===== 자산 추이 차트 (Y축 수익률%) =====
+    if (result.equity_curve && result.equity_curve.length > 0) {
+        drawTrendBacktestChart(result.equity_curve, m.initial_capital || 10000000, currency);
+    }
+
+    // ===== 거래 내역 테이블 =====
+    renderTrendTradesTable(result.trades || [], currency);
 }
 
-function drawTrendBacktestChart(equityCurve) {
+function renderTrendPerformanceTable(m, currency, fmtAmt) {
+    const tbody = document.getElementById('trend-bt-perf-body');
+    if (!tbody) return;
+
+    const pnlColor = (v) => (Number(v) || 0) >= 0 ? '#22C55E' : '#EF4444';
+
+    const row = (label, allAmt, allPct, buyAmt, buyPct, sellAmt, sellPct) => {
+        const fPct = (v) => v != null ? `<br><span style="font-size:11px;color:${pnlColor(v)}">${v > 0 ? '+' : ''}${Number(v).toFixed(2)}%</span>` : '';
+        const cellColor = (v) => pnlColor(v);
+        return `<tr>
+            <td style="color:#9CA3AF; font-weight:600;">${label}</td>
+            <td style="text-align:right; color:${cellColor(allAmt)};">${fmtAmt(allAmt)}${fPct(allPct)}</td>
+            <td style="text-align:right; color:${cellColor(buyAmt)};">${fmtAmt(buyAmt)}${fPct(buyPct)}</td>
+            <td style="text-align:right; color:#6B7280;">${sellAmt != null && sellAmt !== 0 ? fmtAmt(sellAmt) : '—'}${sellPct != null && sellPct !== 0 ? fPct(sellPct) : ''}</td>
+        </tr>`;
+    };
+
+    const simpleRow = (label, all, buy, sell) => {
+        return `<tr>
+            <td style="color:#9CA3AF; font-weight:600;">${label}</td>
+            <td style="text-align:right; color:#D1D5DB;">${all ?? '—'}</td>
+            <td style="text-align:right; color:#D1D5DB;">${buy ?? '—'}</td>
+            <td style="text-align:right; color:#6B7280;">${sell != null && sell !== 0 ? sell : '—'}</td>
+        </tr>`;
+    };
+
+    tbody.innerHTML = [
+        row('순손익', m.net_profit, m.net_profit_pct, m.buy_net_profit, m.buy_net_profit_pct, m.sell_net_profit, m.sell_net_profit_pct),
+        row('총수익', m.gross_profit, m.gross_profit_pct, m.buy_gross_profit, m.buy_gross_profit_pct, m.sell_gross_profit, m.sell_gross_profit_pct),
+        row('총손실', m.gross_loss ? -Math.abs(m.gross_loss) : 0, m.gross_loss_pct ? -Math.abs(m.gross_loss_pct) : 0,
+            m.buy_gross_loss ? -Math.abs(m.buy_gross_loss) : 0, m.buy_gross_loss_pct ? -Math.abs(m.buy_gross_loss_pct) : 0, null, null),
+        row('미실현 손익', m.unrealized_pnl, m.unrealized_pnl_pct, null, null, null, null),
+        simpleRow('수익지수', formatProfitFactor(m.profit_factor), formatProfitFactor(m.buy_profit_factor), '—'),
+        simpleRow('수수료', fmtAmt(m.commission_paid), fmtAmt(m.buy_commission), fmtAmt(m.sell_commission)),
+        simpleRow('기대수익', fmtAmt(m.expected_value), fmtAmt(m.buy_expected_value), fmtAmt(m.sell_expected_value)),
+    ].join('');
+}
+
+function renderTrendTradesTable(trades, currency) {
+    const tbody = document.getElementById('trend-bt-trades-body');
+    const countEl = document.getElementById('trend-bt-trade-count');
+    if (!tbody) return;
+
+    if (countEl) countEl.textContent = `총 ${trades.length}건`;
+
+    if (trades.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px; color:#6B7280;">거래 내역이 없습니다</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = trades.map((t, idx) => {
+        // 타입 (서버에서 이미 한글로 옴)
+        const isBuy = (t.type === '매수' || t.action === 'buy' || t.action === 'BUY');
+        const typeColor = isBuy ? '#3B82F6' : '#EF4444';
+        const typeText = t.type || (isBuy ? '매수' : '매도');
+
+        // 날짜 (서버에서 date 필드로 옴)
+        const dateStr = t.date || '';
+
+        // 가격
+        const priceStr = t.price ? Number(t.price).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '-';
+
+        // 수량
+        const qtyStr = t.qty != null ? Number(t.qty).toFixed(6) : (t.quantity != null ? Number(t.quantity).toFixed(6) : '-');
+
+        // 차수 (서버에서 tranche 필드로 이미 한글로 옴)
+        const trancheText = t.tranche || '-';
+
+        // 수익금 (금액) — formatMrAmountSigned 사용
+        const pnlColor = (t.pnl || 0) >= 0 ? '#22C55E' : '#EF4444';
+        const pnlAmtText = (t.pnl != null && !isBuy) ? formatMrAmountSigned(t.pnl, currency) : '-';
+
+        // 수익률 (%)
+        const pnlPctText = t.pnl_pct != null && !isBuy ? `${t.pnl_pct > 0 ? '+' : ''}${Number(t.pnl_pct).toFixed(2)}%` : '-';
+
+        // 누적
+        const cumColor = (t.cumulative_pnl || 0) >= 0 ? '#22C55E' : '#EF4444';
+        const cumText = t.cumulative_pnl != null ? formatMrAmount(t.cumulative_pnl, currency) : '-';
+
+        return `<tr>
+            <td style="padding:6px 4px; color:#9CA3AF;">${t.no || idx + 1}</td>
+            <td style="padding:6px 4px; color:${typeColor}; font-weight:600;">${typeText}</td>
+            <td style="padding:6px 4px; color:#D1D5DB;">${dateStr}</td>
+            <td style="padding:6px 4px; text-align:right; color:#E5E7EB;">${priceStr}</td>
+            <td style="padding:6px 4px; text-align:right; color:#D1D5DB;">${qtyStr}</td>
+            <td style="padding:6px 4px; color:#9CA3AF;">${trancheText}</td>
+            <td style="padding:6px 4px; text-align:right; color:${pnlColor};">${pnlAmtText}</td>
+            <td style="padding:6px 4px; text-align:right; color:${pnlColor};">${pnlPctText}</td>
+            <td style="padding:6px 4px; text-align:right; color:${cumColor};">${cumText}</td>
+        </tr>`;
+    }).join('');
+}
+
+function drawTrendBacktestChart(equityCurve, initialCapital = 10000000, currency = 'USDT') {
     const canvas = document.getElementById('trend-backtest-chart');
     if (!canvas || !window.Chart) return;
 
     const ctx = canvas.getContext('2d');
 
     // 기존 차트 제거
-    if (trendBacktestChart) {
-        trendBacktestChart.destroy();
+    if (window.trendBacktestChart instanceof Chart) {
+        window.trendBacktestChart.destroy();
     }
 
-    const labels = equityCurve.map((_, i) => i);
-    const data = equityCurve.map(p => p.equity);
+    // 수익률(%) 데이터 생성
+    const pctData = equityCurve.map(p => {
+        const pct = ((p.equity - initialCapital) / initialCapital) * 100;
+        return { x: p.bar_index || 0, y: pct, equity: p.equity };
+    });
 
-    trendBacktestChart = new Chart(ctx, {
+    // gradient fill (수익=초록, 손실=빨강)
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    const lastPct = pctData.length > 0 ? pctData[pctData.length - 1].y : 0;
+    if (lastPct >= 0) {
+        gradient.addColorStop(0, 'rgba(34, 197, 94, 0.3)');
+        gradient.addColorStop(1, 'rgba(34, 197, 94, 0)');
+    } else {
+        gradient.addColorStop(0, 'rgba(239, 68, 68, 0.3)');
+        gradient.addColorStop(1, 'rgba(239, 68, 68, 0)');
+    }
+
+    window.trendBacktestChart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: labels,
             datasets: [{
-                label: '자산 추이',
-                data: data,
-                borderColor: 'rgb(16, 185, 129)',
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                label: '수익률',
+                data: pctData,
+                borderColor: lastPct >= 0 ? '#22C55E' : '#EF4444',
+                backgroundColor: gradient,
                 fill: true,
                 tension: 0.1,
                 pointRadius: 0,
+                borderWidth: 2,
             }]
         },
         options: {
@@ -8082,14 +8237,34 @@ function drawTrendBacktestChart(equityCurve) {
             maintainAspectRatio: false,
             plugins: {
                 legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const pct = context.parsed.y;
+                            const equity = context.raw.equity;
+                            const pnl = equity - initialCapital;
+                            return [
+                                `수익률: ${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`,
+                                `손익: ${formatMrAmountSigned(pnl, currency)}`,
+                                `자산: ${formatMrAmount(equity, currency)}`
+                            ];
+                        }
+                    }
+                }
             },
             scales: {
-                x: { display: false },
+                x: {
+                    type: 'linear',
+                    display: true,
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: { color: '#6B7280', maxTicksLimit: 10 }
+                },
                 y: {
+                    display: true,
+                    grid: { color: 'rgba(255,255,255,0.05)' },
                     ticks: {
-                        callback: function(value) {
-                            return (value / 1000000).toFixed(1) + 'M';
-                        }
+                        color: '#6B7280',
+                        callback: (v) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`
                     }
                 }
             }

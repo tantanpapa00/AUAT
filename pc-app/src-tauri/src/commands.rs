@@ -3456,7 +3456,7 @@ pub async fn run_trend_backtest(
     htf_tf: Option<String>,
     days: Option<i32>,
     initial_capital: Option<f64>,
-    // Entry 지표 (v8: st_atr_len=20, st_factor=5.0)
+    // Entry 지표 (v8 파인스크립트: stAtrLen=10, stFactor=3.0)
     st_atr_len: Option<i32>,
     st_factor: Option<f64>,
     hvi_length: Option<i32>,
@@ -3465,7 +3465,7 @@ pub async fn run_trend_backtest(
     qqe_rsi_smoothing: Option<i32>,
     qqe_factor: Option<f64>,
     htf_vwma_len: Option<i32>,
-    // Exit 지표 (v8: exit_st_atr_len=20, exit_st_factor=5.0)
+    // Exit 지표 (v8 파인스크립트: 동일 ST 사용)
     exit_st_atr_len: Option<i32>,
     exit_st_factor: Option<f64>,
     exit_spo_smooth_len: Option<i32>,
@@ -3530,18 +3530,18 @@ pub async fn run_trend_backtest(
         "htf_tf": htf_tf.unwrap_or_else(|| "1W".to_string()),
         "days": days.unwrap_or(365),
         "initial_capital": initial_capital.unwrap_or(10000000.0),
-        // Entry 지표 (v8: st_atr_len=20, st_factor=5.0)
-        "st_atr_len": st_atr_len.unwrap_or(20),
-        "st_factor": st_factor.unwrap_or(5.0),
+        // Entry 지표 (v8 파인스크립트: stAtrLen=10, stFactor=3.0)
+        "st_atr_len": st_atr_len.unwrap_or(10),
+        "st_factor": st_factor.unwrap_or(3.0),
         "hvi_length": hvi_length.unwrap_or(200),
         "hvi_divisor": hvi_divisor.unwrap_or(3.6),
         "qqe_rsi_length": qqe_rsi_length.unwrap_or(6),
         "qqe_rsi_smoothing": qqe_rsi_smoothing.unwrap_or(5),
         "qqe_factor": qqe_factor.unwrap_or(3.0),
         "htf_vwma_len": htf_vwma_len.unwrap_or(156),
-        // Exit 지표 (v8: exit_st_atr_len=20, exit_st_factor=5.0)
-        "exit_st_atr_len": exit_st_atr_len.unwrap_or(20),
-        "exit_st_factor": exit_st_factor.unwrap_or(5.0),
+        // Exit 지표 (v8 파인스크립트: 동일 ST 사용)
+        "exit_st_atr_len": exit_st_atr_len.unwrap_or(10),
+        "exit_st_factor": exit_st_factor.unwrap_or(3.0),
         "exit_spo_smooth_len": exit_spo_smooth_len.unwrap_or(4),
         "exit_spo_threshold": exit_spo_threshold.unwrap_or(1.0),
         "exit_spo_std_len": exit_spo_std_len.unwrap_or(50),

@@ -30,9 +30,9 @@ class TestTrendConfig:
         assert config.exit_tf == "1D"
         assert config.htf_tf == "1W"
 
-        # Entry 지표 (v8: ATR 20, Factor 5.0)
-        assert config.st_atr_len == 20
-        assert config.st_factor == 5.0
+        # Entry 지표 (v8 파인스크립트: stAtrLen=10, stFactor=3.0)
+        assert config.st_atr_len == 10
+        assert config.st_factor == 3.0
         assert config.hvi_length == 200
         assert config.hvi_divisor == 3.6
         assert config.qqe_rsi_length == 6

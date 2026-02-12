@@ -14,9 +14,9 @@ ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_entry_tf VARCHAR(10) 
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_exit_tf VARCHAR(10) DEFAULT '1D';
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_htf_tf VARCHAR(10) DEFAULT '1W';
 
--- Entry 지표 (entry_tf 기준) - v8: st_atr_len=20, st_factor=5.0
-ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_st_atr_len INTEGER DEFAULT 20;
-ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_st_factor FLOAT DEFAULT 5.0;
+-- Entry 지표 (entry_tf 기준) - v8 파인스크립트: stAtrLen=10, stFactor=3.0
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_st_atr_len INTEGER DEFAULT 10;
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_st_factor FLOAT DEFAULT 3.0;
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_hvi_length INTEGER DEFAULT 200;
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_hvi_divisor FLOAT DEFAULT 3.6;
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_qqe_rsi_length INTEGER DEFAULT 6;
@@ -24,9 +24,9 @@ ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_qqe_rsi_smoothing INT
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_qqe_factor FLOAT DEFAULT 3.0;
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_htf_vwma_len INTEGER DEFAULT 156;
 
--- Exit 지표 (exit_tf 기준) - v8: exit_st_atr_len=20, exit_st_factor=5.0
-ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_exit_st_atr_len INTEGER DEFAULT 20;
-ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_exit_st_factor FLOAT DEFAULT 5.0;
+-- Exit 지표 (exit_tf 기준) - v8 파인스크립트: 동일 ST 사용
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_exit_st_atr_len INTEGER DEFAULT 10;
+ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_exit_st_factor FLOAT DEFAULT 3.0;
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_exit_spo_smooth_len INTEGER DEFAULT 4;
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_exit_spo_threshold FLOAT DEFAULT 1.0;
 ALTER TABLE premium_configs ADD COLUMN IF NOT EXISTS trend_exit_spo_std_len INTEGER DEFAULT 50;

@@ -1180,9 +1180,9 @@ class TrendBacktestRequest(BaseModel):
     days: int = Field(default=365, ge=30, le=1000, description="백테스트 기간 (일)")
     initial_capital: float = Field(default=10000000, ge=1000)
 
-    # Entry 지표 설정 (v8: st_atr_len=20, st_factor=5.0)
-    st_atr_len: int = Field(default=20, ge=1, le=50)
-    st_factor: float = Field(default=5.0, ge=0.5, le=10.0)
+    # Entry 지표 설정 (v8 파인스크립트: stAtrLen=10, stFactor=3.0)
+    st_atr_len: int = Field(default=10, ge=1, le=50)
+    st_factor: float = Field(default=3.0, ge=0.5, le=10.0)
     hvi_length: int = Field(default=200, ge=10, le=500)
     hvi_divisor: float = Field(default=3.6, ge=1.0, le=10.0)
     qqe_rsi_length: int = Field(default=6, ge=2, le=50)
@@ -1190,9 +1190,9 @@ class TrendBacktestRequest(BaseModel):
     qqe_factor: float = Field(default=3.0, ge=0.5, le=10.0)
     htf_vwma_len: int = Field(default=156, ge=10, le=500)
 
-    # Exit 지표 설정 (v8: exit_st_atr_len=20, exit_st_factor=5.0)
-    exit_st_atr_len: int = Field(default=20, ge=1, le=50)
-    exit_st_factor: float = Field(default=5.0, ge=0.5, le=10.0)
+    # Exit 지표 설정 (v8 파인스크립트: 동일 ST 사용)
+    exit_st_atr_len: int = Field(default=10, ge=1, le=50)
+    exit_st_factor: float = Field(default=3.0, ge=0.5, le=10.0)
     exit_spo_smooth_len: int = Field(default=4, ge=1, le=20)
     exit_spo_threshold: float = Field(default=1.0, ge=0.0, le=5.0)
     exit_spo_std_len: int = Field(default=50, ge=10, le=200)
@@ -1256,13 +1256,16 @@ class TrendBacktestRequest(BaseModel):
 
 
 class TrendBacktestResponse(BaseModel):
-    """Response model for Trend backtest."""
+    """Response model for Trend backtest (MR과 동일 구조)."""
     success: bool
-    message: str
-    metrics: Dict[str, Any]
-    equity_curve: List[Dict[str, Any]]
-    trades: List[Dict[str, Any]]
-    signals_count: int
+    message: str = ""
+    error: Optional[str] = None
+    exchange: Optional[str] = None  # 화폐 단위 결정용
+    symbol: Optional[str] = None    # 화폐 단위 결정용 (USDT/USDC 등)
+    metrics: Dict[str, Any] = {}
+    equity_curve: List[Dict[str, Any]] = []
+    trades: List[Dict[str, Any]] = []
+    signals_count: int = 0
 
 
 @router.post("/backtest/trend", response_model=TrendBacktestResponse)
@@ -1272,18 +1275,39 @@ async def run_trend_backtest_endpoint(
     """
     추세매매(Trend) 전략 백테스트 실행.
 
+    실제 거래소 OHLCV 데이터로 백테스트를 실행합니다 (MR과 동일 인프라).
     Entry: Supertrend 상승 + HVI 초록 + QQE 양수 + close > HTF VWMA156
     Exit: Hard SL > TP1 > SPO Split > ST Flip (우선순위순)
     """
-    from .strategy_engine.backtest_engine_trend import (
-        run_trend_backtest,
-        generate_trend_sample_candles,
-        generate_weekly_candles_from_daily,
-    )
+    from .strategy_engine.backtest_engine_trend import run_trend_backtest
+    from .strategy_engine.candle_fetcher import fetch_candles_for_backtest
     from .strategy_engine.signal_generator_trend import TrendConfig
 
     try:
-        # Trend 설정 생성 (v8)
+        # ① 실제 거래소 캔들 조회 (Entry TF)
+        candles = await fetch_candles_for_backtest(
+            exchange=request.exchange,
+            symbol=request.symbol,
+            timeframe=request.entry_tf,
+            days=request.days,
+            timeout=60,
+        )
+
+        # ② HTF 캔들 조회 (VWMA 기준)
+        htf_candles = None
+        if request.htf_tf and request.htf_tf != request.entry_tf:
+            try:
+                htf_candles = await fetch_candles_for_backtest(
+                    exchange=request.exchange,
+                    symbol=request.symbol,
+                    timeframe=request.htf_tf,
+                    days=request.days,
+                    timeout=30,
+                )
+            except ValueError:
+                pass  # HTF 조회 실패 시 단일 TF로 진행
+
+        # ③ Trend 설정 생성 (v8)
         config = TrendConfig(
             entry_tf=request.entry_tf,
             exit_tf=request.exit_tf,
@@ -1337,39 +1361,62 @@ async def run_trend_backtest_endpoint(
             min_qty=request.min_qty,
         )
 
-        # 일봉 캔들 데이터 생성 (상승 추세 포함)
-        daily_candles = generate_trend_sample_candles(
-            days=request.days,
-            base_price=50000.0 if "BTC" in request.symbol.upper() else 1000.0,
-            volatility=0.015,
-            trend=0.0002,  # 상승 추세
-            seed=hash(f"{request.exchange}_{request.symbol}") % 100000,
-        )
-
-        # 주봉 캔들 생성 (HTF용)
-        weekly_candles = generate_weekly_candles_from_daily(daily_candles)
-
-        # 백테스트 실행
+        # ④ 백테스트 실행
         result = run_trend_backtest(
-            candles=daily_candles,
-            htf_candles=weekly_candles,
+            candles=candles,
+            htf_candles=htf_candles,
             config=config,
             initial_capital=request.initial_capital,
         )
 
-        # 결과 변환
+        # 백테스트 실패 시
+        if not result.success:
+            return TrendBacktestResponse(
+                success=False,
+                message=result.message,
+                error=result.message,
+            )
+
+        # 결과 변환 - trades 확장 (MR과 동일, 트레이딩뷰 동일)
         trades_list = []
-        for t in result.trades:
+        cumulative_pnl = 0.0
+        for idx, t in enumerate(result.trades):
+            if t.action == "sell" and t.pnl is not None:
+                cumulative_pnl += t.pnl
+
+            # 거래 타입 (한글)
+            type_text = "매수" if t.action == "buy" else "매도"
+
+            # 차수 (피라미딩 포함)
+            if t.action == "buy":
+                tranche_text = f"매수{t.tranche + 1}차"
+            else:
+                tranche_text = f"매도{t.tranche + 1}차"
+
+            # 날짜 포맷
+            from datetime import datetime
+            date_str = ""
+            if t.timestamp:
+                dt = datetime.fromtimestamp(t.timestamp / 1000)
+                date_str = dt.strftime("%Y-%m-%d %H:%M")
+
             trades_list.append({
+                "no": idx + 1,
+                "type": type_text,
+                "date": date_str,
                 "bar_index": t.bar_index,
                 "timestamp": t.timestamp,
                 "action": t.action,
-                "price": t.price,
+                "price": round(t.price, 2),
+                "qty": round(t.quantity, 6),
                 "quantity": t.quantity,
-                "tranche": t.tranche,
+                "tranche": tranche_text,
+                "tranche_idx": t.tranche,
                 "reason_code": t.reason_code,
-                "pnl": t.pnl,
-                "pnl_pct": t.pnl_pct,
+                "pnl": round(t.pnl, 2) if t.pnl is not None else None,
+                "pnl_pct": round(t.pnl_pct, 2) if t.pnl_pct is not None else None,
+                "cumulative_pnl": round(cumulative_pnl, 2) if t.action == "sell" else None,
+                "commission": round(t.commission, 4) if t.commission else 0,
             })
 
         # equity_curve 샘플링 (최대 200포인트로 제한)
@@ -1378,36 +1425,100 @@ async def run_trend_backtest_endpoint(
             step = max(1, len(equity_curve) // 200)
             equity_curve = equity_curve[::step]
 
+        # 추가 메트릭 계산
+        sell_trades = [t for t in result.trades if t.action == "sell" and t.pnl_pct is not None]
+        max_profit_pct = max((t.pnl_pct for t in sell_trades if t.pnl_pct > 0), default=0.0)
+        max_loss_pct = min((t.pnl_pct for t in sell_trades if t.pnl_pct <= 0), default=0.0)
+
+        m = result.metrics  # 편의상 alias
+
         return TrendBacktestResponse(
-            success=result.success,
-            message=result.message,
+            success=True,
+            message=f"백테스트 완료: {len(candles)}봉 분석, {m.total_trades}거래",
+            exchange=request.exchange,  # 화폐 단위 결정용
+            symbol=request.symbol,      # 화폐 단위 결정용 (USDT/USDC 등)
             metrics={
-                "total_return_pct": round(result.metrics.total_return_pct, 2),
-                "cagr_pct": round(result.metrics.cagr_pct, 2),
-                "max_drawdown_pct": round(result.metrics.max_drawdown_pct, 2),
-                "sharpe_ratio": round(result.metrics.sharpe_ratio, 2),
-                "win_rate_pct": round(result.metrics.win_rate_pct, 1),
-                "total_trades": result.metrics.total_trades,
-                "winning_trades": result.metrics.winning_trades,
-                "losing_trades": result.metrics.losing_trades,
-                "avg_win_pct": round(result.metrics.avg_win_pct, 2),
-                "avg_loss_pct": round(result.metrics.avg_loss_pct, 2),
-                "profit_factor": round(result.metrics.profit_factor, 2),
-                "max_consecutive_wins": result.metrics.max_consecutive_wins,
-                "max_consecutive_losses": result.metrics.max_consecutive_losses,
+                # === 기본 ===
+                "initial_capital": round(m.initial_capital, 0),
+                "final_capital": round(m.final_capital, 0),
+                "total_return_pct": round(m.total_return_pct, 2),
+                "cagr_pct": round(m.cagr_pct, 2),
+                "max_drawdown_pct": round(m.max_drawdown_pct, 2),
+                "sharpe_ratio": round(m.sharpe_ratio, 2),
+                "win_rate_pct": round(m.win_rate_pct, 1),
+                "total_trades": m.total_trades,
+                "winning_trades": m.winning_trades,
+                "losing_trades": m.losing_trades,
+                "profit_factor": round(m.profit_factor, 3) if m.profit_factor != float('inf') else 999.99,
+
+                # === 트레이딩뷰 추가 필드 ===
+                "net_profit": round(m.net_profit, 2),
+                "net_profit_pct": round(m.net_profit_pct, 2),
+                "gross_profit": round(m.gross_profit, 2),
+                "gross_profit_pct": round(m.gross_profit_pct, 2),
+                "gross_loss": round(m.gross_loss, 2),
+                "gross_loss_pct": round(m.gross_loss_pct, 2),
+                "max_drawdown": round(m.max_drawdown, 2),
+                "commission_paid": round(m.commission_paid, 4),
+                "expected_value": round(m.expected_value, 2),
+                "unrealized_pnl": round(m.unrealized_pnl, 2),
+                "unrealized_pnl_pct": round(m.unrealized_pnl_pct, 2),
+
+                # === 매수 분리 ===
+                "buy_net_profit": round(m.buy_net_profit, 2),
+                "buy_net_profit_pct": round(m.buy_net_profit_pct, 2),
+                "buy_gross_profit": round(m.buy_gross_profit, 2),
+                "buy_gross_profit_pct": round(m.buy_gross_profit_pct, 2),
+                "buy_gross_loss": round(m.buy_gross_loss, 2),
+                "buy_gross_loss_pct": round(m.buy_gross_loss_pct, 2),
+                "buy_profit_factor": round(m.buy_profit_factor, 3) if m.buy_profit_factor != float('inf') else 999.99,
+                "buy_commission": round(m.buy_commission, 4),
+                "buy_expected_value": round(m.buy_expected_value, 2),
+                "buy_trades": m.buy_trades,
+                "buy_winning": m.buy_winning,
+                "buy_losing": m.buy_losing,
+
+                # === 매도 분리 (추세매매는 롱 전용이므로 0) ===
+                "sell_net_profit": 0,
+                "sell_net_profit_pct": 0,
+                "sell_gross_profit": 0,
+                "sell_gross_profit_pct": 0,
+                "sell_gross_loss": 0,
+                "sell_gross_loss_pct": 0,
+                "sell_profit_factor": 0,
+                "sell_commission": 0,
+                "sell_expected_value": 0,
+                "sell_trades": 0,
+                "sell_winning": 0,
+                "sell_losing": 0,
+
+                # === 기존 호환 ===
+                "avg_win_pct": round(m.avg_win_pct, 2),
+                "avg_loss_pct": round(m.avg_loss_pct, 2),
+                "max_consecutive_wins": m.max_consecutive_wins,
+                "max_consecutive_losses": m.max_consecutive_losses,
+                "avg_profit_pct": round(m.avg_win_pct, 2) if m.avg_win_pct else 0.0,
+                "max_profit_pct": round(max_profit_pct, 2),
+                "max_loss_pct": round(max_loss_pct, 2),
             },
             equity_curve=equity_curve,
             trades=trades_list,
             signals_count=len(result.signals),
         )
 
-    except Exception as e:
-        logger.error(f"Trend 백테스트 오류: {e}")
+    except ValueError as e:
+        # 사용자 친화적 에러 (한글)
+        logger.warning(f"Trend 백테스트 입력 오류: {e}")
         return TrendBacktestResponse(
             success=False,
-            message=f"백테스트 오류: {str(e)}",
-            metrics={},
-            equity_curve=[],
-            trades=[],
-            signals_count=0,
+            message=str(e),
+            error=str(e),
+        )
+    except Exception as e:
+        # 예상치 못한 에러
+        logger.error(f"Trend 백테스트 오류: {e}", exc_info=True)
+        return TrendBacktestResponse(
+            success=False,
+            message=f"백테스트 실행 중 오류가 발생했습니다. 설정을 확인해주세요. ({type(e).__name__})",
+            error=f"백테스트 실행 중 오류가 발생했습니다. 설정을 확인해주세요. ({type(e).__name__})",
         )
