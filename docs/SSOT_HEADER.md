@@ -51,18 +51,26 @@
 - 7adec5b fix: 종목 자동완성 거래소별 필터링 (전 탭 동일 적용)
 - 76f0314 fix: 백테스트 캔들 데이터 접근 TypeError 수정
 - e194d63 fix: lightweight-charts v3.8.0 다운그레이드 + ES 모듈 통일
+- 9faa8a0 docs: SSOT 캔들차트 검증 결과 추가
 
-### 캔들차트 구현 검증 완료
-- **lightweight-charts v5.1.0 → v3.8.0**: `addCandlestickSeries` API 호환
-- **ES 모듈 통일**: 전역 `LightweightCharts` → import `createChart`
+### 캔들차트 구현 검증 완료 (최종)
+- **lightweight-charts v3.8.0**: `addCandlestickSeries` API 호환 확인
+- **ES 모듈 통일**: `import { createChart, ColorType, CrosshairMode }`
 - **백엔드 candles 데이터**: MR/Trend 모두 정상 반환
   - 형식: `{time, open, high, low, close, volume}`
-  - time: Unix 초 단위, trades.timestamp: 밀리초 (프론트 /1000 처리)
+  - Candle 객체 접근: `c.ts, c.o, c.h, c.l, c.c, c.v`
 - **프론트 함수 검증**:
   - `createBacktestCandleChart()`: null/빈배열 방어 코드 있음
-  - `displayMrBacktestResult()`, `displayTrendBacktestResult()` 호출 확인
+  - `displayMrBacktestResult()` line 8008, `displayTrendBacktestResult()` line 8536 호출
   - HTML 컨테이너: `mr-candle-chart`, `trend-candle-chart` 존재
-- **전 거래소 테스트**: 6개 거래소 MR/Trend 모두 candles 반환 확인
+- **종목 필터링**: 4개 탭 전부 `setExchange()` 연결 확인
+
+### 빌드 및 배포 완료
+- **PC앱 빌드**: `BBooster_1.0.0_x64-setup.exe`
+  - 원본: `C:\Users\pc\새 폴더\AUAT\pc-app\src-tauri\target\release\bundle\nsis\`
+  - 복사: `C:\AUAT\pc-app\src-tauri\target\release\bundle\nsis\`
+- **VPS 배포**: `docker compose up -d --build` 완료
+  - 상태: `Uvicorn running on http://0.0.0.0:8000`
 
 ### 종목 자동완성 거래소 필터링 (4개 탭 전부 적용)
 - **문제**: KIS_US 선택 후 "ko" 검색 → 국내 KODEX ETF 나옴
