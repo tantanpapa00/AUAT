@@ -3451,12 +3451,12 @@ pub async fn run_trend_backtest(
     access_token: String,
     exchange: String,
     symbol: String,
-    entry_tf: Option<String>,
+    // TF 구조 (v8 최종: 2개)
+    signal_tf: Option<String>,
     exit_tf: Option<String>,
-    htf_tf: Option<String>,
     days: Option<i32>,
     initial_capital: Option<f64>,
-    // Entry 지표 (v8 파인스크립트: stAtrLen=10, stFactor=3.0)
+    // Supertrend (작가님 확정: 20/5.0)
     st_atr_len: Option<i32>,
     st_factor: Option<f64>,
     hvi_length: Option<i32>,
@@ -3465,9 +3465,7 @@ pub async fn run_trend_backtest(
     qqe_rsi_smoothing: Option<i32>,
     qqe_factor: Option<f64>,
     htf_vwma_len: Option<i32>,
-    // Exit 지표 (v8 파인스크립트: 동일 ST 사용)
-    exit_st_atr_len: Option<i32>,
-    exit_st_factor: Option<f64>,
+    // SPO 지표
     exit_spo_smooth_len: Option<i32>,
     exit_spo_threshold: Option<f64>,
     exit_spo_std_len: Option<i32>,
@@ -3500,11 +3498,8 @@ pub async fn run_trend_backtest(
     stop_type: Option<String>,
     atr_stop_len: Option<i32>,
     atr_stop_mult: Option<f64>,
-    // ST Exit Mode
-    st_exit_mode: Option<String>,
-    st_htf_tf: Option<String>,
-    st_htf_atr_len: Option<i32>,
-    st_htf_factor: Option<f64>,
+    // ST 전량매도 (v8 최종: use_st_exit boolean)
+    use_st_exit: Option<bool>,
     // v8 토글
     use_tp1: Option<bool>,
     st_invert: Option<bool>,
@@ -3525,23 +3520,21 @@ pub async fn run_trend_backtest(
     let body = serde_json::json!({
         "exchange": exchange,
         "symbol": symbol,
-        "entry_tf": entry_tf.unwrap_or_else(|| "1D".to_string()),
-        "exit_tf": exit_tf.unwrap_or_else(|| "1D".to_string()),
-        "htf_tf": htf_tf.unwrap_or_else(|| "1W".to_string()),
+        // TF 구조 (v8 최종)
+        "signal_tf": signal_tf.unwrap_or_else(|| "1D".to_string()),
+        "exit_tf": exit_tf.unwrap_or_else(|| "1W".to_string()),
         "days": days.unwrap_or(365),
         "initial_capital": initial_capital.unwrap_or(10000000.0),
-        // Entry 지표 (v8 파인스크립트: stAtrLen=10, stFactor=3.0)
-        "st_atr_len": st_atr_len.unwrap_or(10),
-        "st_factor": st_factor.unwrap_or(3.0),
+        // Supertrend (작가님 확정: 20/5.0)
+        "st_atr_len": st_atr_len.unwrap_or(20),
+        "st_factor": st_factor.unwrap_or(5.0),
         "hvi_length": hvi_length.unwrap_or(200),
         "hvi_divisor": hvi_divisor.unwrap_or(3.6),
         "qqe_rsi_length": qqe_rsi_length.unwrap_or(6),
         "qqe_rsi_smoothing": qqe_rsi_smoothing.unwrap_or(5),
         "qqe_factor": qqe_factor.unwrap_or(3.0),
         "htf_vwma_len": htf_vwma_len.unwrap_or(156),
-        // Exit 지표 (v8 파인스크립트: 동일 ST 사용)
-        "exit_st_atr_len": exit_st_atr_len.unwrap_or(10),
-        "exit_st_factor": exit_st_factor.unwrap_or(3.0),
+        // SPO 지표
         "exit_spo_smooth_len": exit_spo_smooth_len.unwrap_or(4),
         "exit_spo_threshold": exit_spo_threshold.unwrap_or(1.0),
         "exit_spo_std_len": exit_spo_std_len.unwrap_or(50),
@@ -3574,11 +3567,8 @@ pub async fn run_trend_backtest(
         "stop_type": stop_type.unwrap_or_else(|| "fixed".to_string()),
         "atr_stop_len": atr_stop_len.unwrap_or(14),
         "atr_stop_mult": atr_stop_mult.unwrap_or(2.0),
-        // ST Exit Mode
-        "st_exit_mode": st_exit_mode.unwrap_or_else(|| "current_tf".to_string()),
-        "st_htf_tf": st_htf_tf.unwrap_or_else(|| "1W".to_string()),
-        "st_htf_atr_len": st_htf_atr_len.unwrap_or(10),
-        "st_htf_factor": st_htf_factor.unwrap_or(3.0),
+        // ST 전량매도 (v8 최종)
+        "use_st_exit": use_st_exit.unwrap_or(true),
         // v8 토글
         "use_tp1": use_tp1.unwrap_or(false),
         "st_invert": st_invert.unwrap_or(false),

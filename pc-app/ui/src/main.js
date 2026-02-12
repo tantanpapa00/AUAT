@@ -7235,6 +7235,126 @@ function initMrUiComponents() {
     initMrAccordions();
     initMrRegimeTabs();
     initMrTrancheHandlers();
+    initTrendTrancheHandlers();
+}
+
+// ============================================================
+// Trend 피라미딩/분할매도 동적 UI (v8 최종)
+// ============================================================
+
+const DEFAULT_TREND_PYR_WEIGHTS = [40.0, 30.0, 20.0, 10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+const DEFAULT_TREND_SELL_TRANCHES = [5.0, 5.0, 10.0, 15.0, 25.0, 40.0];
+
+// 피라미딩 비중 렌더링
+function renderTrendPyrWeights(count) {
+    const container = document.getElementById('trend-pyr-weights-container');
+    if (!container) return;
+
+    container.innerHTML = '';
+    for (let i = 0; i < count; i++) {
+        const defaultVal = DEFAULT_TREND_PYR_WEIGHTS[i] || 0;
+        container.innerHTML += `
+            <div class="mr-tranche-item">
+                <label>${i + 1}차</label>
+                <input type="number" class="trend-pyr-weight-input" value="${defaultVal}"
+                       min="0" max="100" step="1" data-index="${i}"> %
+            </div>
+        `;
+    }
+    updateTrendPyrTotal();
+    container.querySelectorAll('.trend-pyr-weight-input').forEach(input => {
+        input.addEventListener('input', updateTrendPyrTotal);
+    });
+}
+
+// 분할매도 비중 렌더링
+function renderTrendSellTranches(count) {
+    const container = document.getElementById('trend-sell-tranches-container');
+    if (!container) return;
+
+    container.innerHTML = '';
+    for (let i = 0; i < count; i++) {
+        const defaultVal = DEFAULT_TREND_SELL_TRANCHES[i] || DEFAULT_TREND_SELL_TRANCHES[DEFAULT_TREND_SELL_TRANCHES.length - 1];
+        container.innerHTML += `
+            <div class="mr-tranche-item">
+                <label>SELL${i + 1}</label>
+                <input type="number" class="trend-sell-tranche-input" value="${defaultVal}"
+                       min="0" max="100" step="1" data-index="${i}"> %
+            </div>
+        `;
+    }
+    updateTrendSellTotal();
+    container.querySelectorAll('.trend-sell-tranche-input').forEach(input => {
+        input.addEventListener('input', updateTrendSellTotal);
+    });
+}
+
+function updateTrendPyrTotal() {
+    const inputs = document.querySelectorAll('.trend-pyr-weight-input');
+    let total = 0;
+    inputs.forEach(input => total += parseFloat(input.value) || 0);
+    const el = document.getElementById('trend-pyr-total-pct');
+    if (el) el.textContent = total.toFixed(0);
+}
+
+function updateTrendSellTotal() {
+    const inputs = document.querySelectorAll('.trend-sell-tranche-input');
+    let total = 0;
+    inputs.forEach(input => total += parseFloat(input.value) || 0);
+    const el = document.getElementById('trend-sell-total-pct');
+    if (el) el.textContent = total.toFixed(0);
+}
+
+// 피라미딩 비중 수집
+function collectTrendPyrWeights() {
+    const weights = [];
+    document.querySelectorAll('.trend-pyr-weight-input').forEach(input => {
+        weights.push(parseFloat(input.value) || 0);
+    });
+    // 10개로 맞추기 (부족하면 0으로 채움)
+    while (weights.length < 10) weights.push(0);
+    return weights;
+}
+
+// 분할매도 비중 수집
+function collectTrendSellTranches() {
+    const tranches = [];
+    document.querySelectorAll('.trend-sell-tranche-input').forEach(input => {
+        tranches.push(parseFloat(input.value) || 0);
+    });
+    return tranches;
+}
+
+// Trend 트랜치 핸들러 초기화
+function initTrendTrancheHandlers() {
+    const pyrCountEl = document.getElementById('trend-pyr-count');
+    const sellCountEl = document.getElementById('trend-sell-tranche-count');
+
+    if (pyrCountEl) {
+        pyrCountEl.addEventListener('change', (e) => {
+            renderTrendPyrWeights(parseInt(e.target.value) || 4);
+        });
+    }
+    if (sellCountEl) {
+        sellCountEl.addEventListener('change', (e) => {
+            renderTrendSellTranches(parseInt(e.target.value) || 6);
+        });
+    }
+
+    // 손절 타입 변경 시 ATR 입력 표시/숨김
+    const stopTypeEl = document.getElementById('trend-stop-type');
+    if (stopTypeEl) {
+        stopTypeEl.addEventListener('change', (e) => {
+            const atrRow = document.getElementById('trend-atr-sl-row');
+            if (atrRow) {
+                atrRow.style.display = e.target.value === 'atr' ? 'flex' : 'none';
+            }
+        });
+    }
+
+    // 초기 렌더링
+    renderTrendPyrWeights(4);
+    renderTrendSellTranches(6);
 }
 
 // MR 스케줄러 시작
@@ -7943,33 +8063,49 @@ document.getElementById('trend-st-exit-mode')?.addEventListener('change', (e) =>
 });
 
 document.getElementById('btn-trend-run-backtest')?.addEventListener('click', async () => {
+    // 기본 설정 (v8 최종)
     const exchange = document.getElementById('trend-exchange')?.value || 'OKX';
     const symbol = document.getElementById('trend-symbol')?.value || 'BTC-USDT';
-    const entryTf = document.getElementById('trend-entry-tf')?.value || '1D';
-    const exitTf = document.getElementById('trend-exit-tf')?.value || '1D';
-    const htfTf = document.getElementById('trend-htf-tf')?.value || '1W';
+    const signalTf = document.getElementById('trend-signal-tf')?.value || '1D';
+    const exitTf = document.getElementById('trend-exit-tf')?.value || '1W';
     const days = parseInt(document.getElementById('trend-bt-days')?.value) || 365;
     const capital = parseFloat(document.getElementById('trend-bt-capital')?.value) || 10000000;
-    const hardSlPct = parseFloat(document.getElementById('trend-hard-sl')?.value) || 7.0;
-    const tp1Pct = parseFloat(document.getElementById('trend-tp1-pct')?.value) || 21.0;
-    const tp1SellPct = parseFloat(document.getElementById('trend-tp1-sell')?.value) || 50.0;
-    const useSpoSplit = document.getElementById('trend-use-spo-split')?.checked ?? true;
-    const useStFlipExit = document.getElementById('trend-use-st-flip')?.checked ?? true;
-    const useProfitGate = document.getElementById('trend-use-profit-gate')?.checked ?? true;
 
-    // v8 신규 설정
-    const useTp1 = document.getElementById('trend-use-tp1')?.checked ?? false;
-    const usePyramiding = document.getElementById('trend-use-pyramiding')?.checked ?? true;
+    // Supertrend (작가님 확정: 20/5.0)
+    const stAtrLen = parseInt(document.getElementById('trend-st-atr-len')?.value) || 20;
+    const stFactor = parseFloat(document.getElementById('trend-st-factor')?.value) || 5.0;
+
+    // HVI / HTF
+    const hviLength = parseInt(document.getElementById('trend-hvi-length')?.value) || 200;
+    const htfVwmaLen = parseInt(document.getElementById('trend-htf-vwma-len')?.value) || 156;
     const useHtfFilter = document.getElementById('trend-use-htf-filter')?.checked ?? true;
+    const stInvert = document.getElementById('trend-st-invert')?.checked ?? false;
+
+    // 피라미딩
+    const usePyramiding = document.getElementById('trend-use-pyramiding')?.checked ?? true;
     const maxPyrEntries = parseInt(document.getElementById('trend-max-pyr')?.value) || 4;
     const pyrHighLen = parseInt(document.getElementById('trend-pyr-high-len')?.value) || 60;
     const pyrCooldown = parseInt(document.getElementById('trend-pyr-cooldown')?.value) || 5;
+    const pyrRefillAfterSell = document.getElementById('trend-pyr-refill')?.checked ?? false;
+    const pyrWeights = collectTrendPyrWeights();
+
+    // 분할매도
+    const useSpoSplit = document.getElementById('trend-use-spo-split')?.checked ?? true;
+    const sellTranches = collectTrendSellTranches();
+    const afterMaxSell = document.querySelector('input[name="trend-after-max-sell"]:checked')?.value || 'cycle';
+    const useProfitGate = document.getElementById('trend-use-profit-gate')?.checked ?? true;
+    const minProfitPct = parseFloat(document.getElementById('trend-min-profit-pct')?.value) || 0.10;
+    const feeBufferPct = parseFloat(document.getElementById('trend-fee-buffer-pct')?.value) || 0.20;
+
+    // Exit 조건
     const stopType = document.getElementById('trend-stop-type')?.value || 'fixed';
+    const hardSlPct = parseFloat(document.getElementById('trend-hard-sl')?.value) || 7.0;
     const atrStopLen = parseInt(document.getElementById('trend-atr-stop-len')?.value) || 14;
     const atrStopMult = parseFloat(document.getElementById('trend-atr-stop-mult')?.value) || 2.0;
-    const stExitMode = document.getElementById('trend-st-exit-mode')?.value || 'current_tf';
-    const stHtfAtrLen = parseInt(document.getElementById('trend-st-htf-atr-len')?.value) || 10;
-    const stHtfFactor = parseFloat(document.getElementById('trend-st-htf-factor')?.value) || 3.0;
+    const useTp1 = document.getElementById('trend-use-tp1')?.checked ?? false;
+    const tp1Pct = parseFloat(document.getElementById('trend-tp1-pct')?.value) || 21.0;
+    const tp1SellPct = parseFloat(document.getElementById('trend-tp1-sell')?.value) || 50.0;
+    const useStExit = document.getElementById('trend-use-st-exit')?.checked ?? true;
 
     showToast('추세매매 백테스트 실행 중...', 'info');
 
@@ -7978,30 +8114,42 @@ document.getElementById('btn-trend-run-backtest')?.addEventListener('click', asy
             accessToken: auth.accessToken || '',
             exchange: exchange,
             symbol: symbol,
-            entryTf: entryTf,
+            signalTf: signalTf,
             exitTf: exitTf,
-            htfTf: htfTf,
             days: days,
             initialCapital: capital,
-            hardSlPct: hardSlPct,
-            tp1Pct: tp1Pct,
-            tp1SellPct: tp1SellPct,
-            useSpoSplit: useSpoSplit,
-            useStFlipExit: useStFlipExit,
-            useProfitGate: useProfitGate,
-            // v8 신규 파라미터
-            useTp1: useTp1,
-            usePyramiding: usePyramiding,
+            // Supertrend
+            stAtrLen: stAtrLen,
+            stFactor: stFactor,
+            // HVI / HTF
+            hviLength: hviLength,
+            htfVwmaLen: htfVwmaLen,
             useHtfFilter: useHtfFilter,
+            stInvert: stInvert,
+            // 피라미딩
+            usePyramiding: usePyramiding,
             maxPyrEntries: maxPyrEntries,
             pyrHighLen: pyrHighLen,
             pyrCooldown: pyrCooldown,
+            pyrRefillAfterSell: pyrRefillAfterSell,
+            pyrWeights: pyrWeights,
+            // 분할매도
+            useSpoSplit: useSpoSplit,
+            sellTranches: sellTranches,
+            maxSellTranches: sellTranches.length,
+            afterMaxSell: afterMaxSell,
+            useProfitGate: useProfitGate,
+            minProfitPct: minProfitPct,
+            feeBufferPct: feeBufferPct,
+            // Exit
             stopType: stopType,
+            hardSlPct: hardSlPct,
             atrStopLen: atrStopLen,
             atrStopMult: atrStopMult,
-            stExitMode: stExitMode,
-            stHtfAtrLen: stHtfAtrLen,
-            stHtfFactor: stHtfFactor,
+            useTp1: useTp1,
+            tp1Pct: tp1Pct,
+            tp1SellPct: tp1SellPct,
+            useStExit: useStExit,
         });
 
         displayTrendBacktestResult(result);
