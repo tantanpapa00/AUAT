@@ -29,9 +29,10 @@ from .models import SignalResult
 class TrendConfig:
     """추세매매 설정 (premium_configs에서 로드) - v8 최종"""
 
-    # 타임프레임 (단순화: 2개만)
+    # 타임프레임 (3개)
     signal_tf: str = "1D"     # 기준 TF (매수 + SPO + SL + TP1)
-    exit_tf: str = "1W"       # 매도기준 TF (ST 전량매도 + HTF VWMA 필터)
+    exit_tf: str = "1W"       # 매도기준 TF (ST 전량매도 전용)
+    htf_tf: str = "1W"        # 상위기준 TF (HTF VWMA 필터 전용)
 
     # 슈퍼트렌드 (작가님 확정: 20/5.0)
     st_atr_len: int = 20      # ATR 길이

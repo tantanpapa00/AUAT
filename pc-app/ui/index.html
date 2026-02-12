@@ -2067,7 +2067,7 @@
                             </h3>
                             <div class="mr-accordion-body" style="display:block;">
 
-                                <!-- 타임프레임 2개만 -->
+                                <!-- 타임프레임 3개 -->
                                 <div class="mr-row">
                                     <div class="mr-field">
                                         <label>기준 타임프레임</label>
@@ -2079,7 +2079,7 @@
                                             <option value="12h">12시간</option>
                                             <option value="1D" selected>1일</option>
                                         </select>
-                                        <span class="mr-help">매수·분할매도·손절·부분익절 판단 기준</span>
+                                        <span class="mr-help">매수·분할매도·손절·TP1 판단 기준</span>
                                     </div>
                                     <div class="mr-field">
                                         <label>매도기준 타임프레임</label>
@@ -2092,7 +2092,15 @@
                                             <option value="1D">1일</option>
                                             <option value="1W" selected>1주</option>
                                         </select>
-                                        <span class="mr-help">추세전환 전량매도 + 상위TF 필터 기준</span>
+                                        <span class="mr-help">추세전환 전량매도 전용</span>
+                                    </div>
+                                    <div class="mr-field">
+                                        <label>상위기준 타임프레임</label>
+                                        <select id="trend-htf-tf" class="form-select">
+                                            <option value="1D">1일</option>
+                                            <option value="1W" selected>1주</option>
+                                        </select>
+                                        <span class="mr-help">HTF VWMA 필터 전용</span>
                                     </div>
                                 </div>
 

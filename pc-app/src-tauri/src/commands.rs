@@ -3451,9 +3451,10 @@ pub async fn run_trend_backtest(
     access_token: String,
     exchange: String,
     symbol: String,
-    // TF 구조 (v8 최종: 2개)
+    // TF 구조 (v8 최종: 3개)
     signal_tf: Option<String>,
     exit_tf: Option<String>,
+    htf_tf: Option<String>,
     days: Option<i32>,
     initial_capital: Option<f64>,
     // Supertrend (작가님 확정: 20/5.0)
@@ -3520,9 +3521,10 @@ pub async fn run_trend_backtest(
     let body = serde_json::json!({
         "exchange": exchange,
         "symbol": symbol,
-        // TF 구조 (v8 최종)
+        // TF 구조 (v8 최종: 3개)
         "signal_tf": signal_tf.unwrap_or_else(|| "1D".to_string()),
         "exit_tf": exit_tf.unwrap_or_else(|| "1W".to_string()),
+        "htf_tf": htf_tf.unwrap_or_else(|| "1W".to_string()),
         "days": days.unwrap_or(365),
         "initial_capital": initial_capital.unwrap_or(10000000.0),
         // Supertrend (작가님 확정: 20/5.0)

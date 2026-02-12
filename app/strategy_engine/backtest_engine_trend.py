@@ -41,6 +41,7 @@ from .indicators import (
 
 def run_trend_backtest(
     candles: List[Candle],
+    exit_candles: Optional[List[Candle]] = None,
     htf_candles: Optional[List[Candle]] = None,
     config: Optional[TrendConfig] = None,
     initial_capital: float = 10000000.0,
@@ -50,8 +51,9 @@ def run_trend_backtest(
     추세매매 전략 백테스트 실행 (v8).
 
     Args:
-        candles: 시그널 타임프레임 캔들 데이터 (entry_tf = exit_tf 가정)
-        htf_candles: HTF 캔들 데이터 (주봉 등, HTF VWMA용)
+        candles: 시그널 타임프레임 캔들 데이터 (매수/분할매도/손절/TP1)
+        exit_candles: 매도기준 타임프레임 캔들 (ST 전량매도 전용)
+        htf_candles: 상위기준 타임프레임 캔들 (HTF VWMA 필터 전용)
         config: 추세매매 설정 (없으면 기본값 사용)
         initial_capital: 초기 자본
         fee_rate: 거래 수수료율
@@ -75,6 +77,9 @@ def run_trend_backtest(
     if config is None:
         config = TrendConfig()
 
+    # 캔들 폴백 (None이면 signal_tf 캔들 사용)
+    if exit_candles is None:
+        exit_candles = candles
     if htf_candles is None:
         htf_candles = candles
 
@@ -88,15 +93,19 @@ def run_trend_backtest(
     signals: List[Dict[str, Any]] = []
     equity_curve: List[Dict[str, Any]] = []
 
-    # numpy 배열 변환
+    # numpy 배열 변환 (signal_tf)
     closes = np.array([c.c for c in candles])
     highs = np.array([c.h for c in candles])
     lows = np.array([c.l for c in candles])
     volumes = np.array([c.v for c in candles])
 
+    # exit_tf 배열 (ST 전량매도 전용)
+    exit_closes = np.array([c.c for c in exit_candles])
+    exit_highs = np.array([c.h for c in exit_candles])
+    exit_lows = np.array([c.l for c in exit_candles])
+
+    # htf_tf 배열 (HTF VWMA 필터 전용)
     htf_closes = np.array([c.c for c in htf_candles])
-    htf_highs = np.array([c.h for c in htf_candles])
-    htf_lows = np.array([c.l for c in htf_candles])
     htf_volumes = np.array([c.v for c in htf_candles])
 
     # 지표 계산에 필요한 최소 봉 수
@@ -119,21 +128,26 @@ def run_trend_backtest(
             "pyr_count": state.pyr_count,           # v8: 피라미딩 횟수
         })
 
-        # 슬라이스 데이터
+        # 슬라이스 데이터 (signal_tf)
         slice_closes = closes[max(0, i - lookback + 1):i + 1]
         slice_highs = highs[max(0, i - lookback + 1):i + 1]
         slice_lows = lows[max(0, i - lookback + 1):i + 1]
         slice_volumes = volumes[max(0, i - lookback + 1):i + 1]
 
-        # HTF 데이터 매핑
+        # exit_tf 데이터 매핑 (ST 전량매도 전용)
+        exit_ratio = len(exit_candles) / len(candles)
+        exit_idx = min(int(i * exit_ratio), len(exit_candles) - 1)
+        exit_slice_closes = exit_closes[max(0, exit_idx - lookback + 1):exit_idx + 1]
+        exit_slice_highs = exit_highs[max(0, exit_idx - lookback + 1):exit_idx + 1]
+        exit_slice_lows = exit_lows[max(0, exit_idx - lookback + 1):exit_idx + 1]
+
+        # htf_tf 데이터 매핑 (HTF VWMA 필터 전용)
         htf_ratio = len(htf_candles) / len(candles)
         htf_idx = min(int(i * htf_ratio), len(htf_candles) - 1)
         htf_slice_closes = htf_closes[max(0, htf_idx - lookback + 1):htf_idx + 1]
-        htf_slice_highs = htf_highs[max(0, htf_idx - lookback + 1):htf_idx + 1]
-        htf_slice_lows = htf_lows[max(0, htf_idx - lookback + 1):htf_idx + 1]
         htf_slice_volumes = htf_volumes[max(0, htf_idx - lookback + 1):htf_idx + 1]
 
-        # Entry 지표 계산
+        # Entry 지표 계산 (signal_tf)
         st_value, st_dir = calc_supertrend(
             slice_highs, slice_lows, slice_closes,
             config.st_atr_len, config.st_factor
@@ -149,16 +163,15 @@ def run_trend_backtest(
             config.qqe_rsi_length, config.qqe_rsi_smoothing, config.qqe_factor
         )
 
-        # HTF VWMA
+        # HTF VWMA (htf_tf 데이터 사용)
         if len(htf_slice_closes) >= config.htf_vwma_len:
             htf_vwma = calc_vwma(htf_slice_closes, htf_slice_volumes, config.htf_vwma_len)
         else:
             htf_vwma = np.full(len(htf_slice_closes), np.nan)
 
-        # Exit ST 계산 (exit_tf 데이터 = htf_candles 사용)
-        # Note: exit_tf ST는 htf 데이터에서 계산
+        # Exit ST 계산 (exit_tf 데이터 사용 - ST 전량매도 전용)
         exit_st_value, exit_st_dir = calc_supertrend(
-            htf_slice_highs, htf_slice_lows, htf_slice_closes,
+            exit_slice_highs, exit_slice_lows, exit_slice_closes,
             config.st_atr_len, config.st_factor
         )
 

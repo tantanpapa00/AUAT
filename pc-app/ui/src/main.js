@@ -7292,6 +7292,7 @@ function collectTrendConfig() {
         symbol: symbolValue,
         signal_tf: document.getElementById('trend-signal-tf')?.value || '1D',
         exit_tf: document.getElementById('trend-exit-tf')?.value || '1W',
+        htf_tf: document.getElementById('trend-htf-tf')?.value || '1W',
         cash_use_pct: parseFloat(document.getElementById('trend-cash-use-pct')?.value) || 100,
 
         // 슈퍼트렌드
@@ -8194,6 +8195,7 @@ document.getElementById('btn-trend-run-backtest')?.addEventListener('click', asy
             symbol: cfg.symbol,
             signalTf: cfg.signal_tf,
             exitTf: cfg.exit_tf,
+            htfTf: cfg.htf_tf,
             days: cfg.days,
             initialCapital: cfg.initial_capital,
             cashUsePct: cfg.cash_use_pct,

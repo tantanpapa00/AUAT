@@ -1175,7 +1175,8 @@ class TrendBacktestRequest(BaseModel):
     exchange: str = Field(..., description="거래소 (okx, binance, etc)")
     symbol: str = Field(..., description="종목 심볼 (BTC-USDT)")
     signal_tf: str = Field(default="1D", description="기준 TF (매수 + SPO + SL + TP1)")
-    exit_tf: str = Field(default="1W", description="매도기준 TF (ST 전량매도 + HTF VWMA)")
+    exit_tf: str = Field(default="1W", description="매도기준 TF (ST 전량매도 전용)")
+    htf_tf: str = Field(default="1W", description="상위기준 TF (HTF VWMA 필터 전용)")
     days: int = Field(default=365, ge=30, le=1000, description="백테스트 기간 (일)")
     initial_capital: float = Field(default=10000000, ge=1000)
 
@@ -1287,11 +1288,11 @@ async def run_trend_backtest_endpoint(
             timeout=60,
         )
 
-        # ② exit_tf 캔들 조회 (HTF VWMA + ST 전량매도 기준)
-        htf_candles = None
+        # ② exit_tf 캔들 조회 (ST 전량매도 전용)
+        exit_candles = None
         if request.exit_tf and request.exit_tf != request.signal_tf:
             try:
-                htf_candles = await fetch_candles_for_backtest(
+                exit_candles = await fetch_candles_for_backtest(
                     exchange=request.exchange,
                     symbol=request.symbol,
                     timeframe=request.exit_tf,
@@ -1301,10 +1302,25 @@ async def run_trend_backtest_endpoint(
             except ValueError:
                 pass  # exit_tf 조회 실패 시 signal_tf 단독 사용
 
-        # ③ Trend 설정 생성 (v8 최종 - TF 단순화)
+        # ③ htf_tf 캔들 조회 (HTF VWMA 필터 전용)
+        htf_candles = None
+        if request.htf_tf and request.htf_tf != request.signal_tf:
+            try:
+                htf_candles = await fetch_candles_for_backtest(
+                    exchange=request.exchange,
+                    symbol=request.symbol,
+                    timeframe=request.htf_tf,
+                    days=request.days,
+                    timeout=30,
+                )
+            except ValueError:
+                pass  # htf_tf 조회 실패 시 signal_tf 단독 사용
+
+        # ④ Trend 설정 생성 (v8 최종 - TF 3개)
         config = TrendConfig(
             signal_tf=request.signal_tf,
             exit_tf=request.exit_tf,
+            htf_tf=request.htf_tf,
             st_atr_len=request.st_atr_len,
             st_factor=request.st_factor,
             hvi_length=request.hvi_length,
@@ -1349,9 +1365,10 @@ async def run_trend_backtest_endpoint(
             min_qty=request.min_qty,
         )
 
-        # ④ 백테스트 실행
+        # ⑤ 백테스트 실행
         result = run_trend_backtest(
             candles=candles,
+            exit_candles=exit_candles,
             htf_candles=htf_candles,
             config=config,
             initial_capital=request.initial_capital,
