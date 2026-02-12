@@ -159,16 +159,25 @@ def run_trend_backtest(
         - 모든 지표를 루프 전 한 번만 계산
         - 20~50배 속도 향상
     """
-    if len(candles) < 300:
-        return BacktestResult(
-            success=False,
-            message=f"데이터 부족: 최소 300봉 필요 (현재 {len(candles)}봉)",
-            metrics=BacktestMetrics(),
-        )
-
-    # 기본 설정
+    # 지표별 최소 필요 봉 수 동적 계산
     if config is None:
         config = TrendConfig()
+
+    required_bars = max(
+        config.hvi_length + 50,           # HVI (가장 긴 지표)
+        config.htf_vwma_len + 20,         # VWMA
+        config.exit_spo_std_len + 30,     # SPO
+        config.pyr_high_len + 20,         # 피라미딩 신고가
+        config.st_atr_len * 3,            # Supertrend
+        100                               # 최소 안전선
+    )
+
+    if len(candles) < required_bars:
+        return BacktestResult(
+            success=False,
+            message=f"데이터 부족: 최소 {required_bars}봉 필요 (현재 {len(candles)}봉)",
+            metrics=BacktestMetrics(),
+        )
 
     # 캔들 폴백 (None이면 signal_tf 캔들 사용)
     if exit_candles is None:
@@ -254,8 +263,8 @@ def run_trend_backtest(
     exit_ratio = len(exit_candles) / len(candles)
     htf_ratio = len(htf_candles) / len(candles)
 
-    # 지표 계산에 필요한 최소 봉 수
-    lookback = 300
+    # 지표 계산에 필요한 최소 봉 수 (동적 계산값 사용)
+    lookback = required_bars
 
     # ============================================================
     # 메인 루프 (지표는 인덱스로만 조회)

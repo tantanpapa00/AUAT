@@ -7856,11 +7856,18 @@ function createBacktestCandleChart(containerId, candles, trades) {
     // 기존 차트 제거
     container.innerHTML = '';
 
-    if (!candles || candles.length === 0) {
+    // 방어: candles가 없거나 빈 배열이면 스킵
+    if (!candles || !Array.isArray(candles) || candles.length === 0) {
         container.innerHTML = '<div style="color:#6B7280; text-align:center; padding:40px;">캔들 데이터가 없습니다</div>';
         return null;
     }
 
+    // 방어: trades가 없으면 빈 배열로 초기화
+    if (!trades || !Array.isArray(trades)) {
+        trades = [];
+    }
+
+    try {
     // 차트 생성
     const chart = createChart(container, {
         layout: {
@@ -7932,7 +7939,12 @@ function createBacktestCandleChart(containerId, candles, trades) {
     });
     resizeObserver.observe(container);
 
-    return chart;
+        return chart;
+    } catch (err) {
+        console.error('캔들차트 생성 에러:', err);
+        container.innerHTML = '<div style="color:#F87171; text-align:center; padding:40px;">차트 생성 실패: ' + (err.message || err) + '</div>';
+        return null;
+    }
 }
 
 function displayMrBacktestResult(result, exchange, symbol) {

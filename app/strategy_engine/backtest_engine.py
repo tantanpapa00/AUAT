@@ -406,16 +406,32 @@ def run_mr_backtest(
     Returns:
         BacktestResult: 백테스트 결과
     """
-    if len(candles) < 50:
-        return BacktestResult(
-            success=False,
-            message=f"시세 데이터가 부족합니다: {len(candles)}봉 (최소 50봉 필요). 기간을 늘리거나 타임프레임을 변경해보세요.",
-            metrics=BacktestMetrics(),
-        )
-
     # 기본 설정
     if config is None:
         config = MRConfig()
+
+    # 지표별 최소 필요 봉 수 동적 계산
+    # OSC preset1: bb_len=250, preset2: bb_len=200
+    osc_preset = config.osc_preset
+    if osc_preset == "preset1":
+        bb_len_required = 250
+    elif osc_preset == "preset2":
+        bb_len_required = 200
+    else:  # custom
+        bb_len_required = 100  # custom은 보통 더 작은 값 사용
+
+    required_bars = max(
+        bb_len_required + 50,  # OSC Bollinger Band
+        200 + 50,              # HTF VWMA200
+        100                    # 최소 안전선
+    )
+
+    if len(candles) < required_bars:
+        return BacktestResult(
+            success=False,
+            message=f"시세 데이터가 부족합니다: {len(candles)}봉 (최소 {required_bars}봉 필요). 기간을 늘리거나 타임프레임을 변경해보세요.",
+            metrics=BacktestMetrics(),
+        )
 
     if htf_candles is None:
         htf_candles = candles
@@ -465,9 +481,8 @@ def run_mr_backtest(
     # HTF 비율 계산 (시그널TF → HTF 인덱스 매핑용)
     htf_ratio = len(htf_candles) / len(candles)
 
-    # 각 봉에 대해 시뮬레이션
-    # OSC preset1: bb_len=250 필요, HTF 지표: 200 필요 → 300으로 설정
-    lookback = min(300, len(candles) - 1)
+    # 각 봉에 대해 시뮬레이션 (동적 계산된 required_bars 사용)
+    lookback = min(required_bars, len(candles) - 1)
 
     for i in range(lookback, len(candles)):
         candle = candles[i]
