@@ -48,6 +48,38 @@
 - 0a2a1d8 perf: 추세매매 백테스트 벡터화 최적화 (20~50배 속도 향상)
 - 581373a fix: KIS_US 해외주식/ETF 검색 수정
 - 3492b8b fix: US fallback 종목 대폭 확장 (SCHD, PLTR 등 200+ 종목)
+- 7adec5b fix: 종목 자동완성 거래소별 필터링 (전 탭 동일 적용)
+- 76f0314 fix: 백테스트 캔들 데이터 접근 TypeError 수정
+
+### 종목 자동완성 거래소 필터링 (4개 탭 전부 적용)
+- **문제**: KIS_US 선택 후 "ko" 검색 → 국내 KODEX ETF 나옴
+- **원인**: exchange 파라미터가 자동완성에 전달 안 됨
+- **수정**:
+  - createSymbolAutocomplete에 setExchange() 메서드 추가
+  - TV Connect: Step 2 진입 시 selectedExchange.exchange로 필터
+  - 커스텀/역추세/추세: 거래소 드롭다운 change 이벤트 연동
+- **필터링 규칙**:
+  - OKX/BINANCE/BYBIT/UPBIT → 해당 거래소 코인만
+  - KIS_KR → KOSPI/KOSDAQ만
+  - KIS_US → NYSE/NASDAQ/AMEX만
+
+### 백테스트 TypeError 수정
+- **문제**: MR/Trend 백테스트 실행 시 TypeError 발생
+- **원인**: Candle 객체를 dict처럼 접근 (`c["timestamp"]`)
+- **수정**: `c.ts`, `c.o`, `c.h`, `c.l`, `c.c`, `c.v`로 변경
+
+### 6개 거래소 API 점검 결과
+| 거래소 | 심볼검색 | Trend 730일 | MR 365일 |
+|--------|---------|-------------|----------|
+| OKX | ✅ | ✅ 3거래 | ✅ 83거래 (1h) |
+| BINANCE | ✅ | ✅ 3거래 | ✅ 354거래 (30m) |
+| BYBIT | ✅ | ✅ 3거래 | ✅ 360거래 (30m) |
+| UPBIT | ✅ | ✅ 0거래 | ✅ 59거래 (1h) |
+| KIS_KR | ✅ | ✅ 44거래 | ✅ 6거래 (1D) |
+| KIS_US | ✅ | ✅ 5거래 | ✅ 3거래 (1D) |
+
+- OKX/UPBIT 30분봉 730일(35,040봉) → API 타임아웃 (네트워크 제한)
+- KIS는 일봉/주봉/월봉만 지원 (분봉 미지원)
 
 ### KIS_US 해외주식/ETF 검색 수정
 - 해외 마스터 파싱 개선 (탭 구분자 처리)
