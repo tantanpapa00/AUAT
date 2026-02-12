@@ -198,7 +198,12 @@ def _parse_kospi_kosdaq_master(content: bytes, market: str) -> Dict[str, StockMa
 
 
 def _parse_overseas_master(content: bytes, market: str) -> Dict[str, StockMaster]:
-    """해외 종목 마스터 파싱 (NYSE, NASDAQ, AMEX)"""
+    """해외 종목 마스터 파싱 (NYSE, NASDAQ, AMEX)
+
+    KIS 해외 마스터 파일 형식 (탭 구분):
+    - nasmst.cod: 심볼\t한글명\t영문명\t...
+    - nysmst.cod: 심볼\t한글명\t영문명\t...
+    """
     stocks = {}
     try:
         # 인코딩 순서: cp949 → euc-kr → utf-8 (해외 마스터는 cp949인 경우 많음)
@@ -219,25 +224,42 @@ def _parse_overseas_master(content: bytes, market: str) -> Dict[str, StockMaster
             if not line.strip():
                 continue
             try:
-                # 형식에 따라 파싱 (예: 종목코드|종목명|...)
-                if '|' in line:
+                # 탭 구분자 우선 처리 (KIS 해외 마스터 형식)
+                if '\t' in line:
+                    parts = line.split('\t')
+                    if len(parts) >= 2:
+                        # 심볼은 첫 필드, 이름은 두 번째 필드
+                        code = parts[0].strip()
+                        name = parts[1].strip()
+                        # 심볼 유효성 검사 (영문+숫자만, 1~10자)
+                        if code and len(code) <= 10 and code.replace('.', '').replace('-', '').isalnum():
+                            is_etf = "ETF" in name.upper() or (len(parts) > 2 and "ETF" in ' '.join(parts[2:]).upper())
+                            stocks[code] = StockMaster(
+                                code=code,
+                                name=name,
+                                market=market,
+                                is_etf=is_etf
+                            )
+                # 파이프 구분자
+                elif '|' in line:
                     parts = line.split('|')
                     if len(parts) >= 2:
                         code = parts[0].strip()
                         name = parts[1].strip()
-                        is_etf = "ETF" in name.upper() or len(parts) > 5 and "ETF" in parts[5].upper()
-                        stocks[code] = StockMaster(
-                            code=code,
-                            name=name,
-                            market=market,
-                            is_etf=is_etf
-                        )
+                        if code and len(code) <= 10:
+                            is_etf = "ETF" in name.upper() or len(parts) > 5 and "ETF" in parts[5].upper()
+                            stocks[code] = StockMaster(
+                                code=code,
+                                name=name,
+                                market=market,
+                                is_etf=is_etf
+                            )
+                # 고정폭 형식
                 else:
-                    # 고정폭 형식 추정
                     if len(line) >= 20:
                         code = line[0:12].strip()
                         name = line[12:62].strip() if len(line) > 62 else line[12:].strip()
-                        if code and name:
+                        if code and name and len(code) <= 10:
                             is_etf = "ETF" in name.upper()
                             stocks[code] = StockMaster(
                                 code=code,
@@ -250,6 +272,7 @@ def _parse_overseas_master(content: bytes, market: str) -> Dict[str, StockMaster
     except Exception as e:
         print(f"[KIS] Overseas master parse error ({market}): {e}")
 
+    print(f"[KIS] Parsed {len(stocks)} stocks from {market} master")
     return stocks
 
 
@@ -305,10 +328,84 @@ async def refresh_master_cache(force: bool = False):
         if len(all_stocks) < 100:
             print(f"[KIS] Only {len(all_stocks)} stocks loaded, using fallback hardcoded stocks")
             all_stocks.update(_get_fallback_stocks())
+        else:
+            # 해외 종목 파싱이 불안정하므로 US fallback은 항상 병합
+            us_fallback = _get_us_fallback_stocks()
+            merged_count = 0
+            for code, stock in us_fallback.items():
+                if code not in all_stocks:
+                    all_stocks[code] = stock
+                    merged_count += 1
+            if merged_count > 0:
+                print(f"[KIS] Merged {merged_count} US fallback stocks")
 
         _master_cache.stocks = all_stocks
         _master_cache.last_updated = datetime.now(timezone.utc)
         print(f"[KIS] Master cache updated: {len(all_stocks)} stocks")
+
+
+def _get_us_fallback_stocks() -> Dict[str, StockMaster]:
+    """US 주식/ETF fallback (항상 병합)"""
+    fallback = {}
+
+    # NYSE 주요 종목
+    nyse = [
+        ("BRK.B", "Berkshire Hathaway"), ("JPM", "JPMorgan Chase"), ("V", "Visa"),
+        ("JNJ", "Johnson & Johnson"), ("WMT", "Walmart"), ("PG", "Procter & Gamble"),
+        ("MA", "Mastercard"), ("UNH", "UnitedHealth"), ("HD", "Home Depot"),
+        ("BAC", "Bank of America"), ("XOM", "Exxon Mobil"), ("CVX", "Chevron"),
+        ("KO", "Coca-Cola"), ("PEP", "PepsiCo"), ("DIS", "Walt Disney"),
+        ("MRK", "Merck"), ("ABT", "Abbott"), ("TMO", "Thermo Fisher"),
+        ("ORCL", "Oracle"), ("LLY", "Eli Lilly"), ("NKE", "Nike"),
+        ("MCD", "McDonald's"), ("IBM", "IBM"), ("GS", "Goldman Sachs"),
+        ("CAT", "Caterpillar"), ("RTX", "Raytheon"), ("HON", "Honeywell"),
+        ("SBUX", "Starbucks"), ("F", "Ford"), ("GM", "General Motors"),
+    ]
+    for code, name in nyse:
+        fallback[code] = StockMaster(code=code, name=name, market="NYSE")
+
+    # NASDAQ 주요 종목
+    nasdaq = [
+        ("AAPL", "Apple"), ("MSFT", "Microsoft"), ("GOOGL", "Alphabet"),
+        ("AMZN", "Amazon"), ("NVDA", "NVIDIA"), ("META", "Meta"),
+        ("TSLA", "Tesla"), ("AVGO", "Broadcom"), ("COST", "Costco"),
+        ("NFLX", "Netflix"), ("AMD", "AMD"), ("INTC", "Intel"),
+        ("QCOM", "Qualcomm"), ("ADBE", "Adobe"), ("CRM", "Salesforce"),
+        ("PYPL", "PayPal"), ("GOOG", "Alphabet Class C"), ("CSCO", "Cisco"),
+        ("PDD", "PDD Holdings"), ("BKNG", "Booking Holdings"), ("MU", "Micron"),
+        ("MRVL", "Marvell"), ("LRCX", "Lam Research"), ("KLAC", "KLA Corp"),
+        ("PANW", "Palo Alto Networks"), ("SNPS", "Synopsys"), ("CDNS", "Cadence"),
+        ("ABNB", "Airbnb"), ("UBER", "Uber"), ("DASH", "DoorDash"),
+        ("COIN", "Coinbase"), ("ZM", "Zoom"), ("SQ", "Block (Square)"),
+    ]
+    for code, name in nasdaq:
+        fallback[code] = StockMaster(code=code, name=name, market="NASDAQ")
+
+    # 미국 주요 ETF
+    etfs = [
+        # 지수 ETF
+        ("SPY", "SPDR S&P 500 ETF", "NYSE"), ("QQQ", "Invesco QQQ Trust", "NASDAQ"),
+        ("IWM", "iShares Russell 2000 ETF", "NYSE"), ("DIA", "SPDR Dow Jones ETF", "NYSE"),
+        ("IVV", "iShares Core S&P 500", "NYSE"), ("VOO", "Vanguard S&P 500 ETF", "NYSE"),
+        ("VTI", "Vanguard Total Stock Market", "NYSE"), ("VEA", "Vanguard FTSE Developed Markets", "NYSE"),
+        ("EEM", "iShares MSCI Emerging Markets", "NYSE"), ("VWO", "Vanguard FTSE Emerging Markets", "NYSE"),
+        # 레버리지/인버스 ETF
+        ("TQQQ", "ProShares UltraPro QQQ", "NASDAQ"), ("SQQQ", "ProShares UltraPro Short QQQ", "NASDAQ"),
+        ("SPXL", "Direxion Daily S&P 500 Bull 3X", "NYSE"), ("SPXS", "Direxion Daily S&P 500 Bear 3X", "NYSE"),
+        ("SOXL", "Direxion Daily Semiconductor Bull 3X", "NYSE"), ("SOXS", "Direxion Daily Semiconductor Bear 3X", "NYSE"),
+        ("UPRO", "ProShares UltraPro S&P 500", "NYSE"), ("SSO", "ProShares Ultra S&P 500", "NYSE"),
+        # 섹터 ETF
+        ("XLK", "Technology Select Sector SPDR", "NYSE"), ("XLF", "Financial Select Sector SPDR", "NYSE"),
+        ("XLV", "Health Care Select Sector SPDR", "NYSE"), ("XLE", "Energy Select Sector SPDR", "NYSE"),
+        ("SMH", "VanEck Semiconductor ETF", "NASDAQ"), ("ARKK", "ARK Innovation ETF", "NYSE"),
+        # 채권/금 ETF
+        ("TLT", "iShares 20+ Year Treasury Bond", "NASDAQ"), ("BND", "Vanguard Total Bond Market", "NASDAQ"),
+        ("GLD", "SPDR Gold Shares", "NYSE"), ("SLV", "iShares Silver Trust", "NYSE"),
+    ]
+    for code, name, market in etfs:
+        fallback[code] = StockMaster(code=code, name=name, market=market, is_etf=True)
+
+    return fallback
 
 
 def _get_fallback_stocks() -> Dict[str, StockMaster]:
