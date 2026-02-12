@@ -13,20 +13,25 @@
 - Day 17: DONE (추세매매 최종 종합 업그레이드)
 
 ## Day 17 완료사항 (2026-02-12)
-- 추세매매 최종 종합 업그레이드:
-  - 영역 1: TF 구조 단순화 (3개→2개: signal_tf, exit_tf)
-  - 영역 2: ST 기본값 확정 (ATR 20, Factor 5.0)
-  - 영역 3: PC앱 UI 전면 재설계 (MR 스타일 아코디언)
-  - 영역 4: main.js 이벤트 + 동적 UI (collectTrendConfig, 토글 핸들러)
-  - 영역 5: 백엔드 TF 구조 + API 정리
-  - 영역 6: 파인 비교 + 무결성 테스트 추가
-- 신규 테스트 파일:
-  - tests/test_signal_pine_comparison.py (18개)
-  - tests/test_backtest_integrity.py (16개)
-- 테스트: pytest 340 passed (285 → 340)
-- 커밋:
-  - 6fb3ee3 feat: 추세매매 PC앱 UI 전면 재설계 + 동적 UI 기능
-  - f031978 refactor: 추세매매 TF 구조 단순화 + ST 기본값 확정
+- v8 엔진 로직 완료 (피라미딩/ATR손절/ST Exit Mode)
+- 추세매매 UI 전면 재설계 (MR 동일 구조)
+- TF 구조: signal_tf + exit_tf + htf_tf 3개
+- ST 기본값: 20/5.0 확정
+- 실제 캔들 백테스트 연동 완료
+- smoother_f NaN 전파 버그 수정 (indicators.py)
+- 이모지 제거, 글자크기 MR 동일화
+- 거래소 6개 드롭다운 완료
+- Rust recursion_limit 512 증가 (serde_json 매크로 확장 한계)
+- 테스트: pytest 340 passed
+
+### 미해결
+- preload_candles 커맨드 에러 (KIS_KR 백테스트 실패) - 원인 조사 필요
+- PC앱 cargo tauri build 후 실제 동작 확인 필요
+
+### 내일 이어서 할 것
+- preload_candles 버그 수정
+- 추세매매 백테스트 최종 확인
+- Phase 3 커스텀전략 시작
 
 ## Day 16 완료사항 (2026-02-11)
 - 백테스트 트레이딩뷰 동일화:
