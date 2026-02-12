@@ -2016,10 +2016,10 @@
                         </div>
                     </section>
 
-                    <!-- 추세매매 탭 (Trend 프리미엄 엔진) - v8 최종 리디자인 -->
+                    <!-- 추세매매 탭 (Trend 프리미엄 엔진) - v8 UI 전면 재설계 -->
                     <section class="strategy-content card" id="strategy-tab-trend" style="display: none;">
                         <h2>추세매매 설정</h2>
-                        <p class="strategy-description">Supertrend + HVI + QQE + HTF VWMA 기반 추세추종 전략</p>
+                        <p class="strategy-description">슈퍼트렌드 + HVI + QQE + 상위TF VWMA 기반 추세추종 전략</p>
 
                         <!-- ① 거래소 + 종목 (항상 열림) -->
                         <div class="mr-section" id="trend-section-basic">
@@ -2060,418 +2060,337 @@
                             </div>
                         </div>
 
-                        <!-- ③ 백테스트 기간 (항상 열림) -->
-                        <div class="mr-section" id="trend-section-period">
-                            <h3 class="mr-section-header">백테스트 기간</h3>
-                            <div class="mr-section-body">
+                        <!-- ③ 매수 설정 (아코디언, 기본 열림) -->
+                        <div class="mr-section mr-accordion open" id="trend-section-buy">
+                            <h3 class="mr-accordion-header">
+                                <span class="mr-accordion-icon">▶</span> 매수 설정
+                            </h3>
+                            <div class="mr-accordion-body" style="display:block;">
+
+                                <!-- 타임프레임 2개만 -->
                                 <div class="mr-row">
                                     <div class="mr-field">
-                                        <label>기간 (일)</label>
+                                        <label>기준 타임프레임</label>
+                                        <select id="trend-signal-tf" class="form-select">
+                                            <option value="15m">15분</option>
+                                            <option value="30m">30분</option>
+                                            <option value="1h">1시간</option>
+                                            <option value="4h">4시간</option>
+                                            <option value="12h">12시간</option>
+                                            <option value="1D" selected>1일</option>
+                                        </select>
+                                        <span class="mr-help">매수·분할매도·손절·부분익절 판단 기준</span>
+                                    </div>
+                                    <div class="mr-field">
+                                        <label>매도기준 타임프레임</label>
+                                        <select id="trend-exit-tf" class="form-select">
+                                            <option value="15m">15분</option>
+                                            <option value="30m">30분</option>
+                                            <option value="1h">1시간</option>
+                                            <option value="4h">4시간</option>
+                                            <option value="12h">12시간</option>
+                                            <option value="1D">1일</option>
+                                            <option value="1W" selected>1주</option>
+                                        </select>
+                                        <span class="mr-help">추세전환 전량매도 + 상위TF 필터 기준</span>
+                                    </div>
+                                </div>
+
+                                <!-- 슈퍼트렌드 -->
+                                <h4 style="color:#E5E7EB; margin:16px 0 8px;">📐 슈퍼트렌드</h4>
+                                <div class="mr-row">
+                                    <div class="mr-field">
+                                        <label>ATR 길이</label>
+                                        <input type="number" id="trend-st-atr-len" class="form-input" value="20" min="1" max="50">
+                                    </div>
+                                    <div class="mr-field">
+                                        <label>팩터</label>
+                                        <input type="number" id="trend-st-factor" class="form-input" value="5.0" min="0.1" max="10" step="0.1">
+                                    </div>
+                                </div>
+
+                                <!-- 피라미딩 -->
+                                <h4 style="color:#E5E7EB; margin:16px 0 4px;">
+                                    📈 피라미딩
+                                    <span style="color:#9CA3AF; font-weight:normal; font-size:12px; margin-left:8px;">*전고점 돌파 시 추가매수</span>
+                                </h4>
+                                <div class="mr-row" style="margin-bottom:8px;">
+                                    <div class="mr-field">
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" id="trend-use-pyramiding" checked> 사용
+                                        </label>
+                                    </div>
+                                </div>
+                                <div id="trend-pyramiding-settings">
+                                    <div class="mr-row">
+                                        <div class="mr-field">
+                                            <label>최대 횟수 (1차 포함)</label>
+                                            <input type="number" id="trend-max-pyr" class="form-input" value="4" min="1" max="10">
+                                            <span class="mr-help">변경 시 비중 입력칸이 자동 조정</span>
+                                        </div>
+                                        <div class="mr-field">
+                                            <label>N봉 신고가</label>
+                                            <input type="number" id="trend-pyr-high-len" class="form-input" value="60" min="5" max="500">
+                                        </div>
+                                        <div class="mr-field">
+                                            <label>쿨다운 (봉)</label>
+                                            <input type="number" id="trend-pyr-cooldown" class="form-input" value="5" min="1" max="50">
+                                        </div>
+                                    </div>
+                                    <div class="mr-row" style="margin-bottom:8px;">
+                                        <div class="mr-field">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" id="trend-pyr-refill"> 매도 후 추가매수 허용 (리필)
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <!-- 피라미딩 비중 (JS에서 동적 생성) -->
+                                    <div id="trend-pyr-weights-container">
+                                        <label style="color:#9CA3AF; font-size:13px;">차수별 비중</label>
+                                        <div id="trend-pyr-weights-row" class="mr-row"></div>
+                                        <span id="trend-pyr-weights-sum" class="mr-help">합계: 100%</span>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <!-- ④ 매도 설정 (아코디언, 기본 열림) -->
+                        <div class="mr-section mr-accordion open" id="trend-section-sell">
+                            <h3 class="mr-accordion-header">
+                                <span class="mr-accordion-icon">▶</span> 매도 설정
+                            </h3>
+                            <div class="mr-accordion-body" style="display:block;">
+
+                                <!-- 추세전환 전량매도 -->
+                                <h4 style="color:#E5E7EB; margin:0 0 4px;">
+                                    🚪 추세전환 전량매도
+                                    <span style="color:#9CA3AF; font-weight:normal; font-size:12px; margin-left:8px;">*슈퍼트렌드 하락 전환 시 전량매도</span>
+                                </h4>
+                                <div class="mr-row" style="margin-bottom:12px;">
+                                    <div class="mr-field">
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" id="trend-use-st-exit" checked> 사용
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- 부분익절 TP1 -->
+                                <h4 style="color:#E5E7EB; margin:0 0 4px;">
+                                    🎯 부분익절
+                                    <span style="color:#9CA3AF; font-weight:normal; font-size:12px; margin-left:8px;">*목표 수익률 도달 시 일부 매도</span>
+                                </h4>
+                                <div class="mr-row" style="margin-bottom:8px;">
+                                    <div class="mr-field">
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" id="trend-use-tp1"> 사용 (기본 OFF)
+                                        </label>
+                                    </div>
+                                </div>
+                                <div id="trend-tp1-settings" style="display:none;">
+                                    <div class="mr-row">
+                                        <div class="mr-field">
+                                            <label>목표 수익률 (%)</label>
+                                            <input type="number" id="trend-tp1-pct" class="form-input" value="21" min="1" max="100" step="0.1">
+                                        </div>
+                                        <div class="mr-field">
+                                            <label>매도비율 (%)</label>
+                                            <input type="number" id="trend-tp1-sell-pct" class="form-input" value="50" min="50" max="100" step="5">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 과매수구간 분할매도 -->
+                                <h4 style="color:#E5E7EB; margin:12px 0 4px;">
+                                    ✂️ 과매수구간 분할매도
+                                    <span style="color:#9CA3AF; font-weight:normal; font-size:12px; margin-left:8px;">*과매수 시그널 발생 시 비중별 분할매도</span>
+                                </h4>
+                                <div class="mr-row" style="margin-bottom:8px;">
+                                    <div class="mr-field">
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" id="trend-use-spo" checked> 사용
+                                        </label>
+                                    </div>
+                                </div>
+                                <div id="trend-spo-settings">
+                                    <div class="mr-row">
+                                        <div class="mr-field">
+                                            <label>최대 분할 횟수</label>
+                                            <input type="number" id="trend-max-sell-tranches" class="form-input" value="6" min="1" max="6">
+                                            <span class="mr-help">변경 시 비중 입력칸이 자동 조정</span>
+                                        </div>
+                                        <div class="mr-field">
+                                            <label>최대 횟수 이후</label>
+                                            <select id="trend-after-max-sell" class="form-select">
+                                                <option value="cycle" selected>처음부터 반복</option>
+                                                <option value="extend">마지막 비율 유지</option>
+                                                <option value="stop">멈춤</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <!-- 분할매도 비중 (JS에서 동적 생성) -->
+                                    <div id="trend-sell-tranches-container">
+                                        <label style="color:#9CA3AF; font-size:13px;">매도 비중 (%)</label>
+                                        <div id="trend-sell-tranches-row" class="mr-row"></div>
+                                    </div>
+                                    <div class="mr-row" style="margin-top:8px;">
+                                        <div class="mr-field">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" id="trend-use-profit-gate" checked> 익절 게이트
+                                            </label>
+                                            <span class="mr-help">수익 구간에서만 분할매도 허용</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 손절 — 택 1 (고정% 또는 ATR, 동시 사용 아님) -->
+                                <h4 style="color:#E5E7EB; margin:12px 0 8px;">🛑 손절</h4>
+                                <div class="mr-row">
+                                    <div class="mr-field">
+                                        <label>손절 방식</label>
+                                        <select id="trend-stop-type" class="form-select">
+                                            <option value="fixed" selected>고정 %</option>
+                                            <option value="atr">ATR 기반</option>
+                                        </select>
+                                        <span class="mr-help">고정%와 ATR 중 택 1 (동시 사용 아님)</span>
+                                    </div>
+                                </div>
+                                <!-- 고정% 선택 시 표시 -->
+                                <div id="trend-sl-fixed-settings">
+                                    <div class="mr-row">
+                                        <div class="mr-field">
+                                            <label>고정 손절 (%)</label>
+                                            <input type="number" id="trend-hard-sl-pct" class="form-input" value="7" min="0.1" max="30" step="0.1">
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- ATR 선택 시 표시 (기본 숨김) -->
+                                <div id="trend-sl-atr-settings" style="display:none;">
+                                    <div class="mr-row">
+                                        <div class="mr-field">
+                                            <label>ATR 길이</label>
+                                            <input type="number" id="trend-atr-stop-len" class="form-input" value="14" min="1" max="50">
+                                        </div>
+                                        <div class="mr-field">
+                                            <label>ATR 배수</label>
+                                            <input type="number" id="trend-atr-stop-mult" class="form-input" value="2.0" min="0.1" max="10" step="0.1">
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <!-- ⑤ 백테스트 (아코디언, 맨 아래) -->
+                        <div class="mr-section mr-accordion" id="trend-section-backtest">
+                            <h3 class="mr-accordion-header">
+                                <span class="mr-accordion-icon">▶</span> 백테스트
+                            </h3>
+                            <div class="mr-accordion-body">
+                                <div class="mr-row">
+                                    <div class="mr-field">
+                                        <label>백테스트 기간 (일)</label>
                                         <input type="number" id="trend-bt-days" class="form-input" value="365" min="30" max="1000">
-                                        <span class="mr-help">최소 300봉 이상 필요</span>
                                     </div>
                                     <div class="mr-field">
                                         <label>초기 자본</label>
                                         <input type="number" id="trend-bt-capital" class="form-input" value="10000000">
                                     </div>
                                 </div>
-                            </div>
-                        </div>
+                                <button class="btn btn-primary" id="btn-trend-run-backtest">백테스트 실행</button>
 
-                        <!-- ③ 기본 설정 (아코디언) -->
-                        <div class="mr-section mr-accordion" id="trend-section-settings">
-                            <h3 class="mr-accordion-header">
-                                <span class="mr-accordion-icon">▶</span> 기본 설정
-                            </h3>
-                            <div class="mr-accordion-body" style="display: none;">
-                                <!-- 타임프레임 (v8 최종: 2개) -->
-                                <div class="mr-row">
-                                    <div class="mr-field">
-                                        <label>기준 TF (signal_tf)</label>
-                                        <select id="trend-signal-tf" class="form-select">
-                                            <option value="1h">1시간</option>
-                                            <option value="4h">4시간</option>
-                                            <option value="1D" selected>일봉</option>
-                                        </select>
-                                        <span class="mr-help">매수 + SPO 분할매도 + SL + TP1</span>
-                                    </div>
-                                    <div class="mr-field">
-                                        <label>매도기준 TF (exit_tf)</label>
-                                        <select id="trend-exit-tf" class="form-select">
-                                            <option value="1D">일봉</option>
-                                            <option value="1W" selected>주봉</option>
-                                        </select>
-                                        <span class="mr-help">ST 전량매도 + HTF VWMA 필터</span>
-                                    </div>
-                                </div>
+                                <!-- 백테스트 에러 -->
+                                <div id="trend-backtest-error" style="display:none; padding:20px; background:rgba(239,68,68,0.1); border-radius:8px; margin-top:16px;"></div>
 
-                                <!-- Supertrend (작가님 확정: 20/5.0) -->
-                                <div class="mr-row">
-                                    <div class="mr-field">
-                                        <label>Supertrend ATR 길이</label>
-                                        <input type="number" id="trend-st-atr-len" class="form-input" value="20" min="1" max="50">
-                                        <span class="mr-help">작가님 확정값: 20</span>
-                                    </div>
-                                    <div class="mr-field">
-                                        <label>Supertrend Factor</label>
-                                        <input type="number" id="trend-st-factor" class="form-input" value="5.0" min="0.5" max="10" step="0.1">
-                                        <span class="mr-help">작가님 확정값: 5.0</span>
-                                    </div>
-                                </div>
+                                <!-- 백테스트 결과 -->
+                                <div id="trend-backtest-result" style="display:none; margin-top:16px;">
+                                    <p id="trend-bt-message" style="color:#9CA3AF; margin-bottom:16px; font-size:13px;"></p>
 
-                                <!-- HVI / QQE -->
-                                <div class="mr-row">
-                                    <div class="mr-field">
-                                        <label>HVI 길이</label>
-                                        <input type="number" id="trend-hvi-length" class="form-input" value="200" min="10" max="500">
-                                    </div>
-                                    <div class="mr-field">
-                                        <label>HTF VWMA 길이</label>
-                                        <input type="number" id="trend-htf-vwma-len" class="form-input" value="156" min="10" max="500">
-                                        <span class="mr-help">exit_tf에서 계산</span>
-                                    </div>
-                                </div>
-
-                                <!-- 옵션 토글 -->
-                                <div class="mr-row">
-                                    <div class="mr-field">
-                                        <label class="checkbox-label">
-                                            <input type="checkbox" id="trend-use-htf-filter" checked>
-                                            HTF VWMA 필터 사용
-                                        </label>
-                                        <span class="mr-help">close > exit_tf VWMA 조건</span>
-                                    </div>
-                                    <div class="mr-field">
-                                        <label class="checkbox-label">
-                                            <input type="checkbox" id="trend-st-invert">
-                                            Supertrend 반전
-                                        </label>
-                                        <span class="mr-help">방향을 뒤집어서 사용</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- ④ 피라미딩 설정 (아코디언) -->
-                        <div class="mr-section mr-accordion" id="trend-section-pyramiding">
-                            <h3 class="mr-accordion-header">
-                                <span class="mr-accordion-icon">▶</span> 피라미딩 (추가매수)
-                            </h3>
-                            <div class="mr-accordion-body" style="display: none;">
-                                <div class="mr-row" style="margin-bottom: 12px;">
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" id="trend-use-pyramiding" checked>
-                                        피라미딩 사용
-                                    </label>
-                                    <span class="mr-help">N-bar 신고가 돌파 시 추가매수</span>
-                                </div>
-
-                                <div class="mr-row">
-                                    <div class="mr-field">
-                                        <label>최대 진입 횟수</label>
-                                        <input type="number" id="trend-max-pyr" class="form-input" value="4" min="1" max="10">
-                                        <span class="mr-help">1차 포함 (1~10)</span>
-                                    </div>
-                                    <div class="mr-field">
-                                        <label>N-bar 최고가</label>
-                                        <input type="number" id="trend-pyr-high-len" class="form-input" value="60" min="5" max="200">
-                                        <span class="mr-help">신고가 돌파 기준 봉수</span>
-                                    </div>
-                                    <div class="mr-field">
-                                        <label>쿨다운 (봉)</label>
-                                        <input type="number" id="trend-pyr-cooldown" class="form-input" value="5" min="1" max="50">
-                                        <span class="mr-help">추가매수 최소 간격</span>
-                                    </div>
-                                </div>
-
-                                <!-- 피라미딩 비중 -->
-                                <div class="mr-subsection">
-                                    <h4>피라미딩 비중 (%)</h4>
-                                    <div class="mr-row">
-                                        <div class="mr-field">
-                                            <label>차수</label>
-                                            <input type="number" id="trend-pyr-count" class="form-input" value="4" min="1" max="10" step="1">
-                                            <span class="mr-help">비중 입력칸 자동 생성</span>
+                                    <!-- 상단 카드 5개 -->
+                                    <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-bottom:16px;">
+                                        <div class="mr-metric-card">
+                                            <div class="metric-label">총 손익</div>
+                                            <div id="trend-bt-net-profit" class="metric-value">--</div>
+                                            <div id="trend-bt-net-profit-pct" class="metric-sub">--</div>
                                         </div>
-                                    </div>
-                                    <div id="trend-pyr-weights-container" class="mr-tranches-grid">
-                                        <!-- JavaScript가 동적 생성 -->
-                                    </div>
-                                    <div class="mr-row" style="margin-top: 8px;">
-                                        <div class="mr-field">
-                                            <label>합계: <span id="trend-pyr-total-pct">100</span>%</label>
+                                        <div class="mr-metric-card">
+                                            <div class="metric-label">최대 자본 감소</div>
+                                            <div id="trend-bt-mdd" class="metric-value" style="color:#EF4444;">--</div>
+                                            <div id="trend-bt-mdd-pct" class="metric-sub" style="color:#EF4444;">--</div>
                                         </div>
-                                    </div>
-                                </div>
-
-                                <div class="mr-row">
-                                    <div class="mr-field">
-                                        <label class="checkbox-label">
-                                            <input type="checkbox" id="trend-pyr-refill">
-                                            분할매도 후 카운트 리필
-                                        </label>
-                                        <span class="mr-help">매도 시 pyrCount 감소 허용</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- ⑤ 분할매도 설정 (아코디언) -->
-                        <div class="mr-section mr-accordion" id="trend-section-sell">
-                            <h3 class="mr-accordion-header">
-                                <span class="mr-accordion-icon">▶</span> 분할매도 (SPO Split)
-                            </h3>
-                            <div class="mr-accordion-body" style="display: none;">
-                                <div class="mr-row" style="margin-bottom: 12px;">
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" id="trend-use-spo-split" checked>
-                                        SPO 분할매도 사용
-                                    </label>
-                                    <span class="mr-help">SPO 신호 시 단계별 매도</span>
-                                </div>
-
-                                <div id="trend-spo-settings">
-                                    <!-- 매도 비중 -->
-                                    <div class="mr-subsection">
-                                        <h4>매도 비중 (SELL1~6)</h4>
-                                        <div class="mr-row">
-                                            <div class="mr-field">
-                                                <label>매도 차수</label>
-                                                <input type="number" id="trend-sell-tranche-count" class="form-input" value="6" min="1" max="10" step="1">
-                                            </div>
+                                        <div class="mr-metric-card">
+                                            <div class="metric-label">총 거래횟수</div>
+                                            <div id="trend-bt-total-trades" class="metric-value">--</div>
                                         </div>
-                                        <div id="trend-sell-tranches-container" class="mr-tranches-grid">
-                                            <!-- JavaScript가 동적 생성 -->
+                                        <div class="mr-metric-card">
+                                            <div class="metric-label">수익성 거래</div>
+                                            <div id="trend-bt-winrate" class="metric-value">--</div>
+                                            <div id="trend-bt-winrate-detail" class="metric-sub">--</div>
                                         </div>
-                                        <div class="mr-row" style="margin-top: 8px;">
-                                            <div class="mr-field">
-                                                <label>합계: <span id="trend-sell-total-pct">100</span>%</label>
-                                            </div>
+                                        <div class="mr-metric-card">
+                                            <div class="metric-label">수익지수</div>
+                                            <div id="trend-bt-profit-factor" class="metric-value">--</div>
                                         </div>
                                     </div>
 
-                                    <div class="mr-row">
-                                        <div class="mr-field">
-                                            <label>최대 차수 초과 시</label>
-                                            <div class="mr-radio-group">
-                                                <label><input type="radio" name="trend-after-max-sell" value="cycle" checked> 처음부터</label>
-                                                <label><input type="radio" name="trend-after-max-sell" value="extend"> 반복</label>
-                                                <label><input type="radio" name="trend-after-max-sell" value="stop"> 중단</label>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- 익절 게이트 -->
-                                    <div class="mr-subsection">
-                                        <h4>익절 게이트</h4>
-                                        <div class="mr-row">
-                                            <div class="mr-field">
-                                                <label class="checkbox-label">
-                                                    <input type="checkbox" id="trend-use-profit-gate" checked>
-                                                익절 게이트 사용
-                                            </label>
-                                            <span class="mr-help">최소 수익 이상일 때만 매도</span>
-                                        </div>
-                                    </div>
-                                    <div class="mr-row">
-                                        <div class="mr-field">
-                                            <label>최소 수익 (%)</label>
-                                            <input type="number" id="trend-min-profit-pct" class="form-input" value="0.10" min="0" max="10" step="0.01">
-                                        </div>
-                                        <div class="mr-field">
-                                            <label>수수료 버퍼 (%)</label>
-                                            <input type="number" id="trend-fee-buffer-pct" class="form-input" value="0.20" min="0" max="5" step="0.01">
-                                        </div>
-                                    </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- ⑥ Exit 조건 (아코디언) -->
-                        <div class="mr-section mr-accordion" id="trend-section-exit">
-                            <h3 class="mr-accordion-header">
-                                <span class="mr-accordion-icon">▶</span> Exit 조건
-                            </h3>
-                            <div class="mr-accordion-body" style="display: none;">
-                                <!-- 손절 -->
-                                <div class="mr-subsection">
-                                    <h4>손절 (Stop Loss)</h4>
-                                    <div class="mr-row">
-                                        <div class="mr-field">
-                                            <label>손절 타입</label>
-                                            <select id="trend-stop-type" class="form-select">
-                                                <option value="fixed" selected>Fixed (고정%)</option>
-                                                <option value="atr">ATR 기반</option>
-                                            </select>
-                                        </div>
-                                        <div class="mr-field">
-                                            <label>Hard SL (%)</label>
-                                            <input type="number" id="trend-hard-sl" class="form-input" value="7" min="1" max="30" step="0.5">
-                                            <span class="mr-help">Fixed 타입 시 사용</span>
-                                        </div>
-                                    </div>
-                                    <div class="mr-row" id="trend-atr-sl-row" style="display: none;">
-                                        <div class="mr-field">
-                                            <label>ATR 기간</label>
-                                            <input type="number" id="trend-atr-stop-len" class="form-input" value="14" min="5" max="50">
-                                        </div>
-                                        <div class="mr-field">
-                                            <label>ATR 배수</label>
-                                            <input type="number" id="trend-atr-stop-mult" class="form-input" value="2.0" min="0.5" max="5" step="0.1">
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- TP1 -->
-                                <div class="mr-subsection">
-                                    <h4>TP1 (목표 익절)</h4>
-                                    <div class="mr-row">
-                                        <div class="mr-field">
-                                            <label class="checkbox-label">
-                                                <input type="checkbox" id="trend-use-tp1">
-                                                TP1 사용
-                                            </label>
-                                            <span class="mr-help">v8 기본 OFF</span>
-                                        </div>
-                                    </div>
-                                    <div id="trend-tp1-settings" style="display: none;">
-                                        <div class="mr-row">
-                                            <div class="mr-field">
-                                                <label>TP1 목표 (%)</label>
-                                                <input type="number" id="trend-tp1-pct" class="form-input" value="21" min="1" max="100" step="1">
-                                            </div>
-                                            <div class="mr-field">
-                                                <label>TP1 매도비율 (%)</label>
-                                                <input type="number" id="trend-tp1-sell" class="form-input" value="50" min="10" max="100" step="5">
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- ST 전량매도 -->
-                                <div class="mr-subsection">
-                                    <h4>ST 전량매도</h4>
-                                    <div class="mr-row">
-                                        <div class="mr-field">
-                                            <label class="checkbox-label">
-                                                <input type="checkbox" id="trend-use-st-exit" checked>
-                                                ST 하락 전환 시 전량매도
-                                            </label>
-                                            <span class="mr-help">exit_tf Supertrend 기준</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 백테스트 실행 버튼 -->
-                        <div class="mr-section" style="padding: 16px 0;">
-                            <button class="btn btn-primary" id="btn-trend-run-backtest" style="width: 100%;">백테스트 실행</button>
-                        </div>
-
-                        <!-- 백테스트 에러 -->
-                        <div id="trend-backtest-error" style="display:none; padding:20px; background:rgba(239,68,68,0.1); border-radius:8px; margin-top:16px;"></div>
-
-                        <!-- 백테스트 결과 (MR과 동일, 트레이딩뷰 동일 구조) -->
-                        <div id="trend-backtest-result" style="display:none; margin-top:16px;">
-                                <p id="trend-bt-message" style="color:#9CA3AF; margin-bottom:16px; font-size:13px;"></p>
-
-                                <!-- 상단 카드 5개 (1줄) - 트레이딩뷰 동일 -->
-                                <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-bottom:16px;">
-                                    <div class="mr-metric-card">
-                                        <div class="metric-label">총 손익</div>
-                                        <div id="trend-bt-net-profit" class="metric-value">--</div>
-                                        <div id="trend-bt-net-profit-pct" class="metric-sub">--</div>
-                                    </div>
-                                    <div class="mr-metric-card">
-                                        <div class="metric-label">최대 자본 감소</div>
-                                        <div id="trend-bt-mdd" class="metric-value" style="color:#EF4444;">--</div>
-                                        <div id="trend-bt-mdd-pct" class="metric-sub" style="color:#EF4444;">--</div>
-                                    </div>
-                                    <div class="mr-metric-card">
-                                        <div class="metric-label">총 거래횟수</div>
-                                        <div id="trend-bt-total-trades" class="metric-value">--</div>
-                                    </div>
-                                    <div class="mr-metric-card">
-                                        <div class="metric-label">수익성 거래</div>
-                                        <div id="trend-bt-winrate" class="metric-value">--</div>
-                                        <div id="trend-bt-winrate-detail" class="metric-sub">--</div>
-                                    </div>
-                                    <div class="mr-metric-card">
-                                        <div class="metric-label">수익지수</div>
-                                        <div id="trend-bt-profit-factor" class="metric-value">--</div>
-                                    </div>
-                                </div>
-
-                                <!-- 수익률 테이블 (전체/매수/매도 3열) -->
-                                <div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:16px; margin-bottom:16px;">
-                                    <h4 style="color:#E5E7EB; margin-bottom:12px; font-size:14px;">📊 수익률</h4>
-                                    <table id="trend-bt-performance-table" style="width:100%; border-collapse:collapse; font-size:13px;">
-                                        <thead>
-                                            <tr style="color:#9CA3AF; border-bottom:1px solid rgba(255,255,255,0.1);">
-                                                <th style="padding:8px; text-align:left; width:25%;"></th>
-                                                <th style="padding:8px; text-align:right; width:25%;">전체</th>
-                                                <th style="padding:8px; text-align:right; width:25%;">매수</th>
-                                                <th style="padding:8px; text-align:right; width:25%;">매도</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="trend-bt-perf-body"></tbody>
-                                    </table>
-                                </div>
-
-                                <!-- 자산 추이 차트 -->
-                                <div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:16px; margin-bottom:16px;">
-                                    <h4 style="color:#E5E7EB; margin-bottom:12px; font-size:14px;">📈 자산 추이</h4>
-                                    <div style="position:relative; height:300px; width:100%; overflow:hidden;">
-                                        <canvas id="trend-backtest-chart"></canvas>
-                                    </div>
-                                </div>
-
-                                <!-- 거래 내역 테이블 (수익금+수익률 둘 다 표시) -->
-                                <div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:16px;">
-                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                                        <h4 style="color:#E5E7EB; font-size:14px;">📋 거래 내역</h4>
-                                        <span id="trend-bt-trade-count" style="color:#6B7280; font-size:12px;"></span>
-                                    </div>
-                                    <div style="max-height:400px; overflow-y:auto;">
-                                        <table id="trend-bt-trades-table" style="width:100%; border-collapse:collapse; font-size:12px;">
+                                    <!-- 수익률 테이블 -->
+                                    <div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:16px; margin-bottom:16px;">
+                                        <h4 style="color:#E5E7EB; margin-bottom:12px; font-size:14px;">📊 수익률</h4>
+                                        <table style="width:100%; border-collapse:collapse; font-size:13px;">
                                             <thead>
                                                 <tr style="color:#9CA3AF; border-bottom:1px solid rgba(255,255,255,0.1);">
-                                                    <th style="padding:8px 4px; text-align:left;">#</th>
-                                                    <th style="padding:8px 4px; text-align:left;">타입</th>
-                                                    <th style="padding:8px 4px; text-align:left;">날짜</th>
-                                                    <th style="padding:8px 4px; text-align:right;">가격</th>
-                                                    <th style="padding:8px 4px; text-align:right;">수량</th>
-                                                    <th style="padding:8px 4px; text-align:left;">차수</th>
-                                                    <th style="padding:8px 4px; text-align:right;">수익금</th>
-                                                    <th style="padding:8px 4px; text-align:right;">수익률</th>
-                                                    <th style="padding:8px 4px; text-align:right;">누적</th>
+                                                    <th style="padding:8px; text-align:left; width:25%;"></th>
+                                                    <th style="padding:8px; text-align:right; width:25%;">전체</th>
+                                                    <th style="padding:8px; text-align:right; width:25%;">매수</th>
+                                                    <th style="padding:8px; text-align:right; width:25%;">매도</th>
                                                 </tr>
                                             </thead>
-                                            <tbody id="trend-bt-trades-body"></tbody>
+                                            <tbody id="trend-bt-perf-body"></tbody>
                                         </table>
+                                    </div>
+
+                                    <!-- 자산 추이 차트 -->
+                                    <div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:16px; margin-bottom:16px;">
+                                        <h4 style="color:#E5E7EB; margin-bottom:12px; font-size:14px;">📈 자산 추이</h4>
+                                        <div style="position:relative; height:300px; width:100%; overflow:hidden;">
+                                            <canvas id="trend-backtest-chart"></canvas>
+                                        </div>
+                                    </div>
+
+                                    <!-- 거래 내역 -->
+                                    <div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:16px;">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                                            <h4 style="color:#E5E7EB; font-size:14px;">📋 거래 내역</h4>
+                                            <span id="trend-bt-trade-count" style="color:#6B7280; font-size:12px;"></span>
+                                        </div>
+                                        <div style="max-height:400px; overflow-y:auto;">
+                                            <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                                                <thead>
+                                                    <tr style="color:#9CA3AF; border-bottom:1px solid rgba(255,255,255,0.1);">
+                                                        <th style="padding:8px 4px; text-align:left;">#</th>
+                                                        <th style="padding:8px 4px; text-align:left;">타입</th>
+                                                        <th style="padding:8px 4px; text-align:left;">날짜</th>
+                                                        <th style="padding:8px 4px; text-align:right;">가격</th>
+                                                        <th style="padding:8px 4px; text-align:right;">수량</th>
+                                                        <th style="padding:8px 4px; text-align:left;">차수</th>
+                                                        <th style="padding:8px 4px; text-align:right;">수익금</th>
+                                                        <th style="padding:8px 4px; text-align:right;">수익률</th>
+                                                        <th style="padding:8px 4px; text-align:right;">누적</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="trend-bt-trades-body"></tbody>
+                                            </table>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Entry 조건 안내 -->
-                        <div class="trend-info card-inner">
-                            <h4>Entry 조건 (4가지 모두 충족)</h4>
-                            <ul class="condition-list">
-                                <li><strong>Supertrend 상승</strong> - ST direction &lt; 0 (bullish)</li>
-                                <li><strong>HVI 초록</strong> - Historical Volatility Indicator g_enabled</li>
-                                <li><strong>QQE 양수</strong> - Smoothed RSI &gt; 50</li>
-                                <li><strong>HTF VWMA 상위</strong> - close &gt; VWMA(156)</li>
-                            </ul>
-                            <h4>Exit 우선순위</h4>
-                            <ol class="condition-list">
-                                <li><strong>Hard SL</strong> - 지정 손절선 도달 시 전량 청산</li>
-                                <li><strong>TP1</strong> - 목표 익절 도달 시 비율 청산</li>
-                                <li><strong>SPO Split</strong> - SPO 신호 시 분할 매도 (SELL1~6)</li>
-                                <li><strong>ST Flip</strong> - Supertrend 하락 전환 시 전량 청산</li>
-                            </ol>
+                        <!-- 하단 액션 버튼 -->
+                        <div class="mr-actions" style="margin-top:16px;">
+                            <button class="btn btn-secondary" id="btn-trend-backtest-quick">백테스트</button>
+                            <button class="btn btn-primary" id="btn-trend-save">저장</button>
+                            <button class="btn btn-danger" id="btn-trend-start-strategy">전략 시작</button>
                         </div>
                     </section>
 

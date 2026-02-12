@@ -7235,40 +7235,67 @@ function initMrUiComponents() {
     initMrAccordions();
     initMrRegimeTabs();
     initMrTrancheHandlers();
-    initTrendTrancheHandlers();
+    initTrendDynamicUI();
 }
 
 // ============================================================
-// Trend 피라미딩/분할매도 동적 UI (v8 최종)
+// Trend 피라미딩/분할매도 동적 UI (v8 UI 전면 재설계)
 // ============================================================
 
-const DEFAULT_TREND_PYR_WEIGHTS = [40.0, 30.0, 20.0, 10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
-const DEFAULT_TREND_SELL_TRANCHES = [5.0, 5.0, 10.0, 15.0, 25.0, 40.0];
+// 피라미딩 기본 비중 (차수별)
+const TREND_PYR_DEFAULTS = {
+    1: [100],
+    2: [60, 40],
+    3: [50, 30, 20],
+    4: [40, 30, 20, 10],
+    5: [30, 25, 20, 15, 10],
+    6: [25, 20, 18, 15, 12, 10],
+    7: [22, 18, 16, 14, 12, 10, 8],
+    8: [20, 16, 14, 13, 12, 10, 8, 7],
+    9: [18, 15, 13, 12, 11, 10, 8, 7, 6],
+    10: [16, 14, 12, 11, 10, 9, 8, 7, 7, 6],
+};
+
+// 분할매도 기본 비중 (차수별)
+const TREND_SELL_DEFAULTS = {
+    1: [100],
+    2: [30, 70],
+    3: [15, 25, 60],
+    4: [10, 15, 25, 50],
+    5: [5, 10, 15, 25, 45],
+    6: [5, 5, 10, 15, 25, 40],
+};
 
 /**
- * 추세매매 설정 수집 함수 (명령서 영역 4 요구사항)
- * MR의 collectMrConfig()와 동일한 패턴
+ * 추세매매 설정 수집 함수 (UI 전면 재설계 버전)
  */
 function collectTrendConfig() {
+    const symbolInput = document.getElementById('trend-symbol');
+    const symbolValue = symbolInput?.dataset?.selectedCode || symbolInput?.value || '';
+
+    // 피라미딩 비중 수집
+    const pyrWeights = [];
+    document.querySelectorAll('.trend-pyr-weight-input').forEach(input => {
+        pyrWeights.push(parseFloat(input.value) || 0);
+    });
+
+    // 분할매도 비중 수집
+    const sellTranches = [];
+    document.querySelectorAll('.trend-sell-tranche-input').forEach(input => {
+        sellTranches.push(parseFloat(input.value) || 0);
+    });
+
     return {
         // 기본 설정
-        exchange: document.getElementById('trend-exchange')?.value || 'OKX',
-        symbol: document.getElementById('trend-symbol')?.value || 'BTC-USDT',
+        exchange: document.getElementById('trend-exchange')?.value || '',
+        symbol: symbolValue,
         signal_tf: document.getElementById('trend-signal-tf')?.value || '1D',
         exit_tf: document.getElementById('trend-exit-tf')?.value || '1W',
         cash_use_pct: parseFloat(document.getElementById('trend-cash-use-pct')?.value) || 100,
-        days: parseInt(document.getElementById('trend-bt-days')?.value) || 365,
-        initial_capital: parseFloat(document.getElementById('trend-bt-capital')?.value) || 10000000,
 
-        // Supertrend (작가님 확정: 20/5.0)
+        // 슈퍼트렌드
         st_atr_len: parseInt(document.getElementById('trend-st-atr-len')?.value) || 20,
         st_factor: parseFloat(document.getElementById('trend-st-factor')?.value) || 5.0,
-
-        // HVI / HTF
-        hvi_length: parseInt(document.getElementById('trend-hvi-length')?.value) || 200,
-        htf_vwma_len: parseInt(document.getElementById('trend-htf-vwma-len')?.value) || 156,
-        use_htf_filter: document.getElementById('trend-use-htf-filter')?.checked ?? true,
-        st_invert: document.getElementById('trend-st-invert')?.checked ?? false,
 
         // 피라미딩
         use_pyramiding: document.getElementById('trend-use-pyramiding')?.checked ?? true,
@@ -7276,135 +7303,165 @@ function collectTrendConfig() {
         pyr_high_len: parseInt(document.getElementById('trend-pyr-high-len')?.value) || 60,
         pyr_cooldown: parseInt(document.getElementById('trend-pyr-cooldown')?.value) || 5,
         pyr_refill_after_sell: document.getElementById('trend-pyr-refill')?.checked ?? false,
-        pyr_weights: collectTrendPyrWeights(),
+        pyr_weights: pyrWeights,
 
-        // 분할매도
-        use_spo_split: document.getElementById('trend-use-spo-split')?.checked ?? true,
-        sell_tranches: collectTrendSellTranches(),
-        max_sell_tranches: parseInt(document.getElementById('trend-sell-tranche-count')?.value) || 6,
-        after_max_sell: document.querySelector('input[name="trend-after-max-sell"]:checked')?.value || 'cycle',
+        // 추세전환 전량매도
+        use_st_exit: document.getElementById('trend-use-st-exit')?.checked ?? true,
+
+        // 부분익절
+        use_tp1: document.getElementById('trend-use-tp1')?.checked ?? false,
+        tp1_pct: parseFloat(document.getElementById('trend-tp1-pct')?.value) || 21,
+        tp1_sell_pct: parseFloat(document.getElementById('trend-tp1-sell-pct')?.value) || 50,
+
+        // 과매수구간 분할매도
+        use_spo_split: document.getElementById('trend-use-spo')?.checked ?? true,
+        sell_tranches: sellTranches,
+        max_sell_tranches: sellTranches.length,
+        after_max_sell: document.getElementById('trend-after-max-sell')?.value || 'cycle',
         use_profit_gate: document.getElementById('trend-use-profit-gate')?.checked ?? true,
-        min_profit_pct: parseFloat(document.getElementById('trend-min-profit-pct')?.value) || 0.10,
-        fee_buffer_pct: parseFloat(document.getElementById('trend-fee-buffer-pct')?.value) || 0.20,
 
-        // Exit 조건
+        // 손절 (택 1)
         stop_type: document.getElementById('trend-stop-type')?.value || 'fixed',
-        hard_sl_pct: parseFloat(document.getElementById('trend-hard-sl')?.value) || 7.0,
+        hard_sl_pct: parseFloat(document.getElementById('trend-hard-sl-pct')?.value) || 7,
         atr_stop_len: parseInt(document.getElementById('trend-atr-stop-len')?.value) || 14,
         atr_stop_mult: parseFloat(document.getElementById('trend-atr-stop-mult')?.value) || 2.0,
-        use_tp1: document.getElementById('trend-use-tp1')?.checked ?? false,
-        tp1_pct: parseFloat(document.getElementById('trend-tp1-pct')?.value) || 21.0,
-        tp1_sell_pct: parseFloat(document.getElementById('trend-tp1-sell')?.value) || 50.0,
-        use_st_exit: document.getElementById('trend-use-st-exit')?.checked ?? true,
+
+        // 백테스트
+        days: parseInt(document.getElementById('trend-bt-days')?.value) || 365,
+        initial_capital: parseFloat(document.getElementById('trend-bt-capital')?.value) || 10000000,
     };
 }
 
-// 피라미딩 비중 렌더링
+/**
+ * 피라미딩 비중 동적 렌더링
+ */
 function renderTrendPyrWeights(count) {
-    const container = document.getElementById('trend-pyr-weights-container');
+    const container = document.getElementById('trend-pyr-weights-row');
     if (!container) return;
 
     container.innerHTML = '';
+    const weights = TREND_PYR_DEFAULTS[count] || TREND_PYR_DEFAULTS[4];
+
     for (let i = 0; i < count; i++) {
-        const defaultVal = DEFAULT_TREND_PYR_WEIGHTS[i] || 0;
-        container.innerHTML += `
-            <div class="mr-tranche-item">
-                <label>${i + 1}차</label>
-                <input type="number" class="trend-pyr-weight-input" value="${defaultVal}"
-                       min="0" max="100" step="1" data-index="${i}"> %
-            </div>
+        const field = document.createElement('div');
+        field.className = 'mr-field';
+        field.style.flex = '1';
+        field.innerHTML = `
+            <label>${i + 1}차 (%)</label>
+            <input type="number" class="form-input trend-pyr-weight-input"
+                   value="${weights[i]}" min="0" max="100" step="1">
         `;
+        container.appendChild(field);
     }
-    updateTrendPyrTotal();
+
+    // 합계 실시간 체크
     container.querySelectorAll('.trend-pyr-weight-input').forEach(input => {
-        input.addEventListener('input', updateTrendPyrTotal);
+        input.addEventListener('input', updateTrendPyrWeightSum);
     });
+    updateTrendPyrWeightSum();
 }
 
-// 분할매도 비중 렌더링
+/**
+ * 피라미딩 비중 합계 업데이트
+ */
+function updateTrendPyrWeightSum() {
+    let sum = 0;
+    document.querySelectorAll('.trend-pyr-weight-input').forEach(input => {
+        sum += parseFloat(input.value) || 0;
+    });
+    const el = document.getElementById('trend-pyr-weights-sum');
+    if (el) {
+        el.textContent = `합계: ${sum}%`;
+        el.style.color = Math.abs(sum - 100) < 0.01 ? '#9CA3AF' : '#EF4444';
+    }
+}
+
+/**
+ * 분할매도 비중 동적 렌더링
+ */
 function renderTrendSellTranches(count) {
-    const container = document.getElementById('trend-sell-tranches-container');
+    const container = document.getElementById('trend-sell-tranches-row');
     if (!container) return;
 
     container.innerHTML = '';
+    const tranches = TREND_SELL_DEFAULTS[count] || TREND_SELL_DEFAULTS[6];
+
     for (let i = 0; i < count; i++) {
-        const defaultVal = DEFAULT_TREND_SELL_TRANCHES[i] || DEFAULT_TREND_SELL_TRANCHES[DEFAULT_TREND_SELL_TRANCHES.length - 1];
-        container.innerHTML += `
-            <div class="mr-tranche-item">
-                <label>SELL${i + 1}</label>
-                <input type="number" class="trend-sell-tranche-input" value="${defaultVal}"
-                       min="0" max="100" step="1" data-index="${i}"> %
-            </div>
+        const field = document.createElement('div');
+        field.className = 'mr-field';
+        field.style.flex = '1';
+        field.innerHTML = `
+            <label>${i + 1}차 (%)</label>
+            <input type="number" class="form-input trend-sell-tranche-input"
+                   value="${tranches[i]}" min="0" max="100" step="0.1">
         `;
+        container.appendChild(field);
     }
-    updateTrendSellTotal();
-    container.querySelectorAll('.trend-sell-tranche-input').forEach(input => {
-        input.addEventListener('input', updateTrendSellTotal);
+}
+
+/**
+ * Trend 동적 UI 핸들러 초기화
+ */
+function initTrendDynamicUI() {
+    // 피라미딩 최대 횟수 변경 → 비중칸 동적 생성
+    document.getElementById('trend-max-pyr')?.addEventListener('change', (e) => {
+        renderTrendPyrWeights(parseInt(e.target.value) || 4);
     });
-}
 
-function updateTrendPyrTotal() {
-    const inputs = document.querySelectorAll('.trend-pyr-weight-input');
-    let total = 0;
-    inputs.forEach(input => total += parseFloat(input.value) || 0);
-    const el = document.getElementById('trend-pyr-total-pct');
-    if (el) el.textContent = total.toFixed(0);
-}
-
-function updateTrendSellTotal() {
-    const inputs = document.querySelectorAll('.trend-sell-tranche-input');
-    let total = 0;
-    inputs.forEach(input => total += parseFloat(input.value) || 0);
-    const el = document.getElementById('trend-sell-total-pct');
-    if (el) el.textContent = total.toFixed(0);
-}
-
-// 피라미딩 비중 수집
-function collectTrendPyrWeights() {
-    const weights = [];
-    document.querySelectorAll('.trend-pyr-weight-input').forEach(input => {
-        weights.push(parseFloat(input.value) || 0);
+    // 분할매도 최대 횟수 변경 → 비중칸 동적 생성
+    document.getElementById('trend-max-sell-tranches')?.addEventListener('change', (e) => {
+        renderTrendSellTranches(parseInt(e.target.value) || 6);
     });
-    // 10개로 맞추기 (부족하면 0으로 채움)
-    while (weights.length < 10) weights.push(0);
-    return weights;
-}
 
-// 분할매도 비중 수집
-function collectTrendSellTranches() {
-    const tranches = [];
-    document.querySelectorAll('.trend-sell-tranche-input').forEach(input => {
-        tranches.push(parseFloat(input.value) || 0);
+    // 피라미딩 사용 체크박스 → 설정 표시/숨김
+    document.getElementById('trend-use-pyramiding')?.addEventListener('change', (e) => {
+        const settings = document.getElementById('trend-pyramiding-settings');
+        if (settings) settings.style.display = e.target.checked ? 'block' : 'none';
     });
-    return tranches;
-}
 
-// Trend 트랜치 핸들러 초기화
-function initTrendTrancheHandlers() {
-    const pyrCountEl = document.getElementById('trend-pyr-count');
-    const sellCountEl = document.getElementById('trend-sell-tranche-count');
+    // TP1 사용 체크박스 → 설정 표시/숨김
+    document.getElementById('trend-use-tp1')?.addEventListener('change', (e) => {
+        const settings = document.getElementById('trend-tp1-settings');
+        if (settings) settings.style.display = e.target.checked ? 'block' : 'none';
+    });
 
-    if (pyrCountEl) {
-        pyrCountEl.addEventListener('change', (e) => {
-            renderTrendPyrWeights(parseInt(e.target.value) || 4);
-        });
-    }
-    if (sellCountEl) {
-        sellCountEl.addEventListener('change', (e) => {
-            renderTrendSellTranches(parseInt(e.target.value) || 6);
-        });
-    }
+    // 분할매도 사용 체크박스 → 설정 표시/숨김
+    document.getElementById('trend-use-spo')?.addEventListener('change', (e) => {
+        const settings = document.getElementById('trend-spo-settings');
+        if (settings) settings.style.display = e.target.checked ? 'block' : 'none';
+    });
 
-    // 손절 타입 변경 시 ATR 입력 표시/숨김
-    const stopTypeEl = document.getElementById('trend-stop-type');
-    if (stopTypeEl) {
-        stopTypeEl.addEventListener('change', (e) => {
-            const atrRow = document.getElementById('trend-atr-sl-row');
-            if (atrRow) {
-                atrRow.style.display = e.target.value === 'atr' ? 'flex' : 'none';
+    // 손절 방식 드롭다운 → Fixed/ATR UI 전환
+    document.getElementById('trend-stop-type')?.addEventListener('change', (e) => {
+        const fixedSettings = document.getElementById('trend-sl-fixed-settings');
+        const atrSettings = document.getElementById('trend-sl-atr-settings');
+        if (e.target.value === 'fixed') {
+            if (fixedSettings) fixedSettings.style.display = 'block';
+            if (atrSettings) atrSettings.style.display = 'none';
+        } else {
+            if (fixedSettings) fixedSettings.style.display = 'none';
+            if (atrSettings) atrSettings.style.display = 'block';
+        }
+    });
+
+    // 아코디언 토글 (매수/매도/백테스트)
+    document.querySelectorAll('#strategy-tab-trend .mr-accordion-header').forEach(header => {
+        header.addEventListener('click', () => {
+            const section = header.closest('.mr-accordion');
+            if (!section) return;
+            const body = section.querySelector('.mr-accordion-body');
+            const icon = header.querySelector('.mr-accordion-icon');
+            if (section.classList.contains('open')) {
+                section.classList.remove('open');
+                if (body) body.style.display = 'none';
+                if (icon) icon.textContent = '▶';
+            } else {
+                section.classList.add('open');
+                if (body) body.style.display = 'block';
+                if (icon) icon.textContent = '▼';
             }
         });
-    }
+    });
 
     // 초기 렌더링
     renderTrendPyrWeights(4);
@@ -8092,36 +8149,14 @@ async function loadTrendExchangeDropdown() {
     }
 }
 
-// v8: 손절 타입 변경 시 ATR 설정 표시/숨김
-document.getElementById('trend-stop-type')?.addEventListener('change', (e) => {
-    const isAtr = e.target.value === 'atr';
-    const atrLenGroup = document.getElementById('trend-atr-stop-len-group');
-    const atrMultGroup = document.getElementById('trend-atr-stop-mult-group');
-    if (atrLenGroup) atrLenGroup.style.display = isAtr ? 'block' : 'none';
-    if (atrMultGroup) atrMultGroup.style.display = isAtr ? 'block' : 'none';
-});
-
-// v8: 피라미딩 토글 시 설정 표시/숨김
-document.getElementById('trend-use-pyramiding')?.addEventListener('change', (e) => {
-    const pyrSettings = document.getElementById('trend-pyr-settings');
-    if (pyrSettings) pyrSettings.style.display = e.target.checked ? 'flex' : 'none';
-});
-
-// v8: TP1 토글 시 설정 표시/숨김
-document.getElementById('trend-use-tp1')?.addEventListener('change', (e) => {
-    const tp1Settings = document.getElementById('trend-tp1-settings');
-    if (tp1Settings) tp1Settings.style.display = e.target.checked ? 'block' : 'none';
-});
-
-// v8: SPO 분할매도 토글 시 설정 표시/숨김
-document.getElementById('trend-use-spo-split')?.addEventListener('change', (e) => {
-    const spoSettings = document.getElementById('trend-spo-settings');
-    if (spoSettings) spoSettings.style.display = e.target.checked ? 'block' : 'none';
-});
-
+// 백테스트 실행 이벤트 핸들러
 document.getElementById('btn-trend-run-backtest')?.addEventListener('click', async () => {
-    // collectTrendConfig() 사용하여 설정 수집
     const cfg = collectTrendConfig();
+
+    if (!cfg.exchange || !cfg.symbol) {
+        showToast('거래소와 종목을 선택해주세요', 'error');
+        return;
+    }
 
     showToast('추세매매 백테스트 실행 중...', 'info');
 
@@ -8135,14 +8170,9 @@ document.getElementById('btn-trend-run-backtest')?.addEventListener('click', asy
             days: cfg.days,
             initialCapital: cfg.initial_capital,
             cashUsePct: cfg.cash_use_pct,
-            // Supertrend
+            // 슈퍼트렌드
             stAtrLen: cfg.st_atr_len,
             stFactor: cfg.st_factor,
-            // HVI / HTF
-            hviLength: cfg.hvi_length,
-            htfVwmaLen: cfg.htf_vwma_len,
-            useHtfFilter: cfg.use_htf_filter,
-            stInvert: cfg.st_invert,
             // 피라미딩
             usePyramiding: cfg.use_pyramiding,
             maxPyrEntries: cfg.max_pyr_entries,
@@ -8150,23 +8180,23 @@ document.getElementById('btn-trend-run-backtest')?.addEventListener('click', asy
             pyrCooldown: cfg.pyr_cooldown,
             pyrRefillAfterSell: cfg.pyr_refill_after_sell,
             pyrWeights: cfg.pyr_weights,
-            // 분할매도
+            // 추세전환 전량매도
+            useStExit: cfg.use_st_exit,
+            // 부분익절 (TP1)
+            useTp1: cfg.use_tp1,
+            tp1Pct: cfg.tp1_pct,
+            tp1SellPct: cfg.tp1_sell_pct,
+            // 과매수구간 분할매도
             useSpoSplit: cfg.use_spo_split,
             sellTranches: cfg.sell_tranches,
             maxSellTranches: cfg.max_sell_tranches,
             afterMaxSell: cfg.after_max_sell,
             useProfitGate: cfg.use_profit_gate,
-            minProfitPct: cfg.min_profit_pct,
-            feeBufferPct: cfg.fee_buffer_pct,
-            // Exit
+            // 손절
             stopType: cfg.stop_type,
             hardSlPct: cfg.hard_sl_pct,
             atrStopLen: cfg.atr_stop_len,
             atrStopMult: cfg.atr_stop_mult,
-            useTp1: cfg.use_tp1,
-            tp1Pct: cfg.tp1_pct,
-            tp1SellPct: cfg.tp1_sell_pct,
-            useStExit: cfg.use_st_exit,
         });
 
         displayTrendBacktestResult(result);
@@ -8184,6 +8214,30 @@ document.getElementById('btn-trend-run-backtest')?.addEventListener('click', asy
         }
         if (resultEl) resultEl.style.display = 'none';
         showToast('백테스트 오류: ' + error, 'error');
+    }
+});
+
+// 하단 퀵 백테스트 버튼 (백테스트 아코디언 열고 실행)
+document.getElementById('btn-trend-backtest-quick')?.addEventListener('click', () => {
+    // 백테스트 아코디언 열기
+    const backtestSection = document.getElementById('trend-section-backtest');
+    if (backtestSection && !backtestSection.classList.contains('open')) {
+        backtestSection.classList.add('open');
+        const body = backtestSection.querySelector('.mr-accordion-body');
+        const icon = backtestSection.querySelector('.mr-accordion-icon');
+        if (body) body.style.display = 'block';
+        if (icon) icon.textContent = '▼';
+    }
+    // 백테스트 실행 버튼 클릭
+    document.getElementById('btn-trend-run-backtest')?.click();
+});
+
+// 종목 자동완성 연결 (거래소 변경 시)
+document.getElementById('trend-exchange')?.addEventListener('change', () => {
+    const symbolInput = document.getElementById('trend-symbol');
+    const exchange = document.getElementById('trend-exchange')?.value;
+    if (symbolInput && exchange) {
+        createSymbolAutocomplete(symbolInput, exchange);
     }
 });
 
