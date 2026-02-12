@@ -1081,12 +1081,12 @@ async def run_mr_backtest_endpoint(
         for i in range(0, len(candles), step):
             c = candles[i]
             candle_data.append({
-                "time": c["timestamp"] // 1000,  # Unix 초 단위
-                "open": c["open"],
-                "high": c["high"],
-                "low": c["low"],
-                "close": c["close"],
-                "volume": c.get("volume", 0),
+                "time": c.ts // 1000,  # Unix 초 단위
+                "open": c.o,
+                "high": c.h,
+                "low": c.l,
+                "close": c.c,
+                "volume": c.v,
             })
 
         return MRBacktestResponse(
@@ -1460,12 +1460,12 @@ async def run_trend_backtest_endpoint(
         for i in range(0, len(candles), step):
             c = candles[i]
             candle_data.append({
-                "time": c["timestamp"] // 1000,  # Unix 초 단위
-                "open": c["open"],
-                "high": c["high"],
-                "low": c["low"],
-                "close": c["close"],
-                "volume": c.get("volume", 0),
+                "time": c.ts // 1000,  # Unix 초 단위
+                "open": c.o,
+                "high": c.h,
+                "low": c.l,
+                "close": c.c,
+                "volume": c.v,
             })
 
         return TrendBacktestResponse(
