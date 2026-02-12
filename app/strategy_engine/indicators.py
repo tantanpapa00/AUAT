@@ -38,11 +38,24 @@ def smoother_f(src: np.ndarray, length: int) -> np.ndarray:
     a = 2.0 / (length + 1)
     b = 1 - a
 
-    out = np.zeros(len(src))
-    out[0] = src[0]
+    out = np.full(len(src), np.nan)
 
-    for i in range(1, len(src)):
-        out[i] = a * src[i] + b * out[i - 1]
+    # 첫 번째 유효한 값 찾기 (NaN 건너뛰기)
+    start_idx = 0
+    for i in range(len(src)):
+        if not np.isnan(src[i]):
+            start_idx = i
+            out[i] = src[i]
+            break
+
+    # EMA 계산 (NaN 전파 방지)
+    for i in range(start_idx + 1, len(src)):
+        if np.isnan(src[i]):
+            out[i] = out[i - 1]  # 이전 값 유지
+        elif np.isnan(out[i - 1]):
+            out[i] = src[i]  # 이전이 NaN이면 현재 값으로 시작
+        else:
+            out[i] = a * src[i] + b * out[i - 1]
 
     return out
 
