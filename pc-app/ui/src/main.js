@@ -6610,15 +6610,9 @@ async function initCandleChart(symbol, exchange, period = '1D') {
     // 기존 차트 제거
     container.innerHTML = '';
 
-    // LightweightCharts 사용 가능 확인
-    if (typeof LightweightCharts === 'undefined') {
-        container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);">차트 라이브러리 로딩 중...</div>';
-        return;
-    }
-
     try {
-        // 차트 생성
-        detailChart = LightweightCharts.createChart(container, {
+        // 차트 생성 (ES 모듈 import 사용)
+        detailChart = createChart(container, {
             width: container.clientWidth,
             height: 350,
             layout: {
@@ -6630,7 +6624,7 @@ async function initCandleChart(symbol, exchange, period = '1D') {
                 horzLines: { color: '#22304A' }
             },
             crosshair: {
-                mode: LightweightCharts.CrosshairMode.Normal
+                mode: CrosshairMode.Normal
             },
             rightPriceScale: {
                 borderColor: '#22304A'
