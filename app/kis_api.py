@@ -345,11 +345,12 @@ async def refresh_master_cache(force: bool = False):
 
 
 def _get_us_fallback_stocks() -> Dict[str, StockMaster]:
-    """US 주식/ETF fallback (항상 병합)"""
+    """US 주식/ETF fallback (항상 병합) - 한국 투자자 인기 종목 위주"""
     fallback = {}
 
     # NYSE 주요 종목
     nyse = [
+        # 대형주
         ("BRK.B", "Berkshire Hathaway"), ("JPM", "JPMorgan Chase"), ("V", "Visa"),
         ("JNJ", "Johnson & Johnson"), ("WMT", "Walmart"), ("PG", "Procter & Gamble"),
         ("MA", "Mastercard"), ("UNH", "UnitedHealth"), ("HD", "Home Depot"),
@@ -360,47 +361,138 @@ def _get_us_fallback_stocks() -> Dict[str, StockMaster]:
         ("MCD", "McDonald's"), ("IBM", "IBM"), ("GS", "Goldman Sachs"),
         ("CAT", "Caterpillar"), ("RTX", "Raytheon"), ("HON", "Honeywell"),
         ("SBUX", "Starbucks"), ("F", "Ford"), ("GM", "General Motors"),
+        # 추가 대형주
+        ("C", "Citigroup"), ("WFC", "Wells Fargo"), ("MS", "Morgan Stanley"),
+        ("AXP", "American Express"), ("BLK", "BlackRock"), ("SCHW", "Charles Schwab"),
+        ("T", "AT&T"), ("VZ", "Verizon"), ("CMCSA", "Comcast"),
+        ("COP", "ConocoPhillips"), ("SLB", "Schlumberger"), ("EOG", "EOG Resources"),
+        ("NEE", "NextEra Energy"), ("DUK", "Duke Energy"), ("SO", "Southern Company"),
+        ("MMM", "3M"), ("GE", "General Electric"), ("BA", "Boeing"),
+        ("LMT", "Lockheed Martin"), ("NOC", "Northrop Grumman"), ("GD", "General Dynamics"),
+        ("UPS", "UPS"), ("FDX", "FedEx"), ("DE", "Deere & Company"),
+        ("LOW", "Lowe's"), ("TGT", "Target"), ("COST", "Costco"),
+        # 헬스케어
+        ("PFE", "Pfizer"), ("BMY", "Bristol-Myers Squibb"), ("ABBV", "AbbVie"),
+        ("AMGN", "Amgen"), ("GILD", "Gilead Sciences"), ("REGN", "Regeneron"),
+        ("CVS", "CVS Health"), ("CI", "Cigna"), ("HUM", "Humana"),
+        # 리츠
+        ("O", "Realty Income"), ("AMT", "American Tower"), ("PLD", "Prologis"),
+        ("EQIX", "Equinix"), ("SPG", "Simon Property"), ("DLR", "Digital Realty"),
     ]
     for code, name in nyse:
         fallback[code] = StockMaster(code=code, name=name, market="NYSE")
 
     # NASDAQ 주요 종목
     nasdaq = [
+        # 빅테크
         ("AAPL", "Apple"), ("MSFT", "Microsoft"), ("GOOGL", "Alphabet"),
         ("AMZN", "Amazon"), ("NVDA", "NVIDIA"), ("META", "Meta"),
-        ("TSLA", "Tesla"), ("AVGO", "Broadcom"), ("COST", "Costco"),
-        ("NFLX", "Netflix"), ("AMD", "AMD"), ("INTC", "Intel"),
-        ("QCOM", "Qualcomm"), ("ADBE", "Adobe"), ("CRM", "Salesforce"),
-        ("PYPL", "PayPal"), ("GOOG", "Alphabet Class C"), ("CSCO", "Cisco"),
-        ("PDD", "PDD Holdings"), ("BKNG", "Booking Holdings"), ("MU", "Micron"),
-        ("MRVL", "Marvell"), ("LRCX", "Lam Research"), ("KLAC", "KLA Corp"),
+        ("TSLA", "Tesla"), ("AVGO", "Broadcom"), ("NFLX", "Netflix"),
+        ("GOOG", "Alphabet Class C"), ("CSCO", "Cisco"),
+        # 반도체
+        ("AMD", "AMD"), ("INTC", "Intel"), ("QCOM", "Qualcomm"),
+        ("MU", "Micron"), ("MRVL", "Marvell"), ("LRCX", "Lam Research"),
+        ("KLAC", "KLA Corp"), ("AMAT", "Applied Materials"), ("ASML", "ASML"),
+        ("ON", "ON Semiconductor"), ("NXPI", "NXP Semiconductors"), ("TXN", "Texas Instruments"),
+        ("ARM", "ARM Holdings"), ("SMCI", "Super Micro Computer"),
+        # 소프트웨어/클라우드
+        ("ADBE", "Adobe"), ("CRM", "Salesforce"), ("NOW", "ServiceNow"),
         ("PANW", "Palo Alto Networks"), ("SNPS", "Synopsys"), ("CDNS", "Cadence"),
-        ("ABNB", "Airbnb"), ("UBER", "Uber"), ("DASH", "DoorDash"),
-        ("COIN", "Coinbase"), ("ZM", "Zoom"), ("SQ", "Block (Square)"),
+        ("CRWD", "CrowdStrike"), ("ZS", "Zscaler"), ("DDOG", "Datadog"),
+        ("NET", "Cloudflare"), ("SNOW", "Snowflake"), ("MDB", "MongoDB"),
+        ("PLTR", "Palantir"), ("TEAM", "Atlassian"), ("WDAY", "Workday"),
+        ("OKTA", "Okta"), ("TWLO", "Twilio"), ("SPLK", "Splunk"),
+        # 인터넷/핀테크
+        ("PYPL", "PayPal"), ("SQ", "Block (Square)"), ("SHOP", "Shopify"),
+        ("PDD", "PDD Holdings"), ("BKNG", "Booking Holdings"), ("ABNB", "Airbnb"),
+        ("UBER", "Uber"), ("LYFT", "Lyft"), ("DASH", "DoorDash"),
+        ("COIN", "Coinbase"), ("HOOD", "Robinhood"), ("SOFI", "SoFi"),
+        ("ZM", "Zoom"), ("DOCU", "DocuSign"), ("ROKU", "Roku"),
+        # 바이오텍
+        ("MRNA", "Moderna"), ("BNTX", "BioNTech"), ("VRTX", "Vertex"),
+        ("BIIB", "Biogen"), ("ILMN", "Illumina"), ("DXCM", "DexCom"),
+        # 전기차/에너지
+        ("RIVN", "Rivian"), ("LCID", "Lucid"), ("XPEV", "XPeng"),
+        ("NIO", "NIO"), ("LI", "Li Auto"), ("ENPH", "Enphase"),
+        ("FSLR", "First Solar"), ("SEDG", "SolarEdge"),
+        # 기타 인기종목
+        ("MSTR", "MicroStrategy"), ("CELH", "Celsius"), ("MNST", "Monster Beverage"),
+        ("LULU", "Lululemon"), ("ROST", "Ross Stores"), ("DLTR", "Dollar Tree"),
+        ("CPRT", "Copart"), ("FAST", "Fastenal"), ("ODFL", "Old Dominion"),
+        ("TTD", "The Trade Desk"), ("TTWO", "Take-Two"), ("EA", "Electronic Arts"),
     ]
     for code, name in nasdaq:
         fallback[code] = StockMaster(code=code, name=name, market="NASDAQ")
 
-    # 미국 주요 ETF
+    # 미국 주요 ETF (한국 투자자 인기 ETF)
     etfs = [
         # 지수 ETF
         ("SPY", "SPDR S&P 500 ETF", "NYSE"), ("QQQ", "Invesco QQQ Trust", "NASDAQ"),
         ("IWM", "iShares Russell 2000 ETF", "NYSE"), ("DIA", "SPDR Dow Jones ETF", "NYSE"),
         ("IVV", "iShares Core S&P 500", "NYSE"), ("VOO", "Vanguard S&P 500 ETF", "NYSE"),
-        ("VTI", "Vanguard Total Stock Market", "NYSE"), ("VEA", "Vanguard FTSE Developed Markets", "NYSE"),
-        ("EEM", "iShares MSCI Emerging Markets", "NYSE"), ("VWO", "Vanguard FTSE Emerging Markets", "NYSE"),
-        # 레버리지/인버스 ETF
-        ("TQQQ", "ProShares UltraPro QQQ", "NASDAQ"), ("SQQQ", "ProShares UltraPro Short QQQ", "NASDAQ"),
-        ("SPXL", "Direxion Daily S&P 500 Bull 3X", "NYSE"), ("SPXS", "Direxion Daily S&P 500 Bear 3X", "NYSE"),
-        ("SOXL", "Direxion Daily Semiconductor Bull 3X", "NYSE"), ("SOXS", "Direxion Daily Semiconductor Bear 3X", "NYSE"),
-        ("UPRO", "ProShares UltraPro S&P 500", "NYSE"), ("SSO", "ProShares Ultra S&P 500", "NYSE"),
+        ("VTI", "Vanguard Total Stock Market", "NYSE"), ("VEA", "Vanguard FTSE Developed", "NYSE"),
+        ("EEM", "iShares MSCI Emerging Markets", "NYSE"), ("VWO", "Vanguard FTSE Emerging", "NYSE"),
+        ("VT", "Vanguard Total World Stock", "NYSE"), ("ACWI", "iShares MSCI ACWI", "NASDAQ"),
+        ("IJH", "iShares Core S&P Mid-Cap", "NYSE"), ("IJR", "iShares Core S&P Small-Cap", "NYSE"),
+        # 레버리지/인버스 ETF (인기)
+        ("TQQQ", "ProShares UltraPro QQQ 3X", "NASDAQ"), ("SQQQ", "ProShares Short QQQ 3X", "NASDAQ"),
+        ("SPXL", "Direxion S&P 500 Bull 3X", "NYSE"), ("SPXS", "Direxion S&P 500 Bear 3X", "NYSE"),
+        ("SOXL", "Direxion Semiconductor Bull 3X", "NYSE"), ("SOXS", "Direxion Semiconductor Bear 3X", "NYSE"),
+        ("UPRO", "ProShares UltraPro S&P 500", "NYSE"), ("SPXU", "ProShares UltraPro Short S&P", "NYSE"),
+        ("SSO", "ProShares Ultra S&P 500 2X", "NYSE"), ("SDS", "ProShares UltraShort S&P 2X", "NYSE"),
+        ("QLD", "ProShares Ultra QQQ 2X", "NASDAQ"), ("QID", "ProShares UltraShort QQQ 2X", "NASDAQ"),
+        ("TECL", "Direxion Technology Bull 3X", "NYSE"), ("TECS", "Direxion Technology Bear 3X", "NYSE"),
+        ("FNGU", "MicroSectors FANG+ Bull 3X", "NYSE"), ("FNGD", "MicroSectors FANG+ Bear 3X", "NYSE"),
+        ("LABU", "Direxion Biotech Bull 3X", "NYSE"), ("LABD", "Direxion Biotech Bear 3X", "NYSE"),
+        ("TNA", "Direxion Small Cap Bull 3X", "NYSE"), ("TZA", "Direxion Small Cap Bear 3X", "NYSE"),
+        ("NUGT", "Direxion Gold Miners Bull 2X", "NYSE"), ("DUST", "Direxion Gold Miners Bear 2X", "NYSE"),
+        ("UVXY", "ProShares Ultra VIX Short-Term", "NYSE"), ("SVXY", "ProShares Short VIX", "NYSE"),
+        # 배당 ETF (인기)
+        ("SCHD", "Schwab US Dividend Equity", "NYSE"), ("VYM", "Vanguard High Dividend", "NYSE"),
+        ("JEPI", "JPMorgan Equity Premium Income", "NYSE"), ("JEPQ", "JPMorgan Nasdaq Premium", "NASDAQ"),
+        ("DVY", "iShares Select Dividend", "NYSE"), ("HDV", "iShares Core High Dividend", "NYSE"),
+        ("VIG", "Vanguard Dividend Appreciation", "NYSE"), ("DGRO", "iShares Core Dividend Growth", "NYSE"),
+        ("SPYD", "SPDR Portfolio S&P 500 High Div", "NYSE"), ("SPHD", "Invesco S&P 500 High Div", "NYSE"),
+        ("DIVO", "Amplify CWP Enhanced Dividend", "NYSE"), ("QYLD", "Global X NASDAQ 100 Covered Call", "NASDAQ"),
+        ("XYLD", "Global X S&P 500 Covered Call", "NYSE"), ("RYLD", "Global X Russell 2000 Covered Call", "NYSE"),
         # 섹터 ETF
         ("XLK", "Technology Select Sector SPDR", "NYSE"), ("XLF", "Financial Select Sector SPDR", "NYSE"),
         ("XLV", "Health Care Select Sector SPDR", "NYSE"), ("XLE", "Energy Select Sector SPDR", "NYSE"),
-        ("SMH", "VanEck Semiconductor ETF", "NASDAQ"), ("ARKK", "ARK Innovation ETF", "NYSE"),
-        # 채권/금 ETF
-        ("TLT", "iShares 20+ Year Treasury Bond", "NASDAQ"), ("BND", "Vanguard Total Bond Market", "NASDAQ"),
-        ("GLD", "SPDR Gold Shares", "NYSE"), ("SLV", "iShares Silver Trust", "NYSE"),
+        ("XLI", "Industrial Select Sector SPDR", "NYSE"), ("XLY", "Consumer Discretionary SPDR", "NYSE"),
+        ("XLP", "Consumer Staples Select SPDR", "NYSE"), ("XLU", "Utilities Select Sector SPDR", "NYSE"),
+        ("XLB", "Materials Select Sector SPDR", "NYSE"), ("XLRE", "Real Estate Select SPDR", "NYSE"),
+        ("SMH", "VanEck Semiconductor ETF", "NASDAQ"), ("SOXX", "iShares Semiconductor", "NASDAQ"),
+        ("XBI", "SPDR S&P Biotech ETF", "NYSE"), ("IBB", "iShares Biotechnology", "NASDAQ"),
+        ("ARKK", "ARK Innovation ETF", "NYSE"), ("ARKW", "ARK Next Gen Internet", "NYSE"),
+        ("ARKF", "ARK Fintech Innovation", "NYSE"), ("ARKG", "ARK Genomic Revolution", "NYSE"),
+        ("XHB", "SPDR S&P Homebuilders", "NYSE"), ("ITB", "iShares US Home Construction", "NYSE"),
+        ("KRE", "SPDR S&P Regional Banking", "NYSE"), ("XLF", "Financial Select Sector", "NYSE"),
+        # 채권 ETF
+        ("TLT", "iShares 20+ Year Treasury", "NASDAQ"), ("IEF", "iShares 7-10 Year Treasury", "NASDAQ"),
+        ("SHY", "iShares 1-3 Year Treasury", "NASDAQ"), ("BND", "Vanguard Total Bond", "NASDAQ"),
+        ("AGG", "iShares Core US Aggregate Bond", "NYSE"), ("LQD", "iShares iBoxx Investment Grade", "NYSE"),
+        ("HYG", "iShares iBoxx High Yield", "NYSE"), ("JNK", "SPDR Bloomberg High Yield", "NYSE"),
+        ("TIP", "iShares TIPS Bond", "NYSE"), ("VCIT", "Vanguard Intermediate Corp", "NASDAQ"),
+        ("TMF", "Direxion Treasury Bull 3X", "NYSE"), ("TMV", "Direxion Treasury Bear 3X", "NYSE"),
+        # 원자재/금/은
+        ("GLD", "SPDR Gold Shares", "NYSE"), ("IAU", "iShares Gold Trust", "NYSE"),
+        ("SLV", "iShares Silver Trust", "NYSE"), ("GDX", "VanEck Gold Miners", "NYSE"),
+        ("GDXJ", "VanEck Junior Gold Miners", "NYSE"), ("USO", "United States Oil Fund", "NYSE"),
+        ("UNG", "United States Natural Gas", "NYSE"), ("DBC", "Invesco DB Commodity", "NYSE"),
+        ("PDBC", "Invesco Optimum Yield Diversified", "NASDAQ"), ("GSG", "iShares S&P GSCI Commodity", "NYSE"),
+        # 글로벌/국가별
+        ("EWJ", "iShares MSCI Japan", "NYSE"), ("FXI", "iShares China Large-Cap", "NYSE"),
+        ("KWEB", "KraneShares CSI China Internet", "NYSE"), ("EWZ", "iShares MSCI Brazil", "NYSE"),
+        ("EWY", "iShares MSCI South Korea", "NYSE"), ("INDA", "iShares MSCI India", "NYSE"),
+        ("VNM", "VanEck Vietnam", "NYSE"), ("EWT", "iShares MSCI Taiwan", "NYSE"),
+        # 테마 ETF
+        ("BOTZ", "Global X Robotics & AI", "NASDAQ"), ("ROBO", "ROBO Global Robotics", "NYSE"),
+        ("LIT", "Global X Lithium & Battery", "NYSE"), ("ICLN", "iShares Global Clean Energy", "NASDAQ"),
+        ("TAN", "Invesco Solar ETF", "NYSE"), ("QCLN", "First Trust NASDAQ Clean Edge", "NASDAQ"),
+        ("BLOK", "Amplify Transformational Data", "NYSE"), ("BITQ", "Bitwise Crypto Industry", "NYSE"),
+        ("HACK", "ETFMG Prime Cyber Security", "NYSE"), ("WCLD", "WisdomTree Cloud Computing", "NASDAQ"),
+        ("SKYY", "First Trust Cloud Computing", "NASDAQ"), ("CLOU", "Global X Cloud Computing", "NASDAQ"),
+        ("SNSR", "Global X Internet of Things", "NASDAQ"), ("AIQ", "Global X AI & Technology", "NASDAQ"),
     ]
     for code, name, market in etfs:
         fallback[code] = StockMaster(code=code, name=name, market=market, is_etf=True)
