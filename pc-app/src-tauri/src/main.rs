@@ -180,6 +180,8 @@ fn main() {
             commands::run_mr_backtest,
             // Trend Backtest (추세매매)
             commands::run_trend_backtest,
+            // Custom Backtest (커스텀 조건빌더)
+            commands::run_custom_backtest,
         ])
         .setup(|app| {
             // 앱 시작 시 VPS 서버 연결 확인 (로컬 서버 시작 없음)

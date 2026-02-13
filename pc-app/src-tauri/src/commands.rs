@@ -3600,3 +3600,48 @@ pub async fn run_trend_backtest(
         Err(format!("추세매매 백테스트 실행 실패: {}", error_text))
     }
 }
+
+// ============================================================================
+// Custom Strategy Backtest Command (커스텀 조건빌더)
+// ============================================================================
+
+#[tauri::command]
+pub async fn run_custom_backtest(
+    exchange: String,
+    symbol: String,
+    timeframe: Option<String>,
+    days: Option<i32>,
+    initial_capital: Option<f64>,
+    strategy: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .timeout(std::time::Duration::from_secs(120))
+        .build()
+        .unwrap();
+    let url = format!("{}/api/premium/backtest/custom", VPS_SERVER_URL);
+
+    let body = serde_json::json!({
+        "exchange": exchange,
+        "symbol": symbol,
+        "timeframe": timeframe.unwrap_or_else(|| "1D".to_string()),
+        "days": days.unwrap_or(365),
+        "initial_capital": initial_capital.unwrap_or(10000000.0),
+        "strategy": strategy,
+    });
+
+    let resp = client
+        .post(&url)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        let error_text = resp.text().await.unwrap_or_default();
+        Err(format!("커스텀 백테스트 실행 실패: {}", error_text))
+    }
+}

@@ -9178,13 +9178,15 @@ async function runCustomBacktest() {
     if (resultEl) resultEl.style.display = 'none';
 
     try {
-        const resp = await fetch('https://qube-system.com/api/premium/backtest/custom', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(config),
+        // Tauri invoke 사용 (fetch 대신)
+        const data = await invoke('run_custom_backtest', {
+            exchange: config.exchange,
+            symbol: config.symbol,
+            timeframe: config.timeframe || '1D',
+            days: config.days || 365,
+            initialCapital: config.initial_capital || 10000000,
+            strategy: config.strategy,
         });
-
-        const data = await resp.json();
 
         if (data.success) {
             displayCustomBacktestResult(data, config.exchange, config.symbol);
@@ -9199,7 +9201,7 @@ async function runCustomBacktest() {
     } catch (e) {
         console.error('커스텀 백테스트 오류:', e);
         if (errorEl) {
-            errorEl.textContent = '서버 연결 오류: ' + e.message;
+            errorEl.textContent = '서버 연결 오류: ' + (e.message || e);
             errorEl.style.display = 'block';
         }
         showToast('서버 연결 오류', 'error');
