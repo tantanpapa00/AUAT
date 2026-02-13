@@ -88,8 +88,12 @@ class TrendConfig:
     atr_stop_len: int = 14               # ATR 손절용 ATR 길이
     atr_stop_mult: float = 2.0           # ATR 손절 배수
 
-    # ST 전량매도 (exit_tf의 ST 사용)
-    use_st_exit: bool = True             # ST 하락 전환 시 전량매도
+    # ST 전량매도 모드 (v8: 4가지 모드)
+    st_exit_mode: str = "htf_only"       # "current_tf" | "htf_only" | "both" | "none"
+    use_st_exit: bool = True             # ST 하락 전환 시 전량매도 (레거시, st_exit_mode로 대체)
+
+    # 봉당 1회 매도 제한 (v8: one_sell_per_bar)
+    one_sell_per_bar: bool = True        # 한 봉에서 최대 1건의 매도만 허용
 
     # TP1 토글 (v8에서 기본 OFF)
     use_tp1: bool = False                # TP1 사용 여부 (v7에서는 항상 ON이었음!)
@@ -139,6 +143,9 @@ class TrendState:
     # 진입 가드
     setup_start_bar: int = -999        # 셋업 시작 봉 인덱스
     prev_setup_met: bool = False       # 이전 봉 셋업 충족 여부
+
+    # v8: 봉당 1회 매도 제한용
+    last_sell_bar: int = -999          # 마지막 매도가 발생한 봉 인덱스
 
 
 def generate_trend_signal(
@@ -201,6 +208,7 @@ def generate_trend_signal(
         avg_entry_price=state.avg_entry_price,
         setup_start_bar=state.setup_start_bar,
         prev_setup_met=state.prev_setup_met,
+        last_sell_bar=state.last_sell_bar,
     )
 
     # v8: barstate.isconfirmed 체크 - 미확정 봉에서는 신호 없음
@@ -236,9 +244,18 @@ def generate_trend_signal(
     # HTF VWMA/SMA 조건
     curr_htf_vwma = htf_vwma[-1] if len(htf_vwma) > 0 and not np.isnan(htf_vwma[-1]) else 0.0
 
-    # SPO 값 (분할매도용)
+    # SPO 값 (분할매도용) - crossover 감지를 위해 3개 필요
     curr_spo = exit_spo_norm[-1] if len(exit_spo_norm) > 0 else 0.0
     prev_spo = exit_spo_norm[-2] if len(exit_spo_norm) > 1 else curr_spo
+    prev_prev_spo = exit_spo_norm[-3] if len(exit_spo_norm) > 2 else prev_spo
+
+    # signal_tf ST (current_tf 전량매도용)
+    prev_entry_st_dir = entry_st_dir[-2] if len(entry_st_dir) > 1 else curr_entry_st_dir
+    if config.st_invert:
+        prev_entry_st_dir = -prev_entry_st_dir
+
+    # v8: 봉당 1회 매도 제한 체크
+    sell_lock_ok = not config.one_sell_per_bar or (state.last_sell_bar != bar_index)
 
     # ──────────────────────────────────────────────────────
     # PineScript v8 핵심: N봉 신고가 계산
@@ -278,13 +295,14 @@ def generate_trend_signal(
 
     # ============================================================
     # EXIT 로직 (포지션 있을 때만)
+    # 우선순위: 손절 > ST전량매도 > TP1 > SPO (v8 PineScript 일치)
     # ============================================================
     if new_state.in_position:
         # 최고가 업데이트 (TP 계산용)
         if curr_entry_close > new_state.highest_since_entry:
             new_state.highest_since_entry = curr_entry_close
 
-        # ─── Exit 1: Hard Stop Loss (최우선) ───
+        # ─── Exit 1: Hard Stop Loss (최우선, sell_lock 무시) ───
         if curr_entry_close <= sl_price and base_price > 0:
             # 전량 청산, 상태 리셋
             new_state.in_position = False
@@ -294,6 +312,7 @@ def generate_trend_signal(
             new_state.pyr_count = 0
             new_state.avg_entry_price = 0.0
             new_state.total_cost = 0.0
+            new_state.last_sell_bar = bar_index
 
             return SignalResult(
                 action="sell",
@@ -303,12 +322,54 @@ def generate_trend_signal(
                 regime=0,
             ), new_state
 
-        # ─── Exit 2: TP1 (목표 익절) ───
-        if config.use_tp1:
+        # ─── Exit 2: ST Flip (전량 청산, sell_lock 무시) ───
+        # v8: st_exit_mode 4가지 모드 지원
+        # "current_tf": signal_tf ST 하락전환
+        # "htf_only": exit_tf ST 하락전환
+        # "both": 둘 중 하나라도
+        # "none": ST 전량매도 안함
+        st_current_flip = (prev_entry_st_dir < 0) and (curr_entry_st_dir >= 0)
+        st_htf_flip = (prev_exit_st_dir < 0) and (curr_exit_st_dir >= 0)
+
+        exit_all_signal = False
+        # 레거시 호환: use_st_exit=False이면 ST exit 완전 비활성화
+        if not config.use_st_exit:
+            exit_all_signal = False
+        elif config.st_exit_mode == "current_tf":
+            exit_all_signal = st_current_flip
+        elif config.st_exit_mode == "htf_only":
+            exit_all_signal = st_htf_flip
+        elif config.st_exit_mode == "both":
+            exit_all_signal = st_current_flip or st_htf_flip
+        elif config.st_exit_mode == "none":
+            exit_all_signal = False
+
+        if exit_all_signal:
+            # 전량 청산, 상태 리셋
+            new_state.in_position = False
+            new_state.entry_price = 0.0
+            new_state.tp1_triggered = False
+            new_state.sell_stage = 0
+            new_state.pyr_count = 0
+            new_state.avg_entry_price = 0.0
+            new_state.total_cost = 0.0
+            new_state.last_sell_bar = bar_index
+
+            return SignalResult(
+                action="sell",
+                reason_code="TREND_EXIT_ST_FLIP",
+                reason_text="ST전환 전량청산",
+                tranche_pct=100.0,
+                regime=0,
+            ), new_state
+
+        # ─── Exit 3: TP1 (목표 익절, sell_lock 체크) ───
+        if config.use_tp1 and sell_lock_ok:
             tp1_base = new_state.avg_entry_price if new_state.avg_entry_price > 0 else new_state.entry_price
             tp1_price = tp1_base * (1 + config.tp1_pct / 100.0)
             if not new_state.tp1_triggered and curr_entry_close >= tp1_price:
                 new_state.tp1_triggered = True
+                new_state.last_sell_bar = bar_index
 
                 # v8: 피라미딩 리필 (매도 후 pyrCount 감소)
                 if config.pyr_refill_after_sell and new_state.pyr_count > 1:
@@ -322,12 +383,14 @@ def generate_trend_signal(
                     regime=0,
                 ), new_state
 
-        # ─── Exit 3: SPO Split (분할매도) ───
-        if config.use_spo_split:
-            # PineScript: spo_signal_dn = crossunder(normalized_osc, threshold)
-            # crossunder = prev > threshold AND curr <= threshold  (하락 크로스)
-            # 또는 단순히: prev > curr AND curr > threshold (하락 전환)
-            spo_signal_dn = (prev_spo > curr_spo) and (curr_spo > config.exit_spo_threshold)
+        # ─── Exit 4: SPO Split (분할매도, sell_lock 체크) ───
+        if config.use_spo_split and sell_lock_ok:
+            # v8 PineScript: spo_signal_dn = (norm_osc > spo_threshold) AND ta.crossover(norm_osc[1], norm_osc)
+            # crossover(A, B) = A가 B를 상향 돌파 = A[1] < B[1] AND A > B
+            # crossover(norm_osc[1], norm_osc) = 이전 봉의 osc가 현재 봉의 osc를 상향 돌파
+            # = prev_prev < prev AND prev > curr = 정점에서 하락 전환
+            spo_crossover = (prev_prev_spo <= prev_spo) and (prev_spo > curr_spo)
+            spo_signal_dn = spo_crossover and (curr_spo > config.exit_spo_threshold)
 
             if spo_signal_dn:
                 # 익절 게이트 체크
@@ -357,6 +420,7 @@ def generate_trend_signal(
 
                         # 다음 스테이지로 진행
                         new_state.sell_stage += 1
+                        new_state.last_sell_bar = bar_index
 
                         # v8: 피라미딩 리필
                         if config.pyr_refill_after_sell and new_state.pyr_count > 1:
@@ -369,29 +433,6 @@ def generate_trend_signal(
                             tranche_pct=sell_pct,
                             regime=0,
                         ), new_state
-
-        # ─── Exit 4: ST Flip (전량 청산) ───
-        if config.use_st_exit:
-            # PineScript: stFlip = ta.change(stDir) > 0 (bullish→bearish)
-            st_bear_flip = (prev_exit_st_dir < 0) and (curr_exit_st_dir >= 0)
-
-            if st_bear_flip:
-                # 전량 청산, 상태 리셋
-                new_state.in_position = False
-                new_state.entry_price = 0.0
-                new_state.tp1_triggered = False
-                new_state.sell_stage = 0
-                new_state.pyr_count = 0
-                new_state.avg_entry_price = 0.0
-                new_state.total_cost = 0.0
-
-                return SignalResult(
-                    action="sell",
-                    reason_code="TREND_EXIT_ST_FLIP",
-                    reason_text="ST전환 전량청산",
-                    tranche_pct=100.0,
-                    regime=0,
-                ), new_state
 
         # ============================================================
         # 피라미딩 (PYR) - 포지션 보유 중 추가매수

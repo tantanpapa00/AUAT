@@ -1,0 +1,604 @@
+//@version=6
+strategy("Stock Trend Auto v8 (Pyramiding + Improved Exits)",
+     overlay=true,
+     pyramiding=10,
+     initial_capital=10000000,
+     commission_type=strategy.commission.percent,
+     commission_value=0.015,
+     default_qty_type=strategy.fixed,
+     default_qty_value=1,
+     process_orders_on_close=true,
+     margin_long=100,
+     margin_short=100)
+
+//==================================================
+// ✅ v8 개선사항 (v7 대비)
+// 1. 피라미딩: N봉 신고가 돌파 시 추가매수 (최대 10차, 비중 사용자 설정)
+// 2. 분할매도: 초반 적게 → 후반 많게 (역피라미드)
+// 3. 손절: 고정% / ATR 기반 선택 가능
+// 4. 상위TF: 주식=주봉 VWMA156, 코인=일봉 MA200 선택
+// 5. TP1: 선택사항 유지
+//==================================================
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Inputs
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src = input.source(close, "소스")
+
+// --- 자산 유형
+group_asset = "📌 자산 유형"
+assetType = input.string("Stock", "자산 유형", options=["Stock", "Crypto"], group=group_asset)
+
+// --- 포지션 설정
+group_pos = "💰 포지션"
+posPct   = input.float(100, "투입 자금 비율 (%)", minval=0.1, maxval=100, step=0.5, group=group_pos)
+minQty   = input.float(1, "최소 수량", minval=0, step=1, group=group_pos)
+roundQty = input.bool(true, "정수 수량 (주식용)", group=group_pos)
+
+// --- 피라미딩 (추가매수)
+group_pyr = "📈 피라미딩 (추가매수)"
+usePyramiding      = input.bool(true, "피라미딩 사용", group=group_pyr)
+maxPyrEntries      = input.int(4, "최대 진입 횟수 (1차 포함)", minval=1, maxval=10, group=group_pyr)
+pyrHighLen         = input.int(60, "신고가 돌파 기준 봉수", minval=5, maxval=500, group=group_pyr)
+pyrCooldown        = input.int(5, "추가매수 간격 (최소 봉수)", minval=1, maxval=50, group=group_pyr)
+pyrRefillAfterSell = input.bool(false, "매도 후 추가매수 허용 (리필)", group=group_pyr)
+
+// 피라미딩 비중 (합계=100)
+group_pyr_wt = "📊 피라미딩 비중 (합계=100)"
+pyrWt1  = input.float(40.0, "1차 진입 %", minval=0, maxval=100, step=1, group=group_pyr_wt)
+pyrWt2  = input.float(30.0, "2차 추가 %", minval=0, maxval=100, step=1, group=group_pyr_wt)
+pyrWt3  = input.float(20.0, "3차 추가 %", minval=0, maxval=100, step=1, group=group_pyr_wt)
+pyrWt4  = input.float(10.0, "4차 추가 %", minval=0, maxval=100, step=1, group=group_pyr_wt)
+pyrWt5  = input.float(0.0, "5차 추가 %", minval=0, maxval=100, step=1, group=group_pyr_wt)
+pyrWt6  = input.float(0.0, "6차 추가 %", minval=0, maxval=100, step=1, group=group_pyr_wt)
+pyrWt7  = input.float(0.0, "7차 추가 %", minval=0, maxval=100, step=1, group=group_pyr_wt)
+pyrWt8  = input.float(0.0, "8차 추가 %", minval=0, maxval=100, step=1, group=group_pyr_wt)
+pyrWt9  = input.float(0.0, "9차 추가 %", minval=0, maxval=100, step=1, group=group_pyr_wt)
+pyrWt10 = input.float(0.0, "10차 추가 %", minval=0, maxval=100, step=1, group=group_pyr_wt)
+
+// --- 손절
+group_risk = "🛑 손절"
+useStopLoss   = input.bool(true, "손절 사용", group=group_risk)
+stopType      = input.string("Fixed %", "손절 방식", options=["Fixed %", "ATR-based"], group=group_risk)
+stopLossPct   = input.float(7.0, "고정 손절 %", minval=0.1, step=0.1, group=group_risk)
+atrStopLen    = input.int(14, "ATR 길이 (ATR 손절용)", minval=1, group=group_risk)
+atrStopMult   = input.float(2.0, "ATR 배수", minval=0.1, step=0.1, group=group_risk)
+
+// --- 1차 익절 (TP1)
+group_tp1 = "🎯 1차 익절 (TP1)"
+useTP1        = input.bool(false, "TP1 사용", group=group_tp1)
+tp1ProfitPct  = input.float(21.0, "TP1 수익률 %", minval=0.1, step=0.1, group=group_tp1)
+tp1SellPct    = input.float(50.0, "TP1 매도 비율 % (최소 50%)", minval=50, maxval=100, step=1, group=group_tp1)
+
+// --- 상위 타임프레임 필터
+group_htf = "🔍 상위TF 필터"
+useHTFFilter         = input.bool(true, "상위TF 필터 사용", group=group_htf)
+htfMode              = input.string("Auto", "모드", options=["Auto", "Manual"], group=group_htf)
+manualHTF_TF         = input.timeframe("W", "수동: 타임프레임", group=group_htf)
+manualHTF_Type       = input.string("VWMA", "수동: 지표 종류", options=["VWMA", "SMA", "EMA"], group=group_htf)
+manualHTF_Len        = input.int(156, "수동: 길이", minval=1, group=group_htf)
+useLastConfirmedHTF  = input.bool(false, "확정된 HTF 값 사용 (안정적, 느림)", group=group_htf)
+useWeeklyCloseRegime = input.bool(false, "주봉 종가 확정 기준 레짐", group=group_htf)
+
+// --- 진입 가드
+group_guard = "🔒 진입 가드"
+enterOnlyOnSetupStart = input.bool(true, "셋업 시작 첫봉에서만 진입", group=group_guard)
+useLiveGuard          = input.bool(true, "실전 가드 (늦은 진입 방지)", group=group_guard)
+tradeStart            = input.time(1767798000000, "거래 시작 시간 (KST)", group=group_guard)
+
+// --- 슈퍼트렌드
+group_st = "📐 슈퍼트렌드"
+stAtrLen = input.int(10,    "ATR 길이", minval=1, group=group_st)
+stFactor = input.float(3.0, "팩터",     minval=0.01, step=0.01, group=group_st)
+stInvert = input.bool(false, "ST 반전 (방향 반대로)", group=group_st)
+
+// --- 슈퍼트렌드 전량매도
+group_st_htf = "🚪 슈퍼트렌드 전량매도"
+stExitMode      = input.string("Current TF", "전량매도 기준", options=["Current TF", "HTF only", "Both (any flip)", "None"], group=group_st_htf, tooltip="Current TF: 현재봉 ST 전환\nHTF only: 상위TF ST 전환\nBoth: 둘 중 하나\nNone: ST 전량매도 안함")
+stHTF_TF        = input.timeframe("W", "상위TF 타임프레임", group=group_st_htf)
+stHTF_AtrLen    = input.int(10, "상위TF ATR 길이", minval=1, group=group_st_htf)
+stHTF_Factor    = input.float(3.0, "상위TF 팩터", minval=0.01, step=0.01, group=group_st_htf)
+
+// --- HVI
+group_hvi = "📊 HVI (LazyBear)"
+hviLen = input.int(200, "길이", minval=1, group=group_hvi)
+hviDiv = input.float(3.6, "제수", minval=0.1, step=0.1, group=group_hvi)
+showHVIPane = input.bool(false, "HVI 히스토그램 표시", group=group_hvi)
+
+// --- QQE MOD
+group_primary = "📉 QQE - Primary"
+rsiLengthPrimary     = input.int(6, title="RSI 길이", group=group_primary)
+rsiSmoothingPrimary  = input.int(5, title="RSI 스무딩", group=group_primary)
+qqeFactorPrimary     = input.float(3.0, title="QQE 팩터", group=group_primary)
+sourcePrimary        = input.source(close, title="RSI 소스", group=group_primary)
+
+group_secondary = "📉 QQE - Secondary"
+rsiLengthSecondary    = input.int(6, title="RSI 길이", group=group_secondary)
+rsiSmoothingSecondary = input.int(5, title="RSI 스무딩", group=group_secondary)
+qqeFactorSecondary    = input.float(1.61, title="QQE 팩터", group=group_secondary)
+thresholdSecondary    = input.float(3.0, title="임계값", group=group_secondary)
+sourceSecondary       = input.source(close, title="RSI 소스", group=group_secondary)
+
+group_bollinger = "📉 QQE - 볼린저"
+bollingerLength     = input.int(50, minval=1, title="길이", group=group_bollinger)
+bollingerMultiplier = input.float(0.35, step=0.1, minval=0.001, maxval=5, title="배수", group=group_bollinger)
+
+group_qqe = "📉 QQE 판정"
+qqePositiveDef = input.string("PrimaryRSI>50", "QQE '양수' 정의",
+     options=["PrimaryRSI>50","SecondaryRSI>50","Secondary>0(hist)","QQE UpState(blue)"], group=group_qqe)
+
+// --- SPO 분할매도 타이밍
+group_spo = "✂️ SPO 분할매도"
+useSPO         = input.bool(true, "SPO 분할매도 사용", group=group_spo)
+spo_len_smooth = input.int(4, "스무딩 길이", minval=2, group=group_spo)
+spo_threshold  = input.float(1.0, "임계값", step=0.1, group=group_spo)
+spo_len_std    = input.int(50, "표준편차 길이", minval=10, group=group_spo)
+spo_hma_norm   = input.int(30, "정규화 HMA", minval=1, group=group_spo)
+spo_confirmed  = input.bool(false, "확정봉에서만 매도", group=group_spo)
+
+// --- 분할매도 스케줄
+group_sell = "✂️ 분할매도 비율 (SELL1~6)"
+max_sell_tranches = input.int(6, "최대 분할 횟수", minval=1, maxval=6, group=group_sell)
+after_max_sell = input.string("cycle", "최대 횟수 이후", options=["extend","cycle","stop"], group=group_sell, tooltip="extend: 마지막 비율 유지\ncycle: 처음부터 반복\nstop: 멈춤")
+
+sell1 = input.float(5.0,  "1차 매도 %", step=0.1, minval=0, maxval=100, group=group_sell)
+sell2 = input.float(5.0,  "2차 매도 %", step=0.1, minval=0, maxval=100, group=group_sell)
+sell3 = input.float(10.0, "3차 매도 %", step=0.1, minval=0, maxval=100, group=group_sell)
+sell4 = input.float(15.0, "4차 매도 %", step=0.1, minval=0, maxval=100, group=group_sell)
+sell5 = input.float(25.0, "5차 매도 %", step=0.1, minval=0, maxval=100, group=group_sell)
+sell6 = input.float(40.0, "6차 매도 %", step=0.1, minval=0, maxval=100, group=group_sell)
+
+// --- 분할매도 게이트
+group_gate = "✂️ 분할매도 조건"
+use_profit_gate = input.bool(true, "수익 구간에서만 분할매도", group=group_gate)
+min_profit_pct  = input.float(0.10, "최소 수익률 %", step=0.01, minval=0, group=group_gate)
+fee_buf_pct     = input.float(0.20, "수수료 버퍼 %", step=0.01, minval=0, group=group_gate)
+
+// --- 주문 잠금
+group_lock = "⏸️ 주문 잠금"
+one_sell_per_bar = input.bool(true, "봉당 1회 매도만 허용", group=group_lock)
+
+// --- 디버그
+group_dbg = "🔧 디버그"
+showTable = input.bool(true, "상태 테이블 표시", group=group_dbg)
+showBuySignalMark = input.bool(false, "BUY? 마크 표시", group=group_dbg)
+showSpoPlot = input.bool(false, "SPO 오실레이터 표시", group=group_dbg)
+showPyrLevels = input.bool(true, "피라미딩 돌파 레벨 표시", group=group_dbg)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Pyramid weight helper
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+f_getPyrWeight(int stage) =>
+    switch stage
+        0 => pyrWt1
+        1 => pyrWt2
+        2 => pyrWt3
+        3 => pyrWt4
+        4 => pyrWt5
+        5 => pyrWt6
+        6 => pyrWt7
+        7 => pyrWt8
+        8 => pyrWt9
+        9 => pyrWt10
+        => 0.0
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Position sizing (피라미딩 차수별 수량 계산)
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+f_calcQty(float weightPct) =>
+    float cash = strategy.equity * (posPct / 100.0) * (weightPct / 100.0)
+    float raw = cash / close
+    float q = roundQty ? math.floor(raw) : raw
+    math.max(minQty, q)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Supertrend
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[stLine, stDirRaw] = ta.supertrend(stFactor, stAtrLen)
+stDir  = stInvert ? -stDirRaw : stDirRaw
+
+stBull     = stDir < 0
+stBearFlip = (stDir[1] < 0) and (stDir >= 0)
+
+plot(stBull ? stLine : na, "ST Up",   color=color.new(color.green, 0), style=plot.style_linebr, linewidth=2)
+plot(stBull ? na : stLine, "ST Down", color=color.new(color.red,   0), style=plot.style_linebr, linewidth=2)
+
+// ✅ HTF Supertrend (상위TF 전량매도용)
+// request.security 안에서 ta.supertrend 직접 호출 불가 → 먼저 변수로 계산
+[stHTF_line_calc, stHTF_dir_calc] = ta.supertrend(stHTF_Factor, stHTF_AtrLen)
+
+stHTF_Dir  = request.security(syminfo.tickerid, stHTF_TF, stHTF_dir_calc, barmerge.gaps_off, barmerge.lookahead_off)
+stHTF_Line = request.security(syminfo.tickerid, stHTF_TF, stHTF_line_calc, barmerge.gaps_off, barmerge.lookahead_off)
+
+stHTF_Bull = stHTF_Dir < 0
+
+// HTF ST 방향 전환 감지
+bool useHTFST = stExitMode == "HTF only" or stExitMode == "Both (any flip)"
+var bool prevHTF_Bull = true
+bool stHTF_FlipDown = false
+if useHTFST
+    stHTF_FlipDown := prevHTF_Bull and not stHTF_Bull
+    prevHTF_Bull := stHTF_Bull
+
+plot(useHTFST and stHTF_Bull ? stHTF_Line : na, "HTF ST Up", color=color.new(color.teal, 30), style=plot.style_linebr, linewidth=3)
+plot(useHTFST and not stHTF_Bull ? stHTF_Line : na, "HTF ST Down", color=color.new(color.maroon, 30), style=plot.style_linebr, linewidth=3)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// HTF Filter (주식: 주봉 VWMA156 / 코인: 일봉 MA200 / 수동 설정)
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Auto 모드: 주식=W/VWMA/156, 코인=D/SMA/200
+string htfTF   = htfMode == "Auto" ? (assetType == "Stock" ? "W" : "D") : manualHTF_TF
+string htfType = htfMode == "Auto" ? (assetType == "Stock" ? "VWMA" : "SMA") : manualHTF_Type
+int    htfLen  = htfMode == "Auto" ? (assetType == "Stock" ? 156 : 200) : manualHTF_Len
+
+// HTF 지표 계산
+htfVal_vwma = ta.vwma(src, htfLen)
+htfVal_sma  = ta.sma(src, htfLen)
+htfVal_ema  = ta.ema(src, htfLen)
+
+htfExpr = htfType == "VWMA" ? htfVal_vwma : htfType == "EMA" ? htfVal_ema : htfVal_sma
+
+htfValue = request.security(syminfo.tickerid, htfTF,
+     useLastConfirmedHTF ? htfExpr[1] : htfExpr,
+     barmerge.gaps_off, barmerge.lookahead_off)
+
+var bool wRegimeOK = true
+bool htfOk = true
+
+if useHTFFilter and useWeeklyCloseRegime
+    bool newPeriod = timeframe.change(htfTF)
+    float prevClose = request.security(syminfo.tickerid, htfTF, close[1], barmerge.gaps_off, barmerge.lookahead_off)
+    float prevHTF   = request.security(syminfo.tickerid, htfTF, htfExpr[1], barmerge.gaps_off, barmerge.lookahead_off)
+    if newPeriod or barstate.isfirst
+        wRegimeOK := (not na(prevClose) and not na(prevHTF)) ? (prevClose > prevHTF) : false
+    htfOk := wRegimeOK
+else
+    htfOk := not useHTFFilter ? true : (close > htfValue and not na(htfValue))
+
+plot(useHTFFilter ? htfValue : na, "HTF MA", color=color.new(color.orange, 0), linewidth=2)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// HVI (LazyBear)
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+rng    = high - low
+rngAvg = ta.sma(rng, hviLen)
+volA   = ta.sma(volume, hviLen)
+
+high1 = high[1]
+low1  = low[1]
+mid1  = hl2[1]
+
+u1 = mid1 + (high1 - low1) / hviDiv
+d1 = mid1 - (high1 - low1) / hviDiv
+
+r_enabled1 = (rng > rngAvg) and (close < d1) and (volume > volA)
+r_enabled2 = close < mid1
+r_enabled  = r_enabled1 or r_enabled2
+
+g_enabled1 = close > mid1
+g_enabled2 = (rng > rngAvg) and (close > u1) and (volume > volA)
+g_enabled3 = (high > high1) and (rng < rngAvg / 1.5) and (volume < volA)
+g_enabled4 = (low < low1)  and (rng < rngAvg / 1.5) and (volume > volA)
+g_enabled  = g_enabled1 or g_enabled2 or g_enabled3 or g_enabled4
+
+gr_enabled1 = (rng > rngAvg) and (close > d1) and (close < u1) and (volume > volA) and (volume < volA * 1.5) and (volume > volume[1])
+gr_enabled2 = (rng < rngAvg / 1.5) and (volume < volA / 1.5)
+gr_enabled3 = (close > d1) and (close < u1)
+gr_enabled  = gr_enabled1 or gr_enabled2 or gr_enabled3
+
+hviColor = gr_enabled ? color.gray : g_enabled ? color.green : r_enabled ? color.red : color.blue
+plot(showHVIPane ? volume : na, "HVI Volume", style=plot.style_columns, color=hviColor, linewidth=2, display=display.pane)
+
+hviGreen = g_enabled
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// QQE MOD
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+calculateQQE(rsiLength, smoothingFactor, qqeFactor, source) =>
+    wildersLength = rsiLength * 2 - 1
+    rsi = ta.rsi(source, rsiLength)
+    smoothedRsi = ta.ema(rsi, smoothingFactor)
+    atrRsi = math.abs(smoothedRsi[1] - smoothedRsi)
+    smoothedAtrRsi = ta.ema(atrRsi, wildersLength)
+    dynamicAtrRsi = smoothedAtrRsi * qqeFactor
+
+    longBand = 0.0
+    shortBand = 0.0
+    trendDirection = 0
+
+    atrDelta = dynamicAtrRsi
+    newShortBand = smoothedRsi + atrDelta
+    newLongBand  = smoothedRsi - atrDelta
+
+    longBand := smoothedRsi[1] > longBand[1] and smoothedRsi > longBand[1] ? math.max(longBand[1], newLongBand) : newLongBand
+    shortBand := smoothedRsi[1] < shortBand[1] and smoothedRsi < shortBand[1] ? math.min(shortBand[1], newShortBand) : newShortBand
+
+    longBandCross = ta.cross(longBand[1], smoothedRsi)
+
+    if ta.cross(smoothedRsi, shortBand[1])
+        trendDirection := 1
+    else if longBandCross
+        trendDirection := -1
+    else
+        trendDirection := trendDirection[1]
+
+    qqeTrendLine = trendDirection == 1 ? longBand : shortBand
+    [qqeTrendLine, smoothedRsi]
+
+[primaryQQETrendLine, primaryRSI]     = calculateQQE(rsiLengthPrimary, rsiSmoothingPrimary, qqeFactorPrimary, sourcePrimary)
+[secondaryQQETrendLine, secondaryRSI] = calculateQQE(rsiLengthSecondary, rsiSmoothingSecondary, qqeFactorSecondary, sourceSecondary)
+
+bollBasis = ta.sma(primaryQQETrendLine - 50, bollingerLength)
+bollDev   = bollingerMultiplier * ta.stdev(primaryQQETrendLine - 50, bollingerLength)
+bollUpper = bollBasis + bollDev
+
+qqeUpState = (secondaryRSI - 50 > thresholdSecondary) and (primaryRSI - 50 > bollUpper)
+
+qqePos = switch qqePositiveDef
+    "PrimaryRSI>50"        => primaryRSI > 50
+    "SecondaryRSI>50"      => secondaryRSI > 50
+    "Secondary>0(hist)"    => (secondaryRSI - 50) > 0
+    "QQE UpState(blue)"    => qqeUpState
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SPO (Smooth Price Oscillator)
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+smoother_F(float price, int period) =>
+    float step = 2.0 * math.pi / period
+    float a1 = math.exp(-math.sqrt(2) * math.pi / period)
+    float b1 = 2 * a1 * math.cos(math.sqrt(2) * step / period)
+    float c2 = b1
+    float c3 = -a1 * a1
+    float c1 = 1 - c2 - c3
+    float smoothed = 0.0
+    smoothed := bar_index >= 4 ? c1 * (price + price[1]) / 2 + c2 * smoothed[1] + c3 * smoothed[2] : price
+    smoothed
+
+float line_long  = smoother_F(close, spo_len_smooth * 2)
+float line_short = smoother_F(close, spo_len_smooth)
+float oscillator = line_short - line_long
+
+float stdev_osc  = ta.stdev(oscillator, spo_len_std)
+float denom      = math.max(ta.highest(stdev_osc, spo_len_std), 1e-10)
+float norm_osc   = ta.hma(oscillator / denom, spo_hma_norm)
+
+bool spo_okbar = spo_confirmed ? barstate.isconfirmed : true
+bool spo_signal_dn = spo_okbar and (norm_osc > spo_threshold) and ta.crossover(norm_osc[1], norm_osc)
+
+plot(showSpoPlot ? norm_osc : na, "SPO normalized", display=display.pane)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ENTRY CONDITIONS
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+buySignal = stBull and hviGreen and qqePos and htfOk
+
+setupState = buySignal
+setupStart = setupState and not setupState[1]
+setupEnd   = not setupState and setupState[1]
+
+entrySignal = enterOnlyOnSetupStart ? setupStart : buySignal
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// LIVE GUARD
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+var bool liveArmed   = false
+var bool lockCurrent = false
+
+justArmed = useLiveGuard and (not liveArmed) and (time >= tradeStart)
+if justArmed
+    liveArmed   := true
+    lockCurrent := setupState
+
+if liveArmed and setupEnd
+    lockCurrent := false
+
+entryWindowOK = not useLiveGuard ? true : (liveArmed and not lockCurrent)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// PYRAMIDING STATE
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+var int pyrCount = 0
+var int lastPyrBar = na
+var float pyrHighest = na
+
+// 포지션 없으면 리셋
+if strategy.position_size == 0
+    pyrCount := 0
+    lastPyrBar := na
+    pyrHighest := na
+
+// 포지션 있을 때 최고가 추적
+if strategy.position_size > 0
+    pyrHighest := na(pyrHighest) ? high : math.max(pyrHighest, high)
+
+// N봉 신고가 (lookback 기준)
+highestN = ta.highest(high[1], pyrHighLen)
+
+// 피라미딩 조건: 현재가가 N봉 신고가를 돌파 + 쿨다운 + 4조건 유지 + 최대 횟수 미만
+bool pyrCooldownOK = na(lastPyrBar) or (bar_index - lastPyrBar >= pyrCooldown)
+bool pyrBreakout   = close > highestN and not na(highestN)
+bool canPyramid    = usePyramiding and strategy.position_size > 0 and pyrCount < maxPyrEntries and pyrBreakout and pyrCooldownOK and stBull and htfOk
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SELL STATE
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+f_getSellPctSingle(stage) =>
+    switch stage
+        0 => sell1
+        1 => sell2
+        2 => sell3
+        3 => sell4
+        4 => sell5
+        5 => sell6
+        => sell6
+
+var int sell_stage = 0
+var int last_sell_bar = na
+var bool tp1_done = false
+
+if strategy.position_size == 0
+    sell_stage := 0
+    last_sell_bar := na
+    tp1_done := false
+
+need_pct = min_profit_pct + fee_buf_pct
+sell_ok_price = not use_profit_gate ? true : (strategy.position_size > 0 and close >= strategy.position_avg_price * (1 + need_pct / 100.0))
+
+sell_lock_ok = not one_sell_per_bar ? true : (na(last_sell_bar) or last_sell_bar != bar_index)
+
+can_split_sell = useSPO and strategy.position_size > 0 and spo_signal_dn and sell_ok_price and sell_lock_ok
+
+// TP1
+tp1PriceHit = strategy.position_size > 0 and useTP1 and not tp1_done and close >= strategy.position_avg_price * (1 + tp1ProfitPct / 100.0)
+can_tp1_sell = tp1PriceHit and sell_lock_ok
+
+// Supertrend 전량매도 (현재TF or 상위TF 선택)
+exitAllSignal = switch stExitMode
+    "Current TF"      => stBearFlip
+    "HTF only"        => stHTF_FlipDown
+    "Both (any flip)" => stBearFlip or stHTF_FlipDown
+    "None"            => false
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ATR for dynamic stop
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+atrVal = ta.atr(atrStopLen)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ORDERS
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// ✅ 1차 진입
+realEntryCond = entryWindowOK and entrySignal and strategy.position_size == 0 and barstate.isconfirmed
+
+if realEntryCond
+    float qty1 = f_calcQty(f_getPyrWeight(0))
+    if qty1 > 0
+        strategy.entry("Long", strategy.long, qty=qty1, comment="ENTRY 1")
+        pyrCount := 1
+        lastPyrBar := bar_index
+        pyrHighest := high
+
+// ✅ 피라미딩 (2차~ 추가매수)
+if canPyramid and barstate.isconfirmed
+    float pyrQty = f_calcQty(f_getPyrWeight(pyrCount))
+    if pyrQty > 0
+        strategy.entry("Long", strategy.long, qty=pyrQty, comment="PYR " + str.tostring(pyrCount + 1))
+        pyrCount += 1
+        lastPyrBar := bar_index
+
+// ✅ Stop Loss (고정% / ATR 기반)
+if useStopLoss and strategy.position_size > 0
+    float stopPrice = na
+    if stopType == "Fixed %"
+        stopPrice := strategy.position_avg_price * (1 - stopLossPct / 100.0)
+    else
+        stopPrice := strategy.position_avg_price - (atrVal * atrStopMult)
+
+    if not na(stopPrice) and stopPrice > 0
+        strategy.exit("SL", from_entry="Long", stop=stopPrice, comment=stopType == "Fixed %" ? "HARD SL" : "ATR SL")
+
+// ✅ TP1
+if can_tp1_sell
+    float tpQty = strategy.position_size * (tp1SellPct / 100.0)
+    tpQty := math.min(tpQty, strategy.position_size)
+    if tpQty > 0
+        strategy.close("Long", qty=tpQty, comment="TP1")
+        tp1_done := true
+        last_sell_bar := bar_index
+        if pyrRefillAfterSell
+            pyrCount := math.max(pyrCount - 1, 1)
+
+// ✅ 분할매도 (SPO signal_dn)
+if can_split_sell and not can_tp1_sell
+    int lastStage = math.max(max_sell_tranches - 1, 0)
+    int eff_stage = sell_stage
+
+    if eff_stage >= max_sell_tranches
+        if after_max_sell == "cycle"
+            eff_stage := 0
+        else
+            eff_stage := lastStage
+
+    bool allow_sell_by_stage = true
+    if after_max_sell == "stop" and sell_stage >= max_sell_tranches
+        allow_sell_by_stage := false
+
+    if allow_sell_by_stage
+        float spct = f_getSellPctSingle(eff_stage)
+        if spct > 0
+            float qty_target = strategy.position_size * (spct / 100.0)
+            qty_target := math.min(qty_target, strategy.position_size)
+
+            if qty_target > 0
+                strategy.close("Long", qty=qty_target, comment="SPO S" + str.tostring(eff_stage + 1))
+                last_sell_bar := bar_index
+                if pyrRefillAfterSell
+                    pyrCount := math.max(pyrCount - 1, 1)
+
+                if after_max_sell == "cycle"
+                    sell_stage := sell_stage >= lastStage ? 0 : sell_stage + 1
+                else
+                    sell_stage := sell_stage >= lastStage ? lastStage : sell_stage + 1
+
+// ✅ 전량매도: Supertrend 하락 전환
+if strategy.position_size > 0 and exitAllSignal
+    strategy.close("Long", comment="EXIT ALL: ST Flip")
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Visuals
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+plotshape(showBuySignalMark and buySignal, title="SETUP", style=shape.triangleup, location=location.belowbar, size=size.tiny, text="BUY?", color=color.new(color.lime, 0))
+plotshape(realEntryCond, title="ENTRY 1", style=shape.triangleup, location=location.belowbar, size=size.small, text="E1", color=color.new(color.lime, 0))
+plotshape(canPyramid and barstate.isconfirmed, title="PYRAMID", style=shape.triangleup, location=location.belowbar, size=size.small, text="PYR", color=color.new(color.teal, 0))
+plotshape(can_tp1_sell, title="TP1", style=shape.square, location=location.abovebar, size=size.tiny, text="TP1", color=color.new(color.aqua, 0))
+plotshape(can_split_sell and not can_tp1_sell, title="SPLIT", style=shape.circle, location=location.abovebar, size=size.tiny, text="S", color=color.new(color.orange, 0))
+plotshape(exitAllSignal and strategy.position_size > 0, title="EXIT ALL", style=shape.triangledown, location=location.abovebar, size=size.tiny, text="EXIT", color=color.new(color.red, 0))
+
+// 피라미딩 최고가 레벨
+plot(showPyrLevels and strategy.position_size > 0 and usePyramiding ? highestN : na, "Pyr Breakout Level", color=color.new(color.teal, 50), style=plot.style_stepline, linewidth=1)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Debug Table
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+var table t = table.new(position.top_right, 2, 24, border_width=1)
+
+f_row(r, label, val) =>
+    table.cell(t, 0, r, label, text_color=color.white, bgcolor=color.new(color.black, 0))
+    table.cell(t, 1, r, val, text_color=color.white, bgcolor=color.new(color.black, 60))
+
+if showTable and barstate.islast
+    f_row(0,  "Asset", assetType)
+    f_row(1,  "S(ST Up)", stBull ? "ON" : "OFF")
+    f_row(2,  "H(HVI Green)", hviGreen ? "ON" : "OFF")
+    f_row(3,  "Q(QQE +)", qqePos ? "ON" : "OFF")
+    f_row(4,  "HTF filter", htfOk ? "ON" : "OFF")
+    f_row(5,  "HTF mode", htfMode == "Auto" ? (assetType == "Stock" ? "W/VWMA156" : "D/SMA200") : manualHTF_TF + "/" + manualHTF_Type + str.tostring(manualHTF_Len))
+    f_row(6,  "Setup", setupState ? "ON" : "OFF")
+    f_row(7,  "SetupStart", setupStart ? "ON" : "OFF")
+    f_row(8,  "EntrySignal", entrySignal ? "ON" : "OFF")
+    f_row(9,  "LiveArmed", not useLiveGuard ? "n/a" : (liveArmed ? "YES" : "NO"))
+    f_row(10, "LockCurrent", not useLiveGuard ? "n/a" : (lockCurrent ? "LOCK" : "OPEN"))
+    f_row(11, "EntryWindowOK", entryWindowOK ? "OK" : "BLOCK")
+    f_row(12, "PosSize", str.tostring(strategy.position_size))
+    f_row(13, "PyrCount", str.tostring(pyrCount) + "/" + str.tostring(maxPyrEntries) + (pyrRefillAfterSell ? " [REFILL]" : ""))
+    f_row(14, "PyrBreakout", pyrBreakout ? "YES" : "NO")
+    f_row(15, "HighestN", str.tostring(highestN, format.mintick))
+    f_row(16, "StopType", stopType)
+    f_row(17, "TP1 done", tp1_done ? "YES" : "NO")
+    f_row(18, "SPO dn", spo_signal_dn ? "ON" : "OFF")
+    f_row(19, "Split gate", sell_ok_price ? "ON" : "OFF")
+    f_row(20, "Sell stage", str.tostring(sell_stage) + "/" + str.tostring(max_sell_tranches))
+    f_row(21, "EXIT ALL", exitAllSignal ? "ON" : "OFF")
+    f_row(22, "ST Exit", stExitMode)
+    f_row(23, "HTF ST Bull", useHTFST ? (stHTF_Bull ? "UP" : "DOWN") : "n/a")
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Alerts
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+alertcondition(buySignal, "SETUP", "SETUP: All 4 conditions met")
+alertcondition(realEntryCond, "ENTRY", "ENTRY: First entry fired")
+alertcondition(canPyramid and barstate.isconfirmed, "PYRAMID", "PYRAMID: New high breakout, adding position")
+alertcondition(can_tp1_sell, "TP1", "TP1: Take profit triggered")
+alertcondition(can_split_sell and not can_tp1_sell, "SPLIT", "SPLIT: SPO signal_dn fired")
+alertcondition(exitAllSignal, "EXIT ALL", "EXIT ALL: Supertrend flipped down")
