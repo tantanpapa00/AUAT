@@ -71,10 +71,45 @@ can_pyramid = cooldown_ok and breakout_ok and st_bullish and htf_ok
 - ✅ Frontend build OK
 - ✅ debug_trend_indicators.py 정상 동작 (20/5.0)
 
+### 6. 추세매매 백테스트 3가지 문제 수정 (2026-02-13)
+
+**문제 1: SPO OFF 설정 무시**
+- **원인**: JS에서 camelCase (`useSpoSplit`) → Rust는 snake_case (`use_spo_split`) 기대
+- **수정**: main.js invoke 파라미터 전부 snake_case로 변경
+- **파일**: `pc-app/ui/src/main.js` line ~8429
+
+**문제 2: 백테스트 로딩 48초 → 7초**
+- **원인**: KIS 1W (주봉) HTF 캔들 조회가 36초 소요
+- **수정**: KIS 거래소는 HTF 캔들 스킵 (signal_tf만 사용)
+- **파일**: `app/premium_routes.py`
+
+**문제 3: 캔들 날짜 '25' 표시**
+- **원인**: lightweight-charts 기본 날짜 포맷
+- **수정**: tickMarkFormatter + localization 추가
+- **파일**: `pc-app/ui/src/main.js` line ~7887
+
+### 7. KIS 토큰 캐싱 추가 (2026-02-13)
+
+**문제**: "KIS 토큰 발급 실패" 403 에러
+- **원인**: "1분당 1회 제한" - candle_fetcher.py와 kis_api.py가 별도 캐시 사용
+- **수정**:
+  - `kis_api.py`: get_kis_token()에 app_key 기반 캐시 추가
+  - `candle_fetcher.py`: kis_api.py 캐시 재사용
+- **결과**: 중복 토큰 발급 방지, 403 에러 해결
+
+### 5. 테스트 결과
+- ✅ 341 tests passed
+- ✅ Frontend build OK
+- ✅ VPS 배포 완료
+
+### 커밋
+- `9385063` fix: JS invoke snake_case + KIS HTF 스킵 + 날짜 포맷
+- `adc6fcf` fix: KIS 토큰 캐싱 추가 (1분당 1회 제한 회피)
+
 ### 남은 작업
 - [ ] PineScript Data Window와 봉별 값 비교 (정합성 최종 검증)
 - [ ] 다중 심볼 테스트 (삼성전자, SK하이닉스, AAPL, BTC-USDT)
-- [ ] VPS 배포 및 실전 검증
+- [ ] PC앱 빌드 및 최종 검증
 
 ## Day 17 완료사항 (2026-02-12)
 - v8 엔진 로직 완료 (피라미딩/ATR손절/ST Exit Mode)

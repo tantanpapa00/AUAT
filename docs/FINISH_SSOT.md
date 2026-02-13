@@ -358,6 +358,36 @@
 
 - Commit: `8c960e9`
 
+## Day 18 (2026-02-13) — DONE ✅
+- **추세매매 PineScript v8 정합성 검증**
+  - [x] HTF 필터 크립토/주식 분리 (SMA vs VWMA)
+  - [x] Supertrend 기본값 20/5.0 통일
+  - [x] signal_generator_trend.py PineScript v8 완전 재작성
+  - [x] reason_code 변경 (TREND_ENTRY_FULL → TREND_ENTRY)
+
+- **추세매매 백테스트 3가지 문제 수정**
+  - [x] 문제 1 (SPO OFF 무시): JS invoke snake_case로 변경
+  - [x] 문제 2 (느린 로딩 48초→7초): KIS HTF 캔들 스킵
+  - [x] 문제 3 (날짜 '25'): tickMarkFormatter + localization 추가
+
+- **KIS 토큰 캐싱 추가**
+  - [x] 403 "1분당 1회 제한" 에러 해결
+  - [x] kis_api.py: get_kis_token() 캐싱
+  - [x] candle_fetcher.py: kis_api.py 캐시 재사용
+
+- **수정된 파일**
+  - `app/strategy_engine/signal_generator_trend.py` — v8 로직 재작성
+  - `app/strategy_engine/backtest_engine_trend.py` — precompute_sma 추가
+  - `app/premium_routes.py` — htf_sma_len, asset_type, KIS HTF 스킵
+  - `pc-app/ui/src/main.js` — snake_case invoke, 날짜 포맷
+  - `app/kis_api.py` — 토큰 캐싱
+  - `app/strategy_engine/candle_fetcher.py` — 토큰 캐시 공유
+
+- **테스트**: pytest 341 passed
+- **VPS 배포**: docker compose up -d --build 완료
+
+- Commits: `4501fcb`, `33522c1`, `bf2bf4d`, `96ff487`, `9385063`, `adc6fcf`
+
 ## Day 16 (2026-02-11) — DONE ✅
 - **백테스트 UI TradingView 스타일 동기화**
   - [x] 에퀴티 커브 Y축 퍼센트(%) 표시로 변경
