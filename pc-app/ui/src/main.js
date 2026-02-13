@@ -6633,6 +6633,17 @@ async function initCandleChart(symbol, exchange, period = '1D') {
                 borderColor: '#22304A',
                 timeVisible: true,
                 secondsVisible: false
+            },
+            localization: {
+                dateFormat: 'yyyy-MM-dd',
+                locale: 'ko-KR',
+                timeFormatter: (time) => {
+                    const date = new Date(time * 1000);
+                    const y = date.getFullYear();
+                    const m = String(date.getMonth() + 1).padStart(2, '0');
+                    const d = String(date.getDate()).padStart(2, '0');
+                    return `${y}-${m}-${d}`;
+                },
             }
         });
 
@@ -7898,6 +7909,13 @@ function createBacktestCandleChart(containerId, candles, trades) {
         localization: {
             dateFormat: 'yyyy-MM-dd',
             locale: 'ko-KR',
+            timeFormatter: (time) => {
+                const date = new Date(time * 1000);
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
+                return `${y}-${m}-${d}`;
+            },
         },
         width: container.clientWidth,
         height: 400,
