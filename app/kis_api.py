@@ -656,7 +656,20 @@ async def search_symbols(query: str, exchange: str = None, category: str = None)
 # =====================================================
 
 async def get_kis_token(app_key: str, app_secret: str, is_mock: bool = False) -> Optional[KISToken]:
-    """KIS API 액세스 토큰 발급"""
+    """KIS API 액세스 토큰 발급 (캐싱 포함, 1분당 1회 제한 회피)"""
+    global _token_cache
+
+    # 캐시 키: app_key 앞 10자
+    cache_key = f"app_{app_key[:10]}"
+
+    # 캐시된 토큰 확인
+    if cache_key in _token_cache:
+        cached = _token_cache[cache_key]
+        if cached and datetime.now(timezone.utc) < cached.expires_at:
+            print(f"[KIS DEBUG] Using cached token for key={app_key[:10]}, is_mock={is_mock}")
+            return cached
+
+    # 새 토큰 발급
     base_url = KIS_MOCK_URL if is_mock else KIS_REAL_URL
     url = f"{base_url}/oauth2/tokenP"
 
@@ -672,13 +685,25 @@ async def get_kis_token(app_key: str, app_secret: str, is_mock: bool = False) ->
             if resp.status_code == 200:
                 data = resp.json()
                 expires_in = int(data.get("expires_in", 86400))
-                return KISToken(
+                token = KISToken(
                     access_token=data.get("access_token", ""),
                     token_type=data.get("token_type", "Bearer"),
                     expires_at=datetime.now(timezone.utc) + timedelta(seconds=expires_in)
                 )
+                # 캐시에 저장
+                _token_cache[cache_key] = token
+                print(f"[KIS DEBUG] New token acquired for key={app_key[:10]}")
+                return token
+            else:
+                # 403 에러 등 - 캐시된 토큰이 있으면 재사용
+                print(f"[KIS DEBUG] Token request failed: {resp.status_code} - {resp.text[:100]}")
+                if cache_key in _token_cache:
+                    return _token_cache[cache_key]
     except Exception as e:
         print(f"[KIS] Token error: {e}")
+        # 에러 발생 시 캐시된 토큰 반환
+        if cache_key in _token_cache:
+            return _token_cache[cache_key]
 
     return None
 

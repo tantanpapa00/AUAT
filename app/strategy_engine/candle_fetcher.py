@@ -469,7 +469,7 @@ async def _fetch_upbit_candles(
 
 
 async def _get_kis_token() -> Optional[str]:
-    """KIS API 토큰 가져오기 (캐싱 포함)"""
+    """KIS API 토큰 가져오기 (kis_api.py 캐시 재사용)"""
     import os
     from datetime import datetime, timezone
 
@@ -490,22 +490,39 @@ async def _get_kis_token() -> Optional[str]:
         logger.warning("KIS_APP_KEY 또는 KIS_PAPER_APP_KEY가 설정되지 않았습니다")
         return None
 
-    # 캐시된 토큰이 유효한지 확인
+    # 1. 로컬 캐시 확인
     if (_kis_token_cache.get("token") and
         _kis_token_cache.get("expires_at") and
         _kis_token_cache.get("app_key") == app_key and
         datetime.now(timezone.utc) < _kis_token_cache["expires_at"]):
         return _kis_token_cache["token"]
 
-    # 새 토큰 발급
+    # 2. kis_api.py의 글로벌 캐시에서 토큰 가져오기
     try:
-        from app.kis_api import get_kis_token, KISToken
+        from app.kis_api import _token_cache as kis_global_cache
+        # kis_api.py는 "system" 키로 서버 토큰을 저장
+        if "system" in kis_global_cache:
+            token_obj = kis_global_cache["system"]
+            if token_obj and datetime.now(timezone.utc) < token_obj.expires_at:
+                _kis_token_cache["token"] = token_obj.access_token
+                _kis_token_cache["expires_at"] = token_obj.expires_at
+                _kis_token_cache["app_key"] = app_key
+                logger.info("kis_api 캐시에서 토큰 재사용")
+                return token_obj.access_token
+    except Exception as e:
+        logger.debug(f"kis_api 캐시 접근 실패: {e}")
+
+    # 3. 새 토큰 발급
+    try:
+        from app.kis_api import get_kis_token, KISToken, _token_cache as kis_global_cache
         token_obj = await get_kis_token(app_key, app_secret, is_mock)
         if token_obj:
             _kis_token_cache["token"] = token_obj.access_token
             _kis_token_cache["expires_at"] = token_obj.expires_at
             _kis_token_cache["app_key"] = app_key
             _kis_token_cache["app_secret"] = app_secret
+            # kis_api.py 캐시에도 저장 (다른 모듈과 공유)
+            kis_global_cache["system"] = token_obj
             logger.info(f"KIS 토큰 발급 완료 (만료: {token_obj.expires_at})")
             return token_obj.access_token
     except Exception as e:
