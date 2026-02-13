@@ -41,7 +41,7 @@ HTF_DEFAULTS: Dict[str, Any] = {
     "ichi_tenkan": 9,
     "ichi_kijun": 26,
     "ichi_senkou": 52,
-    # Supertrend
+    # Supertrend (작가님 확정: 20/5.0)
     "st_atr_len": 20,
     "st_factor": 5.0,
 }

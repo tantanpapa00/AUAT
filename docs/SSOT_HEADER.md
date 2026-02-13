@@ -5,12 +5,76 @@
 - SSOT: docs/FINISH_SSOT.md, docs/PROJECT_STATUS.md
 - Rules: docs/AI_RULES.md (MUST read first)
 
-## Current Status (2026-02-12)
+## Current Status (2026-02-13)
 - Week A~D: DONE (브랜드/사이트/PC앱/Android APK 기반)
 - Day 6~14: DONE (대시보드/종목분석/계정관리/전략설정/MR엔진/Trend엔진)
 - Day 15: DONE (백테스트 벡터화 최적화 20초→0.3초)
 - Day 16: DONE (트레이딩뷰 백테스트 동일화 + UI 개편)
 - Day 17: DONE (추세매매 최종 종합 업그레이드)
+- Day 18: IN PROGRESS (추세매매 파인스크립트 정합성 검증)
+
+## Day 18 진행사항 (2026-02-13)
+
+### 1. HTF 필터 크립토/주식 분리 (Major Fix)
+**문제**: 백테스트 엔진이 항상 VWMA 사용, 하지만 PineScript v8은:
+- **크립토**: 일봉 SMA(200)
+- **주식**: 주봉 VWMA(156)
+
+**수정 파일**:
+| 파일 | 변경 내용 |
+|------|-----------|
+| `signal_generator_trend.py` | `htf_sma_len: int = 200` 추가 |
+| `backtest_engine_trend.py` | `precompute_sma()` 추가 + asset_type별 분기 |
+| `premium_routes.py` | `htf_sma_len`, `asset_type` 파라미터 추가 |
+
+### 2. Supertrend 기본값 20/5.0 통일 (작가님 확정)
+**배경**: 10/3.0 (PineScript 기본값)으로 변경했다가 작가님 확정값 20/5.0으로 복원
+
+**수정 파일**:
+- `presets.py`, `signal_generator_trend.py`, `debug_trend_indicators.py`
+- `test_signal_generator_trend.py` (검증 테스트)
+
+### 3. signal_generator_trend.py PineScript v8 완전 재작성 (Major Refactor)
+
+**핵심 변경사항**:
+
+| 항목 | 변경 전 | 변경 후 |
+|------|---------|---------|
+| reason_code (1차 진입) | `TREND_ENTRY_FULL` | `TREND_ENTRY` |
+| reason_code (피라미딩) | `TREND_ENTRY_PYR` | `TREND_PYR{n}` (예: TREND_PYR2) |
+| barstate.isconfirmed | 미지원 | `is_bar_confirmed` 파라미터 추가 |
+| N봉 신고가 계산 | 현재봉 포함 | 현재봉 제외 (high[1]부터 N봉) |
+| 로직 순서 | EXIT→ENTRY | EXIT→PYR→ENTRY |
+
+**PineScript v8 핵심 로직 일치**:
+```python
+# PineScript: highestN = ta.highest(high[1], pyrHighLen)
+# high[1] = 직전봉, 현재봉 제외
+pyr_high_threshold = np.max(entry_high[-(config.pyr_high_len + 1):-1])
+
+# PineScript: canPyramid = position_size > 0 AND pyrCount < maxPyrEntries
+#             AND pyrBreakout AND cooldown AND stBull AND htfOk
+can_pyramid = cooldown_ok and breakout_ok and st_bullish and htf_ok
+```
+
+**reason_text 간소화**:
+- "추세매매 진입: ST상승+HVI초록+QQE양수+HTF VWMA 상위" → "ENTRY: ST+HVI+QQE+HTF"
+- "목표익절(TP1): +21% 도달, 50% 청산" → "TP1: +21% (50%)"
+- "SPO 분할매도: SELL1 실행 (5%)" → "SPO S1 (5%)"
+
+### 4. 테스트 업데이트
+- `test_signal_generator_trend.py`: reason_code 변경 반영
+- 35개 테스트 전체 통과
+
+### 5. 테스트 결과
+- ✅ 341 tests passed
+- ✅ Frontend build OK
+- ✅ debug_trend_indicators.py 정상 동작 (20/5.0)
+
+### 남은 작업
+- [ ] PineScript Data Window와 봉별 값 비교 (정합성 최종 검증)
+- [ ] 다중 심볼 테스트 (삼성전자, SK하이닉스, AAPL, BTC-USDT)
+- [ ] VPS 배포 및 실전 검증
 
 ## Day 17 완료사항 (2026-02-12)
 - v8 엔진 로직 완료 (피라미딩/ATR손절/ST Exit Mode)
@@ -37,7 +101,7 @@
   - refresh_master_cache 에러 로깅 개선
   - 미국 주식/ETF fallback 목록 대폭 확장 (SPY, QQQ, TQQQ 등)
   - /api/debug/master-cache 디버그 엔드포인트 추가
-- 테스트: pytest 340 passed
+- 테스트: pytest 341 passed
 - PC앱 빌드: BBooster_1.0.0_x64-setup.exe
 
 ### 커밋
@@ -1079,7 +1143,7 @@ pub async fn run_trend_backtest(
 
 ### 전체 테스트 현황
 ```
-340 passed (MR 216개 + Trend 69개 + 파인비교/무결성 55개)
+341 passed (MR 216개 + Trend 70개 + 파인비교/무결성 55개)
 ```
 
 ## Day 15: 백테스트 벡터화 최적화 (2026-02-10)

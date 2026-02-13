@@ -39,6 +39,7 @@ from .indicators import (
     calc_qqe_mod,
     calc_spo,
     calc_vwma,
+    calc_sma,
     calc_atr,
 )
 
@@ -46,6 +47,49 @@ from .indicators import (
 # ============================================================
 # 벡터화 사전 계산 함수들
 # ============================================================
+
+def build_htf_index_map(
+    signal_candles: List[Candle],
+    htf_candles: List[Candle],
+) -> np.ndarray:
+    """
+    타임스탬프 기반 HTF 인덱스 매핑 테이블 생성.
+
+    PineScript request.security(lookahead=off) 동작 모방:
+    - 현재 signal_tf 봉 시점에서 "확정된" HTF 봉 인덱스 반환
+    - 현재 봉 타임스탬프 <= HTF 봉 타임스탬프인 가장 최근 HTF 봉
+
+    Args:
+        signal_candles: 시그널 TF 캔들 리스트
+        htf_candles: HTF 캔들 리스트
+
+    Returns:
+        np.ndarray: signal_candles 각 인덱스에 대응하는 htf_candles 인덱스
+    """
+    n_signal = len(signal_candles)
+    n_htf = len(htf_candles)
+
+    if n_htf == 0:
+        return np.zeros(n_signal, dtype=int)
+
+    # HTF 타임스탬프 배열
+    htf_timestamps = np.array([c.ts for c in htf_candles])
+
+    # 각 signal 봉에 대해 대응하는 HTF 인덱스 찾기
+    htf_indices = np.zeros(n_signal, dtype=int)
+
+    htf_ptr = 0
+    for i, candle in enumerate(signal_candles):
+        curr_ts = candle.ts
+
+        # 현재 signal 봉 타임스탬프보다 작거나 같은 가장 큰 HTF 인덱스 찾기
+        while htf_ptr < n_htf - 1 and htf_timestamps[htf_ptr + 1] <= curr_ts:
+            htf_ptr += 1
+
+        htf_indices[i] = htf_ptr
+
+    return htf_indices
+
 
 def precompute_supertrend(
     highs: np.ndarray,
@@ -95,6 +139,16 @@ def precompute_vwma(
     if len(closes) < length:
         return np.full(len(closes), np.nan)
     return calc_vwma(closes, volumes, length)
+
+
+def precompute_sma(
+    closes: np.ndarray,
+    length: int,
+) -> np.ndarray:
+    """SMA를 전체 시리즈에서 한 번만 계산 (크립토 HTF 필터용)."""
+    if len(closes) < length:
+        return np.full(len(closes), np.nan)
+    return calc_sma(closes, length)
 
 
 def precompute_spo(
@@ -234,10 +288,14 @@ def run_trend_backtest(
         config.qqe_rsi_length, config.qqe_rsi_smoothing, config.qqe_factor
     )
 
-    # 4. HTF VWMA (htf_tf)
-    htf_vwma_full = precompute_vwma(
-        htf_closes, htf_volumes, config.htf_vwma_len
-    )
+    # 4. HTF 필터 (htf_tf)
+    # PineScript v8: 주식=VWMA(156), 크립토=SMA(200)
+    if config.asset_type == "crypto":
+        # 크립토: 일봉 SMA(200)
+        htf_vwma_full = precompute_sma(htf_closes, config.htf_sma_len)
+    else:
+        # 주식: 주봉 VWMA(156)
+        htf_vwma_full = precompute_vwma(htf_closes, htf_volumes, config.htf_vwma_len)
 
     # 5. Exit Supertrend (exit_tf)
     exit_st = precompute_supertrend(
@@ -259,9 +317,9 @@ def run_trend_backtest(
             highs, lows, closes, config.atr_stop_len
         )
 
-    # TF 비율 (인덱스 매핑용)
-    exit_ratio = len(exit_candles) / len(candles)
-    htf_ratio = len(htf_candles) / len(candles)
+    # 8. 타임스탬프 기반 HTF 인덱스 매핑 (request.security 모방)
+    exit_idx_map = build_htf_index_map(candles, exit_candles)
+    htf_idx_map = build_htf_index_map(candles, htf_candles)
 
     # 지표 계산에 필요한 최소 봉 수 (동적 계산값 사용)
     lookback = required_bars
@@ -286,9 +344,9 @@ def run_trend_backtest(
             "pyr_count": state.pyr_count,
         })
 
-        # TF 인덱스 매핑
-        exit_idx = min(int(i * exit_ratio), len(exit_candles) - 1)
-        htf_idx = min(int(i * htf_ratio), len(htf_candles) - 1)
+        # TF 인덱스 매핑 (타임스탬프 기반, request.security 모방)
+        exit_idx = exit_idx_map[i]
+        htf_idx = htf_idx_map[i]
 
         # 슬라이스 범위 (신호 생성기가 배열을 기대하므로)
         slice_start = max(0, i - lookback + 1)
@@ -331,6 +389,7 @@ def run_trend_backtest(
             entry_atr=entry_atr_full[slice_start:slice_end] if entry_atr_full is not None else None,
             entry_high=highs[slice_start:slice_end],
             bar_index=i,
+            is_bar_confirmed=True,  # 백테스트는 항상 확정 봉 사용
         )
 
         if signal.action != "hold":

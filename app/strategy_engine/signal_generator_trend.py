@@ -34,15 +34,16 @@ class TrendConfig:
     exit_tf: str = "1W"       # 매도기준 TF (ST 전량매도 전용)
     htf_tf: str = "1W"        # 상위기준 TF (HTF VWMA 필터 전용)
 
-    # 슈퍼트렌드 (작가님 확정: 20/5.0)
-    st_atr_len: int = 20      # ATR 길이
-    st_factor: float = 5.0    # 팩터
+    # 슈퍼트렌드 (PineScript v8 기본값)
+    st_atr_len: int = 20      # ATR 길이 (작가님 확정: 20)
+    st_factor: float = 5.0    # 팩터 (작가님 확정: 5.0)
     hvi_length: int = 200
     hvi_divisor: float = 3.6
     qqe_rsi_length: int = 6
     qqe_rsi_smoothing: int = 5
     qqe_factor: float = 3.0
-    htf_vwma_len: int = 156   # HTF VWMA 길이 (exit_tf에서 계산)
+    htf_vwma_len: int = 156   # HTF VWMA 길이 - 주식용 (htf_tf에서 계산)
+    htf_sma_len: int = 200    # HTF SMA 길이 - 크립토용 (htf_tf에서 계산)
 
     # Exit 지표 (signal_tf 기준 SPO용)
     exit_spo_smooth_len: int = 4
@@ -162,29 +163,21 @@ def generate_trend_signal(
     entry_atr: Optional[np.ndarray] = None,    # ATR 값 (ATR 손절용)
     entry_high: Optional[np.ndarray] = None,   # high 배열 (피라미딩 N봉 신고가용)
     bar_index: int = 0,                        # 현재 봉 인덱스 (피라미딩 쿨다운용)
+    is_bar_confirmed: bool = True,             # 봉 확정 여부 (v8: barstate.isconfirmed)
 ) -> Tuple[SignalResult, TrendState]:
     """
-    추세매매 신호 생성 (v8 최종).
+    추세매매 신호 생성 (v8 최종 - PineScript 완벽 일치).
 
-    TF 구조 (단순화):
-    - signal_tf: 기준 TF (매수 + SPO 분할매도 + SL + TP1)
-    - exit_tf: 매도기준 TF (ST 전량매도 + HTF VWMA 필터)
+    PineScript v8 로직:
+    1. ENTRY: ST상승 + HVI초록 + QQE양수 + HTF OK + barstate.isconfirmed
+    2. PYR: 포지션 보유 + N봉 신고가 돌파 + 쿨다운 + ST상승 + HTF OK
+    3. SPO Split: spo_signal_dn + 익절게이트 + sell_stage 순차 진행
+    4. ST Exit: exit_tf ST 하락 전환 시 전량 청산
 
-    Entry 조건 (4가지 모두 충족, signal_tf 기준):
-    1. Supertrend 상승 (st_dir < 0 = bullish)
-    2. HVI 초록 (g_enabled = True)
-    3. QQE 양수 (primary_rsi > 50)
-    4. close > exit_tf VWMA - use_htf_filter=False면 스킵
-
-    Exit 우선순위:
-    1. Hard SL: Fixed% 또는 ATR-based (signal_tf 기준)
-    2. TP1: use_tp1=True일 때만
-    3. SPO Split: use_spo_split=True일 때만 (signal_tf 기준)
-    4. ST Flip: use_st_exit=True일 때 exit_tf ST 하락 전환
-
-    피라미딩 (v8):
-    - 포지션 보유 중 N봉 신고가 돌파 시 추가매수
-    - 최대 max_pyr_entries회까지
+    PineScript 핵심 변수:
+    - highestN = ta.highest(high[1], pyrHighLen)  # 현재봉 제외 N봉 최고가
+    - pyrBreakout = close > highestN              # N봉 신고가 돌파
+    - canPyramid = position_size > 0 AND pyrCount < maxPyrEntries AND pyrBreakout AND cooldown AND stBull AND htfOk
 
     Returns:
         Tuple of (SignalResult, updated TrendState)
@@ -210,6 +203,16 @@ def generate_trend_signal(
         prev_setup_met=state.prev_setup_met,
     )
 
+    # v8: barstate.isconfirmed 체크 - 미확정 봉에서는 신호 없음
+    if not is_bar_confirmed:
+        return SignalResult(
+            action="hold",
+            reason_code="UNCONFIRMED_BAR",
+            reason_text="",
+            tranche_pct=0.0,
+            regime=0,
+        ), new_state
+
     # 최신 값 추출
     curr_entry_close = entry_close[-1] if len(entry_close) > 0 else 0.0
     curr_exit_close = exit_close[-1] if len(exit_close) > 0 else 0.0
@@ -230,42 +233,60 @@ def generate_trend_signal(
     hvi_green = entry_hvi.get('g_enabled', np.array([False]))[-1] if len(entry_hvi.get('g_enabled', [])) > 0 else False
     qqe_positive = entry_qqe.get('is_positive', np.array([False]))[-1] if len(entry_qqe.get('is_positive', [])) > 0 else False
 
-    # HTF VWMA 조건
+    # HTF VWMA/SMA 조건
     curr_htf_vwma = htf_vwma[-1] if len(htf_vwma) > 0 and not np.isnan(htf_vwma[-1]) else 0.0
 
-    # SPO 값
+    # SPO 값 (분할매도용)
     curr_spo = exit_spo_norm[-1] if len(exit_spo_norm) > 0 else 0.0
     prev_spo = exit_spo_norm[-2] if len(exit_spo_norm) > 1 else curr_spo
 
-    # N봉 신고가 계산 (피라미딩용, v8)
+    # ──────────────────────────────────────────────────────
+    # PineScript v8 핵심: N봉 신고가 계산
+    # highestN = ta.highest(high[1], pyrHighLen)
+    # high[1] = 직전봉, pyrHighLen개 봉의 최고가 (현재봉 제외!)
+    # ──────────────────────────────────────────────────────
     pyr_high_threshold = 0.0
-    if entry_high is not None and len(entry_high) >= config.pyr_high_len:
-        pyr_high_threshold = np.max(entry_high[-config.pyr_high_len:-1]) if len(entry_high) > 1 else entry_high[-1]
+    if entry_high is not None and len(entry_high) >= config.pyr_high_len + 1:
+        # 인덱스 설명: entry_high[-1]은 현재봉, entry_high[-2]는 직전봉
+        # ta.highest(high[1], N) = 직전봉부터 N개 = entry_high[-N-1:-1]
+        pyr_high_threshold = np.max(entry_high[-(config.pyr_high_len + 1):-1])
 
     # 손절 가격 계산 (v8: Fixed% 또는 ATR-based)
-    if config.stop_type == "atr" and curr_atr > 0:
-        # 피라미딩 시 평균단가 기준
-        base_price = new_state.avg_entry_price if new_state.avg_entry_price > 0 else new_state.entry_price
+    base_price = new_state.avg_entry_price if new_state.avg_entry_price > 0 else new_state.entry_price
+    if config.stop_type == "atr" and curr_atr > 0 and base_price > 0:
         sl_price = base_price - (curr_atr * config.atr_stop_mult)
-        sl_reason = f"ATR손절 발동: ATR({config.atr_stop_len})×{config.atr_stop_mult}"
+        sl_reason = f"ATR손절: ATR({config.atr_stop_len})×{config.atr_stop_mult}"
         sl_code = "TREND_EXIT_ATR_SL"
     else:
-        base_price = new_state.avg_entry_price if new_state.avg_entry_price > 0 else new_state.entry_price
-        sl_price = base_price * (1 - config.hard_sl_pct / 100.0)
-        sl_reason = f"하드손절 발동: -{config.hard_sl_pct}% 도달"
+        sl_price = base_price * (1 - config.hard_sl_pct / 100.0) if base_price > 0 else 0.0
+        sl_reason = f"하드손절: -{config.hard_sl_pct}%"
         sl_code = "TREND_EXIT_HARD_SL"
 
     # ──────────────────────────────────────────────────────
-    # EXIT 로직 (포지션 있을 때만)
+    # PineScript v8: 공통 조건 사전 계산
     # ──────────────────────────────────────────────────────
-    if new_state.in_position:
-        # 최고가 업데이트
-        if curr_exit_close > new_state.highest_since_entry:
-            new_state.highest_since_entry = curr_exit_close
+    st_bullish = curr_entry_st_dir < 0  # Supertrend 상승 (PineScript: dir < 0)
 
-        # Exit 1: Hard Stop Loss (최우선) - Fixed% 또는 ATR-based
+    # HTF 필터 (v8: use_htf_filter=False면 스킵)
+    htf_ok = True
+    if config.use_htf_filter:
+        htf_ok = curr_entry_close > curr_htf_vwma if curr_htf_vwma > 0 else True
+
+    # ──────────────────────────────────────────────────────
+    # PineScript v8 순서: EXIT → PYR → ENTRY
+    # ──────────────────────────────────────────────────────
+
+    # ============================================================
+    # EXIT 로직 (포지션 있을 때만)
+    # ============================================================
+    if new_state.in_position:
+        # 최고가 업데이트 (TP 계산용)
+        if curr_entry_close > new_state.highest_since_entry:
+            new_state.highest_since_entry = curr_entry_close
+
+        # ─── Exit 1: Hard Stop Loss (최우선) ───
         if curr_entry_close <= sl_price and base_price > 0:
-            # 상태 리셋
+            # 전량 청산, 상태 리셋
             new_state.in_position = False
             new_state.entry_price = 0.0
             new_state.tp1_triggered = False
@@ -278,33 +299,35 @@ def generate_trend_signal(
                 action="sell",
                 reason_code=sl_code,
                 reason_text=sl_reason,
-                tranche_pct=100.0,  # 전량 청산
+                tranche_pct=100.0,
                 regime=0,
             ), new_state
 
-        # Exit 2: TP1 (목표 익절) - use_tp1=True일 때만 (v8)
+        # ─── Exit 2: TP1 (목표 익절) ───
         if config.use_tp1:
             tp1_base = new_state.avg_entry_price if new_state.avg_entry_price > 0 else new_state.entry_price
             tp1_price = tp1_base * (1 + config.tp1_pct / 100.0)
-            if not new_state.tp1_triggered and curr_exit_close >= tp1_price:
+            if not new_state.tp1_triggered and curr_entry_close >= tp1_price:
                 new_state.tp1_triggered = True
 
-                # 피라미딩 리필 (v8)
+                # v8: 피라미딩 리필 (매도 후 pyrCount 감소)
                 if config.pyr_refill_after_sell and new_state.pyr_count > 1:
                     new_state.pyr_count -= 1
 
                 return SignalResult(
                     action="sell",
                     reason_code="TREND_EXIT_TP1",
-                    reason_text=f"목표익절(TP1): +{config.tp1_pct}% 도달, {config.tp1_sell_pct}% 청산",
+                    reason_text=f"TP1: +{config.tp1_pct}% ({config.tp1_sell_pct}%)",
                     tranche_pct=config.tp1_sell_pct,
                     regime=0,
                 ), new_state
 
-        # Exit 3: SPO Split (분할매도) - use_spo_split=True일 때만 (v8)
+        # ─── Exit 3: SPO Split (분할매도) ───
         if config.use_spo_split:
-            # SPO signal_dn: norm_osc > threshold AND crossover(prev, curr) [하락 전환]
-            spo_signal_dn = (curr_spo > config.exit_spo_threshold) and (prev_spo > curr_spo)
+            # PineScript: spo_signal_dn = crossunder(normalized_osc, threshold)
+            # crossunder = prev > threshold AND curr <= threshold  (하락 크로스)
+            # 또는 단순히: prev > curr AND curr > threshold (하락 전환)
+            spo_signal_dn = (prev_spo > curr_spo) and (curr_spo > config.exit_spo_threshold)
 
             if spo_signal_dn:
                 # 익절 게이트 체크
@@ -313,47 +336,47 @@ def generate_trend_signal(
                     need_pct = config.min_profit_pct + config.fee_buffer_pct
                     gate_base = new_state.avg_entry_price if new_state.avg_entry_price > 0 else new_state.entry_price
                     gate_price = gate_base * (1 + need_pct / 100.0)
-                    gate_ok = curr_exit_close >= gate_price
+                    gate_ok = curr_entry_close >= gate_price
 
                 if gate_ok:
-                    # 분할매도 차수 결정
+                    # 현재 스테이지 확인
                     eff_stage = new_state.sell_stage
+
+                    # 최대 스테이지 초과 처리
                     if eff_stage >= config.max_sell_tranches:
                         if config.after_max_sell == "cycle":
                             eff_stage = 0
+                            new_state.sell_stage = 0
                         elif config.after_max_sell == "stop":
-                            eff_stage = -1
+                            eff_stage = -1  # 매도 중단
                         else:  # extend
                             eff_stage = config.max_sell_tranches - 1
 
-                    if eff_stage >= 0 and eff_stage < len(config.sell_tranches):
+                    if 0 <= eff_stage < len(config.sell_tranches):
                         sell_pct = config.sell_tranches[eff_stage]
 
-                        # 다음 차수로 이동
-                        if config.after_max_sell == "cycle":
-                            new_state.sell_stage = (new_state.sell_stage + 1) % config.max_sell_tranches
-                        else:
-                            new_state.sell_stage = min(new_state.sell_stage + 1, config.max_sell_tranches - 1)
+                        # 다음 스테이지로 진행
+                        new_state.sell_stage += 1
 
-                        # 피라미딩 리필 (v8)
+                        # v8: 피라미딩 리필
                         if config.pyr_refill_after_sell and new_state.pyr_count > 1:
                             new_state.pyr_count -= 1
 
                         return SignalResult(
                             action="sell",
                             reason_code="TREND_EXIT_SPO_SPLIT",
-                            reason_text=f"SPO 분할매도: SELL{eff_stage + 1} 실행 ({sell_pct}%)",
+                            reason_text=f"SPO S{eff_stage + 1} ({sell_pct}%)",
                             tranche_pct=sell_pct,
                             regime=0,
                         ), new_state
 
-        # Exit 4: ST Flip (exit_tf Supertrend 하락 전환)
+        # ─── Exit 4: ST Flip (전량 청산) ───
         if config.use_st_exit:
-            # exit_tf ST가 bullish→bearish 전환 체크
+            # PineScript: stFlip = ta.change(stDir) > 0 (bullish→bearish)
             st_bear_flip = (prev_exit_st_dir < 0) and (curr_exit_st_dir >= 0)
 
             if st_bear_flip:
-                # 상태 리셋
+                # 전량 청산, 상태 리셋
                 new_state.in_position = False
                 new_state.entry_price = 0.0
                 new_state.tp1_triggered = False
@@ -365,30 +388,31 @@ def generate_trend_signal(
                 return SignalResult(
                     action="sell",
                     reason_code="TREND_EXIT_ST_FLIP",
-                    reason_text="추세전환 전량청산: exit_tf Supertrend 하락",
+                    reason_text="ST전환 전량청산",
                     tranche_pct=100.0,
                     regime=0,
                 ), new_state
 
-        # ──────────────────────────────────────────────────────
-        # 피라미딩 (추가매수) 체크 (v8)
-        # ──────────────────────────────────────────────────────
+        # ============================================================
+        # 피라미딩 (PYR) - 포지션 보유 중 추가매수
+        # PineScript: canPyramid = position_size > 0 AND pyrCount < maxPyrEntries
+        #             AND pyrBreakout AND cooldown AND stBull AND htfOk
+        # ============================================================
         if config.use_pyramiding and new_state.pyr_count < config.max_pyr_entries:
-            # 조건: N봉 신고가 돌파 AND 쿨다운 OK AND ST bullish AND HTF OK
+            # 조건 1: 쿨다운 (마지막 매수 후 N봉 이상 경과)
             cooldown_ok = (bar_index - new_state.last_pyr_bar) >= config.pyr_cooldown
+
+            # 조건 2: N봉 신고가 돌파 (현재 종가 > 직전 N봉 최고가)
             breakout_ok = curr_entry_close > pyr_high_threshold if pyr_high_threshold > 0 else False
-            st_bullish = curr_entry_st_dir < 0
 
-            # HTF 조건 (use_htf_filter에 따라)
-            htf_ok = True
-            if config.use_htf_filter:
-                htf_ok = curr_entry_close > curr_htf_vwma if curr_htf_vwma > 0 else True
+            # 조건 3: ST 상승 유지
+            # 조건 4: HTF 필터 OK (이미 위에서 계산됨)
 
-            pyr_signal = cooldown_ok and breakout_ok and st_bullish and htf_ok
+            can_pyramid = cooldown_ok and breakout_ok and st_bullish and htf_ok
 
-            if pyr_signal:
-                # 피라미딩 진입
-                pyr_idx = new_state.pyr_count  # 현재 몇 번째 진입인지 (0-indexed)
+            if can_pyramid:
+                # 피라미딩 비중 (pyr_weights 배열에서 가져옴)
+                pyr_idx = new_state.pyr_count  # 0-indexed (1차 진입 후면 1)
                 weight = config.pyr_weights[pyr_idx] if pyr_idx < len(config.pyr_weights) else 0.0
 
                 if weight > 0:
@@ -397,34 +421,28 @@ def generate_trend_signal(
 
                     return SignalResult(
                         action="buy",
-                        reason_code="TREND_ENTRY_PYR",
-                        reason_text=f"피라미딩 {new_state.pyr_count}차: {config.pyr_high_len}봉 신고가 돌파",
-                        tranche_pct=weight,  # 피라미딩 비중
+                        reason_code=f"TREND_PYR{new_state.pyr_count}",
+                        reason_text=f"PYR{new_state.pyr_count}: {config.pyr_high_len}봉 신고가 돌파",
+                        tranche_pct=weight,
                         regime=0,
                     ), new_state
 
-    # ──────────────────────────────────────────────────────
-    # ENTRY 로직 (포지션 없을 때만)
-    # ──────────────────────────────────────────────────────
+    # ============================================================
+    # ENTRY 로직 (포지션 없을 때만 - 1차 진입)
+    # PineScript: entrySetup = stBull AND hviGreen AND qqePos AND htfOk
+    # ============================================================
     if not new_state.in_position:
-        # Entry 조건 4가지
-        st_bullish = curr_entry_st_dir < 0  # Supertrend 상승 (PineScript convention)
-
-        # HTF 필터 (v8: use_htf_filter=False면 스킵)
-        htf_ok = True
-        if config.use_htf_filter:
-            htf_ok = curr_entry_close > curr_htf_vwma if curr_htf_vwma > 0 else True
-
+        # Entry 조건 4가지 (위에서 이미 계산됨)
         setup_conditions = st_bullish and hvi_green and qqe_positive and htf_ok
 
-        # 진입 가드: 셋업 시작봉 추적 (v8)
+        # 진입 가드: 셋업 시작봉 추적 (v8: enter_only_on_setup_start)
         prev_setup_met = new_state.prev_setup_met
         new_state.prev_setup_met = setup_conditions
 
         # enter_only_on_setup_start 체크
         entry_allowed = True
         if config.enter_only_on_setup_start:
-            # 셋업이 새로 시작된 경우에만 진입 (이전 봉에서 셋업 미충족 → 현재 충족)
+            # 셋업이 새로 시작된 경우에만 진입 (이전 봉 미충족 → 현재 충족)
             if setup_conditions and not prev_setup_met:
                 new_state.setup_start_bar = bar_index
                 entry_allowed = True
@@ -446,20 +464,20 @@ def generate_trend_signal(
             new_state.tp1_triggered = False
             new_state.sell_stage = 0
 
-            # 피라미딩 상태 초기화 (v8)
-            new_state.pyr_count = 1  # 1차 진입
+            # 피라미딩 상태 초기화 (v8: pyrCount = 1 for first entry)
+            new_state.pyr_count = 1
             new_state.last_pyr_bar = bar_index
-            new_state.total_cost = curr_entry_close  # 초기 진입가 * 1 (수량은 별도 계산)
+            new_state.total_cost = curr_entry_close
             new_state.avg_entry_price = curr_entry_close
 
-            # 1차 진입 비중 (v8: pyr_weights[0] 사용)
+            # 1차 진입 비중 (v8: pyr_weights[0])
             first_weight = config.pyr_weights[0] if len(config.pyr_weights) > 0 else 100.0
             entry_pct = config.cash_use_pct * (first_weight / 100.0)
 
             return SignalResult(
                 action="buy",
-                reason_code="TREND_ENTRY_FULL",
-                reason_text="추세매매 진입: ST상승+HVI초록+QQE양수+HTF VWMA 상위",
+                reason_code="TREND_ENTRY",
+                reason_text="ENTRY: ST+HVI+QQE+HTF",
                 tranche_pct=entry_pct,
                 regime=0,
             ), new_state

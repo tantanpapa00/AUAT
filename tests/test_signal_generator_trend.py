@@ -37,7 +37,8 @@ class TestTrendConfig:
         assert config.qqe_rsi_length == 6
         assert config.qqe_rsi_smoothing == 5
         assert config.qqe_factor == 3.0
-        assert config.htf_vwma_len == 156
+        assert config.htf_vwma_len == 156   # 주식용 VWMA
+        assert config.htf_sma_len == 200    # 크립토용 SMA
 
         # Exit 조건
         assert config.hard_sl_pct == 7.0
@@ -143,7 +144,7 @@ class TestGenerateTrendSignalEntry:
         )
 
         assert signal.action == "buy"
-        assert signal.reason_code == "TREND_ENTRY_FULL"
+        assert signal.reason_code == "TREND_ENTRY"  # v8: 단순화된 reason_code
         # v8: 1차 진입 비중 = cash_use_pct * pyr_weights[0]/100 = 100 * 40/100 = 40
         expected_pct = config.cash_use_pct * (config.pyr_weights[0] / 100.0)
         assert signal.tranche_pct == expected_pct
@@ -313,12 +314,12 @@ class TestGenerateTrendSignalExit:
         config = TrendConfig(tp1_pct=21.0, tp1_sell_pct=50.0, use_tp1=True)  # v8: use_tp1 활성화
 
         signal, new_state = generate_trend_signal(
-            entry_close=np.array([100.0] * n),  # Entry TF close
+            entry_close=close,  # v8: entry_close로 TP1 비교 (122.0 >= 121.0)
             entry_st_dir=st_dir,
             entry_hvi={'g_enabled': np.array([True] * n)},
             entry_qqe={'is_positive': np.array([True] * n)},
             htf_vwma=np.array([90.0] * n),
-            exit_close=close,  # Exit TF close at +22%
+            exit_close=close,
             exit_st_dir=st_dir,
             exit_spo_norm=np.array([0.0] * n),
             config=config,
@@ -405,7 +406,7 @@ class TestGenerateTrendSignalExit:
         entry_price = 100.0
         state = self._create_position_state(entry_price)
         state.tp1_triggered = True
-        state.sell_stage = 5  # At max stage
+        state.sell_stage = 6  # At max stage (index 6, beyond tranches 0-5)
 
         n = 50
         close = np.array([105.0] * n)
@@ -434,8 +435,8 @@ class TestGenerateTrendSignalExit:
         )
 
         assert signal.action == "sell"
-        # With cycle, stage 5 -> uses stage 0 (SELL1), then goes to stage 0
-        assert new_state.sell_stage == 0
+        # With cycle, stage 6 (max) -> reset to stage 0, sell using stage 0, then increment to 1
+        assert new_state.sell_stage == 1
 
     def test_exit_st_flip(self):
         """Test Supertrend flip exit."""
@@ -561,8 +562,8 @@ class TestTrendSignalReasonCodes:
             current_ts=1700000000000,
         )
 
-        assert signal.reason_code == "TREND_ENTRY_FULL"
-        assert "추세매매 진입" in signal.reason_text
+        assert signal.reason_code == "TREND_ENTRY"  # v8: 단순화
+        assert "ENTRY" in signal.reason_text
 
     def test_all_exit_reason_codes(self):
         """Test all exit reason codes exist."""
@@ -639,7 +640,7 @@ class TestTrendV8Pyramiding:
         )
 
         assert signal.action == "buy"
-        assert signal.reason_code == "TREND_ENTRY_PYR"
+        assert signal.reason_code == "TREND_PYR2"  # v8: PYR{n} 형식
         assert new_state.pyr_count == 2
 
     def test_pyramiding_cooldown(self):
