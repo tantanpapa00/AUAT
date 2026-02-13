@@ -8511,27 +8511,36 @@ async function initCustomConditionBuilder() {
 // 기본 지표 레지스트리 (API 실패 시 폴백)
 function getDefaultIndicatorRegistry() {
     return {
+        // 이동평균 (6개)
         "SMA": { name: "단순이동평균 (SMA)", category: "이동평균", params: [{ key: "period", label: "기간", default: 20, min: 2, max: 500, type: "int" }], outputs: ["value"] },
         "EMA": { name: "지수이동평균 (EMA)", category: "이동평균", params: [{ key: "period", label: "기간", default: 20, min: 2, max: 500, type: "int" }], outputs: ["value"] },
+        "WMA": { name: "가중이동평균 (WMA)", category: "이동평균", params: [{ key: "period", label: "기간", default: 20, min: 2, max: 500, type: "int" }], outputs: ["value"] },
+        "HMA": { name: "헐이동평균 (HMA)", category: "이동평균", params: [{ key: "period", label: "기간", default: 20, min: 2, max: 500, type: "int" }], outputs: ["value"] },
+        "VWMA": { name: "거래량가중이동평균 (VWMA)", category: "이동평균", params: [{ key: "period", label: "기간", default: 20, min: 2, max: 500, type: "int" }], outputs: ["value"] },
+        "BB": { name: "볼린저 밴드", category: "이동평균", params: [{ key: "period", label: "기간", default: 20 }, { key: "std_mult", label: "표준편차 배수", default: 2.0 }], outputs: ["upper", "middle", "lower"] },
+        // 오실레이터 (4개)
         "RSI": { name: "RSI (상대강도지수)", category: "오실레이터", params: [{ key: "period", label: "기간", default: 14, min: 2, max: 100, type: "int" }], outputs: ["value"] },
         "MACD": { name: "MACD", category: "오실레이터", params: [{ key: "fast_length", label: "단기", default: 12 }, { key: "slow_length", label: "장기", default: 26 }, { key: "signal_length", label: "시그널", default: 9 }], outputs: ["macd", "signal", "histogram"] },
         "STOCH": { name: "스토캐스틱", category: "오실레이터", params: [{ key: "k_period", label: "K 기간", default: 14 }, { key: "d_period", label: "D 기간", default: 3 }, { key: "slowing", label: "슬로잉", default: 3 }], outputs: ["k", "d"] },
-        "BB": { name: "볼린저 밴드", category: "이동평균", params: [{ key: "period", label: "기간", default: 20 }, { key: "std_mult", label: "표준편차 배수", default: 2.0 }], outputs: ["upper", "middle", "lower"] },
-        "ADX": { name: "ADX (평균방향지수)", category: "추세", params: [{ key: "period", label: "기간", default: 14 }], outputs: ["adx", "plus_di", "minus_di"] },
-        "ATR": { name: "ATR (평균진폭)", category: "변동성", params: [{ key: "period", label: "기간", default: 14 }], outputs: ["value"] },
-        "SUPERTREND": { name: "슈퍼트렌드", category: "추세", params: [{ key: "atr_len", label: "ATR 길이", default: 20 }, { key: "factor", label: "팩터", default: 5.0 }], outputs: ["direction", "value"] },
         "CCI": { name: "CCI (상품채널지수)", category: "오실레이터", params: [{ key: "period", label: "기간", default: 20 }], outputs: ["value"] },
+        // 추세 (2개)
+        "ADX": { name: "ADX (평균방향지수)", category: "추세", params: [{ key: "period", label: "기간", default: 14 }], outputs: ["adx", "plus_di", "minus_di"] },
+        "SUPERTREND": { name: "슈퍼트렌드", category: "추세", params: [{ key: "atr_len", label: "ATR 길이", default: 20 }, { key: "factor", label: "팩터", default: 5.0 }], outputs: ["direction", "value"] },
+        // 변동성 (1개)
+        "ATR": { name: "ATR (평균진폭)", category: "변동성", params: [{ key: "period", label: "기간", default: 14 }], outputs: ["value"] },
+        // 가격 (1개)
         "PRICE": { name: "가격", category: "가격", params: [], outputs: ["open", "high", "low", "close", "volume"] },
     };
 }
 
-// 연산자 목록
+// 연산자 목록 (7개)
 function getOperators() {
     return window.indicatorOperators || [
         { value: ">", label: ">" },
         { value: "<", label: "<" },
         { value: ">=", label: ">=" },
         { value: "<=", label: "<=" },
+        { value: "==", label: "==" },
         { value: "cross_above", label: "상향돌파 (골든크로스)" },
         { value: "cross_below", label: "하향돌파 (데드크로스)" },
     ];
