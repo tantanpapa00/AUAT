@@ -7888,6 +7888,16 @@ function createBacktestCandleChart(containerId, candles, trades) {
             borderColor: 'rgba(255,255,255,0.1)',
             timeVisible: true,
             secondsVisible: false,
+            tickMarkFormatter: (time) => {
+                const date = new Date(time * 1000);
+                const month = date.getMonth() + 1;
+                const day = date.getDate();
+                return `${month}/${day}`;
+            },
+        },
+        localization: {
+            dateFormat: 'yyyy-MM-dd',
+            locale: 'ko-KR',
         },
         width: container.clientWidth,
         height: 400,
