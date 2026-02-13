@@ -128,9 +128,13 @@ def calc_htf_indicators(
     hull = calc_hma(close, hull_len)
 
     # Ichimoku
-    tenkan, kijun, senkou_a, senkou_b = calc_ichimoku(
-        high, low, ichi_tenkan, ichi_kijun, ichi_senkou
+    ichimoku_result = calc_ichimoku(
+        high, low, close, ichi_tenkan, ichi_kijun, ichi_senkou
     )
+    tenkan = ichimoku_result["tenkan"]
+    kijun = ichimoku_result["kijun"]
+    senkou_a = ichimoku_result["senkou_a"]
+    senkou_b = ichimoku_result["senkou_b"]
 
     # Supertrend
     st_value, st_direction = calc_supertrend(

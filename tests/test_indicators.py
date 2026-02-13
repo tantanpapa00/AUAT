@@ -277,14 +277,21 @@ class TestIchimoku:
         n = 60
         high = np.linspace(100, 120, n) + np.sin(np.linspace(0, 4 * np.pi, n)) * 5
         low = high - 8
+        close = (high + low) / 2  # 종가 추가
 
-        tenkan, kijun, senkou_a, senkou_b = calc_ichimoku(high, low, 9, 26, 52)
+        result = calc_ichimoku(high, low, close, 9, 26, 52)
+        tenkan = result["tenkan"]
+        kijun = result["kijun"]
+        senkou_a = result["senkou_a"]
+        senkou_b = result["senkou_b"]
+        chikou = result["chikou"]
 
         # Should return arrays of correct length
         assert len(tenkan) == n
         assert len(kijun) == n
         assert len(senkou_a) == n
         assert len(senkou_b) == n
+        assert len(chikou) == n
 
         # Tenkan should use shorter period (more responsive)
         # Kijun should use longer period

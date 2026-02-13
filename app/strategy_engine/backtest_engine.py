@@ -203,12 +203,16 @@ def precompute_htf_arrays(
     st_direction = -st_direction
 
     # Ichimoku
-    tenkan, kijun, senkou_a, senkou_b = calc_ichimoku(
-        htf_highs, htf_lows,
+    ichimoku_result = calc_ichimoku(
+        htf_highs, htf_lows, htf_closes,
         HTF_DEFAULTS["ichi_tenkan"],
         HTF_DEFAULTS["ichi_kijun"],
         HTF_DEFAULTS["ichi_senkou"],
     )
+    tenkan = ichimoku_result["tenkan"]
+    kijun = ichimoku_result["kijun"]
+    senkou_a = ichimoku_result["senkou_a"]
+    senkou_b = ichimoku_result["senkou_b"]
 
     return {
         "vwma50": vwma50,

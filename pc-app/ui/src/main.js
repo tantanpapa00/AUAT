@@ -8547,6 +8547,92 @@ function getOperators() {
     ];
 }
 
+// ═══════════════════════════════════════════════════════════════
+// 지표별 프리셋 (자주 쓰는 조건)
+// ═══════════════════════════════════════════════════════════════
+const INDICATOR_PRESETS = {
+    "RSI": [
+        { label: "과매도 진입 (RSI < 30)", description: "RSI가 30 이하로 내려가면 매수", config: { indicator: "RSI", output: "value", params: { period: 14 }, operator: "<", compare_type: "value", compare_value: 30 } },
+        { label: "과매수 진입 (RSI > 70)", description: "RSI가 70 이상으로 올라가면 매도", config: { indicator: "RSI", output: "value", params: { period: 14 }, operator: ">", compare_type: "value", compare_value: 70 } },
+        { label: "과매도 탈출 (RSI ↑ 30)", description: "RSI가 30을 상향 돌파", config: { indicator: "RSI", output: "value", params: { period: 14 }, operator: "cross_above", compare_type: "value", compare_value: 30 } },
+        { label: "과매수 탈출 (RSI ↓ 70)", description: "RSI가 70을 하향 돌파", config: { indicator: "RSI", output: "value", params: { period: 14 }, operator: "cross_below", compare_type: "value", compare_value: 70 } },
+        { label: "중립선 상향돌파 (RSI ↑ 50)", description: "상승 추세 시작", config: { indicator: "RSI", output: "value", params: { period: 14 }, operator: "cross_above", compare_type: "value", compare_value: 50 } },
+    ],
+    "MACD": [
+        { label: "골든크로스 (MACD ↑ 시그널)", description: "매수 신호", config: { indicator: "MACD", output: "macd", params: { fast_length: 12, slow_length: 26, signal_length: 9 }, operator: "cross_above", compare_type: "indicator", compare_indicator: "MACD", compare_output: "signal", compare_params: { fast_length: 12, slow_length: 26, signal_length: 9 } } },
+        { label: "데드크로스 (MACD ↓ 시그널)", description: "매도 신호", config: { indicator: "MACD", output: "macd", params: { fast_length: 12, slow_length: 26, signal_length: 9 }, operator: "cross_below", compare_type: "indicator", compare_indicator: "MACD", compare_output: "signal", compare_params: { fast_length: 12, slow_length: 26, signal_length: 9 } } },
+        { label: "히스토그램 양전환", description: "상승 모멘텀", config: { indicator: "MACD", output: "histogram", params: { fast_length: 12, slow_length: 26, signal_length: 9 }, operator: "cross_above", compare_type: "value", compare_value: 0 } },
+        { label: "히스토그램 음전환", description: "하락 모멘텀", config: { indicator: "MACD", output: "histogram", params: { fast_length: 12, slow_length: 26, signal_length: 9 }, operator: "cross_below", compare_type: "value", compare_value: 0 } },
+    ],
+    "BB": [
+        { label: "하단밴드 터치 (과매도)", description: "종가 < 하단밴드 = 반등 기대", config: { indicator: "PRICE", output: "close", params: {}, operator: "<", compare_type: "indicator", compare_indicator: "BB", compare_output: "lower", compare_params: { period: 20, std_mult: 2.0 } } },
+        { label: "상단밴드 터치 (과매수)", description: "종가 > 상단밴드 = 조정 기대", config: { indicator: "PRICE", output: "close", params: {}, operator: ">", compare_type: "indicator", compare_indicator: "BB", compare_output: "upper", compare_params: { period: 20, std_mult: 2.0 } } },
+        { label: "중간밴드 상향돌파", description: "20일선 돌파", config: { indicator: "PRICE", output: "close", params: {}, operator: "cross_above", compare_type: "indicator", compare_indicator: "BB", compare_output: "middle", compare_params: { period: 20, std_mult: 2.0 } } },
+    ],
+    "STOCH": [
+        { label: "과매도 (%K < 20)", description: "과매도 구간", config: { indicator: "STOCH", output: "k", params: { k_period: 14, d_period: 3, slowing: 3 }, operator: "<", compare_type: "value", compare_value: 20 } },
+        { label: "과매수 (%K > 80)", description: "과매수 구간", config: { indicator: "STOCH", output: "k", params: { k_period: 14, d_period: 3, slowing: 3 }, operator: ">", compare_type: "value", compare_value: 80 } },
+        { label: "골든크로스 (%K ↑ %D)", description: "매수 신호", config: { indicator: "STOCH", output: "k", params: { k_period: 14, d_period: 3, slowing: 3 }, operator: "cross_above", compare_type: "indicator", compare_indicator: "STOCH", compare_output: "d", compare_params: { k_period: 14, d_period: 3, slowing: 3 } } },
+        { label: "데드크로스 (%K ↓ %D)", description: "매도 신호", config: { indicator: "STOCH", output: "k", params: { k_period: 14, d_period: 3, slowing: 3 }, operator: "cross_below", compare_type: "indicator", compare_indicator: "STOCH", compare_output: "d", compare_params: { k_period: 14, d_period: 3, slowing: 3 } } },
+    ],
+    "SMA": [
+        { label: "종가 > 이평선 (상승추세)", config: { indicator: "PRICE", output: "close", params: {}, operator: ">", compare_type: "indicator", compare_indicator: "SMA", compare_output: "value", compare_params: { period: 20 } } },
+        { label: "종가 < 이평선 (하락추세)", config: { indicator: "PRICE", output: "close", params: {}, operator: "<", compare_type: "indicator", compare_indicator: "SMA", compare_output: "value", compare_params: { period: 20 } } },
+        { label: "골든크로스 (20 ↑ 50)", description: "단기>장기", config: { indicator: "SMA", output: "value", params: { period: 20 }, operator: "cross_above", compare_type: "indicator", compare_indicator: "SMA", compare_output: "value", compare_params: { period: 50 } } },
+        { label: "데드크로스 (20 ↓ 50)", description: "단기<장기", config: { indicator: "SMA", output: "value", params: { period: 20 }, operator: "cross_below", compare_type: "indicator", compare_indicator: "SMA", compare_output: "value", compare_params: { period: 50 } } },
+    ],
+    "EMA": [
+        { label: "종가 > 이평선", config: { indicator: "PRICE", output: "close", params: {}, operator: ">", compare_type: "indicator", compare_indicator: "EMA", compare_output: "value", compare_params: { period: 20 } } },
+        { label: "골든크로스 (12 ↑ 26)", config: { indicator: "EMA", output: "value", params: { period: 12 }, operator: "cross_above", compare_type: "indicator", compare_indicator: "EMA", compare_output: "value", compare_params: { period: 26 } } },
+    ],
+    "SUPERTREND": [
+        { label: "상승전환 (매수)", description: "하락→상승", config: { indicator: "SUPERTREND", output: "direction", params: { atr_len: 20, factor: 5.0 }, operator: "cross_below", compare_type: "value", compare_value: 0 } },
+        { label: "하락전환 (매도)", description: "상승→하락", config: { indicator: "SUPERTREND", output: "direction", params: { atr_len: 20, factor: 5.0 }, operator: "cross_above", compare_type: "value", compare_value: 0 } },
+        { label: "상승 유지", description: "direction < 0", config: { indicator: "SUPERTREND", output: "direction", params: { atr_len: 20, factor: 5.0 }, operator: "<", compare_type: "value", compare_value: 0 } },
+        { label: "하락 유지", description: "direction > 0", config: { indicator: "SUPERTREND", output: "direction", params: { atr_len: 20, factor: 5.0 }, operator: ">", compare_type: "value", compare_value: 0 } },
+    ],
+    "ADX": [
+        { label: "강한 추세 (ADX > 25)", config: { indicator: "ADX", output: "adx", params: { period: 14 }, operator: ">", compare_type: "value", compare_value: 25 } },
+        { label: "약한 추세 (ADX < 20)", description: "횡보 구간", config: { indicator: "ADX", output: "adx", params: { period: 14 }, operator: "<", compare_type: "value", compare_value: 20 } },
+        { label: "상승 추세 (+DI > -DI)", config: { indicator: "ADX", output: "plus_di", params: { period: 14 }, operator: ">", compare_type: "indicator", compare_indicator: "ADX", compare_output: "minus_di", compare_params: { period: 14 } } },
+        { label: "하락 추세 (-DI > +DI)", config: { indicator: "ADX", output: "minus_di", params: { period: 14 }, operator: ">", compare_type: "indicator", compare_indicator: "ADX", compare_output: "plus_di", compare_params: { period: 14 } } },
+    ],
+    "CCI": [
+        { label: "과매도 (CCI < -100)", config: { indicator: "CCI", output: "value", params: { period: 20 }, operator: "<", compare_type: "value", compare_value: -100 } },
+        { label: "과매수 (CCI > 100)", config: { indicator: "CCI", output: "value", params: { period: 20 }, operator: ">", compare_type: "value", compare_value: 100 } },
+        { label: "중립선 상향돌파", config: { indicator: "CCI", output: "value", params: { period: 20 }, operator: "cross_above", compare_type: "value", compare_value: 0 } },
+    ],
+    "ATR": [
+        { label: "변동성 크다 (ATR > 기준)", config: { indicator: "ATR", output: "value", params: { period: 14 }, operator: ">", compare_type: "value", compare_value: 1000 } },
+    ],
+    "ICHIMOKU": [
+        { label: "구름 위 (상승추세)", description: "종가 > 선행스팬A", config: { indicator: "PRICE", output: "close", params: {}, operator: ">", compare_type: "indicator", compare_indicator: "ICHIMOKU", compare_output: "senkou_a", compare_params: { tenkan_len: 9, kijun_len: 26, senkou_len: 52 } } },
+        { label: "구름 아래 (하락추세)", description: "종가 < 선행스팬B", config: { indicator: "PRICE", output: "close", params: {}, operator: "<", compare_type: "indicator", compare_indicator: "ICHIMOKU", compare_output: "senkou_b", compare_params: { tenkan_len: 9, kijun_len: 26, senkou_len: 52 } } },
+        { label: "전환선 > 기준선", config: { indicator: "ICHIMOKU", output: "tenkan", params: { tenkan_len: 9, kijun_len: 26, senkou_len: 52 }, operator: ">", compare_type: "indicator", compare_indicator: "ICHIMOKU", compare_output: "kijun", compare_params: { tenkan_len: 9, kijun_len: 26, senkou_len: 52 } } },
+        { label: "전환선 ↑ 기준선", description: "매수 신호", config: { indicator: "ICHIMOKU", output: "tenkan", params: { tenkan_len: 9, kijun_len: 26, senkou_len: 52 }, operator: "cross_above", compare_type: "indicator", compare_indicator: "ICHIMOKU", compare_output: "kijun", compare_params: { tenkan_len: 9, kijun_len: 26, senkou_len: 52 } } },
+    ],
+    "PRICE": [
+        { label: "양봉 (종가 > 시가)", config: { indicator: "PRICE", output: "close", params: {}, operator: ">", compare_type: "indicator", compare_indicator: "PRICE", compare_output: "open", compare_params: {} } },
+        { label: "음봉 (종가 < 시가)", config: { indicator: "PRICE", output: "close", params: {}, operator: "<", compare_type: "indicator", compare_indicator: "PRICE", compare_output: "open", compare_params: {} } },
+    ],
+    "WMA": [
+        { label: "종가 > 이평선", config: { indicator: "PRICE", output: "close", params: {}, operator: ">", compare_type: "indicator", compare_indicator: "WMA", compare_output: "value", compare_params: { period: 20 } } },
+    ],
+    "HMA": [
+        { label: "종가 > 이평선", config: { indicator: "PRICE", output: "close", params: {}, operator: ">", compare_type: "indicator", compare_indicator: "HMA", compare_output: "value", compare_params: { period: 20 } } },
+    ],
+    "VWMA": [
+        { label: "종가 > 이평선", config: { indicator: "PRICE", output: "close", params: {}, operator: ">", compare_type: "indicator", compare_indicator: "VWMA", compare_output: "value", compare_params: { period: 20 } } },
+    ],
+};
+
+// 프리셋 옵션 생성
+function getPresetOptions(indicatorKey) {
+    const presets = INDICATOR_PRESETS[indicatorKey] || [];
+    if (presets.length === 0) return '<option value="">프리셋 없음</option>';
+    return presets.map((p, i) => `<option value="${i}" title="${p.description || ''}">${p.label}</option>`).join('');
+}
+
 // 조건 그룹 초기화
 function initConditionGroups(type) {
     const container = document.getElementById(`${type}-condition-groups`);
@@ -8620,7 +8706,7 @@ function updateGroupLabels(type) {
     });
 }
 
-// 조건 추가
+// 조건 추가 (프리셋/직접설정 모드 지원)
 function addCondition(groupId) {
     const container = document.querySelector(`.conditions-list[data-group-id="${groupId}"]`);
     if (!container) return;
@@ -8631,26 +8717,37 @@ function addCondition(groupId) {
     const condDiv = document.createElement('div');
     condDiv.className = 'condition-row';
     condDiv.dataset.conditionId = conditionId;
+    condDiv.dataset.mode = 'preset'; // 기본 모드: 프리셋
 
     condDiv.innerHTML = `
-        <div class="cond-left">
-            <select class="cond-indicator" data-side="left">
+        <div class="cond-header">
+            <select class="cond-indicator-select">
                 ${getIndicatorOptions()}
             </select>
+            <select class="cond-mode-select">
+                <option value="preset">프리셋</option>
+                <option value="manual">직접설정</option>
+            </select>
+        </div>
+        <div class="preset-section" style="display:flex;">
+            <select class="cond-preset-select">
+                ${getPresetOptions('SMA')}
+            </select>
+            <div class="preset-params"></div>
+        </div>
+        <div class="manual-section" style="display:none;">
             <select class="cond-output" data-side="left">
                 <option value="value">값</option>
             </select>
             <div class="cond-params" data-side="left"></div>
-        </div>
-        <select class="cond-operator">
-            ${getOperatorOptions()}
-        </select>
-        <div class="cond-right">
+            <select class="cond-operator">
+                ${getOperatorOptions()}
+            </select>
             <select class="cond-compare-type">
                 <option value="value">고정값</option>
                 <option value="indicator">지표 비교</option>
             </select>
-            <input type="number" class="cond-compare-value" placeholder="값 입력" step="any" style="display:block;">
+            <input type="number" class="cond-compare-value" placeholder="값 입력" step="any">
             <div class="cond-compare-indicator" style="display:none;">
                 <select class="cond-indicator" data-side="right">
                     ${getIndicatorOptions()}
@@ -8668,6 +8765,9 @@ function addCondition(groupId) {
 
     // 이벤트 바인딩
     bindConditionEvents(condDiv);
+
+    // 초기 프리셋 로드
+    updatePresetSection(condDiv);
 }
 
 // 지표 옵션 생성
@@ -8702,23 +8802,45 @@ function getOperatorOptions() {
     ).join('');
 }
 
-// 조건 이벤트 바인딩
+// 조건 이벤트 바인딩 (프리셋/직접설정 모드 지원)
 function bindConditionEvents(condDiv) {
-    // 왼쪽 지표 변경
-    const leftIndicator = condDiv.querySelector('.cond-left .cond-indicator');
-    leftIndicator?.addEventListener('change', () => {
-        updateIndicatorParams(condDiv, 'left');
-        updateIndicatorOutputs(condDiv, 'left');
+    // 지표 선택 변경 (프리셋과 직접설정 모두 영향)
+    const indicatorSelect = condDiv.querySelector('.cond-indicator-select');
+    indicatorSelect?.addEventListener('change', () => {
+        updatePresetSection(condDiv);
+        updateManualSection(condDiv);
     });
 
-    // 오른쪽 지표 변경
+    // 모드 변경 (프리셋 ↔ 직접설정)
+    const modeSelect = condDiv.querySelector('.cond-mode-select');
+    modeSelect?.addEventListener('change', () => {
+        const mode = modeSelect.value;
+        condDiv.dataset.mode = mode;
+        const presetSection = condDiv.querySelector('.preset-section');
+        const manualSection = condDiv.querySelector('.manual-section');
+        if (mode === 'preset') {
+            presetSection.style.display = 'flex';
+            manualSection.style.display = 'none';
+        } else {
+            presetSection.style.display = 'none';
+            manualSection.style.display = 'flex';
+        }
+    });
+
+    // 프리셋 선택 변경
+    const presetSelect = condDiv.querySelector('.cond-preset-select');
+    presetSelect?.addEventListener('change', () => {
+        renderPresetParams(condDiv);
+    });
+
+    // 직접설정 모드: 오른쪽 지표 변경
     const rightIndicator = condDiv.querySelector('.cond-compare-indicator .cond-indicator');
     rightIndicator?.addEventListener('change', () => {
         updateIndicatorParams(condDiv, 'right');
         updateIndicatorOutputs(condDiv, 'right');
     });
 
-    // 비교 타입 변경
+    // 직접설정 모드: 비교 타입 변경
     const compareType = condDiv.querySelector('.cond-compare-type');
     compareType?.addEventListener('change', () => {
         const isIndicator = compareType.value === 'indicator';
@@ -8733,18 +8855,83 @@ function bindConditionEvents(condDiv) {
             condDiv.remove();
         }
     });
+}
 
-    // 초기 지표 설정
-    if (leftIndicator) {
-        updateIndicatorParams(condDiv, 'left');
-        updateIndicatorOutputs(condDiv, 'left');
+// 프리셋 섹션 업데이트 (지표 변경 시)
+function updatePresetSection(condDiv) {
+    const indicatorKey = condDiv.querySelector('.cond-indicator-select')?.value;
+    const presetSelect = condDiv.querySelector('.cond-preset-select');
+    if (!presetSelect) return;
+
+    presetSelect.innerHTML = getPresetOptions(indicatorKey);
+    renderPresetParams(condDiv);
+}
+
+// 프리셋 파라미터 렌더링 (편집 가능한 파라미터 표시)
+function renderPresetParams(condDiv) {
+    const indicatorKey = condDiv.querySelector('.cond-indicator-select')?.value;
+    const presetSelect = condDiv.querySelector('.cond-preset-select');
+    const paramsDiv = condDiv.querySelector('.preset-params');
+    if (!paramsDiv || !presetSelect) return;
+
+    const presets = INDICATOR_PRESETS[indicatorKey] || [];
+    const presetIdx = parseInt(presetSelect.value);
+    const preset = presets[presetIdx];
+
+    if (!preset) {
+        paramsDiv.innerHTML = '';
+        return;
+    }
+
+    // 프리셋의 파라미터를 편집 가능하게 표시
+    const config = preset.config;
+    const indicator = indicatorRegistry?.[config.indicator];
+    if (!indicator || !indicator.params || indicator.params.length === 0) {
+        paramsDiv.innerHTML = '';
+        return;
+    }
+
+    paramsDiv.innerHTML = indicator.params.map(p => `
+        <label class="param-label">${p.label}
+            <input type="number" class="preset-param-input" data-param="${p.key}"
+                value="${config.params?.[p.key] ?? p.default}" min="${p.min || ''}" max="${p.max || ''}" step="any">
+        </label>
+    `).join('');
+}
+
+// 직접설정 섹션 업데이트 (지표 변경 시)
+function updateManualSection(condDiv) {
+    const indicatorKey = condDiv.querySelector('.cond-indicator-select')?.value;
+    const indicator = indicatorRegistry?.[indicatorKey];
+    if (!indicator) return;
+
+    // 출력값 옵션 업데이트
+    const outputSelect = condDiv.querySelector('.manual-section .cond-output[data-side="left"]');
+    if (outputSelect) {
+        outputSelect.innerHTML = indicator.outputs.map(o =>
+            `<option value="${o}">${getOutputLabel(o)}</option>`
+        ).join('');
+    }
+
+    // 파라미터 업데이트
+    const paramsDiv = condDiv.querySelector('.manual-section .cond-params[data-side="left"]');
+    if (paramsDiv) {
+        paramsDiv.innerHTML = indicator.params.map(p => `
+            <label class="param-label">${p.label}
+                <input type="number" class="param-input" data-param="${p.key}"
+                    value="${p.default}" min="${p.min || ''}" max="${p.max || ''}" step="any">
+            </label>
+        `).join('');
     }
 }
 
-// 지표 파라미터 업데이트
+// 지표 파라미터 업데이트 (직접설정 모드 - 오른쪽 비교 지표용)
 function updateIndicatorParams(condDiv, side) {
-    const select = condDiv.querySelector(`.cond-${side === 'left' ? 'left' : 'compare-indicator'} .cond-indicator`);
-    const paramsDiv = condDiv.querySelector(`.cond-${side === 'left' ? 'left' : 'compare-indicator'} .cond-params`);
+    // 직접설정 모드에서 오른쪽(비교) 지표의 파라미터만 업데이트
+    if (side !== 'right') return;
+
+    const select = condDiv.querySelector('.cond-compare-indicator .cond-indicator');
+    const paramsDiv = condDiv.querySelector('.cond-compare-indicator .cond-params');
     if (!select || !paramsDiv) return;
 
     const indicator = indicatorRegistry?.[select.value];
@@ -8800,10 +8987,13 @@ function getOutputLabel(output) {
     return OUTPUT_LABELS[output] || output;
 }
 
-// 지표 출력 업데이트
+// 지표 출력 업데이트 (직접설정 모드 - 오른쪽 비교 지표용)
 function updateIndicatorOutputs(condDiv, side) {
-    const select = condDiv.querySelector(`.cond-${side === 'left' ? 'left' : 'compare-indicator'} .cond-indicator`);
-    const outputSelect = condDiv.querySelector(`.cond-${side === 'left' ? 'left' : 'compare-indicator'} .cond-output`);
+    // 직접설정 모드에서 오른쪽(비교) 지표의 출력 옵션만 업데이트
+    if (side !== 'right') return;
+
+    const select = condDiv.querySelector('.cond-compare-indicator .cond-indicator');
+    const outputSelect = condDiv.querySelector('.cond-compare-indicator .cond-output');
     if (!select || !outputSelect) return;
 
     const indicator = indicatorRegistry?.[select.value];
@@ -8827,7 +9017,7 @@ function setupConditionBuilderListeners() {
     });
 }
 
-// 조건 수집
+// 조건 수집 (프리셋/직접설정 모드 둘 다 지원)
 function collectConditions(type) {
     const container = document.getElementById(`${type}-condition-groups`);
     if (!container) return { groups: [] };
@@ -8838,47 +9028,88 @@ function collectConditions(type) {
         const conditions = [];
 
         groupDiv.querySelectorAll('.condition-row').forEach(condDiv => {
-            const leftIndicator = condDiv.querySelector('.cond-left .cond-indicator')?.value;
-            const leftOutput = condDiv.querySelector('.cond-left .cond-output')?.value;
-            const leftParams = {};
-            condDiv.querySelectorAll('.cond-left .param-input').forEach(input => {
-                const key = input.dataset.param;
-                const val = parseFloat(input.value);
-                if (key && !isNaN(val)) leftParams[key] = val;
-            });
+            const mode = condDiv.dataset.mode || 'preset';
 
-            const operator = condDiv.querySelector('.cond-operator')?.value;
-            const compareType = condDiv.querySelector('.cond-compare-type')?.value;
+            if (mode === 'preset') {
+                // 프리셋 모드: 선택된 프리셋 config 사용 (편집된 파라미터 반영)
+                const indicatorKey = condDiv.querySelector('.cond-indicator-select')?.value;
+                const presetSelect = condDiv.querySelector('.cond-preset-select');
+                const presetIdx = parseInt(presetSelect?.value);
+                const presets = INDICATOR_PRESETS[indicatorKey] || [];
+                const preset = presets[presetIdx];
 
-            let compareValue = null;
-            let compareIndicator = null;
-            let compareOutput = null;
-            let compareParams = null;
+                if (preset && preset.config) {
+                    const config = { ...preset.config };
 
-            if (compareType === 'value') {
-                compareValue = parseFloat(condDiv.querySelector('.cond-compare-value')?.value);
+                    // 사용자가 편집한 파라미터 적용
+                    const editedParams = {};
+                    condDiv.querySelectorAll('.preset-param-input').forEach(input => {
+                        const key = input.dataset.param;
+                        const val = parseFloat(input.value);
+                        if (key && !isNaN(val)) editedParams[key] = val;
+                    });
+
+                    // params가 있으면 편집된 값으로 덮어쓰기
+                    if (Object.keys(editedParams).length > 0) {
+                        config.params = { ...config.params, ...editedParams };
+                    }
+
+                    conditions.push({
+                        indicator: config.indicator,
+                        output: config.output || 'value',
+                        params: config.params || {},
+                        operator: config.operator,
+                        compare_type: config.compare_type,
+                        compare_value: config.compare_value,
+                        compare_indicator: config.compare_indicator,
+                        compare_output: config.compare_output,
+                        compare_params: config.compare_params,
+                    });
+                }
             } else {
-                compareIndicator = condDiv.querySelector('.cond-compare-indicator .cond-indicator')?.value;
-                compareOutput = condDiv.querySelector('.cond-compare-indicator .cond-output')?.value;
-                compareParams = {};
-                condDiv.querySelectorAll('.cond-compare-indicator .param-input').forEach(input => {
+                // 직접설정 모드
+                const leftIndicator = condDiv.querySelector('.cond-indicator-select')?.value;
+                const leftOutput = condDiv.querySelector('.manual-section .cond-output[data-side="left"]')?.value;
+                const leftParams = {};
+                condDiv.querySelectorAll('.manual-section .cond-params[data-side="left"] .param-input').forEach(input => {
                     const key = input.dataset.param;
                     const val = parseFloat(input.value);
-                    if (key && !isNaN(val)) compareParams[key] = val;
+                    if (key && !isNaN(val)) leftParams[key] = val;
+                });
+
+                const operator = condDiv.querySelector('.cond-operator')?.value;
+                const compareType = condDiv.querySelector('.cond-compare-type')?.value;
+
+                let compareValue = null;
+                let compareIndicator = null;
+                let compareOutput = null;
+                let compareParams = null;
+
+                if (compareType === 'value') {
+                    compareValue = parseFloat(condDiv.querySelector('.cond-compare-value')?.value);
+                } else {
+                    compareIndicator = condDiv.querySelector('.cond-compare-indicator .cond-indicator')?.value;
+                    compareOutput = condDiv.querySelector('.cond-compare-indicator .cond-output')?.value;
+                    compareParams = {};
+                    condDiv.querySelectorAll('.cond-compare-indicator .param-input').forEach(input => {
+                        const key = input.dataset.param;
+                        const val = parseFloat(input.value);
+                        if (key && !isNaN(val)) compareParams[key] = val;
+                    });
+                }
+
+                conditions.push({
+                    indicator: leftIndicator,
+                    output: leftOutput || 'value',
+                    params: leftParams,
+                    operator: operator,
+                    compare_type: compareType,
+                    compare_value: compareValue,
+                    compare_indicator: compareIndicator,
+                    compare_output: compareOutput,
+                    compare_params: compareParams,
                 });
             }
-
-            conditions.push({
-                indicator: leftIndicator,
-                output: leftOutput || 'value',
-                params: leftParams,
-                operator: operator,
-                compare_type: compareType,
-                compare_value: compareValue,
-                compare_indicator: compareIndicator,
-                compare_output: compareOutput,
-                compare_params: compareParams,
-            });
         });
 
         if (conditions.length > 0) {
