@@ -37,20 +37,22 @@ class TestSmootherF:
     """Test smoother_f (Ehlers' SuperSmoother from PineScript)."""
 
     def test_basic_smoothing(self):
-        """Test basic SuperSmoother calculation."""
-        # First 4 bars use raw values (warmup period)
+        """Test basic EMA-style smoothing (PineScript smoother_F)."""
+        # smoother_F is EMA: out = a * src + b * out[1]
+        # where a = 2/(len+1), b = 1-a
         src = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0])
         length = 3
         result = smoother_f(src, length)
 
-        # First 4 values should be raw src values (warmup)
+        # EMA coefficients: a = 2/(3+1) = 0.5, b = 0.5
+        # result[0] = 1.0 (초기값)
+        # result[1] = 0.5 * 2.0 + 0.5 * 1.0 = 1.5
+        # result[2] = 0.5 * 3.0 + 0.5 * 1.5 = 2.25
         assert result[0] == 1.0
-        assert result[1] == 2.0
-        assert result[2] == 3.0
-        assert result[3] == 4.0
+        assert abs(result[1] - 1.5) < 1e-6
+        assert abs(result[2] - 2.25) < 1e-6
 
-        # 5th value onwards uses SuperSmoother formula
-        # Result should be smoothed (between input values)
+        # All values should be valid (smoothed)
         assert not np.isnan(result[4])
 
     def test_constant_input(self):
