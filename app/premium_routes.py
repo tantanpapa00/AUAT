@@ -1314,8 +1314,10 @@ async def run_trend_backtest_endpoint(
         )
 
         # ② exit_tf 캔들 조회 (ST 전량매도 전용)
+        # KIS는 주봉 조회가 느리므로 signal_tf만 사용
         exit_candles = None
-        if request.exit_tf and request.exit_tf != request.signal_tf:
+        skip_htf_for_kis = request.exchange.upper() in ["KIS_KR", "KIS_US"]
+        if not skip_htf_for_kis and request.exit_tf and request.exit_tf != request.signal_tf:
             try:
                 exit_candles = await fetch_candles_for_backtest(
                     exchange=request.exchange,
@@ -1329,7 +1331,7 @@ async def run_trend_backtest_endpoint(
 
         # ③ htf_tf 캔들 조회 (HTF VWMA 필터 전용)
         htf_candles = None
-        if request.htf_tf and request.htf_tf != request.signal_tf:
+        if not skip_htf_for_kis and request.htf_tf and request.htf_tf != request.signal_tf:
             try:
                 htf_candles = await fetch_candles_for_backtest(
                     exchange=request.exchange,
