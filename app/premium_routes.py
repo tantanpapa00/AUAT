@@ -1641,13 +1641,12 @@ async def debug_mr_indicators(request: MRDebugRequest):
 
     try:
         # 캔들 조회
-        candle_data = await fetch_candles_for_backtest(
+        candles = await fetch_candles_for_backtest(
             exchange=request.exchange,
             symbol=request.symbol,
             timeframe=request.timeframe,
             days=request.days,
         )
-        candles = candle_data.candles if candle_data else []
 
         if not candles or len(candles) < 50:
             return MRDebugResponse(
