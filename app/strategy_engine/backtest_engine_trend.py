@@ -486,12 +486,13 @@ def run_trend_backtest(
                         state.avg_entry_price = 0.0
                         state.total_cost = 0.0
 
-    # 마지막 포지션 정리
+    # 마지막 포지션 정리 (미실현 손익 포함)
     if position.quantity > 0:
         last_price = candles[-1].c
+        qty_to_close = position.quantity  # remove 전에 수량 저장
         avg_price_before = position.avg_price
-        pnl = position.remove(position.quantity, last_price)
-        proceeds = position.quantity * last_price
+        pnl = position.remove(qty_to_close, last_price)
+        proceeds = qty_to_close * last_price  # 저장된 수량 사용
         fee = proceeds * fee_rate
         capital += proceeds - fee
 
