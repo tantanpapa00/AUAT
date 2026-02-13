@@ -11,7 +11,8 @@ from typing import Optional
 from app.strategy_engine.indicators import (
     calc_sma, calc_ema, calc_wma, calc_hma, calc_vwma,
     calc_bollinger_bands, calc_rsi, calc_macd, calc_stochastic,
-    calc_cci, calc_adx, calc_supertrend, calc_atr, crossover, crossunder
+    calc_cci, calc_adx, calc_supertrend, calc_atr, calc_ichimoku,
+    crossover, crossunder
 )
 from app.strategy_engine.custom_strategy import ConditionItem, CustomRule
 
@@ -107,6 +108,13 @@ def compute_indicator(
         if output == "direction":
             return st_direction.astype(float)
         return st_value
+
+    if indicator == "ICHIMOKU":
+        tenkan_len = params.get("tenkan_len", 9)
+        kijun_len = params.get("kijun_len", 26)
+        senkou_len = params.get("senkou_len", 52)
+        result = calc_ichimoku(highs, lows, closes, tenkan_len, kijun_len, senkou_len)
+        return result.get(output, result["tenkan"])
 
     # === Volatility ===
     if indicator == "ATR":

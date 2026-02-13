@@ -126,6 +126,17 @@ INDICATOR_REGISTRY = {
         "outputs": ["direction", "value"],
         "func": "calc_supertrend",
     },
+    "ICHIMOKU": {
+        "name": "일목균형표",
+        "category": "추세",
+        "params": [
+            {"key": "tenkan_len", "label": "전환선 기간", "default": 9, "min": 2, "max": 100, "type": "int"},
+            {"key": "kijun_len", "label": "기준선 기간", "default": 26, "min": 2, "max": 100, "type": "int"},
+            {"key": "senkou_len", "label": "선행스팬B 기간", "default": 52, "min": 2, "max": 200, "type": "int"},
+        ],
+        "outputs": ["tenkan", "kijun", "senkou_a", "senkou_b", "chikou"],
+        "func": "calc_ichimoku",
+    },
 
     # === 변동성 (Volatility) ===
     "ATR": {
@@ -152,7 +163,7 @@ INDICATOR_REGISTRY = {
 INDICATOR_CATEGORIES = {
     "이동평균": ["SMA", "EMA", "WMA", "HMA", "VWMA", "BB"],
     "오실레이터": ["RSI", "MACD", "STOCH", "CCI"],
-    "추세": ["ADX", "SUPERTREND"],
+    "추세": ["ADX", "SUPERTREND", "ICHIMOKU"],
     "변동성": ["ATR"],
     "가격": ["PRICE"],
 }

@@ -8523,9 +8523,10 @@ function getDefaultIndicatorRegistry() {
         "MACD": { name: "MACD", category: "오실레이터", params: [{ key: "fast_length", label: "단기", default: 12 }, { key: "slow_length", label: "장기", default: 26 }, { key: "signal_length", label: "시그널", default: 9 }], outputs: ["macd", "signal", "histogram"] },
         "STOCH": { name: "스토캐스틱", category: "오실레이터", params: [{ key: "k_period", label: "K 기간", default: 14 }, { key: "d_period", label: "D 기간", default: 3 }, { key: "slowing", label: "슬로잉", default: 3 }], outputs: ["k", "d"] },
         "CCI": { name: "CCI (상품채널지수)", category: "오실레이터", params: [{ key: "period", label: "기간", default: 20 }], outputs: ["value"] },
-        // 추세 (2개)
+        // 추세 (3개)
         "ADX": { name: "ADX (평균방향지수)", category: "추세", params: [{ key: "period", label: "기간", default: 14 }], outputs: ["adx", "plus_di", "minus_di"] },
         "SUPERTREND": { name: "슈퍼트렌드", category: "추세", params: [{ key: "atr_len", label: "ATR 길이", default: 20 }, { key: "factor", label: "팩터", default: 5.0 }], outputs: ["direction", "value"] },
+        "ICHIMOKU": { name: "일목균형표", category: "추세", params: [{ key: "tenkan_len", label: "전환선", default: 9 }, { key: "kijun_len", label: "기준선", default: 26 }, { key: "senkou_len", label: "선행스팬B", default: 52 }], outputs: ["tenkan", "kijun", "senkou_a", "senkou_b", "chikou"] },
         // 변동성 (1개)
         "ATR": { name: "ATR (평균진폭)", category: "변동성", params: [{ key: "period", label: "기간", default: 14 }], outputs: ["value"] },
         // 가격 (1개)
@@ -8637,7 +8638,7 @@ function addCondition(groupId) {
                 ${getIndicatorOptions()}
             </select>
             <select class="cond-output" data-side="left">
-                <option value="value">value</option>
+                <option value="value">값</option>
             </select>
             <div class="cond-params" data-side="left"></div>
         </div>
@@ -8647,15 +8648,15 @@ function addCondition(groupId) {
         <div class="cond-right">
             <select class="cond-compare-type">
                 <option value="value">고정값</option>
-                <option value="indicator">지표</option>
+                <option value="indicator">지표 비교</option>
             </select>
-            <input type="number" class="cond-compare-value" placeholder="값" step="any">
+            <input type="number" class="cond-compare-value" placeholder="값 입력" step="any" style="display:block;">
             <div class="cond-compare-indicator" style="display:none;">
                 <select class="cond-indicator" data-side="right">
                     ${getIndicatorOptions()}
                 </select>
                 <select class="cond-output" data-side="right">
-                    <option value="value">value</option>
+                    <option value="value">값</option>
                 </select>
                 <div class="cond-params" data-side="right"></div>
             </div>
@@ -8760,6 +8761,45 @@ function updateIndicatorParams(condDiv, side) {
     `).join('');
 }
 
+// 출력값 한글 매핑
+const OUTPUT_LABELS = {
+    "value": "값",
+    // MACD
+    "macd": "MACD선",
+    "signal": "시그널선",
+    "histogram": "히스토그램",
+    // Bollinger Bands
+    "upper": "상단밴드",
+    "middle": "중간밴드",
+    "lower": "하단밴드",
+    // Stochastic
+    "k": "%K",
+    "d": "%D",
+    // ADX
+    "adx": "ADX",
+    "plus_di": "+DI",
+    "minus_di": "-DI",
+    // Supertrend
+    "direction": "방향",
+    // Ichimoku
+    "tenkan": "전환선",
+    "kijun": "기준선",
+    "senkou_a": "선행스팬A",
+    "senkou_b": "선행스팬B",
+    "chikou": "후행스팬",
+    // Price
+    "open": "시가",
+    "high": "고가",
+    "low": "저가",
+    "close": "종가",
+    "volume": "거래량",
+};
+
+// 출력값 한글 라벨 가져오기
+function getOutputLabel(output) {
+    return OUTPUT_LABELS[output] || output;
+}
+
 // 지표 출력 업데이트
 function updateIndicatorOutputs(condDiv, side) {
     const select = condDiv.querySelector(`.cond-${side === 'left' ? 'left' : 'compare-indicator'} .cond-indicator`);
@@ -8770,7 +8810,7 @@ function updateIndicatorOutputs(condDiv, side) {
     if (!indicator) return;
 
     outputSelect.innerHTML = indicator.outputs.map(o =>
-        `<option value="${o}">${o}</option>`
+        `<option value="${o}">${getOutputLabel(o)}</option>`
     ).join('');
 }
 

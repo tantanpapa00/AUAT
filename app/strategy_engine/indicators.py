@@ -463,43 +463,55 @@ def calc_supertrend(
 def calc_ichimoku(
     high: np.ndarray,
     low: np.ndarray,
-    tenkan_len: int,
-    kijun_len: int,
-    senkou_len: int
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    close: np.ndarray,
+    tenkan_len: int = 9,
+    kijun_len: int = 26,
+    senkou_len: int = 52
+) -> dict:
     """
-    Ichimoku Cloud indicators (without displacement).
+    Ichimoku Cloud indicators.
 
-    PineScript (simplified, current values only):
+    PineScript:
         tenkan = (highest(high, tenkan_len) + lowest(low, tenkan_len)) / 2
         kijun = (highest(high, kijun_len) + lowest(low, kijun_len)) / 2
         senkouA = (tenkan + kijun) / 2
         senkouB = (highest(high, senkou_len) + lowest(low, senkou_len)) / 2
+        chikou = close (shifted back 26 bars for charting)
 
     Returns:
-        Tuple of (tenkan, kijun, senkou_a, senkou_b)
+        Dict with tenkan, kijun, senkou_a, senkou_b, chikou
     """
     n = len(high)
 
-    # Tenkan-sen (Conversion Line)
+    # Tenkan-sen (전환선): (최고가 + 최저가) / 2
     tenkan_high = calc_highest(high, tenkan_len)
     tenkan_low = calc_lowest(low, tenkan_len)
     tenkan = (tenkan_high + tenkan_low) / 2
 
-    # Kijun-sen (Base Line)
+    # Kijun-sen (기준선): (최고가 + 최저가) / 2
     kijun_high = calc_highest(high, kijun_len)
     kijun_low = calc_lowest(low, kijun_len)
     kijun = (kijun_high + kijun_low) / 2
 
-    # Senkou Span A (Leading Span A)
+    # Senkou Span A (선행스팬A): (전환선 + 기준선) / 2
     senkou_a = (tenkan + kijun) / 2
 
-    # Senkou Span B (Leading Span B)
+    # Senkou Span B (선행스팬B): (최고가52 + 최저가52) / 2
     senkou_high = calc_highest(high, senkou_len)
     senkou_low = calc_lowest(low, senkou_len)
     senkou_b = (senkou_high + senkou_low) / 2
 
-    return tenkan, kijun, senkou_a, senkou_b
+    # Chikou Span (후행스팬): 현재 종가 (차트에서는 26봉 뒤로 표시)
+    # 조건 빌더에서는 현재 종가 값 그대로 사용
+    chikou = close.copy()
+
+    return {
+        "tenkan": tenkan,
+        "kijun": kijun,
+        "senkou_a": senkou_a,
+        "senkou_b": senkou_b,
+        "chikou": chikou,
+    }
 
 
 def calc_spo(
