@@ -243,6 +243,7 @@ def run_trend_backtest(
     state = TrendState()
     position = Position()
     capital = initial_capital
+    total_commission = 0.0  # 총 수수료 추적
 
     # 결과 저장
     trades: List[BacktestTrade] = []
@@ -424,8 +425,10 @@ def run_trend_backtest(
                     # 재계산 (반올림 후)
                     actual_amount = qty * price
                     if actual_amount <= capital:
+                        buy_fee = actual_amount * fee_rate
                         position.add(qty, price)
-                        capital -= actual_amount + (actual_amount * fee_rate)
+                        capital -= actual_amount + buy_fee
+                        total_commission += buy_fee  # 수수료 누적
 
                         # v8: 평균단가 업데이트
                         state.avg_entry_price = position.avg_price
@@ -460,6 +463,7 @@ def run_trend_backtest(
                     fee = proceeds * fee_rate
                     net_proceeds = proceeds - fee
                     pnl -= fee
+                    total_commission += fee  # 수수료 누적
 
                     capital += net_proceeds
                     pnl_pct = (price - avg_price_before) / avg_price_before * 100 if avg_price_before > 0 else 0
@@ -486,7 +490,17 @@ def run_trend_backtest(
                         state.avg_entry_price = 0.0
                         state.total_cost = 0.0
 
-    # 마지막 포지션 정리 (미실현 손익 포함)
+    # 미실현 손익 계산 (포지션 강제 청산 전)
+    unrealized_pnl = 0.0
+    unrealized_pnl_pct = 0.0
+    if position.quantity > 0:
+        last_price = candles[-1].c
+        # 미실현 PnL = (현재가 - 평균단가) * 수량 - 예상 매도 수수료
+        estimated_sell_fee = position.quantity * last_price * fee_rate
+        unrealized_pnl = (last_price - position.avg_price) * position.quantity - estimated_sell_fee
+        unrealized_pnl_pct = (unrealized_pnl / initial_capital) * 100 if initial_capital > 0 else 0
+
+    # 마지막 포지션 정리 (백테스트 종료 시 강제 청산)
     if position.quantity > 0:
         last_price = candles[-1].c
         qty_to_close = position.quantity  # remove 전에 수량 저장
@@ -494,6 +508,7 @@ def run_trend_backtest(
         pnl = position.remove(qty_to_close, last_price)
         proceeds = qty_to_close * last_price  # 저장된 수량 사용
         fee = proceeds * fee_rate
+        total_commission += fee  # 수수료 누적
         capital += proceeds - fee
 
     # 최종 자산
@@ -505,6 +520,9 @@ def run_trend_backtest(
         trades=trades,
         initial_capital=initial_capital,
         final_equity=final_equity,
+        total_commission=total_commission,
+        unrealized_pnl=unrealized_pnl,
+        unrealized_pnl_pct=unrealized_pnl_pct,
     )
 
     return BacktestResult(
