@@ -1376,7 +1376,11 @@
                     <!-- 커스텀 전략 탭 -->
                     <section class="strategy-content card" id="strategy-tab-custom" style="display: none;">
                         <h2>커스텀 전략 설정</h2>
-                        <div class="strategy-form">
+                        <p class="strategy-description">지표 기반 조건 빌더로 나만의 매매 전략을 생성하세요</p>
+
+                        <!-- 거래소 + 종목 + 타임프레임 -->
+                        <div class="custom-section">
+                            <h3>거래소 + 종목</h3>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label>거래소</label>
@@ -1386,110 +1390,158 @@
                                 </div>
                                 <div class="form-group">
                                     <label>종목</label>
-                                    <input type="text" id="custom-symbol" class="form-input" placeholder="예: BTC-USDT" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-                                </div>
-                            </div>
-
-                            <div class="condition-section">
-                                <h4>진입 조건</h4>
-                                <div class="condition-row" id="entry-conditions">
-                                    <div class="condition-item">
-                                        <select class="condition-indicator">
-                                            <option value="rsi">RSI</option>
-                                            <option value="macd">MACD</option>
-                                            <option value="bb">볼린저밴드</option>
-                                            <option value="sma">이동평균(SMA)</option>
-                                            <option value="ema">이동평균(EMA)</option>
-                                        </select>
-                                        <select class="condition-operator">
-                                            <option value="crossover">크로스오버</option>
-                                            <option value="crossunder">크로스언더</option>
-                                            <option value="above">이상</option>
-                                            <option value="below">이하</option>
-                                        </select>
-                                        <input type="number" class="condition-value" placeholder="값">
-                                    </div>
-                                </div>
-                                <button class="btn btn-secondary btn-sm" id="btn-add-entry-condition">+ 조건 추가</button>
-                            </div>
-
-                            <div class="condition-section">
-                                <h4>청산 조건</h4>
-                                <div class="condition-row" id="exit-conditions">
-                                    <div class="condition-item">
-                                        <select class="condition-indicator">
-                                            <option value="rsi">RSI</option>
-                                            <option value="macd">MACD</option>
-                                            <option value="bb">볼린저밴드</option>
-                                            <option value="sma">이동평균(SMA)</option>
-                                            <option value="ema">이동평균(EMA)</option>
-                                        </select>
-                                        <select class="condition-operator">
-                                            <option value="crossover">크로스오버</option>
-                                            <option value="crossunder">크로스언더</option>
-                                            <option value="above">이상</option>
-                                            <option value="below">이하</option>
-                                        </select>
-                                        <input type="number" class="condition-value" placeholder="값">
-                                    </div>
-                                </div>
-                                <button class="btn btn-secondary btn-sm" id="btn-add-exit-condition">+ 조건 추가</button>
-                            </div>
-
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>주문 수량 (%)</label>
-                                    <input type="number" id="custom-qty" class="form-input" value="100">
+                                    <input type="text" id="custom-symbol" class="form-input" placeholder="예: BTC-USDT" autocomplete="off">
                                 </div>
                                 <div class="form-group">
-                                    <label>레버리지</label>
-                                    <input type="number" id="custom-leverage" class="form-input" value="1">
-                                </div>
-                                <div class="form-group">
-                                    <label>손절 (%)</label>
-                                    <input type="number" id="custom-sl" class="form-input" placeholder="선택">
-                                </div>
-                                <div class="form-group">
-                                    <label>익절 (%)</label>
-                                    <input type="number" id="custom-tp" class="form-input" placeholder="선택">
+                                    <label>타임프레임</label>
+                                    <select id="custom-timeframe" class="form-select">
+                                        <option value="1D">일봉 (1D)</option>
+                                        <option value="4H">4시간 (4H)</option>
+                                        <option value="1H">1시간 (1H)</option>
+                                        <option value="1W">주봉 (1W)</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- 백테스팅 섹션 -->
-                        <div class="backtest-section">
-                            <h3>백테스팅</h3>
-                            <div class="backtest-params">
+                        <!-- 진입 조건 (매수) -->
+                        <div class="custom-section condition-builder">
+                            <h3>진입 조건 (매수)</h3>
+                            <p class="section-hint">각 그룹 내 조건은 AND로 연결, 그룹 간은 OR로 연결됩니다</p>
+                            <div id="entry-condition-groups" class="condition-groups"></div>
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-add-entry-group">+ 조건 그룹 추가 (OR)</button>
+                        </div>
+
+                        <!-- 청산 조건 (매도) -->
+                        <div class="custom-section condition-builder">
+                            <h3>청산 조건 (매도)</h3>
+                            <p class="section-hint">각 그룹 내 조건은 AND로 연결, 그룹 간은 OR로 연결됩니다</p>
+                            <div id="exit-condition-groups" class="condition-groups"></div>
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-add-exit-group">+ 조건 그룹 추가 (OR)</button>
+                        </div>
+
+                        <!-- 위험관리 -->
+                        <div class="custom-section">
+                            <h3>위험관리</h3>
+                            <div class="form-row">
                                 <div class="form-group">
-                                    <label>시작일</label>
-                                    <input type="date" id="backtest-start" class="form-input">
+                                    <label>포지션 비중 (%)</label>
+                                    <input type="number" id="custom-position-size" class="form-input" value="100" min="1" max="100">
                                 </div>
                                 <div class="form-group">
-                                    <label>종료일</label>
-                                    <input type="date" id="backtest-end" class="form-input">
+                                    <label>손절 (%)</label>
+                                    <input type="number" id="custom-stop-loss" class="form-input" placeholder="선택" step="0.1">
+                                </div>
+                                <div class="form-group">
+                                    <label>익절 (%)</label>
+                                    <input type="number" id="custom-take-profit" class="form-input" placeholder="선택" step="0.1">
+                                </div>
+                                <div class="form-group">
+                                    <label>수수료 (%)</label>
+                                    <input type="number" id="custom-commission" class="form-input" value="0.015" step="0.001">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 백테스트 설정 및 실행 -->
+                        <div class="custom-section">
+                            <h3>백테스트</h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>전략 이름</label>
+                                    <input type="text" id="custom-strategy-name" class="form-input" value="내 전략" placeholder="전략 이름">
+                                </div>
+                                <div class="form-group">
+                                    <label>테스트 기간 (일)</label>
+                                    <input type="number" id="custom-days" class="form-input" value="365" min="30" max="3650">
                                 </div>
                                 <div class="form-group">
                                     <label>초기 자본</label>
-                                    <input type="number" id="backtest-capital" class="form-input" value="10000000">
+                                    <input type="number" id="custom-initial-capital" class="form-input" value="10000000">
                                 </div>
-                                <button class="btn btn-primary" id="btn-run-backtest">백테스팅 실행</button>
+                                <div class="form-group" style="align-self: flex-end;">
+                                    <button class="btn btn-primary" id="btn-custom-run-backtest">백테스트 실행</button>
+                                </div>
                             </div>
 
-                            <div class="backtest-result" id="backtest-result" style="display: none;">
-                                <div class="result-chart">
-                                    <canvas id="backtest-chart"></canvas>
+                            <!-- 로딩 표시 -->
+                            <div id="custom-backtest-loading" class="backtest-loading" style="display: none;">
+                                <div class="spinner"></div>
+                                <span>백테스트 실행 중...</span>
+                            </div>
+
+                            <!-- 에러 표시 -->
+                            <div id="custom-backtest-error" class="backtest-error" style="display: none;"></div>
+
+                            <!-- 결과 영역 -->
+                            <div id="custom-backtest-result" class="backtest-result" style="display: none;">
+                                <!-- 5카드 요약 -->
+                                <div class="bt-summary-cards">
+                                    <div class="bt-card">
+                                        <div class="bt-card-label">순손익</div>
+                                        <div class="bt-card-value" id="custom-stat-net-profit">-</div>
+                                    </div>
+                                    <div class="bt-card">
+                                        <div class="bt-card-label">총 거래</div>
+                                        <div class="bt-card-value" id="custom-stat-trades">0</div>
+                                    </div>
+                                    <div class="bt-card">
+                                        <div class="bt-card-label">승률</div>
+                                        <div class="bt-card-value" id="custom-stat-winrate">0%</div>
+                                    </div>
+                                    <div class="bt-card">
+                                        <div class="bt-card-label">수익지수</div>
+                                        <div class="bt-card-value" id="custom-stat-pf">0</div>
+                                    </div>
+                                    <div class="bt-card">
+                                        <div class="bt-card-label">최대낙폭</div>
+                                        <div class="bt-card-value" id="custom-stat-mdd">0%</div>
+                                    </div>
                                 </div>
-                                <div class="result-summary">
-                                    <table class="result-table">
-                                        <tr><td>총 수익률</td><td id="bt-total-return">+0.00%</td></tr>
-                                        <tr><td>연평균 수익률(CAGR)</td><td id="bt-cagr">+0.00%</td></tr>
-                                        <tr><td>최대 낙폭(MDD)</td><td id="bt-mdd">-0.00%</td></tr>
-                                        <tr><td>샤프 비율</td><td id="bt-sharpe">0.00</td></tr>
-                                        <tr><td>승률</td><td id="bt-winrate">0.0%</td></tr>
-                                        <tr><td>총 거래 횟수</td><td id="bt-trades">0회</td></tr>
+
+                                <!-- 캔들 차트 -->
+                                <div class="bt-chart-section">
+                                    <h4>캔들 차트</h4>
+                                    <div id="custom-chart-container" class="chart-container" style="height: 400px;"></div>
+                                </div>
+
+                                <!-- 수익률 테이블 -->
+                                <div class="bt-table-section">
+                                    <h4>수익률</h4>
+                                    <table class="bt-performance-table" id="custom-performance-table">
+                                        <thead>
+                                            <tr>
+                                                <th>항목</th>
+                                                <th>전체</th>
+                                                <th>매수</th>
+                                                <th>매도</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
                                     </table>
                                 </div>
-                                <button class="btn btn-success" id="btn-activate-strategy">이 전략 활성화</button>
+
+                                <!-- 거래 내역 -->
+                                <div class="bt-table-section">
+                                    <h4>거래 내역</h4>
+                                    <div class="trades-table-wrapper">
+                                        <table class="bt-trades-table" id="custom-trades-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>번호</th>
+                                                    <th>유형</th>
+                                                    <th>날짜</th>
+                                                    <th>가격</th>
+                                                    <th>수량</th>
+                                                    <th>구분</th>
+                                                    <th>손익</th>
+                                                    <th>수익률</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </section>

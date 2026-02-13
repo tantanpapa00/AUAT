@@ -1576,6 +1576,212 @@ async def run_trend_backtest_endpoint(
 
 
 # ============================================================================
+# CUSTOM STRATEGY BACKTEST (조건 빌더)
+# ============================================================================
+
+from app.strategy_engine.custom_strategy import (
+    CustomBacktestRequest,
+    CustomBacktestResponse,
+)
+from app.strategy_engine.indicator_registry import INDICATOR_REGISTRY, OPERATORS
+
+
+@router.get("/indicators")
+async def get_indicators():
+    """
+    프론트엔드 조건 빌더에서 사용할 지표 목록 반환.
+    """
+    return {
+        "success": True,
+        "indicators": INDICATOR_REGISTRY,
+        "operators": OPERATORS,
+    }
+
+
+@router.post("/backtest/custom", response_model=CustomBacktestResponse)
+async def run_custom_backtest_endpoint(request: CustomBacktestRequest):
+    """
+    커스텀 전략 백테스트 실행.
+
+    사용자가 조건 빌더로 생성한 전략을 실제 OHLCV 데이터로 백테스트합니다.
+    """
+    import time as _time
+    from datetime import datetime
+
+    from app.strategy_engine.backtest_engine_custom import run_custom_backtest
+    from app.strategy_engine.candle_fetcher import fetch_candles_for_backtest
+
+    _t0 = _time.time()
+
+    try:
+        # ① 캔들 조회
+        candles = await fetch_candles_for_backtest(
+            exchange=request.exchange,
+            symbol=request.symbol,
+            timeframe=request.timeframe,
+            days=request.days,
+            timeout=60,
+        )
+
+        if not candles:
+            return CustomBacktestResponse(
+                success=False,
+                message=f"캔들 데이터 조회 실패: {request.exchange} {request.symbol}",
+            )
+
+        _t1 = _time.time()
+
+        # ② 백테스트 실행
+        result = await run_custom_backtest(
+            candles=candles,
+            config=request.strategy,
+            initial_capital=request.initial_capital,
+        )
+
+        _t2 = _time.time()
+
+        if not result.get("success"):
+            return CustomBacktestResponse(
+                success=False,
+                message=result.get("message", "백테스트 실패"),
+            )
+
+        # ③ 결과 처리 (트레이딩뷰 형식 맞추기)
+        trades_list = []
+        cumulative_pnl = 0.0
+
+        for idx, t in enumerate(result.get("trades", [])):
+            if t.get("action") == "sell" and t.get("pnl") is not None:
+                cumulative_pnl += t["pnl"]
+
+            type_text = "매수" if t.get("action") == "buy" else "매도"
+            reason_map = {
+                "entry": "진입",
+                "exit": "청산",
+                "stop_loss": "손절",
+                "take_profit": "익절",
+            }
+            tranche_text = reason_map.get(t.get("reason", ""), t.get("reason", ""))
+
+            date_str = ""
+            if t.get("timestamp"):
+                dt = datetime.fromtimestamp(t["timestamp"] / 1000)
+                date_str = dt.strftime("%Y-%m-%d %H:%M")
+
+            trades_list.append({
+                "no": idx + 1,
+                "type": type_text,
+                "date": date_str,
+                "bar_index": t.get("bar_index"),
+                "timestamp": t.get("timestamp"),
+                "action": t.get("action"),
+                "price": round(t.get("price", 0), 2),
+                "qty": round(t.get("quantity", 0), 6),
+                "quantity": t.get("quantity"),
+                "tranche": tranche_text,
+                "reason": t.get("reason"),
+                "pnl": round(t["pnl"], 2) if t.get("pnl") is not None else None,
+                "pnl_pct": round(t["pnl_pct"], 2) if t.get("pnl_pct") is not None else None,
+                "cumulative_pnl": round(cumulative_pnl, 2) if t.get("action") == "sell" else None,
+                "commission": round(t.get("commission", 0), 4),
+            })
+
+        # equity_curve 샘플링 (최대 200포인트)
+        equity_curve = result.get("equity_curve", [])
+        if len(equity_curve) > 200:
+            step = max(1, len(equity_curve) // 200)
+            equity_curve = equity_curve[::step]
+
+        # 캔들 데이터 (차트용)
+        candle_data = []
+        raw_candles = result.get("candles", [])
+        for c in raw_candles[:1000]:
+            candle_data.append({
+                "time": c.get("timestamp", 0) // 1000,
+                "open": c.get("open"),
+                "high": c.get("high"),
+                "low": c.get("low"),
+                "close": c.get("close"),
+                "volume": c.get("volume"),
+            })
+
+        m = result.get("metrics", {})
+
+        return CustomBacktestResponse(
+            success=True,
+            message=f"백테스트 완료: {len(candles)}봉 분석, {m.get('total_trades', 0)}거래",
+            metrics={
+                "initial_capital": round(m.get("initial_capital", 0), 0),
+                "final_capital": round(m.get("final_capital", 0), 0),
+                "total_return_pct": round(m.get("total_return_pct", 0), 2),
+                "cagr_pct": round(m.get("cagr_pct", 0), 2),
+                "max_drawdown_pct": round(m.get("max_drawdown_pct", 0), 2),
+                "sharpe_ratio": round(m.get("sharpe_ratio", 0), 2),
+                "win_rate_pct": round(m.get("win_rate_pct", 0), 1),
+                "total_trades": m.get("total_trades", 0),
+                "winning_trades": m.get("winning_trades", 0),
+                "losing_trades": m.get("losing_trades", 0),
+                "profit_factor": round(m.get("profit_factor", 0), 3) if m.get("profit_factor") != float('inf') else 999.99,
+                "net_profit": round(m.get("net_profit", 0), 2),
+                "net_profit_pct": round(m.get("net_profit_pct", 0), 2),
+                "gross_profit": round(m.get("gross_profit", 0), 2),
+                "gross_profit_pct": round(m.get("gross_profit_pct", 0), 2),
+                "gross_loss": round(m.get("gross_loss", 0), 2),
+                "gross_loss_pct": round(m.get("gross_loss_pct", 0), 2),
+                "max_drawdown": round(m.get("max_drawdown", 0), 2),
+                "commission_paid": round(m.get("commission_paid", 0), 4),
+                "expected_value": round(m.get("expected_value", 0), 2),
+                "unrealized_pnl": round(m.get("unrealized_pnl", 0), 2),
+                "unrealized_pnl_pct": round(m.get("unrealized_pnl_pct", 0), 2),
+                "avg_win_pct": round(m.get("avg_win_pct", 0), 2),
+                "avg_loss_pct": round(m.get("avg_loss_pct", 0), 2),
+                "max_consecutive_wins": m.get("max_consecutive_wins", 0),
+                "max_consecutive_losses": m.get("max_consecutive_losses", 0),
+
+                # 매수 분리
+                "buy_net_profit": round(m.get("buy_net_profit", 0), 2),
+                "buy_net_profit_pct": round(m.get("buy_net_profit_pct", 0), 2),
+                "buy_gross_profit": round(m.get("buy_gross_profit", 0), 2),
+                "buy_gross_profit_pct": round(m.get("buy_gross_profit_pct", 0), 2),
+                "buy_gross_loss": round(m.get("buy_gross_loss", 0), 2),
+                "buy_gross_loss_pct": round(m.get("buy_gross_loss_pct", 0), 2),
+                "buy_commission": round(m.get("buy_commission", 0), 4),
+                "buy_trades": m.get("buy_trades", 0),
+                "buy_winning": m.get("buy_winning", 0),
+                "buy_losing": m.get("buy_losing", 0),
+
+                # 매도 분리 (롱 전용이므로 0)
+                "sell_net_profit": 0,
+                "sell_net_profit_pct": 0,
+                "sell_gross_profit": 0,
+                "sell_gross_profit_pct": 0,
+                "sell_gross_loss": 0,
+                "sell_gross_loss_pct": 0,
+                "sell_commission": 0,
+                "sell_trades": 0,
+                "sell_winning": 0,
+                "sell_losing": 0,
+            },
+            equity_curve=equity_curve,
+            trades=trades_list,
+            candles=candle_data,
+        )
+
+    except ValueError as e:
+        logger.warning(f"Custom 백테스트 입력 오류: {e}")
+        return CustomBacktestResponse(
+            success=False,
+            message=str(e),
+        )
+    except Exception as e:
+        logger.error(f"Custom 백테스트 오류: {e}", exc_info=True)
+        return CustomBacktestResponse(
+            success=False,
+            message=f"백테스트 실행 중 오류가 발생했습니다. ({type(e).__name__})",
+        )
+
+
+# ============================================================================
 # DEBUG: MR 봉별 지표 데이터 (PineScript 비교용)
 # ============================================================================
 

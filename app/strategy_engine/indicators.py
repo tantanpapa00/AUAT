@@ -900,3 +900,256 @@ def calc_vwma_simple(close: np.ndarray, volume: np.ndarray, length: int) -> np.n
     Used for HTF VWMA(156) calculation.
     """
     return calc_vwma(close, volume, length)
+
+
+# ============================================================
+# Custom Strategy Indicators
+# ============================================================
+
+def calc_macd(
+    close: np.ndarray,
+    fast_length: int = 12,
+    slow_length: int = 26,
+    signal_length: int = 9
+) -> dict:
+    """
+    MACD (Moving Average Convergence Divergence).
+
+    PineScript: ta.macd(close, fast, slow, signal)
+
+    Args:
+        close: Close price series
+        fast_length: Fast EMA period (default 12)
+        slow_length: Slow EMA period (default 26)
+        signal_length: Signal line EMA period (default 9)
+
+    Returns:
+        dict with 'macd', 'signal', 'histogram'
+    """
+    n = len(close)
+    if n < slow_length + signal_length:
+        nan_arr = np.full(n, np.nan)
+        return {'macd': nan_arr, 'signal': nan_arr, 'histogram': nan_arr}
+
+    ema_fast = calc_ema(close, fast_length)
+    ema_slow = calc_ema(close, slow_length)
+
+    macd_line = ema_fast - ema_slow
+    signal_line = calc_ema(macd_line, signal_length)
+    histogram = macd_line - signal_line
+
+    return {
+        'macd': macd_line,
+        'signal': signal_line,
+        'histogram': histogram
+    }
+
+
+def calc_stochastic(
+    high: np.ndarray,
+    low: np.ndarray,
+    close: np.ndarray,
+    k_period: int = 14,
+    d_period: int = 3,
+    slowing: int = 3
+) -> dict:
+    """
+    Stochastic Oscillator (Slow).
+
+    PineScript: ta.stoch(close, high, low, k_period)
+
+    Args:
+        high: High price series
+        low: Low price series
+        close: Close price series
+        k_period: %K period (default 14)
+        d_period: %D smoothing period (default 3)
+        slowing: %K smoothing/slowing (default 3)
+
+    Returns:
+        dict with 'k' (Slow %K), 'd' (Slow %D)
+    """
+    n = len(close)
+    if n < k_period + slowing + d_period:
+        nan_arr = np.full(n, np.nan)
+        return {'k': nan_arr, 'd': nan_arr}
+
+    # Fast %K
+    fast_k = np.full(n, np.nan)
+    for i in range(k_period - 1, n):
+        highest = np.max(high[i - k_period + 1:i + 1])
+        lowest = np.min(low[i - k_period + 1:i + 1])
+        if highest == lowest:
+            fast_k[i] = 50.0
+        else:
+            fast_k[i] = (close[i] - lowest) / (highest - lowest) * 100
+
+    # Slow %K = SMA of Fast %K
+    slow_k = calc_sma(fast_k, slowing)
+
+    # Slow %D = SMA of Slow %K
+    slow_d = calc_sma(slow_k, d_period)
+
+    return {'k': slow_k, 'd': slow_d}
+
+
+def calc_cci(
+    high: np.ndarray,
+    low: np.ndarray,
+    close: np.ndarray,
+    length: int = 20
+) -> np.ndarray:
+    """
+    CCI (Commodity Channel Index).
+
+    PineScript: ta.cci(close, length)
+
+    Formula: CCI = (TP - SMA(TP)) / (0.015 * MAD)
+    where TP = (high + low + close) / 3
+    and MAD = Mean Absolute Deviation
+
+    Args:
+        high: High price series
+        low: Low price series
+        close: Close price series
+        length: CCI period (default 20)
+
+    Returns:
+        CCI values
+    """
+    n = len(close)
+    if n < length:
+        return np.full(n, np.nan)
+
+    tp = (high + low + close) / 3.0
+    result = np.full(n, np.nan)
+
+    for i in range(length - 1, n):
+        window = tp[i - length + 1:i + 1]
+        sma = np.mean(window)
+        mad = np.mean(np.abs(window - sma))
+        if mad == 0:
+            result[i] = 0.0
+        else:
+            result[i] = (tp[i] - sma) / (0.015 * mad)
+
+    return result
+
+
+def calc_adx(
+    high: np.ndarray,
+    low: np.ndarray,
+    close: np.ndarray,
+    length: int = 14
+) -> dict:
+    """
+    ADX (Average Directional Index).
+
+    PineScript: ta.dmi(high, low, close, length)
+
+    Returns:
+        dict with 'adx', 'plus_di', 'minus_di'
+    """
+    n = len(close)
+    if n < length * 2:
+        nan_arr = np.full(n, np.nan)
+        return {'adx': nan_arr, 'plus_di': nan_arr, 'minus_di': nan_arr}
+
+    # +DM, -DM calculation
+    plus_dm = np.zeros(n)
+    minus_dm = np.zeros(n)
+    tr = np.zeros(n)
+
+    for i in range(1, n):
+        h_diff = high[i] - high[i - 1]
+        l_diff = low[i - 1] - low[i]
+
+        if h_diff > l_diff and h_diff > 0:
+            plus_dm[i] = h_diff
+        else:
+            plus_dm[i] = 0
+
+        if l_diff > h_diff and l_diff > 0:
+            minus_dm[i] = l_diff
+        else:
+            minus_dm[i] = 0
+
+        # True Range
+        tr[i] = max(
+            high[i] - low[i],
+            abs(high[i] - close[i - 1]),
+            abs(low[i] - close[i - 1])
+        )
+
+    # RMA smoothing (Wilder's smoothing)
+    def rma(data: np.ndarray, period: int) -> np.ndarray:
+        result = np.full(len(data), np.nan)
+        alpha = 1.0 / period
+        # Initial SMA
+        result[period] = np.mean(data[1:period + 1])
+        for i in range(period + 1, len(data)):
+            result[i] = alpha * data[i] + (1 - alpha) * result[i - 1]
+        return result
+
+    atr = rma(tr, length)
+    plus_di_smooth = rma(plus_dm, length)
+    minus_di_smooth = rma(minus_dm, length)
+
+    # +DI, -DI
+    plus_di = np.full(n, np.nan)
+    minus_di = np.full(n, np.nan)
+    dx = np.full(n, np.nan)
+
+    for i in range(length, n):
+        if atr[i] and atr[i] != 0:
+            plus_di[i] = 100 * plus_di_smooth[i] / atr[i]
+            minus_di[i] = 100 * minus_di_smooth[i] / atr[i]
+
+            di_sum = plus_di[i] + minus_di[i]
+            if di_sum != 0:
+                dx[i] = 100 * abs(plus_di[i] - minus_di[i]) / di_sum
+
+    # ADX = RMA of DX
+    adx = rma(dx, length)
+
+    return {
+        'adx': adx,
+        'plus_di': plus_di,
+        'minus_di': minus_di
+    }
+
+
+def calc_bollinger_bands(
+    close: np.ndarray,
+    length: int = 20,
+    std_mult: float = 2.0
+) -> dict:
+    """
+    Bollinger Bands.
+
+    PineScript: ta.bb(close, length, mult)
+
+    Args:
+        close: Close price series
+        length: Period (default 20)
+        std_mult: Standard deviation multiplier (default 2.0)
+
+    Returns:
+        dict with 'upper', 'middle', 'lower'
+    """
+    n = len(close)
+    if n < length:
+        nan_arr = np.full(n, np.nan)
+        return {'upper': nan_arr, 'middle': nan_arr, 'lower': nan_arr}
+
+    middle = calc_sma(close, length)
+    std = calc_stdev(close, length)
+
+    upper = middle + std_mult * std
+    lower = middle - std_mult * std
+
+    return {
+        'upper': upper,
+        'middle': middle,
+        'lower': lower
+    }

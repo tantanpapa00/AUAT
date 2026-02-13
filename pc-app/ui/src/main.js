@@ -3315,6 +3315,11 @@ document.querySelectorAll('.strategy-tab').forEach(tab => {
             loadTrendExchangeDropdown();
             initTrendDynamicUI();
         }
+        // 커스텀 전략 탭 클릭 시 초기화
+        if (tab.dataset.tab === 'custom') {
+            loadCustomExchangeDropdown();
+            initCustomConditionBuilder();
+        }
     });
 });
 
@@ -8398,6 +8403,736 @@ async function loadTrendExchangeDropdown() {
         });
     }
 }
+
+
+// =====================================================
+// Custom Strategy (커스텀 전략 조건 빌더)
+// =====================================================
+let customBacktestChart = null;
+let indicatorRegistry = null;  // 지표 레지스트리 캐시
+
+// 거래소 드롭다운 초기화 (MR/Trend와 동일 패턴)
+async function loadCustomExchangeDropdown() {
+    const select = document.getElementById('custom-exchange');
+    if (!select) return;
+
+    const defaultExchanges = ['OKX', 'BINANCE', 'BYBIT', 'UPBIT', 'KIS_KR', 'KIS_US'];
+
+    try {
+        let accounts = [];
+        try {
+            accounts = await invoke('get_accounts_list', { accessToken: auth.accessToken || '' });
+        } catch { }
+
+        if (!accounts || accounts.length === 0) {
+            try {
+                accounts = await invoke('list_local_accounts');
+            } catch { }
+        }
+
+        const registeredExchanges = new Set();
+        (accounts || []).forEach(acc => {
+            const exName = acc.exchange?.toUpperCase() || acc.exchange_name?.toUpperCase();
+            if (exName) registeredExchanges.add(exName);
+        });
+
+        const allExchanges = [...new Set([...defaultExchanges, ...registeredExchanges])];
+
+        select.innerHTML = '<option value="">선택하세요</option>';
+        allExchanges.forEach(ex => {
+            const displayName = EXCHANGE_DISPLAY[ex] || ex;
+            select.innerHTML += `<option value="${ex}">${displayName}</option>`;
+        });
+    } catch (error) {
+        console.error('커스텀 거래소 드롭다운 로드 실패:', error);
+        select.innerHTML = '<option value="">선택하세요</option>';
+        defaultExchanges.forEach(ex => {
+            const displayName = EXCHANGE_DISPLAY[ex] || ex;
+            select.innerHTML += `<option value="${ex}">${displayName}</option>`;
+        });
+    }
+
+    // 거래소 변경 시 종목 필터 업데이트
+    select.addEventListener('change', () => {
+        if (customSymbolAutocomplete) {
+            customSymbolAutocomplete.setExchange(select.value);
+        }
+        updateCustomTimeframeOptions(select.value);
+    });
+}
+
+// KIS 거래소 타임프레임 제한
+function updateCustomTimeframeOptions(exchange) {
+    const tfSelect = document.getElementById('custom-timeframe');
+    if (!tfSelect) return;
+
+    const isKIS = exchange === 'KIS_KR' || exchange === 'KIS_US';
+    const kisAllowedTfs = ['1D', '1W', '1M'];
+
+    Array.from(tfSelect.options).forEach(opt => {
+        if (isKIS) {
+            opt.disabled = !kisAllowedTfs.includes(opt.value);
+        } else {
+            opt.disabled = false;
+        }
+    });
+
+    if (isKIS && !kisAllowedTfs.includes(tfSelect.value)) {
+        tfSelect.value = '1D';
+    }
+}
+
+// 조건 빌더 초기화
+async function initCustomConditionBuilder() {
+    // 지표 레지스트리 로드
+    if (!indicatorRegistry) {
+        try {
+            const resp = await fetch('https://qube-system.com/api/premium/indicators');
+            const data = await resp.json();
+            if (data.success) {
+                indicatorRegistry = data.indicators;
+                window.indicatorOperators = data.operators || [];
+            }
+        } catch (e) {
+            console.error('지표 레지스트리 로드 실패:', e);
+            // 기본 지표 레지스트리 (폴백)
+            indicatorRegistry = getDefaultIndicatorRegistry();
+        }
+    }
+
+    // 조건 그룹 초기화
+    initConditionGroups('entry');
+    initConditionGroups('exit');
+
+    // 이벤트 리스너 설정
+    setupConditionBuilderListeners();
+}
+
+// 기본 지표 레지스트리 (API 실패 시 폴백)
+function getDefaultIndicatorRegistry() {
+    return {
+        "SMA": { name: "단순이동평균 (SMA)", category: "이동평균", params: [{ key: "period", label: "기간", default: 20, min: 2, max: 500, type: "int" }], outputs: ["value"] },
+        "EMA": { name: "지수이동평균 (EMA)", category: "이동평균", params: [{ key: "period", label: "기간", default: 20, min: 2, max: 500, type: "int" }], outputs: ["value"] },
+        "RSI": { name: "RSI (상대강도지수)", category: "오실레이터", params: [{ key: "period", label: "기간", default: 14, min: 2, max: 100, type: "int" }], outputs: ["value"] },
+        "MACD": { name: "MACD", category: "오실레이터", params: [{ key: "fast_length", label: "단기", default: 12 }, { key: "slow_length", label: "장기", default: 26 }, { key: "signal_length", label: "시그널", default: 9 }], outputs: ["macd", "signal", "histogram"] },
+        "STOCH": { name: "스토캐스틱", category: "오실레이터", params: [{ key: "k_period", label: "K 기간", default: 14 }, { key: "d_period", label: "D 기간", default: 3 }, { key: "slowing", label: "슬로잉", default: 3 }], outputs: ["k", "d"] },
+        "BB": { name: "볼린저 밴드", category: "이동평균", params: [{ key: "period", label: "기간", default: 20 }, { key: "std_mult", label: "표준편차 배수", default: 2.0 }], outputs: ["upper", "middle", "lower"] },
+        "ADX": { name: "ADX (평균방향지수)", category: "추세", params: [{ key: "period", label: "기간", default: 14 }], outputs: ["adx", "plus_di", "minus_di"] },
+        "ATR": { name: "ATR (평균진폭)", category: "변동성", params: [{ key: "period", label: "기간", default: 14 }], outputs: ["value"] },
+        "SUPERTREND": { name: "슈퍼트렌드", category: "추세", params: [{ key: "atr_len", label: "ATR 길이", default: 20 }, { key: "factor", label: "팩터", default: 5.0 }], outputs: ["direction", "value"] },
+        "CCI": { name: "CCI (상품채널지수)", category: "오실레이터", params: [{ key: "period", label: "기간", default: 20 }], outputs: ["value"] },
+        "PRICE": { name: "가격", category: "가격", params: [], outputs: ["open", "high", "low", "close", "volume"] },
+    };
+}
+
+// 연산자 목록
+function getOperators() {
+    return window.indicatorOperators || [
+        { value: ">", label: ">" },
+        { value: "<", label: "<" },
+        { value: ">=", label: ">=" },
+        { value: "<=", label: "<=" },
+        { value: "cross_above", label: "상향돌파 (골든크로스)" },
+        { value: "cross_below", label: "하향돌파 (데드크로스)" },
+    ];
+}
+
+// 조건 그룹 초기화
+function initConditionGroups(type) {
+    const container = document.getElementById(`${type}-condition-groups`);
+    if (!container) return;
+
+    container.innerHTML = '';
+    addConditionGroup(type);
+}
+
+// 조건 그룹 추가
+function addConditionGroup(type) {
+    const container = document.getElementById(`${type}-condition-groups`);
+    if (!container) return;
+
+    const groupCount = container.querySelectorAll('.condition-group').length;
+    const groupId = `${type}-group-${groupCount}`;
+
+    const groupDiv = document.createElement('div');
+    groupDiv.className = 'condition-group';
+    groupDiv.dataset.groupId = groupId;
+
+    groupDiv.innerHTML = `
+        <div class="condition-group-header">
+            <span class="group-label">그룹 ${groupCount + 1}</span>
+            ${groupCount > 0 ? '<span class="group-logic-label">OR</span>' : ''}
+            <button type="button" class="btn-remove-group" title="그룹 삭제">&times;</button>
+        </div>
+        <div class="conditions-list" data-group-id="${groupId}"></div>
+        <div class="condition-actions">
+            <button type="button" class="btn btn-secondary btn-sm btn-add-condition">+ 조건 추가</button>
+        </div>
+    `;
+
+    container.appendChild(groupDiv);
+
+    // 첫 번째 조건 추가
+    addCondition(groupId);
+
+    // 이벤트 바인딩
+    groupDiv.querySelector('.btn-remove-group')?.addEventListener('click', () => {
+        if (container.querySelectorAll('.condition-group').length > 1) {
+            groupDiv.remove();
+            updateGroupLabels(type);
+        }
+    });
+
+    groupDiv.querySelector('.btn-add-condition')?.addEventListener('click', () => {
+        addCondition(groupId);
+    });
+}
+
+// 그룹 라벨 업데이트
+function updateGroupLabels(type) {
+    const container = document.getElementById(`${type}-condition-groups`);
+    if (!container) return;
+
+    container.querySelectorAll('.condition-group').forEach((group, idx) => {
+        const label = group.querySelector('.group-label');
+        if (label) label.textContent = `그룹 ${idx + 1}`;
+
+        const logicLabel = group.querySelector('.group-logic-label');
+        if (idx === 0 && logicLabel) {
+            logicLabel.remove();
+        } else if (idx > 0 && !logicLabel) {
+            const header = group.querySelector('.condition-group-header');
+            const span = document.createElement('span');
+            span.className = 'group-logic-label';
+            span.textContent = 'OR';
+            header.insertBefore(span, header.querySelector('.btn-remove-group'));
+        }
+    });
+}
+
+// 조건 추가
+function addCondition(groupId) {
+    const container = document.querySelector(`.conditions-list[data-group-id="${groupId}"]`);
+    if (!container) return;
+
+    const conditionCount = container.querySelectorAll('.condition-row').length;
+    const conditionId = `${groupId}-cond-${conditionCount}`;
+
+    const condDiv = document.createElement('div');
+    condDiv.className = 'condition-row';
+    condDiv.dataset.conditionId = conditionId;
+
+    condDiv.innerHTML = `
+        <div class="cond-left">
+            <select class="cond-indicator" data-side="left">
+                ${getIndicatorOptions()}
+            </select>
+            <select class="cond-output" data-side="left">
+                <option value="value">value</option>
+            </select>
+            <div class="cond-params" data-side="left"></div>
+        </div>
+        <select class="cond-operator">
+            ${getOperatorOptions()}
+        </select>
+        <div class="cond-right">
+            <select class="cond-compare-type">
+                <option value="value">고정값</option>
+                <option value="indicator">지표</option>
+            </select>
+            <input type="number" class="cond-compare-value" placeholder="값" step="any">
+            <div class="cond-compare-indicator" style="display:none;">
+                <select class="cond-indicator" data-side="right">
+                    ${getIndicatorOptions()}
+                </select>
+                <select class="cond-output" data-side="right">
+                    <option value="value">value</option>
+                </select>
+                <div class="cond-params" data-side="right"></div>
+            </div>
+        </div>
+        <button type="button" class="btn-remove-condition" title="조건 삭제">&times;</button>
+    `;
+
+    container.appendChild(condDiv);
+
+    // 이벤트 바인딩
+    bindConditionEvents(condDiv);
+}
+
+// 지표 옵션 생성
+function getIndicatorOptions() {
+    if (!indicatorRegistry) return '<option value="">로드 중...</option>';
+
+    let options = '';
+    const categories = {};
+
+    // 카테고리별 그룹화
+    for (const [key, ind] of Object.entries(indicatorRegistry)) {
+        const cat = ind.category || '기타';
+        if (!categories[cat]) categories[cat] = [];
+        categories[cat].push({ key, name: ind.name });
+    }
+
+    for (const [cat, indicators] of Object.entries(categories)) {
+        options += `<optgroup label="${cat}">`;
+        for (const ind of indicators) {
+            options += `<option value="${ind.key}">${ind.name}</option>`;
+        }
+        options += '</optgroup>';
+    }
+
+    return options;
+}
+
+// 연산자 옵션 생성
+function getOperatorOptions() {
+    return getOperators().map(op =>
+        `<option value="${op.value}">${op.label}</option>`
+    ).join('');
+}
+
+// 조건 이벤트 바인딩
+function bindConditionEvents(condDiv) {
+    // 왼쪽 지표 변경
+    const leftIndicator = condDiv.querySelector('.cond-left .cond-indicator');
+    leftIndicator?.addEventListener('change', () => {
+        updateIndicatorParams(condDiv, 'left');
+        updateIndicatorOutputs(condDiv, 'left');
+    });
+
+    // 오른쪽 지표 변경
+    const rightIndicator = condDiv.querySelector('.cond-compare-indicator .cond-indicator');
+    rightIndicator?.addEventListener('change', () => {
+        updateIndicatorParams(condDiv, 'right');
+        updateIndicatorOutputs(condDiv, 'right');
+    });
+
+    // 비교 타입 변경
+    const compareType = condDiv.querySelector('.cond-compare-type');
+    compareType?.addEventListener('change', () => {
+        const isIndicator = compareType.value === 'indicator';
+        condDiv.querySelector('.cond-compare-value').style.display = isIndicator ? 'none' : 'block';
+        condDiv.querySelector('.cond-compare-indicator').style.display = isIndicator ? 'flex' : 'none';
+    });
+
+    // 삭제 버튼
+    condDiv.querySelector('.btn-remove-condition')?.addEventListener('click', () => {
+        const container = condDiv.parentElement;
+        if (container.querySelectorAll('.condition-row').length > 1) {
+            condDiv.remove();
+        }
+    });
+
+    // 초기 지표 설정
+    if (leftIndicator) {
+        updateIndicatorParams(condDiv, 'left');
+        updateIndicatorOutputs(condDiv, 'left');
+    }
+}
+
+// 지표 파라미터 업데이트
+function updateIndicatorParams(condDiv, side) {
+    const select = condDiv.querySelector(`.cond-${side === 'left' ? 'left' : 'compare-indicator'} .cond-indicator`);
+    const paramsDiv = condDiv.querySelector(`.cond-${side === 'left' ? 'left' : 'compare-indicator'} .cond-params`);
+    if (!select || !paramsDiv) return;
+
+    const indicator = indicatorRegistry?.[select.value];
+    if (!indicator) {
+        paramsDiv.innerHTML = '';
+        return;
+    }
+
+    paramsDiv.innerHTML = indicator.params.map(p => `
+        <label class="param-label">${p.label}
+            <input type="number" class="param-input" data-param="${p.key}"
+                value="${p.default}" min="${p.min || ''}" max="${p.max || ''}" step="any">
+        </label>
+    `).join('');
+}
+
+// 지표 출력 업데이트
+function updateIndicatorOutputs(condDiv, side) {
+    const select = condDiv.querySelector(`.cond-${side === 'left' ? 'left' : 'compare-indicator'} .cond-indicator`);
+    const outputSelect = condDiv.querySelector(`.cond-${side === 'left' ? 'left' : 'compare-indicator'} .cond-output`);
+    if (!select || !outputSelect) return;
+
+    const indicator = indicatorRegistry?.[select.value];
+    if (!indicator) return;
+
+    outputSelect.innerHTML = indicator.outputs.map(o =>
+        `<option value="${o}">${o}</option>`
+    ).join('');
+}
+
+// 조건 빌더 리스너 설정
+function setupConditionBuilderListeners() {
+    // 진입 조건 그룹 추가 버튼
+    document.getElementById('btn-add-entry-group')?.addEventListener('click', () => {
+        addConditionGroup('entry');
+    });
+
+    // 청산 조건 그룹 추가 버튼
+    document.getElementById('btn-add-exit-group')?.addEventListener('click', () => {
+        addConditionGroup('exit');
+    });
+}
+
+// 조건 수집
+function collectConditions(type) {
+    const container = document.getElementById(`${type}-condition-groups`);
+    if (!container) return { groups: [] };
+
+    const groups = [];
+
+    container.querySelectorAll('.condition-group').forEach(groupDiv => {
+        const conditions = [];
+
+        groupDiv.querySelectorAll('.condition-row').forEach(condDiv => {
+            const leftIndicator = condDiv.querySelector('.cond-left .cond-indicator')?.value;
+            const leftOutput = condDiv.querySelector('.cond-left .cond-output')?.value;
+            const leftParams = {};
+            condDiv.querySelectorAll('.cond-left .param-input').forEach(input => {
+                const key = input.dataset.param;
+                const val = parseFloat(input.value);
+                if (key && !isNaN(val)) leftParams[key] = val;
+            });
+
+            const operator = condDiv.querySelector('.cond-operator')?.value;
+            const compareType = condDiv.querySelector('.cond-compare-type')?.value;
+
+            let compareValue = null;
+            let compareIndicator = null;
+            let compareOutput = null;
+            let compareParams = null;
+
+            if (compareType === 'value') {
+                compareValue = parseFloat(condDiv.querySelector('.cond-compare-value')?.value);
+            } else {
+                compareIndicator = condDiv.querySelector('.cond-compare-indicator .cond-indicator')?.value;
+                compareOutput = condDiv.querySelector('.cond-compare-indicator .cond-output')?.value;
+                compareParams = {};
+                condDiv.querySelectorAll('.cond-compare-indicator .param-input').forEach(input => {
+                    const key = input.dataset.param;
+                    const val = parseFloat(input.value);
+                    if (key && !isNaN(val)) compareParams[key] = val;
+                });
+            }
+
+            conditions.push({
+                indicator: leftIndicator,
+                output: leftOutput || 'value',
+                params: leftParams,
+                operator: operator,
+                compare_type: compareType,
+                compare_value: compareValue,
+                compare_indicator: compareIndicator,
+                compare_output: compareOutput,
+                compare_params: compareParams,
+            });
+        });
+
+        if (conditions.length > 0) {
+            groups.push({
+                conditions: conditions,
+                logic: 'AND',
+            });
+        }
+    });
+
+    return { groups };
+}
+
+// 커스텀 백테스트 설정 수집
+function collectCustomBacktestConfig() {
+    return {
+        exchange: document.getElementById('custom-exchange')?.value || 'OKX',
+        symbol: document.getElementById('custom-symbol')?.value || 'BTC-USDT',
+        timeframe: document.getElementById('custom-timeframe')?.value || '1D',
+        days: parseInt(document.getElementById('custom-days')?.value || '365'),
+        initial_capital: parseFloat(document.getElementById('custom-initial-capital')?.value || '10000000'),
+        strategy: {
+            name: document.getElementById('custom-strategy-name')?.value || '내 전략',
+            entry_rules: collectConditions('entry'),
+            exit_rules: collectConditions('exit'),
+            position_size_pct: parseFloat(document.getElementById('custom-position-size')?.value || '100'),
+            stop_loss_pct: parseFloat(document.getElementById('custom-stop-loss')?.value) || null,
+            take_profit_pct: parseFloat(document.getElementById('custom-take-profit')?.value) || null,
+            commission_pct: parseFloat(document.getElementById('custom-commission')?.value || '0.015'),
+        }
+    };
+}
+
+// 커스텀 백테스트 실행
+async function runCustomBacktest() {
+    const config = collectCustomBacktestConfig();
+
+    if (!config.exchange || !config.symbol) {
+        showToast('거래소와 종목을 선택해주세요.', 'error');
+        return;
+    }
+
+    if (config.strategy.entry_rules.groups.length === 0) {
+        showToast('진입 조건을 최소 1개 이상 설정해주세요.', 'error');
+        return;
+    }
+
+    if (config.strategy.exit_rules.groups.length === 0) {
+        showToast('청산 조건을 최소 1개 이상 설정해주세요.', 'error');
+        return;
+    }
+
+    // UI 상태 업데이트
+    const btn = document.getElementById('btn-custom-run-backtest');
+    const loadingEl = document.getElementById('custom-backtest-loading');
+    const errorEl = document.getElementById('custom-backtest-error');
+    const resultEl = document.getElementById('custom-backtest-result');
+
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '분석 중...';
+        btn.classList.add('btn-loading');
+    }
+    if (loadingEl) loadingEl.style.display = 'block';
+    if (errorEl) errorEl.style.display = 'none';
+    if (resultEl) resultEl.style.display = 'none';
+
+    try {
+        const resp = await fetch('https://qube-system.com/api/premium/backtest/custom', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config),
+        });
+
+        const data = await resp.json();
+
+        if (data.success) {
+            displayCustomBacktestResult(data, config.exchange, config.symbol);
+            showToast('백테스트 완료!', 'success');
+        } else {
+            if (errorEl) {
+                errorEl.textContent = data.message || '백테스트 실패';
+                errorEl.style.display = 'block';
+            }
+            showToast(data.message || '백테스트 실패', 'error');
+        }
+    } catch (e) {
+        console.error('커스텀 백테스트 오류:', e);
+        if (errorEl) {
+            errorEl.textContent = '서버 연결 오류: ' + e.message;
+            errorEl.style.display = 'block';
+        }
+        showToast('서버 연결 오류', 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '백테스트 실행';
+            btn.classList.remove('btn-loading');
+        }
+        if (loadingEl) loadingEl.style.display = 'none';
+    }
+}
+
+// 커스텀 백테스트 결과 표시 (MR/Trend와 동일 형식)
+function displayCustomBacktestResult(data, exchange, symbol) {
+    const resultEl = document.getElementById('custom-backtest-result');
+    if (!resultEl) return;
+
+    resultEl.style.display = 'block';
+    const m = data.metrics || {};
+
+    // 화폐 단위 결정
+    const currency = getMrCurrency(exchange, symbol);
+
+    // 5카드 업데이트
+    const formatAmount = (val) => formatMrAmount(val, currency);
+
+    document.getElementById('custom-stat-net-profit').innerHTML = `${formatAmount(m.net_profit || 0)}<br><small>(${(m.net_profit_pct || 0).toFixed(2)}%)</small>`;
+    document.getElementById('custom-stat-trades').textContent = m.total_trades || 0;
+    document.getElementById('custom-stat-winrate').textContent = `${(m.win_rate_pct || 0).toFixed(1)}%`;
+    document.getElementById('custom-stat-pf').textContent = m.profit_factor >= 999 ? '∞' : (m.profit_factor || 0).toFixed(3);
+    document.getElementById('custom-stat-mdd').textContent = `${(m.max_drawdown_pct || 0).toFixed(2)}%`;
+
+    // 캔들 차트
+    if (data.candles && data.candles.length > 0) {
+        createCustomBacktestChart(data.candles, data.trades || [], exchange, symbol);
+    }
+
+    // 수익률 테이블
+    renderCustomPerformanceTable(m, currency);
+
+    // 거래 내역 테이블
+    renderCustomTradesTable(data.trades || [], currency);
+}
+
+// 커스텀 캔들 차트 생성 (MR/Trend와 동일)
+function createCustomBacktestChart(candles, trades, exchange, symbol) {
+    const container = document.getElementById('custom-chart-container');
+    if (!container || typeof LightweightCharts === 'undefined') return;
+
+    // 기존 차트 제거
+    if (customBacktestChart) {
+        customBacktestChart.remove();
+        customBacktestChart = null;
+    }
+
+    const chartOptions = {
+        width: container.clientWidth,
+        height: 400,
+        layout: { background: { color: '#1e1e2f' }, textColor: '#d1d4dc' },
+        grid: { vertLines: { color: '#2B2B43' }, horzLines: { color: '#2B2B43' } },
+        crosshair: { mode: 1 },
+        timeScale: { borderColor: '#485c7b', timeVisible: true },
+        rightPriceScale: { borderColor: '#485c7b' },
+    };
+
+    customBacktestChart = LightweightCharts.createChart(container, chartOptions);
+
+    const candleSeries = customBacktestChart.addCandlestickSeries({
+        upColor: '#26a69a',
+        downColor: '#ef5350',
+        borderVisible: false,
+        wickUpColor: '#26a69a',
+        wickDownColor: '#ef5350',
+    });
+
+    candleSeries.setData(candles);
+
+    // 매수/매도 마커
+    const markers = [];
+    (trades || []).forEach(t => {
+        if (t.timestamp) {
+            markers.push({
+                time: Math.floor(t.timestamp / 1000),
+                position: t.action === 'buy' ? 'belowBar' : 'aboveBar',
+                color: t.action === 'buy' ? '#26a69a' : '#ef5350',
+                shape: t.action === 'buy' ? 'arrowUp' : 'arrowDown',
+                text: t.action === 'buy' ? 'B' : 'S',
+            });
+        }
+    });
+    if (markers.length > 0) {
+        candleSeries.setMarkers(markers.sort((a, b) => a.time - b.time));
+    }
+
+    customBacktestChart.timeScale().fitContent();
+
+    // 리사이즈 핸들러
+    const resizeObserver = new ResizeObserver(() => {
+        if (customBacktestChart) {
+            customBacktestChart.applyOptions({ width: container.clientWidth });
+        }
+    });
+    resizeObserver.observe(container);
+}
+
+// 커스텀 수익률 테이블 (MR/Trend와 동일 형식)
+function renderCustomPerformanceTable(m, currency) {
+    const tbody = document.querySelector('#custom-performance-table tbody');
+    if (!tbody) return;
+
+    const formatAmt = (v) => formatMrAmount(v || 0, currency);
+    const formatPct = (v) => `${(v || 0).toFixed(2)}%`;
+    const formatPF = (v) => v >= 999 ? '∞' : (v || 0).toFixed(3);
+
+    tbody.innerHTML = `
+        <tr>
+            <td>순손익</td>
+            <td>${formatAmt(m.net_profit)} (${formatPct(m.net_profit_pct)})</td>
+            <td>${formatAmt(m.buy_net_profit)} (${formatPct(m.buy_net_profit_pct)})</td>
+            <td>-</td>
+        </tr>
+        <tr>
+            <td>총이익</td>
+            <td>${formatAmt(m.gross_profit)} (${formatPct(m.gross_profit_pct)})</td>
+            <td>${formatAmt(m.buy_gross_profit)} (${formatPct(m.buy_gross_profit_pct)})</td>
+            <td>-</td>
+        </tr>
+        <tr>
+            <td>총손실</td>
+            <td>${formatAmt(m.gross_loss)} (${formatPct(m.gross_loss_pct)})</td>
+            <td>${formatAmt(m.buy_gross_loss)} (${formatPct(m.buy_gross_loss_pct)})</td>
+            <td>-</td>
+        </tr>
+        <tr>
+            <td>수익지수</td>
+            <td>${formatPF(m.profit_factor)}</td>
+            <td>${formatPF(m.profit_factor)}</td>
+            <td>-</td>
+        </tr>
+        <tr>
+            <td>총 거래 수</td>
+            <td>${m.total_trades || 0}</td>
+            <td>${m.buy_trades || 0}</td>
+            <td>0</td>
+        </tr>
+        <tr>
+            <td>수익 거래</td>
+            <td>${m.winning_trades || 0}</td>
+            <td>${m.buy_winning || 0}</td>
+            <td>0</td>
+        </tr>
+        <tr>
+            <td>손실 거래</td>
+            <td>${m.losing_trades || 0}</td>
+            <td>${m.buy_losing || 0}</td>
+            <td>0</td>
+        </tr>
+        <tr>
+            <td>승률</td>
+            <td>${formatPct(m.win_rate_pct)}</td>
+            <td>${formatPct(m.win_rate_pct)}</td>
+            <td>-</td>
+        </tr>
+        <tr>
+            <td>최대 연속 승리</td>
+            <td>${m.max_consecutive_wins || 0}</td>
+            <td>${m.buy_max_consecutive_wins || 0}</td>
+            <td>0</td>
+        </tr>
+        <tr>
+            <td>최대 연속 손실</td>
+            <td>${m.max_consecutive_losses || 0}</td>
+            <td>${m.buy_max_consecutive_losses || 0}</td>
+            <td>0</td>
+        </tr>
+        <tr>
+            <td>수수료</td>
+            <td>${formatAmt(m.commission_paid)}</td>
+            <td>${formatAmt(m.buy_commission)}</td>
+            <td>-</td>
+        </tr>
+    `;
+}
+
+// 커스텀 거래 내역 테이블
+function renderCustomTradesTable(trades, currency) {
+    const tbody = document.querySelector('#custom-trades-table tbody');
+    if (!tbody) return;
+
+    const formatAmt = (v) => formatMrAmount(v || 0, currency);
+
+    tbody.innerHTML = trades.map((t, idx) => {
+        const typeClass = t.action === 'buy' ? 'trade-buy' : 'trade-sell';
+        const pnlClass = t.pnl > 0 ? 'pnl-positive' : (t.pnl < 0 ? 'pnl-negative' : '');
+        return `
+            <tr>
+                <td>${idx + 1}</td>
+                <td class="${typeClass}">${t.type || t.action}</td>
+                <td>${t.date || '-'}</td>
+                <td>${(t.price || 0).toFixed(2)}</td>
+                <td>${(t.qty || t.quantity || 0).toFixed(6)}</td>
+                <td>${t.tranche || t.reason || '-'}</td>
+                <td class="${pnlClass}">${t.pnl != null ? formatAmt(t.pnl) : '-'}</td>
+                <td class="${pnlClass}">${t.pnl_pct != null ? t.pnl_pct.toFixed(2) + '%' : '-'}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// 커스텀 백테스트 버튼 이벤트
+document.getElementById('btn-custom-run-backtest')?.addEventListener('click', runCustomBacktest);
+
 
 // 백테스트 실행 이벤트 핸들러
 document.getElementById('btn-trend-run-backtest')?.addEventListener('click', async () => {
