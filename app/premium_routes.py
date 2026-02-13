@@ -1850,7 +1850,7 @@ async def debug_trend_indicators(request: TrendDebugRequest):
         n = len(closes)
 
         # 지표 계산
-        st = calc_supertrend(highs, lows, closes, atr_len=20, factor=5.0)
+        st_values, st_directions = calc_supertrend(highs, lows, closes, atr_len=20, factor=5.0)
         hvi = calc_hvi(highs, lows, closes, volumes, length=200, divisor=3.6)
         qqe = calc_qqe_mod(closes, rsi_length=6, rsi_smoothing=5, qqe_factor=3.0)
 
@@ -1869,8 +1869,8 @@ async def debug_trend_indicators(request: TrendDebugRequest):
             candle = candles[i]
             dt = datetime.fromtimestamp(candle.ts / 1000, tz=timezone.utc)
 
-            st_dir = int(st["direction"][i]) if not np.isnan(st["direction"][i]) else 0
-            st_val = float(st["supertrend"][i]) if not np.isnan(st["supertrend"][i]) else 0.0
+            st_dir = int(st_directions[i]) if not np.isnan(st_directions[i]) else 0
+            st_val = float(st_values[i]) if not np.isnan(st_values[i]) else 0.0
             hvi_g = bool(hvi["g_enabled"][i]) if not np.isnan(hvi["g_enabled"][i]) else False
             hvi_r = bool(hvi["r_enabled"][i]) if not np.isnan(hvi["r_enabled"][i]) else False
             qqe_pos = bool(qqe["is_positive"][i]) if not np.isnan(qqe["is_positive"][i]) else False
