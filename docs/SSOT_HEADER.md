@@ -5,7 +5,7 @@
 - SSOT: docs/FINISH_SSOT.md, docs/PROJECT_STATUS.md
 - Rules: docs/AI_RULES.md (MUST read first)
 
-## Current Status (2026-02-13)
+## Current Status (2026-02-14)
 - Week A~D: DONE (브랜드/사이트/PC앱/Android APK 기반)
 - Day 6~14: DONE (대시보드/종목분석/계정관리/전략설정/MR엔진/Trend엔진)
 - Day 15: DONE (백테스트 벡터화 최적화 20초→0.3초)
@@ -13,6 +13,49 @@
 - Day 17: DONE (추세매매 최종 종합 업그레이드)
 - Day 18: DONE (추세매매 검증 + 전 거래소 백테스트)
 - Day 19: DONE (커스텀 전략 조건 빌더 Phase 3)
+- Day 20: DONE (커스텀 백테스트 Tauri invoke 지원 + 교차검증)
+
+## Day 20 완료사항 (2026-02-14)
+
+### 커스텀 백테스트 Tauri invoke 지원 + 교차검증
+
+**핵심 수정**: PC앱 커스텀 백테스트 "Failed to fetch" 오류 해결
+
+### 1. 수정 파일 (3개)
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `pc-app/src-tauri/src/commands.rs` | `run_custom_backtest` 명령 추가 (45줄) |
+| `pc-app/src-tauri/src/main.rs` | 명령 등록 추가 |
+| `pc-app/ui/src/main.js` | `fetch` → `invoke` 전환 |
+
+### 2. 신규 파일 (1개)
+
+| 파일 | 용도 |
+|------|------|
+| `tests/run_custom_16tests.py` | 16개 커스텀 + 4개 MR/Trend 테스트 스크립트 |
+
+### 3. 원인 및 해결
+
+**문제**: 커스텀 백테스트에서 JavaScript `fetch` 직접 사용 → Tauri WebView에서 CORS/네트워크 오류
+
+**해결**: MR/Trend 백테스트와 동일하게 `invoke('run_custom_backtest', ...)` 사용
+
+### 4. 검증 결과
+
+| 테스트 유형 | 결과 |
+|------------|------|
+| pytest 341 tests | ✅ passed |
+| Custom 16 strategies | ✅ 16/16 |
+| MR/Trend 4 tests | ✅ 4/4 |
+| **Total** | **20/20** |
+
+### 5. 배포
+
+- Git commit: `4d3be41`
+- VPS: 배포 완료
+
+---
 
 ## Day 19 완료사항 (2026-02-13)
 
