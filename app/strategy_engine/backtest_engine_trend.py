@@ -328,7 +328,7 @@ def run_trend_backtest(
     htf_idx_map = build_htf_index_map(candles, htf_candles)
 
     _ind_end = _time.time()
-    _logger.info(f"[Trend BT] 지표 계산: {_ind_end - _bt_start:.2f}초 ({len(candles)}봉)")
+    print(f"[Trend BT] 지표 계산: {_ind_end - _bt_start:.2f}초 ({len(candles)}봉)")
 
     # 지표 계산에 필요한 최소 봉 수 (동적 계산값 사용)
     lookback = required_bars
