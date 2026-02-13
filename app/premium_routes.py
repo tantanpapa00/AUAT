@@ -1635,18 +1635,19 @@ async def debug_mr_indicators(request: MRDebugRequest):
     """
     import numpy as np
     from datetime import datetime, timezone
-    from app.strategy_engine.candle_fetcher import fetch_candles
+    from app.strategy_engine.candle_fetcher import fetch_candles_for_backtest
     from app.strategy_engine.indicators import smoother_f, calc_hma, calc_stdev, calc_highest
     from app.strategy_engine.presets import OSC_PRESETS
 
     try:
         # 캔들 조회
-        candles = await fetch_candles(
+        candle_data = await fetch_candles_for_backtest(
             exchange=request.exchange,
             symbol=request.symbol,
             timeframe=request.timeframe,
-            limit=request.days * 24 if 'h' in request.timeframe.lower() or 'm' in request.timeframe.lower() else request.days,
+            days=request.days,
         )
+        candles = candle_data.candles if candle_data else []
 
         if not candles or len(candles) < 50:
             return MRDebugResponse(
