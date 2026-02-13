@@ -1852,7 +1852,7 @@ async def debug_trend_indicators(request: TrendDebugRequest):
         # 지표 계산
         st = calc_supertrend(highs, lows, closes, atr_len=20, factor=5.0)
         hvi = calc_hvi(highs, lows, closes, volumes, length=200, divisor=3.6)
-        qqe = calc_qqe_mod(closes, rsi_length=6, rsi_smoothing=5, factor=3.0)
+        qqe = calc_qqe_mod(closes, rsi_length=6, rsi_smoothing=5, qqe_factor=3.0)
 
         # HTF VWMA (SMA로 대체 - 주식용 156, 크립토 200)
         vwma_len = 156 if request.exchange.startswith("KIS") else 200
