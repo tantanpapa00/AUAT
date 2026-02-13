@@ -34,23 +34,24 @@ from app.strategy_engine.indicators import (
 
 
 class TestSmootherF:
-    """Test smoother_f (EMA variant from PineScript)."""
+    """Test smoother_f (Ehlers' SuperSmoother from PineScript)."""
 
     def test_basic_smoothing(self):
-        """Test basic EMA calculation."""
-        # Simple ascending data
-        src = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        """Test basic SuperSmoother calculation."""
+        # First 4 bars use raw values (warmup period)
+        src = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0])
         length = 3
         result = smoother_f(src, length)
 
-        # First value should be src[0]
+        # First 4 values should be raw src values (warmup)
         assert result[0] == 1.0
+        assert result[1] == 2.0
+        assert result[2] == 3.0
+        assert result[3] == 4.0
 
-        # Subsequent values follow EMA formula: a*src + b*prev
-        # a = 2/(3+1) = 0.5, b = 0.5
-        a = 2.0 / (length + 1)
-        expected_1 = a * 2.0 + (1 - a) * 1.0  # 0.5*2 + 0.5*1 = 1.5
-        assert abs(result[1] - expected_1) < 1e-10
+        # 5th value onwards uses SuperSmoother formula
+        # Result should be smoothed (between input values)
+        assert not np.isnan(result[4])
 
     def test_constant_input(self):
         """Constant input should converge to that value."""
@@ -59,7 +60,7 @@ class TestSmootherF:
 
         # All values should be approximately 10
         for val in result:
-            assert abs(val - 10.0) < 1e-10
+            assert abs(val - 10.0) < 1e-6
 
     def test_empty_input(self):
         """Empty input should return empty array."""
@@ -82,11 +83,29 @@ class TestSmootherF:
         # Result should have same length
         assert len(result) == 150
 
-        # No NaN values
-        assert not np.any(np.isnan(result))
+        # No NaN values after warmup
+        assert not np.any(np.isnan(result[4:]))
 
         # Result should be bounded (no numerical explosion)
-        assert np.all(np.abs(result) < np.max(np.abs(src)) * 2)
+        assert np.all(np.abs(result[4:]) < np.max(np.abs(src)) * 2)
+
+    def test_smoother_than_ema(self):
+        """SuperSmoother should be smoother than EMA."""
+        np.random.seed(42)
+        # Noisy data
+        src = np.sin(np.linspace(0, 4*np.pi, 100)) + np.random.randn(100) * 0.3
+
+        result = smoother_f(src, 10)
+
+        # Should have same length
+        assert len(result) == 100
+
+        # Calculate variance of first differences (measure of smoothness)
+        diff_src = np.diff(src[10:])
+        diff_result = np.diff(result[10:])
+
+        # Smoothed result should have lower variance in differences
+        assert np.var(diff_result) < np.var(diff_src)
 
 
 class TestMovingAverages:

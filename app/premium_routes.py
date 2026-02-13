@@ -1204,7 +1204,9 @@ class TrendBacktestRequest(BaseModel):
     qqe_rsi_length: int = Field(default=6, ge=2, le=50)
     qqe_rsi_smoothing: int = Field(default=5, ge=1, le=20)
     qqe_factor: float = Field(default=3.0, ge=0.5, le=10.0)
-    htf_vwma_len: int = Field(default=156, ge=10, le=500)
+    htf_vwma_len: int = Field(default=156, ge=10, le=500, description="HTF VWMA 길이 (주식용)")
+    htf_sma_len: int = Field(default=200, ge=10, le=500, description="HTF SMA 길이 (크립토용)")
+    asset_type: str = Field(default="stock", description="자산 유형 (stock/crypto)")
 
     # SPO 지표 설정 (signal_tf 기준)
     exit_spo_smooth_len: int = Field(default=4, ge=1, le=20)
@@ -1346,6 +1348,8 @@ async def run_trend_backtest_endpoint(
             qqe_rsi_smoothing=request.qqe_rsi_smoothing,
             qqe_factor=request.qqe_factor,
             htf_vwma_len=request.htf_vwma_len,
+            htf_sma_len=request.htf_sma_len,
+            asset_type=request.asset_type,
             exit_spo_smooth_len=request.exit_spo_smooth_len,
             exit_spo_threshold=request.exit_spo_threshold,
             exit_spo_std_len=request.exit_spo_std_len,

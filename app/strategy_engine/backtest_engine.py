@@ -130,6 +130,49 @@ def precompute_signal_arrays(
     return {"sig_up_raw": sig_up_raw, "sig_dn_raw": sig_dn_raw}
 
 
+def build_htf_index_map(
+    signal_candles: List,
+    htf_candles: List,
+) -> np.ndarray:
+    """
+    타임스탬프 기반 HTF 인덱스 매핑 테이블 생성.
+
+    PineScript request.security(lookahead=off) 동작 모방:
+    - 현재 signal_tf 봉 시점에서 "확정된" HTF 봉 인덱스 반환
+    - 현재 봉 타임스탬프 <= HTF 봉 타임스탬프인 가장 최근 HTF 봉
+
+    Args:
+        signal_candles: 시그널 TF 캔들 리스트
+        htf_candles: HTF 캔들 리스트
+
+    Returns:
+        np.ndarray: signal_candles 각 인덱스에 대응하는 htf_candles 인덱스
+    """
+    n_signal = len(signal_candles)
+    n_htf = len(htf_candles)
+
+    if n_htf == 0:
+        return np.zeros(n_signal, dtype=int)
+
+    # HTF 타임스탬프 배열
+    htf_timestamps = np.array([c.ts for c in htf_candles])
+
+    # 각 signal 봉에 대해 대응하는 HTF 인덱스 찾기
+    htf_indices = np.zeros(n_signal, dtype=int)
+
+    htf_ptr = 0
+    for i, candle in enumerate(signal_candles):
+        curr_ts = candle.ts
+
+        # 현재 signal 봉 타임스탬프보다 작거나 같은 가장 큰 HTF 인덱스 찾기
+        while htf_ptr < n_htf - 1 and htf_timestamps[htf_ptr + 1] <= curr_ts:
+            htf_ptr += 1
+
+        htf_indices[i] = htf_ptr
+
+    return htf_indices
+
+
 def precompute_htf_arrays(
     htf_closes: np.ndarray,
     htf_highs: np.ndarray,
@@ -478,8 +521,8 @@ def run_mr_backtest(
     # 3. HTF 지표 사전 계산 (전체 HTF 시리즈에서 한 번만)
     htf_arrays = precompute_htf_arrays(htf_closes, htf_highs, htf_lows, htf_volumes)
 
-    # HTF 비율 계산 (시그널TF → HTF 인덱스 매핑용)
-    htf_ratio = len(htf_candles) / len(candles)
+    # 4. 타임스탬프 기반 HTF 인덱스 매핑 (request.security 모방)
+    htf_idx_map = build_htf_index_map(candles, htf_candles)
 
     # 각 봉에 대해 시뮬레이션 (동적 계산된 required_bars 사용)
     lookback = min(required_bars, len(candles) - 1)
@@ -531,8 +574,8 @@ def run_mr_backtest(
         # 벡터화: 사전 계산된 배열에서 인덱스로 접근
         osc_data = get_osc_data_at_index(spo_arrays, sig_arrays, closes, i)
 
-        # HTF 지표 (비율로 매핑)
-        htf_idx = min(int(i * htf_ratio), len(htf_candles) - 1)
+        # HTF 지표 (타임스탬프 기반 매핑, request.security 모방)
+        htf_idx = htf_idx_map[i]
         htf_ind = get_htf_indicators_at_index(htf_arrays, htf_idx)
 
         # 국면 판별

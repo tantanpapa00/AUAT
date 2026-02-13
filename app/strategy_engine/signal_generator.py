@@ -323,11 +323,17 @@ def generate_mr_signal(
         alt_sell_toggle=state.alt_sell_toggle,
         current_regime=regime,
         last_bar_time=state.last_bar_time,
+        prev_hull_dn=state.prev_hull_dn,
+        prev_senkou_b=state.prev_senkou_b,
     )
 
     close_price = float(close[-1])
     high_price = float(high[-1]) if len(high) > 0 else close_price
     low_price = float(low[-1]) if len(low) > 0 else close_price
+
+    # 현재 HTF 상태를 new_state에 저장 (다음 봉의 [1] 참조용)
+    new_state.prev_hull_dn = htf_indicators.hull_dn
+    new_state.prev_senkou_b = htf_indicators.senkou_b
 
     # Get regime-specific config
     prefix = f"r{regime}_" if regime > 0 else "r1_"
@@ -360,9 +366,10 @@ def generate_mr_signal(
         new_state.r3_break_used = False
 
     # ========== R1 PULLBACK TRIGGER ARMING ==========
+    # PineScript: hull_dn_start = htfHullDn and not htfHullDn[1]
+    # Hull 하락이 "시작"된 봉에서만 arming (이전 봉은 하락 아니었음)
     if regime == 1 and config.r1_pullback_on and not new_state.r1_pb_used:
-        # Arm when Hull starts falling
-        hull_dn_start = htf_indicators.hull_dn and not state.r1_pb_armed
+        hull_dn_start = htf_indicators.hull_dn and not state.prev_hull_dn
         if hull_dn_start:
             new_state.r1_pb_armed = True
 
@@ -380,12 +387,11 @@ def generate_mr_signal(
     )
 
     # R3 Breakout trigger
-    # close > senkouB AND close[1] <= senkouB[1]
+    # PineScript: breakout_cond = close > htfSenkouB and close[1] <= htfSenkouB[1]
     close_prev = float(close[-2]) if len(close) > 1 else close_price
     senkou_b = htf_indicators.senkou_b
-    # Note: For accurate breakout detection, we'd need previous senkou_b
-    # Simplified: just check if close crossed above senkou_b
-    breakout_condition = close_price > senkou_b and close_prev <= senkou_b
+    prev_senkou_b = state.prev_senkou_b if state.prev_senkou_b is not None else senkou_b
+    breakout_condition = close_price > senkou_b and close_prev <= prev_senkou_b
     cloud_ok = not getattr(config, "r3_breakout_require_cloud_bear", True) or htf_indicators.cloud_bear
 
     breakout_trigger = (
@@ -615,6 +621,8 @@ def update_state_after_execution(
         alt_sell_toggle=state.alt_sell_toggle,
         current_regime=state.current_regime,
         last_bar_time=state.last_bar_time,
+        prev_hull_dn=state.prev_hull_dn,
+        prev_senkou_b=state.prev_senkou_b,
     )
 
     regime = signal.regime

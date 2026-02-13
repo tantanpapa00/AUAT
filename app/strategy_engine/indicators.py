@@ -16,46 +16,55 @@ import numpy as np
 
 def smoother_f(src: np.ndarray, length: int) -> np.ndarray:
     """
-    PineScript smoother_F - EMA variant.
+    Ehlers' SuperSmoother Filter (PineScript smoother_F 동일).
 
-    Formula (from PineScript):
-        a = 2.0 / (length + 1)
-        b = 1 - a
-        out[i] = a * src[i] + b * out[i-1]
+    PineScript 원본:
+        float step = 2.0 * math.pi / period
+        float a1 = math.exp(-math.sqrt(2) * math.pi / period)
+        float b1 = 2 * a1 * math.cos(math.sqrt(2) * step / period)
+        float c2 = b1
+        float c3 = -a1 * a1
+        float c1 = 1 - c2 - c3
+        smoothed := bar_index >= 4 ? c1 * (price + price[1]) / 2 + c2 * smoothed[1] + c3 * smoothed[2] : price
 
-    This is equivalent to EMA.
+    2차 IIR 필터로 EMA보다 부드럽고 지연이 적음.
 
     Args:
         src: Source price series (oldest first)
-        length: Smoothing length
+        length: Smoothing period
 
     Returns:
         Smoothed series (same length as src)
     """
-    if len(src) == 0:
+    n = len(src)
+    if n == 0:
         return np.array([])
 
-    a = 2.0 / (length + 1)
-    b = 1 - a
+    # Ehlers' coefficients
+    step = 2.0 * np.pi / length
+    a1 = np.exp(-np.sqrt(2) * np.pi / length)
+    b1 = 2 * a1 * np.cos(np.sqrt(2) * step / length)
+    c2 = b1
+    c3 = -a1 * a1
+    c1 = 1 - c2 - c3
 
-    out = np.full(len(src), np.nan)
+    out = np.full(n, np.nan)
 
-    # 첫 번째 유효한 값 찾기 (NaN 건너뛰기)
-    start_idx = 0
-    for i in range(len(src)):
+    # 첫 4봉은 원본 값 사용 (PineScript: bar_index < 4)
+    warmup = min(4, n)
+    for i in range(warmup):
         if not np.isnan(src[i]):
-            start_idx = i
             out[i] = src[i]
-            break
 
-    # EMA 계산 (NaN 전파 방지)
-    for i in range(start_idx + 1, len(src)):
-        if np.isnan(src[i]):
-            out[i] = out[i - 1]  # 이전 값 유지
-        elif np.isnan(out[i - 1]):
-            out[i] = src[i]  # 이전이 NaN이면 현재 값으로 시작
+    # 5번째 봉부터 SuperSmoother 적용
+    for i in range(warmup, n):
+        if np.isnan(src[i]) or np.isnan(src[i - 1]):
+            out[i] = out[i - 1] if not np.isnan(out[i - 1]) else src[i]
+        elif np.isnan(out[i - 1]) or np.isnan(out[i - 2]):
+            out[i] = src[i]
         else:
-            out[i] = a * src[i] + b * out[i - 1]
+            # c1 * (price + price[1]) / 2 + c2 * smoothed[1] + c3 * smoothed[2]
+            out[i] = c1 * (src[i] + src[i - 1]) / 2 + c2 * out[i - 1] + c3 * out[i - 2]
 
     return out
 

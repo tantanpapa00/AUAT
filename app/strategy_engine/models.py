@@ -95,6 +95,10 @@ class StrategyState:
     # Last processed bar
     last_bar_time: Optional[int] = None
 
+    # 이전 봉 HTF 상태 (PineScript [1] 참조용)
+    prev_hull_dn: bool = False              # htfHullDn[1]
+    prev_senkou_b: Optional[float] = None   # htfSenkouB[1]
+
 
 @dataclass
 class SignalResult:
