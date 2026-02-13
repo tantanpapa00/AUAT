@@ -1766,3 +1766,148 @@ async def debug_mr_indicators(request: MRDebugRequest):
             success=False,
             message=f"오류: {str(e)}",
         )
+
+
+# ============================================================================
+# Trend Debug Endpoint (추세매매 지표 디버깅)
+# ============================================================================
+
+class TrendDebugRequest(BaseModel):
+    """Trend 디버그 요청 모델."""
+    exchange: str = Field(default="KIS_KR")
+    symbol: str = Field(default="005930")
+    timeframe: str = Field(default="1D")
+    days: int = Field(default=365, ge=30, le=1000)
+    start_bar: int = Field(default=0, ge=0)
+    limit: int = Field(default=20, ge=1, le=100)
+
+
+class TrendDebugBarData(BaseModel):
+    """Trend 봉별 데이터."""
+    bar_index: int
+    timestamp: int
+    date: str
+    close: float
+    st_direction: int  # -1=bullish, 1=bearish
+    st_value: float
+    hvi_green: bool
+    hvi_red: bool
+    qqe_positive: bool
+    htf_vwma: float
+    above_htf: bool
+    entry_condition: bool  # 4조건 모두 충족 여부
+
+
+class TrendDebugResponse(BaseModel):
+    """Trend 디버그 응답 모델."""
+    success: bool
+    message: str
+    exchange: str = ""
+    symbol: str = ""
+    timeframe: str = ""
+    total_bars: int = 0
+    bars: List[TrendDebugBarData] = []
+
+
+@router.post("/debug/trend-indicators", response_model=TrendDebugResponse)
+async def debug_trend_indicators(request: TrendDebugRequest):
+    """
+    추세매매 봉별 지표 데이터 출력 (신호 검증용).
+
+    출력 항목:
+    - Supertrend direction/value
+    - HVI green/red
+    - QQE positive
+    - HTF VWMA 및 close > vwma 여부
+    - 4조건 진입 조건 충족 여부
+    """
+    import numpy as np
+    from datetime import datetime, timezone
+    from app.strategy_engine.candle_fetcher import fetch_candles_for_backtest
+    from app.strategy_engine.indicators import calc_supertrend, calc_hvi, calc_qqe_mod
+
+    try:
+        # 캔들 조회
+        candles = await fetch_candles_for_backtest(
+            exchange=request.exchange,
+            symbol=request.symbol,
+            timeframe=request.timeframe,
+            days=request.days,
+        )
+
+        if not candles or len(candles) < 250:
+            return TrendDebugResponse(
+                success=False,
+                message=f"캔들 데이터 부족: {len(candles) if candles else 0}봉 (최소 250봉 필요)",
+            )
+
+        # 가격 배열
+        opens = np.array([c.o for c in candles])
+        highs = np.array([c.h for c in candles])
+        lows = np.array([c.l for c in candles])
+        closes = np.array([c.c for c in candles])
+        volumes = np.array([c.v for c in candles])
+        n = len(closes)
+
+        # 지표 계산
+        st = calc_supertrend(highs, lows, closes, atr_len=20, factor=5.0)
+        hvi = calc_hvi(opens, highs, lows, closes, volumes, length=200, divisor=3.6)
+        qqe = calc_qqe_mod(closes, rsi_length=6, rsi_smoothing=5, factor=3.0)
+
+        # HTF VWMA (SMA로 대체 - 주식용 156, 크립토 200)
+        vwma_len = 156 if request.exchange.startswith("KIS") else 200
+        htf_vwma = np.full(n, np.nan)
+        for i in range(vwma_len - 1, n):
+            htf_vwma[i] = np.mean(closes[i - vwma_len + 1:i + 1])
+
+        # 결과 생성
+        bars = []
+        start = max(request.start_bar, 0)
+        end = min(start + request.limit, n)
+
+        for i in range(start, end):
+            candle = candles[i]
+            dt = datetime.fromtimestamp(candle.ts / 1000, tz=timezone.utc)
+
+            st_dir = int(st["direction"][i]) if not np.isnan(st["direction"][i]) else 0
+            st_val = float(st["supertrend"][i]) if not np.isnan(st["supertrend"][i]) else 0.0
+            hvi_g = bool(hvi["g_enabled"][i]) if not np.isnan(hvi["g_enabled"][i]) else False
+            hvi_r = bool(hvi["r_enabled"][i]) if not np.isnan(hvi["r_enabled"][i]) else False
+            qqe_pos = bool(qqe["is_positive"][i]) if not np.isnan(qqe["is_positive"][i]) else False
+            htf_val = float(htf_vwma[i]) if not np.isnan(htf_vwma[i]) else 0.0
+            above_htf = closes[i] > htf_vwma[i] if not np.isnan(htf_vwma[i]) else False
+
+            # 4조건 진입 조건
+            entry_cond = (st_dir < 0) and hvi_g and qqe_pos and above_htf
+
+            bars.append(TrendDebugBarData(
+                bar_index=i,
+                timestamp=candle.ts,
+                date=dt.strftime("%Y-%m-%d %H:%M"),
+                close=round(candle.c, 2),
+                st_direction=st_dir,
+                st_value=round(st_val, 2),
+                hvi_green=hvi_g,
+                hvi_red=hvi_r,
+                qqe_positive=qqe_pos,
+                htf_vwma=round(htf_val, 2),
+                above_htf=above_htf,
+                entry_condition=entry_cond,
+            ))
+
+        return TrendDebugResponse(
+            success=True,
+            message=f"총 {n}봉 중 {len(bars)}봉 출력",
+            exchange=request.exchange,
+            symbol=request.symbol,
+            timeframe=request.timeframe,
+            total_bars=n,
+            bars=bars,
+        )
+
+    except Exception as e:
+        logger.error(f"Trend 디버그 오류: {e}", exc_info=True)
+        return TrendDebugResponse(
+            success=False,
+            message=f"오류: {str(e)}",
+        )
