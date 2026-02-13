@@ -1294,8 +1294,6 @@ async def run_trend_backtest_endpoint(
     Exit: Hard SL > TP1 > SPO Split > ST Flip (우선순위순)
     """
     import time as _time
-    import logging
-    _logger = logging.getLogger(__name__)
     _t0 = _time.time()
 
     from .strategy_engine.backtest_engine_trend import run_trend_backtest
@@ -1344,7 +1342,6 @@ async def run_trend_backtest_endpoint(
                 pass  # htf_tf 조회 실패 시 signal_tf 단독 사용
 
         _t2 = _time.time()
-        print(f"[Trend BT] 캔들 조회: {_t2 - _t1:.2f}초")
 
         # ④ Trend 설정 생성 (v8 최종 - TF 3개)
         config = TrendConfig(
@@ -1407,7 +1404,6 @@ async def run_trend_backtest_endpoint(
             initial_capital=request.initial_capital,
         )
         _t4 = _time.time()
-        print(f"[Trend BT] 백테스트 실행: {_t4 - _t3:.2f}초, 총: {_t4 - _t0:.2f}초")
 
         # 백테스트 실패 시
         if not result.success:

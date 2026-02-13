@@ -1030,8 +1030,6 @@ async def fetch_candles_for_backtest(
     CandleCacheModel = _get_candle_cache_model()
     cached_candles: List[Candle] = []
 
-    print(f"[CandleFetcher] DB: {db is not None}, Model: {CandleCacheModel is not None}")
-
     if db and CandleCacheModel:
         try:
             # DB에서 캐시된 캔들 조회
@@ -1042,27 +1040,21 @@ async def fetch_candles_for_backtest(
                 CandleCacheModel.ts >= start_ms,
             ).order_by(CandleCacheModel.ts).all()
 
-            print(f"[CandleFetcher] 캐시 조회: {len(cached_rows)}행")
             if cached_rows:
                 cached_candles = [
                     Candle(ts=r.ts, o=r.o, h=r.h, l=r.l, c=r.c, v=r.v)
                     for r in cached_rows
                 ]
-                print(f"[CandleFetcher] DB 캐시: {len(cached_candles)}봉 (필요: {needed}봉)")
+                logger.info(f"DB 캐시: {len(cached_candles)}봉 (필요: {needed}봉)")
 
                 # 캐시된 데이터가 충분하고 최근 데이터가 있는지 확인
                 if len(cached_candles) >= needed:
                     last_ts = cached_candles[-1].ts
-                    gap_ms = now_ms - last_ts
-                    threshold_ms = tf_ms * 2
-                    print(f"[CandleFetcher] 캐시 체크: last_ts={last_ts}, gap={gap_ms}, threshold={threshold_ms}")
                     # 마지막 캔들이 현재 시간 기준 2봉 이내인지 (최신 데이터)
-                    if gap_ms < threshold_ms:
-                        print(f"[CandleFetcher] 캐시 HIT! {len(cached_candles)}봉, {time.time() - start_time:.2f}초")
+                    if now_ms - last_ts < tf_ms * 2:
+                        logger.info(f"캐시 HIT: {len(cached_candles)}봉, {time.time() - start_time:.2f}초")
                         db.close()
                         return cached_candles[-needed:]
-                    else:
-                        print(f"[CandleFetcher] 캐시 MISS: 데이터 오래됨 (gap={gap_ms/1000/3600:.1f}시간)")
 
                 # 캐시는 있지만 최신 데이터 필요 → 증분 조회
                 if len(cached_candles) >= needed * 0.8:  # 80% 이상 있으면 증분 조회
