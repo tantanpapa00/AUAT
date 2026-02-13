@@ -11,7 +11,242 @@
 - Day 15: DONE (백테스트 벡터화 최적화 20초→0.3초)
 - Day 16: DONE (트레이딩뷰 백테스트 동일화 + UI 개편)
 - Day 17: DONE (추세매매 최종 종합 업그레이드)
-- Day 18: IN PROGRESS (추세매매 파인스크립트 정합성 검증)
+- Day 18: DONE (추세매매 검증 + 전 거래소 백테스트)
+- Day 19: DONE (커스텀 전략 조건 빌더 Phase 3)
+
+## Day 19 완료사항 (2026-02-13)
+
+### 커스텀 전략 조건 빌더 Phase 3 완료
+
+**구현 범위**: 사용자 정의 트레이딩 전략 + UI 조건 빌더 + 백테스트 엔진
+
+### 1. 신규 파일 (4개)
+
+| 파일 | 용도 |
+|------|------|
+| `app/strategy_engine/indicator_registry.py` | 14개 지표 메타데이터 정의 (프론트엔드 동적 UI 생성용) |
+| `app/strategy_engine/custom_strategy.py` | Pydantic 모델 (ConditionItem, ConditionGroup, CustomRule 등) |
+| `app/strategy_engine/condition_evaluator.py` | 조건 평가 엔진 (compute_indicator, evaluate_condition, evaluate_rule) |
+| `app/strategy_engine/backtest_engine_custom.py` | 커스텀 전략 백테스트 엔진 |
+
+### 2. 수정 파일 (5개)
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `app/strategy_engine/indicators.py` | MACD, Stochastic, CCI, ADX, Bollinger Bands 추가 |
+| `app/premium_routes.py` | `/indicators`, `/backtest/custom` 엔드포인트 추가 |
+| `pc-app/ui/index.html` | 커스텀 탭 조건 빌더 UI 구조 |
+| `pc-app/ui/src/main.js` | 735줄 추가 (조건 빌더 + 백테스트 로직) |
+| `pc-app/ui/src/style.css` | 329줄 추가 (조건 빌더 스타일링) |
+
+### 3. 지표 레지스트리 (14개 지표)
+
+**이동평균 (6개)**:
+- SMA (단순이동평균)
+- EMA (지수이동평균)
+- WMA (가중이동평균)
+- HMA (헐이동평균)
+- VWMA (거래량가중이동평균)
+- BB (볼린저 밴드) - upper/middle/lower
+
+**오실레이터 (4개)**:
+- RSI (상대강도지수)
+- MACD - macd/signal/histogram
+- STOCH (스토캐스틱) - k/d
+- CCI (상품채널지수)
+
+**추세 (2개)**:
+- ADX (평균방향지수) - adx/plus_di/minus_di
+- SUPERTREND - direction/value
+
+**변동성 (1개)**:
+- ATR (평균진폭)
+
+**가격 (1개)**:
+- PRICE - open/high/low/close/volume
+
+### 4. 연산자 목록
+
+| 연산자 | 설명 |
+|--------|------|
+| > | 초과 |
+| < | 미만 |
+| >= | 이상 |
+| <= | 이하 |
+| == | 같음 |
+| cross_above | 상향돌파 (골든크로스) |
+| cross_below | 하향돌파 (데드크로스) |
+
+### 5. API 엔드포인트
+
+**GET /api/premium/indicators**:
+```json
+{
+  "success": true,
+  "indicators": { /* INDICATOR_REGISTRY */ },
+  "operators": [ /* OPERATORS */ ]
+}
+```
+
+**POST /api/premium/backtest/custom**:
+```json
+// Request
+{
+  "exchange": "OKX",
+  "symbol": "BTC-USDT",
+  "timeframe": "1D",
+  "days": 365,
+  "initial_capital": 10000000,
+  "strategy": {
+    "name": "내 전략",
+    "entry_rules": { "groups": [...] },
+    "exit_rules": { "groups": [...] },
+    "stop_loss_pct": 5.0,
+    "take_profit_pct": 10.0,
+    "commission_pct": 0.015
+  }
+}
+
+// Response
+{
+  "success": true,
+  "message": "커스텀 백테스트 완료",
+  "metrics": { /* TradingView 동일 포맷 */ },
+  "trades": [...],
+  "equity_curve": [...],
+  "candles": [...]
+}
+```
+
+### 6. 조건 빌더 데이터 구조
+
+**ConditionItem** (단일 조건):
+```python
+{
+  "indicator": "RSI",           # 좌측 지표
+  "output": "value",            # 출력값
+  "params": {"period": 14},     # 파라미터
+  "operator": "<",              # 연산자
+  "compare_type": "value",      # value | indicator
+  "compare_value": 30           # 고정값 비교
+}
+```
+
+**ConditionGroup** (조건 그룹):
+```python
+{
+  "conditions": [ConditionItem, ...],
+  "logic": "AND"  # AND | OR
+}
+```
+
+**CustomRule** (진입/청산 규칙):
+```python
+{
+  "groups": [ConditionGroup, ...]  # 그룹 간 OR 연결
+}
+```
+
+### 7. 프론트엔드 함수
+
+| 함수 | 용도 |
+|------|------|
+| `loadCustomExchangeDropdown()` | 6개 거래소 드롭다운 로드 |
+| `initCustomConditionBuilder()` | 지표 레지스트리 로드 + UI 초기화 |
+| `addConditionGroup(type)` | 조건 그룹 추가 (entry/exit) |
+| `addCondition(groupId)` | 그룹에 조건 행 추가 |
+| `removeCondition(condId)` | 조건 삭제 |
+| `removeConditionGroup(groupId)` | 그룹 삭제 |
+| `collectConditions(type)` | UI에서 조건 수집 |
+| `runCustomBacktest()` | 백테스트 실행 |
+| `displayCustomBacktestResult()` | 결과 표시 (MR/Trend 동일 포맷) |
+
+### 8. 조건 평가 로직
+
+**compute_indicator()**: 지표명 → 계산 함수 라우팅
+```python
+if indicator == "RSI":
+    return calc_rsi(closes, params.get("period", 14))
+if indicator == "MACD":
+    result = calc_macd(closes, fast, slow, signal)
+    return result.get(output, result["macd"])
+# ...
+```
+
+**evaluate_condition()**: 단일 조건 평가 (bar_idx 기준)
+```python
+# cross_above 로직
+prev_left <= prev_right AND left_val > curr_right
+
+# cross_below 로직
+prev_left >= prev_right AND left_val < curr_right
+```
+
+**evaluate_rule()**: 규칙 평가 (그룹 OR, 조건 AND/OR)
+```python
+for group in rule.groups:
+    if group.logic == "AND":
+        if all(evaluate_condition(c) for c in group.conditions):
+            return True
+    else:  # OR
+        if any(evaluate_condition(c) for c in group.conditions):
+            return True
+return False
+```
+
+### 9. 백테스트 결과 포맷
+
+**5카드 메트릭** (TradingView 동일):
+- 총손익 (total_return_pct)
+- 최대자본감소 (max_drawdown_pct)
+- 총거래횟수 (total_trades)
+- 수익성거래% (win_rate_pct)
+- 수익지수 (profit_factor)
+
+**수익률 테이블**: 전체/매수/매도 3열
+
+**캔들차트**: SMA 20/50/200 + 매매 마커
+
+**거래내역**: 수익금 + 수익률 표시
+
+### 10. 테스트 결과
+
+**API 테스트**:
+```bash
+# GET /indicators
+curl https://qube-system.com/api/premium/indicators
+# → 14개 지표 + 7개 연산자 반환 확인
+
+# POST /backtest/custom (RSI < 30 진입, RSI > 70 청산)
+curl -X POST https://qube-system.com/api/premium/backtest/custom \
+  -H "Content-Type: application/json" \
+  -d '{"exchange":"OKX","symbol":"BTC-USDT","timeframe":"1D","days":365,...}'
+# → 백테스트 결과 정상 반환
+```
+
+**빌드 테스트**:
+- npm run build: ✅ 953ms 완료 (C:\AUAT\pc-app\ui)
+- VPS 배포: ✅ docker compose up -d --build
+
+### 11. 커밋
+
+```
+cfc91f3 feat: 커스텀 전략 조건 빌더 + 13개 기술지표 + 백테스트 엔진
+```
+
+**변경 통계**: 9 files changed, 2691 insertions(+), 76 deletions(-)
+
+### 12. 6개 거래소 지원
+
+커스텀 전략 탭에서 전 거래소 백테스트 가능:
+| 거래소 | 일봉 | 분봉 | 주봉 |
+|--------|------|------|------|
+| OKX | ✅ | ✅ | ✅ |
+| BINANCE | ✅ | ✅ | ✅ |
+| BYBIT | ✅ | ✅ | ✅ |
+| UPBIT | ✅ | ✅ | ✅ |
+| KIS_KR | ✅ | ❌ (당일만) | ✅ |
+| KIS_US | ✅ | ❌ (당일만) | ✅ |
 
 ## Day 18 진행사항 (2026-02-13)
 
