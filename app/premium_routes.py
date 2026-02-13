@@ -1293,12 +1293,18 @@ async def run_trend_backtest_endpoint(
     Entry: Supertrend 상승 + HVI 초록 + QQE 양수 + close > HTF VWMA156
     Exit: Hard SL > TP1 > SPO Split > ST Flip (우선순위순)
     """
+    import time as _time
+    import logging
+    _logger = logging.getLogger(__name__)
+    _t0 = _time.time()
+
     from .strategy_engine.backtest_engine_trend import run_trend_backtest
     from .strategy_engine.candle_fetcher import fetch_candles_for_backtest
     from .strategy_engine.signal_generator_trend import TrendConfig
 
     try:
         # ① 실제 거래소 캔들 조회 (signal_tf 기준)
+        _t1 = _time.time()
         candles = await fetch_candles_for_backtest(
             exchange=request.exchange,
             symbol=request.symbol,
@@ -1334,6 +1340,9 @@ async def run_trend_backtest_endpoint(
                 )
             except ValueError:
                 pass  # htf_tf 조회 실패 시 signal_tf 단독 사용
+
+        _t2 = _time.time()
+        _logger.info(f"[Trend BT] 캔들 조회: {_t2 - _t1:.2f}초")
 
         # ④ Trend 설정 생성 (v8 최종 - TF 3개)
         config = TrendConfig(
@@ -1387,6 +1396,7 @@ async def run_trend_backtest_endpoint(
         )
 
         # ⑤ 백테스트 실행
+        _t3 = _time.time()
         result = run_trend_backtest(
             candles=candles,
             exit_candles=exit_candles,
@@ -1394,6 +1404,8 @@ async def run_trend_backtest_endpoint(
             config=config,
             initial_capital=request.initial_capital,
         )
+        _t4 = _time.time()
+        _logger.info(f"[Trend BT] 백테스트 실행: {_t4 - _t3:.2f}초, 총: {_t4 - _t0:.2f}초")
 
         # 백테스트 실패 시
         if not result.success:
