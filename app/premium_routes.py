@@ -1573,3 +1573,196 @@ async def run_trend_backtest_endpoint(
             message=f"백테스트 실행 중 오류가 발생했습니다. 설정을 확인해주세요. ({type(e).__name__})",
             error=f"백테스트 실행 중 오류가 발생했습니다. 설정을 확인해주세요. ({type(e).__name__})",
         )
+
+
+# ============================================================================
+# DEBUG: MR 봉별 지표 데이터 (PineScript 비교용)
+# ============================================================================
+
+class MRDebugRequest(BaseModel):
+    """MR 디버그 요청 모델."""
+    exchange: str = Field(default="OKX")
+    symbol: str = Field(default="BTC-USDT")
+    timeframe: str = Field(default="1D")
+    days: int = Field(default=30, ge=1, le=365)
+    osc_preset: str = Field(default="preset1")
+    start_bar: int = Field(default=0, ge=0, description="시작 봉 인덱스")
+    limit: int = Field(default=20, ge=1, le=100, description="출력할 봉 수")
+
+
+class MRDebugBarData(BaseModel):
+    """MR 봉별 데이터."""
+    bar_index: int
+    timestamp: int
+    date: str
+    close: float
+    line_short: float
+    line_long: float
+    oscillator: float
+    normalized_osc: float
+    upper_band: float
+    lower_band: float
+    basis: float
+    threshold: float
+    sig_up_raw: bool
+    sig_dn_raw: bool
+
+
+class MRDebugResponse(BaseModel):
+    """MR 디버그 응답 모델."""
+    success: bool
+    message: str
+    exchange: str = ""
+    symbol: str = ""
+    timeframe: str = ""
+    total_bars: int = 0
+    preset: str = ""
+    smooth_len: int = 0
+    bars: List[MRDebugBarData] = []
+
+
+@router.post("/debug/mr-indicators", response_model=MRDebugResponse)
+async def debug_mr_indicators(request: MRDebugRequest):
+    """
+    역추세매매 봉별 지표 데이터 출력 (PineScript Data Window 비교용).
+
+    출력 항목:
+    - line_short, line_long (smoother_f 결과)
+    - oscillator (line_short - line_long)
+    - normalized_osc (HMA 적용 후)
+    - upper_band, lower_band, basis (볼린저 밴드)
+    - sig_up_raw, sig_dn_raw (매수/매도 신호)
+    """
+    import numpy as np
+    from datetime import datetime, timezone
+    from app.strategy_engine.candle_fetcher import fetch_candles
+    from app.strategy_engine.indicators import smoother_f, calc_hma, calc_stdev, calc_highest
+    from app.strategy_engine.presets import OSC_PRESETS
+
+    try:
+        # 캔들 조회
+        candles = await fetch_candles(
+            exchange=request.exchange,
+            symbol=request.symbol,
+            timeframe=request.timeframe,
+            limit=request.days * 24 if 'h' in request.timeframe.lower() or 'm' in request.timeframe.lower() else request.days,
+        )
+
+        if not candles or len(candles) < 50:
+            return MRDebugResponse(
+                success=False,
+                message=f"캔들 데이터 부족: {len(candles) if candles else 0}봉",
+            )
+
+        # 프리셋 파라미터
+        params = OSC_PRESETS.get(request.osc_preset, OSC_PRESETS["preset1"])
+        smooth_len = params["smooth_len"]
+        threshold = params["threshold"]
+        std_len = params["std_len"]
+        hma_len = params["hma_len"]
+        bb_len = params["bb_len"]
+        bb_mult = params["bb_mult"]
+
+        # 종가 배열
+        closes = np.array([c.c for c in candles])
+
+        # 지표 계산 (PineScript와 동일)
+        # line_long = smoother_F(close, smooth_len * 2)
+        # line_short = smoother_F(close, smooth_len)
+        line_long = smoother_f(closes, smooth_len * 2)
+        line_short = smoother_f(closes, smooth_len)
+
+        # oscillator = line_short - line_long
+        oscillator = line_short - line_long
+
+        # stdev_osc = ta.stdev(oscillator, std_len)
+        stdev_osc = calc_stdev(oscillator, std_len)
+
+        # denom = max(highest(stdev_osc, std_len), 1e-10)
+        highest_stdev = calc_highest(stdev_osc, std_len)
+        denom = np.maximum(highest_stdev, 1e-10)
+
+        # normalized_osc = ta.hma(oscillator / denom, hma_len)
+        osc_normalized_raw = oscillator / denom
+        normalized_osc = calc_hma(osc_normalized_raw, hma_len)
+
+        # 볼린저 밴드: basis = ta.ema(normalized_osc, bb_len)
+        basis = smoother_f(normalized_osc, bb_len)
+        stdev_norm = calc_stdev(normalized_osc, bb_len)
+        deviation = bb_mult * stdev_norm
+        upper_band = basis + deviation
+        lower_band = basis - deviation
+
+        # 신호 생성
+        # sig_up_raw = normalized_osc < -threshold AND crossover(normalized_osc, normalized_osc[1])
+        # sig_dn_raw = normalized_osc > threshold AND crossover(normalized_osc[1], normalized_osc)
+        n = len(closes)
+        sig_up_raw = np.zeros(n, dtype=bool)
+        sig_dn_raw = np.zeros(n, dtype=bool)
+
+        for i in range(2, n):
+            osc_curr = normalized_osc[i]
+            osc_prev = normalized_osc[i-1]
+            osc_prev_prev = normalized_osc[i-2]
+
+            if not (np.isnan(osc_curr) or np.isnan(osc_prev) or np.isnan(osc_prev_prev)):
+                # sig_up: osc < -threshold AND osc_curr > osc_prev AND osc_prev <= osc_prev_prev
+                sig_up_raw[i] = (
+                    osc_curr < -threshold and
+                    osc_curr > osc_prev and
+                    osc_prev <= osc_prev_prev
+                )
+                # sig_dn: osc > threshold AND osc_curr < osc_prev AND osc_prev >= osc_prev_prev
+                sig_dn_raw[i] = (
+                    osc_curr > threshold and
+                    osc_curr < osc_prev and
+                    osc_prev >= osc_prev_prev
+                )
+
+        # 결과 생성
+        bars = []
+        start = max(request.start_bar, 0)
+        end = min(start + request.limit, n)
+
+        for i in range(start, end):
+            candle = candles[i]
+            dt = datetime.fromtimestamp(candle.ts / 1000, tz=timezone.utc)
+
+            def safe_float(v):
+                return round(float(v), 6) if not np.isnan(v) else 0.0
+
+            bars.append(MRDebugBarData(
+                bar_index=i,
+                timestamp=candle.ts,
+                date=dt.strftime("%Y-%m-%d %H:%M"),
+                close=round(candle.c, 2),
+                line_short=safe_float(line_short[i]),
+                line_long=safe_float(line_long[i]),
+                oscillator=safe_float(oscillator[i]),
+                normalized_osc=safe_float(normalized_osc[i]),
+                upper_band=safe_float(upper_band[i]),
+                lower_band=safe_float(lower_band[i]),
+                basis=safe_float(basis[i]),
+                threshold=threshold,
+                sig_up_raw=bool(sig_up_raw[i]),
+                sig_dn_raw=bool(sig_dn_raw[i]),
+            ))
+
+        return MRDebugResponse(
+            success=True,
+            message=f"총 {n}봉 중 {len(bars)}봉 출력",
+            exchange=request.exchange,
+            symbol=request.symbol,
+            timeframe=request.timeframe,
+            total_bars=n,
+            preset=request.osc_preset,
+            smooth_len=smooth_len,
+            bars=bars,
+        )
+
+    except Exception as e:
+        logger.error(f"MR 디버그 오류: {e}", exc_info=True)
+        return MRDebugResponse(
+            success=False,
+            message=f"오류: {str(e)}",
+        )
