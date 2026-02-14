@@ -7987,12 +7987,34 @@ async def get_portfolio_summary(
     def format_krw(val):
         return f"₩{int(val):,}"
 
-    # 수익률 계산 변수
+    # 수익률 계산 - 보유 종목 기반 (원금 대비 수익률)
     total_profit_rate = 0.0
+    total_profit_loss = 0.0  # 총 수익금
+    total_cost = 0.0  # 총 원금 (평단가 * 수량)
     daily_change = 0.0
     daily_change_rate = 0.0
     first_snapshot_date = None
 
+    # 각 종목의 수익금과 원금 합산
+    for h in holdings:
+        profit_loss = h.get("profit_loss", 0) or 0
+        avg_price = h.get("avg_price", 0) or 0
+        quantity = h.get("quantity", 0) or 0
+        exchange = (h.get("exchange") or "").upper()
+
+        # USD 자산은 원화로 환산
+        if exchange in ("KIS_US", "BINANCE", "OKX", "BYBIT"):
+            profit_loss = profit_loss * usd_krw_rate
+            avg_price = avg_price * usd_krw_rate
+
+        total_profit_loss += profit_loss
+        total_cost += avg_price * quantity
+
+    # 총 수익률 = 총 수익금 / 총 원금 * 100
+    if total_cost > 0:
+        total_profit_rate = (total_profit_loss / total_cost) * 100
+
+    # 일간 변동 계산 (어제 스냅샷 대비)
     if current_user and total_assets > 0:
         try:
             today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -8036,16 +8058,13 @@ async def get_portfolio_summary(
                 daily_change = total_assets - yesterday_snapshot
                 daily_change_rate = ((total_assets / yesterday_snapshot) - 1) * 100
 
-            # 첫 스냅샷으로 총 수익률 계산
+            # 첫 스냅샷 날짜 (참고용)
             first_snapshot = db.execute(
-                text("SELECT total_asset_krw, snapshot_date FROM portfolio_snapshots WHERE user_id = :user_id ORDER BY snapshot_date ASC LIMIT 1"),
+                text("SELECT snapshot_date FROM portfolio_snapshots WHERE user_id = :user_id ORDER BY snapshot_date ASC LIMIT 1"),
                 {"user_id": current_user.id}
-            ).mappings().first()
-
-            if first_snapshot and first_snapshot["total_asset_krw"] > 0:
-                first_assets = first_snapshot["total_asset_krw"]
-                first_snapshot_date = first_snapshot["snapshot_date"].strftime("%Y-%m-%d") if first_snapshot["snapshot_date"] else None
-                total_profit_rate = ((total_assets / first_assets) - 1) * 100
+            ).scalar()
+            if first_snapshot:
+                first_snapshot_date = first_snapshot.strftime("%Y-%m-%d") if hasattr(first_snapshot, 'strftime') else str(first_snapshot)
 
         except Exception as e:
             print(f"[Summary] Snapshot error: {e}")
