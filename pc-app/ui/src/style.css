@@ -7729,6 +7729,29 @@ body {
     padding: 4px 6px !important;
 }
 
+.preset-param-input,
+.preset-compare-value,
+.preset-compare-param-input {
+    width: 60px !important;
+    font-size: 11px !important;
+    padding: 4px 6px !important;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.preset-compare-value {
+    border-color: var(--primary);
+    background: rgba(139, 92, 246, 0.1);
+}
+
+.param-separator {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin: 0 4px;
+}
+
 .btn-remove-condition {
     background: transparent;
     border: none;

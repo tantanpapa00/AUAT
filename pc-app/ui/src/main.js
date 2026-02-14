@@ -8526,7 +8526,7 @@ function getDefaultIndicatorRegistry() {
         // 추세 (3개)
         "ADX": { name: "ADX (평균방향지수)", category: "추세", params: [{ key: "period", label: "기간", default: 14 }], outputs: ["adx", "plus_di", "minus_di"] },
         "SUPERTREND": { name: "슈퍼트렌드", category: "추세", params: [{ key: "atr_len", label: "ATR 길이", default: 20 }, { key: "factor", label: "팩터", default: 5.0 }], outputs: ["direction", "value"] },
-        "ICHIMOKU": { name: "일목균형표", category: "추세", params: [{ key: "tenkan_len", label: "전환선", default: 9 }, { key: "kijun_len", label: "기준선", default: 26 }, { key: "senkou_len", label: "선행스팬B", default: 52 }], outputs: ["tenkan", "kijun", "senkou_a", "senkou_b", "chikou"] },
+        "ICHIMOKU": { name: "일목균형표", category: "추세", params: [{ key: "tenkan_len", label: "전환선", default: 9 }, { key: "kijun_len", label: "기준선", default: 26 }, { key: "senkou_len", label: "선행스팬B", default: 52 }, { key: "chikou_offset", label: "전환", default: 26 }], outputs: ["tenkan", "kijun", "senkou_a", "senkou_b", "chikou"] },
         // 변동성 (1개)
         "ATR": { name: "ATR (평균진폭)", category: "변동성", params: [{ key: "period", label: "기간", default: 14 }], outputs: ["value"] },
         // 가격 (1개)
@@ -8606,10 +8606,10 @@ const INDICATOR_PRESETS = {
         { label: "변동성 크다 (ATR > 기준)", config: { indicator: "ATR", output: "value", params: { period: 14 }, operator: ">", compare_type: "value", compare_value: 1000 } },
     ],
     "ICHIMOKU": [
-        { label: "구름 위 (상승추세)", description: "종가 > 선행스팬A", config: { indicator: "PRICE", output: "close", params: {}, operator: ">", compare_type: "indicator", compare_indicator: "ICHIMOKU", compare_output: "senkou_a", compare_params: { tenkan_len: 9, kijun_len: 26, senkou_len: 52 } } },
-        { label: "구름 아래 (하락추세)", description: "종가 < 선행스팬B", config: { indicator: "PRICE", output: "close", params: {}, operator: "<", compare_type: "indicator", compare_indicator: "ICHIMOKU", compare_output: "senkou_b", compare_params: { tenkan_len: 9, kijun_len: 26, senkou_len: 52 } } },
-        { label: "전환선 > 기준선", config: { indicator: "ICHIMOKU", output: "tenkan", params: { tenkan_len: 9, kijun_len: 26, senkou_len: 52 }, operator: ">", compare_type: "indicator", compare_indicator: "ICHIMOKU", compare_output: "kijun", compare_params: { tenkan_len: 9, kijun_len: 26, senkou_len: 52 } } },
-        { label: "전환선 ↑ 기준선", description: "매수 신호", config: { indicator: "ICHIMOKU", output: "tenkan", params: { tenkan_len: 9, kijun_len: 26, senkou_len: 52 }, operator: "cross_above", compare_type: "indicator", compare_indicator: "ICHIMOKU", compare_output: "kijun", compare_params: { tenkan_len: 9, kijun_len: 26, senkou_len: 52 } } },
+        { label: "구름 위 (상승추세)", description: "종가 > 선행스팬A", config: { indicator: "PRICE", output: "close", params: {}, operator: ">", compare_type: "indicator", compare_indicator: "ICHIMOKU", compare_output: "senkou_a", compare_params: { tenkan_len: 9, kijun_len: 26, senkou_len: 52, chikou_offset: 26 } } },
+        { label: "구름 아래 (하락추세)", description: "종가 < 선행스팬B", config: { indicator: "PRICE", output: "close", params: {}, operator: "<", compare_type: "indicator", compare_indicator: "ICHIMOKU", compare_output: "senkou_b", compare_params: { tenkan_len: 9, kijun_len: 26, senkou_len: 52, chikou_offset: 26 } } },
+        { label: "전환선 > 기준선", config: { indicator: "ICHIMOKU", output: "tenkan", params: { tenkan_len: 9, kijun_len: 26, senkou_len: 52, chikou_offset: 26 }, operator: ">", compare_type: "indicator", compare_indicator: "ICHIMOKU", compare_output: "kijun", compare_params: { tenkan_len: 9, kijun_len: 26, senkou_len: 52, chikou_offset: 26 } } },
+        { label: "전환선 ↑ 기준선", description: "매수 신호", config: { indicator: "ICHIMOKU", output: "tenkan", params: { tenkan_len: 9, kijun_len: 26, senkou_len: 52, chikou_offset: 26 }, operator: "cross_above", compare_type: "indicator", compare_indicator: "ICHIMOKU", compare_output: "kijun", compare_params: { tenkan_len: 9, kijun_len: 26, senkou_len: 52, chikou_offset: 26 } } },
     ],
     "PRICE": [
         { label: "양봉 (종가 > 시가)", config: { indicator: "PRICE", output: "close", params: {}, operator: ">", compare_type: "indicator", compare_indicator: "PRICE", compare_output: "open", compare_params: {} } },
@@ -8886,17 +8886,58 @@ function renderPresetParams(condDiv) {
     // 프리셋의 파라미터를 편집 가능하게 표시
     const config = preset.config;
     const indicator = indicatorRegistry?.[config.indicator];
-    if (!indicator || !indicator.params || indicator.params.length === 0) {
-        paramsDiv.innerHTML = '';
-        return;
+
+    let html = '';
+
+    // 지표 파라미터 표시
+    if (indicator && indicator.params && indicator.params.length > 0) {
+        html += indicator.params.map(p => `
+            <label class="param-label">${p.label}
+                <input type="number" class="preset-param-input" data-param="${p.key}"
+                    value="${config.params?.[p.key] ?? p.default}" min="${p.min || ''}" max="${p.max || ''}" step="any">
+            </label>
+        `).join('');
     }
 
-    paramsDiv.innerHTML = indicator.params.map(p => `
-        <label class="param-label">${p.label}
-            <input type="number" class="preset-param-input" data-param="${p.key}"
-                value="${config.params?.[p.key] ?? p.default}" min="${p.min || ''}" max="${p.max || ''}" step="any">
-        </label>
-    `).join('');
+    // 고정값 비교인 경우 기준값 입력칸 표시
+    if (config.compare_type === 'value' && config.compare_value !== undefined) {
+        const thresholdLabel = getThresholdLabel(indicatorKey, config.operator, config.compare_value);
+        html += `
+            <label class="param-label">${thresholdLabel}
+                <input type="number" class="preset-compare-value" data-param="compare_value"
+                    value="${config.compare_value}" step="any">
+            </label>
+        `;
+    }
+
+    // 지표 비교인 경우 비교 지표의 파라미터도 표시
+    if (config.compare_type === 'indicator' && config.compare_indicator) {
+        const compareInd = indicatorRegistry?.[config.compare_indicator];
+        if (compareInd && compareInd.params && compareInd.params.length > 0) {
+            html += `<span class="param-separator">vs</span>`;
+            html += compareInd.params.map(p => `
+                <label class="param-label">${p.label}
+                    <input type="number" class="preset-compare-param-input" data-param="${p.key}"
+                        value="${config.compare_params?.[p.key] ?? p.default}" min="${p.min || ''}" max="${p.max || ''}" step="any">
+                </label>
+            `).join('');
+        }
+    }
+
+    paramsDiv.innerHTML = html;
+}
+
+// 기준값 라벨 생성
+function getThresholdLabel(indicator, operator, value) {
+    const labels = {
+        'RSI': value >= 50 ? '과매수 기준' : '과매도 기준',
+        'STOCH': value >= 50 ? '과매수 기준' : '과매도 기준',
+        'CCI': value >= 0 ? '과매수 기준' : '과매도 기준',
+        'ADX': '추세 기준',
+        'MACD': '기준선',
+        'SUPERTREND': '방향 기준',
+    };
+    return labels[indicator] || '기준값';
 }
 
 // 직접설정 섹션 업데이트 (지표 변경 시)
@@ -9052,6 +9093,24 @@ function collectConditions(type) {
                     // params가 있으면 편집된 값으로 덮어쓰기
                     if (Object.keys(editedParams).length > 0) {
                         config.params = { ...config.params, ...editedParams };
+                    }
+
+                    // 사용자가 편집한 기준값(compare_value) 적용
+                    const compareValueInput = condDiv.querySelector('.preset-compare-value');
+                    if (compareValueInput) {
+                        const val = parseFloat(compareValueInput.value);
+                        if (!isNaN(val)) config.compare_value = val;
+                    }
+
+                    // 사용자가 편집한 비교 지표 파라미터 적용
+                    const editedCompareParams = {};
+                    condDiv.querySelectorAll('.preset-compare-param-input').forEach(input => {
+                        const key = input.dataset.param;
+                        const val = parseFloat(input.value);
+                        if (key && !isNaN(val)) editedCompareParams[key] = val;
+                    });
+                    if (Object.keys(editedCompareParams).length > 0) {
+                        config.compare_params = { ...config.compare_params, ...editedCompareParams };
                     }
 
                     conditions.push({
