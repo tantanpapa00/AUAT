@@ -7964,9 +7964,9 @@ body {
 .tooltip-icon::after {
     content: attr(data-tooltip);
     position: absolute;
-    bottom: calc(100% + 8px);
-    left: 50%;
-    transform: translateX(-50%);
+    left: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%);
     background: #1F2937;
     color: var(--text-primary);
     padding: 8px 12px;
@@ -7989,11 +7989,11 @@ body {
 .tooltip-icon::before {
     content: '';
     position: absolute;
-    bottom: calc(100% + 2px);
-    left: 50%;
-    transform: translateX(-50%);
+    left: calc(100% + 4px);
+    top: 50%;
+    transform: translateY(-50%);
     border: 6px solid transparent;
-    border-top-color: #1F2937;
+    border-right-color: #1F2937;
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.2s, visibility 0.2s;
