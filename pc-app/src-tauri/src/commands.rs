@@ -1278,6 +1278,56 @@ pub async fn get_trade_history(
 }
 
 // =====================================================
+// 자산별 거래내역 조회
+// =====================================================
+#[derive(Serialize, Deserialize)]
+pub struct AssetTrade {
+    pub id: i64,
+    pub symbol: String,
+    pub side: String,
+    pub quantity: f64,
+    pub price: f64,
+    pub total_amount: f64,
+    pub profit_loss: f64,
+    pub profit_rate: f64,
+    pub strategy_name: String,
+    pub exchange: String,
+    pub executed_at: String,
+}
+
+#[tauri::command]
+pub async fn get_asset_trades(
+    access_token: String,
+    symbol: String,
+    exchange: Option<String>,
+    limit: Option<i32>,
+) -> Result<Vec<AssetTrade>, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let mut url = format!("{}/api/asset/trades?symbol={}&limit={}",
+        VPS_SERVER_URL,
+        urlencoding::encode(&symbol),
+        limit.unwrap_or(100)
+    );
+    if let Some(ex) = exchange {
+        url.push_str(&format!("&exchange={}", urlencoding::encode(&ex)));
+    }
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await;
+
+    match resp {
+        Ok(r) if r.status().is_success() => {
+            r.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+        }
+        Ok(_) | Err(_) => Ok(vec![]),
+    }
+}
+
+// =====================================================
 // Day14: 포트폴리오 히스토리 (수익률 추이)
 // =====================================================
 #[derive(Serialize, Deserialize)]

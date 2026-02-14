@@ -102,6 +102,7 @@ fn main() {
             commands::get_active_strategies,
             commands::get_exchange_rate,
             commands::get_trade_history,
+            commands::get_asset_trades,
             commands::get_portfolio_history,
             commands::emergency_stop,
             commands::verify_password,

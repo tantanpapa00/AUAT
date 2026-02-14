@@ -968,9 +968,7 @@ function updateServerStatus(connected) {
 // =====================================================
 // Home Page (PHASE 3) - Portfolio Dashboard
 // =====================================================
-let profitChart = null;
 let allocationChart = null;
-let currentPeriod = '1w';
 
 async function loadHomePage() {
     // Load server status
@@ -983,7 +981,6 @@ async function loadHomePage() {
 
     // Load portfolio data
     await loadPortfolioSummary();
-    await loadPortfolioChart(currentPeriod);
     await loadHoldings();  // 자산배분 차트도 함께 업데이트
     await loadActiveStrategies();
     await loadRecentTrades();
@@ -1087,96 +1084,6 @@ function updateSummaryCards(summary) {
         if (cashUsdValue) cashUsdValue.textContent = '$' + (alloc.cash_usd_value || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
         console.log('[Summary] Updated allocation legend & table (5 categories)');
-    }
-}
-
-async function loadPortfolioChart(period) {
-    currentPeriod = period;
-
-    try {
-        let chartData;
-        if (auth.accessToken) {
-            chartData = await invoke('get_portfolio_chart', { accessToken: auth.accessToken, period });
-        } else {
-            // Dummy data for non-logged in users
-            chartData = generateDummyChartData(period);
-        }
-
-        updateProfitChart(chartData);
-    } catch (e) {
-        console.error('Failed to load chart data:', e);
-        updateProfitChart(generateDummyChartData(period));
-    }
-}
-
-function generateDummyChartData(period) {
-    const counts = { '1d': 24, '1w': 7, '1m': 30, '3m': 90, '1y': 12 };
-    const count = counts[period] || 7;
-    const data = [];
-    let value = 0;
-
-    for (let i = 0; i < count; i++) {
-        value += (Math.random() - 0.45) * 0.5;
-        const date = new Date();
-        date.setDate(date.getDate() - (count - i - 1));
-        data.push({
-            date: (date.getMonth() + 1) + '/' + date.getDate(),
-            value: Math.round(value * 100) / 100
-        });
-    }
-
-    return { period, data, period_profit_rate: value };
-}
-
-function updateProfitChart(chartData) {
-    const ctx = document.getElementById('profit-chart');
-    if (!ctx) return;
-
-    if (profitChart) profitChart.destroy();
-
-    const labels = chartData.data.map(d => d.date);
-    const values = chartData.data.map(d => parseFloat(d.value.toFixed(2)));
-    const isPositive = chartData.period_profit_rate >= 0;
-
-    profitChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: '수익률 (%)',
-                data: values,
-                borderColor: isPositive ? '#00C853' : '#FF1744',
-                backgroundColor: isPositive ? 'rgba(0, 200, 83, 0.1)' : 'rgba(255, 23, 68, 0.1)',
-                fill: true,
-                tension: 0.4,
-                pointRadius: values.length > 30 ? 0 : 3,
-                pointHoverRadius: 5
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { intersect: false, mode: 'index' },
-            plugins: { legend: { display: false } },
-            scales: {
-                y: {
-                    grid: { color: 'rgba(255,255,255,0.1)' },
-                    ticks: { color: '#9CA3AF', callback: (v) => parseFloat(v.toFixed(2)) + '%' }
-                },
-                x: {
-                    grid: { display: false },
-                    ticks: { color: '#9CA3AF', maxRotation: 0 }
-                }
-            }
-        }
-    });
-
-    // Update period profit display
-    const periodProfit = document.getElementById('period-profit');
-    if (periodProfit) {
-        const rate = chartData.period_profit_rate || 0;
-        periodProfit.textContent = (rate >= 0 ? '+' : '') + rate.toFixed(2) + '%';
-        periodProfit.className = rate >= 0 ? 'profit' : 'loss';
     }
 }
 
@@ -1421,7 +1328,7 @@ function renderHoldings() {
                 const profitClass = h.profit_rate >= 0 ? 'profit' : 'loss';
 
                 html += `
-                    <tr>
+                    <tr class="clickable-row" data-symbol="${h.symbol}" data-exchange="${h.exchange}" data-name="${h.name || h.symbol}" style="cursor: pointer;">
                         <td title="${h.name || h.symbol}">${h.symbol}</td>
                         <td><span class="exchange-badge ${h.exchange.toLowerCase()}">${h.exchange}</span></td>
                         <td>${formatQuantity(h.quantity)}</td>
@@ -1437,7 +1344,99 @@ function renderHoldings() {
     });
 
     tbody.innerHTML = html;
+
+    // 클릭 이벤트 핸들러 추가 (보유자산 → 거래내역)
+    tbody.querySelectorAll('.clickable-row').forEach(row => {
+        row.addEventListener('click', () => {
+            const symbol = row.dataset.symbol;
+            const exchange = row.dataset.exchange;
+            const name = row.dataset.name;
+            showAssetTradesModal(symbol, exchange, name);
+        });
+    });
 }
+
+// 자산 거래내역 모달 표시
+async function showAssetTradesModal(symbol, exchange, name) {
+    const modal = document.getElementById('asset-trades-modal');
+    const title = document.getElementById('asset-trades-title');
+    const exchangeBadge = document.getElementById('asset-trades-exchange');
+    const tbody = document.getElementById('asset-trades-tbody');
+
+    if (!modal) return;
+
+    title.textContent = `${name || symbol} 거래내역`;
+    exchangeBadge.textContent = exchange;
+    exchangeBadge.className = `exchange-badge ${exchange.toLowerCase()}`;
+
+    // 로딩 표시
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px;">거래내역 로딩 중...</td></tr>';
+    modal.style.display = 'flex';
+
+    try {
+        // 해당 종목의 거래내역 조회
+        const trades = await invoke('get_asset_trades', {
+            accessToken: auth.accessToken,
+            symbol: symbol,
+            exchange: exchange,
+            limit: 100
+        });
+
+        if (!trades || trades.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px; color: #9CA3AF;">거래내역이 없습니다.</td></tr>';
+            return;
+        }
+
+        // 누적 수익 계산
+        let cumulative = 0;
+        let html = '';
+
+        trades.forEach(t => {
+            const side = t.side?.toUpperCase() === 'BUY' ? '매수' : '매도';
+            const sideClass = t.side?.toUpperCase() === 'BUY' ? 'profit' : 'loss';
+            const date = t.executed_at ? new Date(t.executed_at).toLocaleDateString('ko-KR') : '-';
+            const quantity = formatQuantity(t.quantity || 0);
+            const amount = formatCurrency(t.total_amount || (t.price * t.quantity) || 0, exchange);
+            const profit = t.profit_loss || 0;
+            const profitRate = t.profit_rate || 0;
+            cumulative += profit;
+
+            const profitClass = profit >= 0 ? 'profit' : 'loss';
+            const profitStr = profit !== 0 ? formatProfitLoss(profit, exchange) : '-';
+            const profitRateStr = profitRate !== 0 ? `${profitRate >= 0 ? '+' : ''}${profitRate.toFixed(2)}%` : '-';
+            const cumulativeStr = formatProfitLoss(cumulative, exchange);
+
+            html += `
+                <tr>
+                    <td>${t.strategy_name || '-'}</td>
+                    <td class="${sideClass}">${side}</td>
+                    <td>${date}</td>
+                    <td>${quantity}</td>
+                    <td>${amount}</td>
+                    <td class="${profitClass}">${profitStr}</td>
+                    <td class="${profitClass}">${profitRateStr}</td>
+                    <td class="${cumulative >= 0 ? 'profit' : 'loss'}">${cumulativeStr}</td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+    } catch (e) {
+        console.error('Failed to load asset trades:', e);
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px; color: #EF4444;">거래내역을 불러올 수 없습니다.</td></tr>';
+    }
+}
+
+// 자산 거래내역 모달 닫기
+document.getElementById('asset-trades-modal-close')?.addEventListener('click', () => {
+    document.getElementById('asset-trades-modal').style.display = 'none';
+});
+
+document.getElementById('asset-trades-modal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'asset-trades-modal') {
+        e.target.style.display = 'none';
+    }
+});
 
 function formatUSD(value) {
     return '$' + value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1681,15 +1680,6 @@ function formatProfitLoss(value, exchangeOrCurrency) {
     }
     return sign + '$' + value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-
-// Period tabs
-document.querySelectorAll('.period-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-        document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        loadPortfolioChart(tab.dataset.period);
-    });
-});
 
 // Refresh buttons
 document.getElementById('btn-refresh-holdings')?.addEventListener('click', loadHoldings);

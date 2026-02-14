@@ -8508,6 +8508,97 @@ async def get_trade_history(
 
 
 # =====================================================
+# 자산별 거래내역 API
+# =====================================================
+@app.get("/api/asset/trades")
+async def get_asset_trades(
+    symbol: str = Query(..., description="종목코드"),
+    exchange: str = Query(None, description="거래소"),
+    limit: int = Query(100, ge=1, le=500),
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """특정 자산의 거래내역 조회 (누적 수익 계산용)"""
+    if not current_user:
+        return []
+
+    try:
+        sql = """
+            SELECT o.id, o.symbol, o.side, o.qty, o.filled_qty, o.avg_px,
+                   o.status, o.submit_status, o.created_at as executed_at,
+                   s.name as strategy_name, acc.name as exchange_name, acc.exchange as exchange_code
+            FROM orders o
+            LEFT JOIN assets a ON a.id = o.asset_id
+            LEFT JOIN strategies s ON s.id = a.strategy_id
+            LEFT JOIN accounts acc ON acc.id = a.account_id
+            WHERE o.symbol LIKE :symbol_pattern
+            AND o.status IN ('filled', 'partial')
+            ORDER BY o.created_at ASC
+            LIMIT :limit
+        """
+
+        # 종목코드 패턴 매칭 (삼성전자: 005930, 005930.KS 등)
+        symbol_pattern = f"%{symbol}%"
+        rows = db.execute(text(sql), {"symbol_pattern": symbol_pattern, "limit": limit}).fetchall()
+
+        def safe_float(val, default=0.0):
+            if val is None or val == '':
+                return default
+            try:
+                return float(val)
+            except (ValueError, TypeError):
+                return default
+
+        trades = []
+        position = 0.0  # 누적 수량
+        total_cost = 0.0  # 총 매수금액
+        avg_price = 0.0  # 평균단가
+
+        for row in rows:
+            qty = safe_float(row.filled_qty) or safe_float(row.qty)
+            price = safe_float(row.avg_px)
+            side = (row.side or "").upper()
+            total_amount = qty * price
+            profit_loss = 0.0
+            profit_rate = 0.0
+
+            if side == "BUY":
+                # 매수: 평균단가 업데이트
+                total_cost += total_amount
+                position += qty
+                avg_price = total_cost / position if position > 0 else 0
+            elif side == "SELL" and position > 0:
+                # 매도: 수익 계산
+                cost_basis = avg_price * qty
+                profit_loss = total_amount - cost_basis
+                profit_rate = (profit_loss / cost_basis * 100) if cost_basis > 0 else 0
+                position -= qty
+                total_cost = avg_price * position if position > 0 else 0
+
+            trades.append({
+                "id": row.id,
+                "symbol": row.symbol or "",
+                "side": row.side or "",
+                "quantity": qty,
+                "price": price,
+                "total_amount": total_amount,
+                "profit_loss": round(profit_loss, 2),
+                "profit_rate": round(profit_rate, 2),
+                "strategy_name": row.strategy_name or "",
+                "exchange": row.exchange_name or row.exchange_code or "",
+                "executed_at": row.executed_at.isoformat() if row.executed_at else ""
+            })
+
+        return trades
+
+    except Exception as e:
+        print(f"[AssetTrades] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
+
+
+# =====================================================
 # 포트폴리오 히스토리 (수익률 추이)
 # =====================================================
 @app.get("/api/portfolio/history")

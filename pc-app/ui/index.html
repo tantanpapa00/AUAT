@@ -291,26 +291,6 @@
                 </section>
 
                 <div class="home-grid">
-                    <!-- 수익률 차트 -->
-                    <section class="card chart-section">
-                        <div class="card-header">
-                            <h2>수익률 추이</h2>
-                            <div class="chart-period-tabs">
-                                <button class="period-tab active" data-period="1d">1일</button>
-                                <button class="period-tab" data-period="1w">1주</button>
-                                <button class="period-tab" data-period="1m">1개월</button>
-                                <button class="period-tab" data-period="3m">3개월</button>
-                                <button class="period-tab" data-period="1y">1년</button>
-                            </div>
-                        </div>
-                        <div class="chart-container">
-                            <canvas id="profit-chart"></canvas>
-                        </div>
-                        <div class="chart-summary" id="chart-summary">
-                            기간 수익률: <span class="profit" id="period-profit">+0.00%</span>
-                        </div>
-                    </section>
-
                     <!-- 자산 배분 -->
                     <section class="card allocation-section">
                         <h2>자산 배분</h2>
@@ -3769,6 +3749,40 @@
             <div class="modal-footer" style="padding: 16px 20px; border-top: 1px solid #374151; display: flex; gap: 12px; justify-content: flex-end;">
                 <button class="btn btn-secondary" id="profit-modal-reset">초기화</button>
                 <button class="btn btn-primary" id="profit-modal-apply">적용</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 자산 거래내역 모달 -->
+    <div class="modal-overlay" id="asset-trades-modal" style="display: none;">
+        <div class="modal-content" style="max-width: 900px; max-height: 80vh;">
+            <div class="modal-header">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <h3 id="asset-trades-title">거래내역</h3>
+                    <span class="exchange-badge" id="asset-trades-exchange">KIS_KR</span>
+                </div>
+                <button class="modal-close" id="asset-trades-modal-close">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 0; overflow-y: auto; max-height: calc(80vh - 120px);">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>전략명</th>
+                            <th>타입</th>
+                            <th>날짜</th>
+                            <th>수량</th>
+                            <th>금액</th>
+                            <th>수익금</th>
+                            <th>수익률</th>
+                            <th>누적</th>
+                        </tr>
+                    </thead>
+                    <tbody id="asset-trades-tbody">
+                        <tr class="empty-row">
+                            <td colspan="8">거래내역이 없습니다.</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
