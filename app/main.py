@@ -8165,30 +8165,49 @@ class PortfolioChartResponse(BaseModel):
 @app.get("/api/portfolio/chart")
 async def get_portfolio_chart(
     period: str = Query("1w", description="기간: 1d, 1w, 1m, 3m, 1y"),
-    current_user: User = Depends(get_current_user_optional)
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
 ):
-    """수익률 차트 데이터"""
-    import random
-
-    counts = {"1d": 24, "1w": 7, "1m": 30, "3m": 90, "1y": 365}
-    count = counts.get(period, 7)
+    """수익률 차트 데이터 (실제 스냅샷 기반)"""
+    days_map = {"1d": 1, "1w": 7, "1m": 30, "3m": 90, "1y": 365}
+    days = days_map.get(period, 7)
 
     data = []
-    value = 0.0
-    now = datetime.now()
+    period_profit_rate = 0.0
 
-    for i in range(count):
-        value += (random.random() - 0.45) * 0.5
-        if period == "1d":
-            date = now - timedelta(hours=count - i - 1)
-            date_str = date.strftime("%H:%M")
-        else:
-            date = now - timedelta(days=count - i - 1)
-            date_str = date.strftime("%m/%d")
+    if current_user:
+        try:
+            start_date = datetime.now() - timedelta(days=days)
+            rows = db.execute(
+                text("""
+                    SELECT snapshot_date, total_asset_krw
+                    FROM portfolio_snapshots
+                    WHERE user_id = :user_id AND snapshot_date >= :start_date
+                    ORDER BY snapshot_date ASC
+                """),
+                {"user_id": current_user.id, "start_date": start_date}
+            ).fetchall()
 
-        data.append(ChartDataPoint(date=date_str, value=round(value, 2)))
+            if rows and len(rows) > 0:
+                base_value = float(rows[0].total_asset_krw or 0)
+                if base_value > 0:
+                    for row in rows:
+                        current_value = float(row.total_asset_krw or 0)
+                        profit_rate = ((current_value / base_value) - 1) * 100
+                        date_str = row.snapshot_date.strftime("%m/%d") if hasattr(row.snapshot_date, 'strftime') else str(row.snapshot_date)[:5]
+                        data.append(ChartDataPoint(date=date_str, value=round(profit_rate, 2)))
 
-    return PortfolioChartResponse(period=period, data=data, period_profit_rate=round(value, 2))
+                    # 마지막 수익률
+                    period_profit_rate = data[-1].value if data else 0.0
+
+        except Exception as e:
+            print(f"[Chart] Error: {e}")
+
+    # 데이터가 없으면 오늘 0% 포인트 추가
+    if not data:
+        data.append(ChartDataPoint(date=datetime.now().strftime("%m/%d"), value=0.0))
+
+    return PortfolioChartResponse(period=period, data=data, period_profit_rate=round(period_profit_rate, 2))
 
 
 class HoldingItem(BaseModel):
