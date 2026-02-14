@@ -8014,39 +8014,58 @@ async def get_portfolio_summary(
     if total_cost > 0:
         total_profit_rate = (total_profit_loss / total_cost) * 100
 
-    # 일간 변동 계산 (어제 스냅샷 대비)
+    # 일간 변동 계산 (어제 00시 스냅샷 대비)
     if current_user and total_assets > 0:
         try:
-            today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            now = datetime.now()
+            today = now.replace(hour=0, minute=0, second=0, microsecond=0)
             yesterday = today - timedelta(days=1)
 
-            # 오늘 스냅샷 저장 (upsert)
-            existing_today = db.execute(
-                text("SELECT id FROM portfolio_snapshots WHERE user_id = :user_id AND snapshot_date = :today"),
+            # 오늘 스냅샷 조회 (6시간 간격으로 갱신)
+            existing_snapshot = db.execute(
+                text("SELECT id, created_at FROM portfolio_snapshots WHERE user_id = :user_id AND snapshot_date = :today"),
                 {"user_id": current_user.id, "today": today}
-            ).scalar()
+            ).mappings().first()
 
-            if existing_today:
-                db.execute(
-                    text("""
-                        UPDATE portfolio_snapshots
-                        SET total_asset_krw = :total_assets, total_krw = :total_krw,
-                            total_usd = :total_usd, usd_krw_rate = :usd_krw_rate
-                        WHERE id = :id
-                    """),
-                    {"id": existing_today, "total_assets": total_assets, "total_krw": total_krw,
-                     "total_usd": total_usd, "usd_krw_rate": usd_krw_rate}
-                )
+            should_update = False
+            if existing_snapshot:
+                # 마지막 업데이트가 6시간 이상 지났으면 갱신
+                last_update = existing_snapshot["created_at"]
+                if last_update:
+                    # timezone aware 비교
+                    if hasattr(last_update, 'tzinfo') and last_update.tzinfo:
+                        now_aware = now.replace(tzinfo=last_update.tzinfo)
+                        hours_since_update = (now_aware - last_update).total_seconds() / 3600
+                    else:
+                        hours_since_update = (now - last_update).total_seconds() / 3600
+                    should_update = hours_since_update >= 6
             else:
-                db.execute(
-                    text("""
-                        INSERT INTO portfolio_snapshots (user_id, snapshot_date, total_asset_krw, total_krw, total_usd, usd_krw_rate)
-                        VALUES (:user_id, :today, :total_assets, :total_krw, :total_usd, :usd_krw_rate)
-                    """),
-                    {"user_id": current_user.id, "today": today, "total_assets": total_assets,
-                     "total_krw": total_krw, "total_usd": total_usd, "usd_krw_rate": usd_krw_rate}
-                )
-            db.commit()
+                should_update = True  # 스냅샷 없으면 생성
+
+            if should_update:
+                if existing_snapshot:
+                    db.execute(
+                        text("""
+                            UPDATE portfolio_snapshots
+                            SET total_asset_krw = :total_assets, total_krw = :total_krw,
+                                total_usd = :total_usd, usd_krw_rate = :usd_krw_rate,
+                                created_at = NOW()
+                            WHERE id = :id
+                        """),
+                        {"id": existing_snapshot["id"], "total_assets": total_assets, "total_krw": total_krw,
+                         "total_usd": total_usd, "usd_krw_rate": usd_krw_rate}
+                    )
+                else:
+                    db.execute(
+                        text("""
+                            INSERT INTO portfolio_snapshots (user_id, snapshot_date, total_asset_krw, total_krw, total_usd, usd_krw_rate)
+                            VALUES (:user_id, :today, :total_assets, :total_krw, :total_usd, :usd_krw_rate)
+                        """),
+                        {"user_id": current_user.id, "today": today, "total_assets": total_assets,
+                         "total_krw": total_krw, "total_usd": total_usd, "usd_krw_rate": usd_krw_rate}
+                    )
+                db.commit()
+                print(f"[Snapshot] Updated for user {current_user.id}: {total_assets:,.0f} KRW")
 
             # 어제 스냅샷으로 일간 변동 계산
             yesterday_snapshot = db.execute(
