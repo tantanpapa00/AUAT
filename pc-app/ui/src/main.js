@@ -3337,9 +3337,15 @@ async function runBacktest() {
     let params = {};
     let orderSettings = {};
 
+    // 헬퍼: 자동완성 선택값 우선, 없으면 input.value 사용
+    const getSymbolCode = (inputId) => {
+        const input = document.getElementById(inputId);
+        return input?.dataset?.selectedCode || input?.value || 'BTC-USDT';
+    };
+
     if (activeTab === 'reversal') {
         exchange = document.getElementById('reversal-exchange')?.value || 'OKX';
-        symbol = document.getElementById('reversal-symbol')?.value || 'BTC-USDT';
+        symbol = getSymbolCode('reversal-symbol');
         params = {
             rsi_period: parseInt(document.getElementById('reversal-rsi-period')?.value || 14),
             overbought: parseInt(document.getElementById('reversal-overbought')?.value || 70),
@@ -3352,7 +3358,7 @@ async function runBacktest() {
         };
     } else if (activeTab === 'trend') {
         exchange = document.getElementById('trend-exchange')?.value || 'OKX';
-        symbol = document.getElementById('trend-symbol')?.value || 'BTC-USDT';
+        symbol = getSymbolCode('trend-symbol');
         params = {
             short_ma: parseInt(document.getElementById('trend-short-ma')?.value || 20),
             long_ma: parseInt(document.getElementById('trend-long-ma')?.value || 60)
@@ -3364,7 +3370,7 @@ async function runBacktest() {
         };
     } else {
         exchange = document.getElementById('custom-exchange')?.value || 'OKX';
-        symbol = document.getElementById('custom-symbol')?.value || 'BTC-USDT';
+        symbol = getSymbolCode('custom-symbol');
         orderSettings = {
             qty_percent: parseFloat(document.getElementById('custom-qty')?.value || 100),
             leverage: parseInt(document.getElementById('custom-leverage')?.value || 1),
@@ -3502,9 +3508,15 @@ document.getElementById('btn-activate-strategy')?.addEventListener('click', asyn
     let params = {};
     let orderSettings = {};
 
+    // 헬퍼: 자동완성 선택값 우선, 없으면 input.value 사용
+    const getSymbolCode = (inputId) => {
+        const input = document.getElementById(inputId);
+        return input?.dataset?.selectedCode || input?.value || 'BTC-USDT';
+    };
+
     if (activeTab === 'reversal') {
         exchange = document.getElementById('reversal-exchange')?.value || 'OKX';
-        symbol = document.getElementById('reversal-symbol')?.value || 'BTC-USDT';
+        symbol = getSymbolCode('reversal-symbol');
         params = {
             rsi_period: parseInt(document.getElementById('reversal-rsi-period')?.value || 14),
             overbought: parseInt(document.getElementById('reversal-overbought')?.value || 70),
@@ -3517,7 +3529,7 @@ document.getElementById('btn-activate-strategy')?.addEventListener('click', asyn
         };
     } else if (activeTab === 'trend') {
         exchange = document.getElementById('trend-exchange')?.value || 'OKX';
-        symbol = document.getElementById('trend-symbol')?.value || 'BTC-USDT';
+        symbol = getSymbolCode('trend-symbol');
         params = {
             short_ma: parseInt(document.getElementById('trend-short-ma')?.value || 20),
             long_ma: parseInt(document.getElementById('trend-long-ma')?.value || 60)
@@ -3529,7 +3541,7 @@ document.getElementById('btn-activate-strategy')?.addEventListener('click', asyn
         };
     } else {
         exchange = document.getElementById('custom-exchange')?.value || 'OKX';
-        symbol = document.getElementById('custom-symbol')?.value || 'BTC-USDT';
+        symbol = getSymbolCode('custom-symbol');
         orderSettings = {
             qty_percent: parseFloat(document.getElementById('custom-qty')?.value || 100),
             leverage: parseInt(document.getElementById('custom-leverage')?.value || 1),
@@ -7883,6 +7895,16 @@ function createBacktestCandleChart(containerId, candles, trades) {
         trades = [];
     }
 
+    // 컨테이너 스타일 강제 적용 (무한 확장 방지)
+    container.style.width = '100%';
+    container.style.maxWidth = '100%';
+    container.style.overflow = 'hidden';
+    container.style.position = 'relative';
+
+    // 부모 요소 너비 기준으로 차트 너비 계산
+    const parentWidth = container.parentElement?.getBoundingClientRect().width || 800;
+    const chartWidth = Math.min(Math.max(parentWidth - 40, 300), 1400);
+
     try {
     // 차트 생성
     const chart = createChart(container, {
@@ -7904,6 +7926,9 @@ function createBacktestCandleChart(containerId, candles, trades) {
             borderColor: 'rgba(255,255,255,0.1)',
             timeVisible: true,
             secondsVisible: false,
+            fixLeftEdge: true,
+            fixRightEdge: true,
+            lockVisibleTimeRangeOnResize: true,
             tickMarkFormatter: (time) => {
                 const date = new Date(time * 1000);
                 const month = date.getMonth() + 1;
@@ -7922,8 +7947,10 @@ function createBacktestCandleChart(containerId, candles, trades) {
                 return `${y}-${m}-${d}`;
             },
         },
-        width: container.clientWidth,
+        width: chartWidth,
         height: 400,
+        handleScale: { axisPressedMouseMove: true },
+        handleScroll: { vertTouchDrag: false },
     });
 
     // 캔들스틱 시리즈 추가
@@ -8007,14 +8034,24 @@ function createBacktestCandleChart(containerId, candles, trades) {
         }
     }
 
-    // 차트 크기 맞추기
+    // 차트 크기 맞추기 (전체 데이터가 화면에 맞게 표시)
     chart.timeScale().fitContent();
+
+    // 렌더링 완료 후 다시 fitContent (확실하게)
+    requestAnimationFrame(() => {
+        if (chart) {
+            chart.timeScale().fitContent();
+        }
+    });
 
     // 리사이즈 처리
     const resizeObserver = new ResizeObserver(entries => {
         if (entries.length === 0 || entries[0].target !== container) return;
         const newWidth = entries[0].contentRect.width;
-        chart.applyOptions({ width: newWidth });
+        if (newWidth > 0 && newWidth < 2000) {
+            chart.applyOptions({ width: newWidth });
+            chart.timeScale().fitContent();
+        }
     });
     resizeObserver.observe(container);
 
@@ -9198,9 +9235,13 @@ function collectConditions(type) {
 
 // 커스텀 백테스트 설정 수집
 function collectCustomBacktestConfig() {
+    // 자동완성으로 선택한 경우 dataset.selectedCode 사용, 아니면 input.value 사용
+    const symbolInput = document.getElementById('custom-symbol');
+    const symbolCode = symbolInput?.dataset?.selectedCode || symbolInput?.value || 'BTC-USDT';
+
     return {
         exchange: document.getElementById('custom-exchange')?.value || 'OKX',
-        symbol: document.getElementById('custom-symbol')?.value || 'BTC-USDT',
+        symbol: symbolCode,
         timeframe: document.getElementById('custom-timeframe')?.value || '1D',
         days: parseInt(document.getElementById('custom-days')?.value || '365'),
         initial_capital: parseFloat(document.getElementById('custom-initial-capital')?.value || '10000000'),
@@ -9331,14 +9372,32 @@ function createCustomBacktestChart(candles, trades, exchange, symbol) {
         customBacktestChart = null;
     }
 
+    // 컨테이너 스타일 강제 적용 (무한 확장 방지)
+    container.style.width = '100%';
+    container.style.maxWidth = '100%';
+    container.style.overflow = 'hidden';
+    container.style.position = 'relative';
+
+    // 부모 요소 너비 기준으로 차트 너비 계산
+    const parentWidth = container.parentElement?.getBoundingClientRect().width || 800;
+    const chartWidth = Math.min(Math.max(parentWidth - 40, 300), 1400);
+
     const chartOptions = {
-        width: container.clientWidth,
+        width: chartWidth,
         height: 400,
         layout: { background: { color: '#1e1e2f' }, textColor: '#d1d4dc' },
         grid: { vertLines: { color: '#2B2B43' }, horzLines: { color: '#2B2B43' } },
         crosshair: { mode: 1 },
-        timeScale: { borderColor: '#485c7b', timeVisible: true },
+        timeScale: {
+            borderColor: '#485c7b',
+            timeVisible: true,
+            fixLeftEdge: true,
+            fixRightEdge: true,
+            lockVisibleTimeRangeOnResize: true,
+        },
         rightPriceScale: { borderColor: '#485c7b' },
+        handleScale: { axisPressedMouseMove: true },
+        handleScroll: { vertTouchDrag: false },
     };
 
     customBacktestChart = LightweightCharts.createChart(container, chartOptions);
@@ -9370,12 +9429,24 @@ function createCustomBacktestChart(candles, trades, exchange, symbol) {
         candleSeries.setMarkers(markers.sort((a, b) => a.time - b.time));
     }
 
+    // 전체 데이터가 화면에 맞게 표시되도록 fitContent 호출
     customBacktestChart.timeScale().fitContent();
 
-    // 리사이즈 핸들러
-    const resizeObserver = new ResizeObserver(() => {
+    // 렌더링 완료 후 다시 fitContent (확실하게)
+    requestAnimationFrame(() => {
         if (customBacktestChart) {
-            customBacktestChart.applyOptions({ width: container.clientWidth });
+            customBacktestChart.timeScale().fitContent();
+        }
+    });
+
+    // 리사이즈 핸들러
+    const resizeObserver = new ResizeObserver((entries) => {
+        if (customBacktestChart && entries[0]) {
+            const newWidth = entries[0].contentRect.width;
+            if (newWidth > 0 && newWidth < 2000) {
+                customBacktestChart.applyOptions({ width: newWidth });
+                customBacktestChart.timeScale().fitContent();
+            }
         }
     });
     resizeObserver.observe(container);
@@ -9653,7 +9724,8 @@ function displayTrendBacktestResult(result) {
 
     // 화폐 단위 결정 (MR과 동일)
     const exchange = document.getElementById('trend-exchange')?.value || 'OKX';
-    const symbol = document.getElementById('trend-symbol')?.value || 'BTC-USDT';
+    const symbolInput = document.getElementById('trend-symbol');
+    const symbol = symbolInput?.dataset?.selectedCode || symbolInput?.value || 'BTC-USDT';
     const currency = getMrCurrency(result.exchange || exchange, result.symbol || symbol);
 
     const m = result.metrics || {};

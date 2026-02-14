@@ -2841,10 +2841,14 @@ body {
 
 .chart-container {
     height: 250px;
+    width: 100%;
+    max-width: 100%;
     position: relative;
     background: var(--bg-card2);
     border-radius: 8px;
     padding: 10px;
+    overflow: hidden;
+    box-sizing: border-box;
 }
 
 .chart-summary {
@@ -7826,9 +7830,12 @@ body {
 
 /* 커스텀 차트 컨테이너 */
 #custom-chart-container {
+    width: 100%;
+    max-width: 100%;
     background: #1e1e2f;
     border-radius: 8px;
     overflow: hidden;
+    box-sizing: border-box;
 }
 
 /* 커스텀 테이블 섹션 */
@@ -7915,4 +7922,22 @@ body {
 
 .pnl-negative {
     color: var(--danger) !important;
+}
+
+/* 백테스트 캔들 차트 컨테이너 (무한 확장 방지) */
+#mr-candle-chart,
+#trend-candle-chart,
+#custom-chart-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    position: relative;
+    box-sizing: border-box;
+}
+
+/* 차트 부모 요소도 제한 */
+#mr-candle-chart > div,
+#trend-candle-chart > div,
+#custom-chart-container > div {
+    max-width: 100% !important;
 }
