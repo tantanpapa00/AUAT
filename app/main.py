@@ -7839,9 +7839,16 @@ async def get_portfolio_summary(
 
     if current_user:
         try:
-            # 활성 전략 수
+            # 활성 전략 수 (현재 사용자 계정에 연결된 것만)
             result = db.execute(
-                text("SELECT COUNT(*) FROM assets WHERE is_active = true")
+                text("""
+                    SELECT COUNT(*) FROM assets a
+                    JOIN accounts acc ON acc.id = a.account_id
+                    WHERE acc.owner_id = :owner_id
+                    AND a.is_active = true
+                    AND a.soft_deleted = 0
+                """),
+                {"owner_id": current_user.id}
             ).scalar()
             active_strategies = result or 0
         except Exception:
@@ -7980,21 +7987,168 @@ async def get_portfolio_summary(
     def format_krw(val):
         return f"₩{int(val):,}"
 
+    # 수익률 계산 변수
+    total_profit_rate = 0.0
+    daily_change = 0.0
+    daily_change_rate = 0.0
+    first_snapshot_date = None
+
+    if current_user and total_assets > 0:
+        try:
+            today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            yesterday = today - timedelta(days=1)
+
+            # 오늘 스냅샷 저장 (upsert)
+            existing_today = db.execute(
+                text("SELECT id FROM portfolio_snapshots WHERE user_id = :user_id AND snapshot_date = :today"),
+                {"user_id": current_user.id, "today": today}
+            ).scalar()
+
+            if existing_today:
+                db.execute(
+                    text("""
+                        UPDATE portfolio_snapshots
+                        SET total_assets_krw = :total_assets, total_krw = :total_krw,
+                            total_usd = :total_usd, usd_krw_rate = :usd_krw_rate
+                        WHERE id = :id
+                    """),
+                    {"id": existing_today, "total_assets": total_assets, "total_krw": total_krw,
+                     "total_usd": total_usd, "usd_krw_rate": usd_krw_rate}
+                )
+            else:
+                db.execute(
+                    text("""
+                        INSERT INTO portfolio_snapshots (user_id, snapshot_date, total_assets_krw, total_krw, total_usd, usd_krw_rate)
+                        VALUES (:user_id, :today, :total_assets, :total_krw, :total_usd, :usd_krw_rate)
+                    """),
+                    {"user_id": current_user.id, "today": today, "total_assets": total_assets,
+                     "total_krw": total_krw, "total_usd": total_usd, "usd_krw_rate": usd_krw_rate}
+                )
+            db.commit()
+
+            # 어제 스냅샷으로 일간 변동 계산
+            yesterday_snapshot = db.execute(
+                text("SELECT total_assets_krw FROM portfolio_snapshots WHERE user_id = :user_id AND snapshot_date = :yesterday"),
+                {"user_id": current_user.id, "yesterday": yesterday}
+            ).scalar()
+
+            if yesterday_snapshot and yesterday_snapshot > 0:
+                daily_change = total_assets - yesterday_snapshot
+                daily_change_rate = ((total_assets / yesterday_snapshot) - 1) * 100
+
+            # 첫 스냅샷으로 총 수익률 계산
+            first_snapshot = db.execute(
+                text("SELECT total_assets_krw, snapshot_date FROM portfolio_snapshots WHERE user_id = :user_id ORDER BY snapshot_date ASC LIMIT 1"),
+                {"user_id": current_user.id}
+            ).mappings().first()
+
+            if first_snapshot and first_snapshot["total_assets_krw"] > 0:
+                first_assets = first_snapshot["total_assets_krw"]
+                first_snapshot_date = first_snapshot["snapshot_date"].strftime("%Y-%m-%d") if first_snapshot["snapshot_date"] else None
+                total_profit_rate = ((total_assets / first_assets) - 1) * 100
+
+        except Exception as e:
+            print(f"[Summary] Snapshot error: {e}")
+
     return {
         "total_assets": total_assets,
         "total_assets_formatted": format_krw(total_assets),
         "total_krw": total_krw,
         "total_usd": total_usd,
         "usd_krw_rate": usd_krw_rate,
-        "total_profit_rate": 0.0,  # 스냅샷 기반 계산 필요
-        "daily_change": 0.0,
-        "daily_change_formatted": "₩0",
-        "daily_change_rate": 0.0,
+        "total_profit_rate": round(total_profit_rate, 2),
+        "daily_change": daily_change,
+        "daily_change_formatted": format_krw(daily_change) if daily_change >= 0 else f"-{format_krw(abs(daily_change))}",
+        "daily_change_rate": round(daily_change_rate, 2),
         "active_strategies": active_strategies,
         "holdings_count": len(holdings),
         "currency": "KRW",
-        "allocation": allocation
+        "allocation": allocation,
+        "first_snapshot_date": first_snapshot_date
     }
+
+
+@app.get("/api/portfolio/profit-rate")
+async def get_portfolio_profit_rate(
+    start_date: str = Query(None, description="시작일 (YYYY-MM-DD)"),
+    end_date: str = Query(None, description="종료일 (YYYY-MM-DD)"),
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """
+    기간별 수익률 계산
+    - start_date: 시작일 (없으면 첫 스냅샷 날짜)
+    - end_date: 종료일 (없으면 오늘)
+    """
+    if not current_user:
+        return {"profit_rate": 0, "start_date": None, "end_date": None, "start_assets": 0, "end_assets": 0}
+
+    try:
+        # 시작일 스냅샷
+        if start_date:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            start_snapshot = db.execute(
+                text("""
+                    SELECT total_assets_krw, snapshot_date FROM portfolio_snapshots
+                    WHERE user_id = :user_id AND snapshot_date >= :start_date
+                    ORDER BY snapshot_date ASC LIMIT 1
+                """),
+                {"user_id": current_user.id, "start_date": start_dt}
+            ).mappings().first()
+        else:
+            start_snapshot = db.execute(
+                text("""
+                    SELECT total_assets_krw, snapshot_date FROM portfolio_snapshots
+                    WHERE user_id = :user_id ORDER BY snapshot_date ASC LIMIT 1
+                """),
+                {"user_id": current_user.id}
+            ).mappings().first()
+
+        # 종료일 스냅샷
+        if end_date:
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+            end_snapshot = db.execute(
+                text("""
+                    SELECT total_assets_krw, snapshot_date FROM portfolio_snapshots
+                    WHERE user_id = :user_id AND snapshot_date <= :end_date
+                    ORDER BY snapshot_date DESC LIMIT 1
+                """),
+                {"user_id": current_user.id, "end_date": end_dt}
+            ).mappings().first()
+        else:
+            end_snapshot = db.execute(
+                text("""
+                    SELECT total_assets_krw, snapshot_date FROM portfolio_snapshots
+                    WHERE user_id = :user_id ORDER BY snapshot_date DESC LIMIT 1
+                """),
+                {"user_id": current_user.id}
+            ).mappings().first()
+
+        if not start_snapshot or not end_snapshot:
+            return {"profit_rate": 0, "start_date": None, "end_date": None, "start_assets": 0, "end_assets": 0}
+
+        start_assets = start_snapshot["total_assets_krw"]
+        end_assets = end_snapshot["total_assets_krw"]
+        profit_rate = 0.0
+
+        if start_assets > 0:
+            profit_rate = ((end_assets / start_assets) - 1) * 100
+
+        return {
+            "profit_rate": round(profit_rate, 2),
+            "start_date": start_snapshot["snapshot_date"].strftime("%Y-%m-%d"),
+            "end_date": end_snapshot["snapshot_date"].strftime("%Y-%m-%d"),
+            "start_assets": start_assets,
+            "end_assets": end_assets,
+            "start_assets_formatted": f"₩{int(start_assets):,}",
+            "end_assets_formatted": f"₩{int(end_assets):,}",
+            "change": end_assets - start_assets,
+            "change_formatted": f"₩{int(end_assets - start_assets):,}" if end_assets >= start_assets else f"-₩{int(start_assets - end_assets):,}"
+        }
+
+    except Exception as e:
+        print(f"[ProfitRate] Error: {e}")
+        return {"profit_rate": 0, "start_date": None, "end_date": None, "start_assets": 0, "end_assets": 0, "error": str(e)}
 
 
 class ChartDataPoint(BaseModel):
@@ -8378,10 +8532,11 @@ async def get_active_strategies(
                 FROM assets a
                 JOIN strategies s ON s.id = a.strategy_id
                 JOIN accounts acc ON acc.id = a.account_id
-                WHERE a.soft_deleted = 0
+                WHERE acc.owner_id = :owner_id
+                AND a.soft_deleted = 0
                 ORDER BY a.id
             """)
-            rows = db.execute(sql).mappings().fetchall()
+            rows = db.execute(sql, {"owner_id": current_user.id}).mappings().fetchall()
 
             for row in rows:
                 today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)

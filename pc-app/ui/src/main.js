@@ -1027,6 +1027,11 @@ function updateSummaryCards(summary) {
 
     if (activeStrategies) activeStrategies.textContent = (summary.active_strategies || 0) + '개';
 
+    // 수익률 기간 상태 업데이트
+    if (summary.first_snapshot_date && typeof profitPeriodState !== 'undefined') {
+        profitPeriodState.firstSnapshotDate = summary.first_snapshot_date;
+    }
+
     // 자산배분 도넛차트 업데이트 (summary.allocation 사용) - 5개 카테고리
     if (summary.allocation) {
         const alloc = summary.allocation;
@@ -3457,6 +3462,119 @@ document.getElementById('kis-kr-order-modal')?.addEventListener('click', (e) => 
 document.getElementById('kis-us-order-modal')?.addEventListener('click', (e) => {
     if (e.target.id === 'kis-us-order-modal') hideKisUsModal();
 });
+
+// =============================================
+// 수익률 기간 선택 모달
+// =============================================
+let profitPeriodState = {
+    startDate: null,
+    endDate: null,
+    firstSnapshotDate: null
+};
+
+function showProfitPeriodModal() {
+    const modal = document.getElementById('profit-period-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+        // 기본값 설정
+        const startInput = document.getElementById('profit-start-date');
+        const endInput = document.getElementById('profit-end-date');
+        if (startInput && profitPeriodState.firstSnapshotDate) {
+            startInput.value = profitPeriodState.firstSnapshotDate;
+        }
+        if (endInput) {
+            endInput.value = new Date().toISOString().split('T')[0];
+        }
+        document.getElementById('profit-result').style.display = 'none';
+    }
+}
+
+function hideProfitPeriodModal() {
+    const modal = document.getElementById('profit-period-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function calculateProfitRate() {
+    const startDate = document.getElementById('profit-start-date')?.value;
+    const endDate = document.getElementById('profit-end-date')?.value;
+
+    if (!auth.accessToken) {
+        showToast('로그인이 필요합니다.', 'error');
+        return;
+    }
+
+    try {
+        const result = await invoke('get_portfolio_profit_rate', {
+            accessToken: auth.accessToken,
+            startDate: startDate || null,
+            endDate: endDate || null
+        });
+
+        const resultDiv = document.getElementById('profit-result');
+        if (resultDiv) {
+            resultDiv.style.display = 'block';
+            document.getElementById('profit-start-assets').textContent = result.start_assets_formatted || '₩0';
+            document.getElementById('profit-end-assets').textContent = result.end_assets_formatted || '₩0';
+
+            const rateEl = document.getElementById('profit-rate-result');
+            const rate = result.profit_rate || 0;
+            rateEl.textContent = (rate >= 0 ? '+' : '') + rate.toFixed(2) + '%';
+            rateEl.style.color = rate >= 0 ? 'var(--success)' : 'var(--danger)';
+        }
+
+        profitPeriodState.startDate = result.start_date;
+        profitPeriodState.endDate = result.end_date;
+
+    } catch (e) {
+        console.error('Failed to calculate profit rate:', e);
+        showToast('수익률 계산 실패: ' + e, 'error');
+    }
+}
+
+function applyProfitPeriod() {
+    const totalProfit = document.getElementById('total-profit');
+    const periodInfo = document.getElementById('profit-period-info');
+
+    if (totalProfit && profitPeriodState.startDate && profitPeriodState.endDate) {
+        // 이미 계산된 결과가 있으면 적용
+        const rateEl = document.getElementById('profit-rate-result');
+        if (rateEl) {
+            totalProfit.textContent = rateEl.textContent;
+            totalProfit.className = 'summary-value ' + (rateEl.textContent.startsWith('+') ? 'profit' : 'loss');
+        }
+
+        if (periodInfo) {
+            periodInfo.textContent = `${profitPeriodState.startDate} ~ ${profitPeriodState.endDate}`;
+        }
+    }
+
+    hideProfitPeriodModal();
+}
+
+function resetProfitPeriod() {
+    profitPeriodState.startDate = null;
+    profitPeriodState.endDate = null;
+
+    const periodInfo = document.getElementById('profit-period-info');
+    if (periodInfo) periodInfo.textContent = '';
+
+    // 전체 기간으로 리셋하고 summary 다시 로드
+    loadPortfolioSummary();
+    hideProfitPeriodModal();
+}
+
+// 수익률 기간 모달 이벤트 바인딩
+document.getElementById('btn-profit-period')?.addEventListener('click', showProfitPeriodModal);
+document.getElementById('profit-modal-close')?.addEventListener('click', hideProfitPeriodModal);
+document.getElementById('profit-modal-reset')?.addEventListener('click', resetProfitPeriod);
+document.getElementById('profit-modal-apply')?.addEventListener('click', applyProfitPeriod);
+document.getElementById('profit-period-modal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'profit-period-modal') hideProfitPeriodModal();
+});
+
+// 날짜 변경 시 자동 계산
+document.getElementById('profit-start-date')?.addEventListener('change', calculateProfitRate);
+document.getElementById('profit-end-date')?.addEventListener('change', calculateProfitRate);
 
 // Strategy tabs
 document.querySelectorAll('.strategy-tab').forEach(tab => {

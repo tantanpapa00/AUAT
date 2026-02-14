@@ -131,3 +131,30 @@ class KISOrderSettings(Base):
     # 메타
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class PortfolioSnapshot(Base):
+    """
+    포트폴리오 일별 스냅샷 (수익률 계산용)
+    - 매일 자정 또는 포트폴리오 조회 시 저장
+    - 총 자산, KRW/USD 잔고, 환율 기록
+    """
+    __tablename__ = "portfolio_snapshots"
+
+    id = Column(BigInteger, primary_key=True)
+    user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
+    snapshot_date = Column(DateTime(timezone=True), nullable=False)  # 스냅샷 날짜 (일별 1개)
+
+    total_assets_krw = Column(Float, nullable=False, default=0)  # 총 자산 (KRW 환산)
+    total_krw = Column(Float, nullable=False, default=0)  # KRW 자산
+    total_usd = Column(Float, nullable=False, default=0)  # USD 자산
+    usd_krw_rate = Column(Float, nullable=False, default=1350)  # 환율
+
+    holdings_json = Column(JSONB, nullable=True)  # 보유 자산 상세 (선택)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index('ix_portfolio_snapshots_user_date', 'user_id', 'snapshot_date'),
+        UniqueConstraint('user_id', 'snapshot_date', name='uq_portfolio_snapshot_user_date'),
+    )

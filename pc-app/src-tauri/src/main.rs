@@ -97,6 +97,7 @@ fn main() {
             // Portfolio & Home Page
             commands::get_portfolio_summary,
             commands::get_portfolio_chart,
+            commands::get_portfolio_profit_rate,
             commands::get_holdings,
             commands::get_active_strategies,
             commands::get_exchange_rate,

@@ -1003,6 +1003,57 @@ pub async fn get_portfolio_summary(access_token: String) -> Result<PortfolioSumm
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct ProfitRateResponse {
+    pub profit_rate: f64,
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
+    pub start_assets: f64,
+    pub end_assets: f64,
+    pub start_assets_formatted: Option<String>,
+    pub end_assets_formatted: Option<String>,
+    pub change: Option<f64>,
+    pub change_formatted: Option<String>,
+}
+
+#[tauri::command]
+pub async fn get_portfolio_profit_rate(
+    access_token: String,
+    start_date: Option<String>,
+    end_date: Option<String>,
+) -> Result<ProfitRateResponse, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let mut url = format!("{}/api/portfolio/profit-rate", VPS_SERVER_URL);
+
+    let mut params = vec![];
+    if let Some(sd) = start_date {
+        params.push(format!("start_date={}", sd));
+    }
+    if let Some(ed) = end_date {
+        params.push(format!("end_date={}", ed));
+    }
+    if !params.is_empty() {
+        url = format!("{}?{}", url, params.join("&"));
+    }
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await;
+
+    match resp {
+        Ok(r) if r.status().is_success() => {
+            r.json::<ProfitRateResponse>()
+                .await
+                .map_err(|e| format!("응답 파싱 오류: {}", e))
+        }
+        Ok(r) => Err(format!("서버 오류: {}", r.status())),
+        Err(e) => Err(format!("요청 실패: {}", e)),
+    }
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct ChartDataPoint {
     pub date: String,
     pub value: f64,

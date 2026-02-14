@@ -8005,3 +8005,36 @@ body {
     opacity: 1;
     visibility: visible;
 }
+
+/* 수익률 기간 선택 버튼 */
+.profit-period-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 2px 4px;
+    margin-left: 4px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+    vertical-align: middle;
+}
+
+.profit-period-btn:hover {
+    opacity: 1;
+}
+
+.profit-period-info {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+/* 수익률 기간 모달 날짜 입력 */
+#profit-period-modal input[type="date"] {
+    color-scheme: dark;
+}
+
+#profit-period-modal input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    cursor: pointer;
+}
