@@ -195,6 +195,83 @@
 
 ---
 
+### 홈 화면 개선 (Phase 3.6)
+
+**목표**: 누적수익률/일간변동 정상화, 수익률차트 제거, 보유자산 거래내역 모달
+
+### 1. 구현 완료
+
+| 항목 | 상태 | 설명 |
+|------|------|------|
+| 수익률추이 그래프 제거 | ✅ | 홈 화면에서 차트 섹션 삭제 |
+| 보유자산 클릭 → 거래내역 모달 | ✅ | 전략명/타입/날짜/수량/금액/수익금/수익률/누적 표시 |
+| 누적수익률 (보유종목 기반) | ✅ | 총 수익금 / 총 원금 × 100 |
+| 일간변동 (스냅샷 기반) | ✅ | 어제 00:00 스냅샷 대비 현재 자산 변동 |
+| 원화(예수금) 표시 수정 | ✅ | KIS API output2 리스트/딕셔너리 양쪽 처리 |
+
+### 2. 수정 파일 (5개)
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `app/main.py` | 자산별 거래내역 API 추가 (`/api/asset/trades`) |
+| `app/data_provider.py` | KIS output2 형식 처리 개선 (예수금 조회) |
+| `pc-app/ui/index.html` | 수익률차트 제거, 자산 거래내역 모달 추가 |
+| `pc-app/ui/src/main.js` | loadPortfolioChart 제거, showAssetTradesModal 추가 |
+| `pc-app/src-tauri/src/commands.rs` | get_asset_trades 명령어 추가 |
+
+### 3. 누적수익률 계산 방식
+
+```python
+# app/main.py 라인 7990-8015
+for h in holdings:
+    total_profit_loss += profit_loss  # 수익금 합계
+    total_cost += avg_price * quantity  # 원금 합계
+
+total_profit_rate = (total_profit_loss / total_cost) * 100
+```
+
+### 4. 일간변동 계산 방식
+
+```python
+# app/main.py 라인 8017-8078
+today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+yesterday = today - timedelta(days=1)
+
+# 어제 00:00 스냅샷 조회
+yesterday_snapshot = db.execute(
+    text("SELECT total_asset_krw FROM portfolio_snapshots WHERE user_id = :user_id AND snapshot_date = :yesterday"),
+    {"user_id": current_user.id, "yesterday": yesterday}
+).scalar()
+
+daily_change = total_assets - yesterday_snapshot
+daily_change_rate = ((total_assets / yesterday_snapshot) - 1) * 100
+```
+
+- 스냅샷 갱신: 6시간마다 (과도한 DB 업데이트 방지)
+
+### 5. 보유자산 거래내역 모달
+
+```
+┌─ 삼성전자 거래내역 ─ KIS_KR ──────────────────────────┐
+│ 전략명 │ 타입 │ 날짜 │ 수량 │ 금액 │ 수익금 │ 수익률 │ 누적 │
+│ MR전략 │ 매수 │ 02/10 │ 10 │ ₩830,000 │ - │ - │ - │
+│ MR전략 │ 매도 │ 02/14 │ 10 │ ₩850,000 │ +₩20,000 │ +2.4% │ +₩20,000 │
+└────────────────────────────────────────────────────────┘
+```
+
+### 6. 검증 및 배포
+
+| 항목 | 결과 |
+|------|------|
+| Python 문법 검증 | ✅ main.py, data_provider.py |
+| npm run build | ✅ passed |
+| cargo tauri build | ✅ passed |
+| VPS 배포 | ✅ 완료 |
+
+**커밋**: `358e770`
+
+---
+
 ## Day 20 완료사항 (2026-02-14)
 
 ### 프리셋 파라미터 입력칸 완성
