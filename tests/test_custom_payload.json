@@ -1,0 +1,38 @@
+{
+  "exchange": "OKX",
+  "symbol": "BTC-USDT-SWAP",
+  "timeframe": "1D",
+  "days": 365,
+  "initial_capital": 10000000,
+  "strategy": {
+    "name": "RSI 역추세",
+    "entry_rules": {
+      "groups": [{
+        "conditions": [{
+          "indicator": "RSI",
+          "output": "value",
+          "params": {"period": 14},
+          "operator": "<",
+          "compare_type": "value",
+          "compare_value": 30
+        }],
+        "logic": "AND"
+      }]
+    },
+    "exit_rules": {
+      "groups": [{
+        "conditions": [{
+          "indicator": "RSI",
+          "output": "value",
+          "params": {"period": 14},
+          "operator": ">",
+          "compare_type": "value",
+          "compare_value": 70
+        }],
+        "logic": "AND"
+      }]
+    },
+    "position_size_pct": 100.0,
+    "commission_pct": 0.015
+  }
+}

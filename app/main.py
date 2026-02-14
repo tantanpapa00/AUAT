@@ -8008,7 +8008,7 @@ async def get_portfolio_summary(
                 db.execute(
                     text("""
                         UPDATE portfolio_snapshots
-                        SET total_assets_krw = :total_assets, total_krw = :total_krw,
+                        SET total_asset_krw = :total_assets, total_krw = :total_krw,
                             total_usd = :total_usd, usd_krw_rate = :usd_krw_rate
                         WHERE id = :id
                     """),
@@ -8018,7 +8018,7 @@ async def get_portfolio_summary(
             else:
                 db.execute(
                     text("""
-                        INSERT INTO portfolio_snapshots (user_id, snapshot_date, total_assets_krw, total_krw, total_usd, usd_krw_rate)
+                        INSERT INTO portfolio_snapshots (user_id, snapshot_date, total_asset_krw, total_krw, total_usd, usd_krw_rate)
                         VALUES (:user_id, :today, :total_assets, :total_krw, :total_usd, :usd_krw_rate)
                     """),
                     {"user_id": current_user.id, "today": today, "total_assets": total_assets,
@@ -8028,7 +8028,7 @@ async def get_portfolio_summary(
 
             # 어제 스냅샷으로 일간 변동 계산
             yesterday_snapshot = db.execute(
-                text("SELECT total_assets_krw FROM portfolio_snapshots WHERE user_id = :user_id AND snapshot_date = :yesterday"),
+                text("SELECT total_asset_krw FROM portfolio_snapshots WHERE user_id = :user_id AND snapshot_date = :yesterday"),
                 {"user_id": current_user.id, "yesterday": yesterday}
             ).scalar()
 
@@ -8038,12 +8038,12 @@ async def get_portfolio_summary(
 
             # 첫 스냅샷으로 총 수익률 계산
             first_snapshot = db.execute(
-                text("SELECT total_assets_krw, snapshot_date FROM portfolio_snapshots WHERE user_id = :user_id ORDER BY snapshot_date ASC LIMIT 1"),
+                text("SELECT total_asset_krw, snapshot_date FROM portfolio_snapshots WHERE user_id = :user_id ORDER BY snapshot_date ASC LIMIT 1"),
                 {"user_id": current_user.id}
             ).mappings().first()
 
-            if first_snapshot and first_snapshot["total_assets_krw"] > 0:
-                first_assets = first_snapshot["total_assets_krw"]
+            if first_snapshot and first_snapshot["total_asset_krw"] > 0:
+                first_assets = first_snapshot["total_asset_krw"]
                 first_snapshot_date = first_snapshot["snapshot_date"].strftime("%Y-%m-%d") if first_snapshot["snapshot_date"] else None
                 total_profit_rate = ((total_assets / first_assets) - 1) * 100
 
@@ -8089,7 +8089,7 @@ async def get_portfolio_profit_rate(
             start_dt = datetime.strptime(start_date, "%Y-%m-%d")
             start_snapshot = db.execute(
                 text("""
-                    SELECT total_assets_krw, snapshot_date FROM portfolio_snapshots
+                    SELECT total_asset_krw, snapshot_date FROM portfolio_snapshots
                     WHERE user_id = :user_id AND snapshot_date >= :start_date
                     ORDER BY snapshot_date ASC LIMIT 1
                 """),
@@ -8098,7 +8098,7 @@ async def get_portfolio_profit_rate(
         else:
             start_snapshot = db.execute(
                 text("""
-                    SELECT total_assets_krw, snapshot_date FROM portfolio_snapshots
+                    SELECT total_asset_krw, snapshot_date FROM portfolio_snapshots
                     WHERE user_id = :user_id ORDER BY snapshot_date ASC LIMIT 1
                 """),
                 {"user_id": current_user.id}
@@ -8109,7 +8109,7 @@ async def get_portfolio_profit_rate(
             end_dt = datetime.strptime(end_date, "%Y-%m-%d")
             end_snapshot = db.execute(
                 text("""
-                    SELECT total_assets_krw, snapshot_date FROM portfolio_snapshots
+                    SELECT total_asset_krw, snapshot_date FROM portfolio_snapshots
                     WHERE user_id = :user_id AND snapshot_date <= :end_date
                     ORDER BY snapshot_date DESC LIMIT 1
                 """),
@@ -8118,7 +8118,7 @@ async def get_portfolio_profit_rate(
         else:
             end_snapshot = db.execute(
                 text("""
-                    SELECT total_assets_krw, snapshot_date FROM portfolio_snapshots
+                    SELECT total_asset_krw, snapshot_date FROM portfolio_snapshots
                     WHERE user_id = :user_id ORDER BY snapshot_date DESC LIMIT 1
                 """),
                 {"user_id": current_user.id}
@@ -8127,8 +8127,8 @@ async def get_portfolio_profit_rate(
         if not start_snapshot or not end_snapshot:
             return {"profit_rate": 0, "start_date": None, "end_date": None, "start_assets": 0, "end_assets": 0}
 
-        start_assets = start_snapshot["total_assets_krw"]
-        end_assets = end_snapshot["total_assets_krw"]
+        start_assets = start_snapshot["total_asset_krw"]
+        end_assets = end_snapshot["total_asset_krw"]
         profit_rate = 0.0
 
         if start_assets > 0:

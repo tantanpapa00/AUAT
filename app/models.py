@@ -145,7 +145,7 @@ class PortfolioSnapshot(Base):
     user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
     snapshot_date = Column(DateTime(timezone=True), nullable=False)  # 스냅샷 날짜 (일별 1개)
 
-    total_assets_krw = Column(Float, nullable=False, default=0)  # 총 자산 (KRW 환산)
+    total_asset_krw = Column(Float, nullable=False, default=0)  # 총 자산 (KRW 환산)
     total_krw = Column(Float, nullable=False, default=0)  # KRW 자산
     total_usd = Column(Float, nullable=False, default=0)  # USD 자산
     usd_krw_rate = Column(Float, nullable=False, default=1350)  # 환율
