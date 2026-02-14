@@ -8578,12 +8578,12 @@ const INDICATOR_PRESETS = {
     "SMA": [
         { label: "종가 > 이평선 (상승추세)", config: { indicator: "PRICE", output: "close", params: {}, operator: ">", compare_type: "indicator", compare_indicator: "SMA", compare_output: "value", compare_params: { period: 20 } } },
         { label: "종가 < 이평선 (하락추세)", config: { indicator: "PRICE", output: "close", params: {}, operator: "<", compare_type: "indicator", compare_indicator: "SMA", compare_output: "value", compare_params: { period: 20 } } },
-        { label: "골든크로스 (20 ↑ 50)", description: "단기>장기", config: { indicator: "SMA", output: "value", params: { period: 20 }, operator: "cross_above", compare_type: "indicator", compare_indicator: "SMA", compare_output: "value", compare_params: { period: 50 } } },
-        { label: "데드크로스 (20 ↓ 50)", description: "단기<장기", config: { indicator: "SMA", output: "value", params: { period: 20 }, operator: "cross_below", compare_type: "indicator", compare_indicator: "SMA", compare_output: "value", compare_params: { period: 50 } } },
+        { label: "골든크로스", description: "단기>장기", config: { indicator: "SMA", output: "value", params: { period: 20 }, operator: "cross_above", compare_type: "indicator", compare_indicator: "SMA", compare_output: "value", compare_params: { period: 50 } } },
+        { label: "데드크로스", description: "단기<장기", config: { indicator: "SMA", output: "value", params: { period: 20 }, operator: "cross_below", compare_type: "indicator", compare_indicator: "SMA", compare_output: "value", compare_params: { period: 50 } } },
     ],
     "EMA": [
         { label: "종가 > 이평선", config: { indicator: "PRICE", output: "close", params: {}, operator: ">", compare_type: "indicator", compare_indicator: "EMA", compare_output: "value", compare_params: { period: 20 } } },
-        { label: "골든크로스 (12 ↑ 26)", config: { indicator: "EMA", output: "value", params: { period: 12 }, operator: "cross_above", compare_type: "indicator", compare_indicator: "EMA", compare_output: "value", compare_params: { period: 26 } } },
+        { label: "골든크로스", config: { indicator: "EMA", output: "value", params: { period: 12 }, operator: "cross_above", compare_type: "indicator", compare_indicator: "EMA", compare_output: "value", compare_params: { period: 26 } } },
     ],
     "SUPERTREND": [
         { label: "상승전환 (매수)", description: "하락→상승", config: { indicator: "SUPERTREND", output: "direction", params: { atr_len: 20, factor: 5.0 }, operator: "cross_below", compare_type: "value", compare_value: 0 } },
@@ -8885,21 +8885,27 @@ function renderPresetParams(condDiv) {
 
     // 프리셋의 파라미터를 편집 가능하게 표시
     const config = preset.config;
-    const indicator = indicatorRegistry?.[config.indicator];
+    const mainIndicator = indicatorRegistry?.[config.indicator];
+    const compareIndicator = config.compare_indicator ? indicatorRegistry?.[config.compare_indicator] : null;
 
     let html = '';
+    const hasMainParams = mainIndicator && mainIndicator.params && mainIndicator.params.length > 0;
+    const hasCompareParams = compareIndicator && compareIndicator.params && compareIndicator.params.length > 0;
+    const isSameIndicator = config.indicator === config.compare_indicator;
 
-    // 지표 파라미터 표시
-    if (indicator && indicator.params && indicator.params.length > 0) {
-        html += indicator.params.map(p => `
-            <label class="param-label">${p.label}
+    // 1. 주 지표 파라미터 표시
+    if (hasMainParams) {
+        // 동일 지표 비교면 "단기" 라벨 추가
+        const labelPrefix = (isSameIndicator && config.compare_type === 'indicator') ? '단기 ' : '';
+        html += mainIndicator.params.map(p => `
+            <label class="param-label">${labelPrefix}${p.label}
                 <input type="number" class="preset-param-input" data-param="${p.key}"
                     value="${config.params?.[p.key] ?? p.default}" min="${p.min || ''}" max="${p.max || ''}" step="any">
             </label>
         `).join('');
     }
 
-    // 고정값 비교인 경우 기준값 입력칸 표시
+    // 2. 고정값 비교: 기준값 입력칸 표시
     if (config.compare_type === 'value' && config.compare_value !== undefined) {
         const thresholdLabel = getThresholdLabel(indicatorKey, config.operator, config.compare_value);
         html += `
@@ -8910,13 +8916,21 @@ function renderPresetParams(condDiv) {
         `;
     }
 
-    // 지표 비교인 경우 비교 지표의 파라미터도 표시
-    if (config.compare_type === 'indicator' && config.compare_indicator) {
-        const compareInd = indicatorRegistry?.[config.compare_indicator];
-        if (compareInd && compareInd.params && compareInd.params.length > 0) {
-            html += `<span class="param-separator">vs</span>`;
-            html += compareInd.params.map(p => `
-                <label class="param-label">${p.label}
+    // 3. 지표 비교: 비교 지표 파라미터 표시
+    if (config.compare_type === 'indicator' && hasCompareParams) {
+        if (isSameIndicator) {
+            // 동일 지표 비교 (예: SMA 20 vs SMA 50): "장기" 라벨로 두 번째 파라미터 표시
+            html += compareIndicator.params.map(p => `
+                <label class="param-label">장기 ${p.label}
+                    <input type="number" class="preset-compare-param-input" data-param="${p.key}"
+                        value="${config.compare_params?.[p.key] ?? p.default}" min="${p.min || ''}" max="${p.max || ''}" step="any">
+                </label>
+            `).join('');
+        } else {
+            // 다른 지표 비교 (예: PRICE vs SMA): 비교 지표명 + 파라미터
+            const indName = compareIndicator.name?.split(' ')[0] || config.compare_indicator;
+            html += compareIndicator.params.map(p => `
+                <label class="param-label">${indName} ${p.label}
                     <input type="number" class="preset-compare-param-input" data-param="${p.key}"
                         value="${config.compare_params?.[p.key] ?? p.default}" min="${p.min || ''}" max="${p.max || ''}" step="any">
                 </label>
