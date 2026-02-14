@@ -106,3 +106,28 @@ class Event(Base):
 
     # 메타
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class KISOrderSettings(Base):
+    """
+    KIS 주문 설정 (계정별)
+    - KIS_KR: 주문 방식, 타이밍, 시장가
+    - KIS_US: 종가마감 신호, 지정가, 슬리피지
+    """
+    __tablename__ = "kis_order_settings"
+
+    id = Column(BigInteger, primary_key=True)
+    account_id = Column(BigInteger, ForeignKey("accounts.id"), nullable=False, unique=True)
+    exchange_type = Column(Text, nullable=False)  # KIS_KR or KIS_US
+
+    # KIS_KR 설정
+    kr_order_method = Column(Text, nullable=True, default="regular_close")  # regular_close, next_trade, next_day_open
+    kr_timing_seconds = Column(BigInteger, nullable=True, default=30)  # 마감 N초 전
+
+    # KIS_US 설정
+    us_signal_minutes = Column(BigInteger, nullable=True, default=2)  # 마감 N분 전
+    us_slippage_ticks = Column(BigInteger, nullable=True, default=3)  # 슬리피지 N틱
+
+    # 메타
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

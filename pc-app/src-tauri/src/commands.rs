@@ -3645,3 +3645,64 @@ pub async fn run_custom_backtest(
         Err(format!("커스텀 백테스트 실행 실패: {}", error_text))
     }
 }
+
+// ============================================================================
+// KIS Order Settings Command (KIS 주문 설정 저장)
+// ============================================================================
+
+#[tauri::command]
+pub async fn save_kis_order_settings(
+    access_token: String,
+    payload: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("HTTP client error: {}", e))?;
+
+    let url = format!("{}/api/kis/order-settings", VPS_SERVER_URL);
+
+    let resp = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        let error_text = resp.text().await.unwrap_or_default();
+        Err(format!("KIS 설정 저장 실패: {}", error_text))
+    }
+}
+
+#[tauri::command]
+pub async fn get_kis_order_settings(
+    access_token: String,
+    account_id: i64,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("HTTP client error: {}", e))?;
+
+    let url = format!("{}/api/kis/order-settings/{}", VPS_SERVER_URL, account_id);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        let error_text = resp.text().await.unwrap_or_default();
+        Err(format!("KIS 설정 조회 실패: {}", error_text))
+    }
+}

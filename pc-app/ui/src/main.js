@@ -3366,23 +3366,67 @@ function hideKisUsModal() {
     if (modal) modal.style.display = 'none';
 }
 
-function saveKisKrSettings() {
+async function saveKisKrSettings() {
     const methodSelect = document.getElementById('kis-kr-order-method');
     const timingInput = document.getElementById('kis-kr-timing-seconds');
 
-    kisOrderSettings.KIS_KR.orderMethod = methodSelect?.value || 'regular_close';
-    kisOrderSettings.KIS_KR.timingSeconds = parseInt(timingInput?.value || 30);
+    const orderMethod = methodSelect?.value || 'regular_close';
+    const timingSeconds = parseInt(timingInput?.value || 30);
+
+    // 로컬 상태 업데이트
+    kisOrderSettings.KIS_KR.orderMethod = orderMethod;
+    kisOrderSettings.KIS_KR.timingSeconds = timingSeconds;
+
+    // API 호출하여 DB에 저장 (계정 ID가 있는 경우)
+    const accountId = kisOrderSettings.KIS_KR.accountId;
+    if (accountId && auth.accessToken) {
+        try {
+            await invoke('save_kis_order_settings', {
+                accessToken: auth.accessToken,
+                payload: {
+                    account_id: accountId,
+                    exchange_type: 'KIS_KR',
+                    kr_order_method: orderMethod,
+                    kr_timing_seconds: timingSeconds
+                }
+            });
+        } catch (e) {
+            console.error('KIS_KR 설정 저장 실패:', e);
+        }
+    }
 
     hideKisKrModal();
     showToast('KIS_KR 주문 설정이 저장되었습니다.', 'success');
 }
 
-function saveKisUsSettings() {
+async function saveKisUsSettings() {
     const signalInput = document.getElementById('kis-us-signal-minutes');
     const slippageInput = document.getElementById('kis-us-slippage-ticks');
 
-    kisOrderSettings.KIS_US.signalMinutes = parseInt(signalInput?.value || 2);
-    kisOrderSettings.KIS_US.slippageTicks = parseInt(slippageInput?.value || 3);
+    const signalMinutes = parseInt(signalInput?.value || 2);
+    const slippageTicks = parseInt(slippageInput?.value || 3);
+
+    // 로컬 상태 업데이트
+    kisOrderSettings.KIS_US.signalMinutes = signalMinutes;
+    kisOrderSettings.KIS_US.slippageTicks = slippageTicks;
+
+    // API 호출하여 DB에 저장 (계정 ID가 있는 경우)
+    const accountId = kisOrderSettings.KIS_US.accountId;
+    if (accountId && auth.accessToken) {
+        try {
+            await invoke('save_kis_order_settings', {
+                accessToken: auth.accessToken,
+                payload: {
+                    account_id: accountId,
+                    exchange_type: 'KIS_US',
+                    us_signal_minutes: signalMinutes,
+                    us_slippage_ticks: slippageTicks
+                }
+            });
+        } catch (e) {
+            console.error('KIS_US 설정 저장 실패:', e);
+        }
+    }
 
     hideKisUsModal();
     showToast('KIS_US 주문 설정이 저장되었습니다.', 'success');

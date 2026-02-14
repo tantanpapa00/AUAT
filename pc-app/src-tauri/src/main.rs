@@ -182,6 +182,9 @@ fn main() {
             commands::run_trend_backtest,
             // Custom Backtest (커스텀 조건빌더)
             commands::run_custom_backtest,
+            // KIS Order Settings (KIS 주문 설정)
+            commands::save_kis_order_settings,
+            commands::get_kis_order_settings,
         ])
         .setup(|app| {
             // 앱 시작 시 VPS 서버 연결 확인 (로컬 서버 시작 없음)

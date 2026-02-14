@@ -1328,6 +1328,74 @@ async def api_user_delete_account(
 
 
 # ============================================================
+# KIS 주문 설정 API
+# ============================================================
+from app.models import KISOrderSettings
+
+@app.get("/api/kis/order-settings/{account_id}")
+async def api_get_kis_order_settings(
+    account_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """KIS 주문 설정 조회"""
+    settings = db.query(KISOrderSettings).filter(KISOrderSettings.account_id == account_id).first()
+    if not settings:
+        # 기본값 반환
+        return {
+            "account_id": account_id,
+            "exchange_type": None,
+            "kr_order_method": "regular_close",
+            "kr_timing_seconds": 30,
+            "us_signal_minutes": 2,
+            "us_slippage_ticks": 3
+        }
+    return {
+        "account_id": settings.account_id,
+        "exchange_type": settings.exchange_type,
+        "kr_order_method": settings.kr_order_method,
+        "kr_timing_seconds": settings.kr_timing_seconds,
+        "us_signal_minutes": settings.us_signal_minutes,
+        "us_slippage_ticks": settings.us_slippage_ticks
+    }
+
+
+@app.post("/api/kis/order-settings")
+async def api_save_kis_order_settings(
+    payload: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """KIS 주문 설정 저장"""
+    account_id = payload.get("account_id")
+    if not account_id:
+        raise HTTPException(status_code=400, detail="missing: account_id")
+
+    exchange_type = payload.get("exchange_type", "").upper()
+    if exchange_type not in ["KIS_KR", "KIS_US"]:
+        raise HTTPException(status_code=400, detail="invalid exchange_type: must be KIS_KR or KIS_US")
+
+    # 기존 설정 조회 또는 생성
+    settings = db.query(KISOrderSettings).filter(KISOrderSettings.account_id == account_id).first()
+    if not settings:
+        settings = KISOrderSettings(account_id=account_id, exchange_type=exchange_type)
+        db.add(settings)
+
+    # 설정 업데이트
+    settings.exchange_type = exchange_type
+
+    if exchange_type == "KIS_KR":
+        settings.kr_order_method = payload.get("kr_order_method", "regular_close")
+        settings.kr_timing_seconds = payload.get("kr_timing_seconds", 30)
+    elif exchange_type == "KIS_US":
+        settings.us_signal_minutes = payload.get("us_signal_minutes", 2)
+        settings.us_slippage_ticks = payload.get("us_slippage_ticks", 3)
+
+    db.commit()
+    return {"ok": True, "message": "KIS order settings saved"}
+
+
+# ============================================================
 # 계정 연결 테스트 API (6개 거래소 지원)
 # ============================================================
 @app.get("/api/accounts/test")
