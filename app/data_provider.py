@@ -2042,25 +2042,44 @@ async def fetch_kis_kr_balances(api_key: str, secret_key: str, account_number: s
             print(f"[KIS DEBUG] API response status: {r.status_code}")
             if r.status_code == 200:
                 data = r.json()
-                print(f"[KIS DEBUG] Response rt_cd={data.get('rt_cd')}, msg1={data.get('msg1')}, output1_count={len(data.get('output1', []))}, output2_count={len(data.get('output2', []))}")
+                output2_raw = data.get("output2", [])
+                output2_type = type(output2_raw).__name__
+                output2_len = len(output2_raw) if isinstance(output2_raw, (list, dict)) else 0
+                print(f"[KIS DEBUG] Response rt_cd={data.get('rt_cd')}, msg1={data.get('msg1')}, output1_count={len(data.get('output1', []))}, output2_type={output2_type}, output2_len={output2_len}")
                 holdings = []
 
-                # 예수금 정보 (output2)
+                # 예수금 정보 (output2) - 리스트 또는 딕셔너리 처리
                 output2 = data.get("output2", [])
+                cash = 0.0
                 if output2:
-                    cash = float(output2[0].get("dnca_tot_amt", 0))  # 예수금총액
-                    if cash > 0:
-                        holdings.append({
-                            "symbol": "KRW",
-                            "name": "예수금",
-                            "quantity": cash,  # 실제 금액을 quantity로
-                            "avg_price": 1,
-                            "current_price": 1,
-                            "value_krw": cash,
-                            "profit_loss": 0,
-                            "profit_rate": 0,
-                            "currency": "KRW"
-                        })
+                    # output2가 리스트인 경우 첫 번째 요소 사용
+                    if isinstance(output2, list) and len(output2) > 0:
+                        cash_data = output2[0]
+                    else:
+                        # output2가 딕셔너리인 경우 직접 사용
+                        cash_data = output2
+
+                    # dnca_tot_amt 추출
+                    if isinstance(cash_data, dict):
+                        cash_str = cash_data.get("dnca_tot_amt", "0")
+                        try:
+                            cash = float(cash_str) if cash_str else 0.0
+                        except (ValueError, TypeError):
+                            cash = 0.0
+                        print(f"[KIS DEBUG] 예수금(dnca_tot_amt): {cash_str} -> {cash}")
+
+                if cash > 0:
+                    holdings.append({
+                        "symbol": "KRW",
+                        "name": "예수금",
+                        "quantity": cash,  # 실제 금액을 quantity로
+                        "avg_price": 1,
+                        "current_price": 1,
+                        "value_krw": cash,
+                        "profit_loss": 0,
+                        "profit_rate": 0,
+                        "currency": "KRW"
+                    })
 
                 # 보유종목 (output1)
                 for item in data.get("output1", []):
