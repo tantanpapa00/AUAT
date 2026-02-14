@@ -1305,11 +1305,11 @@ pub async fn get_asset_trades(
     let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let mut url = format!("{}/api/asset/trades?symbol={}&limit={}",
         VPS_SERVER_URL,
-        urlencoding::encode(&symbol),
+        symbol.replace(" ", "%20"),
         limit.unwrap_or(100)
     );
     if let Some(ex) = exchange {
-        url.push_str(&format!("&exchange={}", urlencoding::encode(&ex)));
+        url.push_str(&format!("&exchange={}", ex.replace(" ", "%20")));
     }
 
     let resp = client
