@@ -1357,9 +1357,9 @@
                     <!-- 탭 메뉴 -->
                     <div class="strategy-tabs">
                         <button class="strategy-tab active" data-tab="status">전략현황</button>
-                        <button class="strategy-tab" data-tab="custom">커스텀</button>
                         <button class="strategy-tab" data-tab="reversal">역추세매매</button>
                         <button class="strategy-tab" data-tab="trend">추세매매</button>
+                        <button class="strategy-tab" data-tab="custom">커스텀</button>
                     </div>
 
                     <!-- 전략현황 탭 -->
@@ -1465,9 +1465,10 @@
                             </div>
 
                             <!-- 로딩 표시 -->
-                            <div id="custom-backtest-loading" class="backtest-loading" style="display: none;">
-                                <div class="spinner"></div>
-                                <span>백테스트 실행 중...</span>
+                            <div id="custom-backtest-loading" style="display:none; text-align:center; padding:40px;">
+                                <div style="display:inline-block; width:32px; height:32px; border:3px solid rgba(255,255,255,0.1); border-top-color:#3B82F6; border-radius:50%; animation:spin 1s linear infinite;"></div>
+                                <div id="custom-backtest-loading-msg" style="font-size:14px; color:#9CA3AF; margin-top:12px;">시세 데이터 준비 중...</div>
+                                <div style="font-size:12px; color:#6B7280; margin-top:4px;">첫 조회 시 다소 시간이 걸릴 수 있습니다</div>
                             </div>
 
                             <!-- 에러 표시 -->
@@ -3628,6 +3629,99 @@
                     <input type="text" id="new-group-name" placeholder="새 그룹 이름">
                     <button class="btn btn-sm" id="btn-create-group">그룹 추가</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KIS_KR 주문 설정 팝업 -->
+    <div class="modal-overlay" id="kis-kr-order-modal" style="display: none;">
+        <div class="modal-content" style="max-width: 480px;">
+            <div class="modal-header">
+                <h3>KIS_KR 주문 설정</h3>
+                <button class="modal-close" id="kis-kr-modal-close">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label style="display: block; color: #9CA3AF; margin-bottom: 8px; font-size: 13px;">주문 방식</label>
+                    <select id="kis-kr-order-method" class="form-control" style="width: 100%; padding: 10px; background: #1F2937; border: 1px solid #374151; border-radius: 6px; color: #E5E7EB;">
+                        <option value="regular_close">정규장 마감 전</option>
+                        <option value="next_trade">넥스트트레이드 마감 전</option>
+                        <option value="next_day_open">다음날 시가</option>
+                    </select>
+                </div>
+                <div class="form-group" id="kis-kr-timing-group" style="margin-bottom: 16px;">
+                    <label style="display: block; color: #9CA3AF; margin-bottom: 8px; font-size: 13px;">
+                        주문 타이밍
+                        <span class="tooltip-icon" data-tooltip="정규장: 15:20 기준, 넥스트트레이드: 20:00 기준">ⓘ</span>
+                    </label>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="color: #9CA3AF;">마감</span>
+                        <input type="number" id="kis-kr-timing-seconds" value="30" min="5" max="300"
+                               style="width: 80px; padding: 8px; background: #1F2937; border: 1px solid #374151; border-radius: 6px; color: #E5E7EB; text-align: center;">
+                        <span style="color: #9CA3AF;">초 전</span>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label style="display: block; color: #9CA3AF; margin-bottom: 8px; font-size: 13px;">
+                        주문 유형
+                        <span class="tooltip-icon" data-tooltip="국내주식은 시장가 주문이 가능합니다">ⓘ</span>
+                    </label>
+                    <div style="padding: 10px; background: #1F2937; border: 1px solid #374151; border-radius: 6px; color: #22C55E;">
+                        시장가
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 16px 20px; border-top: 1px solid #374151; display: flex; gap: 12px; justify-content: flex-end;">
+                <button class="btn btn-secondary" id="kis-kr-modal-cancel">취소</button>
+                <button class="btn btn-primary" id="kis-kr-modal-confirm">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- KIS_US 주문 설정 팝업 -->
+    <div class="modal-overlay" id="kis-us-order-modal" style="display: none;">
+        <div class="modal-content" style="max-width: 480px;">
+            <div class="modal-header">
+                <h3>KIS_US 주문 설정</h3>
+                <button class="modal-close" id="kis-us-modal-close">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label style="display: block; color: #9CA3AF; margin-bottom: 8px; font-size: 13px;">
+                        종가마감 신호
+                        <span class="tooltip-icon" data-tooltip="설정한 시간의 현재가를 종가로 간주하여 매매 신호를 판단합니다. 예: 마감 2분 전 → 05:58 시점의 가격이 종가">ⓘ</span>
+                    </label>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="color: #9CA3AF;">마감</span>
+                        <input type="number" id="kis-us-signal-minutes" value="2" min="1" max="30"
+                               style="width: 80px; padding: 8px; background: #1F2937; border: 1px solid #374151; border-radius: 6px; color: #E5E7EB; text-align: center;">
+                        <span style="color: #9CA3AF;">분 전</span>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label style="display: block; color: #9CA3AF; margin-bottom: 8px; font-size: 13px;">
+                        주문 유형
+                        <span class="tooltip-icon" data-tooltip="해외주식은 한국투자증권 API에서 시장가를 지원하지 않아 지정가로만 주문됩니다. 체결을 위해 슬리피지(틱 버퍼)를 설정해주세요.">ⓘ</span>
+                    </label>
+                    <div style="padding: 10px; background: #1F2937; border: 1px solid #374151; border-radius: 6px; color: #F59E0B;">
+                        지정가 (API 제한)
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label style="display: block; color: #9CA3AF; margin-bottom: 8px; font-size: 13px;">
+                        슬리피지
+                        <span class="tooltip-icon" data-tooltip="매수 시 현재가보다 N틱 높은 가격으로 주문하여 체결 확률을 높입니다. 매도 시에는 N틱 낮은 가격으로 주문됩니다. 틱이 클수록 체결은 빠르지만 슬리피지가 커집니다.">ⓘ</span>
+                    </label>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <input type="number" id="kis-us-slippage-ticks" value="3" min="1" max="20"
+                               style="width: 80px; padding: 8px; background: #1F2937; border: 1px solid #374151; border-radius: 6px; color: #E5E7EB; text-align: center;">
+                        <span style="color: #9CA3AF;">틱</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 16px 20px; border-top: 1px solid #374151; display: flex; gap: 12px; justify-content: flex-end;">
+                <button class="btn btn-secondary" id="kis-us-modal-cancel">취소</button>
+                <button class="btn btn-primary" id="kis-us-modal-confirm">확인</button>
             </div>
         </div>
     </div>

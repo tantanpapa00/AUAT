@@ -3290,12 +3290,129 @@ async function loadExchangeDropdowns() {
                 accounts.forEach(acc => {
                     select.innerHTML += `<option value="${acc.exchange}">${acc.name} (${acc.exchange})</option>`;
                 });
+                // KIS 거래소 선택 시 설정 모달 표시
+                select.addEventListener('change', handleExchangeChange);
             }
         });
     } catch (e) {
         console.error('Failed to load exchanges:', e);
     }
 }
+
+// =====================================================
+// KIS 주문 설정 모달 핸들러
+// =====================================================
+const kisOrderSettings = {
+    KIS_KR: {
+        orderMethod: 'regular_close',
+        timingSeconds: 30
+    },
+    KIS_US: {
+        signalMinutes: 2,
+        slippageTicks: 3
+    }
+};
+
+function handleExchangeChange(e) {
+    const exchange = e.target.value?.toUpperCase();
+    if (exchange === 'KIS_KR') {
+        showKisKrModal();
+    } else if (exchange === 'KIS_US') {
+        showKisUsModal();
+    }
+}
+
+function showKisKrModal() {
+    const modal = document.getElementById('kis-kr-order-modal');
+    if (!modal) return;
+
+    // 저장된 설정값 로드
+    const methodSelect = document.getElementById('kis-kr-order-method');
+    const timingInput = document.getElementById('kis-kr-timing-seconds');
+    const timingGroup = document.getElementById('kis-kr-timing-group');
+
+    if (methodSelect) methodSelect.value = kisOrderSettings.KIS_KR.orderMethod;
+    if (timingInput) timingInput.value = kisOrderSettings.KIS_KR.timingSeconds;
+
+    // 다음날 시가는 타이밍 입력 불필요
+    if (timingGroup) {
+        timingGroup.style.display = kisOrderSettings.KIS_KR.orderMethod === 'next_day_open' ? 'none' : 'block';
+    }
+
+    modal.style.display = 'flex';
+}
+
+function showKisUsModal() {
+    const modal = document.getElementById('kis-us-order-modal');
+    if (!modal) return;
+
+    // 저장된 설정값 로드
+    const signalInput = document.getElementById('kis-us-signal-minutes');
+    const slippageInput = document.getElementById('kis-us-slippage-ticks');
+
+    if (signalInput) signalInput.value = kisOrderSettings.KIS_US.signalMinutes;
+    if (slippageInput) slippageInput.value = kisOrderSettings.KIS_US.slippageTicks;
+
+    modal.style.display = 'flex';
+}
+
+function hideKisKrModal() {
+    const modal = document.getElementById('kis-kr-order-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function hideKisUsModal() {
+    const modal = document.getElementById('kis-us-order-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function saveKisKrSettings() {
+    const methodSelect = document.getElementById('kis-kr-order-method');
+    const timingInput = document.getElementById('kis-kr-timing-seconds');
+
+    kisOrderSettings.KIS_KR.orderMethod = methodSelect?.value || 'regular_close';
+    kisOrderSettings.KIS_KR.timingSeconds = parseInt(timingInput?.value || 30);
+
+    hideKisKrModal();
+    showToast('KIS_KR 주문 설정이 저장되었습니다.', 'success');
+}
+
+function saveKisUsSettings() {
+    const signalInput = document.getElementById('kis-us-signal-minutes');
+    const slippageInput = document.getElementById('kis-us-slippage-ticks');
+
+    kisOrderSettings.KIS_US.signalMinutes = parseInt(signalInput?.value || 2);
+    kisOrderSettings.KIS_US.slippageTicks = parseInt(slippageInput?.value || 3);
+
+    hideKisUsModal();
+    showToast('KIS_US 주문 설정이 저장되었습니다.', 'success');
+}
+
+// KIS_KR 모달 이벤트 바인딩
+document.getElementById('kis-kr-modal-close')?.addEventListener('click', hideKisKrModal);
+document.getElementById('kis-kr-modal-cancel')?.addEventListener('click', hideKisKrModal);
+document.getElementById('kis-kr-modal-confirm')?.addEventListener('click', saveKisKrSettings);
+
+// KIS_KR 주문 방식 변경 시 타이밍 입력 표시/숨김
+document.getElementById('kis-kr-order-method')?.addEventListener('change', (e) => {
+    const timingGroup = document.getElementById('kis-kr-timing-group');
+    if (timingGroup) {
+        timingGroup.style.display = e.target.value === 'next_day_open' ? 'none' : 'block';
+    }
+});
+
+// KIS_US 모달 이벤트 바인딩
+document.getElementById('kis-us-modal-close')?.addEventListener('click', hideKisUsModal);
+document.getElementById('kis-us-modal-cancel')?.addEventListener('click', hideKisUsModal);
+document.getElementById('kis-us-modal-confirm')?.addEventListener('click', saveKisUsSettings);
+
+// 모달 오버레이 클릭 시 닫기
+document.getElementById('kis-kr-order-modal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'kis-kr-order-modal') hideKisKrModal();
+});
+document.getElementById('kis-us-order-modal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'kis-us-order-modal') hideKisUsModal();
+});
 
 // Strategy tabs
 document.querySelectorAll('.strategy-tab').forEach(tab => {
@@ -7000,9 +7117,10 @@ async function loadMrExchangeDropdown() {
         });
     }
 
-    // KIS 거래소 선택 시 타임프레임 제한
+    // KIS 거래소 선택 시 타임프레임 제한 + 설정 모달
     select.addEventListener('change', () => {
         updateMrTimeframeOptions(select.value);
+        handleExchangeChange({ target: select });
     });
 }
 
@@ -8439,6 +8557,11 @@ async function loadTrendExchangeDropdown() {
             select.innerHTML += `<option value="${ex}">${displayName}</option>`;
         });
     }
+
+    // KIS 거래소 선택 시 설정 모달 표시
+    select.addEventListener('change', () => {
+        handleExchangeChange({ target: select });
+    });
 }
 
 
@@ -8489,12 +8612,13 @@ async function loadCustomExchangeDropdown() {
         });
     }
 
-    // 거래소 변경 시 종목 필터 업데이트
+    // 거래소 변경 시 종목 필터 업데이트 + KIS 설정 모달
     select.addEventListener('change', () => {
         if (customSymbolAutocomplete) {
             customSymbolAutocomplete.setExchange(select.value);
         }
         updateCustomTimeframeOptions(select.value);
+        handleExchangeChange({ target: select });
     });
 }
 
@@ -9279,8 +9403,13 @@ async function runCustomBacktest() {
     // UI 상태 업데이트
     const btn = document.getElementById('btn-custom-run-backtest');
     const loadingEl = document.getElementById('custom-backtest-loading');
+    const loadingMsgEl = document.getElementById('custom-backtest-loading-msg');
     const errorEl = document.getElementById('custom-backtest-error');
     const resultEl = document.getElementById('custom-backtest-result');
+
+    const setLoadingMsg = (msg) => {
+        if (loadingMsgEl) loadingMsgEl.textContent = msg;
+    };
 
     if (btn) {
         btn.disabled = true;
@@ -9292,6 +9421,9 @@ async function runCustomBacktest() {
     if (resultEl) resultEl.style.display = 'none';
 
     try {
+        // 1단계: 시세 데이터 준비
+        setLoadingMsg('시세 데이터 준비 중...');
+
         // Tauri invoke 사용 (fetch 대신)
         const data = await invoke('run_custom_backtest', {
             exchange: config.exchange,
@@ -9457,78 +9589,45 @@ function renderCustomPerformanceTable(m, currency) {
     const tbody = document.querySelector('#custom-performance-table tbody');
     if (!tbody) return;
 
-    const formatAmt = (v) => formatMrAmount(v || 0, currency);
-    const formatPct = (v) => `${(v || 0).toFixed(2)}%`;
-    const formatPF = (v) => v >= 999 ? '∞' : (v || 0).toFixed(3);
+    const fmtAmt = (v) => formatMrAmount(v || 0, currency);
+    const pnlColor = (v) => (Number(v) || 0) >= 0 ? '#22C55E' : '#EF4444';
 
-    tbody.innerHTML = `
-        <tr>
-            <td>순손익</td>
-            <td>${formatAmt(m.net_profit)} (${formatPct(m.net_profit_pct)})</td>
-            <td>${formatAmt(m.buy_net_profit)} (${formatPct(m.buy_net_profit_pct)})</td>
-            <td>-</td>
-        </tr>
-        <tr>
-            <td>총이익</td>
-            <td>${formatAmt(m.gross_profit)} (${formatPct(m.gross_profit_pct)})</td>
-            <td>${formatAmt(m.buy_gross_profit)} (${formatPct(m.buy_gross_profit_pct)})</td>
-            <td>-</td>
-        </tr>
-        <tr>
-            <td>총손실</td>
-            <td>${formatAmt(m.gross_loss)} (${formatPct(m.gross_loss_pct)})</td>
-            <td>${formatAmt(m.buy_gross_loss)} (${formatPct(m.buy_gross_loss_pct)})</td>
-            <td>-</td>
-        </tr>
-        <tr>
-            <td>수익지수</td>
-            <td>${formatPF(m.profit_factor)}</td>
-            <td>${formatPF(m.profit_factor)}</td>
-            <td>-</td>
-        </tr>
-        <tr>
-            <td>총 거래 수</td>
-            <td>${m.total_trades || 0}</td>
-            <td>${m.buy_trades || 0}</td>
-            <td>0</td>
-        </tr>
-        <tr>
-            <td>수익 거래</td>
-            <td>${m.winning_trades || 0}</td>
-            <td>${m.buy_winning || 0}</td>
-            <td>0</td>
-        </tr>
-        <tr>
-            <td>손실 거래</td>
-            <td>${m.losing_trades || 0}</td>
-            <td>${m.buy_losing || 0}</td>
-            <td>0</td>
-        </tr>
-        <tr>
-            <td>승률</td>
-            <td>${formatPct(m.win_rate_pct)}</td>
-            <td>${formatPct(m.win_rate_pct)}</td>
-            <td>-</td>
-        </tr>
-        <tr>
-            <td>최대 연속 승리</td>
-            <td>${m.max_consecutive_wins || 0}</td>
-            <td>${m.buy_max_consecutive_wins || 0}</td>
-            <td>0</td>
-        </tr>
-        <tr>
-            <td>최대 연속 손실</td>
-            <td>${m.max_consecutive_losses || 0}</td>
-            <td>${m.buy_max_consecutive_losses || 0}</td>
-            <td>0</td>
-        </tr>
-        <tr>
-            <td>수수료</td>
-            <td>${formatAmt(m.commission_paid)}</td>
-            <td>${formatAmt(m.buy_commission)}</td>
-            <td>-</td>
-        </tr>
-    `;
+    const row = (label, allAmt, allPct, buyAmt, buyPct, sellAmt, sellPct) => {
+        const fPct = (v) => v != null ? `<br><span style="font-size:11px;color:${pnlColor(v)}">${v > 0 ? '+' : ''}${Number(v).toFixed(2)}%</span>` : '';
+        const cellColor = (v) => pnlColor(v);
+        return `<tr>
+            <td style="color:#9CA3AF; font-weight:600;">${label}</td>
+            <td style="text-align:right; color:${cellColor(allAmt)};">${fmtAmt(allAmt)}${fPct(allPct)}</td>
+            <td style="text-align:right; color:${cellColor(buyAmt)};">${fmtAmt(buyAmt)}${fPct(buyPct)}</td>
+            <td style="text-align:right; color:#6B7280;">${sellAmt != null && sellAmt !== 0 ? fmtAmt(sellAmt) : '—'}${sellPct != null && sellPct !== 0 ? fPct(sellPct) : ''}</td>
+        </tr>`;
+    };
+
+    const simpleRow = (label, all, buy, sell) => {
+        return `<tr>
+            <td style="color:#9CA3AF; font-weight:600;">${label}</td>
+            <td style="text-align:right; color:#D1D5DB;">${all ?? '—'}</td>
+            <td style="text-align:right; color:#D1D5DB;">${buy ?? '—'}</td>
+            <td style="text-align:right; color:#6B7280;">${sell != null && sell !== 0 ? sell : '—'}</td>
+        </tr>`;
+    };
+
+    tbody.innerHTML = [
+        row('순손익', m.net_profit, m.net_profit_pct, m.buy_net_profit, m.buy_net_profit_pct, m.sell_net_profit, m.sell_net_profit_pct),
+        row('총수익', m.gross_profit, m.gross_profit_pct, m.buy_gross_profit, m.buy_gross_profit_pct, m.sell_gross_profit, m.sell_gross_profit_pct),
+        row('총손실', m.gross_loss ? -Math.abs(m.gross_loss) : 0, m.gross_loss_pct ? -Math.abs(m.gross_loss_pct) : 0,
+            m.buy_gross_loss ? -Math.abs(m.buy_gross_loss) : 0, m.buy_gross_loss_pct ? -Math.abs(m.buy_gross_loss_pct) : 0, null, null),
+        row('미실현 손익', m.unrealized_pnl, m.unrealized_pnl_pct, null, null, null, null),
+        simpleRow('수익지수', formatProfitFactor(m.profit_factor), formatProfitFactor(m.profit_factor), '—'),
+        simpleRow('수수료', fmtAmt(m.commission_paid), fmtAmt(m.buy_commission), '—'),
+        simpleRow('기대수익', fmtAmt(m.expected_value), fmtAmt(m.expected_value), '—'),
+        simpleRow('총 거래 수', m.total_trades || 0, m.buy_trades || 0, 0),
+        simpleRow('수익 거래', m.winning_trades || 0, m.buy_winning || 0, 0),
+        simpleRow('손실 거래', m.losing_trades || 0, m.buy_losing || 0, 0),
+        simpleRow('승률', `${(m.win_rate_pct || 0).toFixed(1)}%`, `${(m.win_rate_pct || 0).toFixed(1)}%`, '—'),
+        simpleRow('최대 연속 승리', m.max_consecutive_wins || 0, m.max_consecutive_wins || 0, 0),
+        simpleRow('최대 연속 손실', m.max_consecutive_losses || 0, m.max_consecutive_losses || 0, 0),
+    ].join('');
 }
 
 // 커스텀 거래 내역 테이블
