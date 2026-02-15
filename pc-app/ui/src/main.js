@@ -5063,12 +5063,12 @@ async function loadMarketKr() {
                     <div class="se-trading-item">
                         <span class="label">KOSPI</span>
                         <span class="value">${formatTradingValue(kospi.trading_value)}</span>
-                        <span class="change" id="kr-trading-kospi-change"></span>
+                        <span class="change">${formatTradingValueChange(kospi.trading_value, kospi.trading_value_prev)}</span>
                     </div>
                     <div class="se-trading-item">
                         <span class="label">KOSDAQ</span>
                         <span class="value">${formatTradingValue(kosdaq.trading_value)}</span>
-                        <span class="change" id="kr-trading-kosdaq-change"></span>
+                        <span class="change">${formatTradingValueChange(kosdaq.trading_value, kosdaq.trading_value_prev)}</span>
                     </div>
                 </div>
             </div>
@@ -5296,6 +5296,28 @@ function formatTradingValue(value) {
         return (billion / 10000).toFixed(1) + '조';
     }
     return billion.toFixed(0) + '억';
+}
+
+// 거래대금 전일대비 포맷
+function formatTradingValueChange(current, prev) {
+    if (!current || !prev) return '';
+    const diff = current - prev;
+    const pct = ((diff / prev) * 100).toFixed(1);
+    const diffBillion = diff / 100000000;
+
+    let diffStr;
+    if (Math.abs(diffBillion) >= 10000) {
+        diffStr = (diffBillion / 10000).toFixed(1) + '조';
+    } else {
+        diffStr = Math.abs(diffBillion).toFixed(0) + '억';
+    }
+
+    if (diff > 0) {
+        return `<span class="positive">+${diffStr} (+${pct}%)</span>`;
+    } else if (diff < 0) {
+        return `<span class="negative">${diffStr.replace('-', '-')} (${pct}%)</span>`;
+    }
+    return '';
 }
 
 // 신호등 캡슐 업데이트 (G/Y/R 중 하나 활성화)

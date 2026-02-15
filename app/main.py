@@ -11230,7 +11230,8 @@ async def get_market_signal(
 
     try:
         for market in ["KOSPI", "KOSDAQ"]:
-            row = db.execute(
+            # 최근 2일치 조회 (오늘 + 어제)
+            rows = db.execute(
                 text("""
                     SELECT date, market, index_value, change_amount, change_percent,
                            trading_volume, trading_value,
@@ -11243,10 +11244,14 @@ async def get_market_signal(
                     FROM market_signals
                     WHERE market = :market
                     ORDER BY date DESC
-                    LIMIT 1
+                    LIMIT 2
                 """),
                 {"market": market}
-            ).fetchone()
+            ).fetchall()
+
+            row = rows[0] if rows else None
+            prev_row = rows[1] if len(rows) > 1 else None
+            trading_value_prev = prev_row.trading_value if prev_row else None
 
             # 실시간 데이터 (있으면 DB 값 덮어쓰기)
             rt = realtime_data.get(market.lower(), {})
@@ -11263,6 +11268,7 @@ async def get_market_signal(
                     "change_percent": rt.get("change_percent") if rt.get("change_percent") is not None else row.change_percent,
                     "trading_volume": rt.get("trading_volume") or row.trading_volume,
                     "trading_value": rt.get("trading_value") or row.trading_value,
+                    "trading_value_prev": trading_value_prev,
                     "rising_stocks": rt.get("rising_stocks") or row.rising_stocks,
                     "falling_stocks": rt.get("falling_stocks") or row.falling_stocks,
                     "unchanged_stocks": rt.get("unchanged_stocks") or row.unchanged_stocks,
@@ -11299,6 +11305,7 @@ async def get_market_signal(
                     "change_percent": rt.get("change_percent", 0),
                     "trading_volume": rt.get("trading_volume", 0),
                     "trading_value": rt.get("trading_value", 0),
+                    "trading_value_prev": trading_value_prev,
                     "rising_stocks": rt.get("rising_stocks", 0),
                     "falling_stocks": rt.get("falling_stocks", 0),
                     "unchanged_stocks": rt.get("unchanged_stocks", 0),
@@ -11672,6 +11679,21 @@ async def get_market_breadth_with_index(
                     result["below_ma20"].append(None)
                     result["below_ma200"].append(None)
                     result["adr"].append(None)
+
+        # ADR 스무딩 (5일 이동평균)
+        adr_raw = result["adr"]
+        adr_smoothed = []
+        for i in range(len(adr_raw)):
+            if i < 4:
+                adr_smoothed.append(adr_raw[i])  # 처음 4일은 원시값
+            else:
+                # 최근 5일 평균 (None 제외)
+                window = [v for v in adr_raw[i-4:i+1] if v is not None]
+                if window:
+                    adr_smoothed.append(round(sum(window) / len(window), 1))
+                else:
+                    adr_smoothed.append(None)
+        result["adr"] = adr_smoothed
 
     except Exception as e:
         print(f"[API] /api/market/breadth-with-index 오류: {e}")

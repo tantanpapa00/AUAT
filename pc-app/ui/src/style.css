@@ -7273,6 +7273,19 @@ body {
     font-weight: 600;
 }
 
+.se-trading-item .change {
+    font-size: 12px;
+    margin-left: 8px;
+}
+
+.se-trading-item .change .positive {
+    color: #22c55e;
+}
+
+.se-trading-item .change .negative {
+    color: #ef4444;
+}
+
 /* 섹터 섹션 */
 .se-sector-section {
     margin-bottom: 16px;
