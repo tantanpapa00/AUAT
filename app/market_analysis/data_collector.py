@@ -102,23 +102,24 @@ async def get_investor_trend_from_naver(market: str) -> tuple:
             if r.status_code != 200:
                 return (0, 0, 0)
 
-            soup = BeautifulSoup(r.text, 'html.parser')
+            r.encoding = "euc-kr"
+            soup = BeautifulSoup(r.text, 'lxml')
 
-            # 외국인/기관 매매동향 추출
-            # <table class="tbl_home"> 내 외국인/기관 순매수 금액
-            for td in soup.find_all('td'):
-                text = td.get_text(strip=True)
+            # 외국인/기관 매매동향 추출 (<a> 태그 내 텍스트에서)
+            # 예: "외국인-9,220억", "기관+831억"
+            for link in soup.find_all('a'):
+                text = link.get_text(strip=True)
 
-                # 외국인 순매수
-                if "억" in text and "외국인" in str(td.parent):
+                # 외국인 순매수 (예: "외국인-9,220억")
+                if "억" in text and text.startswith("외국인"):
                     try:
                         val_str = text.replace("외국인", "").replace("억", "").replace(",", "").replace("+", "")
                         foreign_net = int(float(val_str))
                     except:
                         pass
 
-                # 기관 순매수
-                if "억" in text and "기관" in str(td.parent):
+                # 기관 순매수 (예: "기관+831억")
+                if "억" in text and text.startswith("기관"):
                     try:
                         val_str = text.replace("기관", "").replace("억", "").replace(",", "").replace("+", "")
                         institution_net = int(float(val_str))
