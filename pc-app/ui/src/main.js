@@ -4880,7 +4880,7 @@ document.getElementById('watchlist-modal')?.addEventListener('click', (e) => {
 // 시장분석 새 페이지 로드 (STEP A)
 // =====================================================
 
-// 국내시장 로드 (Phase 4: IBD Big Picture 시장신호)
+// 국내시장 로드 (Phase 4: StockEasy 스타일 시장신호)
 async function loadMarketKr() {
     const restrictionEl = document.getElementById('market-kr-restriction');
     const contentEl = document.getElementById('market-kr-content');
@@ -4920,99 +4920,207 @@ async function loadMarketKr() {
             return;
         }
 
-        // UI 렌더링 (IBD Big Picture 스타일)
+        // 신호 데이터 추출
+        const kospiSig = signalData?.kospi || {};
+        const kosdaqSig = signalData?.kosdaq || {};
+        const kospi = overviewData.kospi || {};
+        const kosdaq = overviewData.kosdaq || {};
+
+        // UI 렌더링 (StockEasy 스타일)
         contentEl.innerHTML = `
-            <!-- 시장신호 탭 선택 -->
-            <div class="market-tabs">
-                <button class="market-tab active" data-market="kospi">코스피</button>
-                <button class="market-tab" data-market="kosdaq">코스닥</button>
-            </div>
-
-            <!-- IBD Big Picture 카드 -->
-            <section class="big-picture-card card" id="big-picture-section">
-                <div class="bp-header">
-                    <h2>Big Picture</h2>
-                    <span class="bp-updated" id="bp-updated">-</span>
+            <!-- 시장신호 헤더 (스탁이지 스타일) -->
+            <div class="se-signal-header">
+                <div class="se-signal-title" id="signal-toggle">
+                    <span>시장신호</span>
+                    <span class="toggle-arrow" id="signal-arrow">∧</span>
                 </div>
-                <div class="bp-content">
-                    <div class="bp-status" id="bp-status">
-                        <div class="bp-status-icon" id="bp-status-icon">●</div>
-                        <div class="bp-status-text">
-                            <span class="bp-status-label" id="bp-status-label">-</span>
-                            <span class="bp-status-exposure" id="bp-status-exposure">권장 노출도: -</span>
+                <div class="se-signal-lights">
+                    <div class="se-signal-group">
+                        <span class="se-signal-label">단기</span>
+                        <div class="se-capsule" id="short-term-capsule">
+                            <span class="se-dot" data-color="green"></span>
+                            <span class="se-dot" data-color="yellow"></span>
+                            <span class="se-dot" data-color="red"></span>
                         </div>
                     </div>
-                    <div class="bp-signals">
-                        <div class="bp-signal-item">
-                            <span class="bp-signal-label">단기 신호</span>
-                            <span class="bp-signal-light" id="bp-short-term">●</span>
-                        </div>
-                        <div class="bp-signal-item">
-                            <span class="bp-signal-label">장기 신호</span>
-                            <span class="bp-signal-light" id="bp-long-term">●</span>
-                        </div>
-                        <div class="bp-signal-item">
-                            <span class="bp-signal-label">Distribution Days</span>
-                            <span class="bp-dd-count" id="bp-dd-count">0</span>
+                    <div class="se-signal-group">
+                        <span class="se-signal-label">장기</span>
+                        <div class="se-capsule" id="long-term-capsule">
+                            <span class="se-dot" data-color="green"></span>
+                            <span class="se-dot" data-color="yellow"></span>
+                            <span class="se-dot" data-color="red"></span>
                         </div>
                     </div>
                 </div>
-            </section>
-
-            <!-- 지수 카드 -->
-            <div class="market-grid">
-                <div class="index-card" id="kr-index-kospi">
-                    <div class="index-name">코스피</div>
-                    <div class="index-value">-</div>
-                    <div class="index-change">-</div>
-                </div>
-                <div class="index-card" id="kr-index-kosdaq">
-                    <div class="index-name">코스닥</div>
-                    <div class="index-value">-</div>
-                    <div class="index-change">-</div>
+                <div class="se-indices">
+                    <div class="se-index-item">
+                        <div class="se-index-name">KOSPI</div>
+                        <div class="se-index-value" id="se-kospi-value">${kospi.value?.toLocaleString() || '-'}</div>
+                        <div class="se-index-change ${(kospi.change_percent || 0) >= 0 ? 'up' : 'down'}" id="se-kospi-change">
+                            ${(kospi.change_percent || 0) >= 0 ? '+' : ''}${(kospi.change_percent || 0).toFixed(2)}%
+                        </div>
+                        <div class="se-index-amount ${(kospi.change_amount || 0) >= 0 ? 'up' : 'down'}" id="se-kospi-amount">
+                            ${(kospi.change_amount || 0) >= 0 ? '▲' : '▼'}${Math.abs(kospi.change_amount || 0).toFixed(2)}
+                        </div>
+                    </div>
+                    <div class="se-index-item">
+                        <div class="se-index-name">KOSDAQ</div>
+                        <div class="se-index-value" id="se-kosdaq-value">${kosdaq.value?.toLocaleString() || '-'}</div>
+                        <div class="se-index-change ${(kosdaq.change_percent || 0) >= 0 ? 'up' : 'down'}" id="se-kosdaq-change">
+                            ${(kosdaq.change_percent || 0) >= 0 ? '+' : ''}${(kosdaq.change_percent || 0).toFixed(2)}%
+                        </div>
+                        <div class="se-index-amount ${(kosdaq.change_amount || 0) >= 0 ? 'up' : 'down'}" id="se-kosdaq-amount">
+                            ${(kosdaq.change_amount || 0) >= 0 ? '▲' : '▼'}${Math.abs(kosdaq.change_amount || 0).toFixed(2)}
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- 신호 히스토리 차트 -->
-            <section class="card signal-history-section">
-                <h3>신호 히스토리 (30일)</h3>
-                <div class="signal-history-chart" id="signal-history-chart">
-                    <canvas id="signal-history-canvas"></canvas>
+            <!-- 종목 등락 게이지바 -->
+            <div class="se-stock-gauge">
+                <div class="se-gauge-item">
+                    <span class="up">▲${kospi.rising_stocks || 0}</span>
+                    <span class="neutral">${kospi.unchanged_stocks || 0}</span>
+                    <span class="down">▼${kospi.falling_stocks || 0}</span>
+                    <div class="se-gauge-bar">
+                        <div class="up-bar" style="width: ${getGaugePercent(kospi, 'up')}%"></div>
+                        <div class="down-bar" style="width: ${getGaugePercent(kospi, 'down')}%"></div>
+                    </div>
                 </div>
-            </section>
-
-            <!-- 투자자 동향 -->
-            <section class="investor-section card">
-                <h3>투자자별 순매수</h3>
-                <div class="investor-grid">
-                    <div class="investor-item"><span class="label">외국인</span><span class="value" id="kr-investor-foreign">-</span></div>
-                    <div class="investor-item"><span class="label">기관</span><span class="value" id="kr-investor-institution">-</span></div>
-                    <div class="investor-item"><span class="label">개인</span><span class="value" id="kr-investor-individual">-</span></div>
+                <div class="se-gauge-item">
+                    <span class="up">▲${kosdaq.rising_stocks || 0}</span>
+                    <span class="neutral">${kosdaq.unchanged_stocks || 0}</span>
+                    <span class="down">▼${kosdaq.falling_stocks || 0}</span>
+                    <div class="se-gauge-bar">
+                        <div class="up-bar" style="width: ${getGaugePercent(kosdaq, 'up')}%"></div>
+                        <div class="down-bar" style="width: ${getGaugePercent(kosdaq, 'down')}%"></div>
+                    </div>
                 </div>
-            </section>
+            </div>
 
-            <!-- 주도 섹터 -->
-            <section class="sector-section card">
-                <h3>주도 섹터 TOP 5</h3>
-                <div class="sector-list" id="kr-sector-list"></div>
-            </section>
+            <!-- 신호 설명 (접기 가능) -->
+            <div class="se-signal-desc" id="signal-desc">
+                <p>시장 신호는 신호등 색상으로 현재 시장의 상태를 나타냅니다: (🟢 양호, 🟡 주의, 🔴 매우주의).</p>
+                <p>단기/장기 신호는 각각 단기적, 장기적 관점에서의 시장 흐름을 보여주는 지표로 해석할 수 있습니다.</p>
+            </div>
+
+            <!-- 서브탭: 시장지표 | 신용잔고 -->
+            <div class="se-subtabs">
+                <button class="se-subtab active" data-tab="market-indicators">시장지표</button>
+                <button class="se-subtab" data-tab="credit-balance">신용잔고</button>
+            </div>
+
+            <!-- 시장지표 탭 -->
+            <div class="se-tab-content" id="tab-market-indicators">
+                <!-- Big Picture 컴팩트 -->
+                <div class="se-bigpicture-row card">
+                    <div class="se-bp-item">
+                        <span class="se-bp-market">KOSPI</span>
+                        <span class="se-bp-dot" id="bp-kospi-dot">●</span>
+                        <span class="se-bp-status" id="bp-kospi-status">${kospiSig.status_label || '확인된 상승세'}</span>
+                        <span class="se-bp-exposure">(${kospiSig.exposure || '80-100%'})</span>
+                        <span class="se-bp-dd">DD:${kospiSig.active_dd_count || 0}</span>
+                        ${(kospiSig.active_dd_count || 0) >= 3 ? '<span class="se-bp-warn">⚠️</span>' : ''}
+                    </div>
+                    <div class="se-bp-divider">|</div>
+                    <div class="se-bp-item">
+                        <span class="se-bp-market">KOSDAQ</span>
+                        <span class="se-bp-dot" id="bp-kosdaq-dot">●</span>
+                        <span class="se-bp-status" id="bp-kosdaq-status">${kosdaqSig.status_label || '확인된 상승세'}</span>
+                        <span class="se-bp-exposure">(${kosdaqSig.exposure || '80-100%'})</span>
+                        <span class="se-bp-dd">DD:${kosdaqSig.active_dd_count || 0}</span>
+                        ${(kosdaqSig.active_dd_count || 0) >= 3 ? '<span class="se-bp-warn">⚠️</span>' : ''}
+                    </div>
+                </div>
+
+                <!-- 20/200일선 차트 -->
+                <div class="se-ma-chart card">
+                    <h3>20일/200일선 분석</h3>
+                    <div class="se-ma-chart-area">
+                        <canvas id="ma-ratio-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- 투자자 동향 -->
+                <div class="se-investor-section card">
+                    <h3>투자자별 순매수</h3>
+                    <div class="se-investor-grid">
+                        <div class="se-investor-item">
+                            <span class="label">외국인</span>
+                            <span class="value" id="kr-investor-foreign">-</span>
+                        </div>
+                        <div class="se-investor-item">
+                            <span class="label">기관</span>
+                            <span class="value" id="kr-investor-institution">-</span>
+                        </div>
+                        <div class="se-investor-item">
+                            <span class="label">개인</span>
+                            <span class="value" id="kr-investor-individual">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 거래대금 -->
+                <div class="se-trading-value card">
+                    <h3>거래대금</h3>
+                    <div class="se-trading-grid">
+                        <div class="se-trading-item">
+                            <span class="label">KOSPI</span>
+                            <span class="value" id="kr-trading-kospi">${formatTradingValue(kospi.trading_value)}</span>
+                        </div>
+                        <div class="se-trading-item">
+                            <span class="label">KOSDAQ</span>
+                            <span class="value" id="kr-trading-kosdaq">${formatTradingValue(kosdaq.trading_value)}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 섹터 리스트 -->
+                <div class="se-sector-section card">
+                    <h3>주도 섹터 TOP 5</h3>
+                    <div class="sector-list" id="kr-sector-list"></div>
+                </div>
+            </div>
+
+            <!-- 신용잔고 탭 -->
+            <div class="se-tab-content" id="tab-credit-balance" style="display:none;">
+                <div class="card">
+                    <h3>신용잔고</h3>
+                    <p class="empty-state">신용잔고 데이터 준비 중...</p>
+                </div>
+            </div>
         `;
 
-        // 지수 카드 업데이트
-        updateIndexCard('kr-index-kospi', overviewData.kospi);
-        updateIndexCard('kr-index-kosdaq', overviewData.kosdaq);
+        // 신호등 업데이트
+        updateSignalCapsule('short-term-capsule', kospiSig.short_term_signal || 'green');
+        updateSignalCapsule('long-term-capsule', kospiSig.long_term_signal || 'green');
 
-        // Big Picture 상태 업데이트 (기본 KOSPI)
-        updateBigPicture(signalData, 'kospi');
+        // Big Picture 색상 업데이트
+        updateBigPictureDot('bp-kospi-dot', kospiSig.status);
+        updateBigPictureDot('bp-kosdaq-dot', kosdaqSig.status);
 
-        // 탭 이벤트 바인딩
-        document.querySelectorAll('.market-tab').forEach(tab => {
+        // 서브탭 이벤트
+        document.querySelectorAll('.se-subtab').forEach(tab => {
             tab.addEventListener('click', (e) => {
-                document.querySelectorAll('.market-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.se-subtab').forEach(t => t.classList.remove('active'));
                 e.target.classList.add('active');
-                const market = e.target.dataset.market;
-                updateBigPicture(signalData, market);
+                const tabId = e.target.dataset.tab;
+                document.querySelectorAll('.se-tab-content').forEach(c => c.style.display = 'none');
+                document.getElementById('tab-' + tabId).style.display = 'block';
             });
+        });
+
+        // 신호 접기/펴기
+        document.getElementById('signal-toggle')?.addEventListener('click', () => {
+            const desc = document.getElementById('signal-desc');
+            const arrow = document.getElementById('signal-arrow');
+            if (desc.style.display === 'none') {
+                desc.style.display = 'block';
+                arrow.textContent = '∧';
+            } else {
+                desc.style.display = 'none';
+                arrow.textContent = '∨';
+            }
         });
 
         // 투자자 동향
@@ -5022,9 +5130,21 @@ async function loadMarketKr() {
             const sign = v >= 0 ? '+' : '';
             return `${sign}${Math.abs(v).toLocaleString()}억`;
         };
-        document.getElementById('kr-investor-foreign').textContent = formatInvestor(investors.foreign);
-        document.getElementById('kr-investor-institution').textContent = formatInvestor(investors.institution);
-        document.getElementById('kr-investor-individual').textContent = formatInvestor(investors.individual);
+        const foreignEl = document.getElementById('kr-investor-foreign');
+        const instEl = document.getElementById('kr-investor-institution');
+        const indivEl = document.getElementById('kr-investor-individual');
+        if (foreignEl) {
+            foreignEl.textContent = formatInvestor(investors.foreign);
+            foreignEl.className = `value ${(investors.foreign || 0) >= 0 ? 'up' : 'down'}`;
+        }
+        if (instEl) {
+            instEl.textContent = formatInvestor(investors.institution);
+            instEl.className = `value ${(investors.institution || 0) >= 0 ? 'up' : 'down'}`;
+        }
+        if (indivEl) {
+            indivEl.textContent = formatInvestor(investors.individual);
+            indivEl.className = `value ${(investors.individual || 0) >= 0 ? 'up' : 'down'}`;
+        }
 
         // 섹터 리스트
         const sectors = overviewData.sectors || [];
@@ -5044,8 +5164,8 @@ async function loadMarketKr() {
             }
         }
 
-        // 신호 히스토리 차트 로드
-        loadSignalHistoryChart('kospi');
+        // MA 비율 차트 로드 (향후 구현)
+        loadMaRatioChart();
 
     } catch (error) {
         console.error('Market KR error:', error);
@@ -5054,157 +5174,109 @@ async function loadMarketKr() {
     }
 }
 
-// Big Picture 상태 업데이트
-function updateBigPicture(signalData, market) {
-    const data = signalData?.[market] || {};
-
-    // 상태 아이콘 및 색상
-    const statusIcon = document.getElementById('bp-status-icon');
-    const statusLabel = document.getElementById('bp-status-label');
-    const statusExposure = document.getElementById('bp-status-exposure');
-    const shortTerm = document.getElementById('bp-short-term');
-    const longTerm = document.getElementById('bp-long-term');
-    const ddCount = document.getElementById('bp-dd-count');
-    const updated = document.getElementById('bp-updated');
-
-    // Big Picture 상태별 색상
-    const statusColors = {
-        'confirmed_uptrend': '#22c55e',      // 초록
-        'uptrend_under_pressure': '#fde047', // 노랑
-        'market_in_correction': '#ef4444',   // 빨강
-        'rally_attempt': '#3b82f6'           // 파랑
-    };
-
-    const status = data.status || 'confirmed_uptrend';
-    const color = statusColors[status] || '#6b7280';
-
-    if (statusIcon) statusIcon.style.color = color;
-    if (statusLabel) statusLabel.textContent = data.status_label || '확인된 상승세';
-    if (statusExposure) statusExposure.textContent = `권장 노출도: ${data.exposure || '80-100%'}`;
-
-    // 단기/장기 신호등
-    const signalColorMap = {
-        'green': '#22c55e',
-        'yellow': '#fde047',
-        'red': '#ef4444'
-    };
-    if (shortTerm) {
-        shortTerm.style.color = signalColorMap[data.short_term_signal] || '#6b7280';
-    }
-    if (longTerm) {
-        longTerm.style.color = signalColorMap[data.long_term_signal] || '#6b7280';
-    }
-
-    // DD 카운트
-    if (ddCount) {
-        ddCount.textContent = data.active_dd_count || 0;
-        const count = data.active_dd_count || 0;
-        ddCount.className = 'bp-dd-count';
-        if (count >= 5) ddCount.classList.add('danger');
-        else if (count >= 3) ddCount.classList.add('warning');
-    }
-
-    // 업데이트 시간
-    if (updated && signalData?.updated_at) {
-        const d = new Date(signalData.updated_at);
-        updated.textContent = `업데이트: ${d.toLocaleDateString('ko-KR')} ${d.toLocaleTimeString('ko-KR', {hour: '2-digit', minute: '2-digit'})}`;
-    } else if (updated) {
-        updated.textContent = '업데이트: 데이터 없음';
-    }
+// 게이지 퍼센트 계산
+function getGaugePercent(data, type) {
+    const total = (data.rising_stocks || 0) + (data.falling_stocks || 0) + (data.unchanged_stocks || 0);
+    if (total === 0) return 0;
+    if (type === 'up') return ((data.rising_stocks || 0) / total * 100).toFixed(1);
+    if (type === 'down') return ((data.falling_stocks || 0) / total * 100).toFixed(1);
+    return 0;
 }
 
-// 신호 히스토리 차트 로드
-async function loadSignalHistoryChart(market) {
-    try {
-        const historyData = await invokeWithTimeout('get_market_signal_history', {
-            accessToken: auth.accessToken || '',
-            days: 30,
-            market: market.toUpperCase()
-        }, 10000);
+// 거래대금 포맷
+function formatTradingValue(value) {
+    if (!value) return '-';
+    const billion = value / 100000000; // 억 단위
+    if (billion >= 10000) {
+        return (billion / 10000).toFixed(1) + '조';
+    }
+    return billion.toFixed(0) + '억';
+}
 
-        console.log('[SignalHistory] data:', historyData);
+// 신호등 캡슐 업데이트 (G/Y/R 중 하나 활성화)
+function updateSignalCapsule(capsuleId, signal) {
+    const capsule = document.getElementById(capsuleId);
+    if (!capsule) return;
 
-        const canvas = document.getElementById('signal-history-canvas');
-        if (!canvas) return;
-
-        const ctx = canvas.getContext('2d');
-        const history = historyData?.history || [];
-
-        if (history.length === 0) {
-            ctx.font = '14px sans-serif';
-            ctx.fillStyle = '#6b7280';
-            ctx.textAlign = 'center';
-            ctx.fillText('히스토리 데이터 없음', canvas.width / 2, canvas.height / 2);
-            return;
+    const dots = capsule.querySelectorAll('.se-dot');
+    dots.forEach(dot => {
+        const color = dot.dataset.color;
+        if (color === signal) {
+            dot.classList.add('active');
+        } else {
+            dot.classList.remove('active');
         }
+    });
+}
 
-        // 차트 데이터 준비
-        const labels = history.map(h => {
-            const d = new Date(h.date);
-            return `${d.getMonth()+1}/${d.getDate()}`;
-        });
-        const indexValues = history.map(h => h.index_value || 0);
-        const ddCounts = history.map(h => h.active_dd_count || 0);
+// Big Picture 상태별 색상
+function updateBigPictureDot(dotId, status) {
+    const dot = document.getElementById(dotId);
+    if (!dot) return;
 
-        // 기존 차트 제거
-        if (window.signalHistoryChartInstance) {
-            window.signalHistoryChartInstance.destroy();
-        }
+    const colors = {
+        'confirmed_uptrend': '#22c55e',
+        'uptrend_under_pressure': '#fde047',
+        'market_in_correction': '#ef4444',
+        'rally_attempt': '#3b82f6'
+    };
+    dot.style.color = colors[status] || '#6b7280';
+}
 
-        // Chart.js로 차트 생성
-        window.signalHistoryChartInstance = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: '지수',
-                        data: indexValues,
-                        borderColor: '#3b82f6',
-                        backgroundColor: 'rgba(59,130,246,0.1)',
-                        yAxisID: 'y',
-                        tension: 0.3,
-                        fill: true
-                    },
-                    {
-                        label: 'DD 카운트',
-                        data: ddCounts,
-                        borderColor: '#ef4444',
-                        backgroundColor: 'rgba(239,68,68,0.3)',
-                        yAxisID: 'y1',
-                        type: 'bar'
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false },
-                plugins: {
-                    legend: { position: 'top' }
+// MA 비율 차트 (향후 구현)
+async function loadMaRatioChart() {
+    const canvas = document.getElementById('ma-ratio-chart');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+
+    // 임시 데이터 (향후 API 연동)
+    const labels = ['1월', '2월', '3월', '4월', '5월'];
+    const data20ma = [65, 70, 68, 72, 75];
+    const data200ma = [55, 58, 60, 62, 65];
+
+    if (window.maRatioChartInstance) {
+        window.maRatioChartInstance.destroy();
+    }
+
+    window.maRatioChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: '20일선 상회 비율',
+                    data: data20ma,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59,130,246,0.1)',
+                    tension: 0.3,
+                    fill: true
                 },
-                scales: {
-                    y: {
-                        type: 'linear',
-                        display: true,
-                        position: 'left',
-                        title: { display: true, text: '지수' }
-                    },
-                    y1: {
-                        type: 'linear',
-                        display: true,
-                        position: 'right',
-                        title: { display: true, text: 'DD Count' },
-                        min: 0,
-                        max: 10,
-                        grid: { drawOnChartArea: false }
-                    }
+                {
+                    label: '200일선 상회 비율',
+                    data: data200ma,
+                    borderColor: '#22c55e',
+                    backgroundColor: 'rgba(34,197,94,0.1)',
+                    tension: 0.3,
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top' }
+            },
+            scales: {
+                y: {
+                    min: 0,
+                    max: 100,
+                    title: { display: true, text: '%' }
                 }
             }
-        });
-    } catch (error) {
-        console.error('[SignalHistory] error:', error);
-    }
+        }
+    });
 }
 
 // 해외시장 로드
