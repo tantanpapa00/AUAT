@@ -6685,7 +6685,111 @@ body {
    Phase 4: StockEasy 스타일 시장신호
    ===================================================== */
 
-/* 시장신호 헤더 (스탁이지 스타일) */
+/* 1행: 시장신호 + 신호등만 */
+.se-signal-row {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 12px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 12px;
+}
+
+/* 2행: KOSPI/KOSDAQ 카드 */
+.se-index-cards {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.se-index-card {
+    flex: 1;
+    background: #1e293b;
+    border-radius: 12px;
+    padding: 16px 20px;
+}
+
+.se-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.se-card-name {
+    font-size: 13px;
+    color: #9ca3af;
+}
+
+.se-card-change {
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.se-card-change.up { color: #ef4444; }
+.se-card-change.down { color: #3b82f6; }
+
+.se-card-body {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 12px;
+}
+
+.se-card-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+}
+
+.se-card-amount {
+    font-size: 14px;
+}
+
+.se-card-amount.up { color: #ef4444; }
+.se-card-amount.down { color: #3b82f6; }
+
+.se-card-stocks {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+}
+
+.se-card-stocks .up { color: #ef4444; }
+.se-card-stocks .neutral { color: #6b7280; }
+.se-card-stocks .down { color: #3b82f6; }
+
+.se-card-gauge {
+    flex: 1;
+    height: 4px;
+    background: #374151;
+    border-radius: 2px;
+    overflow: hidden;
+    display: flex;
+}
+
+.se-card-gauge .up-bar {
+    background: #ef4444;
+    height: 100%;
+}
+
+.se-card-gauge .down-bar {
+    background: #3b82f6;
+    height: 100%;
+    margin-left: auto;
+}
+
+/* 섹터 탭 그리드 */
+.se-sector-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+/* 기존 시장신호 헤더 (호환용) */
 .se-signal-header {
     display: flex;
     align-items: center;

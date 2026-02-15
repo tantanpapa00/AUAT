@@ -4955,10 +4955,10 @@ async function loadMarketKr() {
             active_dd_count: kosdaqSig.active_dd_count || 0
         };
 
-        // UI 렌더링 (StockEasy 스타일)
+        // UI 렌더링 (StockEasy 스타일 - 2행 구조)
         contentEl.innerHTML = `
-            <!-- 시장신호 헤더 (스탁이지 스타일) -->
-            <div class="se-signal-header">
+            <!-- 1행: 시장신호 + 신호등만 -->
+            <div class="se-signal-row">
                 <div class="se-signal-title" id="signal-toggle">
                     <span>시장신호</span>
                     <span class="toggle-arrow" id="signal-arrow">∧</span>
@@ -4981,61 +4981,68 @@ async function loadMarketKr() {
                         </div>
                     </div>
                 </div>
-                <div class="se-indices">
-                    <div class="se-index-item">
-                        <div class="se-index-name">KOSPI</div>
-                        <div class="se-index-value" id="se-kospi-value">${kospi.value?.toLocaleString() || '-'}</div>
-                        <div class="se-index-change ${(kospi.change_percent || 0) >= 0 ? 'up' : 'down'}" id="se-kospi-change">
+            </div>
+
+            <!-- 2행: KOSPI 카드 + KOSDAQ 카드 -->
+            <div class="se-index-cards">
+                <div class="se-index-card">
+                    <div class="se-card-header">
+                        <span class="se-card-name">KOSPI</span>
+                        <span class="se-card-change ${(kospi.change_percent || 0) >= 0 ? 'up' : 'down'}">
                             ${(kospi.change_percent || 0) >= 0 ? '+' : ''}${(kospi.change_percent || 0).toFixed(2)}%
-                        </div>
-                        <div class="se-index-amount ${(kospi.change_amount || 0) >= 0 ? 'up' : 'down'}" id="se-kospi-amount">
+                        </span>
+                    </div>
+                    <div class="se-card-body">
+                        <span class="se-card-value">${kospi.value?.toLocaleString() || '-'}</span>
+                        <span class="se-card-amount ${(kospi.change_amount || 0) >= 0 ? 'up' : 'down'}">
                             ${(kospi.change_amount || 0) >= 0 ? '▲' : '▼'}${Math.abs(kospi.change_amount || 0).toFixed(2)}
+                        </span>
+                    </div>
+                    <div class="se-card-stocks">
+                        <span class="up">▲${kospi.rising_stocks || 0}</span>
+                        <span class="neutral">${kospi.unchanged_stocks || 0}</span>
+                        <span class="down">▼${kospi.falling_stocks || 0}</span>
+                        <div class="se-card-gauge">
+                            <div class="up-bar" style="width: ${getGaugePercent(kospi, 'up')}%"></div>
+                            <div class="down-bar" style="width: ${getGaugePercent(kospi, 'down')}%"></div>
                         </div>
                     </div>
-                    <div class="se-index-item">
-                        <div class="se-index-name">KOSDAQ</div>
-                        <div class="se-index-value" id="se-kosdaq-value">${kosdaq.value?.toLocaleString() || '-'}</div>
-                        <div class="se-index-change ${(kosdaq.change_percent || 0) >= 0 ? 'up' : 'down'}" id="se-kosdaq-change">
+                </div>
+                <div class="se-index-card">
+                    <div class="se-card-header">
+                        <span class="se-card-name">KOSDAQ</span>
+                        <span class="se-card-change ${(kosdaq.change_percent || 0) >= 0 ? 'up' : 'down'}">
                             ${(kosdaq.change_percent || 0) >= 0 ? '+' : ''}${(kosdaq.change_percent || 0).toFixed(2)}%
-                        </div>
-                        <div class="se-index-amount ${(kosdaq.change_amount || 0) >= 0 ? 'up' : 'down'}" id="se-kosdaq-amount">
+                        </span>
+                    </div>
+                    <div class="se-card-body">
+                        <span class="se-card-value">${kosdaq.value?.toLocaleString() || '-'}</span>
+                        <span class="se-card-amount ${(kosdaq.change_amount || 0) >= 0 ? 'up' : 'down'}">
                             ${(kosdaq.change_amount || 0) >= 0 ? '▲' : '▼'}${Math.abs(kosdaq.change_amount || 0).toFixed(2)}
+                        </span>
+                    </div>
+                    <div class="se-card-stocks">
+                        <span class="up">▲${kosdaq.rising_stocks || 0}</span>
+                        <span class="neutral">${kosdaq.unchanged_stocks || 0}</span>
+                        <span class="down">▼${kosdaq.falling_stocks || 0}</span>
+                        <div class="se-card-gauge">
+                            <div class="up-bar" style="width: ${getGaugePercent(kosdaq, 'up')}%"></div>
+                            <div class="down-bar" style="width: ${getGaugePercent(kosdaq, 'down')}%"></div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 종목 등락 게이지바 -->
-            <div class="se-stock-gauge">
-                <div class="se-gauge-item">
-                    <span class="up">▲${kospi.rising_stocks || 0}</span>
-                    <span class="neutral">${kospi.unchanged_stocks || 0}</span>
-                    <span class="down">▼${kospi.falling_stocks || 0}</span>
-                    <div class="se-gauge-bar">
-                        <div class="up-bar" style="width: ${getGaugePercent(kospi, 'up')}%"></div>
-                        <div class="down-bar" style="width: ${getGaugePercent(kospi, 'down')}%"></div>
-                    </div>
-                </div>
-                <div class="se-gauge-item">
-                    <span class="up">▲${kosdaq.rising_stocks || 0}</span>
-                    <span class="neutral">${kosdaq.unchanged_stocks || 0}</span>
-                    <span class="down">▼${kosdaq.falling_stocks || 0}</span>
-                    <div class="se-gauge-bar">
-                        <div class="up-bar" style="width: ${getGaugePercent(kosdaq, 'up')}%"></div>
-                        <div class="down-bar" style="width: ${getGaugePercent(kosdaq, 'down')}%"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 신호 설명 (접기 가능) -->
+            <!-- 3행: 신호 설명 (접기 가능) -->
             <div class="se-signal-desc" id="signal-desc">
                 <p>시장 신호는 신호등 색상으로 현재 시장의 상태를 나타냅니다: (🟢 양호, 🟡 주의, 🔴 매우주의).</p>
-                <p>단기/장기 신호는 각각 단기적, 장기적 관점에서의 시장 흐름을 보여주는 지표로 해석할 수 있습니다.</p>
+                <p>단기/장기 신호는 각각 단기적, 장기적 관점에서의 시장 흐름을 보여주는 지표입니다.</p>
             </div>
 
-            <!-- 서브탭: 시장지표 | 추세유지 | 신용잔고 -->
+            <!-- 4행: 서브탭 (시장지표 | 섹터 | 추세유지 | 신용잔고) -->
             <div class="se-subtabs">
                 <button class="se-subtab active" data-tab="market-indicators">시장지표</button>
+                <button class="se-subtab" data-tab="sector">섹터</button>
                 <button class="se-subtab" data-tab="trend-maintain">추세유지</button>
                 <button class="se-subtab" data-tab="credit-balance">신용잔고</button>
             </div>
@@ -5105,10 +5112,19 @@ async function loadMarketKr() {
                     </div>
                 </div>
 
-                <!-- 섹터 리스트 -->
-                <div class="se-sector-section card">
-                    <h3>주도 섹터 TOP 5</h3>
-                    <div class="sector-list" id="kr-sector-list"></div>
+            </div>
+
+            <!-- 섹터 탭 -->
+            <div class="se-tab-content" id="tab-sector" style="display:none;">
+                <div class="se-sector-grid">
+                    <div class="card">
+                        <h3>🔥 주도 섹터 TOP 10</h3>
+                        <div class="sector-list" id="kr-leading-sectors"></div>
+                    </div>
+                    <div class="card">
+                        <h3>📉 약세 섹터 TOP 10</h3>
+                        <div class="sector-list" id="kr-weak-sectors"></div>
+                    </div>
                 </div>
             </div>
 
@@ -5162,9 +5178,11 @@ async function loadMarketKr() {
                 const tabId = e.target.dataset.tab;
                 document.querySelectorAll('.se-tab-content').forEach(c => c.style.display = 'none');
                 document.getElementById('tab-' + tabId).style.display = 'block';
-                // 추세유지 탭 클릭 시 데이터 로드
+                // 탭 클릭 시 데이터 로드
                 if (tabId === 'trend-maintain') {
                     loadTrendMaintainData();
+                } else if (tabId === 'sector') {
+                    loadSectorData();
                 }
             });
         });
@@ -5386,6 +5404,49 @@ async function loadTrendMaintainData() {
     } catch (error) {
         console.error('[loadTrendMaintainData] error:', error);
         tbody.innerHTML = `<tr><td colspan="6" class="error-cell">데이터 로드 실패: ${error?.message || error}</td></tr>`;
+    }
+}
+
+// 섹터 데이터 로드
+async function loadSectorData() {
+    const leadingEl = document.getElementById('kr-leading-sectors');
+    const weakEl = document.getElementById('kr-weak-sectors');
+    if (!leadingEl || !weakEl) return;
+
+    leadingEl.innerHTML = '<div class="loading-state">로딩 중...</div>';
+    weakEl.innerHTML = '<div class="loading-state">로딩 중...</div>';
+
+    try {
+        const data = await invokeWithTimeout('get_market_sectors', { accessToken: auth.accessToken || '' }, 10000);
+        console.log('[loadSectorData] data:', data);
+
+        const sectors = data?.sectors || data || [];
+        if (!sectors.length) {
+            leadingEl.innerHTML = '<div class="empty-state">섹터 데이터 없음</div>';
+            weakEl.innerHTML = '<div class="empty-state">섹터 데이터 없음</div>';
+            return;
+        }
+
+        // 등락률 기준 정렬
+        const sorted = [...sectors].sort((a, b) => (b.change_percent || 0) - (a.change_percent || 0));
+        const leading = sorted.slice(0, 10);
+        const weak = sorted.slice(-10).reverse();
+
+        const renderSector = (s) => `
+            <div class="sector-item">
+                <span class="sector-name">${s.name}</span>
+                <span class="sector-change ${(s.change_percent || 0) >= 0 ? 'profit' : 'loss'}">
+                    ${(s.change_percent || 0) >= 0 ? '+' : ''}${(s.change_percent || 0).toFixed(2)}%
+                </span>
+            </div>
+        `;
+
+        leadingEl.innerHTML = leading.map(renderSector).join('');
+        weakEl.innerHTML = weak.map(renderSector).join('');
+    } catch (error) {
+        console.error('[loadSectorData] error:', error);
+        leadingEl.innerHTML = `<div class="error-state">${error?.message || error}</div>`;
+        weakEl.innerHTML = '';
     }
 }
 
