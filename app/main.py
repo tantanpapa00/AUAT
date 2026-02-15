@@ -12283,21 +12283,21 @@ async def get_market_sector_stocks(
             resp.encoding = "euc-kr"
             soup = BeautifulSoup(resp.text, "lxml")
 
-            # 종목 테이블 파싱
+            # 종목 테이블 파싱 (열 순서: 종목명, 현재가, 전일비, 등락률, 매수호가, 매도호가, 거래량, 거래대금)
             stocks = []
             rows = soup.select("table.type_5 tbody tr")
             for row in rows:
                 cells = row.select("td")
-                if len(cells) >= 10:
+                if len(cells) >= 8:
                     name_el = cells[0].select_one("a")
                     if name_el:
                         name = name_el.get_text(strip=True)
                         try:
-                            # 등락률 (4번째 열)
+                            # 등락률 (index 3)
                             change_str = cells[3].get_text(strip=True).replace("%", "").replace("+", "").replace(",", "")
                             change = float(change_str) if change_str else 0
-                            # 거래대금 (10번째 열, 백만원 단위)
-                            vol_str = cells[9].get_text(strip=True).replace(",", "")
+                            # 거래대금 (index 7, 백만원 단위)
+                            vol_str = cells[7].get_text(strip=True).replace(",", "")
                             vol = int(vol_str) if vol_str.isdigit() else 0
                             stocks.append({"name": name, "change": change, "volume": vol})
                         except:
