@@ -205,16 +205,27 @@ def update_big_picture_status(
 # ============================================
 # 단기 신호 계산
 # ============================================
-def calc_short_term_signal(today: MarketData) -> str:
+def calc_short_term_signal(today: MarketData, big_picture_status: str = None) -> str:
     """
-    단기 신호 (당일 기준):
+    단기 신호 (Big Picture 상태 기반 - 스탁이지 방식):
 
-    green:  상승종목비율 > 55% AND 등락률 > 0
-    red:    상승종목비율 < 40% AND 등락률 < -1%
-    yellow: 그 외
+    green:  confirmed_uptrend 또는 uptrend_under_pressure
+    yellow: rally_attempt
+    red:    market_in_correction
+
+    스탁이지와 동일한 로직: Big Picture 상태에 따라 신호 결정
 
     Returns: 'green' | 'yellow' | 'red'
     """
+    # Big Picture 상태 기반 신호 결정 (스탁이지 방식)
+    if big_picture_status in ('confirmed_uptrend', 'uptrend_under_pressure'):
+        return 'green'
+    elif big_picture_status == 'rally_attempt':
+        return 'yellow'
+    elif big_picture_status == 'market_in_correction':
+        return 'red'
+
+    # Big Picture 상태가 없으면 일일 데이터 기반 (fallback)
     total = today.rising_stocks + today.falling_stocks
     if total == 0:
         return 'yellow'
@@ -321,8 +332,8 @@ def update_market_signal(
         rally_day_count = 0
         last_ftd_date = today_date_obj
 
-    # 5. 단기/장기 신호 계산
-    short_term = calc_short_term_signal(today_data)
+    # 5. 단기/장기 신호 계산 (Big Picture 상태 기반)
+    short_term = calc_short_term_signal(today_data, new_status)
     long_term = calc_long_term_signal(new_status)
 
     # 6. 결과 반환
