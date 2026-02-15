@@ -11209,14 +11209,24 @@ async def get_market_signal(
     - long_term_signal: 장기 신호 (G/Y/R)
     - Big Picture 상태
     - Distribution Day 정보
+    - 실시간 데이터 (index_value, rising_stocks, falling_stocks)
     """
     from .market_analysis.signal_engine import BIG_PICTURE_CONFIG
+    from .market_analysis.data_collector import get_market_summary
+    from datetime import datetime
 
     result = {
         "kospi": None,
         "kosdaq": None,
         "updated_at": None
     }
+
+    # 1. 실시간 데이터 가져오기 (rising/falling stocks, index value)
+    realtime_data = {}
+    try:
+        realtime_data = await get_market_summary()
+    except Exception as e:
+        print(f"[API] 실시간 데이터 조회 오류: {e}")
 
     try:
         for market in ["KOSPI", "KOSDAQ"]:
@@ -11238,23 +11248,27 @@ async def get_market_signal(
                 {"market": market}
             ).fetchone()
 
+            # 실시간 데이터 (있으면 DB 값 덮어쓰기)
+            rt = realtime_data.get(market.lower(), {})
+
             if row:
                 status = row.status or 'confirmed_uptrend'
                 config = BIG_PICTURE_CONFIG.get(status, BIG_PICTURE_CONFIG['confirmed_uptrend'])
 
                 result[market.lower()] = {
                     "date": row.date.strftime("%Y-%m-%d") if row.date else None,
-                    "index_value": row.index_value,
-                    "change_amount": row.change_amount,
-                    "change_percent": row.change_percent,
-                    "trading_volume": row.trading_volume,
-                    "trading_value": row.trading_value,
-                    "rising_stocks": row.rising_stocks,
-                    "falling_stocks": row.falling_stocks,
-                    "unchanged_stocks": row.unchanged_stocks,
-                    "upper_limit_stocks": row.upper_limit_stocks,
-                    "lower_limit_stocks": row.lower_limit_stocks,
-                    "listed_stocks": row.listed_stocks,
+                    # 실시간 데이터 우선, 없으면 DB 값 사용
+                    "index_value": rt.get("index_value") or row.index_value,
+                    "change_amount": rt.get("change_amount") if rt.get("change_amount") is not None else row.change_amount,
+                    "change_percent": rt.get("change_percent") if rt.get("change_percent") is not None else row.change_percent,
+                    "trading_volume": rt.get("trading_volume") or row.trading_volume,
+                    "trading_value": rt.get("trading_value") or row.trading_value,
+                    "rising_stocks": rt.get("rising_stocks") or row.rising_stocks,
+                    "falling_stocks": rt.get("falling_stocks") or row.falling_stocks,
+                    "unchanged_stocks": rt.get("unchanged_stocks") or row.unchanged_stocks,
+                    "upper_limit_stocks": rt.get("upper_limit_stocks") or row.upper_limit_stocks,
+                    "lower_limit_stocks": rt.get("lower_limit_stocks") or row.lower_limit_stocks,
+                    "listed_stocks": rt.get("listed_stocks") or row.listed_stocks,
                     "status": status,
                     "status_label": config['label'],
                     "exposure": config['exposure'],
@@ -11267,13 +11281,47 @@ async def get_market_signal(
                     "last_ftd_date": row.last_ftd_date.strftime("%Y-%m-%d") if row.last_ftd_date else None,
                     "short_term_signal": row.short_term_signal,
                     "long_term_signal": row.long_term_signal,
-                    "foreign_net": row.foreign_net,
-                    "institution_net": row.institution_net,
-                    "individual_net": row.individual_net,
+                    # 투자자 동향도 실시간 데이터 우선
+                    "foreign_net": realtime_data.get("investors", {}).get("foreign") or row.foreign_net,
+                    "institution_net": realtime_data.get("investors", {}).get("institution") or row.institution_net,
+                    "individual_net": realtime_data.get("investors", {}).get("individual") or row.individual_net,
                 }
 
                 if not result["updated_at"] and row.date:
                     result["updated_at"] = row.date.strftime("%Y-%m-%d %H:%M")
+            elif rt:
+                # DB에 데이터 없지만 실시간 데이터는 있는 경우
+                config = BIG_PICTURE_CONFIG.get('confirmed_uptrend')
+                result[market.lower()] = {
+                    "date": datetime.now().strftime("%Y-%m-%d"),
+                    "index_value": rt.get("index_value", 0),
+                    "change_amount": rt.get("change_amount", 0),
+                    "change_percent": rt.get("change_percent", 0),
+                    "trading_volume": rt.get("trading_volume", 0),
+                    "trading_value": rt.get("trading_value", 0),
+                    "rising_stocks": rt.get("rising_stocks", 0),
+                    "falling_stocks": rt.get("falling_stocks", 0),
+                    "unchanged_stocks": rt.get("unchanged_stocks", 0),
+                    "upper_limit_stocks": rt.get("upper_limit_stocks", 0),
+                    "lower_limit_stocks": rt.get("lower_limit_stocks", 0),
+                    "listed_stocks": rt.get("listed_stocks", 0),
+                    "status": "confirmed_uptrend",
+                    "status_label": config['label'],
+                    "exposure": config['exposure'],
+                    "status_color": config['color'],
+                    "status_description": config['description'],
+                    "active_dd_count": 0,
+                    "distribution_days": [],
+                    "rally_start_date": None,
+                    "rally_day_count": 0,
+                    "last_ftd_date": None,
+                    "short_term_signal": "yellow",
+                    "long_term_signal": "green",
+                    "foreign_net": realtime_data.get("investors", {}).get("foreign", 0),
+                    "institution_net": realtime_data.get("investors", {}).get("institution", 0),
+                    "individual_net": realtime_data.get("investors", {}).get("individual", 0),
+                }
+                result["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     except Exception as e:
         print(f"[API] /api/market/signal 오류: {e}")
