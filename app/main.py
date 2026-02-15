@@ -11650,9 +11650,9 @@ async def init_market_signals(
                     change_amount = 0
                     change_percent = 0
 
-                # 거래대금 추정 (volume * 평균가격)
-                # 네이버 API는 거래량만 제공, 거래대금은 volume * close로 추정
-                trading_value = int(volume * close)
+                # 거래대금: 히스토리 API에서 제공하지 않음
+                # 실시간 스케줄러에서 채워넣으므로 0으로 설정
+                trading_value = 0
 
                 try:
                     date_obj = datetime.strptime(date_str, "%Y%m%d").date()
@@ -11670,8 +11670,8 @@ async def init_market_signals(
                                 index_value = :index_value,
                                 change_amount = :change_amount,
                                 change_percent = :change_percent,
-                                trading_volume = :volume,
-                                trading_value = :trading_value
+                                trading_volume = :volume
+                                -- trading_value는 스케줄러가 실시간으로 채우므로 덮어쓰지 않음
                         """),
                         {
                             "date": date_obj,

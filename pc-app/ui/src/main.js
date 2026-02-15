@@ -5315,7 +5315,7 @@ function formatTradingValueChange(current, prev) {
     if (diff > 0) {
         return `<span class="positive">+${diffStr} (+${pct}%)</span>`;
     } else if (diff < 0) {
-        return `<span class="negative">${diffStr.replace('-', '-')} (${pct}%)</span>`;
+        return `<span class="negative">-${diffStr} (${pct}%)</span>`;
     }
     return '';
 }
