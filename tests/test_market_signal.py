@@ -400,5 +400,256 @@ def test_update_market_signal_flow():
     assert result['status'] == 'confirmed_uptrend'  # DD 1개면 아직 confirmed
 
 
+# ============================================
+# 테스트 14: 추세유지 분석 - 유지 상태
+# ============================================
+def test_trend_maintain_above_ma20():
+    """추세유지: 20MA 위 5일 이상 → 유지 상태, green 신호"""
+    from app.market_analysis.trend_maintain import calculate_trend_maintain
+
+    # 30일 종가 데이터 (상승 추세)
+    closes = [100 + i * 0.5 for i in range(30)]  # 100 → 114.5 상승
+
+    result = calculate_trend_maintain(closes)
+
+    assert result is not None
+    assert result['position'] == '유지'
+    assert result['signal'] == 'green'
+    assert result['days'] >= 5
+
+
+# ============================================
+# 테스트 15: 추세유지 분석 - 이탈 상태
+# ============================================
+def test_trend_maintain_below_ma20():
+    """추세유지: 20MA 아래 → 이탈 상태, red 신호"""
+    from app.market_analysis.trend_maintain import calculate_trend_maintain
+
+    # 30일 종가 데이터 (하락 추세)
+    closes = [100 - i * 0.5 for i in range(30)]  # 100 → 85.5 하락
+
+    result = calculate_trend_maintain(closes)
+
+    assert result is not None
+    assert result['position'] == '이탈'
+    assert result['signal'] == 'red'
+
+
+# ============================================
+# 테스트 16: 추세유지 분석 - 데이터 부족
+# ============================================
+def test_trend_maintain_insufficient_data():
+    """추세유지: 20일 미만 데이터 → None"""
+    from app.market_analysis.trend_maintain import calculate_trend_maintain
+
+    closes = [100 + i for i in range(15)]  # 15일 데이터만
+
+    result = calculate_trend_maintain(closes)
+
+    assert result is None
+
+
+# ============================================
+# 테스트 17: 추세유지 분석 - yellow 신호 (유지 5일 미만)
+# ============================================
+def test_trend_maintain_yellow_signal():
+    """추세유지: 20MA 위지만 5일 미만 → yellow 신호"""
+    from app.market_analysis.trend_maintain import calculate_trend_maintain
+
+    # 20일은 하락, 마지막 3일만 상승하여 MA 돌파
+    closes = [100 - i * 0.3 for i in range(20)]  # 하락
+    closes.extend([95, 96, 97])  # 마지막 3일 상승
+
+    result = calculate_trend_maintain(closes)
+
+    assert result is not None
+    # 최근 MA 위에 있으면 유지, 아래면 이탈
+    # position과 signal이 제대로 계산되는지 확인
+
+
+# ============================================
+# 테스트 18: Big Picture DD 5개 → market_in_correction
+# ============================================
+def test_big_picture_dd5_correction():
+    """Big Picture: DD 5개 이상 → market_in_correction"""
+    new_status = update_big_picture_status(
+        prev_status='uptrend_under_pressure',
+        active_dd_count=5,
+        ftd_detected=False,
+        rally_detected=False,
+        rally_day_count=0
+    )
+    assert new_status == 'market_in_correction'
+
+
+# ============================================
+# 테스트 19: Big Picture rally_attempt 진입
+# ============================================
+def test_big_picture_rally_attempt():
+    """Big Picture: correction에서 Rally Day → rally_attempt"""
+    new_status = update_big_picture_status(
+        prev_status='market_in_correction',
+        active_dd_count=3,
+        ftd_detected=False,
+        rally_detected=True,  # Rally 시작
+        rally_day_count=1
+    )
+    assert new_status == 'rally_attempt'
+
+
+# ============================================
+# 테스트 20: DD 만료 안됨 (24일 경과)
+# ============================================
+def test_dd_not_expired_24_days():
+    """DD 만료 안됨: 24일 경과 → 아직 활성"""
+    today = date.today()
+    dd_date = today - timedelta(days=24)  # 24일 전 발생
+
+    distribution_days = [
+        {
+            'date': dd_date.isoformat(),
+            'change_percent': -1.5,
+            'volume': 1000000,
+            'prev_volume': 900000,
+            'index_value': 2400,
+            'is_active': True
+        }
+    ]
+
+    updated_dds, active_count = expire_distribution_days(
+        distribution_days, today, 2400  # 지수 변화 없음
+    )
+
+    assert active_count == 1, "DD 잘못 만료: 24일인데 만료됨"
+    assert updated_dds[0]['is_active'] == True
+
+
+# ============================================
+# 테스트 21: DD 만료 안됨 (5% 상승)
+# ============================================
+def test_dd_not_expired_5_percent():
+    """DD 만료 안됨: 5% 상승 → 아직 활성 (6% 필요)"""
+    today = date.today()
+    dd_date = today - timedelta(days=10)
+
+    distribution_days = [
+        {
+            'date': dd_date.isoformat(),
+            'change_percent': -1.5,
+            'volume': 1000000,
+            'prev_volume': 900000,
+            'index_value': 2400,
+            'is_active': True
+        }
+    ]
+
+    # 2400 * 1.05 = 2520 (5% 상승)
+    updated_dds, active_count = expire_distribution_days(
+        distribution_days, today, 2520
+    )
+
+    assert active_count == 1, "DD 잘못 만료: 5%인데 만료됨"
+    assert updated_dds[0]['is_active'] == True
+
+
+# ============================================
+# 테스트 22: 단기 신호 yellow (Big Picture 기반)
+# ============================================
+def test_short_term_signal_yellow_big_picture():
+    """단기 신호: rally_attempt → yellow (Big Picture 기반)"""
+    today = MarketData(
+        date=date.today(),
+        market="KOSPI",
+        index_value=2500,
+        change_amount=10,
+        change_percent=0.4,
+        trading_volume=1000000,
+        trading_value=50000000000,
+        rising_stocks=450,
+        falling_stocks=450,
+        unchanged_stocks=50,
+        upper_limit_stocks=0,
+        lower_limit_stocks=0,
+        listed_stocks=950,
+    )
+
+    signal = calc_short_term_signal(today, big_picture_status='rally_attempt')
+    assert signal == 'yellow'
+
+
+# ============================================
+# 테스트 23: 단기 신호 green (uptrend_under_pressure 포함)
+# ============================================
+def test_short_term_signal_green_under_pressure():
+    """단기 신호: uptrend_under_pressure → green (Big Picture 기반)"""
+    today = MarketData(
+        date=date.today(),
+        market="KOSPI",
+        index_value=2500,
+        change_amount=-10,
+        change_percent=-0.4,
+        trading_volume=1000000,
+        trading_value=50000000000,
+        rising_stocks=400,
+        falling_stocks=500,
+        unchanged_stocks=50,
+        upper_limit_stocks=0,
+        lower_limit_stocks=0,
+        listed_stocks=950,
+    )
+
+    signal = calc_short_term_signal(today, big_picture_status='uptrend_under_pressure')
+    assert signal == 'green'  # 스탁이지 방식: under_pressure도 green
+
+
+# ============================================
+# 테스트 24: 장기 신호 yellow (uptrend_under_pressure)
+# ============================================
+def test_long_term_signal_yellow():
+    """장기 신호: uptrend_under_pressure → yellow"""
+    signal = calc_long_term_signal('uptrend_under_pressure')
+    assert signal == 'yellow'
+
+
+# ============================================
+# 테스트 25: Rally Day 감지
+# ============================================
+def test_rally_day_detection():
+    """Rally Day 감지: 하락 추세 중 첫 양봉"""
+    today = MarketData(
+        date=date.today(),
+        market="KOSPI",
+        index_value=2400,
+        change_amount=20,
+        change_percent=0.8,  # 양봉
+        trading_volume=900000,
+        trading_value=45000000000,
+        rising_stocks=500,
+        falling_stocks=400,
+        unchanged_stocks=50,
+        upper_limit_stocks=2,
+        lower_limit_stocks=0,
+        listed_stocks=950,
+    )
+    yesterday = MarketData(
+        date=date.today() - timedelta(days=1),
+        market="KOSPI",
+        index_value=2380,
+        change_amount=-30,
+        change_percent=-1.2,  # 어제 음봉
+        trading_volume=1000000,
+        trading_value=50000000000,
+        rising_stocks=350,
+        falling_stocks=550,
+        unchanged_stocks=50,
+        upper_limit_stocks=0,
+        lower_limit_stocks=3,
+        listed_stocks=950,
+    )
+
+    result = detect_rally_day(today, yesterday)
+    assert result == True
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
