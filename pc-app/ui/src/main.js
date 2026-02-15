@@ -5033,9 +5033,10 @@ async function loadMarketKr() {
                 <p>단기/장기 신호는 각각 단기적, 장기적 관점에서의 시장 흐름을 보여주는 지표로 해석할 수 있습니다.</p>
             </div>
 
-            <!-- 서브탭: 시장지표 | 신용잔고 -->
+            <!-- 서브탭: 시장지표 | 추세유지 | 신용잔고 -->
             <div class="se-subtabs">
                 <button class="se-subtab active" data-tab="market-indicators">시장지표</button>
+                <button class="se-subtab" data-tab="trend-maintain">추세유지</button>
                 <button class="se-subtab" data-tab="credit-balance">신용잔고</button>
             </div>
 
@@ -5111,6 +5112,31 @@ async function loadMarketKr() {
                 </div>
             </div>
 
+            <!-- 추세유지 탭 -->
+            <div class="se-tab-content" id="tab-trend-maintain" style="display:none;">
+                <div class="card">
+                    <h3>섹터별 추세유지 (20MA 기준)</h3>
+                    <p class="trend-maintain-desc">20일 이동평균선 기준 추세 유지/이탈 분석</p>
+                    <div class="trend-maintain-table-wrap">
+                        <table class="trend-maintain-table" id="trend-maintain-table">
+                            <thead>
+                                <tr>
+                                    <th>섹터</th>
+                                    <th>ETF</th>
+                                    <th>신호</th>
+                                    <th>상태</th>
+                                    <th>이격도</th>
+                                    <th>수익률</th>
+                                </tr>
+                            </thead>
+                            <tbody id="trend-maintain-body">
+                                <tr><td colspan="6" class="loading-cell">데이터 로딩 중...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <!-- 신용잔고 탭 -->
             <div class="se-tab-content" id="tab-credit-balance" style="display:none;">
                 <div class="card">
@@ -5136,6 +5162,10 @@ async function loadMarketKr() {
                 const tabId = e.target.dataset.tab;
                 document.querySelectorAll('.se-tab-content').forEach(c => c.style.display = 'none');
                 document.getElementById('tab-' + tabId).style.display = 'block';
+                // 추세유지 탭 클릭 시 데이터 로드
+                if (tabId === 'trend-maintain') {
+                    loadTrendMaintainData();
+                }
             });
         });
 
@@ -5311,6 +5341,52 @@ async function loadMaRatioChart() {
             }
         }
     });
+}
+
+// 추세유지 데이터 로드
+async function loadTrendMaintainData() {
+    const tbody = document.getElementById('trend-maintain-body');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="6" class="loading-cell">데이터 로딩 중...</td></tr>';
+
+    try {
+        const data = await invokeWithTimeout('get_market_trend_maintain', { accessToken: auth.accessToken || '' }, 15000);
+        console.log('[loadTrendMaintainData] data:', data);
+
+        if (!data || !data.sectors || data.sectors.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">추세유지 데이터 없음</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.sectors.map(s => {
+            const signalColor = {
+                'green': '#22c55e',
+                'yellow': '#fde047',
+                'red': '#ef4444'
+            }[s.signal] || '#6b7280';
+
+            const positionClass = s.position === '유지' ? 'maintain' : 'depart';
+            const gapClass = s.gap_percent >= 0 ? 'positive' : 'negative';
+            const returnDisplay = s.return_since_entry != null ?
+                `<span class="${s.return_since_entry >= 0 ? 'profit' : 'loss'}">${s.return_since_entry >= 0 ? '+' : ''}${s.return_since_entry}%</span>` :
+                '-';
+
+            return `
+                <tr>
+                    <td class="sector-name">${s.sector}</td>
+                    <td class="etf-name">${s.name}</td>
+                    <td class="signal-cell"><span class="signal-dot" style="background:${signalColor}"></span></td>
+                    <td class="position-cell ${positionClass}">${s.position} ${s.days}일</td>
+                    <td class="gap-cell ${gapClass}">${s.gap_percent >= 0 ? '+' : ''}${s.gap_percent}%</td>
+                    <td class="return-cell">${returnDisplay}</td>
+                </tr>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('[loadTrendMaintainData] error:', error);
+        tbody.innerHTML = `<tr><td colspan="6" class="error-cell">데이터 로드 실패: ${error?.message || error}</td></tr>`;
+    }
 }
 
 // 해외시장 로드

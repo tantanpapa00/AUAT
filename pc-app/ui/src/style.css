@@ -7047,6 +7047,107 @@ body {
     margin-bottom: 16px;
 }
 
+/* 추세유지 탭 스타일 */
+.trend-maintain-desc {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+}
+
+.trend-maintain-table-wrap {
+    overflow-x: auto;
+}
+
+.trend-maintain-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.trend-maintain-table th {
+    background: var(--bg-light);
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+}
+
+.trend-maintain-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.trend-maintain-table tbody tr:hover {
+    background: var(--bg-light);
+}
+
+.trend-maintain-table .sector-name {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.trend-maintain-table .etf-name {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.trend-maintain-table .signal-cell {
+    text-align: center;
+}
+
+.trend-maintain-table .signal-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    box-shadow: 0 0 6px rgba(0,0,0,0.2);
+}
+
+.trend-maintain-table .position-cell {
+    font-weight: 500;
+}
+
+.trend-maintain-table .position-cell.maintain {
+    color: #22c55e;
+}
+
+.trend-maintain-table .position-cell.depart {
+    color: #ef4444;
+}
+
+.trend-maintain-table .gap-cell {
+    font-weight: 500;
+}
+
+.trend-maintain-table .gap-cell.positive {
+    color: #ef4444;
+}
+
+.trend-maintain-table .gap-cell.negative {
+    color: #3b82f6;
+}
+
+.trend-maintain-table .return-cell .profit {
+    color: #ef4444;
+}
+
+.trend-maintain-table .return-cell .loss {
+    color: #3b82f6;
+}
+
+.trend-maintain-table .loading-cell,
+.trend-maintain-table .empty-cell,
+.trend-maintain-table .error-cell {
+    text-align: center;
+    padding: 24px;
+    color: var(--text-muted);
+}
+
+.trend-maintain-table .error-cell {
+    color: #ef4444;
+}
+
 /* 반응형 StockEasy 스타일 */
 @media (max-width: 768px) {
     .se-signal-header {
