@@ -5906,7 +5906,7 @@ async function loadSectorData() {
     }
 }
 
-// 섹터 항목 렌더링 (클릭 가능)
+// 섹터 항목 렌더링 (클릭 가능) - 이름 좌측, 등락률+화살표 우측
 function renderSectorItem(s, type, idx) {
     const changeClass = (s.change_percent || 0) >= 0 ? 'profit' : 'loss';
     const sign = (s.change_percent || 0) >= 0 ? '+' : '';
@@ -5914,14 +5914,24 @@ function renderSectorItem(s, type, idx) {
         <div class="sector-item clickable" data-sector="${s.name}" data-type="${type}" data-idx="${idx}">
             <div class="sector-header">
                 <span class="sector-name">${s.name}</span>
-                <span class="sector-change ${changeClass}">
-                    ${sign}${(s.change_percent || 0).toFixed(2)}%
+                <span class="sector-right">
+                    <span class="sector-change ${changeClass}">${sign}${(s.change_percent || 0).toFixed(2)}%</span>
+                    <span class="sector-arrow">▼</span>
                 </span>
-                <span class="sector-arrow">▼</span>
             </div>
             <div class="sector-detail" id="sector-detail-${type}-${idx}" style="display:none;"></div>
         </div>
     `;
+}
+
+// 섹터 거래대금 포맷 (백만원 → 억원)
+function formatSectorTradingValue(val) {
+    if (!val) return '-';
+    const billions = val / 100;  // 백만원 → 억원
+    if (billions >= 10000) {
+        return (billions / 10000).toFixed(1) + '조';
+    }
+    return Math.round(billions).toLocaleString() + '억';
 }
 
 // 섹터 클릭 이벤트 연결
@@ -5989,7 +5999,7 @@ function renderSectorDetail(data, type) {
         if (data.top_volume?.length) {
             html += '<div class="detail-section"><div class="detail-title">💰 거래대금 TOP</div>';
             data.top_volume.slice(0, 3).forEach((s, i) => {
-                const vol = formatTradingValue(s.trading_value || 0);
+                const vol = formatSectorTradingValue(s.trading_value || 0);
                 html += `<div class="detail-row"><span class="rank">${i+1}.</span> <span class="name">${s.name}</span> <span class="value">${vol}</span></div>`;
             });
             html += '</div>';
@@ -6011,16 +6021,6 @@ function renderSectorDetail(data, type) {
 
     html += '</div>';
     return html;
-}
-
-// 거래대금 포맷 (백만원 → 억원)
-function formatTradingValue(val) {
-    if (!val) return '-';
-    const billions = val / 100;  // 백만원 → 억원
-    if (billions >= 1000) {
-        return (billions / 10000).toFixed(1) + '조';
-    }
-    return Math.round(billions).toLocaleString() + '억';
 }
 
 // 해외시장 로드

@@ -4042,7 +4042,7 @@ pub async fn get_market_rs_ranking(
     }
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub async fn get_market_sector_stocks(
     access_token: String,
     sector_name: String,
