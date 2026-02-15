@@ -6719,8 +6719,9 @@ body {
 }
 
 .se-card-name {
-    font-size: 13px;
-    color: #9ca3af;
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
 }
 
 .se-card-change {
@@ -6751,19 +6752,13 @@ body {
 .se-card-amount.up { color: #ef4444; }
 .se-card-amount.down { color: #3b82f6; }
 
-.se-card-stocks {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 13px;
+/* 게이지바 래퍼 */
+.se-card-gauge-wrap {
+    margin-bottom: 8px;
 }
 
-.se-card-stocks .up { color: #ef4444; }
-.se-card-stocks .neutral { color: #6b7280; }
-.se-card-stocks .down { color: #3b82f6; }
-
 .se-card-gauge {
-    flex: 1;
+    width: 100%;
     height: 4px;
     background: #374151;
     border-radius: 2px;
@@ -6776,11 +6771,27 @@ body {
     height: 100%;
 }
 
+.se-card-gauge .neutral-bar {
+    background: #6b7280;
+    height: 100%;
+}
+
 .se-card-gauge .down-bar {
     background: #3b82f6;
     height: 100%;
-    margin-left: auto;
 }
+
+/* 종목수 (게이지바 아래) */
+.se-card-stocks {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 12px;
+}
+
+.se-card-stocks .up { color: #ef4444; }
+.se-card-stocks .neutral { color: #6b7280; }
+.se-card-stocks .down { color: #3b82f6; }
 
 /* 섹터 탭 그리드 */
 .se-sector-grid {

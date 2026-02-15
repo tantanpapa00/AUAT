@@ -4998,14 +4998,17 @@ async function loadMarketKr() {
                             ${(kospi.change_amount || 0) >= 0 ? '▲' : '▼'}${Math.abs(kospi.change_amount || 0).toFixed(2)}
                         </span>
                     </div>
+                    <div class="se-card-gauge-wrap">
+                        <div class="se-card-gauge">
+                            <div class="up-bar" style="width: ${getGaugePercent(kospi, 'up')}%"></div>
+                            <div class="neutral-bar" style="width: ${getGaugePercent(kospi, 'neutral')}%"></div>
+                            <div class="down-bar" style="width: ${getGaugePercent(kospi, 'down')}%"></div>
+                        </div>
+                    </div>
                     <div class="se-card-stocks">
                         <span class="up">▲${kospi.rising_stocks || 0}</span>
                         <span class="neutral">${kospi.unchanged_stocks || 0}</span>
                         <span class="down">▼${kospi.falling_stocks || 0}</span>
-                        <div class="se-card-gauge">
-                            <div class="up-bar" style="width: ${getGaugePercent(kospi, 'up')}%"></div>
-                            <div class="down-bar" style="width: ${getGaugePercent(kospi, 'down')}%"></div>
-                        </div>
                     </div>
                 </div>
                 <div class="se-index-card">
@@ -5021,14 +5024,17 @@ async function loadMarketKr() {
                             ${(kosdaq.change_amount || 0) >= 0 ? '▲' : '▼'}${Math.abs(kosdaq.change_amount || 0).toFixed(2)}
                         </span>
                     </div>
+                    <div class="se-card-gauge-wrap">
+                        <div class="se-card-gauge">
+                            <div class="up-bar" style="width: ${getGaugePercent(kosdaq, 'up')}%"></div>
+                            <div class="neutral-bar" style="width: ${getGaugePercent(kosdaq, 'neutral')}%"></div>
+                            <div class="down-bar" style="width: ${getGaugePercent(kosdaq, 'down')}%"></div>
+                        </div>
+                    </div>
                     <div class="se-card-stocks">
                         <span class="up">▲${kosdaq.rising_stocks || 0}</span>
                         <span class="neutral">${kosdaq.unchanged_stocks || 0}</span>
                         <span class="down">▼${kosdaq.falling_stocks || 0}</span>
-                        <div class="se-card-gauge">
-                            <div class="up-bar" style="width: ${getGaugePercent(kosdaq, 'up')}%"></div>
-                            <div class="down-bar" style="width: ${getGaugePercent(kosdaq, 'down')}%"></div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -5157,7 +5163,7 @@ async function loadMarketKr() {
             <div class="se-tab-content" id="tab-credit-balance" style="display:none;">
                 <div class="card">
                     <h3>신용잔고</h3>
-                    <p class="empty-state">신용잔고 데이터 준비 중...</p>
+                    <p class="empty-state">추후 업데이트 예정</p>
                 </div>
             </div>
         `;
@@ -5261,6 +5267,7 @@ function getGaugePercent(data, type) {
     const total = (data.rising_stocks || 0) + (data.falling_stocks || 0) + (data.unchanged_stocks || 0);
     if (total === 0) return 0;
     if (type === 'up') return ((data.rising_stocks || 0) / total * 100).toFixed(1);
+    if (type === 'neutral') return ((data.unchanged_stocks || 0) / total * 100).toFixed(1);
     if (type === 'down') return ((data.falling_stocks || 0) / total * 100).toFixed(1);
     return 0;
 }
@@ -5369,15 +5376,17 @@ async function loadTrendMaintainData() {
     tbody.innerHTML = '<tr><td colspan="6" class="loading-cell">데이터 로딩 중...</td></tr>';
 
     try {
-        const data = await invokeWithTimeout('get_market_trend_maintain', { accessToken: auth.accessToken || '' }, 15000);
-        console.log('[loadTrendMaintainData] data:', data);
+        const response = await invokeWithTimeout('get_market_trend_maintain', { accessToken: auth.accessToken || '' }, 15000);
+        console.log('[loadTrendMaintainData] response:', response);
 
-        if (!data || !data.sectors || data.sectors.length === 0) {
+        // API returns { success: true, data: [...] }
+        const sectors = response?.data || response?.sectors || [];
+        if (!sectors || sectors.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">추세유지 데이터 없음</td></tr>';
             return;
         }
 
-        tbody.innerHTML = data.sectors.map(s => {
+        tbody.innerHTML = sectors.map(s => {
             const signalColor = {
                 'green': '#22c55e',
                 'yellow': '#fde047',
