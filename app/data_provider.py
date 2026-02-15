@@ -114,7 +114,7 @@ async def get_kr_market_overview():
             except Exception as e:
                 print(f"[DataProvider] Investor error: {e}")
 
-            # 업종별 현황 (HTML 파싱)
+            # 업종별 현황 (HTML 파싱) - 전체 섹터 반환 (상승+하락 모두)
             try:
                 r = await client.get("https://finance.naver.com/sise/sise_group.naver?type=upjong")
                 if r.status_code == 200:
@@ -128,14 +128,17 @@ async def get_kr_market_overview():
                             name_el = cells[0].select_one("a")
                             if name_el:
                                 name = name_el.get_text(strip=True)
-                                change_pct_str = cells[1].get_text(strip=True).replace("%", "").replace("+", "")
+                                # 등락률 파싱: +, - 부호 유지
+                                change_pct_str = cells[1].get_text(strip=True).replace("%", "").replace("+", "").strip()
                                 try:
                                     change_val = float(change_pct_str) if change_pct_str else 0
                                     sectors.append({"name": name, "change_percent": change_val, "volume": 0})
                                 except:
                                     pass
+                    # 전체 섹터 반환 (등락률 순 정렬)
                     sectors.sort(key=lambda x: x["change_percent"], reverse=True)
-                    result["sectors"] = sectors[:15]
+                    result["sectors"] = sectors  # 전체 반환 (상위 15개 제한 제거)
+                    print(f"[DataProvider] 섹터 {len(sectors)}개 로드 (양수: {len([s for s in sectors if s['change_percent'] > 0])}, 음수: {len([s for s in sectors if s['change_percent'] < 0])})")
             except Exception as e:
                 print(f"[DataProvider] Sectors error: {e}")
 
