@@ -5753,8 +5753,8 @@ async function loadTrendMaintainData() {
     tbody.innerHTML = '<tr><td colspan="6" class="loading-cell">데이터 로딩 중...</td></tr>';
 
     try {
-        // 섹터분석 API 호출 (추세유지 + 대표종목 RS 포함)
-        const response = await invokeWithTimeout('get_market_sector_analysis', { accessToken: auth.accessToken || '' }, 60000);
+        // 추세유지 API 호출 (대표종목 RS는 DB 연동 후 추가)
+        const response = await invokeWithTimeout('get_market_trend_maintain', { accessToken: auth.accessToken || '' }, 30000);
         console.log('[loadTrendMaintainData] response:', response);
 
         // API returns { success: true, data: [...] }
@@ -5764,7 +5764,16 @@ async function loadTrendMaintainData() {
             return;
         }
 
-        trendMaintainData = sectors;
+        // 데이터 필드명 매핑 (trend-maintain API -> sector-analysis 형식)
+        trendMaintainData = sectors.map(s => ({
+            sector: s.sector || '',
+            change_percent: s.change_percent || 0,
+            position: s.position || '',
+            position_days: s.days || 0,
+            gap_percent: s.gap_percent || 0,
+            signal: s.signal || 'green',
+            top_stocks: s.top_stocks || [],  // 추후 RS 추가
+        }));
         renderTrendMaintainTable();
 
         // 컬럼 헤더 정렬 이벤트
