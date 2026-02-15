@@ -11555,12 +11555,12 @@ async def init_market_breadth(
             below_ma20 = base_ma20 + adjustment_ma20 + noise
             below_ma20 = max(0.30, min(0.70, below_ma20))
 
-            # MA200 하락비율 (기준: 50%, 매우 약한 조정)
-            # 지수가 MA200 위 15%여도 46% 정도 유지
-            base_ma200 = 0.50
-            adjustment_ma200 = -pct_from_ma200 * 0.4  # 지수 1% 변화당 0.4% 조정
+            # MA200 하락비율 (기준: 52%, 극히 약한 조정)
+            # 지수가 MA200 위 30%여도 45% 정도 유지 (실제 개별종목 분포 반영)
+            base_ma200 = 0.52
+            adjustment_ma200 = -pct_from_ma200 * 0.25  # 지수 10% 변화당 2.5% 조정
             below_ma200 = base_ma200 + adjustment_ma200 + noise
-            below_ma200 = max(0.38, min(0.68, below_ma200))
+            below_ma200 = max(0.40, min(0.65, below_ma200))
 
             # DB 저장 (upsert)
             try:
