@@ -155,6 +155,7 @@ fn main() {
             commands::get_market_big_picture,
             commands::get_market_signal_history,
             commands::get_market_breadth_data,
+            commands::get_market_breadth_with_index,
             commands::get_market_investors_data,
             commands::get_market_trading_value_data,
             commands::get_market_trend_maintain,

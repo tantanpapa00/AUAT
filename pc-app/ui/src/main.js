@@ -5337,18 +5337,11 @@ async function loadMaRatioChart() {
 
     try {
         // API에서 데이터 가져오기
-        const response = await invokeWithTimeout('fetch_url', {
-            url: `${API_BASE}/api/market/breadth-with-index?days=250&market=KOSPI`,
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' }
+        const data = await invokeWithTimeout('get_market_breadth_with_index', {
+            accessToken: auth.accessToken || '',
+            days: 250,
+            market: 'KOSPI'
         }, 30000);
-
-        let data;
-        if (typeof response === 'string') {
-            data = JSON.parse(response);
-        } else {
-            data = response;
-        }
 
         console.log('[loadMaRatioChart] API 응답:', data);
 
@@ -5517,23 +5510,11 @@ async function loadMaRatioChart() {
     }
 }
 
-// Breadth 데이터 초기화
+// Breadth 데이터 초기화 (서버에서 수동 초기화 필요)
 async function initBreadthData() {
-    console.log('[initBreadthData] 데이터 초기화 시작...');
-    try {
-        const response = await invokeWithTimeout('fetch_url', {
-            url: `${API_BASE}/api/market/breadth/init?days=400&market=KOSPI`,
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        }, 60000);
-
-        console.log('[initBreadthData] 초기화 응답:', response);
-
-        // 초기화 후 차트 다시 로드
-        setTimeout(() => loadMaRatioChart(), 1000);
-    } catch (error) {
-        console.error('[initBreadthData] 초기화 오류:', error);
-    }
+    console.warn('[initBreadthData] Breadth 데이터가 없습니다. 서버에서 POST /api/market/breadth/init 를 실행해주세요.');
+    // 데이터가 이미 VPS에 초기화되어 있으므로 재시도
+    setTimeout(() => loadMaRatioChart(), 3000);
 }
 
 // 추세유지 데이터 로드

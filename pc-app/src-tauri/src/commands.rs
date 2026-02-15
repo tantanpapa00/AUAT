@@ -3927,6 +3927,41 @@ pub async fn get_market_breadth_data(
 }
 
 #[tauri::command]
+pub async fn get_market_breadth_with_index(
+    access_token: String,
+    days: Option<i32>,
+    market: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .map_err(|e| format!("HTTP client error: {}", e))?;
+
+    let days_param = days.unwrap_or(250);
+    let market_param = market.unwrap_or_else(|| "KOSPI".to_string());
+    let url = format!(
+        "{}/api/market/breadth-with-index?days={}&market={}",
+        VPS_SERVER_URL, days_param, market_param
+    );
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(30))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else {
+        let status = resp.status();
+        let error_text = resp.text().await.unwrap_or_default();
+        Err(format!("Breadth 조회 실패 ({}): {}", status, error_text))
+    }
+}
+
+#[tauri::command]
 pub async fn get_market_trend_maintain(access_token: String) -> Result<serde_json::Value, String> {
     let client = reqwest::Client::builder()
         .danger_accept_invalid_certs(true)
