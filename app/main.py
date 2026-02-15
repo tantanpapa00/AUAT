@@ -12218,10 +12218,10 @@ async def get_market_sector_stocks(
 ):
     """
     섹터별 종목 상세 (등락률 TOP, 거래대금 TOP, 하락률 TOP)
+    네이버 업종 페이지 직접 파싱
     """
     import httpx
     from bs4 import BeautifulSoup
-    import re
 
     result = {
         "success": True,
@@ -12231,89 +12231,101 @@ async def get_market_sector_stocks(
         "top_volume": [],
     }
 
-    try:
-        # 네이버 업종별 종목 페이지 파싱
-        # 업종명 → 업종코드 매핑 (네이버 기준)
-        sector_codes = {
-            "증권": "securities",
-            "보험": "insurance",
-            "은행": "banks",
-            "금융": "finance",
-            "반도체": "semicon",
-            "자동차": "automobile",
-            "바이오": "bio",
-            "제약": "pharmaceutical",
-            "건설": "construction",
-            "조선": "shipbuilding",
-            "철강": "steel",
-            "화학": "chemical",
-            "에너지": "energy",
-            "통신": "telecom",
-            "미디어": "media",
-            "게임": "game",
-            "엔터": "entertainment",
-            "운송": "transport",
-            "유통": "retail",
-            "음식료": "food",
-        }
+    # 네이버 업종코드 매핑 (전체 79개)
+    sector_codes = {
+        "증권": 321, "무선통신서비스": 333, "항공사": 305, "기타금융": 319,
+        "다각화된소비자서비스": 339, "건강관리업체및서비스": 316, "창업투자": 277,
+        "가구": 303, "카드": 337, "생명보험": 330, "담배": 275, "건축자재": 289,
+        "반도체와반도체장비": 278, "전문소매": 328, "부동산": 280,
+        "다각화된통신서비스": 336, "에너지장비및서비스": 295, "인터넷과카탈로그소매": 308,
+        "운송인프라": 296, "가스유틸리티": 312, "컴퓨터와주변기기": 293, "광고": 310,
+        "해운사": 323, "음료": 309, "가정용기기와용품": 298, "식품과기본식료품소매": 302,
+        "판매업체": 265, "방송과엔터테인먼트": 285, "석유와가스": 313,
+        "호텔,레스토랑,레저": 317, "전기유틸리티": 325, "소프트웨어": 287,
+        "기계": 299, "건설": 279, "도로와철도운송": 329, "조선": 291,
+        "우주항공과국방": 284, "종이와목재": 318, "레저용장비와제품": 271,
+        "제약": 261, "가정용품": 297, "식품": 268, "상업서비스와공급품": 324,
+        "백화점과일반상점": 264, "화장품": 266, "기타": 25, "섬유,의류,신발,호화품": 274,
+        "포장재": 311, "생명과학도구및서비스": 262, "은행": 301, "자동차": 273,
+        "통신장비": 294, "교육서비스": 290, "건강관리기술": 288, "철강": 304,
+        "전기장비": 306, "건강관리장비와용품": 281, "자동차부품": 270,
+        "게임엔터테인먼트": 263, "출판": 314, "문구류": 332, "양방향미디어와서비스": 300,
+        "복합유틸리티": 331, "디스플레이장비및부품": 269, "손해보험": 315,
+        "건축제품": 320, "사무용전자제품": 338, "항공화물운송과물류": 326,
+        "화학": 272, "복합기업": 276, "디스플레이패널": 327, "IT서비스": 267,
+        "핸드셋": 292, "생물공학": 286, "전자장비와기기": 282, "비철금속": 322,
+        "전자제품": 307, "무역회사와판매업체": 334, "전기제품": 283,
+    }
 
-        # 해당 섹터 코드 찾기
-        sector_code = None
-        for name, code in sector_codes.items():
-            if name in sector_name or sector_name in name:
-                sector_code = code
-                break
+    try:
+        # 정확한 매칭 또는 부분 매칭
+        sector_code = sector_codes.get(sector_name)
+        if not sector_code:
+            for name, code in sector_codes.items():
+                if name in sector_name or sector_name in name:
+                    sector_code = code
+                    break
 
         if not sector_code:
-            # 코드 없으면 네이버 업종 검색
+            result["error"] = f"업종 코드를 찾을 수 없습니다: {sector_name}"
             return result
 
-        # 네이버 업종 시세 페이지
+        # 네이버 업종 상세 페이지 파싱
         url = f"https://finance.naver.com/sise/sise_group_detail.naver?type=upjong&no={sector_code}"
-        headers = {"User-Agent": "Mozilla/5.0"}
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
         async with httpx.AsyncClient(timeout=15.0) as client:
-            # 대안: 테마/업종 종목 API 사용
-            # 네이버 모바일 API로 업종별 종목 조회
-            api_url = f"https://m.stock.naver.com/api/stocks/theme/{sector_code}"
-            resp = await client.get(api_url, headers=headers)
+            resp = await client.get(url, headers=headers)
+            if resp.status_code != 200:
+                result["error"] = f"네이버 응답 오류: {resp.status_code}"
+                return result
 
-            if resp.status_code == 200:
-                data = resp.json()
-                stocks = data.get("stocks", [])
+            resp.encoding = "euc-kr"
+            soup = BeautifulSoup(resp.text, "lxml")
 
-                # 등락률 정렬
-                sorted_by_change = sorted(stocks, key=lambda x: float(x.get("fluctuationsRatio", "0").replace(",", "") or "0"), reverse=True)
+            # 종목 테이블 파싱
+            stocks = []
+            rows = soup.select("table.type_5 tbody tr")
+            for row in rows:
+                cells = row.select("td")
+                if len(cells) >= 10:
+                    name_el = cells[0].select_one("a")
+                    if name_el:
+                        name = name_el.get_text(strip=True)
+                        try:
+                            # 등락률 (4번째 열)
+                            change_str = cells[3].get_text(strip=True).replace("%", "").replace("+", "").replace(",", "")
+                            change = float(change_str) if change_str else 0
+                            # 거래대금 (10번째 열, 백만원 단위)
+                            vol_str = cells[9].get_text(strip=True).replace(",", "")
+                            vol = int(vol_str) if vol_str.isdigit() else 0
+                            stocks.append({"name": name, "change": change, "volume": vol})
+                        except:
+                            pass
 
-                # 상승 TOP 3
-                for s in sorted_by_change[:3]:
-                    change = float(s.get("fluctuationsRatio", "0").replace(",", "") or "0")
-                    if change > 0:
-                        result["top_gainers"].append({
-                            "name": s.get("stockName", ""),
-                            "change_percent": change
-                        })
+            if not stocks:
+                result["error"] = "종목 데이터 파싱 실패"
+                return result
 
-                # 하락 TOP 3
-                for s in sorted_by_change[-3:][::-1]:
-                    change = float(s.get("fluctuationsRatio", "0").replace(",", "") or "0")
-                    if change < 0:
-                        result["top_losers"].append({
-                            "name": s.get("stockName", ""),
-                            "change_percent": change
-                        })
+            # 상승 TOP 3
+            gainers = sorted([s for s in stocks if s["change"] > 0], key=lambda x: x["change"], reverse=True)
+            for s in gainers[:3]:
+                result["top_gainers"].append({"name": s["name"], "change_percent": s["change"]})
 
-                # 거래대금 TOP 3
-                sorted_by_volume = sorted(stocks, key=lambda x: int(x.get("accumulatedTradingValue", "0").replace(",", "") or "0"), reverse=True)
-                for s in sorted_by_volume[:3]:
-                    vol = int(s.get("accumulatedTradingValue", "0").replace(",", "") or "0")
-                    result["top_volume"].append({
-                        "name": s.get("stockName", ""),
-                        "trading_value": vol // 1000000  # 원 → 백만원
-                    })
+            # 하락 TOP 3
+            losers = sorted([s for s in stocks if s["change"] < 0], key=lambda x: x["change"])
+            for s in losers[:3]:
+                result["top_losers"].append({"name": s["name"], "change_percent": s["change"]})
+
+            # 거래대금 TOP 3
+            by_volume = sorted(stocks, key=lambda x: x["volume"], reverse=True)
+            for s in by_volume[:3]:
+                result["top_volume"].append({"name": s["name"], "trading_value": s["volume"]})
 
     except Exception as e:
         print(f"[API] /api/market/sector/{sector_name}/stocks 오류: {e}")
+        import traceback
+        traceback.print_exc()
         result["success"] = False
         result["error"] = str(e)
 
