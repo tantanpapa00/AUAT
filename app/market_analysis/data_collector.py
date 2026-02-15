@@ -97,8 +97,9 @@ async def get_investor_trend_from_naver(market: str) -> tuple:
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            # 네이버 증시 메인 페이지에서 투자자별 매매 동향 파싱
-            url = "https://finance.naver.com/sise/"
+            # KOSPI/KOSDAQ 지수 페이지에서 투자자별 매매 동향 파싱
+            code = "KOSPI" if market == "KOSPI" else "KOSDAQ"
+            url = f"https://finance.naver.com/sise/sise_index.naver?code={code}"
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
             }
@@ -109,29 +110,43 @@ async def get_investor_trend_from_naver(market: str) -> tuple:
             r.encoding = "euc-kr"
             soup = BeautifulSoup(r.text, 'lxml')
 
-            # 외국인/기관 매매동향 추출 (<a> 태그 내 텍스트에서)
-            # 예: "외국인-9,220억", "기관+831억"
-            for link in soup.find_all('a'):
-                text = link.get_text(strip=True)
+            # <dd class="dd"> 태그에서 투자자별 매매동향 추출
+            # 예: <dd class="dd">외국인<br><span class="dn">-9,220<span>억</span></span></dd>
+            for dd in soup.find_all('dd', class_='dd'):
+                text = dd.get_text(strip=True)
 
-                # 외국인 순매수 (예: "외국인-9,220억")
-                if "억" in text and text.startswith("외국인"):
+                # 외국인 순매수
+                if text.startswith('외국인'):
                     try:
-                        val_str = text.replace("외국인", "").replace("억", "").replace(",", "").replace("+", "")
-                        foreign_net = int(float(val_str))
+                        # 숫자 부분 추출: "-9,220억" or "+831억"
+                        span = dd.find('span', class_=['up', 'dn'])
+                        if span:
+                            val_text = span.get_text(strip=True).replace('억', '').replace(',', '')
+                            foreign_net = int(float(val_text))
                     except:
                         pass
 
-                # 기관 순매수 (예: "기관+831억")
-                if "억" in text and text.startswith("기관"):
+                # 기관 순매수
+                elif text.startswith('기관'):
                     try:
-                        val_str = text.replace("기관", "").replace("억", "").replace(",", "").replace("+", "")
-                        institution_net = int(float(val_str))
+                        span = dd.find('span', class_=['up', 'dn'])
+                        if span:
+                            val_text = span.get_text(strip=True).replace('억', '').replace(',', '')
+                            institution_net = int(float(val_text))
                     except:
                         pass
 
-            # 개인 = -(외국인 + 기관)
-            individual_net = -(foreign_net + institution_net)
+                # 개인 순매수
+                elif text.startswith('개인'):
+                    try:
+                        span = dd.find('span', class_=['up', 'dn'])
+                        if span:
+                            val_text = span.get_text(strip=True).replace('억', '').replace(',', '')
+                            individual_net = int(float(val_text))
+                    except:
+                        pass
+
+            print(f"[DataCollector] {market} 투자자: 외국인={foreign_net}, 기관={institution_net}, 개인={individual_net}")
 
     except Exception as e:
         print(f"[DataCollector] 투자자 동향 파싱 오류: {e}")
@@ -243,9 +258,13 @@ async def get_market_summary() -> Dict[str, Any]:
                 "upper_limit_stocks": data.upper_limit_stocks,
                 "lower_limit_stocks": data.lower_limit_stocks,
                 "listed_stocks": data.listed_stocks,
+                # 투자자 동향 (각 시장별로 저장)
+                "foreign_net": data.foreign_net,
+                "institution_net": data.institution_net,
+                "individual_net": data.individual_net,
             }
 
-            # 투자자 동향 (KOSPI 기준으로 1번만)
+            # 투자자 동향 (KOSPI 기준 - 레거시 호환용)
             if market == "KOSPI":
                 result["investors"] = {
                     "foreign": data.foreign_net,

@@ -14,8 +14,8 @@
 | Phase 1 | 역추세매매(MR) 완성 | ✅ DONE | Day 6~16 |
 | Phase 2 | 추세매매(Trend) 완성 | ✅ DONE | Day 17~18 |
 | Phase 3 | 커스텀 전략 | ✅ DONE | Day 19~20 |
-| **Phase 3.5** | **실전 거래 엔진 (KIS 주문 타이밍)** | 🔄 진행중 | **Day 21~** |
-| Phase 4 | 시장분석 — 국내 | 대기 | - |
+| Phase 3.5 | 실전 거래 엔진 (KIS 주문 타이밍) | ✅ DONE | Day 21 |
+| **Phase 4** | **시장분석 — 국내** | 🔄 진행중 | **Day 22~** |
 | Phase 5 | 시장분석 — 해외 | 대기 | - |
 | Phase 6 | 시장분석 — ETF | 대기 | - |
 | Phase 7 | 시장분석 — 코인 | 대기 | - |
@@ -107,7 +107,7 @@
 
 ## 완료 히스토리
 
-### Current Status (2026-02-14)
+### Current Status (2026-02-15)
 - Week A~D: DONE (브랜드/사이트/PC앱/Android APK 기반)
 - Day 6~14: DONE (대시보드/종목분석/계정관리/전략설정/MR엔진/Trend엔진)
 - Day 15: DONE (백테스트 벡터화 최적화 20초→0.3초)
@@ -116,7 +116,87 @@
 - Day 18: DONE (추세매매 검증 + 전 거래소 백테스트)
 - Day 19: DONE (커스텀 전략 조건 빌더 Phase 3)
 - Day 20: DONE (커스텀 백테스트 Tauri invoke + 프리셋 파라미터 입력칸)
-- Day 21: IN PROGRESS (KIS 주문 설정 UI Phase 3.5)
+- Day 21: DONE (KIS 주문 설정 UI Phase 3.5)
+- Day 22: DONE (시장분석 Phase 4 - 투자자순매수/거래대금 전일대비)
+
+## Day 22 완료사항 (2026-02-15)
+
+### 시장분석 개선 (Phase 4)
+
+**작업 내용**: 투자자별 순매수 데이터 수정 + 거래대금 전일대비 구현
+
+### 1. 투자자별 순매수 데이터 수정
+
+**문제**: 네이버 HTML 구조 변경으로 파싱 실패 (KOSPI/KOSDAQ 동일 값 표시)
+
+**해결**: `data_collector.py` - `get_investor_trend_from_naver()` 함수 수정
+
+| 항목 | 기존 | 수정 후 |
+|------|------|---------|
+| 파싱 대상 | `<a>` 태그 | `<dd class="dd">` 태그 |
+| URL | `/sise/` (메인) | `/sise/sise_index.naver?code=KOSPI` (지수별) |
+| 데이터 저장 | KOSPI만 저장 | KOSPI/KOSDAQ 각각 저장 |
+
+**수정 파일**:
+- `app/market_analysis/data_collector.py`: 파싱 로직 전면 수정
+- `app/main.py`: 시장별 투자자 데이터 반환 (`rt.get("foreign_net")`)
+
+**검증 결과**:
+```
+KOSPI:  외국인 -9,220억 / 기관 +831억 / 개인 +7,141억
+KOSDAQ: 외국인 -2,414억 / 기관 -3,381억 / 개인 +6,220억
+```
+
+### 2. 거래대금 전일대비 구현
+
+**문제**: `trading_value_prev`가 프론트엔드 객체에 누락
+
+**해결**:
+
+| 파일 | 수정 내용 |
+|------|-----------|
+| `app/main.py` | 금/토/일 → 목요일 대비 로직 추가 (`LIMIT 5` + weekday 체크) |
+| `app/main.py` | `POST /api/market/signals/init` 엔드포인트 추가 |
+| `pc-app/ui/src/main.js` | kospi/kosdaq 객체에 `trading_value_prev` 필드 추가 |
+
+**금/토/일 전일대비 로직**:
+```python
+if today.weekday() in [4, 5, 6]:  # 금(4), 토(5), 일(6)
+    # 목요일(weekday=3) 데이터 찾기
+    for r in rows[1:]:
+        if r.date and r.date.weekday() == 3:
+            trading_value_prev = r.trading_value
+            break
+else:
+    # 일반 전일 데이터
+    trading_value_prev = rows[1].trading_value
+```
+
+**검증 결과**:
+```
+KOSPI:  30.8조 / 목(2/12) 27.8조 → +10.8%
+KOSDAQ: 11.3조 / 목(2/12) 10.2조 → +10.8%
+```
+
+### 3. 수정 파일 목록
+
+| 파일 | 변경 |
+|------|------|
+| `app/main.py` | 투자자 데이터 시장별 분리, 거래대금 전일대비 로직, init 엔드포인트 |
+| `app/market_analysis/data_collector.py` | 네이버 투자자 파싱 수정, 시장별 데이터 저장 |
+| `pc-app/ui/src/main.js` | `trading_value_prev` 필드 추가 |
+
+### 4. 검증 및 배포
+
+| 항목 | 결과 |
+|------|------|
+| Python 문법 검증 | ✅ passed |
+| npm run build | ✅ passed |
+| cargo tauri build | ✅ passed |
+| VPS 배포 | ✅ 완료 |
+| API 검증 | ✅ 네이버 데이터와 일치 |
+
+---
 
 ## Day 21 진행사항 (2026-02-14)
 

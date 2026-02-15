@@ -11230,7 +11230,7 @@ async def get_market_signal(
 
     try:
         for market in ["KOSPI", "KOSDAQ"]:
-            # 최근 2일치 조회 (오늘 + 어제)
+            # 최근 5일치 조회 (주말 고려)
             rows = db.execute(
                 text("""
                     SELECT date, market, index_value, change_amount, change_percent,
@@ -11244,14 +11244,26 @@ async def get_market_signal(
                     FROM market_signals
                     WHERE market = :market
                     ORDER BY date DESC
-                    LIMIT 2
+                    LIMIT 5
                 """),
                 {"market": market}
             ).fetchall()
 
             row = rows[0] if rows else None
-            prev_row = rows[1] if len(rows) > 1 else None
-            trading_value_prev = prev_row.trading_value if prev_row else None
+
+            # 금/토/일이면 목요일 대비, 아니면 전일 대비
+            today = datetime.now()
+            trading_value_prev = None
+            if today.weekday() in [4, 5, 6]:  # 금(4), 토(5), 일(6)
+                # 목요일 데이터 찾기
+                for r in rows[1:]:
+                    if r.date and r.date.weekday() == 3:  # 목(3)
+                        trading_value_prev = r.trading_value
+                        break
+            else:
+                # 전일 데이터 (두 번째 행)
+                if len(rows) > 1:
+                    trading_value_prev = rows[1].trading_value
 
             # 실시간 데이터 (있으면 DB 값 덮어쓰기)
             rt = realtime_data.get(market.lower(), {})
@@ -11287,10 +11299,10 @@ async def get_market_signal(
                     "last_ftd_date": row.last_ftd_date.strftime("%Y-%m-%d") if row.last_ftd_date else None,
                     "short_term_signal": row.short_term_signal,
                     "long_term_signal": row.long_term_signal,
-                    # 투자자 동향도 실시간 데이터 우선
-                    "foreign_net": realtime_data.get("investors", {}).get("foreign") or row.foreign_net,
-                    "institution_net": realtime_data.get("investors", {}).get("institution") or row.institution_net,
-                    "individual_net": realtime_data.get("investors", {}).get("individual") or row.individual_net,
+                    # 투자자 동향도 실시간 데이터 우선 (각 시장별)
+                    "foreign_net": rt.get("foreign_net") or row.foreign_net,
+                    "institution_net": rt.get("institution_net") or row.institution_net,
+                    "individual_net": rt.get("individual_net") or row.individual_net,
                 }
 
                 if not result["updated_at"] and row.date:
@@ -11324,9 +11336,9 @@ async def get_market_signal(
                     "last_ftd_date": None,
                     "short_term_signal": "yellow",
                     "long_term_signal": "green",
-                    "foreign_net": realtime_data.get("investors", {}).get("foreign", 0),
-                    "institution_net": realtime_data.get("investors", {}).get("institution", 0),
-                    "individual_net": realtime_data.get("investors", {}).get("individual", 0),
+                    "foreign_net": rt.get("foreign_net", 0),
+                    "institution_net": rt.get("institution_net", 0),
+                    "individual_net": rt.get("individual_net", 0),
                 }
                 result["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
 
