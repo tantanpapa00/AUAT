@@ -50,9 +50,13 @@ async def collect_daily_market_data(market: str) -> Optional[MarketData]:
             trading_volume = int(data.get("accumulatedTradingVolume", "0").replace(",", ""))
             trading_value = int(data.get("accumulatedTradingValue", "0").replace(",", ""))
 
-            # 2. 상승/하락 종목수 (네이버 HTML 파싱)
+            # 2. 상승/하락 종목수 + 거래대금 (네이버 HTML 파싱)
             rising = falling = unchanged = upper = lower = listed = 0
-            rising, falling, unchanged, upper, lower, listed = await get_stock_count_from_naver(market)
+            html_trading_value = 0
+            rising, falling, unchanged, upper, lower, listed, html_trading_value = await get_stock_count_from_naver(market)
+            # HTML에서 파싱한 거래대금 사용 (API에서 제공하지 않음)
+            if html_trading_value > 0:
+                trading_value = html_trading_value
 
             # 3. 투자자 동향
             foreign_net, institution_net, individual_net = await get_investor_trend_from_naver(market)
@@ -137,11 +141,12 @@ async def get_investor_trend_from_naver(market: str) -> tuple:
 
 async def get_stock_count_from_naver(market: str) -> tuple:
     """
-    네이버 finance에서 상승/하락/보합 종목수 파싱
+    네이버 finance에서 상승/하락/보합 종목수 + 거래대금 파싱
 
-    Returns: (rising, falling, unchanged, upper_limit, lower_limit, listed)
+    Returns: (rising, falling, unchanged, upper_limit, lower_limit, listed, trading_value)
     """
     rising = falling = unchanged = upper = lower = listed = 0
+    trading_value = 0
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -157,7 +162,7 @@ async def get_stock_count_from_naver(market: str) -> tuple:
             r = await client.get(url, headers=headers)
             if r.status_code != 200:
                 print(f"[DataCollector] {market} 종목수 페이지 실패: {r.status_code}")
-                return (0, 0, 0, 0, 0, 0)
+                return (0, 0, 0, 0, 0, 0, 0)
 
             r.encoding = "euc-kr"
             soup = BeautifulSoup(r.text, 'html.parser')
@@ -188,11 +193,24 @@ async def get_stock_count_from_naver(market: str) -> tuple:
 
             listed = upper + rising + unchanged + falling + lower
 
+            # 거래대금 파싱 (테이블에서)
+            # <th>거래대금(백만)</th> 다음 <td>의 값
+            for th in soup.find_all('th'):
+                if '거래대금' in th.get_text():
+                    td = th.find_next_sibling('td')
+                    if td:
+                        try:
+                            val_str = td.get_text(strip=True).replace(",", "")
+                            trading_value = int(float(val_str)) * 1000000  # 백만원 -> 원
+                        except:
+                            pass
+                        break
+
     except Exception as e:
         print(f"[DataCollector] {market} 종목수 파싱 오류: {e}")
 
-    print(f"[DataCollector] {market} 종목수: rising={rising}, falling={falling}, unchanged={unchanged}")
-    return (rising, falling, unchanged, upper, lower, listed)
+    print(f"[DataCollector] {market} 종목수: rising={rising}, falling={falling}, trading_value={trading_value}")
+    return (rising, falling, unchanged, upper, lower, listed, trading_value)
 
 
 async def get_market_summary() -> Dict[str, Any]:
