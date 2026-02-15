@@ -11562,18 +11562,29 @@ async def init_market_breadth(
             below_ma200 = base_ma200 + adjustment_ma200 + noise
             below_ma200 = max(0.40, min(0.65, below_ma200))
 
+            # ADR (Advance/Decline Ratio) 시뮬레이션
+            # ADR = (상승종목수 / 하락종목수) * 100
+            # 100 이상 = 상승 우세, 100 이하 = 하락 우세
+            # 당일 등락률 기반으로 시뮬레이션
+            daily_return = (close - closes[i-1]) / closes[i-1] if i > 0 else 0
+            adr_noise = random.uniform(-5, 5)
+            # 기준 ADR = 100, 당일 등락률 1%당 ADR 15 변화
+            adr = 100 + daily_return * 1500 + adr_noise
+            adr = max(40, min(200, adr))
+
             # DB 저장 (upsert)
             try:
                 date_obj = datetime.strptime(date_str, "%Y%m%d").date()
                 db.execute(
                     text("""
-                        INSERT INTO market_breadth (date, market, below_ma20_ratio, below_ma200_ratio, created_at)
-                        VALUES (:date, :market, :ma20, :ma200, NOW())
+                        INSERT INTO market_breadth (date, market, below_ma20_ratio, below_ma200_ratio, adr, created_at)
+                        VALUES (:date, :market, :ma20, :ma200, :adr, NOW())
                         ON CONFLICT (date, market) DO UPDATE SET
                             below_ma20_ratio = :ma20,
-                            below_ma200_ratio = :ma200
+                            below_ma200_ratio = :ma200,
+                            adr = :adr
                     """),
-                    {"date": date_obj, "market": market.upper(), "ma20": below_ma20, "ma200": below_ma200}
+                    {"date": date_obj, "market": market.upper(), "ma20": below_ma20, "ma200": below_ma200, "adr": adr}
                 )
                 inserted += 1
             except Exception as e:
@@ -11608,15 +11619,16 @@ async def get_market_breadth_with_index(
         "index_values": [],
         "below_ma20": [],
         "below_ma200": [],
+        "adr": [],
         "market": market.upper(),
         "days": days
     }
 
     try:
-        # 1. breadth 데이터 조회
+        # 1. breadth 데이터 조회 (ADR 포함)
         breadth_rows = db.execute(
             text("""
-                SELECT date, below_ma20_ratio, below_ma200_ratio
+                SELECT date, below_ma20_ratio, below_ma200_ratio, adr
                 FROM market_breadth
                 WHERE market = :market
                 ORDER BY date DESC
@@ -11635,7 +11647,8 @@ async def get_market_breadth_with_index(
             if date_str:
                 breadth_dict[date_str] = {
                     "below_ma20": row.below_ma20_ratio,
-                    "below_ma200": row.below_ma200_ratio
+                    "below_ma200": row.below_ma200_ratio,
+                    "adr": row.adr
                 }
 
         # 2. KOSPI 지수 히스토리 조회
@@ -11654,9 +11667,11 @@ async def get_market_breadth_with_index(
                 if date_str in breadth_dict:
                     result["below_ma20"].append(breadth_dict[date_str]["below_ma20"])
                     result["below_ma200"].append(breadth_dict[date_str]["below_ma200"])
+                    result["adr"].append(breadth_dict[date_str]["adr"])
                 else:
                     result["below_ma20"].append(None)
                     result["below_ma200"].append(None)
+                    result["adr"].append(None)
 
     except Exception as e:
         print(f"[API] /api/market/breadth-with-index 오류: {e}")

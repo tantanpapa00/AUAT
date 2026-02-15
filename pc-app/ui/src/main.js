@@ -5037,13 +5037,49 @@ async function loadMarketKr() {
                 </div>
             </div>
 
-            <!-- 3행: 신호 설명 (접기 가능) -->
+            <!-- 2행: 투자자별 순매수 (시장신호 바로 아래) -->
+            <div class="se-investor-section card">
+                <h3>투자자별 순매수</h3>
+                <div class="se-investor-grid">
+                    <div class="se-investor-item">
+                        <span class="label">외국인</span>
+                        <span class="value" id="kr-investor-foreign">-</span>
+                    </div>
+                    <div class="se-investor-item">
+                        <span class="label">기관</span>
+                        <span class="value" id="kr-investor-institution">-</span>
+                    </div>
+                    <div class="se-investor-item">
+                        <span class="label">개인</span>
+                        <span class="value" id="kr-investor-individual">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3행: 거래대금 (전일대비 포함) -->
+            <div class="se-trading-value card">
+                <h3>거래대금</h3>
+                <div class="se-trading-grid">
+                    <div class="se-trading-item">
+                        <span class="label">KOSPI</span>
+                        <span class="value">${formatTradingValue(kospi.trading_value)}</span>
+                        <span class="change" id="kr-trading-kospi-change"></span>
+                    </div>
+                    <div class="se-trading-item">
+                        <span class="label">KOSDAQ</span>
+                        <span class="value">${formatTradingValue(kosdaq.trading_value)}</span>
+                        <span class="change" id="kr-trading-kosdaq-change"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4행: 신호 설명 (접기 가능) -->
             <div class="se-signal-desc" id="signal-desc">
                 <p>시장 신호는 신호등 색상으로 현재 시장의 상태를 나타냅니다: (🟢 양호, 🟡 주의, 🔴 매우주의).</p>
                 <p>단기/장기 신호는 각각 단기적, 장기적 관점에서의 시장 흐름을 보여주는 지표입니다.</p>
             </div>
 
-            <!-- 4행: 서브탭 (시장지표 | 섹터 | 추세유지 | 신용잔고) -->
+            <!-- 5행: 서브탭 (시장지표 | 섹터 | 추세유지 | 신용잔고) -->
             <div class="se-subtabs">
                 <button class="se-subtab active" data-tab="market-indicators">시장지표</button>
                 <button class="se-subtab" data-tab="sector">섹터</button>
@@ -5074,45 +5110,19 @@ async function loadMarketKr() {
                     </div>
                 </div>
 
-                <!-- 20/200일선 차트 -->
+                <!-- 20/200일선 하락비율 차트 -->
                 <div class="se-ma-chart card">
-                    <h3>20일/200일선 분석</h3>
+                    <h3>20일/200일선 하락비율</h3>
                     <div class="se-ma-chart-area">
                         <canvas id="ma-ratio-chart"></canvas>
                     </div>
                 </div>
 
-                <!-- 투자자 동향 -->
-                <div class="se-investor-section card">
-                    <h3>투자자별 순매수</h3>
-                    <div class="se-investor-grid">
-                        <div class="se-investor-item">
-                            <span class="label">외국인</span>
-                            <span class="value" id="kr-investor-foreign">-</span>
-                        </div>
-                        <div class="se-investor-item">
-                            <span class="label">기관</span>
-                            <span class="value" id="kr-investor-institution">-</span>
-                        </div>
-                        <div class="se-investor-item">
-                            <span class="label">개인</span>
-                            <span class="value" id="kr-investor-individual">-</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 거래대금 -->
-                <div class="se-trading-value card">
-                    <h3>거래대금</h3>
-                    <div class="se-trading-grid">
-                        <div class="se-trading-item">
-                            <span class="label">KOSPI</span>
-                            <span class="value" id="kr-trading-kospi">${formatTradingValue(kospi.trading_value)}</span>
-                        </div>
-                        <div class="se-trading-item">
-                            <span class="label">KOSDAQ</span>
-                            <span class="value" id="kr-trading-kosdaq">${formatTradingValue(kosdaq.trading_value)}</span>
-                        </div>
+                <!-- ADR 차트 -->
+                <div class="se-ma-chart card">
+                    <h3>ADR (등락비율)</h3>
+                    <div class="se-ma-chart-area">
+                        <canvas id="adr-chart"></canvas>
                     </div>
                 </div>
 
@@ -5250,8 +5260,9 @@ async function loadMarketKr() {
             }
         }
 
-        // MA 비율 차트 로드 (향후 구현)
+        // 차트 로드
         loadMaRatioChart();
+        loadAdrChart();
 
     } catch (error) {
         console.error('Market KR error:', error);
@@ -5515,6 +5526,190 @@ async function initBreadthData() {
     console.warn('[initBreadthData] Breadth 데이터가 없습니다. 서버에서 POST /api/market/breadth/init 를 실행해주세요.');
     // 데이터가 이미 VPS에 초기화되어 있으므로 재시도
     setTimeout(() => loadMaRatioChart(), 3000);
+}
+
+// ADR 차트 (쌍축 - KOSPI 지수 + ADR)
+async function loadAdrChart() {
+    const canvas = document.getElementById('adr-chart');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+
+    // 기존 차트 제거
+    if (window.adrChartInstance) {
+        window.adrChartInstance.destroy();
+    }
+
+    try {
+        // API에서 데이터 가져오기 (breadth-with-index에 ADR 포함)
+        const data = await invokeWithTimeout('get_market_breadth_with_index', {
+            accessToken: auth.accessToken || '',
+            days: 250,
+            market: 'KOSPI'
+        }, 30000);
+
+        console.log('[loadAdrChart] API 응답:', data);
+
+        // 데이터 검증
+        if (data.error || !data.dates || data.dates.length === 0 || !data.adr) {
+            console.warn('[loadAdrChart] 데이터 없음');
+            return;
+        }
+
+        // X축 레이블 (날짜)
+        const labels = data.dates.map(d => {
+            const date = new Date(d);
+            return `${date.getMonth() + 1}/${date.getDate()}`;
+        });
+
+        // ADR 데이터 (null 제거)
+        const adrData = data.adr.map(v => v != null ? v.toFixed(1) : null);
+
+        window.adrChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'KOSPI',
+                        data: data.index_values,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: false,
+                        yAxisID: 'y-index',
+                        pointRadius: 0,
+                        pointHoverRadius: 4
+                    },
+                    {
+                        label: 'ADR',
+                        data: adrData,
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239,68,68,0.1)',
+                        borderWidth: 1.5,
+                        tension: 0.3,
+                        fill: false,
+                        yAxisID: 'y-adr',
+                        pointRadius: 0,
+                        pointHoverRadius: 3
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            color: '#9ca3af',
+                            usePointStyle: true,
+                            pointStyle: 'line',
+                            font: { size: 11 }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(30,41,59,0.95)',
+                        titleColor: '#fff',
+                        bodyColor: '#d1d5db',
+                        borderColor: '#475569',
+                        borderWidth: 1,
+                        callbacks: {
+                            title: function(items) {
+                                if (items.length > 0) {
+                                    const idx = items[0].dataIndex;
+                                    return data.dates[idx];
+                                }
+                                return '';
+                            },
+                            label: function(context) {
+                                const label = context.dataset.label || '';
+                                const value = context.parsed.y;
+                                if (label === 'KOSPI') {
+                                    return `${label}: ${value?.toLocaleString() || '-'}`;
+                                } else {
+                                    return `${label}: ${value} (${value >= 100 ? '상승우세' : '하락우세'})`;
+                                }
+                            }
+                        }
+                    },
+                    annotation: {
+                        annotations: {
+                            line100: {
+                                type: 'line',
+                                yMin: 100,
+                                yMax: 100,
+                                yScaleID: 'y-adr',
+                                borderColor: '#6b7280',
+                                borderWidth: 1,
+                                borderDash: [5, 5],
+                                label: {
+                                    display: true,
+                                    content: '100 기준',
+                                    position: 'end'
+                                }
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            color: '#6b7280',
+                            maxRotation: 0,
+                            autoSkip: true,
+                            maxTicksLimit: 12,
+                            font: { size: 10 }
+                        },
+                        grid: { color: 'rgba(75,85,99,0.3)' }
+                    },
+                    'y-index': {
+                        type: 'linear',
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'KOSPI',
+                            color: '#3b82f6',
+                            font: { size: 11 }
+                        },
+                        ticks: {
+                            color: '#3b82f6',
+                            font: { size: 10 },
+                            callback: v => v.toLocaleString()
+                        },
+                        grid: { color: 'rgba(75,85,99,0.2)' }
+                    },
+                    'y-adr': {
+                        type: 'linear',
+                        position: 'right',
+                        min: 40,
+                        max: 200,
+                        title: {
+                            display: true,
+                            text: 'ADR',
+                            color: '#ef4444',
+                            font: { size: 11 }
+                        },
+                        ticks: {
+                            color: '#ef4444',
+                            font: { size: 10 }
+                        },
+                        grid: { drawOnChartArea: false }
+                    }
+                }
+            }
+        });
+
+        console.log('[loadAdrChart] 차트 생성 완료');
+
+    } catch (error) {
+        console.error('[loadAdrChart] 오류:', error);
+    }
 }
 
 // 추세유지 데이터 로드
