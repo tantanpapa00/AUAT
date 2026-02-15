@@ -4925,23 +4925,34 @@ async function loadMarketKr() {
         const kospiSig = signalData?.kospi || {};
         const kosdaqSig = signalData?.kosdaq || {};
         // overview 또는 signal 데이터 병합
+        // 상승 = 상한가 + 상승, 하락 = 하한가 + 하락 (스탁이지 동일)
         const kospi = {
             value: overviewData?.kospi?.value || kospiSig.index_value || 0,
             change_percent: overviewData?.kospi?.change_percent ?? kospiSig.change_percent ?? 0,
             change_amount: overviewData?.kospi?.change_amount ?? kospiSig.change_amount ?? 0,
-            rising_stocks: overviewData?.kospi?.rising_stocks || kospiSig.rising_stocks || 0,
-            falling_stocks: overviewData?.kospi?.falling_stocks || kospiSig.falling_stocks || 0,
+            rising_stocks: (overviewData?.kospi?.rising_stocks || kospiSig.rising_stocks || 0) + (kospiSig.upper_limit_stocks || 0),
+            falling_stocks: (overviewData?.kospi?.falling_stocks || kospiSig.falling_stocks || 0) + (kospiSig.lower_limit_stocks || 0),
             unchanged_stocks: overviewData?.kospi?.unchanged_stocks || kospiSig.unchanged_stocks || 0,
-            trading_value: overviewData?.kospi?.trading_value || kospiSig.trading_value || 0
+            trading_value: overviewData?.kospi?.trading_value || kospiSig.trading_value || 0,
+            upper_limit_stocks: kospiSig.upper_limit_stocks || 0,
+            lower_limit_stocks: kospiSig.lower_limit_stocks || 0,
+            foreign_net: kospiSig.foreign_net || 0,
+            institution_net: kospiSig.institution_net || 0,
+            individual_net: kospiSig.individual_net || 0
         };
         const kosdaq = {
             value: overviewData?.kosdaq?.value || kosdaqSig.index_value || 0,
             change_percent: overviewData?.kosdaq?.change_percent ?? kosdaqSig.change_percent ?? 0,
             change_amount: overviewData?.kosdaq?.change_amount ?? kosdaqSig.change_amount ?? 0,
-            rising_stocks: overviewData?.kosdaq?.rising_stocks || kosdaqSig.rising_stocks || 0,
-            falling_stocks: overviewData?.kosdaq?.falling_stocks || kosdaqSig.falling_stocks || 0,
+            rising_stocks: (overviewData?.kosdaq?.rising_stocks || kosdaqSig.rising_stocks || 0) + (kosdaqSig.upper_limit_stocks || 0),
+            falling_stocks: (overviewData?.kosdaq?.falling_stocks || kosdaqSig.falling_stocks || 0) + (kosdaqSig.lower_limit_stocks || 0),
             unchanged_stocks: overviewData?.kosdaq?.unchanged_stocks || kosdaqSig.unchanged_stocks || 0,
-            trading_value: overviewData?.kosdaq?.trading_value || kosdaqSig.trading_value || 0
+            trading_value: overviewData?.kosdaq?.trading_value || kosdaqSig.trading_value || 0,
+            upper_limit_stocks: kosdaqSig.upper_limit_stocks || 0,
+            lower_limit_stocks: kosdaqSig.lower_limit_stocks || 0,
+            status: kosdaqSig.status || 'confirmed_uptrend',
+            status_label: kosdaqSig.status_label || '',
+            active_dd_count: kosdaqSig.active_dd_count || 0
         };
 
         // UI 렌더링 (StockEasy 스타일)
@@ -5141,11 +5152,16 @@ async function loadMarketKr() {
             }
         });
 
-        // 투자자 동향
-        const investors = overviewData.investors || {};
+        // 투자자 동향 (signal API 데이터 우선 사용)
+        const investors = {
+            foreign: kospiSig.foreign_net ?? overviewData?.investors?.foreign ?? 0,
+            institution: kospiSig.institution_net ?? overviewData?.investors?.institution ?? 0,
+            individual: kospiSig.individual_net ?? overviewData?.investors?.individual ?? 0
+        };
         const formatInvestor = (v) => {
-            if (v == null || v === 0) return '-';
-            const sign = v >= 0 ? '+' : '';
+            if (v == null) return '-';
+            if (v === 0) return '0억';
+            const sign = v > 0 ? '+' : '-';
             return `${sign}${Math.abs(v).toLocaleString()}억`;
         };
         const foreignEl = document.getElementById('kr-investor-foreign');

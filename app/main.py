@@ -11598,6 +11598,89 @@ async def trigger_market_signal_update(
         return {"success": False, "error": str(e)}
 
 
+@app.get("/api/market/trend-maintain")
+async def get_market_trend_maintain(
+    current_user: User = Depends(get_current_user_optional),
+):
+    """
+    추세유지 분석 (섹터 ETF 20MA 기준)
+    - 유지: 현재가 > 20MA
+    - 이탈: 현재가 <= 20MA
+    """
+    from .market_analysis.trend_maintain import SECTOR_ETFS, calculate_trend_maintain
+    import httpx
+    from datetime import datetime, timedelta
+
+    result = []
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            headers = {"User-Agent": "Mozilla/5.0"}
+
+            for etf in SECTOR_ETFS:
+                symbol = etf["symbol"]
+
+                try:
+                    # 네이버 차트 API로 60일 일봉 조회
+                    url = f"https://fchart.stock.naver.com/sise.nhn?symbol={symbol}&timeframe=day&count=60&requestType=0"
+                    r = await client.get(url, headers=headers)
+
+                    if r.status_code != 200:
+                        continue
+
+                    # XML 파싱
+                    from xml.etree import ElementTree as ET
+                    root = ET.fromstring(r.text)
+
+                    closes = []
+                    change_pct = 0
+                    for item in root.findall('.//item'):
+                        data_str = item.get('data', '')
+                        parts = data_str.split('|')
+                        if len(parts) >= 5:
+                            closes.append(float(parts[4]))
+
+                    if len(closes) < 20:
+                        continue
+
+                    # 등락률 계산
+                    if len(closes) >= 2:
+                        change_pct = (closes[-1] - closes[-2]) / closes[-2] * 100
+
+                    # 추세유지 분석
+                    trend = calculate_trend_maintain(closes)
+                    if trend:
+                        result.append({
+                            "symbol": symbol,
+                            "name": etf["name"],
+                            "sector": etf["sector"],
+                            "current_price": trend["current_price"],
+                            "ma20": trend["ma20"],
+                            "position": trend["position"],
+                            "days": trend["days"],
+                            "gap_percent": trend["gap_percent"],
+                            "signal": trend["signal"],
+                            "return_since_entry": trend["return_since_entry"],
+                            "change_percent": round(change_pct, 2),
+                        })
+
+                except Exception as e:
+                    print(f"[TrendMaintain] {symbol} 오류: {e}")
+                    continue
+
+        # 정렬: 유지 > 이탈, 일수 내림차순
+        result.sort(key=lambda x: (0 if x["position"] == "유지" else 1, -x["days"]))
+
+    except Exception as e:
+        print(f"[API] /api/market/trend-maintain 오류: {e}")
+
+    return {
+        "success": True,
+        "data": result,
+        "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M")
+    }
+
+
 # 관심종목 그룹 API
 @app.get("/api/watchlist/groups")
 async def get_watchlist_groups(

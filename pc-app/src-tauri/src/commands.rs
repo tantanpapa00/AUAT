@@ -3927,6 +3927,30 @@ pub async fn get_market_breadth_data(
 }
 
 #[tauri::command]
+pub async fn get_market_trend_maintain(access_token: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .map_err(|e| format!("HTTP client error: {}", e))?;
+
+    let url = format!("{}/api/market/trend-maintain", VPS_SERVER_URL);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(30))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else {
+        Err("추세유지 조회 실패".to_string())
+    }
+}
+
+#[tauri::command]
 pub async fn get_market_investors_data(
     access_token: String,
     days: Option<i32>,

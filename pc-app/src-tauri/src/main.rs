@@ -157,6 +157,7 @@ fn main() {
             commands::get_market_breadth_data,
             commands::get_market_investors_data,
             commands::get_market_trading_value_data,
+            commands::get_market_trend_maintain,
             // Stock Detail Renewal (Phase 2)
             commands::get_stock_financial_summary,
             commands::get_stock_financial_trend,
