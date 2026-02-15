@@ -12211,6 +12211,115 @@ async def init_rs_scores(
         return {"success": False, "error": str(e)}
 
 
+@app.get("/api/market/sector/{sector_name}/stocks")
+async def get_market_sector_stocks(
+    sector_name: str,
+    current_user: User = Depends(get_current_user_optional),
+):
+    """
+    섹터별 종목 상세 (등락률 TOP, 거래대금 TOP, 하락률 TOP)
+    """
+    import httpx
+    from bs4 import BeautifulSoup
+    import re
+
+    result = {
+        "success": True,
+        "sector": sector_name,
+        "top_gainers": [],
+        "top_losers": [],
+        "top_volume": [],
+    }
+
+    try:
+        # 네이버 업종별 종목 페이지 파싱
+        # 업종명 → 업종코드 매핑 (네이버 기준)
+        sector_codes = {
+            "증권": "securities",
+            "보험": "insurance",
+            "은행": "banks",
+            "금융": "finance",
+            "반도체": "semicon",
+            "자동차": "automobile",
+            "바이오": "bio",
+            "제약": "pharmaceutical",
+            "건설": "construction",
+            "조선": "shipbuilding",
+            "철강": "steel",
+            "화학": "chemical",
+            "에너지": "energy",
+            "통신": "telecom",
+            "미디어": "media",
+            "게임": "game",
+            "엔터": "entertainment",
+            "운송": "transport",
+            "유통": "retail",
+            "음식료": "food",
+        }
+
+        # 해당 섹터 코드 찾기
+        sector_code = None
+        for name, code in sector_codes.items():
+            if name in sector_name or sector_name in name:
+                sector_code = code
+                break
+
+        if not sector_code:
+            # 코드 없으면 네이버 업종 검색
+            return result
+
+        # 네이버 업종 시세 페이지
+        url = f"https://finance.naver.com/sise/sise_group_detail.naver?type=upjong&no={sector_code}"
+        headers = {"User-Agent": "Mozilla/5.0"}
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            # 대안: 테마/업종 종목 API 사용
+            # 네이버 모바일 API로 업종별 종목 조회
+            api_url = f"https://m.stock.naver.com/api/stocks/theme/{sector_code}"
+            resp = await client.get(api_url, headers=headers)
+
+            if resp.status_code == 200:
+                data = resp.json()
+                stocks = data.get("stocks", [])
+
+                # 등락률 정렬
+                sorted_by_change = sorted(stocks, key=lambda x: float(x.get("fluctuationsRatio", "0").replace(",", "") or "0"), reverse=True)
+
+                # 상승 TOP 3
+                for s in sorted_by_change[:3]:
+                    change = float(s.get("fluctuationsRatio", "0").replace(",", "") or "0")
+                    if change > 0:
+                        result["top_gainers"].append({
+                            "name": s.get("stockName", ""),
+                            "change_percent": change
+                        })
+
+                # 하락 TOP 3
+                for s in sorted_by_change[-3:][::-1]:
+                    change = float(s.get("fluctuationsRatio", "0").replace(",", "") or "0")
+                    if change < 0:
+                        result["top_losers"].append({
+                            "name": s.get("stockName", ""),
+                            "change_percent": change
+                        })
+
+                # 거래대금 TOP 3
+                sorted_by_volume = sorted(stocks, key=lambda x: int(x.get("accumulatedTradingValue", "0").replace(",", "") or "0"), reverse=True)
+                for s in sorted_by_volume[:3]:
+                    vol = int(s.get("accumulatedTradingValue", "0").replace(",", "") or "0")
+                    result["top_volume"].append({
+                        "name": s.get("stockName", ""),
+                        "trading_value": vol // 1000000  # 원 → 백만원
+                    })
+
+    except Exception as e:
+        print(f"[API] /api/market/sector/{sector_name}/stocks 오류: {e}")
+        result["success"] = False
+        result["error"] = str(e)
+
+    return result
+
+
 # 관심종목 그룹 API
 @app.get("/api/watchlist/groups")
 async def get_watchlist_groups(

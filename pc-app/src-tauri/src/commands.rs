@@ -4043,6 +4043,37 @@ pub async fn get_market_rs_ranking(
 }
 
 #[tauri::command]
+pub async fn get_market_sector_stocks(
+    access_token: String,
+    sector_name: String,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .map_err(|e| format!("HTTP client error: {}", e))?;
+
+    let encoded_sector = urlencoding::encode(&sector_name);
+    let url = format!(
+        "{}/api/market/sector/{}/stocks",
+        VPS_SERVER_URL, encoded_sector
+    );
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else {
+        Err("섹터 종목 조회 실패".to_string())
+    }
+}
+
+#[tauri::command]
 pub async fn get_market_investors_data(
     access_token: String,
     days: Option<i32>,

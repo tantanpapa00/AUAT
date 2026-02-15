@@ -38,6 +38,7 @@ rand = "0.8"
 zip = "0.6"
 dirs = "5"
 open = "5"
+urlencoding = "2.1"
 
 [features]
 default = ["custom-protocol"]

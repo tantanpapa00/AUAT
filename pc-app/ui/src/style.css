@@ -8901,3 +8901,137 @@ body {
     padding: 30px;
     color: var(--text-muted);
 }
+
+/* =====================================================
+   섹터 아코디언 (Phase 4)
+   ===================================================== */
+.sector-item.clickable {
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+
+.sector-item.clickable:hover {
+    background: var(--bg-light);
+}
+
+.sector-item.clickable .sector-header {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    gap: 8px;
+}
+
+.sector-item.clickable .sector-name {
+    flex: 1;
+}
+
+.sector-item.clickable .sector-arrow {
+    font-size: 10px;
+    color: var(--text-muted);
+    transition: transform 0.2s;
+}
+
+.sector-item.clickable.expanded {
+    background: var(--bg-light);
+}
+
+.sector-item.clickable.expanded .sector-arrow {
+    color: var(--text-primary);
+}
+
+/* 섹터 상세 드롭다운 */
+.sector-detail {
+    padding: 0 12px 12px 12px;
+    animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.sector-detail-content {
+    background: var(--bg-card2);
+    border-radius: 6px;
+    padding: 12px;
+}
+
+.sector-detail-loading,
+.sector-detail-error {
+    text-align: center;
+    padding: 16px;
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.sector-detail-error {
+    color: var(--danger);
+}
+
+.detail-section {
+    margin-bottom: 12px;
+}
+
+.detail-section:last-child {
+    margin-bottom: 0;
+}
+
+.detail-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.detail-row {
+    display: flex;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 12px;
+    gap: 6px;
+}
+
+.detail-row .rank {
+    color: var(--text-muted);
+    width: 18px;
+}
+
+.detail-row .name {
+    flex: 1;
+    color: var(--text-primary);
+}
+
+.detail-row .value {
+    font-weight: 500;
+}
+
+.detail-row .value.profit {
+    color: var(--success);
+}
+
+.detail-row .value.loss {
+    color: var(--danger);
+}
+
+.detail-empty {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 12px;
+    padding: 8px;
+}
+
+/* 모든 섹터 상승/하락 메시지 */
+.empty-state.all-up {
+    color: var(--success);
+}
+
+.empty-state.all-down {
+    color: var(--danger);
+}

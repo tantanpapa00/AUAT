@@ -5846,6 +5846,9 @@ function renderTrendMaintainTable() {
     }).join('');
 }
 
+// 섹터 데이터 저장 (클릭 이벤트용)
+let sectorDataCache = [];
+
 // 섹터 데이터 로드
 async function loadSectorData() {
     const leadingEl = document.getElementById('kr-leading-sectors');
@@ -5866,27 +5869,158 @@ async function loadSectorData() {
             return;
         }
 
-        // 등락률 기준 정렬
-        const sorted = [...sectors].sort((a, b) => (b.change_percent || 0) - (a.change_percent || 0));
-        const leading = sorted.slice(0, 10);
-        const weak = sorted.slice(-10).reverse();
+        sectorDataCache = sectors;
 
-        const renderSector = (s) => `
-            <div class="sector-item">
-                <span class="sector-name">${s.name}</span>
-                <span class="sector-change ${(s.change_percent || 0) >= 0 ? 'profit' : 'loss'}">
-                    ${(s.change_percent || 0) >= 0 ? '+' : ''}${(s.change_percent || 0).toFixed(2)}%
-                </span>
-            </div>
-        `;
+        // 주도 섹터: 상승(양수)만 필터링 → 상승폭 큰 순
+        const bullishSectors = sectors
+            .filter(s => (s.change_percent || 0) > 0)
+            .sort((a, b) => (b.change_percent || 0) - (a.change_percent || 0))
+            .slice(0, 10);
 
-        leadingEl.innerHTML = leading.map(renderSector).join('');
-        weakEl.innerHTML = weak.map(renderSector).join('');
+        // 약세 섹터: 하락(음수)만 필터링 → 하락폭 큰 순
+        const bearishSectors = sectors
+            .filter(s => (s.change_percent || 0) < 0)
+            .sort((a, b) => (a.change_percent || 0) - (b.change_percent || 0))
+            .slice(0, 10);
+
+        // 주도 섹터 렌더링
+        if (bullishSectors.length === 0) {
+            leadingEl.innerHTML = '<div class="empty-state all-down">오늘은 모든 섹터가 하락했습니다</div>';
+        } else {
+            leadingEl.innerHTML = bullishSectors.map((s, idx) => renderSectorItem(s, 'bullish', idx)).join('');
+        }
+
+        // 약세 섹터 렌더링
+        if (bearishSectors.length === 0) {
+            weakEl.innerHTML = '<div class="empty-state all-up">오늘은 모든 섹터가 상승했습니다</div>';
+        } else {
+            weakEl.innerHTML = bearishSectors.map((s, idx) => renderSectorItem(s, 'bearish', idx)).join('');
+        }
+
+        // 섹터 클릭 이벤트 추가
+        attachSectorClickEvents();
     } catch (error) {
         console.error('[loadSectorData] error:', error);
         leadingEl.innerHTML = `<div class="error-state">${error?.message || error}</div>`;
         weakEl.innerHTML = '';
     }
+}
+
+// 섹터 항목 렌더링 (클릭 가능)
+function renderSectorItem(s, type, idx) {
+    const changeClass = (s.change_percent || 0) >= 0 ? 'profit' : 'loss';
+    const sign = (s.change_percent || 0) >= 0 ? '+' : '';
+    return `
+        <div class="sector-item clickable" data-sector="${s.name}" data-type="${type}" data-idx="${idx}">
+            <div class="sector-header">
+                <span class="sector-name">${s.name}</span>
+                <span class="sector-change ${changeClass}">
+                    ${sign}${(s.change_percent || 0).toFixed(2)}%
+                </span>
+                <span class="sector-arrow">▼</span>
+            </div>
+            <div class="sector-detail" id="sector-detail-${type}-${idx}" style="display:none;"></div>
+        </div>
+    `;
+}
+
+// 섹터 클릭 이벤트 연결
+function attachSectorClickEvents() {
+    document.querySelectorAll('.sector-item.clickable').forEach(el => {
+        el.querySelector('.sector-header')?.addEventListener('click', async (e) => {
+            const sectorName = el.dataset.sector;
+            const type = el.dataset.type;
+            const idx = el.dataset.idx;
+            const detailEl = document.getElementById(`sector-detail-${type}-${idx}`);
+            const arrow = el.querySelector('.sector-arrow');
+
+            // 이미 열려있으면 닫기
+            if (detailEl.style.display === 'block') {
+                detailEl.style.display = 'none';
+                arrow.textContent = '▼';
+                el.classList.remove('expanded');
+                return;
+            }
+
+            // 다른 열린 것들 닫기
+            document.querySelectorAll('.sector-detail').forEach(d => d.style.display = 'none');
+            document.querySelectorAll('.sector-arrow').forEach(a => a.textContent = '▼');
+            document.querySelectorAll('.sector-item.clickable').forEach(i => i.classList.remove('expanded'));
+
+            // 로딩 표시
+            detailEl.innerHTML = '<div class="sector-detail-loading">로딩 중...</div>';
+            detailEl.style.display = 'block';
+            arrow.textContent = '▲';
+            el.classList.add('expanded');
+
+            // API 호출
+            try {
+                const resp = await invokeWithTimeout('get_market_sector_stocks', {
+                    accessToken: auth.accessToken || '',
+                    sectorName: sectorName
+                }, 10000);
+
+                if (resp?.success) {
+                    detailEl.innerHTML = renderSectorDetail(resp, type);
+                } else {
+                    detailEl.innerHTML = '<div class="sector-detail-error">데이터 조회 실패</div>';
+                }
+            } catch (err) {
+                console.error('[SectorDetail]', err);
+                detailEl.innerHTML = `<div class="sector-detail-error">${err?.message || '오류 발생'}</div>`;
+            }
+        });
+    });
+}
+
+// 섹터 상세 렌더링
+function renderSectorDetail(data, type) {
+    let html = '<div class="sector-detail-content">';
+
+    if (type === 'bullish') {
+        // 주도 섹터: 등락률 TOP + 거래대금 TOP
+        if (data.top_gainers?.length) {
+            html += '<div class="detail-section"><div class="detail-title">📈 등락률 TOP</div>';
+            data.top_gainers.slice(0, 3).forEach((s, i) => {
+                html += `<div class="detail-row"><span class="rank">${i+1}.</span> <span class="name">${s.name}</span> <span class="value profit">+${(s.change_percent || 0).toFixed(1)}%</span></div>`;
+            });
+            html += '</div>';
+        }
+        if (data.top_volume?.length) {
+            html += '<div class="detail-section"><div class="detail-title">💰 거래대금 TOP</div>';
+            data.top_volume.slice(0, 3).forEach((s, i) => {
+                const vol = formatTradingValue(s.trading_value || 0);
+                html += `<div class="detail-row"><span class="rank">${i+1}.</span> <span class="name">${s.name}</span> <span class="value">${vol}</span></div>`;
+            });
+            html += '</div>';
+        }
+    } else {
+        // 약세 섹터: 하락률 TOP
+        if (data.top_losers?.length) {
+            html += '<div class="detail-section"><div class="detail-title">📉 하락률 TOP</div>';
+            data.top_losers.slice(0, 3).forEach((s, i) => {
+                html += `<div class="detail-row"><span class="rank">${i+1}.</span> <span class="name">${s.name}</span> <span class="value loss">${(s.change_percent || 0).toFixed(1)}%</span></div>`;
+            });
+            html += '</div>';
+        }
+    }
+
+    if (html === '<div class="sector-detail-content">') {
+        html += '<div class="detail-empty">상세 데이터 없음</div>';
+    }
+
+    html += '</div>';
+    return html;
+}
+
+// 거래대금 포맷 (백만원 → 억원)
+function formatTradingValue(val) {
+    if (!val) return '-';
+    const billions = val / 100;  // 백만원 → 억원
+    if (billions >= 1000) {
+        return (billions / 10000).toFixed(1) + '조';
+    }
+    return Math.round(billions).toLocaleString() + '억';
 }
 
 // 해외시장 로드
