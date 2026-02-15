@@ -5,23 +5,8 @@ import numpy as np
 from typing import List, Dict, Optional
 from datetime import date
 
-
-# 섹터 대표 ETF 목록
-SECTOR_ETFS = [
-    {"symbol": "069500", "name": "KODEX 200", "sector": "마켓"},
-    {"symbol": "229200", "name": "KODEX 코스닥150", "sector": "마켓"},
-    {"symbol": "091170", "name": "KODEX 은행", "sector": "금융"},
-    {"symbol": "091180", "name": "KODEX 증권", "sector": "증권"},
-    {"symbol": "140700", "name": "KODEX 보험", "sector": "보험"},
-    {"symbol": "266360", "name": "KODEX 자동차", "sector": "자동차"},
-    {"symbol": "091160", "name": "KODEX 반도체", "sector": "반도체"},
-    {"symbol": "117460", "name": "KODEX 에너지화학", "sector": "에너지"},
-    {"symbol": "117680", "name": "KODEX 철강", "sector": "철강"},
-    {"symbol": "117700", "name": "KODEX 건설", "sector": "건설"},
-    {"symbol": "266370", "name": "KODEX 바이오", "sector": "바이오"},
-    {"symbol": "091220", "name": "KODEX 미디어&엔터", "sector": "미디어"},
-    {"symbol": "098560", "name": "KODEX 운송", "sector": "운송"},
-]
+# 섹터 ETF 설정은 sector_config에서 가져옴
+from .sector_config import SECTOR_ETFS
 
 
 def calculate_trend_maintain(daily_closes: List[float]) -> Optional[Dict]:

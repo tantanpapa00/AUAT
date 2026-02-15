@@ -11989,6 +11989,228 @@ async def get_market_trend_maintain(
     }
 
 
+@app.get("/api/market/sector-analysis")
+async def get_market_sector_analysis(
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """
+    섹터 분석 (추세유지 + 대표종목 RS)
+    스탁이지 동일 형식 반환
+    """
+    from .market_analysis.sector_config import SECTOR_ETFS, get_etf_components, fetch_etf_daily_data
+    from .market_analysis.trend_maintain import calculate_trend_maintain
+    from datetime import datetime
+
+    result = []
+
+    try:
+        # 최신 RS 점수 조회 (DB에서)
+        today = datetime.now().date()
+        rs_query = text("""
+            SELECT symbol, rs_score FROM stock_rs
+            WHERE date::date = (SELECT MAX(date::date) FROM stock_rs)
+        """)
+        rs_result = db.execute(rs_query)
+        rs_map = {row[0]: row[1] for row in rs_result.fetchall()}
+
+        for etf in SECTOR_ETFS:
+            symbol = etf["symbol"]
+
+            try:
+                # 일봉 데이터 조회
+                daily_data = await fetch_etf_daily_data(symbol, 60)
+                if len(daily_data) < 20:
+                    continue
+
+                closes = [d['close'] for d in daily_data]
+
+                # 등락률 계산
+                change_pct = 0
+                if len(closes) >= 2:
+                    change_pct = (closes[-1] - closes[-2]) / closes[-2] * 100
+
+                # 추세유지 분석
+                trend = calculate_trend_maintain(closes)
+                if not trend:
+                    continue
+
+                # ETF 구성종목 + RS 점수
+                components = await get_etf_components(symbol, 6)
+                top_stocks = []
+                for comp in components:
+                    rs = rs_map.get(comp['symbol'], 0)
+                    top_stocks.append({
+                        "symbol": comp['symbol'],
+                        "name": comp['name'],
+                        "rs": rs
+                    })
+
+                result.append({
+                    "etf_symbol": symbol,
+                    "etf_name": etf["name"],
+                    "sector": etf["sector"],
+                    "industry": etf.get("industry", ""),
+                    "change_percent": round(change_pct, 2),
+                    "position": trend["position"],
+                    "position_days": trend["days"],
+                    "gap_percent": trend["gap_percent"],
+                    "signal": trend["signal"],
+                    "return_since_entry": trend.get("return_since_entry"),
+                    "ma20": trend["ma20"],
+                    "current_price": trend["current_price"],
+                    "top_stocks": top_stocks,
+                })
+
+            except Exception as e:
+                print(f"[SectorAnalysis] {symbol} 오류: {e}")
+                continue
+
+        # 등락률 내림차순 정렬
+        result.sort(key=lambda x: x["change_percent"], reverse=True)
+
+    except Exception as e:
+        print(f"[API] /api/market/sector-analysis 오류: {e}")
+
+    return {
+        "success": True,
+        "data": result,
+        "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M")
+    }
+
+
+@app.get("/api/market/rs-ranking")
+async def get_market_rs_ranking(
+    market: str = Query("ALL", description="KOSPI | KOSDAQ | ALL"),
+    top: int = Query(50, description="상위 N개"),
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """
+    RS 순위 조회 (상위 종목)
+    """
+    from datetime import datetime
+
+    result = []
+
+    try:
+        # 최신 날짜의 RS 데이터
+        if market.upper() == "ALL":
+            query = text("""
+                SELECT symbol, name, market, rs_score, roc_3m, roc_6m, roc_12m, strength_factor
+                FROM stock_rs
+                WHERE date::date = (SELECT MAX(date::date) FROM stock_rs)
+                ORDER BY rs_score DESC
+                LIMIT :top
+            """)
+            rs_result = db.execute(query, {"top": top})
+        else:
+            query = text("""
+                SELECT symbol, name, market, rs_score, roc_3m, roc_6m, roc_12m, strength_factor
+                FROM stock_rs
+                WHERE date::date = (SELECT MAX(date::date) FROM stock_rs)
+                  AND market = :market
+                ORDER BY rs_score DESC
+                LIMIT :top
+            """)
+            rs_result = db.execute(query, {"market": market.upper(), "top": top})
+
+        rows = rs_result.fetchall()
+
+        for i, row in enumerate(rows):
+            result.append({
+                "rank": i + 1,
+                "symbol": row[0],
+                "name": row[1] or "",
+                "market": row[2] or "",
+                "rs": row[3] or 0,
+                "roc_3m": round(row[4] or 0, 2),
+                "roc_6m": round(row[5] or 0, 2),
+                "roc_12m": round(row[6] or 0, 2),
+                "strength_factor": round(row[7] or 0, 2),
+            })
+
+    except Exception as e:
+        print(f"[API] /api/market/rs-ranking 오류: {e}")
+
+    return {
+        "success": True,
+        "data": result,
+        "market": market.upper(),
+        "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M")
+    }
+
+
+@app.post("/api/market/rs/init")
+async def init_rs_scores(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    RS 점수 초기화 (관리자용)
+    전체 종목 수집 후 RS 점수 계산
+    """
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="관리자만 사용 가능합니다")
+
+    from .market_analysis.rs_calculator import (
+        collect_all_stocks_closes, calculate_rs_with_details
+    )
+    from datetime import datetime
+
+    try:
+        # 1. 전체 종목 종가 수집 (시간 소요)
+        all_closes = await collect_all_stocks_closes(['KOSPI', 'KOSDAQ'], days=253)
+
+        if not all_closes:
+            return {"success": False, "error": "종가 데이터 수집 실패"}
+
+        # 2. RS 점수 계산
+        rs_details = calculate_rs_with_details(all_closes)
+
+        # 3. DB 저장
+        today = datetime.now()
+        saved_count = 0
+
+        for symbol, data in rs_details.items():
+            try:
+                db.execute(
+                    text("""
+                        INSERT INTO stock_rs (date, symbol, roc_3m, roc_6m, roc_9m, roc_12m, strength_factor, rs_score)
+                        VALUES (:date, :symbol, :roc_3m, :roc_6m, :roc_9m, :roc_12m, :sf, :rs)
+                        ON CONFLICT (date, symbol) DO UPDATE SET
+                            roc_3m = :roc_3m, roc_6m = :roc_6m, roc_9m = :roc_9m, roc_12m = :roc_12m,
+                            strength_factor = :sf, rs_score = :rs
+                    """),
+                    {
+                        "date": today,
+                        "symbol": symbol,
+                        "roc_3m": data['roc_3m'],
+                        "roc_6m": data['roc_6m'],
+                        "roc_9m": data['roc_9m'],
+                        "roc_12m": data['roc_12m'],
+                        "sf": data['strength_factor'],
+                        "rs": data['rs_score'],
+                    }
+                )
+                saved_count += 1
+            except Exception as e:
+                print(f"[RS] {symbol} 저장 오류: {e}")
+
+        db.commit()
+
+        return {
+            "success": True,
+            "total_stocks": len(all_closes),
+            "saved_count": saved_count,
+            "updated_at": today.strftime("%Y-%m-%d %H:%M")
+        }
+
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "error": str(e)}
+
+
 # 관심종목 그룹 API
 @app.get("/api/watchlist/groups")
 async def get_watchlist_groups(

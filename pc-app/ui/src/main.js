@@ -5148,17 +5148,21 @@ async function loadMarketKr() {
             <div class="se-tab-content" id="tab-trend-maintain" style="display:none;">
                 <div class="card">
                     <h3>섹터별 추세유지 (20MA 기준)</h3>
-                    <p class="trend-maintain-desc">20일 이동평균선 기준 추세 유지/이탈 분석</p>
+                    <p class="trend-maintain-desc">
+                        • <b>포지션</b>: 현재가가 20일 이동평균선 위에 며칠째 유지 또는 이탈 중인지<br>
+                        • <b>신호등</b>: 섹터의 현재 상태 (<span style="color:#22c55e">●</span>양호, <span style="color:#fde047">●</span>주의, <span style="color:#ef4444">●</span>매우주의)<br>
+                        • <b>대표종목(RS)</b>: RS 점수가 <b>90 이상</b>인 종목은 <b>굵게</b> 표시
+                    </p>
                     <div class="trend-maintain-table-wrap">
                         <table class="trend-maintain-table" id="trend-maintain-table">
                             <thead>
                                 <tr>
-                                    <th>섹터</th>
-                                    <th>ETF</th>
+                                    <th class="sortable" data-sort="sector">섹터</th>
+                                    <th class="sortable" data-sort="change">등락률</th>
+                                    <th class="sortable" data-sort="days">포지션</th>
                                     <th>신호</th>
-                                    <th>상태</th>
-                                    <th>이격도</th>
-                                    <th>수익률</th>
+                                    <th class="sortable" data-sort="gap">이격률</th>
+                                    <th>대표종목(RS)</th>
                                 </tr>
                             </thead>
                             <tbody id="trend-maintain-body">
@@ -5736,6 +5740,11 @@ async function loadAdrChart() {
     }
 }
 
+// 추세유지 데이터 정렬 상태
+let trendMaintainSortColumn = 'change';
+let trendMaintainSortDir = 'desc';
+let trendMaintainData = [];
+
 // 추세유지 데이터 로드
 async function loadTrendMaintainData() {
     const tbody = document.getElementById('trend-maintain-body');
@@ -5744,44 +5753,88 @@ async function loadTrendMaintainData() {
     tbody.innerHTML = '<tr><td colspan="6" class="loading-cell">데이터 로딩 중...</td></tr>';
 
     try {
-        const response = await invokeWithTimeout('get_market_trend_maintain', { accessToken: auth.accessToken || '' }, 15000);
+        // 섹터분석 API 호출 (추세유지 + 대표종목 RS 포함)
+        const response = await invokeWithTimeout('get_market_sector_analysis', { accessToken: auth.accessToken || '' }, 60000);
         console.log('[loadTrendMaintainData] response:', response);
 
         // API returns { success: true, data: [...] }
-        const sectors = response?.data || response?.sectors || [];
+        const sectors = response?.data || [];
         if (!sectors || sectors.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">추세유지 데이터 없음</td></tr>';
             return;
         }
 
-        tbody.innerHTML = sectors.map(s => {
-            const signalColor = {
-                'green': '#22c55e',
-                'yellow': '#fde047',
-                'red': '#ef4444'
-            }[s.signal] || '#6b7280';
+        trendMaintainData = sectors;
+        renderTrendMaintainTable();
 
-            const positionClass = s.position === '유지' ? 'maintain' : 'depart';
-            const gapClass = s.gap_percent >= 0 ? 'positive' : 'negative';
-            const returnDisplay = s.return_since_entry != null ?
-                `<span class="${s.return_since_entry >= 0 ? 'profit' : 'loss'}">${s.return_since_entry >= 0 ? '+' : ''}${s.return_since_entry}%</span>` :
-                '-';
-
-            return `
-                <tr>
-                    <td class="sector-name">${s.sector}</td>
-                    <td class="etf-name">${s.name}</td>
-                    <td class="signal-cell"><span class="signal-dot" style="background:${signalColor}"></span></td>
-                    <td class="position-cell ${positionClass}">${s.position} ${s.days}일</td>
-                    <td class="gap-cell ${gapClass}">${s.gap_percent >= 0 ? '+' : ''}${s.gap_percent}%</td>
-                    <td class="return-cell">${returnDisplay}</td>
-                </tr>
-            `;
-        }).join('');
+        // 컬럼 헤더 정렬 이벤트
+        document.querySelectorAll('#trend-maintain-table th.sortable').forEach(th => {
+            th.addEventListener('click', () => {
+                const sortKey = th.dataset.sort;
+                if (trendMaintainSortColumn === sortKey) {
+                    trendMaintainSortDir = trendMaintainSortDir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    trendMaintainSortColumn = sortKey;
+                    trendMaintainSortDir = 'desc';
+                }
+                renderTrendMaintainTable();
+            });
+        });
     } catch (error) {
         console.error('[loadTrendMaintainData] error:', error);
         tbody.innerHTML = `<tr><td colspan="6" class="error-cell">데이터 로드 실패: ${error?.message || error}</td></tr>`;
     }
+}
+
+// 추세유지 테이블 렌더링
+function renderTrendMaintainTable() {
+    const tbody = document.getElementById('trend-maintain-body');
+    if (!tbody || !trendMaintainData.length) return;
+
+    // 정렬
+    const sorted = [...trendMaintainData].sort((a, b) => {
+        let va, vb;
+        switch (trendMaintainSortColumn) {
+            case 'sector': va = a.sector || ''; vb = b.sector || ''; break;
+            case 'change': va = a.change_percent || 0; vb = b.change_percent || 0; break;
+            case 'days': va = (a.position === '유지' ? 1000 : 0) + (a.position_days || 0); vb = (b.position === '유지' ? 1000 : 0) + (b.position_days || 0); break;
+            case 'gap': va = a.gap_percent || 0; vb = b.gap_percent || 0; break;
+            default: va = 0; vb = 0;
+        }
+        if (typeof va === 'string') {
+            return trendMaintainSortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+        }
+        return trendMaintainSortDir === 'asc' ? va - vb : vb - va;
+    });
+
+    tbody.innerHTML = sorted.map(s => {
+        const signalColor = {
+            'green': '#22c55e',
+            'yellow': '#fde047',
+            'red': '#ef4444'
+        }[s.signal] || '#6b7280';
+
+        const positionClass = s.position === '유지' ? 'maintain' : 'depart';
+        const gapClass = (s.gap_percent || 0) >= 0 ? 'positive' : 'negative';
+        const changeClass = (s.change_percent || 0) >= 0 ? 'profit' : 'loss';
+
+        // 대표종목(RS) 표시 - RS 90 이상 굵게
+        const topStocksHtml = (s.top_stocks || []).map(stock => {
+            const rsClass = (stock.rs || 0) >= 90 ? 'rs-strong' : 'rs-normal';
+            return `<span class="${rsClass}">${stock.name}(${stock.rs || 0})</span>`;
+        }).join(', ');
+
+        return `
+            <tr>
+                <td class="sector-name">${s.sector || ''}</td>
+                <td class="change-cell ${changeClass}">${(s.change_percent || 0) >= 0 ? '+' : ''}${(s.change_percent || 0).toFixed(2)}%</td>
+                <td class="position-cell ${positionClass}">${s.position || ''} ${s.position_days || 0}일</td>
+                <td class="signal-cell"><span class="signal-dot" style="background:${signalColor}"></span></td>
+                <td class="gap-cell ${gapClass}">${(s.gap_percent || 0) >= 0 ? '+' : ''}${(s.gap_percent || 0).toFixed(1)}%</td>
+                <td class="top-stocks-cell">${topStocksHtml || '-'}</td>
+            </tr>
+        `;
+    }).join('');
 }
 
 // 섹터 데이터 로드

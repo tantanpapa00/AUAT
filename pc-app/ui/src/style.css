@@ -8792,3 +8792,112 @@ body {
     filter: invert(1);
     cursor: pointer;
 }
+
+/* =====================================================
+   추세유지 테이블 (Phase 4 RS)
+   ===================================================== */
+.trend-maintain-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    line-height: 1.7;
+}
+
+.trend-maintain-table-wrap {
+    overflow-x: auto;
+}
+
+.trend-maintain-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.trend-maintain-table th {
+    text-align: left;
+    padding: 10px 12px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.trend-maintain-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.trend-maintain-table th.sortable:hover {
+    color: var(--text-primary);
+}
+
+.trend-maintain-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--bg-light);
+    vertical-align: middle;
+}
+
+.trend-maintain-table .sector-name {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.trend-maintain-table .change-cell.profit {
+    color: var(--success);
+}
+
+.trend-maintain-table .change-cell.loss {
+    color: var(--danger);
+}
+
+.trend-maintain-table .position-cell.maintain {
+    color: var(--success);
+    font-weight: 600;
+}
+
+.trend-maintain-table .position-cell.depart {
+    color: var(--danger);
+    font-weight: 600;
+}
+
+.trend-maintain-table .gap-cell.positive {
+    color: var(--success);
+}
+
+.trend-maintain-table .gap-cell.negative {
+    color: var(--danger);
+}
+
+.trend-maintain-table .signal-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+/* 대표종목(RS) 스타일 */
+.trend-maintain-table .top-stocks-cell {
+    max-width: 350px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+}
+
+/* RS 90 이상 굵게 */
+.rs-strong {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.rs-normal {
+    font-weight: 400;
+    color: var(--text-muted);
+}
+
+.trend-maintain-table .loading-cell,
+.trend-maintain-table .empty-cell,
+.trend-maintain-table .error-cell {
+    text-align: center;
+    padding: 30px;
+    color: var(--text-muted);
+}

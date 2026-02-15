@@ -3986,6 +3986,63 @@ pub async fn get_market_trend_maintain(access_token: String) -> Result<serde_jso
 }
 
 #[tauri::command]
+pub async fn get_market_sector_analysis(access_token: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .map_err(|e| format!("HTTP client error: {}", e))?;
+
+    let url = format!("{}/api/market/sector-analysis", VPS_SERVER_URL);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(60))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else {
+        Err("섹터 분석 조회 실패".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn get_market_rs_ranking(
+    access_token: String,
+    market: Option<String>,
+    top: Option<i32>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .map_err(|e| format!("HTTP client error: {}", e))?;
+
+    let market_param = market.unwrap_or_else(|| "ALL".to_string());
+    let top_param = top.unwrap_or(50);
+    let url = format!(
+        "{}/api/market/rs-ranking?market={}&top={}",
+        VPS_SERVER_URL, market_param, top_param
+    );
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(30))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else {
+        Err("RS 순위 조회 실패".to_string())
+    }
+}
+
+#[tauri::command]
 pub async fn get_market_investors_data(
     access_token: String,
     days: Option<i32>,

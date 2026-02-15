@@ -248,3 +248,83 @@ class MarketBreadth(Base):
         Index('ix_market_breadth_market_date', 'market', 'date'),
         UniqueConstraint('date', 'market', name='uq_market_breadth_date_market'),
     )
+
+
+class StockRS(Base):
+    """
+    개별 종목 RS(Relative Strength) 점수
+    - IBD 방식: 3/6/9/12개월 수익률 가중 평균 → 백분위
+    - RS 90 = 전체 종목 중 상위 10%
+    - 매일 장 마감 후 업데이트
+    """
+    __tablename__ = "stock_rs"
+
+    id = Column(BigInteger, primary_key=True)
+    date = Column(DateTime(timezone=True), nullable=False)
+    symbol = Column(Text, nullable=False)
+    name = Column(Text, nullable=True)
+    market = Column(Text, nullable=True)  # KOSPI | KOSDAQ
+
+    # 수익률
+    roc_3m = Column(Float, nullable=True)   # 3개월 수익률
+    roc_6m = Column(Float, nullable=True)   # 6개월
+    roc_9m = Column(Float, nullable=True)   # 9개월
+    roc_12m = Column(Float, nullable=True)  # 12개월
+    strength_factor = Column(Float, nullable=True)  # 가중 평균
+
+    # RS 점수 (0~100 백분위)
+    rs_score = Column(BigInteger, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index('ix_stock_rs_date', 'date'),
+        Index('ix_stock_rs_score', 'date', 'rs_score'),
+        Index('ix_stock_rs_symbol', 'symbol', 'date'),
+        UniqueConstraint('date', 'symbol', name='uq_stock_rs_date_symbol'),
+    )
+
+
+class SectorTrend(Base):
+    """
+    섹터 ETF 추세유지 상태
+    - 20일 이동평균 기준 유지/이탈
+    - 이격률, 신호등
+    - 대표종목 + RS 점수
+    """
+    __tablename__ = "sector_trends"
+
+    id = Column(BigInteger, primary_key=True)
+    date = Column(DateTime(timezone=True), nullable=False)
+
+    # ETF 정보
+    etf_symbol = Column(Text, nullable=False)
+    etf_name = Column(Text, nullable=True)
+    sector = Column(Text, nullable=True)
+    industry = Column(Text, nullable=True)
+
+    # 등락률
+    change_percent = Column(Float, nullable=True)
+    return_since_entry = Column(Float, nullable=True)  # 유지 시작 후 수익률
+
+    # 추세유지 상태
+    position = Column(Text, nullable=True)  # 유지 | 이탈
+    position_days = Column(BigInteger, nullable=True)
+    gap_percent = Column(Float, nullable=True)  # 이격률
+    signal = Column(Text, nullable=True)  # green | yellow | red
+
+    # 기술적 지표
+    ma20 = Column(Float, nullable=True)
+    current_price = Column(Float, nullable=True)
+
+    # 대표종목 (상위 6개 + RS 점수)
+    # [{"symbol": "005930", "name": "삼성전자", "rs": 94}, ...]
+    top_stocks = Column(JSONB, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index('ix_sector_trends_date', 'date'),
+        Index('ix_sector_trends_etf', 'etf_symbol', 'date'),
+        UniqueConstraint('date', 'etf_symbol', name='uq_sector_trends_date_etf'),
+    )
