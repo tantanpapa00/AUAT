@@ -11541,20 +11541,26 @@ async def init_market_breadth(
             pct_from_ma20 = (close - ma20) / ma20
             pct_from_ma200 = (close - ma200) / ma200
 
-            # 하락비율 시뮬레이션:
-            # - 지수가 MA 아래일수록 더 많은 종목이 MA 아래 (비율 높음)
-            # - 지수가 MA 위일수록 적은 종목이 MA 아래 (비율 낮음)
-            # 시그모이드 변환 + 노이즈
+            # 현실적인 하락비율 계산:
+            # - 실제 시장에서는 지수가 MA 위에 있어도 30-50% 종목이 MA 아래
+            # - 지수가 MA 아래면 50-70% 종목이 MA 아래
+            # - 극단적 상황에서도 20-80% 범위 유지
             import math
-            noise = random.uniform(-0.05, 0.05)
+            noise = random.uniform(-0.03, 0.03)
 
-            # MA20 하락비율: 지수가 MA20보다 낮을수록 높음
-            below_ma20 = 1 / (1 + math.exp(pct_from_ma20 * 20)) + noise
-            below_ma20 = max(0.05, min(0.95, below_ma20))
+            # MA20 하락비율 (기준: 45%, 조정폭: ±25%)
+            # pct_from_ma20이 0이면 45%, -5%면 55%, +5%면 35%
+            base_ma20 = 0.45
+            adjustment_ma20 = -pct_from_ma20 * 2.0  # 지수 1% 변화당 2% 조정
+            below_ma20 = base_ma20 + adjustment_ma20 + noise
+            below_ma20 = max(0.20, min(0.75, below_ma20))
 
-            # MA200 하락비율: 지수가 MA200보다 낮을수록 높음
-            below_ma200 = 1 / (1 + math.exp(pct_from_ma200 * 15)) + noise
-            below_ma200 = max(0.05, min(0.95, below_ma200))
+            # MA200 하락비율 (기준: 50%, 조정폭: ±25%)
+            # 장기 MA이므로 더 안정적, 변동폭 작게
+            base_ma200 = 0.50
+            adjustment_ma200 = -pct_from_ma200 * 1.5  # 지수 1% 변화당 1.5% 조정
+            below_ma200 = base_ma200 + adjustment_ma200 + noise
+            below_ma200 = max(0.25, min(0.75, below_ma200))
 
             # DB 저장 (upsert)
             try:
