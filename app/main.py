@@ -11194,6 +11194,362 @@ async def get_market_timeline(
         return {"timeline": []}
 
 
+# ============================================
+# 시장신호 API (Phase 4 - IBD Big Picture)
+# ============================================
+
+@app.get("/api/market/signal")
+async def get_market_signal(
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """
+    시장신호 조회 (KOSPI/KOSDAQ)
+    - short_term_signal: 단기 신호 (G/Y/R)
+    - long_term_signal: 장기 신호 (G/Y/R)
+    - Big Picture 상태
+    - Distribution Day 정보
+    """
+    from .market_analysis.signal_engine import BIG_PICTURE_CONFIG
+
+    result = {
+        "kospi": None,
+        "kosdaq": None,
+        "updated_at": None
+    }
+
+    try:
+        for market in ["KOSPI", "KOSDAQ"]:
+            row = db.execute(
+                text("""
+                    SELECT date, market, index_value, change_amount, change_percent,
+                           trading_volume, trading_value,
+                           rising_stocks, falling_stocks, unchanged_stocks,
+                           upper_limit_stocks, lower_limit_stocks, listed_stocks,
+                           status, active_dd_count, distribution_days,
+                           rally_start_date, rally_day_count, last_ftd_date,
+                           short_term_signal, long_term_signal,
+                           foreign_net, institution_net, individual_net
+                    FROM market_signals
+                    WHERE market = :market
+                    ORDER BY date DESC
+                    LIMIT 1
+                """),
+                {"market": market}
+            ).fetchone()
+
+            if row:
+                status = row.status or 'confirmed_uptrend'
+                config = BIG_PICTURE_CONFIG.get(status, BIG_PICTURE_CONFIG['confirmed_uptrend'])
+
+                result[market.lower()] = {
+                    "date": row.date.strftime("%Y-%m-%d") if row.date else None,
+                    "index_value": row.index_value,
+                    "change_amount": row.change_amount,
+                    "change_percent": row.change_percent,
+                    "trading_volume": row.trading_volume,
+                    "trading_value": row.trading_value,
+                    "rising_stocks": row.rising_stocks,
+                    "falling_stocks": row.falling_stocks,
+                    "unchanged_stocks": row.unchanged_stocks,
+                    "upper_limit_stocks": row.upper_limit_stocks,
+                    "lower_limit_stocks": row.lower_limit_stocks,
+                    "listed_stocks": row.listed_stocks,
+                    "status": status,
+                    "status_label": config['label'],
+                    "exposure": config['exposure'],
+                    "status_color": config['color'],
+                    "status_description": config['description'],
+                    "active_dd_count": row.active_dd_count,
+                    "distribution_days": row.distribution_days or [],
+                    "rally_start_date": row.rally_start_date.strftime("%Y-%m-%d") if row.rally_start_date else None,
+                    "rally_day_count": row.rally_day_count,
+                    "last_ftd_date": row.last_ftd_date.strftime("%Y-%m-%d") if row.last_ftd_date else None,
+                    "short_term_signal": row.short_term_signal,
+                    "long_term_signal": row.long_term_signal,
+                    "foreign_net": row.foreign_net,
+                    "institution_net": row.institution_net,
+                    "individual_net": row.individual_net,
+                }
+
+                if not result["updated_at"] and row.date:
+                    result["updated_at"] = row.date.strftime("%Y-%m-%d %H:%M")
+
+    except Exception as e:
+        print(f"[API] /api/market/signal 오류: {e}")
+        # 테이블이 없으면 기본값 반환
+        for market in ["kospi", "kosdaq"]:
+            result[market] = {
+                "status": "confirmed_uptrend",
+                "status_label": "확인된 상승세",
+                "exposure": "80-100%",
+                "short_term_signal": "green",
+                "long_term_signal": "green",
+                "active_dd_count": 0,
+                "distribution_days": [],
+            }
+
+    return result
+
+
+@app.get("/api/market/big-picture")
+async def get_market_big_picture(
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """
+    Big Picture 상세 정보
+    - 4가지 상태: confirmed_uptrend, uptrend_under_pressure, market_in_correction, rally_attempt
+    - Distribution Day 목록
+    - 권장 투자 비중
+    """
+    from .market_analysis.signal_engine import BIG_PICTURE_CONFIG
+
+    result = {
+        "kospi": None,
+        "kosdaq": None,
+        "config": BIG_PICTURE_CONFIG,
+        "last_updated": None
+    }
+
+    try:
+        for market in ["KOSPI", "KOSDAQ"]:
+            row = db.execute(
+                text("""
+                    SELECT date, status, active_dd_count, distribution_days,
+                           rally_start_date, rally_day_count, last_ftd_date,
+                           index_value, change_percent
+                    FROM market_signals
+                    WHERE market = :market
+                    ORDER BY date DESC
+                    LIMIT 1
+                """),
+                {"market": market}
+            ).fetchone()
+
+            if row:
+                status = row.status or 'confirmed_uptrend'
+                config = BIG_PICTURE_CONFIG.get(status, BIG_PICTURE_CONFIG['confirmed_uptrend'])
+
+                # Distribution Days 중 활성인 것만 필터
+                dd_list = row.distribution_days or []
+                active_dds = [dd for dd in dd_list if dd.get('is_active', False)]
+
+                result[market.lower()] = {
+                    "market_code": market,
+                    "status": status,
+                    "label": config['label'],
+                    "label_en": config['label_en'],
+                    "exposure": config['exposure'],
+                    "color": config['color'],
+                    "description": config['description'],
+                    "active_dd_count": row.active_dd_count,
+                    "distribution_days": active_dds,
+                    "rally_start_date": row.rally_start_date.strftime("%Y-%m-%d") if row.rally_start_date else None,
+                    "rally_day_count": row.rally_day_count,
+                    "last_ftd_date": row.last_ftd_date.strftime("%Y-%m-%d") if row.last_ftd_date else None,
+                    "index_value": row.index_value,
+                    "change_percent": row.change_percent,
+                }
+
+                if not result["last_updated"] and row.date:
+                    result["last_updated"] = row.date.strftime("%Y-%m-%d")
+
+    except Exception as e:
+        print(f"[API] /api/market/big-picture 오류: {e}")
+
+    return result
+
+
+@app.get("/api/market/signal/history")
+async def get_market_signal_history(
+    days: int = Query(30, ge=1, le=365),
+    market: str = Query("KOSPI", description="KOSPI 또는 KOSDAQ"),
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """
+    시장신호 히스토리 (차트용)
+    """
+    result = []
+
+    try:
+        rows = db.execute(
+            text("""
+                SELECT date, index_value, change_percent,
+                       short_term_signal, long_term_signal, status,
+                       active_dd_count, rising_stocks, falling_stocks
+                FROM market_signals
+                WHERE market = :market
+                ORDER BY date DESC
+                LIMIT :days
+            """),
+            {"market": market.upper(), "days": days}
+        ).fetchall()
+
+        for row in rows:
+            result.append({
+                "date": row.date.strftime("%Y-%m-%d") if row.date else None,
+                "index_value": row.index_value,
+                "change_percent": row.change_percent,
+                "short_term_signal": row.short_term_signal,
+                "long_term_signal": row.long_term_signal,
+                "status": row.status,
+                "active_dd_count": row.active_dd_count,
+                "rising_stocks": row.rising_stocks,
+                "falling_stocks": row.falling_stocks,
+            })
+
+        # 날짜 순 정렬 (오래된 것부터)
+        result.reverse()
+
+    except Exception as e:
+        print(f"[API] /api/market/signal/history 오류: {e}")
+
+    return {"history": result, "market": market.upper(), "days": days}
+
+
+@app.get("/api/market/breadth")
+async def get_market_breadth(
+    days: int = Query(30, ge=1, le=365),
+    market: str = Query("KOSPI", description="KOSPI 또는 KOSDAQ"),
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """
+    시장 너비 데이터 (20/200일선 하락비율, ADR, 52주 신고가/신저가)
+    """
+    result = []
+
+    try:
+        rows = db.execute(
+            text("""
+                SELECT date, below_ma20_ratio, below_ma200_ratio,
+                       adr, new_high_52w, new_low_52w
+                FROM market_breadth
+                WHERE market = :market
+                ORDER BY date DESC
+                LIMIT :days
+            """),
+            {"market": market.upper(), "days": days}
+        ).fetchall()
+
+        for row in rows:
+            result.append({
+                "date": row.date.strftime("%Y-%m-%d") if row.date else None,
+                "below_ma20_ratio": row.below_ma20_ratio,
+                "below_ma200_ratio": row.below_ma200_ratio,
+                "adr": row.adr,
+                "new_high_52w": row.new_high_52w,
+                "new_low_52w": row.new_low_52w,
+            })
+
+        result.reverse()
+
+    except Exception as e:
+        print(f"[API] /api/market/breadth 오류: {e}")
+
+    return {"breadth": result, "market": market.upper(), "days": days}
+
+
+@app.get("/api/market/investors")
+async def get_market_investors(
+    days: int = Query(30, ge=1, le=365),
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """
+    투자자 동향 (외국인/기관/개인 순매수)
+    """
+    result = []
+
+    try:
+        rows = db.execute(
+            text("""
+                SELECT date, market, foreign_net, institution_net, individual_net
+                FROM market_signals
+                WHERE market = 'KOSPI'
+                ORDER BY date DESC
+                LIMIT :days
+            """),
+            {"days": days}
+        ).fetchall()
+
+        for row in rows:
+            result.append({
+                "date": row.date.strftime("%Y-%m-%d") if row.date else None,
+                "market": row.market,
+                "foreign_net": row.foreign_net,
+                "institution_net": row.institution_net,
+                "individual_net": row.individual_net,
+            })
+
+        result.reverse()
+
+    except Exception as e:
+        print(f"[API] /api/market/investors 오류: {e}")
+
+    return {"investors": result, "days": days}
+
+
+@app.get("/api/market/trading-value")
+async def get_market_trading_value(
+    days: int = Query(30, ge=1, le=365),
+    market: str = Query("KOSPI", description="KOSPI 또는 KOSDAQ"),
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """
+    거래대금 데이터
+    """
+    result = []
+
+    try:
+        rows = db.execute(
+            text("""
+                SELECT date, trading_value, trading_volume
+                FROM market_signals
+                WHERE market = :market
+                ORDER BY date DESC
+                LIMIT :days
+            """),
+            {"market": market.upper(), "days": days}
+        ).fetchall()
+
+        for row in rows:
+            result.append({
+                "date": row.date.strftime("%Y-%m-%d") if row.date else None,
+                "trading_value": row.trading_value,
+                "trading_volume": row.trading_volume,
+            })
+
+        result.reverse()
+
+    except Exception as e:
+        print(f"[API] /api/market/trading-value 오류: {e}")
+
+    return {"trading_values": result, "market": market.upper(), "days": days}
+
+
+@app.post("/api/market/signal/update")
+async def trigger_market_signal_update(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    시장신호 수동 업데이트 (관리자용)
+    """
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="관리자만 사용 가능합니다")
+
+    try:
+        from .market_analysis.scheduler import daily_market_update
+        result = await daily_market_update(db)
+        return {"success": True, "result": result}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 # 관심종목 그룹 API
 @app.get("/api/watchlist/groups")
 async def get_watchlist_groups(

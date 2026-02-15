@@ -150,6 +150,13 @@ fn main() {
             commands::get_analysis_rs,
             commands::get_analysis_new_high,
             commands::get_analysis_valuation,
+            // Phase 4: 시장신호 (IBD Big Picture)
+            commands::get_market_signal,
+            commands::get_market_big_picture,
+            commands::get_market_signal_history,
+            commands::get_market_breadth_data,
+            commands::get_market_investors_data,
+            commands::get_market_trading_value_data,
             // Stock Detail Renewal (Phase 2)
             commands::get_stock_financial_summary,
             commands::get_stock_financial_trend,

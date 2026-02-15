@@ -3807,3 +3807,182 @@ pub async fn get_kis_order_settings(
         Err(format!("KIS 설정 조회 실패: {}", error_text))
     }
 }
+
+// ============================================
+// 시장신호 API (Phase 4 - IBD Big Picture)
+// ============================================
+
+#[tauri::command]
+pub async fn get_market_signal(access_token: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .map_err(|e| format!("HTTP client error: {}", e))?;
+
+    let url = format!("{}/api/market/signal", VPS_SERVER_URL);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else {
+        Err("시장신호 조회 실패".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn get_market_big_picture(access_token: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .map_err(|e| format!("HTTP client error: {}", e))?;
+
+    let url = format!("{}/api/market/big-picture", VPS_SERVER_URL);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else {
+        Err("Big Picture 조회 실패".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn get_market_signal_history(
+    access_token: String,
+    days: Option<i32>,
+    market: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .map_err(|e| format!("HTTP client error: {}", e))?;
+
+    let days_param = days.unwrap_or(30);
+    let market_param = market.unwrap_or_else(|| "KOSPI".to_string());
+    let url = format!(
+        "{}/api/market/signal/history?days={}&market={}",
+        VPS_SERVER_URL, days_param, market_param
+    );
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else {
+        Err("시장신호 히스토리 조회 실패".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn get_market_breadth_data(
+    access_token: String,
+    days: Option<i32>,
+    market: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .map_err(|e| format!("HTTP client error: {}", e))?;
+
+    let days_param = days.unwrap_or(30);
+    let market_param = market.unwrap_or_else(|| "KOSPI".to_string());
+    let url = format!(
+        "{}/api/market/breadth?days={}&market={}",
+        VPS_SERVER_URL, days_param, market_param
+    );
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else {
+        Err("시장 너비 조회 실패".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn get_market_investors_data(
+    access_token: String,
+    days: Option<i32>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .map_err(|e| format!("HTTP client error: {}", e))?;
+
+    let days_param = days.unwrap_or(30);
+    let url = format!("{}/api/market/investors?days={}", VPS_SERVER_URL, days_param);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else {
+        Err("투자자 동향 조회 실패".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn get_market_trading_value_data(
+    access_token: String,
+    days: Option<i32>,
+    market: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .map_err(|e| format!("HTTP client error: {}", e))?;
+
+    let days_param = days.unwrap_or(30);
+    let market_param = market.unwrap_or_else(|| "KOSPI".to_string());
+    let url = format!(
+        "{}/api/market/trading-value?days={}&market={}",
+        VPS_SERVER_URL, days_param, market_param
+    );
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else {
+        Err("거래대금 조회 실패".to_string())
+    }
+}

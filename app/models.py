@@ -158,3 +158,93 @@ class PortfolioSnapshot(Base):
         Index('ix_portfolio_snapshots_user_date', 'user_id', 'snapshot_date'),
         UniqueConstraint('user_id', 'snapshot_date', name='uq_portfolio_snapshot_user_date'),
     )
+
+
+class MarketSignal(Base):
+    """
+    시장신호 테이블 (IBD Big Picture 기반)
+    - 매일 장 마감 후 업데이트
+    - Distribution Day, FTD, Big Picture 상태 추적
+    """
+    __tablename__ = "market_signals"
+
+    id = Column(BigInteger, primary_key=True)
+    date = Column(DateTime(timezone=True), nullable=False)  # 날짜
+    market = Column(Text, nullable=False)  # 'KOSPI' | 'KOSDAQ'
+
+    # 지수 데이터
+    index_value = Column(Float, nullable=True)
+    change_amount = Column(Float, nullable=True)
+    change_percent = Column(Float, nullable=True)
+    trading_volume = Column(BigInteger, nullable=True)
+    trading_value = Column(BigInteger, nullable=True)
+
+    # 종목수
+    rising_stocks = Column(BigInteger, default=0)
+    falling_stocks = Column(BigInteger, default=0)
+    unchanged_stocks = Column(BigInteger, default=0)
+    upper_limit_stocks = Column(BigInteger, default=0)
+    lower_limit_stocks = Column(BigInteger, default=0)
+    listed_stocks = Column(BigInteger, default=0)
+
+    # Big Picture 상태
+    # confirmed_uptrend | uptrend_under_pressure | market_in_correction | rally_attempt
+    status = Column(Text, default='confirmed_uptrend')
+
+    # Distribution Day 추적
+    active_dd_count = Column(BigInteger, default=0)
+    distribution_days = Column(JSONB, default=[])
+    # [{date, change_percent, volume, prev_volume, index_value, is_active}]
+
+    # Rally/FTD 추적
+    rally_start_date = Column(DateTime(timezone=True), nullable=True)
+    rally_day_count = Column(BigInteger, default=0)
+    last_ftd_date = Column(DateTime(timezone=True), nullable=True)
+
+    # 신호 (green | yellow | red)
+    short_term_signal = Column(Text, default='green')
+    long_term_signal = Column(Text, default='green')
+
+    # 투자자 동향 (억원)
+    foreign_net = Column(BigInteger, default=0)
+    institution_net = Column(BigInteger, default=0)
+    individual_net = Column(BigInteger, default=0)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index('ix_market_signals_date', 'date'),
+        Index('ix_market_signals_market_date', 'market', 'date'),
+        UniqueConstraint('date', 'market', name='uq_market_signals_date_market'),
+    )
+
+
+class MarketBreadth(Base):
+    """
+    시장 너비 테이블 (20/200일선 하락비율 등)
+    - 매일 장 마감 후 업데이트
+    """
+    __tablename__ = "market_breadth"
+
+    id = Column(BigInteger, primary_key=True)
+    date = Column(DateTime(timezone=True), nullable=False)
+    market = Column(Text, nullable=False)  # 'KOSPI' | 'KOSDAQ'
+
+    # 이동평균선 하락비율 (0~1)
+    below_ma20_ratio = Column(Float, nullable=True)
+    below_ma200_ratio = Column(Float, nullable=True)
+
+    # 52주 신고가/신저가
+    new_high_52w = Column(BigInteger, default=0)
+    new_low_52w = Column(BigInteger, default=0)
+
+    # ADR (Advance-Decline Ratio) = (상승/하락) * 100
+    adr = Column(Float, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index('ix_market_breadth_date', 'date'),
+        Index('ix_market_breadth_market_date', 'market', 'date'),
+        UniqueConstraint('date', 'market', name='uq_market_breadth_date_market'),
+    )
