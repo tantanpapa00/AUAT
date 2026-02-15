@@ -6681,6 +6681,188 @@ body {
     font-weight: 600;
 }
 
+/* =====================================================
+   Phase 4: IBD Big Picture 시장신호 스타일
+   ===================================================== */
+
+/* 시장 탭 */
+.market-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.market-tab {
+    padding: 10px 24px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.market-tab:hover {
+    background: var(--bg-light);
+}
+
+.market-tab.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+/* Big Picture 카드 */
+.big-picture-card {
+    margin-bottom: 20px;
+}
+
+.big-picture-card .bp-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.big-picture-card .bp-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.big-picture-card .bp-updated {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.big-picture-card .bp-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Big Picture 상태 */
+.bp-status {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    background: var(--bg-light);
+    border-radius: 12px;
+}
+
+.bp-status-icon {
+    font-size: 3rem;
+    line-height: 1;
+}
+
+.bp-status-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.bp-status-label {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.bp-status-exposure {
+    font-size: 1rem;
+    color: var(--text-muted);
+}
+
+/* Big Picture 신호등 */
+.bp-signals {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.bp-signal-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 16px;
+    background: var(--bg-light);
+    border-radius: 10px;
+    text-align: center;
+}
+
+.bp-signal-label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.bp-signal-light {
+    font-size: 2rem;
+    color: #6b7280;
+}
+
+/* DD 카운트 */
+.bp-dd-count {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.bp-dd-count.warning {
+    color: #f59e0b;
+}
+
+.bp-dd-count.danger {
+    color: #ef4444;
+}
+
+/* 신호 히스토리 차트 */
+.signal-history-section {
+    margin-bottom: 20px;
+}
+
+.signal-history-chart {
+    height: 250px;
+    position: relative;
+}
+
+.signal-history-chart canvas {
+    max-height: 250px;
+}
+
+/* 반응형 Big Picture */
+@media (max-width: 768px) {
+    .bp-signals {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+    }
+
+    .bp-signal-item {
+        padding: 12px 8px;
+    }
+
+    .bp-signal-label {
+        font-size: 0.75rem;
+    }
+
+    .bp-signal-light {
+        font-size: 1.5rem;
+    }
+
+    .bp-dd-count {
+        font-size: 1.4rem;
+    }
+
+    .bp-status-label {
+        font-size: 1.2rem;
+    }
+
+    .bp-status-icon {
+        font-size: 2.5rem;
+    }
+}
+
 /* 반응형: 모달 - StockEasy 스타일 */
 @media (max-width: 768px) {
     .stock-detail-modal {

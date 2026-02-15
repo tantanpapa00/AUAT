@@ -4880,7 +4880,7 @@ document.getElementById('watchlist-modal')?.addEventListener('click', (e) => {
 // 시장분석 새 페이지 로드 (STEP A)
 // =====================================================
 
-// 국내시장 로드
+// 국내시장 로드 (Phase 4: IBD Big Picture 시장신호)
 async function loadMarketKr() {
     const restrictionEl = document.getElementById('market-kr-restriction');
     const contentEl = document.getElementById('market-kr-content');
@@ -4906,24 +4906,60 @@ async function loadMarketKr() {
     contentEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
 
     try {
-        // [DEBUG] 토큰 상태 로그
-        console.log('[loadMarketKr] accessToken:', auth.accessToken ? `${auth.accessToken.slice(0, 20)}...` : 'EMPTY');
-        console.log('[loadMarketKr] user:', auth.user);
+        // 시장 개요 + 시장신호 API 병렬 호출
+        const [overviewData, signalData] = await Promise.all([
+            invokeWithTimeout('get_market_overview', { accessToken: auth.accessToken || '' }, 10000),
+            invokeWithTimeout('get_market_signal', { accessToken: auth.accessToken || '' }, 10000)
+        ]);
 
-        // [BUG FIX 3] 타임아웃 적용
-        const data = await invokeWithTimeout('get_market_overview', {
-            accessToken: auth.accessToken || ''
-        }, 10000);
+        console.log('[loadMarketKr] overview:', overviewData);
+        console.log('[loadMarketKr] signal:', signalData);
 
-        console.log('[loadMarketKr] API result:', data);
-
-        if (!data) {
+        if (!overviewData) {
             contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button class="btn btn-sm btn-primary" onclick="loadMarketKr()">다시 시도</button></div>';
             return;
         }
 
-        // 지수 카드 + 투자자 동향 UI 렌더링
+        // UI 렌더링 (IBD Big Picture 스타일)
         contentEl.innerHTML = `
+            <!-- 시장신호 탭 선택 -->
+            <div class="market-tabs">
+                <button class="market-tab active" data-market="kospi">코스피</button>
+                <button class="market-tab" data-market="kosdaq">코스닥</button>
+            </div>
+
+            <!-- IBD Big Picture 카드 -->
+            <section class="big-picture-card card" id="big-picture-section">
+                <div class="bp-header">
+                    <h2>Big Picture</h2>
+                    <span class="bp-updated" id="bp-updated">-</span>
+                </div>
+                <div class="bp-content">
+                    <div class="bp-status" id="bp-status">
+                        <div class="bp-status-icon" id="bp-status-icon">●</div>
+                        <div class="bp-status-text">
+                            <span class="bp-status-label" id="bp-status-label">-</span>
+                            <span class="bp-status-exposure" id="bp-status-exposure">권장 노출도: -</span>
+                        </div>
+                    </div>
+                    <div class="bp-signals">
+                        <div class="bp-signal-item">
+                            <span class="bp-signal-label">단기 신호</span>
+                            <span class="bp-signal-light" id="bp-short-term">●</span>
+                        </div>
+                        <div class="bp-signal-item">
+                            <span class="bp-signal-label">장기 신호</span>
+                            <span class="bp-signal-light" id="bp-long-term">●</span>
+                        </div>
+                        <div class="bp-signal-item">
+                            <span class="bp-signal-label">Distribution Days</span>
+                            <span class="bp-dd-count" id="bp-dd-count">0</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 지수 카드 -->
             <div class="market-grid">
                 <div class="index-card" id="kr-index-kospi">
                     <div class="index-name">코스피</div>
@@ -4936,40 +4972,51 @@ async function loadMarketKr() {
                     <div class="index-change">-</div>
                 </div>
             </div>
-            <div class="market-signal" id="market-signal-kr"></div>
-            <div class="investor-section card">
+
+            <!-- 신호 히스토리 차트 -->
+            <section class="card signal-history-section">
+                <h3>신호 히스토리 (30일)</h3>
+                <div class="signal-history-chart" id="signal-history-chart">
+                    <canvas id="signal-history-canvas"></canvas>
+                </div>
+            </section>
+
+            <!-- 투자자 동향 -->
+            <section class="investor-section card">
                 <h3>투자자별 순매수</h3>
                 <div class="investor-grid">
                     <div class="investor-item"><span class="label">외국인</span><span class="value" id="kr-investor-foreign">-</span></div>
                     <div class="investor-item"><span class="label">기관</span><span class="value" id="kr-investor-institution">-</span></div>
                     <div class="investor-item"><span class="label">개인</span><span class="value" id="kr-investor-individual">-</span></div>
                 </div>
-            </div>
-            <div class="sector-section card">
+            </section>
+
+            <!-- 주도 섹터 -->
+            <section class="sector-section card">
                 <h3>주도 섹터 TOP 5</h3>
                 <div class="sector-list" id="kr-sector-list"></div>
-            </div>
+            </section>
         `;
 
-        // 지수 카드 (API 응답: data.kospi, data.kosdaq 직접 접근)
-        updateIndexCard('kr-index-kospi', data.kospi);
-        updateIndexCard('kr-index-kosdaq', data.kosdaq);
+        // 지수 카드 업데이트
+        updateIndexCard('kr-index-kospi', overviewData.kospi);
+        updateIndexCard('kr-index-kosdaq', overviewData.kosdaq);
 
-        // 시장 신호
-        const kospiChange = data.kospi?.change_percent || data.summary?.kospi_change || 0;
-        const signalEl = document.getElementById('market-signal-kr');
-        if (signalEl) {
-            if (kospiChange > 0.5) {
-                signalEl.innerHTML = '<span class="signal-emoji">🟢</span><span class="signal-text">시장 상태: 매수 적합</span>';
-            } else if (kospiChange < -0.5) {
-                signalEl.innerHTML = '<span class="signal-emoji">🔴</span><span class="signal-text">시장 상태: 매수 부적합</span>';
-            } else {
-                signalEl.innerHTML = '<span class="signal-emoji">🟡</span><span class="signal-text">시장 상태: 중립</span>';
-            }
-        }
+        // Big Picture 상태 업데이트 (기본 KOSPI)
+        updateBigPicture(signalData, 'kospi');
 
-        // 투자자 동향 (API 응답: data.investors, 값은 억 단위)
-        const investors = data.investors || {};
+        // 탭 이벤트 바인딩
+        document.querySelectorAll('.market-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                document.querySelectorAll('.market-tab').forEach(t => t.classList.remove('active'));
+                e.target.classList.add('active');
+                const market = e.target.dataset.market;
+                updateBigPicture(signalData, market);
+            });
+        });
+
+        // 투자자 동향
+        const investors = overviewData.investors || {};
         const formatInvestor = (v) => {
             if (v == null || v === 0) return '-';
             const sign = v >= 0 ? '+' : '';
@@ -4980,7 +5027,7 @@ async function loadMarketKr() {
         document.getElementById('kr-investor-individual').textContent = formatInvestor(investors.individual);
 
         // 섹터 리스트
-        const sectors = data.sectors || [];
+        const sectors = overviewData.sectors || [];
         const sectorListEl = document.getElementById('kr-sector-list');
         if (sectorListEl) {
             if (sectors.length > 0) {
@@ -4997,10 +5044,166 @@ async function loadMarketKr() {
             }
         }
 
+        // 신호 히스토리 차트 로드
+        loadSignalHistoryChart('kospi');
+
     } catch (error) {
         console.error('Market KR error:', error);
         const errMsg = error?.message || error || '알 수 없는 오류';
         contentEl.innerHTML = `<div class="error-state"><p>${errMsg}</p><button class="btn btn-sm btn-primary" onclick="loadMarketKr()">다시 시도</button></div>`;
+    }
+}
+
+// Big Picture 상태 업데이트
+function updateBigPicture(signalData, market) {
+    const data = signalData?.[market] || {};
+
+    // 상태 아이콘 및 색상
+    const statusIcon = document.getElementById('bp-status-icon');
+    const statusLabel = document.getElementById('bp-status-label');
+    const statusExposure = document.getElementById('bp-status-exposure');
+    const shortTerm = document.getElementById('bp-short-term');
+    const longTerm = document.getElementById('bp-long-term');
+    const ddCount = document.getElementById('bp-dd-count');
+    const updated = document.getElementById('bp-updated');
+
+    // Big Picture 상태별 색상
+    const statusColors = {
+        'confirmed_uptrend': '#22c55e',      // 초록
+        'uptrend_under_pressure': '#fde047', // 노랑
+        'market_in_correction': '#ef4444',   // 빨강
+        'rally_attempt': '#3b82f6'           // 파랑
+    };
+
+    const status = data.status || 'confirmed_uptrend';
+    const color = statusColors[status] || '#6b7280';
+
+    if (statusIcon) statusIcon.style.color = color;
+    if (statusLabel) statusLabel.textContent = data.status_label || '확인된 상승세';
+    if (statusExposure) statusExposure.textContent = `권장 노출도: ${data.exposure || '80-100%'}`;
+
+    // 단기/장기 신호등
+    const signalColorMap = {
+        'green': '#22c55e',
+        'yellow': '#fde047',
+        'red': '#ef4444'
+    };
+    if (shortTerm) {
+        shortTerm.style.color = signalColorMap[data.short_term_signal] || '#6b7280';
+    }
+    if (longTerm) {
+        longTerm.style.color = signalColorMap[data.long_term_signal] || '#6b7280';
+    }
+
+    // DD 카운트
+    if (ddCount) {
+        ddCount.textContent = data.active_dd_count || 0;
+        const count = data.active_dd_count || 0;
+        ddCount.className = 'bp-dd-count';
+        if (count >= 5) ddCount.classList.add('danger');
+        else if (count >= 3) ddCount.classList.add('warning');
+    }
+
+    // 업데이트 시간
+    if (updated && signalData?.updated_at) {
+        const d = new Date(signalData.updated_at);
+        updated.textContent = `업데이트: ${d.toLocaleDateString('ko-KR')} ${d.toLocaleTimeString('ko-KR', {hour: '2-digit', minute: '2-digit'})}`;
+    } else if (updated) {
+        updated.textContent = '업데이트: 데이터 없음';
+    }
+}
+
+// 신호 히스토리 차트 로드
+async function loadSignalHistoryChart(market) {
+    try {
+        const historyData = await invokeWithTimeout('get_market_signal_history', {
+            accessToken: auth.accessToken || '',
+            days: 30,
+            market: market.toUpperCase()
+        }, 10000);
+
+        console.log('[SignalHistory] data:', historyData);
+
+        const canvas = document.getElementById('signal-history-canvas');
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        const history = historyData?.history || [];
+
+        if (history.length === 0) {
+            ctx.font = '14px sans-serif';
+            ctx.fillStyle = '#6b7280';
+            ctx.textAlign = 'center';
+            ctx.fillText('히스토리 데이터 없음', canvas.width / 2, canvas.height / 2);
+            return;
+        }
+
+        // 차트 데이터 준비
+        const labels = history.map(h => {
+            const d = new Date(h.date);
+            return `${d.getMonth()+1}/${d.getDate()}`;
+        });
+        const indexValues = history.map(h => h.index_value || 0);
+        const ddCounts = history.map(h => h.active_dd_count || 0);
+
+        // 기존 차트 제거
+        if (window.signalHistoryChartInstance) {
+            window.signalHistoryChartInstance.destroy();
+        }
+
+        // Chart.js로 차트 생성
+        window.signalHistoryChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: '지수',
+                        data: indexValues,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59,130,246,0.1)',
+                        yAxisID: 'y',
+                        tension: 0.3,
+                        fill: true
+                    },
+                    {
+                        label: 'DD 카운트',
+                        data: ddCounts,
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239,68,68,0.3)',
+                        yAxisID: 'y1',
+                        type: 'bar'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'top' }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: { display: true, text: '지수' }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: { display: true, text: 'DD Count' },
+                        min: 0,
+                        max: 10,
+                        grid: { drawOnChartArea: false }
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        console.error('[SignalHistory] error:', error);
     }
 }
 
