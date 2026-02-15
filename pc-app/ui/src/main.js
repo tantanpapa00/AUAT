@@ -4915,16 +4915,34 @@ async function loadMarketKr() {
         console.log('[loadMarketKr] overview:', overviewData);
         console.log('[loadMarketKr] signal:', signalData);
 
-        if (!overviewData) {
+        // signal 또는 overview 중 하나라도 있으면 진행
+        if (!overviewData && !signalData) {
             contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button class="btn btn-sm btn-primary" onclick="loadMarketKr()">다시 시도</button></div>';
             return;
         }
 
-        // 신호 데이터 추출
+        // 신호 데이터 추출 (signal API 우선, overview 폴백)
         const kospiSig = signalData?.kospi || {};
         const kosdaqSig = signalData?.kosdaq || {};
-        const kospi = overviewData.kospi || {};
-        const kosdaq = overviewData.kosdaq || {};
+        // overview 또는 signal 데이터 병합
+        const kospi = {
+            value: overviewData?.kospi?.value || kospiSig.index_value || 0,
+            change_percent: overviewData?.kospi?.change_percent ?? kospiSig.change_percent ?? 0,
+            change_amount: overviewData?.kospi?.change_amount ?? kospiSig.change_amount ?? 0,
+            rising_stocks: overviewData?.kospi?.rising_stocks || kospiSig.rising_stocks || 0,
+            falling_stocks: overviewData?.kospi?.falling_stocks || kospiSig.falling_stocks || 0,
+            unchanged_stocks: overviewData?.kospi?.unchanged_stocks || kospiSig.unchanged_stocks || 0,
+            trading_value: overviewData?.kospi?.trading_value || kospiSig.trading_value || 0
+        };
+        const kosdaq = {
+            value: overviewData?.kosdaq?.value || kosdaqSig.index_value || 0,
+            change_percent: overviewData?.kosdaq?.change_percent ?? kosdaqSig.change_percent ?? 0,
+            change_amount: overviewData?.kosdaq?.change_amount ?? kosdaqSig.change_amount ?? 0,
+            rising_stocks: overviewData?.kosdaq?.rising_stocks || kosdaqSig.rising_stocks || 0,
+            falling_stocks: overviewData?.kosdaq?.falling_stocks || kosdaqSig.falling_stocks || 0,
+            unchanged_stocks: overviewData?.kosdaq?.unchanged_stocks || kosdaqSig.unchanged_stocks || 0,
+            trading_value: overviewData?.kosdaq?.trading_value || kosdaqSig.trading_value || 0
+        };
 
         // UI 렌더링 (StockEasy 스타일)
         contentEl.innerHTML = `

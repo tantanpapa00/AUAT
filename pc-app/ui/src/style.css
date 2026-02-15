@@ -6734,36 +6734,50 @@ body {
     color: var(--text-muted);
 }
 
-/* 캡슐 신호등 */
+/* 캡슐 신호등 (StockEasy 스타일) */
 .se-capsule {
     display: flex;
-    gap: 4px;
-    padding: 6px 10px;
-    background: #1f2937;
-    border-radius: 20px;
+    gap: 6px;
+    padding: 8px 14px;
+    background: #111827;
+    border-radius: 999px;
+    border: 1px solid #374151;
 }
 
 .se-dot {
-    width: 14px;
-    height: 14px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     background: #374151;
     transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: transparent;
 }
+
+.se-dot[data-color="green"]::after { content: "G"; }
+.se-dot[data-color="yellow"]::after { content: "Y"; }
+.se-dot[data-color="red"]::after { content: "R"; }
 
 .se-dot[data-color="green"].active {
     background: #22c55e;
-    box-shadow: 0 0 8px #22c55e;
+    box-shadow: 0 0 12px #22c55e;
+    color: #fff;
 }
 
 .se-dot[data-color="yellow"].active {
     background: #fde047;
-    box-shadow: 0 0 8px #fde047;
+    box-shadow: 0 0 12px #fde047;
+    color: #1a1a2e;
 }
 
 .se-dot[data-color="red"].active {
     background: #ef4444;
-    box-shadow: 0 0 8px #ef4444;
+    box-shadow: 0 0 12px #ef4444;
+    color: #fff;
 }
 
 /* 지수 표시 */
