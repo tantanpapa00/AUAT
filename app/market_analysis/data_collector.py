@@ -161,26 +161,29 @@ async def get_stock_count_from_naver(market: str) -> tuple:
             r.encoding = "euc-kr"
             soup = BeautifulSoup(r.text, 'html.parser')
 
-            # 전체 텍스트에서 상한/상승/보합/하락/하한 숫자 추출
-            full_text = soup.get_text()
-
-            # 패턴: "상한2상승337보합42하락548하한0" 형태
-            upper_match = re.search(r'상한\s*(\d+)', full_text)
-            rising_match = re.search(r'상승\s*(\d+)', full_text)
-            unchanged_match = re.search(r'보합\s*(\d+)', full_text)
-            falling_match = re.search(r'하락\s*(\d+)', full_text)
-            lower_match = re.search(r'하한\s*(\d+)', full_text)
-
-            if upper_match:
-                upper = int(upper_match.group(1))
-            if rising_match:
-                rising = int(rising_match.group(1))
-            if unchanged_match:
-                unchanged = int(unchanged_match.group(1))
-            if falling_match:
-                falling = int(falling_match.group(1))
-            if lower_match:
-                lower = int(lower_match.group(1))
+            # HTML 구조: <span class="blind">상한종목수</span><a href="..."><span>2</span></a>
+            # span.blind 내 텍스트로 종류 식별, 다음 a > span 에서 숫자 추출
+            for span in soup.find_all('span', class_='blind'):
+                label = span.get_text(strip=True)
+                # 다음 sibling <a> 태그 내 <span> 에서 숫자 추출
+                next_a = span.find_next_sibling('a')
+                if next_a:
+                    num_span = next_a.find('span')
+                    if num_span:
+                        try:
+                            num = int(num_span.get_text(strip=True).replace(",", ""))
+                            if label == '상한종목수':
+                                upper = num
+                            elif label == '상승종목수':
+                                rising = num
+                            elif label == '보합종목수':
+                                unchanged = num
+                            elif label == '하락종목수':
+                                falling = num
+                            elif label == '하한종목수':
+                                lower = num
+                        except ValueError:
+                            pass
 
             listed = upper + rising + unchanged + falling + lower
 
