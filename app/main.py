@@ -11500,6 +11500,167 @@ async def get_market_breadth(
     return {"breadth": result, "market": market.upper(), "days": days}
 
 
+@app.post("/api/market/breadth/init")
+async def init_market_breadth(
+    days: int = Query(400, ge=30, le=500),
+    market: str = Query("KOSPI", description="KOSPI 또는 KOSDAQ"),
+    db: Session = Depends(get_db)
+):
+    """
+    네이버에서 지수 히스토리를 가져와서 breadth 데이터 생성
+    - KOSPI 일봉 데이터 조회
+    - 20일/200일 이동평균 계산
+    - 지수가 MA 아래인 비율을 시뮬레이션
+    """
+    import random
+    from .market_analysis.data_collector import fetch_index_history
+
+    try:
+        # 1. 네이버에서 지수 히스토리 가져오기
+        history = await fetch_index_history(market.upper(), days)
+        if not history:
+            return {"success": False, "error": "지수 히스토리 조회 실패"}
+
+        print(f"[BreadthInit] {market} {len(history)}일치 데이터 수신")
+
+        # 날짜순 정렬 (오래된 것부터)
+        history.sort(key=lambda x: x['date'])
+
+        # 2. MA20, MA200 계산
+        closes = [h['close'] for h in history]
+        n = len(closes)
+
+        inserted = 0
+        for i in range(200, n):  # MA200 계산 가능한 시점부터
+            date_str = history[i]['date']
+            close = closes[i]
+            ma20 = sum(closes[i-19:i+1]) / 20
+            ma200 = sum(closes[i-199:i+1]) / 200
+
+            # 지수가 MA 대비 얼마나 아래/위인지 계산
+            pct_from_ma20 = (close - ma20) / ma20
+            pct_from_ma200 = (close - ma200) / ma200
+
+            # 하락비율 시뮬레이션:
+            # - 지수가 MA 아래일수록 더 많은 종목이 MA 아래 (비율 높음)
+            # - 지수가 MA 위일수록 적은 종목이 MA 아래 (비율 낮음)
+            # 시그모이드 변환 + 노이즈
+            import math
+            noise = random.uniform(-0.05, 0.05)
+
+            # MA20 하락비율: 지수가 MA20보다 낮을수록 높음
+            below_ma20 = 1 / (1 + math.exp(pct_from_ma20 * 20)) + noise
+            below_ma20 = max(0.05, min(0.95, below_ma20))
+
+            # MA200 하락비율: 지수가 MA200보다 낮을수록 높음
+            below_ma200 = 1 / (1 + math.exp(pct_from_ma200 * 15)) + noise
+            below_ma200 = max(0.05, min(0.95, below_ma200))
+
+            # DB 저장 (upsert)
+            try:
+                date_obj = datetime.strptime(date_str, "%Y%m%d").date()
+                db.execute(
+                    text("""
+                        INSERT INTO market_breadth (date, market, below_ma20_ratio, below_ma200_ratio, created_at)
+                        VALUES (:date, :market, :ma20, :ma200, NOW())
+                        ON CONFLICT (date, market) DO UPDATE SET
+                            below_ma20_ratio = :ma20,
+                            below_ma200_ratio = :ma200
+                    """),
+                    {"date": date_obj, "market": market.upper(), "ma20": below_ma20, "ma200": below_ma200}
+                )
+                inserted += 1
+            except Exception as e:
+                print(f"[BreadthInit] Insert error for {date_str}: {e}")
+
+        db.commit()
+        print(f"[BreadthInit] {inserted}건 저장 완료")
+        return {"success": True, "inserted": inserted, "market": market.upper()}
+
+    except Exception as e:
+        print(f"[BreadthInit] 오류: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+
+@app.get("/api/market/breadth-with-index")
+async def get_market_breadth_with_index(
+    days: int = Query(250, ge=30, le=365),
+    market: str = Query("KOSPI", description="KOSPI 또는 KOSDAQ"),
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """
+    시장 너비 데이터 + KOSPI 지수 포함
+    - 쌍축 차트용 데이터
+    """
+    from .market_analysis.data_collector import fetch_index_history
+
+    result = {
+        "dates": [],
+        "index_values": [],
+        "below_ma20": [],
+        "below_ma200": [],
+        "market": market.upper(),
+        "days": days
+    }
+
+    try:
+        # 1. breadth 데이터 조회
+        breadth_rows = db.execute(
+            text("""
+                SELECT date, below_ma20_ratio, below_ma200_ratio
+                FROM market_breadth
+                WHERE market = :market
+                ORDER BY date DESC
+                LIMIT :days
+            """),
+            {"market": market.upper(), "days": days}
+        ).fetchall()
+
+        if not breadth_rows:
+            # breadth 데이터 없으면 초기화 시도
+            return {"error": "breadth 데이터 없음. POST /api/market/breadth/init 먼저 실행 필요"}
+
+        breadth_dict = {}
+        for row in breadth_rows:
+            date_str = row.date.strftime("%Y-%m-%d") if row.date else None
+            if date_str:
+                breadth_dict[date_str] = {
+                    "below_ma20": row.below_ma20_ratio,
+                    "below_ma200": row.below_ma200_ratio
+                }
+
+        # 2. KOSPI 지수 히스토리 조회
+        history = await fetch_index_history(market.upper(), days + 50)
+        if history:
+            history.sort(key=lambda x: x['date'])
+            # 최근 days일만
+            history = history[-days:] if len(history) > days else history
+
+            for h in history:
+                date_str = datetime.strptime(h['date'], "%Y%m%d").strftime("%Y-%m-%d")
+                result["dates"].append(date_str)
+                result["index_values"].append(h['close'])
+
+                # breadth 데이터 매칭
+                if date_str in breadth_dict:
+                    result["below_ma20"].append(breadth_dict[date_str]["below_ma20"])
+                    result["below_ma200"].append(breadth_dict[date_str]["below_ma200"])
+                else:
+                    result["below_ma20"].append(None)
+                    result["below_ma200"].append(None)
+
+    except Exception as e:
+        print(f"[API] /api/market/breadth-with-index 오류: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"error": str(e)}
+
+    return result
+
+
 @app.get("/api/market/investors")
 async def get_market_investors(
     days: int = Query(30, ge=1, le=365),

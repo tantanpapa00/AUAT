@@ -5317,60 +5317,223 @@ function updateBigPictureDot(dotId, status) {
     dot.style.color = colors[status] || '#6b7280';
 }
 
-// MA 비율 차트 (향후 구현)
+// MA 비율 차트 (쌍축 - KOSPI 지수 + 하락비율)
 async function loadMaRatioChart() {
     const canvas = document.getElementById('ma-ratio-chart');
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
 
-    // 임시 데이터 (향후 API 연동)
-    const labels = ['1월', '2월', '3월', '4월', '5월'];
-    const data20ma = [65, 70, 68, 72, 75];
-    const data200ma = [55, 58, 60, 62, 65];
-
+    // 기존 차트 제거
     if (window.maRatioChartInstance) {
         window.maRatioChartInstance.destroy();
     }
 
-    window.maRatioChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: '20일선 상회 비율',
-                    data: data20ma,
-                    borderColor: '#3b82f6',
-                    backgroundColor: 'rgba(59,130,246,0.1)',
-                    tension: 0.3,
-                    fill: true
-                },
-                {
-                    label: '200일선 상회 비율',
-                    data: data200ma,
-                    borderColor: '#22c55e',
-                    backgroundColor: 'rgba(34,197,94,0.1)',
-                    tension: 0.3,
-                    fill: true
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'top' }
+    // 로딩 표시
+    const container = canvas.parentElement;
+    if (container) {
+        container.style.position = 'relative';
+    }
+
+    try {
+        // API에서 데이터 가져오기
+        const response = await invokeWithTimeout('fetch_url', {
+            url: `${API_BASE}/api/market/breadth-with-index?days=250&market=KOSPI`,
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        }, 30000);
+
+        let data;
+        if (typeof response === 'string') {
+            data = JSON.parse(response);
+        } else {
+            data = response;
+        }
+
+        console.log('[loadMaRatioChart] API 응답:', data);
+
+        // 데이터 검증
+        if (data.error || !data.dates || data.dates.length === 0) {
+            console.warn('[loadMaRatioChart] 데이터 없음, 초기화 필요');
+            // 초기화 시도
+            await initBreadthData();
+            return;
+        }
+
+        // X축 레이블 (날짜)
+        const labels = data.dates.map(d => {
+            const date = new Date(d);
+            return `${date.getMonth() + 1}/${date.getDate()}`;
+        });
+
+        // 하락비율을 % 단위로 변환 (0~1 → 0~100)
+        const belowMa20 = data.below_ma20.map(v => v != null ? (v * 100).toFixed(1) : null);
+        const belowMa200 = data.below_ma200.map(v => v != null ? (v * 100).toFixed(1) : null);
+
+        window.maRatioChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'KOSPI',
+                        data: data.index_values,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: false,
+                        yAxisID: 'y-index',
+                        pointRadius: 0,
+                        pointHoverRadius: 4
+                    },
+                    {
+                        label: '200일선 하락비율',
+                        data: belowMa200,
+                        borderColor: '#f97316',
+                        backgroundColor: 'rgba(249,115,22,0.1)',
+                        borderWidth: 1.5,
+                        tension: 0.3,
+                        fill: false,
+                        yAxisID: 'y-ratio',
+                        pointRadius: 0,
+                        pointHoverRadius: 3
+                    },
+                    {
+                        label: '20일선 하락비율',
+                        data: belowMa20,
+                        borderColor: '#22c55e',
+                        backgroundColor: 'rgba(34,197,94,0.1)',
+                        borderWidth: 1.5,
+                        tension: 0.3,
+                        fill: false,
+                        yAxisID: 'y-ratio',
+                        pointRadius: 0,
+                        pointHoverRadius: 3
+                    }
+                ]
             },
-            scales: {
-                y: {
-                    min: 0,
-                    max: 100,
-                    title: { display: true, text: '%' }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            color: '#9ca3af',
+                            usePointStyle: true,
+                            pointStyle: 'line',
+                            font: { size: 11 }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(30,41,59,0.95)',
+                        titleColor: '#fff',
+                        bodyColor: '#d1d5db',
+                        borderColor: '#475569',
+                        borderWidth: 1,
+                        callbacks: {
+                            title: function(items) {
+                                if (items.length > 0) {
+                                    const idx = items[0].dataIndex;
+                                    return data.dates[idx];
+                                }
+                                return '';
+                            },
+                            label: function(context) {
+                                const label = context.dataset.label || '';
+                                const value = context.parsed.y;
+                                if (label === 'KOSPI') {
+                                    return `${label}: ${value?.toLocaleString() || '-'}`;
+                                } else {
+                                    return `${label}: ${value}%`;
+                                }
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            color: '#6b7280',
+                            maxRotation: 0,
+                            autoSkip: true,
+                            maxTicksLimit: 12,
+                            font: { size: 10 }
+                        },
+                        grid: { color: 'rgba(75,85,99,0.3)' }
+                    },
+                    'y-index': {
+                        type: 'linear',
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'KOSPI',
+                            color: '#3b82f6',
+                            font: { size: 11 }
+                        },
+                        ticks: {
+                            color: '#3b82f6',
+                            font: { size: 10 },
+                            callback: v => v.toLocaleString()
+                        },
+                        grid: { color: 'rgba(75,85,99,0.2)' }
+                    },
+                    'y-ratio': {
+                        type: 'linear',
+                        position: 'right',
+                        min: 0,
+                        max: 100,
+                        title: {
+                            display: true,
+                            text: '하락비율(%)',
+                            color: '#9ca3af',
+                            font: { size: 11 }
+                        },
+                        ticks: {
+                            color: '#9ca3af',
+                            font: { size: 10 },
+                            callback: v => v + '%'
+                        },
+                        grid: { drawOnChartArea: false }
+                    }
                 }
             }
-        }
-    });
+        });
+
+        console.log('[loadMaRatioChart] 차트 생성 완료:', data.dates.length, '일치');
+
+    } catch (error) {
+        console.error('[loadMaRatioChart] 오류:', error);
+        // 에러 시 빈 차트 표시
+        ctx.fillStyle = '#6b7280';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('차트 데이터 로드 실패', canvas.width / 2, canvas.height / 2);
+    }
+}
+
+// Breadth 데이터 초기화
+async function initBreadthData() {
+    console.log('[initBreadthData] 데이터 초기화 시작...');
+    try {
+        const response = await invokeWithTimeout('fetch_url', {
+            url: `${API_BASE}/api/market/breadth/init?days=400&market=KOSPI`,
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        }, 60000);
+
+        console.log('[initBreadthData] 초기화 응답:', response);
+
+        // 초기화 후 차트 다시 로드
+        setTimeout(() => loadMaRatioChart(), 1000);
+    } catch (error) {
+        console.error('[initBreadthData] 초기화 오류:', error);
+    }
 }
 
 // 추세유지 데이터 로드

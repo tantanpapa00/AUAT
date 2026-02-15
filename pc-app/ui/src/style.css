@@ -7202,12 +7202,12 @@ body {
 }
 
 .se-ma-chart-area {
-    height: 200px;
+    height: 280px;
     position: relative;
 }
 
 .se-ma-chart-area canvas {
-    max-height: 200px;
+    max-height: 280px;
 }
 
 /* 투자자 그리드 */
