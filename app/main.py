@@ -11608,6 +11608,98 @@ async def init_market_breadth(
         return {"success": False, "error": str(e)}
 
 
+@app.post("/api/market/signals/init")
+async def init_market_signals(
+    days: int = Query(365, ge=30, le=500),
+    db: Session = Depends(get_db)
+):
+    """
+    market_signals 테이블에 과거 데이터 생성
+    - 네이버 지수 히스토리에서 trading_value(거래대금) 포함
+    """
+    from .market_analysis.data_collector import fetch_index_history
+    from .market_analysis.signal_engine import BIG_PICTURE_CONFIG
+
+    try:
+        total_inserted = 0
+
+        for market in ["KOSPI", "KOSDAQ"]:
+            # 네이버에서 지수 히스토리 가져오기
+            history = await fetch_index_history(market, days)
+            if not history:
+                print(f"[SignalsInit] {market} 히스토리 조회 실패")
+                continue
+
+            print(f"[SignalsInit] {market} {len(history)}일치 데이터 수신")
+
+            # 날짜순 정렬 (오래된 것부터)
+            history.sort(key=lambda x: x['date'])
+
+            inserted = 0
+            for i, h in enumerate(history):
+                date_str = h['date']
+                close = h['close']
+                volume = h['volume']
+
+                # 전일 대비 계산
+                if i > 0:
+                    prev_close = history[i-1]['close']
+                    change_amount = close - prev_close
+                    change_percent = (change_amount / prev_close) * 100 if prev_close else 0
+                else:
+                    change_amount = 0
+                    change_percent = 0
+
+                # 거래대금 추정 (volume * 평균가격)
+                # 네이버 API는 거래량만 제공, 거래대금은 volume * close로 추정
+                trading_value = int(volume * close)
+
+                try:
+                    date_obj = datetime.strptime(date_str, "%Y%m%d").date()
+                    db.execute(
+                        text("""
+                            INSERT INTO market_signals (
+                                date, market, index_value, change_amount, change_percent,
+                                trading_volume, trading_value, status, short_term_signal, long_term_signal
+                            )
+                            VALUES (
+                                :date, :market, :index_value, :change_amount, :change_percent,
+                                :volume, :trading_value, 'confirmed_uptrend', 'yellow', 'green'
+                            )
+                            ON CONFLICT (date, market) DO UPDATE SET
+                                index_value = :index_value,
+                                change_amount = :change_amount,
+                                change_percent = :change_percent,
+                                trading_volume = :volume,
+                                trading_value = :trading_value
+                        """),
+                        {
+                            "date": date_obj,
+                            "market": market,
+                            "index_value": close,
+                            "change_amount": round(change_amount, 2),
+                            "change_percent": round(change_percent, 2),
+                            "volume": volume,
+                            "trading_value": trading_value
+                        }
+                    )
+                    inserted += 1
+                except Exception as e:
+                    print(f"[SignalsInit] Insert error for {market} {date_str}: {e}")
+
+            db.commit()
+            total_inserted += inserted
+            print(f"[SignalsInit] {market} {inserted}건 저장 완료")
+
+        return {"success": True, "inserted": total_inserted}
+
+    except Exception as e:
+        print(f"[SignalsInit] 오류: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+
 @app.get("/api/market/breadth-with-index")
 async def get_market_breadth_with_index(
     days: int = Query(250, ge=30, le=365),
