@@ -4955,86 +4955,84 @@ async function loadMarketKr() {
             active_dd_count: kosdaqSig.active_dd_count || 0
         };
 
-        // UI 렌더링 (StockEasy 스타일 - 2행 구조)
+        // UI 렌더링 (StockEasy 스타일 - 1줄 통합)
         contentEl.innerHTML = `
-            <!-- 1행: 시장신호 + 신호등만 -->
-            <div class="se-signal-row">
-                <div class="se-signal-title" id="signal-toggle">
-                    <span>시장신호</span>
-                    <span class="toggle-arrow" id="signal-arrow">∧</span>
-                </div>
-                <div class="se-signal-lights">
-                    <div class="se-signal-group">
-                        <span class="se-signal-label">단기</span>
-                        <div class="se-capsule" id="short-term-capsule">
-                            <span class="se-dot" data-color="green"></span>
-                            <span class="se-dot" data-color="yellow"></span>
-                            <span class="se-dot" data-color="red"></span>
+            <!-- 시장신호 헤더 (1줄 통합) -->
+            <div class="se-header-unified">
+                <!-- 좌측: 시장신호 + 신호등 -->
+                <div class="se-header-left">
+                    <div class="se-signal-title" id="signal-toggle">
+                        <span>시장신호</span>
+                        <span class="toggle-arrow" id="signal-arrow">∧</span>
+                    </div>
+                    <div class="se-signal-lights">
+                        <div class="se-signal-group">
+                            <span class="se-signal-label">단기</span>
+                            <div class="se-capsule" id="short-term-capsule">
+                                <span class="se-dot" data-color="green"></span>
+                                <span class="se-dot" data-color="yellow"></span>
+                                <span class="se-dot" data-color="red"></span>
+                            </div>
+                        </div>
+                        <div class="se-signal-group">
+                            <span class="se-signal-label">장기</span>
+                            <div class="se-capsule" id="long-term-capsule">
+                                <span class="se-dot" data-color="green"></span>
+                                <span class="se-dot" data-color="yellow"></span>
+                                <span class="se-dot" data-color="red"></span>
+                            </div>
                         </div>
                     </div>
-                    <div class="se-signal-group">
-                        <span class="se-signal-label">장기</span>
-                        <div class="se-capsule" id="long-term-capsule">
-                            <span class="se-dot" data-color="green"></span>
-                            <span class="se-dot" data-color="yellow"></span>
-                            <span class="se-dot" data-color="red"></span>
-                        </div>
-                    </div>
                 </div>
-            </div>
-
-            <!-- 2행: KOSPI 카드 + KOSDAQ 카드 -->
-            <div class="se-index-cards">
-                <div class="se-index-card">
-                    <div class="se-card-header">
-                        <span class="se-card-name">KOSPI</span>
-                        <span class="se-card-change ${(kospi.change_percent || 0) >= 0 ? 'up' : 'down'}">
-                            ${(kospi.change_percent || 0) >= 0 ? '+' : ''}${(kospi.change_percent || 0).toFixed(2)}%
-                        </span>
-                    </div>
-                    <div class="se-card-body">
-                        <span class="se-card-value">${kospi.value?.toLocaleString() || '-'}</span>
-                        <span class="se-card-amount ${(kospi.change_amount || 0) >= 0 ? 'up' : 'down'}">
-                            ${(kospi.change_amount || 0) >= 0 ? '▲' : '▼'}${Math.abs(kospi.change_amount || 0).toFixed(2)}
-                        </span>
-                    </div>
-                    <div class="se-card-gauge-wrap">
-                        <div class="se-card-gauge">
+                <!-- 우측: KOSPI + KOSDAQ 블록 -->
+                <div class="se-header-right">
+                    <div class="se-index-block">
+                        <div class="se-block-row1">
+                            <span class="se-block-name">KOSPI</span>
+                            <span class="se-block-pct ${(kospi.change_percent || 0) >= 0 ? 'up' : 'down'}">
+                                ${(kospi.change_percent || 0) >= 0 ? '+' : ''}${(kospi.change_percent || 0).toFixed(2)}%
+                            </span>
+                        </div>
+                        <div class="se-block-row2">
+                            <span class="se-block-value">${kospi.value?.toLocaleString() || '-'}</span>
+                            <span class="se-block-amt ${(kospi.change_amount || 0) >= 0 ? 'up' : 'down'}">
+                                ${(kospi.change_amount || 0) >= 0 ? '▲' : '▼'}${Math.abs(kospi.change_amount || 0).toFixed(2)}
+                            </span>
+                        </div>
+                        <div class="se-block-gauge">
                             <div class="up-bar" style="width: ${getGaugePercent(kospi, 'up')}%"></div>
                             <div class="neutral-bar" style="width: ${getGaugePercent(kospi, 'neutral')}%"></div>
                             <div class="down-bar" style="width: ${getGaugePercent(kospi, 'down')}%"></div>
                         </div>
+                        <div class="se-block-stocks">
+                            <span class="up">▲${kospi.rising_stocks || 0}</span>
+                            <span class="neutral">${kospi.unchanged_stocks || 0}</span>
+                            <span class="down">▼${kospi.falling_stocks || 0}</span>
+                        </div>
                     </div>
-                    <div class="se-card-stocks">
-                        <span class="up">▲${kospi.rising_stocks || 0}</span>
-                        <span class="neutral">${kospi.unchanged_stocks || 0}</span>
-                        <span class="down">▼${kospi.falling_stocks || 0}</span>
-                    </div>
-                </div>
-                <div class="se-index-card">
-                    <div class="se-card-header">
-                        <span class="se-card-name">KOSDAQ</span>
-                        <span class="se-card-change ${(kosdaq.change_percent || 0) >= 0 ? 'up' : 'down'}">
-                            ${(kosdaq.change_percent || 0) >= 0 ? '+' : ''}${(kosdaq.change_percent || 0).toFixed(2)}%
-                        </span>
-                    </div>
-                    <div class="se-card-body">
-                        <span class="se-card-value">${kosdaq.value?.toLocaleString() || '-'}</span>
-                        <span class="se-card-amount ${(kosdaq.change_amount || 0) >= 0 ? 'up' : 'down'}">
-                            ${(kosdaq.change_amount || 0) >= 0 ? '▲' : '▼'}${Math.abs(kosdaq.change_amount || 0).toFixed(2)}
-                        </span>
-                    </div>
-                    <div class="se-card-gauge-wrap">
-                        <div class="se-card-gauge">
+                    <div class="se-index-block">
+                        <div class="se-block-row1">
+                            <span class="se-block-name">KOSDAQ</span>
+                            <span class="se-block-pct ${(kosdaq.change_percent || 0) >= 0 ? 'up' : 'down'}">
+                                ${(kosdaq.change_percent || 0) >= 0 ? '+' : ''}${(kosdaq.change_percent || 0).toFixed(2)}%
+                            </span>
+                        </div>
+                        <div class="se-block-row2">
+                            <span class="se-block-value">${kosdaq.value?.toLocaleString() || '-'}</span>
+                            <span class="se-block-amt ${(kosdaq.change_amount || 0) >= 0 ? 'up' : 'down'}">
+                                ${(kosdaq.change_amount || 0) >= 0 ? '▲' : '▼'}${Math.abs(kosdaq.change_amount || 0).toFixed(2)}
+                            </span>
+                        </div>
+                        <div class="se-block-gauge">
                             <div class="up-bar" style="width: ${getGaugePercent(kosdaq, 'up')}%"></div>
                             <div class="neutral-bar" style="width: ${getGaugePercent(kosdaq, 'neutral')}%"></div>
                             <div class="down-bar" style="width: ${getGaugePercent(kosdaq, 'down')}%"></div>
                         </div>
-                    </div>
-                    <div class="se-card-stocks">
-                        <span class="up">▲${kosdaq.rising_stocks || 0}</span>
-                        <span class="neutral">${kosdaq.unchanged_stocks || 0}</span>
-                        <span class="down">▼${kosdaq.falling_stocks || 0}</span>
+                        <div class="se-block-stocks">
+                            <span class="up">▲${kosdaq.rising_stocks || 0}</span>
+                            <span class="neutral">${kosdaq.unchanged_stocks || 0}</span>
+                            <span class="down">▼${kosdaq.falling_stocks || 0}</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -5264,12 +5262,19 @@ async function loadMarketKr() {
 
 // 게이지 퍼센트 계산
 function getGaugePercent(data, type) {
-    const total = (data.rising_stocks || 0) + (data.falling_stocks || 0) + (data.unchanged_stocks || 0);
+    const rising = data.rising_stocks || 0;
+    const falling = data.falling_stocks || 0;
+    const unchanged = data.unchanged_stocks || 0;
+    const total = rising + falling + unchanged;
     if (total === 0) return 0;
-    if (type === 'up') return ((data.rising_stocks || 0) / total * 100).toFixed(1);
-    if (type === 'neutral') return ((data.unchanged_stocks || 0) / total * 100).toFixed(1);
-    if (type === 'down') return ((data.falling_stocks || 0) / total * 100).toFixed(1);
-    return 0;
+
+    let percent = 0;
+    if (type === 'up') percent = (rising / total * 100);
+    else if (type === 'neutral') percent = (unchanged / total * 100);
+    else if (type === 'down') percent = (falling / total * 100);
+
+    console.log(`[Gauge] ${type}: ${percent.toFixed(1)}% (rising=${rising}, falling=${falling}, unchanged=${unchanged})`);
+    return percent.toFixed(1);
 }
 
 // 거래대금 포맷

@@ -6685,7 +6685,114 @@ body {
    Phase 4: StockEasy 스타일 시장신호
    ===================================================== */
 
-/* 1행: 시장신호 + 신호등만 */
+/* 통합 헤더 (1줄 레이아웃) */
+.se-header-unified {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 12px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 12px;
+}
+
+.se-header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+}
+
+.se-header-right {
+    display: flex;
+    gap: 32px;
+    flex: 1;
+    justify-content: flex-end;
+}
+
+/* KOSPI/KOSDAQ 블록 (카드 배경 없음) */
+.se-index-block {
+    min-width: 140px;
+}
+
+.se-block-row1 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 2px;
+}
+
+.se-block-name {
+    font-size: 13px;
+    color: #9ca3af;
+}
+
+.se-block-pct {
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.se-block-pct.up { color: #ef4444; }
+.se-block-pct.down { color: #3b82f6; }
+
+.se-block-row2 {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.se-block-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.se-block-amt {
+    font-size: 13px;
+}
+
+.se-block-amt.up { color: #ef4444; }
+.se-block-amt.down { color: #3b82f6; }
+
+.se-block-gauge {
+    width: 120px;
+    height: 3px;
+    background: #374151;
+    border-radius: 2px;
+    overflow: hidden;
+    display: flex;
+    margin-bottom: 4px;
+}
+
+.se-block-gauge .up-bar {
+    background: #ef4444;
+    height: 100%;
+}
+
+.se-block-gauge .neutral-bar {
+    background: #6b7280;
+    height: 100%;
+}
+
+.se-block-gauge .down-bar {
+    background: #3b82f6;
+    height: 100%;
+}
+
+.se-block-stocks {
+    display: flex;
+    gap: 8px;
+    font-size: 11px;
+}
+
+.se-block-stocks .up { color: #ef4444; }
+.se-block-stocks .neutral { color: #6b7280; }
+.se-block-stocks .down { color: #3b82f6; }
+
+/* 기존 카드 스타일 (하위 호환용) */
 .se-signal-row {
     display: flex;
     align-items: center;
@@ -6697,7 +6804,6 @@ body {
     margin-bottom: 12px;
 }
 
-/* 2행: KOSPI/KOSDAQ 카드 */
 .se-index-cards {
     display: flex;
     gap: 12px;
@@ -6709,6 +6815,8 @@ body {
     background: #1e293b;
     border-radius: 12px;
     padding: 16px 20px;
+    overflow: hidden;
+    min-width: 0;
 }
 
 .se-card-header {
@@ -6755,30 +6863,38 @@ body {
 /* 게이지바 래퍼 */
 .se-card-gauge-wrap {
     margin-bottom: 8px;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
 }
 
 .se-card-gauge {
     width: 100%;
+    max-width: 100%;
     height: 4px;
     background: #374151;
     border-radius: 2px;
     overflow: hidden;
     display: flex;
+    flex-shrink: 0;
 }
 
 .se-card-gauge .up-bar {
     background: #ef4444;
     height: 100%;
+    flex-shrink: 0;
 }
 
 .se-card-gauge .neutral-bar {
     background: #6b7280;
     height: 100%;
+    flex-shrink: 0;
 }
 
 .se-card-gauge .down-bar {
     background: #3b82f6;
     height: 100%;
+    flex-shrink: 0;
 }
 
 /* 종목수 (게이지바 아래) */
