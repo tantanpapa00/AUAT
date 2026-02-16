@@ -9068,31 +9068,35 @@ body {
 .us-heatmap-grid {
     display: flex;
     flex-wrap: wrap;
-    gap: 2px;
-    min-height: 200px;
+    gap: 1px;
+    height: 420px;
+    overflow: hidden;
 }
 
 .hm-sector {
     display: flex;
     flex-direction: column;
-    min-width: 80px;
-    gap: 2px;
+    min-width: 0;
+    gap: 1px;
 }
 
 .hm-sector-label {
-    font-size: 0.7em;
+    font-size: 0.65em;
     color: var(--text-muted);
-    padding: 0 2px;
+    padding: 0 1px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    height: 14px;
+    line-height: 14px;
 }
 
 .hm-sector-stocks {
     display: flex;
     flex-wrap: wrap;
-    gap: 2px;
+    gap: 1px;
     flex: 1;
+    align-content: flex-start;
 }
 
 .hm-stock {
@@ -9100,10 +9104,10 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 4px 2px;
-    border-radius: 3px;
-    min-width: 50px;
-    min-height: 40px;
+    padding: 1px;
+    border-radius: 2px;
+    min-width: 24px;
+    min-height: 20px;
     cursor: pointer;
     transition: transform 0.1s;
     color: #fff;

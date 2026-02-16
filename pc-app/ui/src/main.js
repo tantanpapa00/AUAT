@@ -6455,29 +6455,30 @@ function renderUsHeatmap(heatmap) {
     // 4. 전체 시가총액 합계
     const totalMcap = heatmap.reduce((sum, s) => sum + (s.market_cap || 0), 0) || 1;
 
-    // 5. 렌더링
+    // 5. 렌더링 (고정 높이 420px 안에 모든 종목 표시)
     let html = '';
     sortedSectors.forEach(([sector, stocks]) => {
         const sectorMcap = stocks.reduce((sum, s) => sum + (s.market_cap || 0), 0);
         const sectorPct = (sectorMcap / totalMcap * 100).toFixed(1);
 
-        html += `<div class="hm-sector" style="flex:${sectorPct}">`;
+        html += `<div class="hm-sector" style="flex:${sectorPct};height:100%">`;
         html += `<div class="hm-sector-label">${sector}</div>`;
-        html += `<div class="hm-sector-stocks">`;
+        html += `<div class="hm-sector-stocks" style="height:calc(100% - 14px)">`;
 
         stocks.forEach(s => {
             const pct = s.change_pct || 0;
             const bg = getHeatmapColor(pct);
             const mcapRatio = sectorMcap > 0 ? ((s.market_cap || 0) / sectorMcap * 100) : 10;
-            const flexVal = Math.max(mcapRatio, 8).toFixed(1);
-            const fontSize = mcapRatio > 30 ? '1em' : mcapRatio > 15 ? '0.85em' : '0.7em';
+            const flexVal = Math.max(mcapRatio, 5).toFixed(1);
+            // 503개 종목이므로 폰트 크기 축소
+            const fontSize = mcapRatio > 20 ? '0.65em' : mcapRatio > 10 ? '0.55em' : '0.5em';
 
             html += `
                 <div class="hm-stock" style="flex:${flexVal};background:${bg}"
                      data-symbol="${s.symbol}" data-exchange="kis_us"
                      title="${s.name} (${s.symbol}): ${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%">
                     <span class="hm-symbol" style="font-size:${fontSize}">${s.symbol}</span>
-                    <span class="hm-pct">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</span>
+                    <span class="hm-pct" style="font-size:0.5em">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</span>
                 </div>`;
         });
 
