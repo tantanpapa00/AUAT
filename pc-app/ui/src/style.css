@@ -9198,6 +9198,146 @@ body {
     margin-top: 4px;
 }
 
+.se-vix-status {
+    display: inline-block;
+    margin-top: 8px;
+}
+
+/* Fear & Greed 게이지 */
+.se-fg-gauge {
+    margin-top: 16px;
+}
+
+.se-fg-gauge-track {
+    position: relative;
+    height: 12px;
+    background: linear-gradient(90deg, #ef4444 0%, #fb923c 25%, #fde047 50%, #86efac 75%, #22c55e 100%);
+    border-radius: 6px;
+    overflow: visible;
+}
+
+.se-fg-gauge-fill {
+    display: none;
+}
+
+.se-fg-gauge-pointer {
+    position: absolute;
+    top: -4px;
+    width: 3px;
+    height: 20px;
+    background: var(--text-primary);
+    border-radius: 2px;
+    transform: translateX(-50%);
+    box-shadow: 0 0 4px rgba(0,0,0,0.3);
+}
+
+.se-fg-gauge-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7em;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+/* NASDAQ 컴팩트 블록 (게이지 없음) */
+.se-index-block-compact {
+    min-height: auto;
+}
+
+/* S&P 500 브레드스 카드 */
+.se-breadth-card {
+    padding: 16px;
+    margin-top: 12px;
+}
+
+.se-breadth-card h3 {
+    font-size: 14px;
+    margin-bottom: 12px;
+}
+
+.se-breadth-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.se-breadth-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.se-breadth-label {
+    min-width: 100px;
+    font-size: 0.85em;
+    color: var(--text-muted);
+}
+
+.se-breadth-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+
+.se-breadth-bar .up {
+    color: var(--success);
+    font-weight: 600;
+    min-width: 32px;
+    text-align: right;
+}
+
+.se-breadth-bar .down {
+    color: var(--danger);
+    font-weight: 600;
+    min-width: 32px;
+}
+
+.se-breadth-bar-track {
+    flex: 1;
+    height: 8px;
+    background: var(--bg-light);
+    border-radius: 4px;
+    display: flex;
+    overflow: hidden;
+}
+
+.se-breadth-bar-up {
+    background: var(--success);
+    height: 100%;
+}
+
+.se-breadth-bar-down {
+    background: var(--danger);
+    height: 100%;
+}
+
+.se-breadth-pct {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+
+.se-breadth-pct-track {
+    flex: 1;
+    height: 8px;
+    background: var(--bg-light);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.se-breadth-pct-fill {
+    height: 100%;
+    border-radius: 4px;
+}
+
+.se-breadth-pct-val {
+    font-weight: 600;
+    min-width: 50px;
+    text-align: right;
+}
+
 /* 추가 지수 (다우/러셀) */
 .se-extra-indices {
     display: flex;

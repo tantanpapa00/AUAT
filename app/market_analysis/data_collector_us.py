@@ -1,8 +1,9 @@
 """
-해외시장 데이터 수집기 (Yahoo Finance + CNN Fear & Greed)
+해외시장 데이터 수집기 (Yahoo Finance + CNN Fear & Greed + Finviz Breadth)
 Phase 5: 국내시장과 동일한 구조의 해외시장 분석
 """
 import asyncio
+import re
 import httpx
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timezone
@@ -271,6 +272,79 @@ async def collect_fear_greed_index() -> Dict:
         return {"value": 50, "label": "중립", "label_en": "Neutral"}
 
 
+async def collect_finviz_breadth() -> Dict:
+    """
+    Finviz에서 S&P 500 시장 브레드스 데이터 수집
+    Returns: {
+        "sp500_advancing": int,
+        "sp500_declining": int,
+        "sp500_new_high": int,
+        "sp500_new_low": int,
+        "sp500_above_sma50": float (퍼센트),
+        "sp500_above_sma200": float (퍼센트)
+    }
+    """
+    result = {
+        "sp500_advancing": 0,
+        "sp500_declining": 0,
+        "sp500_new_high": 0,
+        "sp500_new_low": 0,
+        "sp500_above_sma50": 50.0,
+        "sp500_above_sma200": 50.0,
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+            }
+
+            # Finviz 메인 페이지에서 S&P 500 브레드스 파싱
+            url = "https://finviz.com/groups.ashx?g=sp500"
+            resp = await client.get(url, headers=headers, timeout=15)
+
+            if resp.status_code != 200:
+                print(f"[US] Finviz breadth request failed: {resp.status_code}")
+                return result
+
+            html = resp.text
+
+            # S&P 500 상승/하락 종목 수 파싱 (예: "347" / "156")
+            # Finviz 페이지 구조에 따라 정규식 조정 필요
+            adv_match = re.search(r'Advancing[^\d]*(\d+)', html)
+            dec_match = re.search(r'Declining[^\d]*(\d+)', html)
+
+            if adv_match:
+                result["sp500_advancing"] = int(adv_match.group(1))
+            if dec_match:
+                result["sp500_declining"] = int(dec_match.group(1))
+
+            # New High / New Low 파싱
+            nh_match = re.search(r'New High[^\d]*(\d+)', html)
+            nl_match = re.search(r'New Low[^\d]*(\d+)', html)
+
+            if nh_match:
+                result["sp500_new_high"] = int(nh_match.group(1))
+            if nl_match:
+                result["sp500_new_low"] = int(nl_match.group(1))
+
+            # SMA 위 비율 (Finviz 제공 시)
+            sma50_match = re.search(r'Above SMA50[^\d]*(\d+\.?\d*)%', html)
+            sma200_match = re.search(r'Above SMA200[^\d]*(\d+\.?\d*)%', html)
+
+            if sma50_match:
+                result["sp500_above_sma50"] = float(sma50_match.group(1))
+            if sma200_match:
+                result["sp500_above_sma200"] = float(sma200_match.group(1))
+
+    except Exception as e:
+        print(f"[US] collect_finviz_breadth error: {e}")
+
+    return result
+
+
 async def get_us_market_summary() -> Dict:
     """
     해외시장 전체 요약 (병렬 수집)
@@ -279,19 +353,21 @@ async def get_us_market_summary() -> Dict:
         "sectors": [...],
         "heatmap": [...],
         "fear_greed": {...},
+        "breadth": {...},  # Finviz 브레드스 데이터
         "rising_stocks": int,
         "falling_stocks": int,
         "unchanged_stocks": int,
     }
     """
-    # 병렬 수집
+    # 병렬 수집 (Finviz 브레드스 추가)
     indices_task = collect_us_indices()
     sectors_task = collect_us_sectors()
     heatmap_task = collect_us_heatmap()
     fear_greed_task = collect_fear_greed_index()
+    breadth_task = collect_finviz_breadth()
 
-    indices, sectors, heatmap, fear_greed = await asyncio.gather(
-        indices_task, sectors_task, heatmap_task, fear_greed_task,
+    indices, sectors, heatmap, fear_greed, breadth = await asyncio.gather(
+        indices_task, sectors_task, heatmap_task, fear_greed_task, breadth_task,
         return_exceptions=True
     )
 
@@ -304,22 +380,39 @@ async def get_us_market_summary() -> Dict:
         heatmap = []
     if isinstance(fear_greed, Exception):
         fear_greed = {"value": 50, "label": "중립", "label_en": "Neutral"}
+    if isinstance(breadth, Exception):
+        breadth = {
+            "sp500_advancing": 0,
+            "sp500_declining": 0,
+            "sp500_new_high": 0,
+            "sp500_new_low": 0,
+            "sp500_above_sma50": 50.0,
+            "sp500_above_sma200": 50.0,
+        }
 
-    # 히트맵 30종목 비율을 S&P 503종목으로 환산
-    heatmap_rising = sum(1 for s in heatmap if s.get("change_pct", 0) > 0)
-    heatmap_falling = sum(1 for s in heatmap if s.get("change_pct", 0) < 0)
-    heatmap_total = len(heatmap) or 1
+    # Finviz 브레드스 데이터 사용 (실제 S&P 500 상승/하락 종목 수)
+    rising = breadth.get("sp500_advancing", 0)
+    falling = breadth.get("sp500_declining", 0)
 
+    # Finviz 데이터가 없으면 히트맵 30종목 비율로 추정
+    if rising == 0 and falling == 0:
+        heatmap_rising = sum(1 for s in heatmap if s.get("change_pct", 0) > 0)
+        heatmap_falling = sum(1 for s in heatmap if s.get("change_pct", 0) < 0)
+        heatmap_total = len(heatmap) or 1
+        sp500_total = 503
+        rising = round(heatmap_rising / heatmap_total * sp500_total)
+        falling = round(heatmap_falling / heatmap_total * sp500_total)
+
+    # 보합 = 503 - 상승 - 하락
     sp500_total = 503
-    rising = round(heatmap_rising / heatmap_total * sp500_total)
-    falling = round(heatmap_falling / heatmap_total * sp500_total)
-    unchanged = sp500_total - rising - falling
+    unchanged = max(0, sp500_total - rising - falling)
 
     return {
         "indices": indices,
         "sectors": sectors,
         "heatmap": heatmap,
         "fear_greed": fear_greed,
+        "breadth": breadth,
         "rising_stocks": rising,
         "falling_stocks": falling,
         "unchanged_stocks": unchanged,

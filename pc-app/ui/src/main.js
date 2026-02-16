@@ -6073,6 +6073,7 @@ async function loadMarketUs() {
         const russell = indices.russell || {};
         const vix = indices.vix || {};
         const fearGreed = data.fear_greed || {};
+        const breadth = data.breadth || {};
         const heatmap = data.heatmap || [];
         const sectors = data.sectors || [];
         const signal = data.signal || {};
@@ -6110,6 +6111,7 @@ async function loadMarketUs() {
                 </div>
                 <!-- 우측: S&P500 + NASDAQ 블록 -->
                 <div class="se-header-right">
+                    <!-- S&P 500: 게이지 포함 -->
                     <div class="se-index-block">
                         <div class="se-block-row1">
                             <span class="se-block-name">S&P 500</span>
@@ -6134,7 +6136,8 @@ async function loadMarketUs() {
                             <span class="down">▼${data.falling_stocks || 0}</span>
                         </div>
                     </div>
-                    <div class="se-index-block">
+                    <!-- NASDAQ: 게이지 없이 가격 정보만 -->
+                    <div class="se-index-block se-index-block-compact">
                         <div class="se-block-row1">
                             <span class="se-block-name">NASDAQ</span>
                             <span class="se-block-pct ${(nasdaq.change_pct || 0) >= 0 ? 'up' : 'down'}">
@@ -6146,16 +6149,6 @@ async function loadMarketUs() {
                             <span class="se-block-amt ${(nasdaq.change || 0) >= 0 ? 'up' : 'down'}">
                                 ${(nasdaq.change || 0) >= 0 ? '▲' : '▼'}${Math.abs(nasdaq.change || 0).toFixed(2)}
                             </span>
-                        </div>
-                        <div class="se-block-gauge">
-                            <div class="up-bar" style="width: ${getUsGaugePercent(data, 'up')}%"></div>
-                            <div class="neutral-bar" style="width: ${getUsGaugePercent(data, 'neutral')}%"></div>
-                            <div class="down-bar" style="width: ${getUsGaugePercent(data, 'down')}%"></div>
-                        </div>
-                        <div class="se-block-stocks">
-                            <span class="up">▲${data.rising_stocks || 0}</span>
-                            <span class="neutral">${data.unchanged_stocks || 0}</span>
-                            <span class="down">▼${data.falling_stocks || 0}</span>
                         </div>
                     </div>
                 </div>
@@ -6176,8 +6169,16 @@ async function loadMarketUs() {
                     <div class="se-fg-content">
                         <div class="se-fg-value" style="color: ${getFgColor(fearGreed.value)}">${fearGreed.value || 50}</div>
                         <div class="se-fg-label">${fearGreed.label || '중립'}</div>
-                        <div class="se-fg-meter">
-                            <div class="se-fg-fill" style="width: ${fearGreed.value || 50}%; background: ${getFgColor(fearGreed.value)}"></div>
+                        <div class="se-fg-gauge">
+                            <div class="se-fg-gauge-track">
+                                <div class="se-fg-gauge-fill" style="width: ${fearGreed.value || 50}%; background: linear-gradient(90deg, #ef4444 0%, #fde047 50%, #22c55e 100%);"></div>
+                                <div class="se-fg-gauge-pointer" style="left: ${fearGreed.value || 50}%"></div>
+                            </div>
+                            <div class="se-fg-gauge-labels">
+                                <span>극심한 공포</span>
+                                <span>중립</span>
+                                <span>극심한 탐욕</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -6188,7 +6189,9 @@ async function loadMarketUs() {
                         <div class="se-vix-change ${(vix.change_pct || 0) >= 0 ? 'up' : 'down'}">
                             ${(vix.change_pct || 0) >= 0 ? '+' : ''}${(vix.change_pct || 0).toFixed(2)}%
                         </div>
-                        <div class="se-vix-label">${getVixLabel(vix.value)}</div>
+                        <div class="se-vix-status" style="background: ${getVixColor(vix.value)}20; color: ${getVixColor(vix.value)}; padding: 2px 8px; border-radius: 4px; font-size: 0.8em;">
+                            ${getVixLabel(vix.value)}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -6245,6 +6248,42 @@ async function loadMarketUs() {
                         <span class="se-bp-exposure">(${nasdaqSig.exposure || '80-100%'})</span>
                         <span class="se-bp-dd">DD:${nasdaqSig.active_dd_count || 0}</span>
                         ${(nasdaqSig.active_dd_count || 0) >= 3 ? '<span class="se-bp-warn">⚠️</span>' : ''}
+                    </div>
+                </div>
+
+                <!-- S&P 500 브레드스 (Breadth) -->
+                <div class="se-breadth-card card">
+                    <h3>S&P 500 시장 브레드스</h3>
+                    <div class="se-breadth-grid">
+                        <div class="se-breadth-item">
+                            <span class="se-breadth-label">신고가 / 신저가</span>
+                            <div class="se-breadth-bar">
+                                <span class="up">${breadth.sp500_new_high || 0}</span>
+                                <div class="se-breadth-bar-track">
+                                    <div class="se-breadth-bar-up" style="width: ${getBreadthBarPercent(breadth.sp500_new_high, breadth.sp500_new_low, 'up')}%"></div>
+                                    <div class="se-breadth-bar-down" style="width: ${getBreadthBarPercent(breadth.sp500_new_high, breadth.sp500_new_low, 'down')}%"></div>
+                                </div>
+                                <span class="down">${breadth.sp500_new_low || 0}</span>
+                            </div>
+                        </div>
+                        <div class="se-breadth-item">
+                            <span class="se-breadth-label">50MA 위 비율</span>
+                            <div class="se-breadth-pct">
+                                <div class="se-breadth-pct-track">
+                                    <div class="se-breadth-pct-fill" style="width: ${breadth.sp500_above_sma50 || 50}%; background: #22c55e;"></div>
+                                </div>
+                                <span class="se-breadth-pct-val">${(breadth.sp500_above_sma50 || 50).toFixed(1)}%</span>
+                            </div>
+                        </div>
+                        <div class="se-breadth-item">
+                            <span class="se-breadth-label">200MA 위 비율</span>
+                            <div class="se-breadth-pct">
+                                <div class="se-breadth-pct-track">
+                                    <div class="se-breadth-pct-fill" style="width: ${breadth.sp500_above_sma200 || 50}%; background: #3b82f6;"></div>
+                                </div>
+                                <span class="se-breadth-pct-val">${(breadth.sp500_above_sma200 || 50).toFixed(1)}%</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -6465,6 +6504,14 @@ function getVixLabel(val) {
     if (val < 25) return '보통';
     if (val < 30) return '불안';
     return '극도 불안';
+}
+
+// 브레드스 바 퍼센트 (신고가/신저가 비율)
+function getBreadthBarPercent(high, low, type) {
+    const total = (high || 0) + (low || 0);
+    if (total === 0) return 50;
+    if (type === 'up') return ((high || 0) / total * 100).toFixed(1);
+    return ((low || 0) / total * 100).toFixed(1);
 }
 
 // 섹터 바 차트 렌더링
