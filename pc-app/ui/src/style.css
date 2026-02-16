@@ -9055,3 +9055,260 @@ body {
 .empty-state.all-down {
     color: var(--danger);
 }
+
+/* =====================================================
+   Phase 5: 해외시장 히트맵 + Fear&Greed + VIX
+   ===================================================== */
+
+/* 히트맵 카드 */
+.us-heatmap-card {
+    padding: 12px !important;
+}
+
+.us-heatmap-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+    gap: 3px;
+}
+
+.heatmap-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    min-height: 44px;
+    transition: transform 0.1s;
+}
+
+.heatmap-cell:hover {
+    transform: scale(1.08);
+    z-index: 1;
+}
+
+.hm-symbol {
+    font-size: 0.75em;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.hm-pct {
+    font-size: 0.7em;
+    font-weight: 500;
+    line-height: 1.2;
+    margin-top: 2px;
+}
+
+/* Fear & Greed + VIX 섹션 */
+.se-fgvix-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.se-fg-card, .se-vix-card {
+    padding: 16px;
+}
+
+.se-fg-card h3, .se-vix-card h3 {
+    font-size: 14px;
+    margin-bottom: 12px;
+}
+
+.se-fg-content, .se-vix-content {
+    text-align: center;
+}
+
+.se-fg-value {
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.se-fg-label {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+.se-fg-meter {
+    height: 6px;
+    background: var(--bg-light);
+    border-radius: 3px;
+    margin-top: 12px;
+    overflow: hidden;
+}
+
+.se-fg-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s;
+}
+
+.se-vix-value {
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.se-vix-change {
+    font-size: 14px;
+    margin-top: 4px;
+}
+
+.se-vix-change.up {
+    color: var(--danger);
+}
+
+.se-vix-change.down {
+    color: var(--success);
+}
+
+.se-vix-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+/* 추가 지수 (다우/러셀) */
+.se-extra-indices {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 24px;
+    padding: 12px 16px !important;
+    margin-bottom: 12px;
+}
+
+.se-extra-index {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.se-extra-name {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.se-extra-value {
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.se-extra-pct {
+    font-weight: 600;
+}
+
+.se-extra-pct.up {
+    color: var(--danger);
+}
+
+.se-extra-pct.down {
+    color: var(--success);
+}
+
+.se-extra-divider {
+    color: var(--text-muted);
+    font-size: 16px;
+}
+
+/* 섹터 바 차트 (US) */
+.us-sector-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.us-sector-bar-item {
+    display: grid;
+    grid-template-columns: 140px 1fr 70px;
+    gap: 12px;
+    align-items: center;
+    padding: 6px 0;
+}
+
+.us-sector-bar-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.us-sector-bar-track {
+    height: 16px;
+    background: var(--bg-light);
+    border-radius: 3px;
+    position: relative;
+    display: flex;
+    justify-content: center;
+}
+
+.us-sector-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    position: absolute;
+    top: 0;
+}
+
+.us-sector-bar-fill.right {
+    left: 50%;
+}
+
+.us-sector-bar-fill.left {
+    right: 50%;
+}
+
+.us-sector-bar-pct {
+    font-size: 13px;
+    font-weight: 600;
+    text-align: right;
+}
+
+.us-sector-bar-pct.up {
+    color: var(--success);
+}
+
+.us-sector-bar-pct.down {
+    color: var(--danger);
+}
+
+/* 추세유지 테이블 position 클래스 */
+.position-maintain {
+    color: var(--success);
+    font-weight: 600;
+}
+
+.position-break {
+    color: var(--danger);
+    font-weight: 600;
+}
+
+/* 반응형 */
+@media (max-width: 600px) {
+    .se-fgvix-section {
+        grid-template-columns: 1fr;
+    }
+
+    .se-extra-indices {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .se-extra-divider {
+        display: none;
+    }
+
+    .us-sector-bar-item {
+        grid-template-columns: 100px 1fr 60px;
+    }
+
+    .us-heatmap-grid {
+        grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    }
+}

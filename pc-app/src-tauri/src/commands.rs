@@ -2421,6 +2421,56 @@ pub async fn get_market_us_overview(access_token: String) -> Result<serde_json::
 }
 
 #[tauri::command]
+pub async fn get_market_us_full(access_token: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/market/us/full", VPS_SERVER_URL);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(30))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else if resp.status().as_u16() == 401 {
+        Err("로그인이 필요합니다".to_string())
+    } else if resp.status().as_u16() == 403 {
+        Err("Pro 이상 요금제에서 이용 가능합니다".to_string())
+    } else {
+        let status = resp.status().as_u16();
+        Err(format!("해외 시장 데이터를 가져올 수 없습니다 ({})", status))
+    }
+}
+
+#[tauri::command]
+pub async fn get_market_us_trend_maintain(access_token: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/market/us/trend-maintain", VPS_SERVER_URL);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(30))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else if resp.status().as_u16() == 401 {
+        Err("로그인이 필요합니다".to_string())
+    } else if resp.status().as_u16() == 403 {
+        Err("Pro 이상 요금제에서 이용 가능합니다".to_string())
+    } else {
+        let status = resp.status().as_u16();
+        Err(format!("해외 추세유지 데이터를 가져올 수 없습니다 ({})", status))
+    }
+}
+
+#[tauri::command]
 pub async fn get_market_sectors(access_token: String) -> Result<serde_json::Value, String> {
     let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/market/sectors", VPS_SERVER_URL);

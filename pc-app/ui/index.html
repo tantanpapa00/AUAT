@@ -3053,7 +3053,7 @@
                 </div>
             </main>
 
-            <!-- ========== 해외시장 페이지 (NEW) ========== -->
+            <!-- ========== 해외시장 페이지 (Phase 5 - 국내시장과 동일 구조) ========== -->
             <main class="main page-content" id="page-market-us" style="display: none;">
                 <div class="market-container">
                     <div class="access-restriction" id="market-us-restriction" style="display: none;">
@@ -3063,57 +3063,8 @@
                             <button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 업그레이드</button>
                         </div>
                     </div>
-
                     <div id="market-us-content">
-                        <!-- 지수 카드 -->
-                        <section class="index-cards">
-                            <div class="index-card" id="us-index-sp500">
-                                <div class="index-name">S&P 500</div>
-                                <div class="index-value">-</div>
-                                <div class="index-change">-</div>
-                            </div>
-                            <div class="index-card" id="us-index-nasdaq">
-                                <div class="index-name">나스닥</div>
-                                <div class="index-value">-</div>
-                                <div class="index-change">-</div>
-                            </div>
-                            <div class="index-card" id="us-index-dow">
-                                <div class="index-name">다우존스</div>
-                                <div class="index-value">-</div>
-                                <div class="index-change">-</div>
-                            </div>
-                            <div class="index-card" id="us-index-russell">
-                                <div class="index-name">러셀2000</div>
-                                <div class="index-value">-</div>
-                                <div class="index-change">-</div>
-                            </div>
-                        </section>
-
-                        <!-- 섹터별 등락 -->
-                        <section class="card">
-                            <h3>섹터별 등락</h3>
-                            <table class="data-table" id="us-sector-table">
-                                <thead>
-                                    <tr><th>섹터</th><th>등락률</th><th>주요 종목</th></tr>
-                                </thead>
-                                <tbody id="us-sector-tbody">
-                                    <tr><td colspan="3" class="empty-cell">데이터 로딩 중...</td></tr>
-                                </tbody>
-                            </table>
-                        </section>
-
-                        <!-- 주요 종목 동향 -->
-                        <section class="card">
-                            <h3>주요 종목 동향</h3>
-                            <table class="data-table" id="us-major-stocks">
-                                <thead>
-                                    <tr><th>종목명</th><th>현재가($)</th><th>등락률</th><th>거래량</th></tr>
-                                </thead>
-                                <tbody id="us-stocks-tbody">
-                                    <tr><td colspan="4" class="empty-cell">데이터 로딩 중...</td></tr>
-                                </tbody>
-                            </table>
-                        </section>
+                        <!-- JS에서 동적으로 렌더링 -->
                     </div>
                 </div>
             </main>

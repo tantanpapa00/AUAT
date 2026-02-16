@@ -6027,7 +6027,7 @@ function renderSectorDetail(data, type) {
     return html;
 }
 
-// 해외시장 로드
+// 해외시장 로드 (Phase 5: 국내시장과 동일 구조)
 async function loadMarketUs() {
     const restrictionEl = document.getElementById('market-us-restriction');
     const contentEl = document.getElementById('market-us-content');
@@ -6053,83 +6053,457 @@ async function loadMarketUs() {
     contentEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
 
     try {
-        // [BUG FIX] US Market 전용 API 호출
-        const data = await invokeWithTimeout('get_market_us_overview', {
+        // Phase 5: Full US market data API
+        const data = await invokeWithTimeout('get_market_us_full', {
             accessToken: auth.accessToken || ''
-        }, 15000);
+        }, 30000);
+
+        console.log('[loadMarketUs] data:', data);
 
         if (!data || !data.success) {
             contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button class="btn btn-sm btn-primary" onclick="loadMarketUs()">다시 시도</button></div>';
             return;
         }
 
-        // UI 렌더링
+        // 데이터 추출
+        const indices = data.indices || {};
+        const sp500 = indices.sp500 || {};
+        const nasdaq = indices.nasdaq || {};
+        const dow = indices.dow || {};
+        const russell = indices.russell || {};
+        const vix = indices.vix || {};
+        const fearGreed = data.fear_greed || {};
+        const heatmap = data.heatmap || [];
+        const sectors = data.sectors || [];
+        const signal = data.signal || {};
+        const sp500Sig = signal.sp500 || {};
+        const nasdaqSig = signal.nasdaq || {};
+
+        // UI 렌더링 (StockEasy 스타일 - 국내시장과 동일)
         contentEl.innerHTML = `
-            <div class="market-grid us-grid">
-                <div class="index-card" id="us-index-sp500">
-                    <div class="index-name">S&P 500</div>
-                    <div class="index-value">-</div>
-                    <div class="index-change">-</div>
+            <!-- 시장신호 헤더 (1줄 통합) -->
+            <div class="se-header-unified">
+                <!-- 좌측: 시장신호 + 신호등 -->
+                <div class="se-header-left">
+                    <div class="se-signal-title" id="us-signal-toggle">
+                        <span>시장신호</span>
+                        <span class="toggle-arrow" id="us-signal-arrow">∧</span>
+                    </div>
+                    <div class="se-signal-lights">
+                        <div class="se-signal-group">
+                            <span class="se-signal-label">단기</span>
+                            <div class="se-capsule" id="us-short-term-capsule">
+                                <span class="se-dot" data-color="green"></span>
+                                <span class="se-dot" data-color="yellow"></span>
+                                <span class="se-dot" data-color="red"></span>
+                            </div>
+                        </div>
+                        <div class="se-signal-group">
+                            <span class="se-signal-label">장기</span>
+                            <div class="se-capsule" id="us-long-term-capsule">
+                                <span class="se-dot" data-color="green"></span>
+                                <span class="se-dot" data-color="yellow"></span>
+                                <span class="se-dot" data-color="red"></span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="index-card" id="us-index-nasdaq">
-                    <div class="index-name">나스닥</div>
-                    <div class="index-value">-</div>
-                    <div class="index-change">-</div>
-                </div>
-                <div class="index-card" id="us-index-dow">
-                    <div class="index-name">다우</div>
-                    <div class="index-value">-</div>
-                    <div class="index-change">-</div>
+                <!-- 우측: S&P500 + NASDAQ 블록 -->
+                <div class="se-header-right">
+                    <div class="se-index-block">
+                        <div class="se-block-row1">
+                            <span class="se-block-name">S&P 500</span>
+                            <span class="se-block-pct ${(sp500.change_pct || 0) >= 0 ? 'up' : 'down'}">
+                                ${(sp500.change_pct || 0) >= 0 ? '+' : ''}${(sp500.change_pct || 0).toFixed(2)}%
+                            </span>
+                        </div>
+                        <div class="se-block-row2">
+                            <span class="se-block-value">${sp500.value?.toLocaleString(undefined, {maximumFractionDigits: 2}) || '-'}</span>
+                            <span class="se-block-amt ${(sp500.change || 0) >= 0 ? 'up' : 'down'}">
+                                ${(sp500.change || 0) >= 0 ? '▲' : '▼'}${Math.abs(sp500.change || 0).toFixed(2)}
+                            </span>
+                        </div>
+                        <div class="se-block-gauge">
+                            <div class="up-bar" style="width: ${getUsGaugePercent(data, 'up')}%"></div>
+                            <div class="neutral-bar" style="width: ${getUsGaugePercent(data, 'neutral')}%"></div>
+                            <div class="down-bar" style="width: ${getUsGaugePercent(data, 'down')}%"></div>
+                        </div>
+                        <div class="se-block-stocks">
+                            <span class="up">▲${data.rising_stocks || 0}</span>
+                            <span class="neutral">${data.unchanged_stocks || 0}</span>
+                            <span class="down">▼${data.falling_stocks || 0}</span>
+                        </div>
+                    </div>
+                    <div class="se-index-block">
+                        <div class="se-block-row1">
+                            <span class="se-block-name">NASDAQ</span>
+                            <span class="se-block-pct ${(nasdaq.change_pct || 0) >= 0 ? 'up' : 'down'}">
+                                ${(nasdaq.change_pct || 0) >= 0 ? '+' : ''}${(nasdaq.change_pct || 0).toFixed(2)}%
+                            </span>
+                        </div>
+                        <div class="se-block-row2">
+                            <span class="se-block-value">${nasdaq.value?.toLocaleString(undefined, {maximumFractionDigits: 2}) || '-'}</span>
+                            <span class="se-block-amt ${(nasdaq.change || 0) >= 0 ? 'up' : 'down'}">
+                                ${(nasdaq.change || 0) >= 0 ? '▲' : '▼'}${Math.abs(nasdaq.change || 0).toFixed(2)}
+                            </span>
+                        </div>
+                        <div class="se-block-gauge">
+                            <div class="up-bar" style="width: ${getUsGaugePercent(data, 'up')}%"></div>
+                            <div class="neutral-bar" style="width: ${getUsGaugePercent(data, 'neutral')}%"></div>
+                            <div class="down-bar" style="width: ${getUsGaugePercent(data, 'down')}%"></div>
+                        </div>
+                        <div class="se-block-stocks">
+                            <span class="up">▲${data.rising_stocks || 0}</span>
+                            <span class="neutral">${data.unchanged_stocks || 0}</span>
+                            <span class="down">▼${data.falling_stocks || 0}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="us-stocks-section card">
-                <h3>주요 종목</h3>
-                <table class="data-table">
-                    <thead><tr><th>종목</th><th>현재가</th><th>등락률</th><th>거래량</th></tr></thead>
-                    <tbody id="us-stocks-tbody"></tbody>
-                </table>
+
+            <!-- 2행: 히트맵 (30종목) -->
+            <div class="card us-heatmap-card">
+                <h3>주요 30종목 히트맵</h3>
+                <div class="us-heatmap-grid" id="us-heatmap-grid">
+                    <!-- JS에서 렌더링 -->
+                </div>
+            </div>
+
+            <!-- 3행: Fear & Greed + VIX -->
+            <div class="se-fgvix-section">
+                <div class="se-fg-card card">
+                    <h3>탐욕/공포 지수</h3>
+                    <div class="se-fg-content">
+                        <div class="se-fg-value" style="color: ${getFgColor(fearGreed.value)}">${fearGreed.value || 50}</div>
+                        <div class="se-fg-label">${fearGreed.label || '중립'}</div>
+                        <div class="se-fg-meter">
+                            <div class="se-fg-fill" style="width: ${fearGreed.value || 50}%; background: ${getFgColor(fearGreed.value)}"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="se-vix-card card">
+                    <h3>VIX (변동성 지수)</h3>
+                    <div class="se-vix-content">
+                        <div class="se-vix-value" style="color: ${getVixColor(vix.value)}">${(vix.value || 0).toFixed(2)}</div>
+                        <div class="se-vix-change ${(vix.change_pct || 0) >= 0 ? 'up' : 'down'}">
+                            ${(vix.change_pct || 0) >= 0 ? '+' : ''}${(vix.change_pct || 0).toFixed(2)}%
+                        </div>
+                        <div class="se-vix-label">${getVixLabel(vix.value)}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4행: 다우존스 + 러셀2000 -->
+            <div class="se-extra-indices card">
+                <div class="se-extra-index">
+                    <span class="se-extra-name">다우존스</span>
+                    <span class="se-extra-value">${dow.value?.toLocaleString(undefined, {maximumFractionDigits: 2}) || '-'}</span>
+                    <span class="se-extra-pct ${(dow.change_pct || 0) >= 0 ? 'up' : 'down'}">
+                        ${(dow.change_pct || 0) >= 0 ? '+' : ''}${(dow.change_pct || 0).toFixed(2)}%
+                    </span>
+                </div>
+                <div class="se-extra-divider">|</div>
+                <div class="se-extra-index">
+                    <span class="se-extra-name">러셀2000</span>
+                    <span class="se-extra-value">${russell.value?.toLocaleString(undefined, {maximumFractionDigits: 2}) || '-'}</span>
+                    <span class="se-extra-pct ${(russell.change_pct || 0) >= 0 ? 'up' : 'down'}">
+                        ${(russell.change_pct || 0) >= 0 ? '+' : ''}${(russell.change_pct || 0).toFixed(2)}%
+                    </span>
+                </div>
+            </div>
+
+            <!-- 5행: 신호 설명 (접기 가능) -->
+            <div class="se-signal-desc" id="us-signal-desc">
+                <p>시장 신호는 신호등 색상으로 현재 시장의 상태를 나타냅니다: (🟢 양호, 🟡 주의, 🔴 매우주의).</p>
+                <p>단기/장기 신호는 각각 단기적, 장기적 관점에서의 시장 흐름을 보여주는 지표입니다.</p>
+            </div>
+
+            <!-- 6행: 서브탭 (시장지표 | 섹터 | 추세유지) - 신용잔고 없음 -->
+            <div class="se-subtabs" id="us-subtabs">
+                <button class="se-subtab active" data-tab="us-market-indicators">시장지표</button>
+                <button class="se-subtab" data-tab="us-sector">섹터</button>
+                <button class="se-subtab" data-tab="us-trend-maintain">추세유지</button>
+            </div>
+
+            <!-- 시장지표 탭 -->
+            <div class="se-tab-content" id="tab-us-market-indicators">
+                <!-- Big Picture 컴팩트 -->
+                <div class="se-bigpicture-row card">
+                    <div class="se-bp-item">
+                        <span class="se-bp-market">S&P500</span>
+                        <span class="se-bp-dot" id="bp-sp500-dot">●</span>
+                        <span class="se-bp-status" id="bp-sp500-status">${sp500Sig.status_label || '확인된 상승세'}</span>
+                        <span class="se-bp-exposure">(${sp500Sig.exposure || '80-100%'})</span>
+                        <span class="se-bp-dd">DD:${sp500Sig.active_dd_count || 0}</span>
+                        ${(sp500Sig.active_dd_count || 0) >= 3 ? '<span class="se-bp-warn">⚠️</span>' : ''}
+                    </div>
+                    <div class="se-bp-divider">|</div>
+                    <div class="se-bp-item">
+                        <span class="se-bp-market">NASDAQ</span>
+                        <span class="se-bp-dot" id="bp-nasdaq-dot">●</span>
+                        <span class="se-bp-status" id="bp-nasdaq-status">${nasdaqSig.status_label || '확인된 상승세'}</span>
+                        <span class="se-bp-exposure">(${nasdaqSig.exposure || '80-100%'})</span>
+                        <span class="se-bp-dd">DD:${nasdaqSig.active_dd_count || 0}</span>
+                        ${(nasdaqSig.active_dd_count || 0) >= 3 ? '<span class="se-bp-warn">⚠️</span>' : ''}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 섹터 탭 -->
+            <div class="se-tab-content" id="tab-us-sector" style="display:none;">
+                <div class="card">
+                    <h3>S&P 500 GICS 섹터 (11개)</h3>
+                    <div class="us-sector-bars" id="us-sector-bars">
+                        <!-- JS에서 렌더링 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 추세유지 탭 -->
+            <div class="se-tab-content" id="tab-us-trend-maintain" style="display:none;">
+                <div class="card">
+                    <h3>섹터별 추세유지 (20MA 기준)</h3>
+                    <p class="trend-maintain-desc">
+                        • <b>포지션</b>: 현재가가 20일 이동평균선 위에 며칠째 유지 또는 이탈 중인지<br>
+                        • <b>신호등</b>: 섹터의 현재 상태 (<span style="color:#22c55e">●</span>양호, <span style="color:#fde047">●</span>주의, <span style="color:#ef4444">●</span>매우주의)
+                    </p>
+                    <div class="trend-maintain-table-wrap">
+                        <table class="trend-maintain-table" id="us-trend-maintain-table">
+                            <thead>
+                                <tr>
+                                    <th>섹터</th>
+                                    <th>ETF</th>
+                                    <th>등락률</th>
+                                    <th>포지션</th>
+                                    <th>신호</th>
+                                    <th>이격률</th>
+                                </tr>
+                            </thead>
+                            <tbody id="us-trend-maintain-body">
+                                <tr><td colspan="6" class="loading-cell">데이터 로딩 중...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         `;
 
-        // 지수 카드 (API 응답: data.indices 배열에서 찾기)
-        const indices = data.indices || [];
-        const sp500 = indices.find(i => i.symbol === '^GSPC' || i.name === 'S&P 500');
-        const nasdaq = indices.find(i => i.symbol === '^IXIC' || i.name === '나스닥');
-        const dow = indices.find(i => i.symbol === '^DJI' || i.name === '다우존스');
-        updateIndexCard('us-index-sp500', sp500);
-        updateIndexCard('us-index-nasdaq', nasdaq);
-        updateIndexCard('us-index-dow', dow);
+        // 신호등 업데이트
+        updateSignalCapsule('us-short-term-capsule', sp500Sig.short_term_signal || 'green');
+        updateSignalCapsule('us-long-term-capsule', sp500Sig.long_term_signal || 'green');
 
-        // 주요 종목 표시
-        const topStocks = data.stocks || [];
-        const tbody = document.getElementById('us-stocks-tbody');
-        if (tbody) {
-            if (topStocks.length > 0) {
-                tbody.innerHTML = topStocks.slice(0, 10).map(s => {
-                    const changeClass = (s.change_percent || 0) >= 0 ? 'profit' : 'loss';
-                    return `
-                        <tr class="clickable" data-symbol="${s.symbol}" data-exchange="kis_us">
-                            <td><strong>${s.symbol}</strong> <span class="text-muted">${s.name || ''}</span></td>
-                            <td>$${(s.price || 0).toLocaleString()}</td>
-                            <td class="${changeClass}">${(s.change_percent || 0) >= 0 ? '+' : ''}${(s.change_percent || 0).toFixed(2)}%</td>
-                            <td>${formatVolume(s.volume || 0)}</td>
-                        </tr>
-                    `;
-                }).join('');
+        // Big Picture 색상 업데이트
+        updateBigPictureDot('bp-sp500-dot', sp500Sig.status);
+        updateBigPictureDot('bp-nasdaq-dot', nasdaqSig.status);
 
-                // 클릭 이벤트
-                tbody.querySelectorAll('tr.clickable').forEach(row => {
-                    row.addEventListener('click', () => openStockDetail(row.dataset.symbol, 'kis_us'));
-                });
+        // 히트맵 렌더링
+        renderUsHeatmap(heatmap);
+
+        // 섹터 바 차트 렌더링
+        renderUsSectorBars(sectors);
+
+        // 서브탭 이벤트
+        document.querySelectorAll('#us-subtabs .se-subtab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                document.querySelectorAll('#us-subtabs .se-subtab').forEach(t => t.classList.remove('active'));
+                e.target.classList.add('active');
+                const tabId = e.target.dataset.tab;
+                document.querySelectorAll('#market-us-content .se-tab-content').forEach(c => c.style.display = 'none');
+                document.getElementById('tab-' + tabId).style.display = 'block';
+                // 탭 클릭 시 데이터 로드
+                if (tabId === 'us-trend-maintain') {
+                    loadUsTrendMaintainData();
+                }
+            });
+        });
+
+        // 신호 접기/펴기
+        document.getElementById('us-signal-toggle')?.addEventListener('click', () => {
+            const desc = document.getElementById('us-signal-desc');
+            const arrow = document.getElementById('us-signal-arrow');
+            if (desc.style.display === 'none') {
+                desc.style.display = 'block';
+                arrow.textContent = '∧';
             } else {
-                tbody.innerHTML = '<tr><td colspan="4" class="empty-cell">데이터 없음</td></tr>';
+                desc.style.display = 'none';
+                arrow.textContent = '∨';
             }
-        }
+        });
 
     } catch (error) {
         console.error('Market US error:', error);
         const errMsg = error?.message || error || '알 수 없는 오류';
         contentEl.innerHTML = `<div class="error-state"><p>${errMsg}</p><button class="btn btn-sm btn-primary" onclick="loadMarketUs()">다시 시도</button></div>`;
+    }
+}
+
+// 해외시장 게이지 퍼센트 계산
+function getUsGaugePercent(data, type) {
+    const rising = data.rising_stocks || 0;
+    const falling = data.falling_stocks || 0;
+    const unchanged = data.unchanged_stocks || 0;
+    const total = rising + falling + unchanged;
+    if (total === 0) return type === 'neutral' ? 100 : 0;
+    if (type === 'up') return (rising / total * 100).toFixed(1);
+    if (type === 'down') return (falling / total * 100).toFixed(1);
+    return (unchanged / total * 100).toFixed(1);
+}
+
+// 히트맵 색상 (등락률 기준)
+function getHeatmapColor(pct) {
+    if (pct >= 3) return '#166534';      // 진한 초록
+    if (pct >= 2) return '#22c55e';      // 초록
+    if (pct >= 1) return '#86efac';      // 연한 초록
+    if (pct >= 0.5) return '#bbf7d0';    // 매우 연한 초록
+    if (pct > -0.5) return '#9ca3af';    // 회색 (보합)
+    if (pct > -1) return '#fecaca';      // 매우 연한 빨강
+    if (pct > -2) return '#f87171';      // 연한 빨강
+    if (pct > -3) return '#ef4444';      // 빨강
+    return '#991b1b';                     // 진한 빨강
+}
+
+// 히트맵 텍스트 색상
+function getHeatmapTextColor(pct) {
+    if (Math.abs(pct) >= 2) return '#ffffff';
+    return '#1f2937';
+}
+
+// 히트맵 렌더링
+function renderUsHeatmap(heatmap) {
+    const grid = document.getElementById('us-heatmap-grid');
+    if (!grid) return;
+
+    if (!heatmap || heatmap.length === 0) {
+        grid.innerHTML = '<div class="empty-state">히트맵 데이터 없음</div>';
+        return;
+    }
+
+    grid.innerHTML = heatmap.map(stock => {
+        const pct = stock.change_pct || 0;
+        const bgColor = getHeatmapColor(pct);
+        const textColor = getHeatmapTextColor(pct);
+        return `
+            <div class="heatmap-cell" style="background: ${bgColor}; color: ${textColor};"
+                 data-symbol="${stock.symbol}" data-exchange="kis_us" title="${stock.name} (${stock.sector})">
+                <span class="hm-symbol">${stock.symbol}</span>
+                <span class="hm-pct">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</span>
+            </div>
+        `;
+    }).join('');
+
+    // 클릭 이벤트
+    grid.querySelectorAll('.heatmap-cell').forEach(cell => {
+        cell.addEventListener('click', () => {
+            openStockDetail(cell.dataset.symbol, 'kis_us');
+        });
+    });
+}
+
+// Fear & Greed 색상
+function getFgColor(val) {
+    if (val >= 75) return '#22c55e';     // 극심한 탐욕 - 초록
+    if (val >= 55) return '#86efac';     // 탐욕 - 연초록
+    if (val >= 45) return '#fde047';     // 중립 - 노랑
+    if (val >= 25) return '#fb923c';     // 공포 - 주황
+    return '#ef4444';                     // 극심한 공포 - 빨강
+}
+
+// VIX 색상
+function getVixColor(val) {
+    if (val < 15) return '#22c55e';      // 매우 낮음 - 초록
+    if (val < 20) return '#86efac';      // 낮음 - 연초록
+    if (val < 25) return '#fde047';      // 보통 - 노랑
+    if (val < 30) return '#fb923c';      // 높음 - 주황
+    return '#ef4444';                     // 매우 높음 - 빨강
+}
+
+// VIX 라벨
+function getVixLabel(val) {
+    if (val < 15) return '매우 안정';
+    if (val < 20) return '안정';
+    if (val < 25) return '보통';
+    if (val < 30) return '불안';
+    return '극도 불안';
+}
+
+// 섹터 바 차트 렌더링
+function renderUsSectorBars(sectors) {
+    const container = document.getElementById('us-sector-bars');
+    if (!container) return;
+
+    if (!sectors || sectors.length === 0) {
+        container.innerHTML = '<div class="empty-state">섹터 데이터 없음</div>';
+        return;
+    }
+
+    // 등락률 기준 정렬 (내림차순)
+    const sorted = [...sectors].sort((a, b) => (b.change_pct || 0) - (a.change_pct || 0));
+    const maxAbs = Math.max(...sorted.map(s => Math.abs(s.change_pct || 0)), 1);
+
+    container.innerHTML = sorted.map(sector => {
+        const pct = sector.change_pct || 0;
+        const barWidth = Math.abs(pct) / maxAbs * 100;
+        const barColor = pct >= 0 ? '#22c55e' : '#ef4444';
+        const direction = pct >= 0 ? 'right' : 'left';
+
+        return `
+            <div class="us-sector-bar-item">
+                <div class="us-sector-bar-name">${sector.name} (${sector.symbol})</div>
+                <div class="us-sector-bar-track">
+                    <div class="us-sector-bar-fill ${direction}" style="width: ${barWidth}%; background: ${barColor};"></div>
+                </div>
+                <div class="us-sector-bar-pct ${pct >= 0 ? 'up' : 'down'}">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</div>
+            </div>
+        `;
+    }).join('');
+}
+
+// 해외 추세유지 데이터 로드
+async function loadUsTrendMaintainData() {
+    const tbody = document.getElementById('us-trend-maintain-body');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="6" class="loading-cell">데이터 로딩 중...</td></tr>';
+
+    try {
+        const data = await invokeWithTimeout('get_market_us_trend_maintain', {
+            accessToken: auth.accessToken || ''
+        }, 30000);
+
+        console.log('[loadUsTrendMaintainData] data:', data);
+
+        if (!data || !data.success || !data.data) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">데이터를 불러올 수 없습니다</td></tr>';
+            return;
+        }
+
+        const items = data.data || [];
+        if (items.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">추세유지 데이터 없음</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = items.map(item => {
+            const changeClass = (item.change_pct || 0) >= 0 ? 'profit' : 'loss';
+            const positionClass = item.position === '유지' ? 'position-maintain' : 'position-break';
+            const gapClass = (item.gap_percent || 0) >= 0 ? 'profit' : 'loss';
+            const signalDot = item.signal === 'green' ? '🟢' : (item.signal === 'yellow' ? '🟡' : '🔴');
+
+            return `
+                <tr>
+                    <td class="sector-name">${item.sector || '-'}</td>
+                    <td class="etf-name">${item.etf || '-'}</td>
+                    <td class="change-cell ${changeClass}">${(item.change_pct || 0) >= 0 ? '+' : ''}${(item.change_pct || 0).toFixed(2)}%</td>
+                    <td class="position-cell ${positionClass}">${item.position || '-'} ${item.days || 0}일</td>
+                    <td class="signal-cell">${signalDot}</td>
+                    <td class="gap-cell ${gapClass}">${(item.gap_percent || 0) >= 0 ? '+' : ''}${(item.gap_percent || 0).toFixed(1)}%</td>
+                </tr>
+            `;
+        }).join('');
+
+    } catch (error) {
+        console.error('US Trend Maintain error:', error);
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">데이터 로드 실패</td></tr>';
     }
 }
 

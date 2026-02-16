@@ -10461,6 +10461,179 @@ async def api_market_us_overview(
         }
 
 
+@app.get("/api/market/us/full")
+async def api_market_us_full(
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """
+    해외시장 전체 데이터 (Phase 5)
+    - 지수 4개 + VIX
+    - 섹터 ETF 11개
+    - 히트맵 30종목
+    - Fear & Greed Index
+    - 시장신호 (Big Picture)
+    """
+    # admin이면 무조건 통과
+    if current_user and current_user.role == "admin":
+        pass
+    elif not _check_pro_plan(current_user):
+        if not current_user:
+            raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+        raise HTTPException(status_code=403, detail="Pro 이상 요금제에서 이용 가능합니다")
+
+    try:
+        from .market_analysis.data_collector_us import get_us_market_summary
+        from .market_analysis.signal_engine import BIG_PICTURE_CONFIG
+
+        # 1. 미국시장 전체 요약 수집 (병렬)
+        summary = await get_us_market_summary()
+
+        # 2. 시장신호 조회 (SP500/NASDAQ)
+        signal_result = {}
+        try:
+            from .models import MarketSignal
+            for market in ["SP500", "NASDAQ"]:
+                signal_row = db.query(MarketSignal).filter(MarketSignal.market == market).first()
+                if signal_row and signal_row.signal_data:
+                    sd = signal_row.signal_data
+                    status = sd.get("status", "confirmed_uptrend")
+                    cfg = BIG_PICTURE_CONFIG.get(status, BIG_PICTURE_CONFIG["confirmed_uptrend"])
+                    signal_result[market.lower()] = {
+                        "status": status,
+                        "status_label": cfg["label"],
+                        "exposure": cfg["exposure"],
+                        "active_dd_count": sd.get("active_dd_count", 0),
+                        "rally_day_count": sd.get("rally_day_count", 0),
+                        "short_term_signal": sd.get("short_term_signal", "green"),
+                        "long_term_signal": sd.get("long_term_signal", "green"),
+                    }
+                else:
+                    # 기본값
+                    signal_result[market.lower()] = {
+                        "status": "confirmed_uptrend",
+                        "status_label": "확인된 상승세",
+                        "exposure": "80-100%",
+                        "active_dd_count": 0,
+                        "rally_day_count": 0,
+                        "short_term_signal": "green",
+                        "long_term_signal": "green",
+                    }
+        except Exception as sig_err:
+            print(f"[US] signal query error: {sig_err}")
+            for market in ["sp500", "nasdaq"]:
+                signal_result[market] = {
+                    "status": "confirmed_uptrend",
+                    "status_label": "확인된 상승세",
+                    "exposure": "80-100%",
+                    "active_dd_count": 0,
+                    "rally_day_count": 0,
+                    "short_term_signal": "green",
+                    "long_term_signal": "green",
+                }
+
+        return {
+            "success": True,
+            "indices": summary.get("indices", {}),
+            "sectors": summary.get("sectors", []),
+            "heatmap": summary.get("heatmap", []),
+            "fear_greed": summary.get("fear_greed", {}),
+            "rising_stocks": summary.get("rising_stocks", 0),
+            "falling_stocks": summary.get("falling_stocks", 0),
+            "unchanged_stocks": summary.get("unchanged_stocks", 0),
+            "signal": signal_result,
+            "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        }
+
+    except Exception as e:
+        print(f"[API] US market full error: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "indices": {},
+            "sectors": [],
+            "heatmap": [],
+            "fear_greed": {},
+            "rising_stocks": 0,
+            "falling_stocks": 0,
+            "unchanged_stocks": 0,
+            "signal": {},
+            "error": str(e),
+        }
+
+
+@app.get("/api/market/us/trend-maintain")
+async def get_us_trend_maintain(
+    current_user: User = Depends(get_current_user_optional),
+):
+    """
+    해외 섹터 ETF 추세유지 분석 (20MA 기준)
+    """
+    # admin이면 무조건 통과
+    if current_user and current_user.role == "admin":
+        pass
+    elif not _check_pro_plan(current_user):
+        if not current_user:
+            raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+        raise HTTPException(status_code=403, detail="Pro 이상 요금제에서 이용 가능합니다")
+
+    result = []
+    try:
+        from .market_analysis.data_collector_us import US_SECTOR_ETFS, fetch_sector_etf_daily
+        from .market_analysis.trend_maintain import calculate_trend_maintain
+
+        for etf in US_SECTOR_ETFS:
+            symbol = etf["symbol"]
+            closes = await fetch_sector_etf_daily(symbol, 60)
+
+            if len(closes) >= 20:
+                trend = calculate_trend_maintain(closes)
+                if trend:
+                    current_price = closes[-1] if closes else 0
+                    prev_price = closes[-2] if len(closes) >= 2 else current_price
+                    change_pct = ((current_price - prev_price) / prev_price * 100) if prev_price else 0
+
+                    result.append({
+                        "sector": etf["name"],
+                        "etf": symbol,
+                        "etf_name": etf["name_en"],
+                        "change_pct": round(change_pct, 2),
+                        "position": trend["position"],
+                        "days": trend["days"],
+                        "gap_percent": trend["gap_percent"],
+                        "signal": trend["signal"],
+                        "return_since_entry": trend.get("return_since_entry"),
+                        "ma20": trend["ma20"],
+                        "current_price": trend["current_price"],
+                    })
+            else:
+                result.append({
+                    "sector": etf["name"],
+                    "etf": symbol,
+                    "etf_name": etf["name_en"],
+                    "change_pct": 0,
+                    "position": "-",
+                    "days": 0,
+                    "gap_percent": 0,
+                    "signal": "gray",
+                })
+
+        # 정렬: 유지 > 이탈, 일수 내림차순
+        result.sort(key=lambda x: (0 if x["position"] == "유지" else 1, -x["days"]))
+
+    except Exception as e:
+        print(f"[API] /api/market/us/trend-maintain 오류: {e}")
+        import traceback
+        traceback.print_exc()
+
+    return {
+        "success": True,
+        "data": result,
+        "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+    }
+
+
 @app.get("/api/market/etf")
 async def api_market_etf(
     sector: str = Query("all", description="섹터 필터"),
