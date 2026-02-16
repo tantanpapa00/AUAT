@@ -77,44 +77,61 @@ FG_LABELS = {
 }
 
 
-async def fetch_yahoo_quote(client: httpx.AsyncClient, symbol: str) -> Optional[Dict]:
+YAHOO_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "application/json",
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
+
+async def fetch_yahoo_quote(client: httpx.AsyncClient, symbol: str, retries: int = 2) -> Optional[Dict]:
     """
     Yahoo Finance에서 단일 종목 시세 조회
     Returns: {price, prev_close, change, change_pct, volume, name} or None
     """
-    try:
-        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=2d"
-        resp = await client.get(url, timeout=10)
-        if resp.status_code != 200:
-            print(f"[US] Yahoo API error for {symbol}: {resp.status_code}")
+    for attempt in range(retries + 1):
+        try:
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=2d"
+            resp = await client.get(url, headers=YAHOO_HEADERS, timeout=10)
+            if resp.status_code == 429:
+                # Rate limited - wait and retry
+                if attempt < retries:
+                    await asyncio.sleep(1 + attempt)
+                    continue
+            if resp.status_code != 200:
+                print(f"[US] Yahoo API error for {symbol}: {resp.status_code}")
+                return None
+
+            data = resp.json()
+            chart = data.get("chart", {})
+            result = chart.get("result", [])
+            if not result:
+                return None
+
+            meta = result[0].get("meta", {})
+            price = meta.get("regularMarketPrice", 0)
+            prev_close = meta.get("chartPreviousClose", 0) or meta.get("previousClose", 0)
+            volume = meta.get("regularMarketVolume", 0)
+            name = meta.get("shortName", symbol)
+
+            change = price - prev_close if prev_close else 0
+            change_pct = (change / prev_close * 100) if prev_close else 0
+
+            return {
+                "price": price,
+                "prev_close": prev_close,
+                "change": round(change, 2),
+                "change_pct": round(change_pct, 2),
+                "volume": volume,
+                "name": name,
+            }
+        except Exception as e:
+            print(f"[US] fetch_yahoo_quote error for {symbol}: {e}")
+            if attempt < retries:
+                await asyncio.sleep(1)
+                continue
             return None
-
-        data = resp.json()
-        chart = data.get("chart", {})
-        result = chart.get("result", [])
-        if not result:
-            return None
-
-        meta = result[0].get("meta", {})
-        price = meta.get("regularMarketPrice", 0)
-        prev_close = meta.get("chartPreviousClose", 0) or meta.get("previousClose", 0)
-        volume = meta.get("regularMarketVolume", 0)
-        name = meta.get("shortName", symbol)
-
-        change = price - prev_close if prev_close else 0
-        change_pct = (change / prev_close * 100) if prev_close else 0
-
-        return {
-            "price": price,
-            "prev_close": prev_close,
-            "change": round(change, 2),
-            "change_pct": round(change_pct, 2),
-            "volume": volume,
-            "name": name,
-        }
-    except Exception as e:
-        print(f"[US] fetch_yahoo_quote error for {symbol}: {e}")
-        return None
+    return None
 
 
 async def collect_us_indices() -> Dict[str, Dict]:
