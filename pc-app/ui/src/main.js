@@ -6154,11 +6154,16 @@ async function loadMarketUs() {
                 </div>
             </div>
 
-            <!-- 2행: 히트맵 (S&P 500) -->
+            <!-- 2행: S&P 500 히트맵 (줌 가능) -->
             <div class="card us-heatmap-card">
                 <h3>S&P 500 히트맵</h3>
-                <div class="us-heatmap-grid" id="us-heatmap-grid">
-                    <!-- JS에서 렌더링 -->
+                <div class="us-heatmap-wrap" id="us-heatmap-wrap">
+                    <div class="us-heatmap-grid" id="us-heatmap-grid"></div>
+                    <div class="hm-zoom-controls">
+                        <button class="hm-zoom-btn" id="hm-zoom-in" title="확대">+</button>
+                        <button class="hm-zoom-btn" id="hm-zoom-out" title="축소">−</button>
+                        <button class="hm-zoom-btn" id="hm-zoom-reset" title="초기화">⟲</button>
+                    </div>
                 </div>
             </div>
 
@@ -6422,17 +6427,12 @@ function getHeatmapTextColor(pct) {
     return '#1f2937';
 }
 
-// 히트맵 렌더링 (트리맵 스타일 - 시가총액 비례)
+// 히트맵 렌더링 (트리맵 스타일 + 줌 기능)
 function renderUsHeatmap(heatmap) {
     const grid = document.getElementById('us-heatmap-grid');
-    if (!grid) return;
+    if (!grid || !heatmap.length) return;
 
-    if (!heatmap || heatmap.length === 0) {
-        grid.innerHTML = '<div class="empty-state">히트맵 데이터 없음</div>';
-        return;
-    }
-
-    // 1. 섹터별 그룹핑
+    // 섹터별 그룹핑
     const sectorGroups = {};
     heatmap.forEach(s => {
         const sector = s.sector || '기타';
@@ -6440,46 +6440,52 @@ function renderUsHeatmap(heatmap) {
         sectorGroups[sector].push(s);
     });
 
-    // 2. 각 섹터 내에서 시가총액 내림차순 정렬
+    // 각 섹터 내 시가총액 내림차순
     Object.values(sectorGroups).forEach(group => {
         group.sort((a, b) => (b.market_cap || 0) - (a.market_cap || 0));
     });
 
-    // 3. 섹터를 총 시가총액 내림차순으로 정렬
-    const sortedSectors = Object.entries(sectorGroups).sort((a, b) => {
-        const sumA = a[1].reduce((sum, s) => sum + (s.market_cap || 0), 0);
-        const sumB = b[1].reduce((sum, s) => sum + (s.market_cap || 0), 0);
-        return sumB - sumA;
-    });
+    // 섹터를 시가총액 합 내림차순
+    const sortedSectors = Object.entries(sectorGroups)
+        .map(([name, stocks]) => ({
+            name, stocks,
+            totalCap: stocks.reduce((sum, s) => sum + (s.market_cap || 0), 0),
+            count: stocks.length
+        }))
+        .sort((a, b) => b.totalCap - a.totalCap || b.count - a.count);
 
-    // 4. 전체 시가총액 합계
-    const totalMcap = heatmap.reduce((sum, s) => sum + (s.market_cap || 0), 0) || 1;
+    const grandTotal = sortedSectors.reduce((sum, s) => sum + s.totalCap, 0) || 1;
 
-    // 5. 렌더링 (고정 높이 420px 안에 모든 종목 표시)
+    // 렌더링
     let html = '';
-    sortedSectors.forEach(([sector, stocks]) => {
-        const sectorMcap = stocks.reduce((sum, s) => sum + (s.market_cap || 0), 0);
-        const sectorPct = (sectorMcap / totalMcap * 100).toFixed(1);
+    sortedSectors.forEach(sector => {
+        const sectorPct = sector.totalCap > 0
+            ? (sector.totalCap / grandTotal * 100)
+            : (sector.count / heatmap.length * 100);
+        const sectorFlex = Math.max(Math.round(sectorPct), 5);
 
-        html += `<div class="hm-sector" style="flex:${sectorPct};height:100%">`;
-        html += `<div class="hm-sector-label">${sector}</div>`;
-        html += `<div class="hm-sector-stocks" style="height:calc(100% - 14px)">`;
+        html += `<div class="hm-sector" style="flex:${sectorFlex}">`;
+        html += `<div class="hm-sector-label">${sector.name}</div>`;
+        html += `<div class="hm-sector-stocks">`;
 
-        stocks.forEach(s => {
+        sector.stocks.forEach((s, idx) => {
             const pct = s.change_pct || 0;
             const bg = getHeatmapColor(pct);
-            const mcapRatio = sectorMcap > 0 ? ((s.market_cap || 0) / sectorMcap * 100) : 10;
-            const flexVal = Math.max(mcapRatio, 5).toFixed(1);
-            // 503개 종목이므로 폰트 크기 축소
-            const fontSize = mcapRatio > 20 ? '0.65em' : mcapRatio > 10 ? '0.55em' : '0.5em';
+            const textColor = Math.abs(pct) > 1.0 ? '#fff' : '#ccc';
+            const tooltip = `${s.name || s.symbol} (${s.symbol}): ${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`;
 
-            html += `
-                <div class="hm-stock" style="flex:${flexVal};background:${bg}"
-                     data-symbol="${s.symbol}" data-exchange="kis_us"
-                     title="${s.name} (${s.symbol}): ${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%">
-                    <span class="hm-symbol" style="font-size:${fontSize}">${s.symbol}</span>
-                    <span class="hm-pct" style="font-size:0.5em">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</span>
-                </div>`;
+            // 시가총액 비례 크기
+            let flexVal = 1;
+            if (s.market_cap > 0 && sector.totalCap > 0) {
+                flexVal = Math.max(Math.round(s.market_cap / sector.totalCap * sector.count * 2), 1);
+            } else {
+                flexVal = idx < 1 ? 4 : idx < 3 ? 2 : 1;
+            }
+
+            html += `<div class="hm-stock" style="flex:${flexVal};background:${bg};color:${textColor}" title="${tooltip}">
+                <span class="hm-symbol">${s.symbol}</span>
+                <span class="hm-pct">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</span>
+            </div>`;
         });
 
         html += `</div></div>`;
@@ -6487,11 +6493,69 @@ function renderUsHeatmap(heatmap) {
 
     grid.innerHTML = html;
 
-    // 클릭 이벤트
-    grid.querySelectorAll('.hm-stock').forEach(cell => {
-        cell.addEventListener('click', () => {
-            openStockDetail(cell.dataset.symbol, 'kis_us');
-        });
+    // === 줌 & 패닝 초기화 ===
+    const wrap = document.getElementById('us-heatmap-wrap');
+    if (!wrap) return;
+
+    let scale = 1, panX = 0, panY = 0;
+    let isPanning = false, startX, startY;
+
+    function applyTransform() {
+        grid.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+    }
+
+    // 마우스 휠 줌
+    wrap.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.15 : 0.15;
+        const newScale = Math.min(Math.max(scale + delta, 1), 4);
+        const rect = wrap.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        const ratio = newScale / scale;
+        panX = mouseX - ratio * (mouseX - panX);
+        panY = mouseY - ratio * (mouseY - panY);
+        scale = newScale;
+        grid.style.transition = 'none';
+        applyTransform();
+    }, { passive: false });
+
+    // 드래그 패닝
+    wrap.addEventListener('mousedown', (e) => {
+        if (scale <= 1) return;
+        isPanning = true;
+        startX = e.clientX - panX;
+        startY = e.clientY - panY;
+        wrap.style.cursor = 'grabbing';
+    });
+    document.addEventListener('mousemove', (e) => {
+        if (!isPanning) return;
+        panX = e.clientX - startX;
+        panY = e.clientY - startY;
+        grid.style.transition = 'none';
+        applyTransform();
+    });
+    document.addEventListener('mouseup', () => {
+        isPanning = false;
+        if (wrap) wrap.style.cursor = scale > 1 ? 'grab' : 'default';
+    });
+
+    // 줌 버튼
+    document.getElementById('hm-zoom-in')?.addEventListener('click', () => {
+        scale = Math.min(scale + 0.3, 4);
+        grid.style.transition = 'transform 0.2s';
+        applyTransform();
+    });
+    document.getElementById('hm-zoom-out')?.addEventListener('click', () => {
+        scale = Math.max(scale - 0.3, 1);
+        panX = 0; panY = 0;
+        grid.style.transition = 'transform 0.2s';
+        applyTransform();
+    });
+    document.getElementById('hm-zoom-reset')?.addEventListener('click', () => {
+        scale = 1; panX = 0; panY = 0;
+        grid.style.transition = 'transform 0.3s';
+        applyTransform();
     });
 }
 

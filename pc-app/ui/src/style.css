@@ -9060,35 +9060,47 @@ body {
    Phase 5: 해외시장 히트맵 + Fear&Greed + VIX
    ===================================================== */
 
-/* 히트맵 카드 - 트리맵 스타일 */
+/* ===== 해외시장 히트맵 - 트리맵 + 줌 ===== */
 .us-heatmap-card {
-    padding: 12px !important;
+    padding: 8px !important;
+    position: relative;
+}
+
+.us-heatmap-wrap {
+    width: 100%;
+    height: 420px;
+    overflow: hidden;
+    position: relative;
+    cursor: default;
+    border-radius: 4px;
 }
 
 .us-heatmap-grid {
     display: flex;
     flex-wrap: wrap;
     gap: 1px;
-    height: 420px;
-    overflow: hidden;
+    transform-origin: 0 0;
+    width: 100%;
+    height: 100%;
 }
 
 .hm-sector {
     display: flex;
     flex-direction: column;
     min-width: 0;
-    gap: 1px;
+    gap: 0;
+    height: 100%;
 }
 
 .hm-sector-label {
-    font-size: 0.65em;
-    color: var(--text-muted);
-    padding: 0 1px;
+    font-size: 0.55em;
+    color: #9ca3af;
+    padding: 0 2px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    height: 14px;
-    line-height: 14px;
+    line-height: 1.4;
+    flex-shrink: 0;
 }
 
 .hm-sector-stocks {
@@ -9097,6 +9109,7 @@ body {
     gap: 1px;
     flex: 1;
     align-content: flex-start;
+    overflow: hidden;
 }
 
 .hm-stock {
@@ -9105,29 +9118,63 @@ body {
     align-items: center;
     justify-content: center;
     padding: 1px;
-    border-radius: 2px;
-    min-width: 24px;
-    min-height: 20px;
+    border-radius: 1px;
+    min-width: 20px;
+    min-height: 16px;
     cursor: pointer;
-    transition: transform 0.1s;
-    color: #fff;
+    overflow: hidden;
 }
 
 .hm-stock:hover {
-    transform: scale(1.05);
-    z-index: 1;
-    outline: 1px solid rgba(255,255,255,0.5);
+    outline: 1px solid rgba(255,255,255,0.7);
+    z-index: 10;
 }
 
 .hm-symbol {
+    font-size: 0.5em;
     font-weight: 700;
-    line-height: 1.1;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
 }
 
 .hm-pct {
-    font-size: 0.75em;
+    font-size: 0.4em;
     font-weight: 500;
-    opacity: 0.9;
+    line-height: 1;
+    opacity: 0.85;
+}
+
+/* 줌 컨트롤 */
+.hm-zoom-controls {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: flex;
+    gap: 3px;
+    z-index: 20;
+}
+
+.hm-zoom-btn {
+    width: 26px;
+    height: 26px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(11,18,32,0.85);
+    color: #9ca3af;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.hm-zoom-btn:hover {
+    background: rgba(255,255,255,0.1);
+    color: #fff;
 }
 
 /* Fear & Greed + VIX 섹션 */
