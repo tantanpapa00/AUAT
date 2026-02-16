@@ -6427,76 +6427,208 @@ function getHeatmapTextColor(pct) {
     return '#1f2937';
 }
 
-// 히트맵 렌더링 (트리맵 스타일 + 줌 기능)
+// ===== Squarified Treemap 알고리즘 =====
+
+function squarify(data, x, y, w, h) {
+    /**
+     * Squarified Treemap 레이아웃 계산
+     * data: [{value, ...}, ...] (value 내림차순 정렬 필수)
+     * x, y, w, h: 배치 영역
+     * returns: 각 data 요소에 x, y, w, h 속성 추가
+     */
+    if (!data.length) return;
+    if (data.length === 1) {
+        data[0].x = x;
+        data[0].y = y;
+        data[0].w = w;
+        data[0].h = h;
+        return;
+    }
+
+    const total = data.reduce((s, d) => s + d.value, 0);
+    if (total <= 0) {
+        data.forEach(d => { d.x = x; d.y = y; d.w = 0; d.h = 0; });
+        return;
+    }
+
+    // 면적 정규화
+    const area = w * h;
+    data.forEach(d => d._area = (d.value / total) * area);
+
+    _layoutRow(data, x, y, w, h);
+}
+
+function _layoutRow(data, x, y, w, h) {
+    if (!data.length) return;
+    if (data.length === 1) {
+        data[0].x = x; data[0].y = y; data[0].w = w; data[0].h = h;
+        return;
+    }
+
+    const isWide = w >= h;
+    const side = isWide ? h : w;
+
+    let row = [data[0]];
+    let rowArea = data[0]._area;
+    let worst = _worstRatio(row, side, rowArea);
+
+    for (let i = 1; i < data.length; i++) {
+        const newRow = [...row, data[i]];
+        const newArea = rowArea + data[i]._area;
+        const newWorst = _worstRatio(newRow, side, newArea);
+
+        if (newWorst <= worst) {
+            row = newRow;
+            rowArea = newArea;
+            worst = newWorst;
+        } else {
+            break;
+        }
+    }
+
+    // row 배치
+    const rowFraction = rowArea / (w * h) || 0;
+    let rx, ry, rw, rh;
+    if (isWide) {
+        rw = w * rowFraction;
+        rh = h;
+        rx = x; ry = y;
+    } else {
+        rw = w;
+        rh = h * rowFraction;
+        rx = x; ry = y;
+    }
+
+    let offset = 0;
+    row.forEach(d => {
+        const frac = d._area / rowArea || 0;
+        if (isWide) {
+            d.x = rx;
+            d.y = ry + offset;
+            d.w = rw;
+            d.h = rh * frac;
+            offset += d.h;
+        } else {
+            d.x = rx + offset;
+            d.y = ry;
+            d.w = rw * frac;
+            d.h = rh;
+            offset += d.w;
+        }
+    });
+
+    // 나머지 재귀
+    const remaining = data.slice(row.length);
+    if (remaining.length > 0) {
+        if (isWide) {
+            _layoutRow(remaining, x + rw, y, w - rw, h);
+        } else {
+            _layoutRow(remaining, x, y + rh, w, h - rh);
+        }
+    }
+}
+
+function _worstRatio(row, side, totalArea) {
+    if (!row.length || totalArea <= 0 || side <= 0) return Infinity;
+    const rowLen = totalArea / side;
+    let worst = 0;
+    for (const d of row) {
+        const nodeLen = d._area / rowLen || 0;
+        if (nodeLen <= 0) continue;
+        const ratio = Math.max(rowLen / nodeLen, nodeLen / rowLen);
+        if (ratio > worst) worst = ratio;
+    }
+    return worst;
+}
+
+
+// ===== 히트맵 렌더링 (Squarified Treemap) =====
+
 function renderUsHeatmap(heatmap) {
     const grid = document.getElementById('us-heatmap-grid');
-    if (!grid || !heatmap.length) return;
+    const wrap = document.getElementById('us-heatmap-wrap');
+    if (!grid || !wrap || !heatmap.length) return;
 
-    // 섹터별 그룹핑
-    const sectorGroups = {};
+    const W = wrap.clientWidth || 800;
+    const H = 410;
+
+    // 1. 섹터별 그룹핑 + 시가총액 합 계산
+    const sectorMap = {};
     heatmap.forEach(s => {
-        const sector = s.sector || '기타';
-        if (!sectorGroups[sector]) sectorGroups[sector] = [];
-        sectorGroups[sector].push(s);
+        const sec = s.sector || '기타';
+        if (!sectorMap[sec]) sectorMap[sec] = { name: sec, stocks: [], totalCap: 0 };
+        sectorMap[sec].stocks.push(s);
+        sectorMap[sec].totalCap += (s.market_cap || 1);
     });
 
-    // 각 섹터 내 시가총액 내림차순
-    Object.values(sectorGroups).forEach(group => {
-        group.sort((a, b) => (b.market_cap || 0) - (a.market_cap || 0));
+    // 2. 섹터를 value(시가총액합) 기준으로 정렬
+    const sectors = Object.values(sectorMap)
+        .map(s => ({ ...s, value: s.totalCap }))
+        .sort((a, b) => b.value - a.value);
+
+    // 3. 섹터 레벨 Squarified Treemap
+    squarify(sectors, 0, 0, W, H);
+
+    // 4. 각 섹터 내부에서 종목 레벨 Squarified Treemap
+    sectors.forEach(sector => {
+        const stocks = sector.stocks
+            .map(s => ({ ...s, value: s.market_cap || 1 }))
+            .sort((a, b) => b.value - a.value);
+
+        // 섹터 라벨 높이 확보 (12px)
+        const labelH = 12;
+        const innerX = sector.x;
+        const innerY = sector.y + labelH;
+        const innerW = sector.w;
+        const innerH = Math.max(sector.h - labelH, 0);
+
+        squarify(stocks, innerX, innerY, innerW, innerH);
+        sector._layoutStocks = stocks;
     });
 
-    // 섹터를 시가총액 합 내림차순
-    const sortedSectors = Object.entries(sectorGroups)
-        .map(([name, stocks]) => ({
-            name, stocks,
-            totalCap: stocks.reduce((sum, s) => sum + (s.market_cap || 0), 0),
-            count: stocks.length
-        }))
-        .sort((a, b) => b.totalCap - a.totalCap || b.count - a.count);
-
-    const grandTotal = sortedSectors.reduce((sum, s) => sum + s.totalCap, 0) || 1;
-
-    // 렌더링
+    // 5. HTML 생성 (absolute position)
     let html = '';
-    sortedSectors.forEach(sector => {
-        const sectorPct = sector.totalCap > 0
-            ? (sector.totalCap / grandTotal * 100)
-            : (sector.count / heatmap.length * 100);
-        const sectorFlex = Math.max(Math.round(sectorPct), 5);
 
-        html += `<div class="hm-sector" style="flex:${sectorFlex}">`;
-        html += `<div class="hm-sector-label">${sector.name}</div>`;
-        html += `<div class="hm-sector-stocks">`;
+    sectors.forEach(sector => {
+        // 섹터 테두리
+        html += `<div class="hm-sector-box" style="left:${sector.x}px;top:${sector.y}px;width:${sector.w}px;height:${sector.h}px">`;
+        // 섹터 라벨
+        if (sector.w > 40) {
+            html += `<div class="hm-sector-lbl">${sector.name}</div>`;
+        }
+        html += '</div>';
 
-        sector.stocks.forEach((s, idx) => {
+        // 종목 셀
+        (sector._layoutStocks || []).forEach(s => {
+            if (!s.w || !s.h || s.w < 1 || s.h < 1) return;
+
             const pct = s.change_pct || 0;
             const bg = getHeatmapColor(pct);
-            const textColor = Math.abs(pct) > 1.0 ? '#fff' : '#ccc';
+            const textColor = Math.abs(pct) > 1.0 ? '#fff' : '#ddd';
             const tooltip = `${s.name || s.symbol} (${s.symbol}): ${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`;
 
-            // 시가총액 비례 크기
-            let flexVal = 1;
-            if (s.market_cap > 0 && sector.totalCap > 0) {
-                flexVal = Math.max(Math.round(s.market_cap / sector.totalCap * sector.count * 2), 1);
-            } else {
-                flexVal = idx < 1 ? 4 : idx < 3 ? 2 : 1;
+            // 셀 크기에 따라 텍스트 표시 결정
+            const showSymbol = s.w > 28 && s.h > 16;
+            const showPct = s.w > 36 && s.h > 26;
+            const fontSize = s.w > 60 && s.h > 40 ? '0.72em' :
+                            s.w > 40 && s.h > 28 ? '0.58em' : '0.48em';
+
+            html += `<div class="hm-cell" style="left:${s.x}px;top:${s.y}px;width:${s.w}px;height:${s.h}px;background:${bg};color:${textColor}" title="${tooltip}">`;
+            if (showSymbol) {
+                html += `<span class="hm-sym" style="font-size:${fontSize}">${s.symbol}</span>`;
             }
-
-            html += `<div class="hm-stock" style="flex:${flexVal};background:${bg};color:${textColor}" title="${tooltip}">
-                <span class="hm-symbol">${s.symbol}</span>
-                <span class="hm-pct">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</span>
-            </div>`;
+            if (showPct) {
+                html += `<span class="hm-pct" style="font-size:calc(${fontSize} - 0.08em)">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</span>`;
+            }
+            html += '</div>';
         });
-
-        html += `</div></div>`;
     });
 
+    grid.style.width = W + 'px';
+    grid.style.height = H + 'px';
     grid.innerHTML = html;
 
-    // === 줌 & 패닝 초기화 ===
-    const wrap = document.getElementById('us-heatmap-wrap');
-    if (!wrap) return;
-
+    // === 줌 & 패닝 ===
     let scale = 1, panX = 0, panY = 0;
     let isPanning = false, startX, startY;
 
@@ -6504,11 +6636,10 @@ function renderUsHeatmap(heatmap) {
         grid.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
     }
 
-    // 마우스 휠 줌
     wrap.addEventListener('wheel', (e) => {
         e.preventDefault();
         const delta = e.deltaY > 0 ? -0.15 : 0.15;
-        const newScale = Math.min(Math.max(scale + delta, 1), 4);
+        const newScale = Math.min(Math.max(scale + delta, 1), 5);
         const rect = wrap.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
@@ -6520,7 +6651,6 @@ function renderUsHeatmap(heatmap) {
         applyTransform();
     }, { passive: false });
 
-    // 드래그 패닝
     wrap.addEventListener('mousedown', (e) => {
         if (scale <= 1) return;
         isPanning = true;
@@ -6540,15 +6670,14 @@ function renderUsHeatmap(heatmap) {
         if (wrap) wrap.style.cursor = scale > 1 ? 'grab' : 'default';
     });
 
-    // 줌 버튼
     document.getElementById('hm-zoom-in')?.addEventListener('click', () => {
-        scale = Math.min(scale + 0.3, 4);
+        scale = Math.min(scale + 0.4, 5);
         grid.style.transition = 'transform 0.2s';
         applyTransform();
     });
     document.getElementById('hm-zoom-out')?.addEventListener('click', () => {
-        scale = Math.max(scale - 0.3, 1);
-        panX = 0; panY = 0;
+        scale = Math.max(scale - 0.4, 1);
+        if (scale === 1) { panX = 0; panY = 0; }
         grid.style.transition = 'transform 0.2s';
         applyTransform();
     });
