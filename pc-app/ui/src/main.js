@@ -5158,6 +5158,7 @@ async function loadMarketKr() {
                             <thead>
                                 <tr>
                                     <th class="sortable" data-sort="sector">섹터</th>
+                                    <th>ETF</th>
                                     <th class="sortable" data-sort="change">등락률</th>
                                     <th class="sortable" data-sort="days">포지션</th>
                                     <th>신호</th>
@@ -5166,7 +5167,7 @@ async function loadMarketKr() {
                                 </tr>
                             </thead>
                             <tbody id="trend-maintain-body">
-                                <tr><td colspan="6" class="loading-cell">데이터 로딩 중...</td></tr>
+                                <tr><td colspan="7" class="loading-cell">데이터 로딩 중...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -5750,7 +5751,7 @@ async function loadTrendMaintainData() {
     const tbody = document.getElementById('trend-maintain-body');
     if (!tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="6" class="loading-cell">데이터 로딩 중...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="loading-cell">데이터 로딩 중...</td></tr>';
 
     try {
         // 추세유지 API 호출 (대표종목 RS는 DB 연동 후 추가)
@@ -5760,19 +5761,20 @@ async function loadTrendMaintainData() {
         // API returns { success: true, data: [...] }
         const sectors = response?.data || [];
         if (!sectors || sectors.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">추세유지 데이터 없음</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">추세유지 데이터 없음</td></tr>';
             return;
         }
 
         // 데이터 필드명 매핑 (trend-maintain API -> sector-analysis 형식)
         trendMaintainData = sectors.map(s => ({
             sector: s.sector || '',
+            etf_name: s.name || '',  // API returns 'name' as ETF name
             change_percent: s.change_percent || 0,
             position: s.position || '',
             position_days: s.days || 0,
             gap_percent: s.gap_percent || 0,
             signal: s.signal || 'green',
-            top_stocks: s.top_stocks || [],  // 추후 RS 추가
+            top_holdings: s.top_holdings || [],  // 대표종목 + RS
         }));
         renderTrendMaintainTable();
 
@@ -5791,7 +5793,7 @@ async function loadTrendMaintainData() {
         });
     } catch (error) {
         console.error('[loadTrendMaintainData] error:', error);
-        tbody.innerHTML = `<tr><td colspan="6" class="error-cell">데이터 로드 실패: ${error?.message || error}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="error-cell">데이터 로드 실패: ${error?.message || error}</td></tr>`;
     }
 }
 
@@ -5827,20 +5829,22 @@ function renderTrendMaintainTable() {
         const gapClass = (s.gap_percent || 0) >= 0 ? 'positive' : 'negative';
         const changeClass = (s.change_percent || 0) >= 0 ? 'profit' : 'loss';
 
-        // 대표종목(RS) 표시 - RS 90 이상 굵게
-        const topStocksHtml = (s.top_stocks || []).map(stock => {
-            const rsClass = (stock.rs || 0) >= 90 ? 'rs-strong' : 'rs-normal';
-            return `<span class="${rsClass}">${stock.name}(${stock.rs || 0})</span>`;
+        // 대표종목(RS) 표시 - RS 90 이상 굵게 (최대 5개)
+        const topHoldingsHtml = (s.top_holdings || []).slice(0, 5).map(stock => {
+            const rs = stock.rs || 0;
+            const rsClass = rs >= 90 ? 'rs-strong' : 'rs-normal';
+            return `<span class="${rsClass}">${stock.name}(${rs})</span>`;
         }).join(', ');
 
         return `
             <tr>
                 <td class="sector-name">${s.sector || ''}</td>
+                <td class="etf-name">${s.etf_name || '-'}</td>
                 <td class="change-cell ${changeClass}">${(s.change_percent || 0) >= 0 ? '+' : ''}${(s.change_percent || 0).toFixed(2)}%</td>
                 <td class="position-cell ${positionClass}">${s.position || ''} ${s.position_days || 0}일</td>
                 <td class="signal-cell"><span class="signal-dot" style="background:${signalColor}"></span></td>
                 <td class="gap-cell ${gapClass}">${(s.gap_percent || 0) >= 0 ? '+' : ''}${(s.gap_percent || 0).toFixed(1)}%</td>
-                <td class="top-stocks-cell">${topStocksHtml || '-'}</td>
+                <td class="top-stocks-cell">${topHoldingsHtml || '-'}</td>
             </tr>
         `;
     }).join('');

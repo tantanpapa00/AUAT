@@ -11982,7 +11982,6 @@ async def get_market_trend_maintain(
     try:
         # 스탁이지 CSV에서 대표종목 데이터 가져오기
         stockeasy_data = await fetch_stockeasy_csv()
-        print(f"[TrendMaintain] StockEasy 데이터 로드: {len(stockeasy_data)}개, keys={list(stockeasy_data.keys())[:5]}")
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             headers = {"User-Agent": "Mozilla/5.0"}
@@ -12022,8 +12021,6 @@ async def get_market_trend_maintain(
                     if trend:
                         # 스탁이지 데이터 병합
                         se_data = stockeasy_data.get(symbol, {})
-                        if not se_data:
-                            print(f"[TrendMaintain] {symbol} StockEasy 매칭 실패 - keys sample: {list(stockeasy_data.keys())[:3]}")
 
                         result.append({
                             "symbol": symbol,
