@@ -202,20 +202,39 @@ async def collect_us_sectors() -> List[Dict]:
 
 async def collect_us_heatmap() -> List[Dict]:
     """
-    히트맵용 주요 30종목 수집 (시가총액 포함)
-    Returns: [{"symbol": "AAPL", "name": "Apple", "sector": "기술", "price": ..., "change_pct": ..., "market_cap": ...}, ...]
+    히트맵용 주요 종목 데이터 수집
+
+    1순위: Finviz API (S&P 500 전체 등락률) + HEATMAP_STOCKS 메타데이터
+    2순위: Yahoo Finance 개별 호출 (기존 방식, 폴백)
     """
     result = []
-    async with httpx.AsyncClient() as client:
-        tasks = [fetch_yahoo_quote(client, stock["symbol"]) for stock in HEATMAP_STOCKS]
-        responses = await asyncio.gather(*tasks, return_exceptions=True)
 
-        for i, stock in enumerate(HEATMAP_STOCKS):
-            resp = responses[i]
-            market_cap = stock.get("market_cap", 0.1)  # 조 달러 단위
-            if isinstance(resp, Exception) or resp is None:
+    # 1) Finviz에서 등락률 가져오기 시도
+    finviz_data = await collect_finviz_heatmap()
+
+    if finviz_data:
+        # Finviz 데이터 있으면: HEATMAP_STOCKS의 섹터 정보 + Finviz 등락률 결합
+        for stock in HEATMAP_STOCKS:
+            symbol = stock["symbol"]
+            # BRK-B → BRK.B (Finviz는 . 사용할 수 있음)
+            finviz_symbol = symbol.replace("-", ".")
+            change_pct = finviz_data.get(symbol, finviz_data.get(finviz_symbol, None))
+
+            market_cap = stock.get("market_cap", 0.1)
+            if change_pct is not None:
                 result.append({
-                    "symbol": stock["symbol"],
+                    "symbol": symbol,
+                    "name": stock["name"],
+                    "sector": stock["sector"],
+                    "price": 0,  # Finviz API에는 가격 없음
+                    "change_pct": round(float(change_pct), 2),
+                    "volume": 0,
+                    "market_cap": market_cap,
+                })
+            else:
+                # Finviz에 없는 종목은 빈 값
+                result.append({
+                    "symbol": symbol,
                     "name": stock["name"],
                     "sector": stock["sector"],
                     "price": 0,
@@ -223,18 +242,45 @@ async def collect_us_heatmap() -> List[Dict]:
                     "volume": 0,
                     "market_cap": market_cap,
                 })
-            else:
-                result.append({
-                    "symbol": stock["symbol"],
-                    "name": stock["name"],
-                    "sector": stock["sector"],
-                    "price": resp["price"],
-                    "change_pct": resp["change_pct"],
-                    "volume": resp["volume"],
-                    "market_cap": market_cap,
-                })
 
-    # 시가총액 기준 내림차순 정렬 (트리맵에서 큰 종목이 먼저)
+        # 시가총액 기준 정렬
+        result.sort(key=lambda x: x["market_cap"], reverse=True)
+        return result
+
+    # 2) Finviz 실패 시: 기존 Yahoo Finance 방식 (폴백)
+    try:
+        async with httpx.AsyncClient() as client:
+            tasks = [fetch_yahoo_quote(client, stock["symbol"]) for stock in HEATMAP_STOCKS]
+            responses = await asyncio.gather(*tasks, return_exceptions=True)
+
+            for i, stock in enumerate(HEATMAP_STOCKS):
+                resp = responses[i]
+                market_cap = stock.get("market_cap", 0.1)
+                if isinstance(resp, Exception) or resp is None:
+                    result.append({
+                        "symbol": stock["symbol"],
+                        "name": stock["name"],
+                        "sector": stock["sector"],
+                        "price": 0,
+                        "change_pct": 0,
+                        "volume": 0,
+                        "market_cap": market_cap,
+                    })
+                else:
+                    result.append({
+                        "symbol": stock["symbol"],
+                        "name": stock["name"],
+                        "sector": stock["sector"],
+                        "price": resp["price"],
+                        "change_pct": resp["change_pct"],
+                        "volume": resp["volume"],
+                        "market_cap": market_cap,
+                    })
+
+    except Exception as e:
+        print(f"[US DataCollector] heatmap 수집 오류: {e}")
+
+    # 시가총액 기준 내림차순 정렬
     result.sort(key=lambda x: x["market_cap"], reverse=True)
     return result
 
@@ -272,140 +318,234 @@ async def collect_fear_greed_index() -> Dict:
         return {"value": 50, "label": "중립", "label_en": "Neutral"}
 
 
-async def collect_finviz_breadth() -> Dict:
+async def collect_finviz_breadth() -> Dict[str, Any]:
     """
-    Finviz에서 S&P 500 시장 브레드스 데이터 수집
-    Returns: {
-        "sp500_advancing": int,
-        "sp500_declining": int,
-        "sp500_new_high": int,
-        "sp500_new_low": int,
-        "sp500_above_sma50": float (퍼센트),
-        "sp500_above_sma200": float (퍼센트)
-    }
+    Finviz 메인페이지에서 전체 시장 breadth 데이터 수집
+
+    파싱 대상 (HTML 구조는 docs/finviz_analysis.md 참조):
+      Advancing  62.5% (3485)  Declining  (1849) 33.2%
+      New High   50.4% (198)   New Low    (195) 49.6%
+      Above SMA50  48.5% (2697)  Below (2699)
+      Above SMA200 51.8% (2879)  Below (2589)
     """
     result = {
-        "sp500_advancing": 0,
-        "sp500_declining": 0,
-        "sp500_new_high": 0,
-        "sp500_new_low": 0,
-        "sp500_above_sma50": 50.0,
-        "sp500_above_sma200": 50.0,
+        "advancing": 0, "declining": 0, "unchanged": 0,
+        "advancing_pct": 0.0, "declining_pct": 0.0,
+        "new_high": 0, "new_low": 0,
+        "above_sma50": 0, "below_sma50": 0,
+        "above_sma200": 0, "below_sma200": 0,
     }
 
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept": "text/html,application/xhtml+xml",
                 "Accept-Language": "en-US,en;q=0.9",
             }
-
-            # Finviz 메인 페이지에서 S&P 500 브레드스 파싱
-            url = "https://finviz.com/groups.ashx?g=sp500"
-            resp = await client.get(url, headers=headers, timeout=15)
-
-            if resp.status_code != 200:
-                print(f"[US] Finviz breadth request failed: {resp.status_code}")
+            r = await client.get("https://finviz.com/", headers=headers)
+            if r.status_code != 200:
+                print(f"[Finviz] 메인 접속 실패: {r.status_code}")
                 return result
 
-            html = resp.text
+            html = r.text
 
-            # S&P 500 상승/하락 종목 수 파싱 (예: "347" / "156")
-            # Finviz 페이지 구조에 따라 정규식 조정 필요
-            adv_match = re.search(r'Advancing[^\d]*(\d+)', html)
-            dec_match = re.search(r'Declining[^\d]*(\d+)', html)
+            # Advancing: <p>Advancing</p><p>62.5% (3485)</p>
+            m = re.search(r'Advancing</p><p>(\d+\.\d+)%\s*\((\d+)\)', html)
+            if m:
+                result["advancing_pct"] = float(m.group(1))
+                result["advancing"] = int(m.group(2))
+            else:
+                # 대안 패턴
+                m = re.search(r'>Advancing<.*?>(\d+\.\d+)%.*?\((\d+)\)', html, re.DOTALL)
+                if m:
+                    result["advancing_pct"] = float(m.group(1))
+                    result["advancing"] = int(m.group(2))
 
-            if adv_match:
-                result["sp500_advancing"] = int(adv_match.group(1))
-            if dec_match:
-                result["sp500_declining"] = int(dec_match.group(1))
+            # Declining: <p>Declining</p><p>(1849) 33.2%</p>
+            m = re.search(r'Declining</p><p>\((\d+)\)\s*(\d+\.\d+)%', html)
+            if m:
+                result["declining"] = int(m.group(1))
+                result["declining_pct"] = float(m.group(2))
+            else:
+                # 대안 패턴
+                m = re.search(r'>Declining<.*?\((\d+)\).*?(\d+\.\d+)%', html, re.DOTALL)
+                if m:
+                    result["declining"] = int(m.group(1))
+                    result["declining_pct"] = float(m.group(2))
 
-            # New High / New Low 파싱
-            nh_match = re.search(r'New High[^\d]*(\d+)', html)
-            nl_match = re.search(r'New Low[^\d]*(\d+)', html)
+            # New High: <p>New High</p><p>50.4% (198)</p>
+            m = re.search(r'New High</p><p>(\d+\.\d+)%\s*\((\d+)\)', html)
+            if m:
+                result["new_high"] = int(m.group(2))
+            else:
+                m = re.search(r'>New High<.*?>(\d+\.\d+)%.*?\((\d+)\)', html, re.DOTALL)
+                if m:
+                    result["new_high"] = int(m.group(2))
 
-            if nh_match:
-                result["sp500_new_high"] = int(nh_match.group(1))
-            if nl_match:
-                result["sp500_new_low"] = int(nl_match.group(1))
+            # New Low: <p>New Low</p><p>(195) 49.6%</p>
+            m = re.search(r'New Low</p><p>\((\d+)\)', html)
+            if m:
+                result["new_low"] = int(m.group(1))
+            else:
+                m = re.search(r'>New Low<.*?\((\d+)\)', html, re.DOTALL)
+                if m:
+                    result["new_low"] = int(m.group(1))
 
-            # SMA 위 비율 (Finviz 제공 시)
-            sma50_match = re.search(r'Above SMA50[^\d]*(\d+\.?\d*)%', html)
-            sma200_match = re.search(r'Above SMA200[^\d]*(\d+\.?\d*)%', html)
+            # SMA50 영역 찾기: "SMA50 / Below SMA50" 근처에서 Above/Below 파싱
+            # Above: <p>Above</p><p>48.5% (2697)</p>
+            sma50_section = re.search(r'SMA50.*?Above</p><p>(\d+\.\d+)%\s*\((\d+)\).*?Below</p><p>\((\d+)\)', html, re.DOTALL)
+            if sma50_section:
+                result["above_sma50"] = int(sma50_section.group(2))
+                result["below_sma50"] = int(sma50_section.group(3))
+            else:
+                # 개별 패턴
+                m = re.search(r'SMA50.*?Above</p><p>.*?\((\d+)\)', html, re.DOTALL)
+                if m:
+                    result["above_sma50"] = int(m.group(1))
+                m = re.search(r'SMA50.*?Below</p><p>\((\d+)\)', html, re.DOTALL)
+                if m:
+                    result["below_sma50"] = int(m.group(1))
 
-            if sma50_match:
-                result["sp500_above_sma50"] = float(sma50_match.group(1))
-            if sma200_match:
-                result["sp500_above_sma200"] = float(sma200_match.group(1))
+            # SMA200 영역 찾기
+            sma200_section = re.search(r'SMA200.*?Above</p><p>(\d+\.\d+)%\s*\((\d+)\).*?Below</p><p>\((\d+)\)', html, re.DOTALL)
+            if sma200_section:
+                result["above_sma200"] = int(sma200_section.group(2))
+                result["below_sma200"] = int(sma200_section.group(3))
+            else:
+                # 개별 패턴
+                m = re.search(r'SMA200.*?Above</p><p>.*?\((\d+)\)', html, re.DOTALL)
+                if m:
+                    result["above_sma200"] = int(m.group(1))
+                m = re.search(r'SMA200.*?Below</p><p>\((\d+)\)', html, re.DOTALL)
+                if m:
+                    result["below_sma200"] = int(m.group(1))
+
+            # advancing_pct 계산 (파싱 안 됐을 때)
+            total = result["advancing"] + result["declining"]
+            if total > 0 and result["advancing_pct"] == 0:
+                result["advancing_pct"] = round(result["advancing"] / total * 100, 1)
+                result["declining_pct"] = round(result["declining"] / total * 100, 1)
+
+            print(f"[Finviz] breadth: ▲{result['advancing']}({result['advancing_pct']}%) "
+                  f"▼{result['declining']}({result['declining_pct']}%) "
+                  f"NH={result['new_high']} NL={result['new_low']} "
+                  f"SMA50={result['above_sma50']}/{result['below_sma50']} "
+                  f"SMA200={result['above_sma200']}/{result['below_sma200']}")
 
     except Exception as e:
-        print(f"[US] collect_finviz_breadth error: {e}")
+        print(f"[Finviz] breadth 수집 오류: {e}")
 
     return result
 
 
-async def get_us_market_summary() -> Dict:
+# Finviz 히트맵 API 캐시
+_finviz_heatmap_cache: Dict[str, Any] = {"data": {}, "timestamp": 0}
+
+
+async def collect_finviz_heatmap() -> Dict[str, float]:
     """
-    해외시장 전체 요약 (병렬 수집)
-    Returns: {
-        "indices": {...},
-        "sectors": [...],
-        "heatmap": [...],
-        "fear_greed": {...},
-        "breadth": {...},  # Finviz 브레드스 데이터
-        "rising_stocks": int,
-        "falling_stocks": int,
-        "unchanged_stocks": int,
-    }
+    Finviz 히트맵 API에서 S&P 500 전체 종목 등락률 수집
+
+    URL: https://finviz.com/api/map_perf.ashx?t=sec
+    응답: {"nodes": {"AAPL": -7.16, "MSFT": -0.75, ...}, ...}
+
+    5분 캐시 적용
+    Returns: {"AAPL": -7.16, "MSFT": -0.75, ...}
     """
-    # 병렬 수집 (Finviz 브레드스 추가)
+    import time
+
+    now = time.time()
+    if _finviz_heatmap_cache["data"] and (now - _finviz_heatmap_cache["timestamp"]) < 300:
+        return _finviz_heatmap_cache["data"]
+
+    result = {}
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            }
+            r = await client.get(
+                "https://finviz.com/api/map_perf.ashx?t=sec",
+                headers=headers
+            )
+            if r.status_code != 200:
+                print(f"[Finviz] 히트맵 API 실패: {r.status_code}")
+                return result
+
+            data = r.json()
+
+            # 응답 구조: {"nodes": {"AAPL": -7.16, ...}, ...}
+            if isinstance(data, dict):
+                if "nodes" in data:
+                    result = data["nodes"]
+                else:
+                    # 키가 티커 심볼인지 확인
+                    sample_key = next(iter(data), "")
+                    if sample_key.isupper() and len(sample_key) <= 5:
+                        result = data
+
+            if result:
+                _finviz_heatmap_cache["data"] = result
+                _finviz_heatmap_cache["timestamp"] = now
+                print(f"[Finviz] 히트맵: {len(result)}개 종목 수집")
+
+    except Exception as e:
+        print(f"[Finviz] 히트맵 수집 오류: {e}")
+
+    return result
+
+
+async def get_us_market_summary() -> Dict[str, Any]:
+    """
+    미국 시장 요약 데이터 전체 수집 (국내시장 get_market_summary 대응)
+    """
+    # 병렬 수집 (Finviz breadth 추가)
     indices_task = collect_us_indices()
     sectors_task = collect_us_sectors()
     heatmap_task = collect_us_heatmap()
-    fear_greed_task = collect_fear_greed_index()
+    fg_task = collect_fear_greed_index()
     breadth_task = collect_finviz_breadth()
 
     indices, sectors, heatmap, fear_greed, breadth = await asyncio.gather(
-        indices_task, sectors_task, heatmap_task, fear_greed_task, breadth_task,
+        indices_task, sectors_task, heatmap_task, fg_task, breadth_task,
         return_exceptions=True
     )
 
     # 예외 처리
     if isinstance(indices, Exception):
+        print(f"[US DataCollector] indices error: {indices}")
         indices = {}
     if isinstance(sectors, Exception):
+        print(f"[US DataCollector] sectors error: {sectors}")
         sectors = []
     if isinstance(heatmap, Exception):
+        print(f"[US DataCollector] heatmap error: {heatmap}")
         heatmap = []
     if isinstance(fear_greed, Exception):
+        print(f"[US DataCollector] fear_greed error: {fear_greed}")
         fear_greed = {"value": 50, "label": "중립", "label_en": "Neutral"}
     if isinstance(breadth, Exception):
+        print(f"[US DataCollector] breadth error: {breadth}")
         breadth = {
-            "sp500_advancing": 0,
-            "sp500_declining": 0,
-            "sp500_new_high": 0,
-            "sp500_new_low": 0,
-            "sp500_above_sma50": 50.0,
-            "sp500_above_sma200": 50.0,
+            "advancing": 0, "declining": 0, "unchanged": 0,
+            "advancing_pct": 0, "declining_pct": 0,
+            "new_high": 0, "new_low": 0,
+            "above_sma50": 0, "below_sma50": 0,
+            "above_sma200": 0, "below_sma200": 0,
         }
 
-    # Finviz 브레드스 데이터 사용 (실제 S&P 500 상승/하락 종목 수)
-    rising = breadth.get("sp500_advancing", 0)
-    falling = breadth.get("sp500_declining", 0)
+    # Finviz breadth 사용 (전체 시장 기준)
+    rising = breadth.get("advancing", 0)
+    falling = breadth.get("declining", 0)
+    unchanged = breadth.get("unchanged", 0)
 
-    # Finviz 데이터가 없으면 히트맵 30종목 비율로 추정
+    # Finviz 실패 시 히트맵 기준 폴백
     if rising == 0 and falling == 0:
-        heatmap_rising = sum(1 for s in heatmap if s.get("change_pct", 0) > 0)
-        heatmap_falling = sum(1 for s in heatmap if s.get("change_pct", 0) < 0)
-        heatmap_total = len(heatmap) or 1
-        sp500_total = 503
-        rising = round(heatmap_rising / heatmap_total * sp500_total)
-        falling = round(heatmap_falling / heatmap_total * sp500_total)
-
-    # 보합 = 503 - 상승 - 하락
-    sp500_total = 503
-    unchanged = max(0, sp500_total - rising - falling)
+        rising = sum(1 for s in heatmap if s.get("change_pct", 0) > 0)
+        falling = sum(1 for s in heatmap if s.get("change_pct", 0) < 0)
+        unchanged = sum(1 for s in heatmap if s.get("change_pct", 0) == 0)
 
     return {
         "indices": indices,
