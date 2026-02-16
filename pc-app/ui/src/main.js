@@ -6154,9 +6154,9 @@ async function loadMarketUs() {
                 </div>
             </div>
 
-            <!-- 2행: 히트맵 (30종목) -->
+            <!-- 2행: 히트맵 (S&P 500) -->
             <div class="card us-heatmap-card">
-                <h3>주요 30종목 히트맵</h3>
+                <h3>S&P 500 히트맵</h3>
                 <div class="us-heatmap-grid" id="us-heatmap-grid">
                     <!-- JS에서 렌더링 -->
                 </div>
@@ -6251,37 +6251,52 @@ async function loadMarketUs() {
                     </div>
                 </div>
 
-                <!-- S&P 500 브레드스 (Breadth) -->
+                <!-- 시장 브레드스 (Breadth) - Finviz 전체 시장 기준 -->
                 <div class="se-breadth-card card">
-                    <h3>S&P 500 시장 브레드스</h3>
+                    <h3>시장 브레드스 (전체 시장)</h3>
                     <div class="se-breadth-grid">
+                        <div class="se-breadth-item">
+                            <span class="se-breadth-label">상승 / 하락</span>
+                            <div class="se-breadth-bar">
+                                <span class="up">${breadth.advancing || 0}</span>
+                                <div class="se-breadth-bar-track">
+                                    <div class="se-breadth-bar-up" style="width: ${getBreadthBarPercent(breadth.advancing, breadth.declining, 'up')}%"></div>
+                                    <div class="se-breadth-bar-down" style="width: ${getBreadthBarPercent(breadth.advancing, breadth.declining, 'down')}%"></div>
+                                </div>
+                                <span class="down">${breadth.declining || 0}</span>
+                            </div>
+                        </div>
                         <div class="se-breadth-item">
                             <span class="se-breadth-label">신고가 / 신저가</span>
                             <div class="se-breadth-bar">
-                                <span class="up">${breadth.sp500_new_high || 0}</span>
+                                <span class="up">${breadth.new_high || 0}</span>
                                 <div class="se-breadth-bar-track">
-                                    <div class="se-breadth-bar-up" style="width: ${getBreadthBarPercent(breadth.sp500_new_high, breadth.sp500_new_low, 'up')}%"></div>
-                                    <div class="se-breadth-bar-down" style="width: ${getBreadthBarPercent(breadth.sp500_new_high, breadth.sp500_new_low, 'down')}%"></div>
+                                    <div class="se-breadth-bar-up" style="width: ${getBreadthBarPercent(breadth.new_high, breadth.new_low, 'up')}%"></div>
+                                    <div class="se-breadth-bar-down" style="width: ${getBreadthBarPercent(breadth.new_high, breadth.new_low, 'down')}%"></div>
                                 </div>
-                                <span class="down">${breadth.sp500_new_low || 0}</span>
+                                <span class="down">${breadth.new_low || 0}</span>
                             </div>
                         </div>
                         <div class="se-breadth-item">
-                            <span class="se-breadth-label">50MA 위 비율</span>
-                            <div class="se-breadth-pct">
-                                <div class="se-breadth-pct-track">
-                                    <div class="se-breadth-pct-fill" style="width: ${breadth.sp500_above_sma50 || 50}%; background: #22c55e;"></div>
+                            <span class="se-breadth-label">SMA50 위 / 아래</span>
+                            <div class="se-breadth-bar">
+                                <span class="up">${breadth.above_sma50 || 0}</span>
+                                <div class="se-breadth-bar-track">
+                                    <div class="se-breadth-bar-up" style="width: ${getBreadthBarPercent(breadth.above_sma50, breadth.below_sma50, 'up')}%"></div>
+                                    <div class="se-breadth-bar-down" style="width: ${getBreadthBarPercent(breadth.above_sma50, breadth.below_sma50, 'down')}%"></div>
                                 </div>
-                                <span class="se-breadth-pct-val">${(breadth.sp500_above_sma50 || 50).toFixed(1)}%</span>
+                                <span class="down">${breadth.below_sma50 || 0}</span>
                             </div>
                         </div>
                         <div class="se-breadth-item">
-                            <span class="se-breadth-label">200MA 위 비율</span>
-                            <div class="se-breadth-pct">
-                                <div class="se-breadth-pct-track">
-                                    <div class="se-breadth-pct-fill" style="width: ${breadth.sp500_above_sma200 || 50}%; background: #3b82f6;"></div>
+                            <span class="se-breadth-label">SMA200 위 / 아래</span>
+                            <div class="se-breadth-bar">
+                                <span class="up">${breadth.above_sma200 || 0}</span>
+                                <div class="se-breadth-bar-track">
+                                    <div class="se-breadth-bar-up" style="width: ${getBreadthBarPercent(breadth.above_sma200, breadth.below_sma200, 'up')}%"></div>
+                                    <div class="se-breadth-bar-down" style="width: ${getBreadthBarPercent(breadth.above_sma200, breadth.below_sma200, 'down')}%"></div>
                                 </div>
-                                <span class="se-breadth-pct-val">${(breadth.sp500_above_sma200 || 50).toFixed(1)}%</span>
+                                <span class="down">${breadth.below_sma200 || 0}</span>
                             </div>
                         </div>
                     </div>
