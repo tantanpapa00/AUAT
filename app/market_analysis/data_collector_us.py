@@ -202,86 +202,83 @@ async def collect_us_sectors() -> List[Dict]:
 
 async def collect_us_heatmap() -> List[Dict]:
     """
-    히트맵용 주요 종목 데이터 수집
+    히트맵용 S&P 500 전체 종목 데이터 수집 (503개)
 
-    1순위: Finviz API (S&P 500 전체 등락률) + HEATMAP_STOCKS 메타데이터
-    2순위: Yahoo Finance 개별 호출 (기존 방식, 폴백)
+    1순위: Finviz API (등락률) + Finviz Screener (섹터/시가총액)
+    2순위: Finviz API + HEATMAP_STOCKS 메타데이터 (30개 폴백)
     """
     result = []
 
-    # 1) Finviz에서 등락률 가져오기 시도
+    # 1) Finviz API에서 등락률 가져오기
     finviz_data = await collect_finviz_heatmap()
 
-    if finviz_data:
-        # Finviz 데이터 있으면: HEATMAP_STOCKS의 섹터 정보 + Finviz 등락률 결합
+    if not finviz_data:
+        # Finviz API 실패 시: 기존 30개 방식으로 폴백
+        print("[US Heatmap] Finviz API 실패 - 30개 종목 폴백")
+        for stock in HEATMAP_STOCKS:
+            result.append({
+                "symbol": stock["symbol"],
+                "name": stock["name"],
+                "sector": stock["sector"],
+                "price": 0,
+                "change_pct": 0,
+                "volume": 0,
+                "market_cap": stock.get("market_cap", 0.1),
+            })
+        return result
+
+    # 2) S&P 500 메타데이터 가져오기 (섹터, 시가총액)
+    metadata = _fetch_sp500_metadata_sync()
+
+    # 3) 메타데이터 없으면 HEATMAP_STOCKS로 폴백
+    if not metadata:
+        print("[US Heatmap] Screener 실패 - HEATMAP_STOCKS 30개 사용")
+        # 기존 30개 종목에 Finviz 등락률 적용
         for stock in HEATMAP_STOCKS:
             symbol = stock["symbol"]
-            # BRK-B → BRK.B (Finviz는 . 사용할 수 있음)
             finviz_symbol = symbol.replace("-", ".")
-            change_pct = finviz_data.get(symbol, finviz_data.get(finviz_symbol, None))
-
-            market_cap = stock.get("market_cap", 0.1)
-            if change_pct is not None:
-                result.append({
-                    "symbol": symbol,
-                    "name": stock["name"],
-                    "sector": stock["sector"],
-                    "price": 0,  # Finviz API에는 가격 없음
-                    "change_pct": round(float(change_pct), 2),
-                    "volume": 0,
-                    "market_cap": market_cap,
-                })
-            else:
-                # Finviz에 없는 종목은 빈 값
-                result.append({
-                    "symbol": symbol,
-                    "name": stock["name"],
-                    "sector": stock["sector"],
-                    "price": 0,
-                    "change_pct": 0,
-                    "volume": 0,
-                    "market_cap": market_cap,
-                })
-
-        # 시가총액 기준 정렬
+            change_pct = finviz_data.get(symbol, finviz_data.get(finviz_symbol, 0))
+            result.append({
+                "symbol": symbol,
+                "name": stock["name"],
+                "sector": stock["sector"],
+                "price": 0,
+                "change_pct": round(float(change_pct), 2) if change_pct else 0,
+                "volume": 0,
+                "market_cap": stock.get("market_cap", 0.1),
+            })
         result.sort(key=lambda x: x["market_cap"], reverse=True)
         return result
 
-    # 2) Finviz 실패 시: 기존 Yahoo Finance 방식 (폴백)
-    try:
-        async with httpx.AsyncClient() as client:
-            tasks = [fetch_yahoo_quote(client, stock["symbol"]) for stock in HEATMAP_STOCKS]
-            responses = await asyncio.gather(*tasks, return_exceptions=True)
-
-            for i, stock in enumerate(HEATMAP_STOCKS):
-                resp = responses[i]
-                market_cap = stock.get("market_cap", 0.1)
-                if isinstance(resp, Exception) or resp is None:
-                    result.append({
-                        "symbol": stock["symbol"],
-                        "name": stock["name"],
-                        "sector": stock["sector"],
-                        "price": 0,
-                        "change_pct": 0,
-                        "volume": 0,
-                        "market_cap": market_cap,
-                    })
-                else:
-                    result.append({
-                        "symbol": stock["symbol"],
-                        "name": stock["name"],
-                        "sector": stock["sector"],
-                        "price": resp["price"],
-                        "change_pct": resp["change_pct"],
-                        "volume": resp["volume"],
-                        "market_cap": market_cap,
-                    })
-
-    except Exception as e:
-        print(f"[US DataCollector] heatmap 수집 오류: {e}")
+    # 4) 503개 전체 종목 조합 (Finviz API + Screener 메타데이터)
+    print(f"[US Heatmap] {len(finviz_data)}개 종목 + {len(metadata)}개 메타데이터 조합")
+    for symbol, change_pct in finviz_data.items():
+        meta = metadata.get(symbol, {})
+        if meta:
+            result.append({
+                "symbol": symbol,
+                "name": meta.get("name", symbol),
+                "sector": meta.get("sector", "기타"),
+                "price": 0,
+                "change_pct": round(float(change_pct), 2),
+                "volume": 0,
+                "market_cap": meta.get("market_cap", 0.01),
+            })
+        else:
+            # 메타데이터 없는 종목은 '기타' 섹터로 추가
+            result.append({
+                "symbol": symbol,
+                "name": symbol,
+                "sector": "기타",
+                "price": 0,
+                "change_pct": round(float(change_pct), 2),
+                "volume": 0,
+                "market_cap": 0.01,
+            })
 
     # 시가총액 기준 내림차순 정렬
     result.sort(key=lambda x: x["market_cap"], reverse=True)
+    print(f"[US Heatmap] 최종 {len(result)}개 종목")
     return result
 
 
@@ -493,6 +490,95 @@ async def collect_finviz_heatmap() -> Dict[str, float]:
 
     except Exception as e:
         print(f"[Finviz] 히트맵 수집 오류: {e}")
+
+    return result
+
+
+# S&P 500 메타데이터 캐시 (섹터, 시가총액) - 1시간 캐시
+_sp500_metadata_cache: Dict[str, Any] = {"data": {}, "timestamp": 0}
+
+# Finviz 섹터 → 한글 변환
+FINVIZ_SECTOR_KR = {
+    "Technology": "기술",
+    "Healthcare": "헬스케어",
+    "Financial": "금융",
+    "Financials": "금융",
+    "Financial Services": "금융",
+    "Consumer Cyclical": "임의소비재",
+    "Consumer Defensive": "필수소비재",
+    "Communication Services": "커뮤니케이션",
+    "Industrials": "산업재",
+    "Energy": "에너지",
+    "Utilities": "유틸리티",
+    "Real Estate": "부동산",
+    "Basic Materials": "소재",
+    "Materials": "소재",
+}
+
+
+def _parse_market_cap(mcap_str: str) -> float:
+    """시가총액 문자열을 조 달러 단위로 변환 ('4442.28B' → 4.44)"""
+    if not mcap_str:
+        return 0.01
+    mcap_str = mcap_str.strip().upper()
+    try:
+        if mcap_str.endswith("T"):
+            return float(mcap_str[:-1])
+        elif mcap_str.endswith("B"):
+            return float(mcap_str[:-1]) / 1000
+        elif mcap_str.endswith("M"):
+            return float(mcap_str[:-1]) / 1000000
+        else:
+            return float(mcap_str) / 1e12
+    except:
+        return 0.01
+
+
+def _fetch_sp500_metadata_sync() -> Dict[str, Dict]:
+    """
+    finviz Screener로 S&P 500 종목의 섹터/시가총액 가져오기 (동기 함수)
+    1시간 캐시 적용
+    Returns: {"AAPL": {"sector": "기술", "market_cap": 3.5, "name": "Apple Inc"}, ...}
+    """
+    import time
+
+    now = time.time()
+    if _sp500_metadata_cache["data"] and (now - _sp500_metadata_cache["timestamp"]) < 3600:
+        return _sp500_metadata_cache["data"]
+
+    result = {}
+
+    try:
+        from finviz.screener import Screener
+
+        filters = ['idx_sp500']
+        stock_list = Screener(filters=filters, table='Overview', order='-marketcap')
+
+        for stock in stock_list:
+            symbol = stock.get('Ticker', '')
+            if not symbol:
+                continue
+
+            sector_en = stock.get('Sector', 'Unknown')
+            sector_kr = FINVIZ_SECTOR_KR.get(sector_en, sector_en)
+            mcap = _parse_market_cap(stock.get('Market Cap', '0'))
+            name = stock.get('Company', symbol)
+
+            result[symbol] = {
+                "sector": sector_kr,
+                "market_cap": mcap,
+                "name": name,
+            }
+
+        if result:
+            _sp500_metadata_cache["data"] = result
+            _sp500_metadata_cache["timestamp"] = now
+            print(f"[Finviz Screener] S&P 500 메타데이터: {len(result)}개 종목")
+
+    except ImportError:
+        print("[Finviz Screener] finviz 패키지 미설치 - 기본 메타데이터 사용")
+    except Exception as e:
+        print(f"[Finviz Screener] 메타데이터 수집 오류: {e}")
 
     return result
 

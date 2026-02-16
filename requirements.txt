@@ -13,3 +13,4 @@ PyJWT>=2.0.0
 yfinance==0.2.36
 beautifulsoup4==4.12.3
 lxml==5.1.0
+finviz==1.4.6
