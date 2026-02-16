@@ -11906,6 +11906,62 @@ async def trigger_market_signal_update(
         return {"success": False, "error": str(e)}
 
 
+async def fetch_stockeasy_csv() -> Dict[str, Dict]:
+    """
+    스탁이지 ETF 테이블 CSV 파싱
+    Returns: {종목코드: {sector, etf_name, position, gap_percent, signal, top_holdings: [{name, rs}]}}
+    """
+    import httpx
+    import csv
+    import io
+    import re
+
+    url = "https://stockeasy.intellio.kr/requestfile/etf_sector/etf_table.csv"
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            r = await client.get(url, headers={"User-Agent": "Mozilla/5.0"})
+            if r.status_code != 200:
+                return {}
+
+            # CSV 파싱
+            reader = csv.DictReader(io.StringIO(r.text))
+            result = {}
+
+            for row in reader:
+                code = row.get('종목코드', '').strip()
+                if not code or len(code) < 6:
+                    continue
+
+                # 대표종목(RS) 파싱: "삼성전자(94), SK하이닉스(95), ..."
+                holdings_str = row.get('대표종목(RS)', '')
+                top_holdings = []
+                if holdings_str:
+                    # 정규식으로 파싱: 종목명(RS점수)
+                    matches = re.findall(r'([^,()]+)\((\d+)\)', holdings_str)
+                    for name, rs in matches:
+                        top_holdings.append({
+                            "name": name.strip(),
+                            "rs": int(rs)
+                        })
+
+                result[code] = {
+                    "sector": row.get('섹터', ''),
+                    "industry": row.get('산업', ''),
+                    "etf_name": row.get('종목명', ''),
+                    "position": row.get('포지션', ''),
+                    "gap_percent": row.get('20일 이격', ''),
+                    "signal": row.get('신호등', ''),
+                    "top_holdings": top_holdings[:6],  # 상위 6개
+                }
+
+            return result
+
+    except Exception as e:
+        print(f"[StockEasy] CSV 파싱 오류: {e}")
+        return {}
+
+
 @app.get("/api/market/trend-maintain")
 async def get_market_trend_maintain(
     current_user: User = Depends(get_current_user_optional),
@@ -11914,14 +11970,20 @@ async def get_market_trend_maintain(
     추세유지 분석 (섹터 ETF 20MA 기준)
     - 유지: 현재가 > 20MA
     - 이탈: 현재가 <= 20MA
+    - 스탁이지 CSV에서 대표종목(RS) 추가
     """
-    from .market_analysis.trend_maintain import SECTOR_ETFS, calculate_trend_maintain
+    from .market_analysis.trend_maintain import calculate_trend_maintain
+    from .market_analysis.sector_config import SECTOR_ETFS
     import httpx
-    from datetime import datetime, timedelta
+    from datetime import datetime
 
     result = []
 
     try:
+        # 스탁이지 CSV에서 대표종목 데이터 가져오기
+        stockeasy_data = await fetch_stockeasy_csv()
+        print(f"[TrendMaintain] StockEasy 데이터 로드: {len(stockeasy_data)}개, keys={list(stockeasy_data.keys())[:5]}")
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             headers = {"User-Agent": "Mozilla/5.0"}
 
@@ -11958,10 +12020,16 @@ async def get_market_trend_maintain(
                     # 추세유지 분석
                     trend = calculate_trend_maintain(closes)
                     if trend:
+                        # 스탁이지 데이터 병합
+                        se_data = stockeasy_data.get(symbol, {})
+                        if not se_data:
+                            print(f"[TrendMaintain] {symbol} StockEasy 매칭 실패 - keys sample: {list(stockeasy_data.keys())[:3]}")
+
                         result.append({
                             "symbol": symbol,
-                            "name": etf["name"],
+                            "name": etf["name"],  # ETF 이름
                             "sector": etf["sector"],
+                            "industry": etf.get("industry", ""),
                             "current_price": trend["current_price"],
                             "ma20": trend["ma20"],
                             "position": trend["position"],
@@ -11970,6 +12038,8 @@ async def get_market_trend_maintain(
                             "signal": trend["signal"],
                             "return_since_entry": trend["return_since_entry"],
                             "change_percent": round(change_pct, 2),
+                            # 스탁이지 대표종목 추가
+                            "top_holdings": se_data.get("top_holdings", []),
                         })
 
                 except Exception as e:
