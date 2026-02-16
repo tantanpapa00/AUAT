@@ -6368,7 +6368,7 @@ function getHeatmapTextColor(pct) {
     return '#1f2937';
 }
 
-// 히트맵 렌더링
+// 히트맵 렌더링 (트리맵 스타일 - 시가총액 비례)
 function renderUsHeatmap(heatmap) {
     const grid = document.getElementById('us-heatmap-grid');
     if (!grid) return;
@@ -6378,21 +6378,62 @@ function renderUsHeatmap(heatmap) {
         return;
     }
 
-    grid.innerHTML = heatmap.map(stock => {
-        const pct = stock.change_pct || 0;
-        const bgColor = getHeatmapColor(pct);
-        const textColor = getHeatmapTextColor(pct);
-        return `
-            <div class="heatmap-cell" style="background: ${bgColor}; color: ${textColor};"
-                 data-symbol="${stock.symbol}" data-exchange="kis_us" title="${stock.name} (${stock.sector})">
-                <span class="hm-symbol">${stock.symbol}</span>
-                <span class="hm-pct">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</span>
-            </div>
-        `;
-    }).join('');
+    // 1. 섹터별 그룹핑
+    const sectorGroups = {};
+    heatmap.forEach(s => {
+        const sector = s.sector || '기타';
+        if (!sectorGroups[sector]) sectorGroups[sector] = [];
+        sectorGroups[sector].push(s);
+    });
+
+    // 2. 각 섹터 내에서 시가총액 내림차순 정렬
+    Object.values(sectorGroups).forEach(group => {
+        group.sort((a, b) => (b.market_cap || 0) - (a.market_cap || 0));
+    });
+
+    // 3. 섹터를 총 시가총액 내림차순으로 정렬
+    const sortedSectors = Object.entries(sectorGroups).sort((a, b) => {
+        const sumA = a[1].reduce((sum, s) => sum + (s.market_cap || 0), 0);
+        const sumB = b[1].reduce((sum, s) => sum + (s.market_cap || 0), 0);
+        return sumB - sumA;
+    });
+
+    // 4. 전체 시가총액 합계
+    const totalMcap = heatmap.reduce((sum, s) => sum + (s.market_cap || 0), 0) || 1;
+
+    // 5. 렌더링
+    let html = '';
+    sortedSectors.forEach(([sector, stocks]) => {
+        const sectorMcap = stocks.reduce((sum, s) => sum + (s.market_cap || 0), 0);
+        const sectorPct = (sectorMcap / totalMcap * 100).toFixed(1);
+
+        html += `<div class="hm-sector" style="flex:${sectorPct}">`;
+        html += `<div class="hm-sector-label">${sector}</div>`;
+        html += `<div class="hm-sector-stocks">`;
+
+        stocks.forEach(s => {
+            const pct = s.change_pct || 0;
+            const bg = getHeatmapColor(pct);
+            const mcapRatio = sectorMcap > 0 ? ((s.market_cap || 0) / sectorMcap * 100) : 10;
+            const flexVal = Math.max(mcapRatio, 8).toFixed(1);
+            const fontSize = mcapRatio > 30 ? '1em' : mcapRatio > 15 ? '0.85em' : '0.7em';
+
+            html += `
+                <div class="hm-stock" style="flex:${flexVal};background:${bg}"
+                     data-symbol="${s.symbol}" data-exchange="kis_us"
+                     title="${s.name} (${s.symbol}): ${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%">
+                    <span class="hm-symbol" style="font-size:${fontSize}">${s.symbol}</span>
+                    <span class="hm-pct">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</span>
+                </div>`;
+        });
+
+        html += `</div></div>`;
+    });
+
+    grid.innerHTML = html;
 
     // 클릭 이벤트
-    grid.querySelectorAll('.heatmap-cell').forEach(cell => {
+    grid.querySelectorAll('.hm-stock').forEach(cell => {
         cell.addEventListener('click', () => {
             openStockDetail(cell.dataset.symbol, 'kis_us');
         });

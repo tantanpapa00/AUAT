@@ -24,38 +24,38 @@ US_SECTOR_ETFS = [
     {"symbol": "XLB", "name": "소재", "name_en": "Materials"},
 ]
 
-# 히트맵용 시가총액 상위 30종목
+# 히트맵용 시가총액 상위 30종목 (market_cap: 조 달러 단위 추정치)
 HEATMAP_STOCKS = [
-    {"symbol": "AAPL", "name": "Apple", "sector": "기술"},
-    {"symbol": "MSFT", "name": "Microsoft", "sector": "기술"},
-    {"symbol": "NVDA", "name": "NVIDIA", "sector": "기술"},
-    {"symbol": "GOOGL", "name": "Alphabet", "sector": "커뮤니케이션"},
-    {"symbol": "AMZN", "name": "Amazon", "sector": "임의소비재"},
-    {"symbol": "META", "name": "Meta", "sector": "커뮤니케이션"},
-    {"symbol": "TSLA", "name": "Tesla", "sector": "임의소비재"},
-    {"symbol": "BRK-B", "name": "Berkshire", "sector": "금융"},
-    {"symbol": "JPM", "name": "JPMorgan", "sector": "금융"},
-    {"symbol": "V", "name": "Visa", "sector": "금융"},
-    {"symbol": "UNH", "name": "UnitedHealth", "sector": "헬스케어"},
-    {"symbol": "MA", "name": "Mastercard", "sector": "금융"},
-    {"symbol": "HD", "name": "Home Depot", "sector": "임의소비재"},
-    {"symbol": "PG", "name": "P&G", "sector": "필수소비재"},
-    {"symbol": "COST", "name": "Costco", "sector": "필수소비재"},
-    {"symbol": "ABBV", "name": "AbbVie", "sector": "헬스케어"},
-    {"symbol": "CRM", "name": "Salesforce", "sector": "기술"},
-    {"symbol": "AVGO", "name": "Broadcom", "sector": "기술"},
-    {"symbol": "NFLX", "name": "Netflix", "sector": "커뮤니케이션"},
-    {"symbol": "AMD", "name": "AMD", "sector": "기술"},
-    {"symbol": "LLY", "name": "Eli Lilly", "sector": "헬스케어"},
-    {"symbol": "WMT", "name": "Walmart", "sector": "필수소비재"},
-    {"symbol": "XOM", "name": "Exxon", "sector": "에너지"},
-    {"symbol": "CVX", "name": "Chevron", "sector": "에너지"},
-    {"symbol": "BAC", "name": "Bank of America", "sector": "금융"},
-    {"symbol": "ORCL", "name": "Oracle", "sector": "기술"},
-    {"symbol": "KO", "name": "Coca-Cola", "sector": "필수소비재"},
-    {"symbol": "PEP", "name": "PepsiCo", "sector": "필수소비재"},
-    {"symbol": "MRK", "name": "Merck", "sector": "헬스케어"},
-    {"symbol": "DIS", "name": "Disney", "sector": "커뮤니케이션"},
+    {"symbol": "AAPL", "name": "Apple", "sector": "기술", "market_cap": 3.5},
+    {"symbol": "MSFT", "name": "Microsoft", "sector": "기술", "market_cap": 3.1},
+    {"symbol": "NVDA", "name": "NVIDIA", "sector": "기술", "market_cap": 2.0},
+    {"symbol": "GOOGL", "name": "Alphabet", "sector": "커뮤니케이션", "market_cap": 1.9},
+    {"symbol": "AMZN", "name": "Amazon", "sector": "임의소비재", "market_cap": 1.8},
+    {"symbol": "META", "name": "Meta", "sector": "커뮤니케이션", "market_cap": 1.3},
+    {"symbol": "TSLA", "name": "Tesla", "sector": "임의소비재", "market_cap": 0.8},
+    {"symbol": "BRK-B", "name": "Berkshire", "sector": "금융", "market_cap": 0.9},
+    {"symbol": "JPM", "name": "JPMorgan", "sector": "금융", "market_cap": 0.6},
+    {"symbol": "V", "name": "Visa", "sector": "금융", "market_cap": 0.5},
+    {"symbol": "UNH", "name": "UnitedHealth", "sector": "헬스케어", "market_cap": 0.5},
+    {"symbol": "MA", "name": "Mastercard", "sector": "금융", "market_cap": 0.4},
+    {"symbol": "HD", "name": "Home Depot", "sector": "임의소비재", "market_cap": 0.4},
+    {"symbol": "PG", "name": "P&G", "sector": "필수소비재", "market_cap": 0.4},
+    {"symbol": "COST", "name": "Costco", "sector": "필수소비재", "market_cap": 0.4},
+    {"symbol": "ABBV", "name": "AbbVie", "sector": "헬스케어", "market_cap": 0.3},
+    {"symbol": "CRM", "name": "Salesforce", "sector": "기술", "market_cap": 0.3},
+    {"symbol": "AVGO", "name": "Broadcom", "sector": "기술", "market_cap": 0.8},
+    {"symbol": "NFLX", "name": "Netflix", "sector": "커뮤니케이션", "market_cap": 0.3},
+    {"symbol": "AMD", "name": "AMD", "sector": "기술", "market_cap": 0.3},
+    {"symbol": "LLY", "name": "Eli Lilly", "sector": "헬스케어", "market_cap": 0.7},
+    {"symbol": "WMT", "name": "Walmart", "sector": "필수소비재", "market_cap": 0.5},
+    {"symbol": "XOM", "name": "Exxon", "sector": "에너지", "market_cap": 0.5},
+    {"symbol": "CVX", "name": "Chevron", "sector": "에너지", "market_cap": 0.3},
+    {"symbol": "BAC", "name": "Bank of America", "sector": "금융", "market_cap": 0.3},
+    {"symbol": "ORCL", "name": "Oracle", "sector": "기술", "market_cap": 0.4},
+    {"symbol": "KO", "name": "Coca-Cola", "sector": "필수소비재", "market_cap": 0.3},
+    {"symbol": "PEP", "name": "PepsiCo", "sector": "필수소비재", "market_cap": 0.2},
+    {"symbol": "MRK", "name": "Merck", "sector": "헬스케어", "market_cap": 0.3},
+    {"symbol": "DIS", "name": "Disney", "sector": "커뮤니케이션", "market_cap": 0.2},
 ]
 
 # 지수 심볼 매핑
@@ -201,8 +201,8 @@ async def collect_us_sectors() -> List[Dict]:
 
 async def collect_us_heatmap() -> List[Dict]:
     """
-    히트맵용 주요 30종목 수집
-    Returns: [{"symbol": "AAPL", "name": "Apple", "sector": "기술", "price": ..., "change_pct": ..., "volume": ...}, ...]
+    히트맵용 주요 30종목 수집 (시가총액 포함)
+    Returns: [{"symbol": "AAPL", "name": "Apple", "sector": "기술", "price": ..., "change_pct": ..., "market_cap": ...}, ...]
     """
     result = []
     async with httpx.AsyncClient() as client:
@@ -211,6 +211,7 @@ async def collect_us_heatmap() -> List[Dict]:
 
         for i, stock in enumerate(HEATMAP_STOCKS):
             resp = responses[i]
+            market_cap = stock.get("market_cap", 0.1)  # 조 달러 단위
             if isinstance(resp, Exception) or resp is None:
                 result.append({
                     "symbol": stock["symbol"],
@@ -219,6 +220,7 @@ async def collect_us_heatmap() -> List[Dict]:
                     "price": 0,
                     "change_pct": 0,
                     "volume": 0,
+                    "market_cap": market_cap,
                 })
             else:
                 result.append({
@@ -228,10 +230,11 @@ async def collect_us_heatmap() -> List[Dict]:
                     "price": resp["price"],
                     "change_pct": resp["change_pct"],
                     "volume": resp["volume"],
+                    "market_cap": market_cap,
                 })
 
-    # 등락률 기준 정렬 (히트맵에서 큰 종목이 위쪽에)
-    result.sort(key=lambda x: x["change_pct"], reverse=True)
+    # 시가총액 기준 내림차순 정렬 (트리맵에서 큰 종목이 먼저)
+    result.sort(key=lambda x: x["market_cap"], reverse=True)
     return result
 
 
@@ -302,10 +305,15 @@ async def get_us_market_summary() -> Dict:
     if isinstance(fear_greed, Exception):
         fear_greed = {"value": 50, "label": "중립", "label_en": "Neutral"}
 
-    # 히트맵에서 상승/하락/보합 집계
-    rising = sum(1 for s in heatmap if s.get("change_pct", 0) > 0)
-    falling = sum(1 for s in heatmap if s.get("change_pct", 0) < 0)
-    unchanged = len(heatmap) - rising - falling
+    # 히트맵 30종목 비율을 S&P 503종목으로 환산
+    heatmap_rising = sum(1 for s in heatmap if s.get("change_pct", 0) > 0)
+    heatmap_falling = sum(1 for s in heatmap if s.get("change_pct", 0) < 0)
+    heatmap_total = len(heatmap) or 1
+
+    sp500_total = 503
+    rising = round(heatmap_rising / heatmap_total * sp500_total)
+    falling = round(heatmap_falling / heatmap_total * sp500_total)
+    unchanged = sp500_total - rising - falling
 
     return {
         "indices": indices,

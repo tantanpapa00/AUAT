@@ -9060,45 +9060,70 @@ body {
    Phase 5: 해외시장 히트맵 + Fear&Greed + VIX
    ===================================================== */
 
-/* 히트맵 카드 */
+/* 히트맵 카드 - 트리맵 스타일 */
 .us-heatmap-card {
     padding: 12px !important;
 }
 
 .us-heatmap-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
-    gap: 3px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    min-height: 200px;
 }
 
-.heatmap-cell {
+.hm-sector {
+    display: flex;
+    flex-direction: column;
+    min-width: 80px;
+    gap: 2px;
+}
+
+.hm-sector-label {
+    font-size: 0.7em;
+    color: var(--text-muted);
+    padding: 0 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.hm-sector-stocks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    flex: 1;
+}
+
+.hm-stock {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 6px 4px;
-    border-radius: 4px;
+    padding: 4px 2px;
+    border-radius: 3px;
+    min-width: 50px;
+    min-height: 40px;
     cursor: pointer;
-    min-height: 44px;
     transition: transform 0.1s;
+    color: #fff;
 }
 
-.heatmap-cell:hover {
-    transform: scale(1.08);
+.hm-stock:hover {
+    transform: scale(1.05);
     z-index: 1;
+    outline: 1px solid rgba(255,255,255,0.5);
 }
 
 .hm-symbol {
-    font-size: 0.75em;
     font-weight: 700;
-    line-height: 1;
+    line-height: 1.1;
 }
 
 .hm-pct {
-    font-size: 0.7em;
+    font-size: 0.75em;
     font-weight: 500;
-    line-height: 1.2;
-    margin-top: 2px;
+    opacity: 0.9;
 }
 
 /* Fear & Greed + VIX 섹션 */
@@ -9308,7 +9333,12 @@ body {
         grid-template-columns: 100px 1fr 60px;
     }
 
-    .us-heatmap-grid {
-        grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    .hm-sector {
+        min-width: 60px;
+    }
+
+    .hm-stock {
+        min-width: 40px;
+        min-height: 35px;
     }
 }
