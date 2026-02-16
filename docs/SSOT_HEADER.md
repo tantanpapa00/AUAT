@@ -15,8 +15,8 @@
 | Phase 2 | 추세매매(Trend) 완성 | ✅ DONE | Day 17~18 |
 | Phase 3 | 커스텀 전략 | ✅ DONE | Day 19~20 |
 | Phase 3.5 | 실전 거래 엔진 (KIS 주문 타이밍) | ✅ DONE | Day 21 |
-| **Phase 4** | **시장분석 — 국내** | 🔄 진행중 | **Day 22~** |
-| Phase 5 | 시장분석 — 해외 | 대기 | - |
+| Phase 4 | 시장분석 — 국내 | ✅ DONE | Day 22 |
+| **Phase 5** | **시장분석 — 해외** | ✅ DONE | **Day 23** |
 | Phase 6 | 시장분석 — ETF | 대기 | - |
 | Phase 7 | 시장분석 — 코인 | 대기 | - |
 | Phase 8 | 종목분석 상세 | 대기 | - |
@@ -107,7 +107,7 @@
 
 ## 완료 히스토리
 
-### Current Status (2026-02-15)
+### Current Status (2026-02-16)
 - Week A~D: DONE (브랜드/사이트/PC앱/Android APK 기반)
 - Day 6~14: DONE (대시보드/종목분석/계정관리/전략설정/MR엔진/Trend엔진)
 - Day 15: DONE (백테스트 벡터화 최적화 20초→0.3초)
@@ -118,6 +118,121 @@
 - Day 20: DONE (커스텀 백테스트 Tauri invoke + 프리셋 파라미터 입력칸)
 - Day 21: DONE (KIS 주문 설정 UI Phase 3.5)
 - Day 22: DONE (시장분석 Phase 4 - 투자자순매수/거래대금 전일대비)
+- Day 23: DONE (시장분석 Phase 5 - 해외시장 완성)
+
+## Day 23 완료사항 (2026-02-16)
+
+### Phase 5: 해외시장 분석 페이지 완성
+
+**목표**: 국내시장 분석(Phase 4)과 동일한 구조로 해외시장 분석 페이지 구현
+
+### 1. 백엔드 신규 파일
+
+**`app/market_analysis/data_collector_us.py`** (376줄)
+
+| 함수 | 기능 |
+|------|------|
+| `collect_us_indices()` | 지수 4개 + VIX 수집 (Yahoo Finance) |
+| `collect_us_sectors()` | GICS 11섹터 ETF 수집 |
+| `collect_us_heatmap()` | 히트맵 30종목 시세 수집 |
+| `collect_fear_greed_index()` | CNN Fear & Greed Index 수집 |
+| `get_us_market_summary()` | 위 4개 병렬 수집 + 상승/하락 집계 |
+| `fetch_sector_etf_daily()` | 섹터 ETF 일봉 (추세유지용) |
+
+**상수**:
+- `US_SECTOR_ETFS`: 11개 GICS 섹터 ETF (XLK, XLF, XLV 등)
+- `HEATMAP_STOCKS`: 시가총액 상위 30종목
+
+### 2. 백엔드 API 추가
+
+| 엔드포인트 | 기능 |
+|-----------|------|
+| `GET /api/market/us/full` | 해외시장 전체 데이터 (지수, 섹터, 히트맵, Fear&Greed, 신호) |
+| `GET /api/market/us/trend-maintain` | 해외 섹터 ETF 추세유지 분석 |
+
+**응답 구조 (`/api/market/us/full`)**:
+```json
+{
+    "indices": {"sp500": {...}, "nasdaq": {...}, "dow": {...}, "russell": {...}, "vix": {...}},
+    "sectors": [{"symbol": "XLK", "name": "기술", "change_pct": 1.2}, ...],
+    "heatmap": [{"symbol": "AAPL", "name": "Apple", "change_pct": 0.8}, ...],
+    "fear_greed": {"value": 65, "label": "탐욕"},
+    "signal": {"sp500": {...}, "nasdaq": {...}}
+}
+```
+
+### 3. Rust 명령어 추가
+
+| 명령어 | 엔드포인트 | timeout |
+|--------|-----------|---------|
+| `get_market_us_full` | `/api/market/us/full` | 30초 |
+| `get_market_us_trend_maintain` | `/api/market/us/trend-maintain` | 30초 |
+
+### 4. 프론트엔드 UI (국내시장과 동일 구조)
+
+| 행 | 구성 |
+|----|------|
+| 1행 | 시장신호 헤더 (단기/장기 신호등) + S&P500/NASDAQ 지수 블록 + 게이지 |
+| 2행 | 히트맵 30종목 (등락률 색상 그리드) |
+| 3행 | Fear & Greed 지수(좌) + VIX(우) |
+| 4행 | 다우존스 + 러셀2000 |
+| 5행 | 신호 설명 (접기 가능) |
+| 6행 | 서브탭 (시장지표 / 섹터 / 추세유지) |
+
+**히트맵 색상**:
+```javascript
+pct >= 3  → 진한 초록 (#166534)
+pct >= 2  → 초록 (#22c55e)
+pct >= 1  → 연한 초록 (#86efac)
+pct > -1  → 회색 (보합)
+pct <= -3 → 진한 빨강 (#991b1b)
+```
+
+**Fear & Greed / VIX 색상**:
+- 75+ 초록 (탐욕), 45~55 노랑 (중립), 25 미만 빨강 (공포)
+- VIX 15 미만 초록, 30+ 빨강
+
+### 5. 수정 파일 목록
+
+| 파일 | 변경 |
+|------|------|
+| `app/market_analysis/data_collector_us.py` | 신규 생성 (376줄) |
+| `app/main.py` | API 2개 추가 (+178줄) |
+| `pc-app/src-tauri/src/commands.rs` | Rust 명령어 2개 (+50줄) |
+| `pc-app/src-tauri/src/main.rs` | 명령어 등록 (+2줄) |
+| `pc-app/ui/index.html` | 동적 렌더링 구조 변경 |
+| `pc-app/ui/src/main.js` | loadMarketUs() 전면 재작성 (+500줄) |
+| `pc-app/ui/src/style.css` | 히트맵, Fear&Greed, VIX CSS (+200줄) |
+
+### 6. Yahoo Finance API Rate Limit 대응
+
+**문제**: VPS에서 429 에러 다발
+
+**해결**:
+- `YAHOO_HEADERS` 추가 (User-Agent, Accept 등)
+- `fetch_yahoo_quote()` 재시도 로직 (retries=2, sleep 1~2초)
+
+### 7. 검증 결과
+
+```
+S&P 500: 6,836.17 (-1.52%)
+NASDAQ: 22,546.67 (-2.25%)
+다우존스: 49,500.93 (-1.24%)
+러셀2000: 2,646.70 (-0.85%)
+VIX: 20.60 (+16.71%)
+Fear & Greed: 36 (중립)
+```
+
+### 8. 배포
+
+| 항목 | 결과 |
+|------|------|
+| Python 문법 검증 | ✅ passed |
+| npm run build | ✅ passed |
+| VPS 배포 | ✅ 완료 |
+| API 검증 | ✅ Yahoo Finance 데이터 정상 수집 |
+
+---
 
 ## Day 22 완료사항 (2026-02-15)
 
