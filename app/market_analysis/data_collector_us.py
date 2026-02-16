@@ -228,7 +228,7 @@ async def collect_us_heatmap() -> List[Dict]:
         return result
 
     # 2) S&P 500 메타데이터 가져오기 (섹터, 시가총액)
-    metadata = _fetch_sp500_metadata_sync()
+    metadata = await _fetch_sp500_metadata_async()
 
     # 3) 메타데이터 없으면 HEATMAP_STOCKS로 폴백
     if not metadata:
@@ -534,53 +534,113 @@ def _parse_market_cap(mcap_str: str) -> float:
         return 0.01
 
 
-def _fetch_sp500_metadata_sync() -> Dict[str, Dict]:
+async def _fetch_sp500_metadata_async() -> Dict[str, Dict]:
     """
-    finviz Screener로 S&P 500 종목의 섹터/시가총액 가져오기 (동기 함수)
+    Finviz Screener 페이지 직접 스크래핑으로 S&P 500 메타데이터 수집
     1시간 캐시 적용
     Returns: {"AAPL": {"sector": "기술", "market_cap": 3.5, "name": "Apple Inc"}, ...}
     """
     import time
+    from bs4 import BeautifulSoup
 
     now = time.time()
     if _sp500_metadata_cache["data"] and (now - _sp500_metadata_cache["timestamp"]) < 3600:
         return _sp500_metadata_cache["data"]
 
     result = {}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml",
+    }
 
     try:
-        from finviz.screener import Screener
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            # S&P 500 필터 + 시가총액 정렬
+            page = 1
+            all_stocks = []
 
-        filters = ['idx_sp500']
-        stock_list = Screener(filters=filters, table='Overview', order='-marketcap')
+            while True:
+                # Finviz Screener URL (페이지네이션)
+                offset = (page - 1) * 20 + 1
+                url = f"https://finviz.com/screener.ashx?v=111&f=idx_sp500&o=-marketcap&r={offset}"
 
-        for stock in stock_list:
-            symbol = stock.get('Ticker', '')
-            if not symbol:
-                continue
+                r = await client.get(url, headers=headers)
+                if r.status_code != 200:
+                    print(f"[Finviz Screener] 페이지 {page} 실패: {r.status_code}")
+                    break
 
-            sector_en = stock.get('Sector', 'Unknown')
-            sector_kr = FINVIZ_SECTOR_KR.get(sector_en, sector_en)
-            mcap = _parse_market_cap(stock.get('Market Cap', '0'))
-            name = stock.get('Company', symbol)
+                soup = BeautifulSoup(r.text, 'lxml')
 
-            result[symbol] = {
-                "sector": sector_kr,
-                "market_cap": mcap,
-                "name": name,
-            }
+                # 테이블 행 찾기 (class="screener-body-table-nw")
+                rows = soup.select('table.screener-body-table-nw tr[valign="top"]')
+                if not rows:
+                    # 대안: 다른 클래스 시도
+                    rows = soup.select('tr.styled-row')
 
-        if result:
-            _sp500_metadata_cache["data"] = result
-            _sp500_metadata_cache["timestamp"] = now
-            print(f"[Finviz Screener] S&P 500 메타데이터: {len(result)}개 종목")
+                if not rows:
+                    break
 
-    except ImportError:
-        print("[Finviz Screener] finviz 패키지 미설치 - 기본 메타데이터 사용")
+                for row in rows:
+                    cols = row.find_all('td')
+                    if len(cols) < 10:
+                        continue
+
+                    try:
+                        # 컬럼 순서: No, Ticker, Company, Sector, Industry, Country, Market Cap, P/E, Price, Change, Volume
+                        ticker_link = cols[1].find('a')
+                        ticker = ticker_link.text.strip() if ticker_link else ""
+                        company = cols[2].text.strip()
+                        sector_en = cols[3].text.strip()
+                        mcap_str = cols[6].text.strip()
+
+                        if ticker:
+                            sector_kr = FINVIZ_SECTOR_KR.get(sector_en, sector_en)
+                            mcap = _parse_market_cap(mcap_str)
+                            all_stocks.append({
+                                "symbol": ticker,
+                                "name": company,
+                                "sector": sector_kr,
+                                "market_cap": mcap,
+                            })
+                    except Exception:
+                        continue
+
+                # 다음 페이지
+                if len(rows) < 20 or page >= 30:  # 최대 30페이지 (600종목)
+                    break
+                page += 1
+
+            # 결과 저장
+            for stock in all_stocks:
+                result[stock["symbol"]] = {
+                    "sector": stock["sector"],
+                    "market_cap": stock["market_cap"],
+                    "name": stock["name"],
+                }
+
+            if result:
+                _sp500_metadata_cache["data"] = result
+                _sp500_metadata_cache["timestamp"] = now
+                print(f"[Finviz Screener] S&P 500 메타데이터: {len(result)}개 종목 ({page}페이지)")
+
     except Exception as e:
         print(f"[Finviz Screener] 메타데이터 수집 오류: {e}")
+        import traceback
+        traceback.print_exc()
 
     return result
+
+
+def _fetch_sp500_metadata_sync() -> Dict[str, Dict]:
+    """동기 래퍼 - asyncio.run 사용"""
+    import asyncio
+    try:
+        loop = asyncio.get_running_loop()
+        # 이미 이벤트 루프 실행 중이면 빈 결과 반환 (async에서 직접 호출)
+        return _sp500_metadata_cache.get("data", {})
+    except RuntimeError:
+        # 이벤트 루프 없으면 새로 생성
+        return asyncio.run(_fetch_sp500_metadata_async())
 
 
 async def get_us_market_summary() -> Dict[str, Any]:
