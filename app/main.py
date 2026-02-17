@@ -10638,12 +10638,10 @@ async def get_us_trend_maintain(
 
 @app.get("/api/market/etf")
 async def api_market_etf(
-    sector: str = Query("all", description="섹터 필터"),
     current_user: User = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """ETF 시장 현황 - pykrx 사용"""
-    # admin이면 무조건 통과
+    """ETF 시장 현황 - ETFCheck 수준"""
     if current_user and current_user.role == "admin":
         pass
     elif not _check_pro_plan(current_user):
@@ -10653,49 +10651,17 @@ async def api_market_etf(
 
     try:
         data = await get_etf_overview()
-        sector_map = data.get("sectors", {})
-        all_etfs = data.get("all", [])
-
-        # 섹터 필터
-        if sector != "all" and sector in sector_map:
-            filtered_etfs = sector_map[sector]
-        else:
-            filtered_etfs = all_etfs
-
-        # 섹터별 요약
-        sector_summary = []
-        for sec, items in sector_map.items():
-            if items:
-                top_etf = max(items, key=lambda x: x.get("volume", 0))
-                avg_change = sum(e.get("change_percent", 0) for e in items) / len(items) if items else 0
-                sector_summary.append({
-                    "sector": sec,
-                    "count": len(items),
-                    "avg_change": round(avg_change, 2),
-                    "top_etf": top_etf.get("name", ""),
-                    "top_etf_change": top_etf.get("change_percent", 0),
-                })
-
-        sector_summary.sort(key=lambda x: x["avg_change"], reverse=True)
-        sorted_by_volume = sorted(all_etfs, key=lambda x: x.get("volume", 0), reverse=True)
-
-        return {
-            "sector_summary": sector_summary,
-            "etfs": filtered_etfs[:50],
-            "top_volume": sorted_by_volume[:10],
-            "sectors": list(sector_map.keys()),
-            "success": True,
-        }
-
+        return data
     except Exception as e:
         print(f"[API] ETF error: {e}")
         return {
-            "sector_summary": [],
-            "etfs": [],
-            "top_volume": [],
-            "sectors": [],
-            "success": False,
-            "error": str(e),
+            "total_count": 0, "total_up": 0, "total_down": 0,
+            "themes_up": [], "themes_down": [],
+            "distribution": [],
+            "top_by_return": [], "bottom_by_return": [],
+            "top_by_volume": [], "top_by_market": [],
+            "major_etfs": [],
+            "success": False, "error": str(e),
         }
 
 

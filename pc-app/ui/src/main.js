@@ -6109,6 +6109,19 @@ async function loadMarketUs() {
                         </div>
                     </div>
                 </div>
+                <!-- 중앙: 전체시장 상승/하락 -->
+                <div style="text-align:center">
+                    <div style="font-size:0.7em;color:#6b7280;margin-bottom:2px">전체 시장</div>
+                    <div style="font-size:0.85em">
+                        <span style="color:#22c55e">▲${data.rising_stocks || 0}</span>
+                        <span style="color:#6b7280;margin:0 2px">·</span>
+                        <span style="color:#ef4444">▼${data.falling_stocks || 0}</span>
+                    </div>
+                    <div style="display:flex;height:4px;margin-top:4px;border-radius:2px;overflow:hidden;width:100px">
+                        <div style="flex:${data.rising_stocks || 0};background:#22c55e"></div>
+                        <div style="flex:${data.falling_stocks || 0};background:#ef4444"></div>
+                    </div>
+                </div>
                 <!-- 우측: S&P500 + NASDAQ 블록 -->
                 <div class="se-header-right">
                     <!-- S&P 500: 게이지 포함 -->
@@ -6124,16 +6137,6 @@ async function loadMarketUs() {
                             <span class="se-block-amt ${(sp500.change || 0) >= 0 ? 'up' : 'down'}">
                                 ${(sp500.change || 0) >= 0 ? '▲' : '▼'}${Math.abs(sp500.change || 0).toFixed(2)}
                             </span>
-                        </div>
-                        <div class="se-block-gauge">
-                            <div class="up-bar" style="width: ${getUsGaugePercent(data, 'up')}%"></div>
-                            <div class="neutral-bar" style="width: ${getUsGaugePercent(data, 'neutral')}%"></div>
-                            <div class="down-bar" style="width: ${getUsGaugePercent(data, 'down')}%"></div>
-                        </div>
-                        <div class="se-block-stocks">
-                            <span class="up">▲${data.rising_stocks || 0}</span>
-                            <span class="neutral">${data.unchanged_stocks || 0}</span>
-                            <span class="down">▼${data.falling_stocks || 0}</span>
                         </div>
                     </div>
                     <!-- NASDAQ: 게이지 없이 가격 정보만 -->
@@ -6226,11 +6229,10 @@ async function loadMarketUs() {
                 <p>단기/장기 신호는 각각 단기적, 장기적 관점에서의 시장 흐름을 보여주는 지표입니다.</p>
             </div>
 
-            <!-- 6행: 서브탭 (시장지표 | 섹터 | 추세유지) - 신용잔고 없음 -->
+            <!-- 6행: 서브탭 (시장지표 | 섹터) -->
             <div class="se-subtabs" id="us-subtabs">
                 <button class="se-subtab active" data-tab="us-market-indicators">시장지표</button>
                 <button class="se-subtab" data-tab="us-sector">섹터</button>
-                <button class="se-subtab" data-tab="us-trend-maintain">추세유지</button>
             </div>
 
             <!-- 시장지표 탭 -->
@@ -6318,33 +6320,6 @@ async function loadMarketUs() {
                 </div>
             </div>
 
-            <!-- 추세유지 탭 -->
-            <div class="se-tab-content" id="tab-us-trend-maintain" style="display:none;">
-                <div class="card">
-                    <h3>섹터별 추세유지 (20MA 기준)</h3>
-                    <p class="trend-maintain-desc">
-                        • <b>포지션</b>: 현재가가 20일 이동평균선 위에 며칠째 유지 또는 이탈 중인지<br>
-                        • <b>신호등</b>: 섹터의 현재 상태 (<span style="color:#22c55e">●</span>양호, <span style="color:#fde047">●</span>주의, <span style="color:#ef4444">●</span>매우주의)
-                    </p>
-                    <div class="trend-maintain-table-wrap">
-                        <table class="trend-maintain-table" id="us-trend-maintain-table">
-                            <thead>
-                                <tr>
-                                    <th>섹터</th>
-                                    <th>ETF</th>
-                                    <th>등락률</th>
-                                    <th>포지션</th>
-                                    <th>신호</th>
-                                    <th>이격률</th>
-                                </tr>
-                            </thead>
-                            <tbody id="us-trend-maintain-body">
-                                <tr><td colspan="6" class="loading-cell">데이터 로딩 중...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
         `;
 
         // 신호등 업데이트
@@ -6369,10 +6344,6 @@ async function loadMarketUs() {
                 const tabId = e.target.dataset.tab;
                 document.querySelectorAll('#market-us-content .se-tab-content').forEach(c => c.style.display = 'none');
                 document.getElementById('tab-' + tabId).style.display = 'block';
-                // 탭 클릭 시 데이터 로드
-                if (tabId === 'us-trend-maintain') {
-                    loadUsTrendMaintainData();
-                }
             });
         });
 
@@ -6408,17 +6379,19 @@ function getUsGaugePercent(data, type) {
     return (unchanged / total * 100).toFixed(1);
 }
 
-// 히트맵 색상 (등락률 기준)
+// 히트맵 색상 (선명한 트레이딩뷰 스타일)
 function getHeatmapColor(pct) {
-    if (pct >= 3) return '#166534';      // 진한 초록
-    if (pct >= 2) return '#22c55e';      // 초록
-    if (pct >= 1) return '#86efac';      // 연한 초록
-    if (pct >= 0.5) return '#bbf7d0';    // 매우 연한 초록
-    if (pct > -0.5) return '#9ca3af';    // 회색 (보합)
-    if (pct > -1) return '#fecaca';      // 매우 연한 빨강
-    if (pct > -2) return '#f87171';      // 연한 빨강
-    if (pct > -3) return '#ef4444';      // 빨강
-    return '#991b1b';                     // 진한 빨강
+    if (pct >= 3)    return '#1b5e20';
+    if (pct >= 2)    return '#2e7d32';
+    if (pct >= 1)    return '#388e3c';
+    if (pct >= 0.5)  return '#2e7d32';
+    if (pct >= 0.1)  return '#1b5e20';
+    if (pct > -0.1)  return '#373d4e';
+    if (pct > -0.5)  return '#5e2020';
+    if (pct > -1)    return '#952020';
+    if (pct > -2)    return '#b71c1c';
+    if (pct > -3)    return '#c62828';
+    return '#8b0000';
 }
 
 // 히트맵 텍스트 색상
@@ -6552,7 +6525,7 @@ function renderUsHeatmap(heatmap) {
     const W = wrap.clientWidth || 800;
     const H = 410;
 
-    // 1. 섹터별 그룹핑 + 시가총액 합 계산
+    // 섹터별 그룹핑 + squarify
     const sectorMap = {};
     heatmap.forEach(s => {
         const sec = s.sector || '기타';
@@ -6561,65 +6534,43 @@ function renderUsHeatmap(heatmap) {
         sectorMap[sec].totalCap += (s.market_cap || 1);
     });
 
-    // 2. 섹터를 value(시가총액합) 기준으로 정렬
     const sectors = Object.values(sectorMap)
         .map(s => ({ ...s, value: s.totalCap }))
         .sort((a, b) => b.value - a.value);
 
-    // 3. 섹터 레벨 Squarified Treemap
     squarify(sectors, 0, 0, W, H);
 
-    // 4. 각 섹터 내부에서 종목 레벨 Squarified Treemap
     sectors.forEach(sector => {
         const stocks = sector.stocks
             .map(s => ({ ...s, value: s.market_cap || 1 }))
             .sort((a, b) => b.value - a.value);
-
-        // 섹터 라벨 높이 확보 (12px)
         const labelH = 12;
-        const innerX = sector.x;
-        const innerY = sector.y + labelH;
-        const innerW = sector.w;
-        const innerH = Math.max(sector.h - labelH, 0);
-
-        squarify(stocks, innerX, innerY, innerW, innerH);
+        squarify(stocks, sector.x, sector.y + labelH, sector.w, Math.max(sector.h - labelH, 0));
         sector._layoutStocks = stocks;
     });
 
-    // 5. HTML 생성 (absolute position)
+    // 초기 렌더링 (한 번만)
     let html = '';
-
     sectors.forEach(sector => {
-        // 섹터 테두리
         html += `<div class="hm-sector-box" style="left:${sector.x}px;top:${sector.y}px;width:${sector.w}px;height:${sector.h}px">`;
-        // 섹터 라벨
-        if (sector.w > 40) {
-            html += `<div class="hm-sector-lbl">${sector.name}</div>`;
+        if (sector.w > 40 && sector.h > 20) {
+            const lblSize = Math.max(Math.min(Math.round(sector.w * 0.06), 16), 9);
+            html += `<div class="hm-sector-lbl" style="font-size:${lblSize}px">${sector.name}</div>`;
         }
         html += '</div>';
 
-        // 종목 셀
         (sector._layoutStocks || []).forEach(s => {
             if (!s.w || !s.h || s.w < 1 || s.h < 1) return;
-
             const pct = s.change_pct || 0;
             const bg = getHeatmapColor(pct);
-            const textColor = Math.abs(pct) > 1.0 ? '#fff' : '#ddd';
-            const tooltip = `${s.name || s.symbol} (${s.symbol}): ${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`;
+            const tooltip = `${s.name || s.symbol} (${s.symbol})\n${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`;
+            const minDim = Math.min(s.w, s.h);
+            const symPx = Math.max(Math.min(Math.round(minDim * 0.28), 36), 3);
+            const pctPx = Math.max(Math.round(symPx * 0.72), 3);
 
-            // 셀 크기에 따라 텍스트 표시 결정
-            const showSymbol = s.w > 28 && s.h > 16;
-            const showPct = s.w > 36 && s.h > 26;
-            const fontSize = s.w > 60 && s.h > 40 ? '0.72em' :
-                            s.w > 40 && s.h > 28 ? '0.58em' : '0.48em';
-
-            html += `<div class="hm-cell" style="left:${s.x}px;top:${s.y}px;width:${s.w}px;height:${s.h}px;background:${bg};color:${textColor}" title="${tooltip}">`;
-            if (showSymbol) {
-                html += `<span class="hm-sym" style="font-size:${fontSize}">${s.symbol}</span>`;
-            }
-            if (showPct) {
-                html += `<span class="hm-pct" style="font-size:calc(${fontSize} - 0.08em)">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</span>`;
-            }
+            html += `<div class="hm-cell" style="left:${s.x.toFixed(1)}px;top:${s.y.toFixed(1)}px;width:${s.w.toFixed(1)}px;height:${s.h.toFixed(1)}px;background:${bg}" title="${tooltip}" data-minw="${s.w}" data-minh="${s.h}">`;
+            html += `<span class="hm-sym" style="font-size:${symPx}px">${s.symbol}</span>`;
+            html += `<span class="hm-pct" style="font-size:${pctPx}px">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</span>`;
             html += '</div>';
         });
     });
@@ -6629,62 +6580,116 @@ function renderUsHeatmap(heatmap) {
     grid.innerHTML = html;
 
     // === 줌 & 패닝 ===
+    const newWrap = wrap.cloneNode(false);
+    while (wrap.firstChild) newWrap.appendChild(wrap.firstChild);
+    wrap.parentNode.replaceChild(newWrap, wrap);
+    newWrap.id = 'us-heatmap-wrap';
+
     let scale = 1, panX = 0, panY = 0;
     let isPanning = false, startX, startY;
+    let updatePending = false;
 
     function applyTransform() {
-        grid.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+        const g = document.getElementById('us-heatmap-grid');
+        if (g) g.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
     }
 
-    wrap.addEventListener('wheel', (e) => {
+    // 폰트만 업데이트 (innerHTML 재생성 없음)
+    function updateFonts(sc) {
+        const g = document.getElementById('us-heatmap-grid');
+        if (!g) return;
+        const cells = g.querySelectorAll('.hm-cell');
+        cells.forEach(cell => {
+            const minW = parseFloat(cell.dataset.minw) || 10;
+            const minH = parseFloat(cell.dataset.minh) || 10;
+            const visMin = Math.min(minW, minH) * sc;
+            const symVisPx = Math.max(Math.min(Math.round(visMin * 0.28), 36), 3);
+            const pctVisPx = Math.max(Math.round(symVisPx * 0.72), 3);
+            const symEl = cell.querySelector('.hm-sym');
+            const pctEl = cell.querySelector('.hm-pct');
+            if (symEl) {
+                symEl.style.fontSize = (symVisPx / sc) + 'px';
+                symEl.style.display = visMin >= 14 ? '' : 'none';
+            }
+            if (pctEl) {
+                pctEl.style.fontSize = (pctVisPx / sc) + 'px';
+                pctEl.style.display = visMin >= 28 ? '' : 'none';
+            }
+        });
+    }
+
+    function scheduleUpdate() {
+        if (updatePending) return;
+        updatePending = true;
+        requestAnimationFrame(() => {
+            updateFonts(scale);
+            updatePending = false;
+        });
+    }
+
+    newWrap.addEventListener('wheel', (e) => {
         e.preventDefault();
-        const delta = e.deltaY > 0 ? -0.15 : 0.15;
+        const delta = e.deltaY > 0 ? -0.2 : 0.2;
         const newScale = Math.min(Math.max(scale + delta, 1), 5);
-        const rect = wrap.getBoundingClientRect();
+        const rect = newWrap.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
         const ratio = newScale / scale;
         panX = mouseX - ratio * (mouseX - panX);
         panY = mouseY - ratio * (mouseY - panY);
         scale = newScale;
-        grid.style.transition = 'none';
+        const g = document.getElementById('us-heatmap-grid');
+        if (g) g.style.transition = 'none';
         applyTransform();
+        scheduleUpdate();
     }, { passive: false });
 
-    wrap.addEventListener('mousedown', (e) => {
+    newWrap.addEventListener('mousedown', (e) => {
         if (scale <= 1) return;
         isPanning = true;
         startX = e.clientX - panX;
         startY = e.clientY - panY;
-        wrap.style.cursor = 'grabbing';
+        newWrap.style.cursor = 'grabbing';
+        e.preventDefault();
     });
-    document.addEventListener('mousemove', (e) => {
+    newWrap.addEventListener('mousemove', (e) => {
         if (!isPanning) return;
         panX = e.clientX - startX;
         panY = e.clientY - startY;
-        grid.style.transition = 'none';
+        const g = document.getElementById('us-heatmap-grid');
+        if (g) g.style.transition = 'none';
         applyTransform();
     });
-    document.addEventListener('mouseup', () => {
+    newWrap.addEventListener('mouseup', () => {
         isPanning = false;
-        if (wrap) wrap.style.cursor = scale > 1 ? 'grab' : 'default';
+        newWrap.style.cursor = scale > 1 ? 'grab' : 'default';
     });
+    newWrap.addEventListener('mouseleave', () => { isPanning = false; });
 
-    document.getElementById('hm-zoom-in')?.addEventListener('click', () => {
+    document.getElementById('hm-zoom-in')?.addEventListener('click', (e) => {
+        e.stopPropagation();
         scale = Math.min(scale + 0.4, 5);
-        grid.style.transition = 'transform 0.2s';
+        const g = document.getElementById('us-heatmap-grid');
+        if (g) g.style.transition = 'transform 0.15s';
         applyTransform();
+        scheduleUpdate();
     });
-    document.getElementById('hm-zoom-out')?.addEventListener('click', () => {
+    document.getElementById('hm-zoom-out')?.addEventListener('click', (e) => {
+        e.stopPropagation();
         scale = Math.max(scale - 0.4, 1);
         if (scale === 1) { panX = 0; panY = 0; }
-        grid.style.transition = 'transform 0.2s';
+        const g = document.getElementById('us-heatmap-grid');
+        if (g) g.style.transition = 'transform 0.15s';
         applyTransform();
+        scheduleUpdate();
     });
-    document.getElementById('hm-zoom-reset')?.addEventListener('click', () => {
+    document.getElementById('hm-zoom-reset')?.addEventListener('click', (e) => {
+        e.stopPropagation();
         scale = 1; panX = 0; panY = 0;
-        grid.style.transition = 'transform 0.3s';
+        const g = document.getElementById('us-heatmap-grid');
+        if (g) g.style.transition = 'transform 0.2s';
         applyTransform();
+        scheduleUpdate();
     });
 }
 
@@ -6805,16 +6810,13 @@ async function loadUsTrendMaintainData() {
 }
 
 // [BUG FIX 6] ETF 로드 - 스탁이지 수준 개선
+// ===== Phase 6: 시장분석 ETF — ETFCheck 수준 =====
 async function loadMarketEtf() {
     const restrictionEl = document.getElementById('market-etf-restriction');
     const contentEl = document.getElementById('market-etf-content');
     if (!restrictionEl || !contentEl) return;
 
-    // auth.user가 없으면 먼저 로드 시도
-    if (!auth.user && auth.accessToken) {
-        await loadUserInfo();
-    }
-
+    if (!auth.user && auth.accessToken) await loadUserInfo();
     const plan = auth.user?.plan || 'free';
     const role = auth.user?.role || 'user';
     const isPro = ['pro', 'premium'].includes(plan) || role === 'admin';
@@ -6827,116 +6829,253 @@ async function loadMarketEtf() {
 
     restrictionEl.style.display = 'none';
     contentEl.style.display = 'block';
-    contentEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+    contentEl.innerHTML = '<div class="loading-state">ETF 데이터 로딩 중...</div>';
 
     try {
         const data = await invokeWithTimeout('get_market_etf', {
-            accessToken: auth.accessToken || '',
-            sector: 'all'
-        }, 10000);
+            accessToken: auth.accessToken || ''
+        }, 15000);
 
         if (!data || !data.success) {
             contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button class="btn btn-sm btn-primary" onclick="loadMarketEtf()">다시 시도</button></div>';
             return;
         }
 
-        // 섹터별 ETF 지도 UI
-        const sectors = data.sector_summary || [];
-        const etfs = data.etfs || [];
-        const topVolume = data.top_volume || [];
-
-        contentEl.innerHTML = `
-            <div class="etf-sector-map">
-                <h3>섹터별 ETF 지도</h3>
-                <div class="sector-cards-grid" id="etf-sector-cards"></div>
-            </div>
-            <div class="etf-detail-section card" id="etf-sector-detail" style="display:none;">
-                <h3 id="etf-detail-title">섹터 상세</h3>
-                <table class="data-table">
-                    <thead><tr><th>ETF명</th><th>코드</th><th>현재가</th><th>등락률</th><th>거래대금</th></tr></thead>
-                    <tbody id="etf-detail-tbody"></tbody>
-                </table>
-            </div>
-            <div class="etf-flow-section card">
-                <h3>거래대금 상위 ETF</h3>
-                <table class="data-table">
-                    <thead><tr><th>ETF명</th><th>현재가</th><th>등락률</th><th>거래대금</th></tr></thead>
-                    <tbody id="etf-top-volume-tbody"></tbody>
-                </table>
-            </div>
-        `;
-
-        // 섹터 카드 렌더링
-        const sectorCardsEl = document.getElementById('etf-sector-cards');
-        if (sectorCardsEl) {
-            sectorCardsEl.innerHTML = sectors.map(s => {
-                const changeClass = s.avg_change >= 0 ? 'profit' : 'loss';
-                const arrow = s.avg_change >= 0 ? '▲' : '▼';
-                return `
-                    <div class="sector-card" data-sector="${s.sector}">
-                        <div class="sector-name">${s.sector}</div>
-                        <div class="sector-etf-info">${s.top_etf}</div>
-                        <div class="sector-change ${changeClass}">${arrow} ${Math.abs(s.avg_change).toFixed(2)}%</div>
-                        <div class="sector-count">${s.count}개 ETF</div>
-                    </div>
-                `;
-            }).join('');
-
-            // 섹터 카드 클릭 이벤트
-            sectorCardsEl.querySelectorAll('.sector-card').forEach(card => {
-                card.addEventListener('click', () => {
-                    const sector = card.dataset.sector;
-                    const filtered = etfs.filter(e => e.sector === sector);
-                    showEtfSectorDetail(sector, filtered);
-                });
-            });
-        }
-
-        // 거래대금 상위 ETF
-        const topVolumeEl = document.getElementById('etf-top-volume-tbody');
-        if (topVolumeEl) {
-            topVolumeEl.innerHTML = topVolume.slice(0, 10).map(e => {
-                const changeClass = (e.change_percent || 0) >= 0 ? 'profit' : 'loss';
-                return `
-                    <tr class="clickable" data-code="${e.code}">
-                        <td><strong>${e.name}</strong></td>
-                        <td>${(e.price || 0).toLocaleString()}</td>
-                        <td class="${changeClass}">${(e.change_percent || 0) >= 0 ? '+' : ''}${(e.change_percent || 0).toFixed(2)}%</td>
-                        <td>${formatBillions(e.volume || 0)}</td>
-                    </tr>
-                `;
-            }).join('') || '<tr><td colspan="4" class="empty-cell">데이터 없음</td></tr>';
-        }
+        renderEtfDashboard(data, contentEl);
 
     } catch (error) {
         console.error('Market ETF error:', error);
-        const errMsg = error?.message || error || '알 수 없는 오류';
-        contentEl.innerHTML = `<div class="error-state"><p>${errMsg}</p><button class="btn btn-sm btn-primary" onclick="loadMarketEtf()">다시 시도</button></div>`;
+        contentEl.innerHTML = `<div class="error-state"><p>${error.message || '알 수 없는 오류'}</p><button class="btn btn-sm btn-primary" onclick="loadMarketEtf()">다시 시도</button></div>`;
     }
 }
 
-function showEtfSectorDetail(sector, etfs) {
-    const detailEl = document.getElementById('etf-sector-detail');
-    const titleEl = document.getElementById('etf-detail-title');
-    const tbody = document.getElementById('etf-detail-tbody');
+function renderEtfDashboard(data, container) {
+    const totalUp = data.total_up || 0;
+    const totalDown = data.total_down || 0;
+    const totalCount = data.total_count || 0;
 
-    if (!detailEl || !tbody) return;
+    container.innerHTML = `
+        <!-- ETF 시장 개요 헤더 -->
+        <div class="etf-overview-header card">
+            <div class="etf-overview-row">
+                <div class="etf-stat">
+                    <span class="etf-stat-label">전체 종목</span>
+                    <span class="etf-stat-value">${totalCount.toLocaleString()}</span>
+                </div>
+                <div class="etf-stat">
+                    <span class="etf-stat-label">상승</span>
+                    <span class="etf-stat-value" style="color:#22c55e">▲${totalUp}</span>
+                </div>
+                <div class="etf-stat">
+                    <span class="etf-stat-label">하락</span>
+                    <span class="etf-stat-value" style="color:#ef4444">▼${totalDown}</span>
+                </div>
+                <div class="etf-stat">
+                    <span class="etf-stat-label">보합</span>
+                    <span class="etf-stat-value" style="color:#6b7280">${totalCount - totalUp - totalDown}</span>
+                </div>
+            </div>
+        </div>
 
-    titleEl.textContent = `${sector} 섹터 ETF`;
-    detailEl.style.display = 'block';
+        <!-- 1. HOT 테마 -->
+        <div class="card" id="etf-hot-theme-section">
+            <div class="etf-section-header">
+                <h3>HOT 테마</h3>
+                <div class="etf-toggle-btns">
+                    <button class="etf-toggle-btn active" data-mode="up">상승</button>
+                    <button class="etf-toggle-btn" data-mode="down">하락</button>
+                </div>
+            </div>
+            <div class="etf-theme-scroll" id="etf-theme-cards"></div>
+        </div>
 
-    tbody.innerHTML = etfs.map(e => {
-        const changeClass = (e.change_percent || 0) >= 0 ? 'profit' : 'loss';
+        <!-- 2. 상승하락 분포 -->
+        <div class="card">
+            <h3>상승하락 분포</h3>
+            <div class="etf-distribution" id="etf-distribution"></div>
+            <div class="etf-dist-summary">
+                <span style="color:#ef4444">하락 ${totalDown}</span>
+                <span style="color:#6b7280">${totalCount - totalUp - totalDown}</span>
+                <span style="color:#22c55e">${totalUp} 상승</span>
+            </div>
+        </div>
+
+        <!-- 3. 랭킹 TOP 10 -->
+        <div class="card">
+            <div class="etf-section-header">
+                <h3>랭킹 TOP 10</h3>
+            </div>
+            <div class="etf-rank-tabs">
+                <button class="etf-rank-tab active" data-rank="return">수익률</button>
+                <button class="etf-rank-tab" data-rank="volume">거래량</button>
+                <button class="etf-rank-tab" data-rank="market">순자산</button>
+            </div>
+            <div class="etf-toggle-btns" id="etf-rank-toggle">
+                <button class="etf-toggle-btn active" data-mode="up">상승</button>
+                <button class="etf-toggle-btn" data-mode="down">하락</button>
+            </div>
+            <table class="data-table">
+                <thead>
+                    <tr><th>#</th><th>ETF명</th><th>현재가</th><th>등락률</th></tr>
+                </thead>
+                <tbody id="etf-rank-tbody"></tbody>
+            </table>
+        </div>
+
+        <!-- 4. 주요 종목현황 -->
+        <div class="card">
+            <h3>주요 종목현황</h3>
+            <table class="data-table">
+                <thead>
+                    <tr><th>종목</th><th>현재가</th><th>등락률</th><th>거래량</th></tr>
+                </thead>
+                <tbody id="etf-major-tbody"></tbody>
+            </table>
+        </div>
+    `;
+
+    // === HOT 테마 카드 렌더링 ===
+    const themeCardsEl = document.getElementById('etf-theme-cards');
+    let currentThemeMode = 'up';
+
+    function renderThemeCards(mode) {
+        const themes = mode === 'up' ? (data.themes_up || []) : (data.themes_down || []);
+        if (!themes.length) {
+            themeCardsEl.innerHTML = '<div class="empty-cell">테마 데이터 없음</div>';
+            return;
+        }
+        themeCardsEl.innerHTML = themes.map((t, i) => {
+            const isUp = t.avg_change >= 0;
+            const color = isUp ? '#22c55e' : '#ef4444';
+            const rankColors = ['#ef4444', '#f59e0b', '#22c55e', '#06b6d4', '#8b5cf6'];
+            const rankBg = rankColors[i % rankColors.length];
+            return `
+                <div class="etf-theme-card">
+                    <div class="etf-theme-card-header">
+                        <span class="etf-theme-name">${t.name}</span>
+                        <span class="etf-theme-rank" style="background:${rankBg}">${i + 1}</span>
+                    </div>
+                    <div class="etf-theme-change" style="color:${color}">${isUp ? '+' : ''}${t.avg_change.toFixed(2)}%</div>
+                    <div class="etf-theme-top">
+                        <span class="etf-theme-top-name">${t.top_etf_name || '-'}</span>
+                        <span class="etf-theme-top-change" style="color:${color}">${t.top_etf_change >= 0 ? '+' : ''}${(t.top_etf_change || 0).toFixed(2)}%</span>
+                    </div>
+                    <div class="etf-theme-bar">
+                        <div class="etf-theme-bar-fill" style="width:${t.count > 0 ? (t.down / t.count * 100) : 50}%;background:#ef4444"></div>
+                        <div class="etf-theme-bar-fill" style="width:${t.count > 0 ? (t.up / t.count * 100) : 50}%;background:#22c55e"></div>
+                    </div>
+                    <div class="etf-theme-counts">
+                        <span style="color:#ef4444">하락 ${t.down}</span>
+                        <span style="color:#22c55e">${t.up} 상승</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    renderThemeCards('up');
+
+    // 상승/하락 토글
+    document.querySelectorAll('#etf-hot-theme-section .etf-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#etf-hot-theme-section .etf-toggle-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentThemeMode = btn.dataset.mode;
+            renderThemeCards(currentThemeMode);
+        });
+    });
+
+    // === 상승하락 분포 히스토그램 ===
+    const distEl = document.getElementById('etf-distribution');
+    const dist = data.distribution || [];
+    const maxCount = Math.max(...dist.map(d => d.count), 1);
+
+    distEl.innerHTML = dist.map(d => {
+        const heightPct = Math.max((d.count / maxCount) * 100, 2);
+        let barColor = '#6b7280';
+        if (d.type === 'up') barColor = '#22c55e';
+        else if (d.type === 'down') barColor = '#3b82f6';
         return `
-            <tr class="clickable" data-code="${e.code}">
-                <td><strong>${e.name}</strong></td>
-                <td>${e.code}</td>
-                <td>${(e.price || 0).toLocaleString()}</td>
-                <td class="${changeClass}">${(e.change_percent || 0) >= 0 ? '+' : ''}${(e.change_percent || 0).toFixed(2)}%</td>
-                <td>${formatBillions(e.volume || 0)}</td>
-            </tr>
+            <div class="etf-dist-bar-wrap">
+                <span class="etf-dist-count">${d.count}</span>
+                <div class="etf-dist-bar" style="height:${heightPct}%;background:${barColor}"></div>
+                <span class="etf-dist-label">${d.label}</span>
+            </div>
         `;
-    }).join('') || '<tr><td colspan="5" class="empty-cell">해당 섹터의 ETF가 없습니다</td></tr>';
+    }).join('');
+
+    // === 랭킹 TOP 10 ===
+    let currentRank = 'return';
+    let currentRankMode = 'up';
+
+    function renderRankTable() {
+        const tbody = document.getElementById('etf-rank-tbody');
+        const toggleEl = document.getElementById('etf-rank-toggle');
+        if (!tbody) return;
+
+        let items = [];
+        if (currentRank === 'return') {
+            items = currentRankMode === 'up' ? (data.top_by_return || []) : (data.bottom_by_return || []);
+            if (toggleEl) toggleEl.style.display = 'flex';
+        } else if (currentRank === 'volume') {
+            items = data.top_by_volume || [];
+            if (toggleEl) toggleEl.style.display = 'none';
+        } else if (currentRank === 'market') {
+            items = data.top_by_market || [];
+            if (toggleEl) toggleEl.style.display = 'none';
+        }
+
+        tbody.innerHTML = items.slice(0, 10).map((e, i) => {
+            const isUp = (e.change_pct || 0) >= 0;
+            const cls = isUp ? 'profit' : 'loss';
+            return `
+                <tr>
+                    <td><strong>${i + 1}</strong></td>
+                    <td>${e.name || '-'}</td>
+                    <td>${(e.price || 0).toLocaleString()}</td>
+                    <td class="${cls}">${isUp ? '+' : ''}${(e.change_pct || 0).toFixed(2)}%</td>
+                </tr>
+            `;
+        }).join('') || '<tr><td colspan="4" class="empty-cell">데이터 없음</td></tr>';
+    }
+    renderRankTable();
+
+    // 랭킹 탭 전환
+    document.querySelectorAll('.etf-rank-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.etf-rank-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            currentRank = tab.dataset.rank;
+            renderRankTable();
+        });
+    });
+
+    // 랭킹 상승/하락 토글
+    document.querySelectorAll('#etf-rank-toggle .etf-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#etf-rank-toggle .etf-toggle-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentRankMode = btn.dataset.mode;
+            renderRankTable();
+        });
+    });
+
+    // === 주요 종목현황 ===
+    const majorTbody = document.getElementById('etf-major-tbody');
+    const majorEtfs = data.major_etfs || [];
+    if (majorTbody) {
+        majorTbody.innerHTML = majorEtfs.map(e => {
+            const isUp = (e.change_pct || 0) >= 0;
+            const cls = isUp ? 'profit' : 'loss';
+            return `
+                <tr>
+                    <td><strong>${e.name || '-'}</strong></td>
+                    <td>${(e.price || 0).toLocaleString()}</td>
+                    <td class="${cls}">${isUp ? '+' : ''}${(e.change_pct || 0).toFixed(2)}%</td>
+                    <td>${(e.volume || 0).toLocaleString()}</td>
+                </tr>
+            `;
+        }).join('') || '<tr><td colspan="4" class="empty-cell">데이터 없음</td></tr>';
+    }
 }
 
 // 코인시장 로드

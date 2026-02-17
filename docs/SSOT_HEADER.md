@@ -16,8 +16,8 @@
 | Phase 3 | 커스텀 전략 | ✅ DONE | Day 19~20 |
 | Phase 3.5 | 실전 거래 엔진 (KIS 주문 타이밍) | ✅ DONE | Day 21 |
 | Phase 4 | 시장분석 — 국내 | ✅ DONE | Day 22 |
-| **Phase 5** | **시장분석 — 해외** | ✅ DONE | **Day 23** |
-| Phase 6 | 시장분석 — ETF | 대기 | - |
+| Phase 5 | 시장분석 — 해외 | ✅ DONE | Day 23 |
+| **Phase 6** | **시장분석 — ETF** | ✅ DONE | **Day 24** |
 | Phase 7 | 시장분석 — 코인 | 대기 | - |
 | Phase 8 | 종목분석 상세 | 대기 | - |
 | Phase 9 | 모바일 앱 완성 | 대기 | - |
@@ -107,7 +107,7 @@
 
 ## 완료 히스토리
 
-### Current Status (2026-02-16)
+### Current Status (2026-02-17)
 - Week A~D: DONE (브랜드/사이트/PC앱/Android APK 기반)
 - Day 6~14: DONE (대시보드/종목분석/계정관리/전략설정/MR엔진/Trend엔진)
 - Day 15: DONE (백테스트 벡터화 최적화 20초→0.3초)
@@ -119,6 +119,102 @@
 - Day 21: DONE (KIS 주문 설정 UI Phase 3.5)
 - Day 22: DONE (시장분석 Phase 4 - 투자자순매수/거래대금 전일대비)
 - Day 23: DONE (시장분석 Phase 5 - 해외시장 완성)
+- Day 24: DONE (Phase 5 히트맵 개선 + Phase 6 ETF 시장분석)
+
+## Day 24 완료사항 (2026-02-17)
+
+### Phase 5 해외시장 히트맵 개선
+
+**1. Squarified Treemap 알고리즘 적용**
+- 기존 Flex 그리드 → Squarified Treemap으로 교체
+- 503개 S&P 500 종목 시가총액 비례 표시
+- TradingView 스타일 색상 (등락률 기반 연속 그라데이션)
+
+**2. 줌/패닝 기능**
+- 마우스 휠 줌 (1x~5x)
+- 드래그 패닝
+- +/- 버튼 및 리셋 버튼
+
+**3. 줌 성능 최적화**
+- 기존: `drawCells(scale)` innerHTML 재생성 → 5초 버벅임
+- 변경: `updateFonts(scale)` DOM 스타일만 업데이트 → 즉시 반응
+- `data-minw`, `data-minh` 속성으로 셀 크기 저장
+- `requestAnimationFrame` 사용
+
+**4. 헤더 레이아웃 개선**
+- 전체 시장 상승/하락 표시를 시장신호-S&P500 사이로 이동
+- 상승/하락 비율 막대 바 추가
+- S&P 500 블록에서 기존 게이지 바 제거
+
+### Phase 6: 시장분석 ETF — ETFCheck 수준 구현
+
+**목표**: ETFCheck 홈 화면 수준 ETF 분석 대시보드
+
+**1. 백엔드 변경**
+
+| 파일 | 변경 |
+|------|------|
+| `app/data_provider.py` | `get_etf_overview()` 전면 교체 (1,070개 ETF 전체 수집) |
+| `app/main.py` | `/api/market/etf` 응답 구조 변경 |
+
+**네이버 금융 ETF API 활용**:
+```
+https://finance.naver.com/api/sise/etfItemList.nhn?etfType={0-7}
+```
+
+**테마 분류 키워드 매핑**:
+- 반도체, AI·로봇, 2차전지, 바이오, 금융, 에너지
+- 배당, 미국지수, 중국·신흥, 채권, 금·원자재
+- 인버스·레버리지, 우주항공, 게임·엔터, 리츠·부동산, 기타
+
+**2. 프론트엔드 UI (4개 섹션)**
+
+| 섹션 | 기능 |
+|------|------|
+| HOT 테마 | 상승/하락 테마 카드 (횡스크롤), 토글 전환 |
+| 상승하락 분포 | 등락률 구간별 히스토그램 |
+| 랭킹 TOP 10 | 수익률/거래량/순자산 탭 + 상승/하락 토글 |
+| 주요 종목현황 | KODEX 200, TIGER S&P500 등 대표 ETF |
+
+**3. API 응답 구조**
+
+```json
+{
+    "total_count": 1070,
+    "total_up": 450,
+    "total_down": 520,
+    "themes_up": [{"name": "반도체", "avg_change": 2.5, "count": 25, ...}],
+    "themes_down": [...],
+    "distribution": [{"label": "-10%~", "count": 5, "type": "down"}, ...],
+    "top_by_return": [...],
+    "bottom_by_return": [...],
+    "top_by_volume": [...],
+    "top_by_market": [...],
+    "major_etfs": [...],
+    "success": true
+}
+```
+
+**4. CSS 추가 (style.css)**
+
+- `.etf-overview-header` 시장 개요 헤더
+- `.etf-theme-card` HOT 테마 카드
+- `.etf-distribution` 히스토그램
+- `.etf-rank-tabs` 랭킹 탭
+- `.etf-toggle-btn` 상승/하락 토글 버튼
+
+**5. 검증 결과**
+
+| 항목 | 결과 |
+|------|------|
+| Python 문법 | ✅ OK |
+| JS 빌드 | ✅ OK |
+| loadMarketEtf 함수 | ✅ 존재 |
+| renderEtfDashboard 함수 | ✅ 존재 |
+| get_etf_overview 함수 | ✅ 존재 |
+| API 엔드포인트 | ✅ 존재 |
+
+---
 
 ## Day 23 완료사항 (2026-02-16)
 

@@ -516,66 +516,208 @@ async def get_valuation(market="ALL", limit=200):
 # ===== ETF =====
 
 async def get_etf_overview():
-    """ETF 시세 - 주요 ETF 개별 조회"""
-    cached = _cached("etf_overview", 1800)
+    """ETF 시장 현황 - 네이버 금융 ETF 전체 목록 + 테마 분류"""
+    cached = _cached("etf_overview", 600)  # 10분 캐시
     if cached:
         return cached
 
-    # 주요 ETF 코드 목록 (섹터별) - 2026년 기준 정확한 ETF 코드
-    ETF_LIST = {
-        "반도체": ["091160", "395160", "395170", "446720"],  # KODEX 반도체, KODEX AI반도체, TIGER 반도체
-        "2차전지": ["305720", "371460", "305540", "394660"],  # KODEX 2차전지산업, TIGER 2차전지테마
-        "AI": ["418660", "474220", "466940"],  # TIGER AI, KODEX AI레버리지
-        "바이오": ["143860", "227540", "203780"],  # TIGER 헬스케어, TIGER 200 헬스케어
-        "배당": ["161510", "148020", "278530", "449170"],  # PLUS 고배당주, RISE 200, KODEX 200TR
-        "해외(미국)": ["360750", "133690", "379810", "379800", "261240"],  # TIGER 미국S&P500, 나스닥 등
-        "기타": ["069500", "102110", "114800", "252670", "278240"]  # KODEX 200, TIGER 200 등
+    # === 테마 분류를 위한 키워드 매핑 ===
+    THEME_KEYWORDS = {
+        "반도체": ["반도체", "필라델피아", "SOX", "semiconductor"],
+        "AI·로봇": ["AI", "인공지능", "로봇", "자율주행", "드론", "UAM"],
+        "2차전지": ["2차전지", "배터리", "리튬", "에코프로", "전기차"],
+        "바이오": ["바이오", "헬스케어", "제약", "게놈", "의료"],
+        "금융": ["금융", "은행", "증권", "보험", "고배당"],
+        "에너지": ["에너지", "원유", "천연가스", "신재생", "태양광", "원자력", "우라늄"],
+        "배당": ["배당", "커버드콜", "월배당", "인컴"],
+        "미국지수": ["S&P", "나스닥", "미국", "다우", "필라델피아"],
+        "중국·신흥": ["중국", "차이나", "CSI", "인도", "베트남", "신흥"],
+        "채권": ["채권", "국채", "회사채", "단기", "CD금리", "머니마켓"],
+        "금·원자재": ["금", "골드", "은", "원자재", "구리", "팔라듐"],
+        "인버스·레버리지": ["인버스", "레버리지", "곱버스", "2X", "3X", "숏"],
+        "우주항공": ["우주", "항공", "방산", "K방산"],
+        "게임·엔터": ["게임", "엔터", "미디어", "콘텐츠"],
+        "리츠·부동산": ["리츠", "부동산", "REITs"],
     }
 
-    sector_etfs = {k: [] for k in ETF_LIST.keys()}
+    def classify_theme(name):
+        """ETF 이름으로 테마 분류"""
+        for theme, keywords in THEME_KEYWORDS.items():
+            for kw in keywords:
+                if kw in name:
+                    return theme
+        return "기타"
+
     all_etfs = []
 
     try:
-        async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
-            for sector, codes in ETF_LIST.items():
-                for code in codes:
+        async with httpx.AsyncClient(timeout=20, headers=NAVER_HEADERS) as client:
+            # 네이버 ETF 시세 API (전체 목록)
+            for etf_type in range(8):
+                try:
+                    url = f"https://finance.naver.com/api/sise/etfItemList.nhn?etfType={etf_type}"
+                    r = await client.get(url, headers={
+                        "Referer": "https://finance.naver.com/sise/etf.naver",
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                    })
+                    if r.status_code == 200:
+                        data = r.json()
+                        items = data.get("result", {}).get("etfItemList", [])
+                        for item in items:
+                            code = str(item.get("itemcode", ""))
+                            name = item.get("itemname", "")
+                            if not code or not name:
+                                continue
+
+                            close_price = int(item.get("nowVal", 0) or 0)
+                            change_val = int(item.get("changeVal", 0) or 0)
+                            change_rate = float(item.get("changeRate", 0) or 0)
+                            volume = int(item.get("quant", 0) or 0)
+                            market_sum = int(item.get("marketSum", 0) or 0)
+                            nav = int(item.get("nav", 0) or 0)
+
+                            theme = classify_theme(name)
+
+                            all_etfs.append({
+                                "code": code,
+                                "name": name,
+                                "price": close_price,
+                                "change_val": change_val,
+                                "change_pct": change_rate,
+                                "volume": volume,
+                                "market_sum": market_sum,
+                                "nav": nav,
+                                "theme": theme,
+                                "etf_type": etf_type,
+                            })
+                except Exception as e:
+                    print(f"[ETF] type={etf_type} error: {e}")
+                    continue
+
+            # Fallback: 방법 1 실패 시 개별 ETF 조회
+            if len(all_etfs) < 50:
+                print("[ETF] API 방식 실패, 주요 ETF 개별 조회로 fallback")
+                MAJOR_ETFS = [
+                    "069500", "102110", "252670", "114800", "360750", "133690",
+                    "379810", "379800", "261240", "091160", "395160", "446720",
+                    "305720", "371460", "418660", "474220", "143860", "227540",
+                    "161510", "148020", "449170", "278530", "234310", "453810",
+                ]
+                all_etfs = []
+                for code in MAJOR_ETFS:
                     try:
                         url = f"https://m.stock.naver.com/api/stock/{code}/basic"
                         r = await client.get(url)
                         if r.status_code == 200:
-                            data = r.json()
-                            # ETF 여부 확인 (stockEndType == 'etf')
-                            stock_type = data.get("stockEndType", "")
-                            if stock_type != "etf":
-                                continue  # 일반 주식은 스킵
+                            d = r.json()
+                            if d.get("stockEndType") != "etf":
+                                continue
+                            name = d.get("stockName", "")
+                            close_price = _parse_price(d.get("closePrice", "0"))
+                            change_pct = _parse_float(d.get("fluctuationsRatio", "0"))
+                            volume = _parse_int(d.get("accumulatedTradingVolume", "0"))
 
-                            name = data.get("stockName", "")
-                            close_str = data.get("closePrice", "0")
-                            change_str = data.get("fluctuationsRatio", "0")
-                            volume_str = data.get("accumulatedTradingVolume", "0")
-
-                            close_price = _parse_price(close_str)
-                            change_pct = _parse_float(change_str)
-                            volume = _parse_int(volume_str)
-
-                            etf_item = {
+                            all_etfs.append({
                                 "code": code,
                                 "name": name,
                                 "price": int(close_price),
-                                "change_percent": change_pct,
+                                "change_val": 0,
+                                "change_pct": change_pct,
                                 "volume": volume,
-                                "sector": sector
-                            }
-                            sector_etfs[sector].append(etf_item)
-                            all_etfs.append(etf_item)
+                                "market_sum": 0,
+                                "nav": 0,
+                                "theme": classify_theme(name),
+                                "etf_type": 0,
+                            })
                     except Exception as e:
-                        print(f"[DataProvider] ETF {code} error: {e}")
-                        
+                        print(f"[ETF] {code} error: {e}")
+
     except Exception as e:
-        print(f"[DataProvider] ETF overview error: {e}")
+        print(f"[ETF] overview error: {e}")
         traceback.print_exc()
 
-    result = {"sectors": sector_etfs, "all": all_etfs}
+    # === 테마별 집계 ===
+    theme_map = {}
+    for etf in all_etfs:
+        theme = etf["theme"]
+        if theme not in theme_map:
+            theme_map[theme] = {"name": theme, "etfs": [], "up": 0, "down": 0, "total_change": 0}
+        theme_map[theme]["etfs"].append(etf)
+        if etf["change_pct"] > 0:
+            theme_map[theme]["up"] += 1
+        elif etf["change_pct"] < 0:
+            theme_map[theme]["down"] += 1
+        theme_map[theme]["total_change"] += etf["change_pct"]
+
+    themes = []
+    for t in theme_map.values():
+        count = len(t["etfs"])
+        avg_change = round(t["total_change"] / count, 2) if count > 0 else 0
+        top_etf = max(t["etfs"], key=lambda x: x["volume"]) if t["etfs"] else None
+        themes.append({
+            "name": t["name"],
+            "avg_change": avg_change,
+            "count": count,
+            "up": t["up"],
+            "down": t["down"],
+            "top_etf_name": top_etf["name"] if top_etf else "",
+            "top_etf_change": top_etf["change_pct"] if top_etf else 0,
+        })
+
+    # === 상승하락 분포 ===
+    bins = {"m10": 0, "m5": 0, "m3": 0, "m1": 0, "z": 0, "p1": 0, "p3": 0, "p5": 0, "p10": 0}
+    for etf in all_etfs:
+        pct = etf["change_pct"]
+        if pct <= -10: bins["m10"] += 1
+        elif pct <= -5: bins["m5"] += 1
+        elif pct <= -3: bins["m3"] += 1
+        elif pct <= -1: bins["m1"] += 1
+        elif pct < 1: bins["z"] += 1
+        elif pct < 3: bins["p3"] += 1
+        elif pct < 5: bins["p5"] += 1
+        elif pct < 10: bins["p10"] += 1
+        else: bins["p10"] += 1
+
+    distribution = [
+        {"label": "-10%~", "count": bins["m10"], "type": "down"},
+        {"label": "-5~-10%", "count": bins["m5"], "type": "down"},
+        {"label": "-3~-5%", "count": bins["m3"], "type": "down"},
+        {"label": "-1~-3%", "count": bins["m1"], "type": "down"},
+        {"label": "-1~1%", "count": bins["z"], "type": "neutral"},
+        {"label": "1~3%", "count": bins["p3"], "type": "up"},
+        {"label": "3~5%", "count": bins["p5"], "type": "up"},
+        {"label": "5~10%", "count": bins["p10"], "type": "up"},
+    ]
+
+    # === 정렬 ===
+    themes_up = sorted([t for t in themes if t["avg_change"] > 0], key=lambda x: x["avg_change"], reverse=True)
+    themes_down = sorted([t for t in themes if t["avg_change"] <= 0], key=lambda x: x["avg_change"])
+    top_by_return = sorted(all_etfs, key=lambda x: x["change_pct"], reverse=True)[:10]
+    bottom_by_return = sorted(all_etfs, key=lambda x: x["change_pct"])[:10]
+    top_by_volume = sorted(all_etfs, key=lambda x: x["volume"], reverse=True)[:10]
+    top_by_market = sorted(all_etfs, key=lambda x: x["market_sum"], reverse=True)[:10]
+
+    # 주요 대표 ETF
+    MAJOR_CODES = ["069500", "102110", "360750", "133690", "379810", "091160", "305720", "161510"]
+    major_etfs = [e for e in all_etfs if e["code"] in MAJOR_CODES]
+
+    total_up = sum(1 for e in all_etfs if e["change_pct"] > 0)
+    total_down = sum(1 for e in all_etfs if e["change_pct"] < 0)
+
+    result = {
+        "total_count": len(all_etfs),
+        "total_up": total_up,
+        "total_down": total_down,
+        "themes_up": themes_up,
+        "themes_down": themes_down,
+        "distribution": distribution,
+        "top_by_return": top_by_return,
+        "bottom_by_return": bottom_by_return,
+        "top_by_volume": top_by_volume,
+        "top_by_market": top_by_market,
+        "major_etfs": major_etfs,
+        "success": True,
+    }
     _set_cache("etf_overview", result)
     return result
 

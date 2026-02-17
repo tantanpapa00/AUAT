@@ -9060,9 +9060,9 @@ body {
    Phase 5: 해외시장 히트맵 + Fear&Greed + VIX
    ===================================================== */
 
-/* ===== S&P 500 Squarified Treemap 히트맵 ===== */
+/* ===== S&P 500 Treemap - 트레이딩뷰 스타일 ===== */
 .us-heatmap-card {
-    padding: 8px !important;
+    padding: 6px !important;
     position: relative;
 }
 
@@ -9072,33 +9072,42 @@ body {
     overflow: hidden;
     position: relative;
     border-radius: 4px;
-    background: #0b1220;
+    background: #131722;
 }
 
 .us-heatmap-grid {
     position: relative;
     transform-origin: 0 0;
+    will-change: transform;
+    contain: layout style paint;
 }
 
-/* 섹터 박스 (테두리) */
+/* 섹터 박스: 4px 검은 간격 (트레이딩뷰: 명확한 섹터 구분) */
 .hm-sector-box {
     position: absolute;
-    border: 1px solid rgba(255,255,255,0.08);
+    border: 4px solid #131722;
     pointer-events: none;
     z-index: 2;
+    box-sizing: border-box;
+    contain: layout style paint;
 }
 
+/* 섹터 라벨: 크고 굵고 밝게 */
 .hm-sector-lbl {
-    font-size: 0.55em;
-    color: rgba(255,255,255,0.5);
-    padding: 0 3px;
-    line-height: 12px;
+    color: rgba(255,255,255,0.9);
+    font-weight: 800;
+    padding: 2px 6px;
+    line-height: 1.3;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    text-shadow: 0 1px 4px rgba(0,0,0,1);
+    letter-spacing: 0.5px;
+    position: relative;
+    z-index: 5;
 }
 
-/* 종목 셀 */
+/* 종목 셀: 1px 검은 테두리 */
 .hm-cell {
     position: absolute;
     display: flex;
@@ -9107,28 +9116,46 @@ body {
     justify-content: center;
     overflow: hidden;
     cursor: pointer;
-    border: 0.5px solid rgba(0,0,0,0.3);
+    border: 1px solid #131722;
     box-sizing: border-box;
-    transition: filter 0.1s;
+    padding: 2px;
+    contain: layout style paint;
+    will-change: auto;
 }
 
 .hm-cell:hover {
-    filter: brightness(1.3);
+    filter: brightness(1.35) saturate(1.15);
     z-index: 20;
-    outline: 1px solid rgba(255,255,255,0.7);
+    border: 2px solid rgba(255,255,255,0.9);
 }
 
+/* 기업 로고 */
+.hm-logo {
+    border-radius: 50%;
+    object-fit: contain;
+    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5));
+    flex-shrink: 0;
+    pointer-events: none;
+    background: rgba(255,255,255,0.1);
+}
+
+/* 심볼: 굵고 선명 */
 .hm-sym {
-    font-weight: 700;
-    line-height: 1.1;
+    font-weight: 800;
+    color: #ffffff;
+    line-height: 1.15;
     white-space: nowrap;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    letter-spacing: 0.3px;
 }
 
+/* 등락률 */
 .hm-pct {
-    font-weight: 500;
-    line-height: 1;
-    opacity: 0.9;
+    font-weight: 600;
+    color: rgba(255,255,255,0.95);
+    line-height: 1.15;
     white-space: nowrap;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.7);
 }
 
 /* 줌 컨트롤 */
@@ -9137,19 +9164,19 @@ body {
     top: 6px;
     right: 6px;
     display: flex;
-    gap: 3px;
+    gap: 2px;
     z-index: 30;
 }
 
 .hm-zoom-btn {
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
     border: 1px solid rgba(255,255,255,0.15);
-    background: rgba(11,18,32,0.85);
+    background: rgba(19,23,34,0.92);
     color: #9ca3af;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -9157,7 +9184,7 @@ body {
 }
 
 .hm-zoom-btn:hover {
-    background: rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.15);
     color: #fff;
 }
 
@@ -9507,4 +9534,204 @@ body {
     .us-sector-bar-item {
         grid-template-columns: 100px 1fr 60px;
     }
+}
+
+/* ===== Phase 6: ETF 시장분석 - ETFCheck 스타일 ===== */
+.etf-overview-header {
+    margin-bottom: 12px !important;
+}
+.etf-overview-row {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 0;
+}
+.etf-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+.etf-stat-label {
+    font-size: 0.75em;
+    color: #6b7280;
+}
+.etf-stat-value {
+    font-size: 1.1em;
+    font-weight: 700;
+}
+
+/* 섹션 헤더 */
+.etf-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.etf-section-header h3 {
+    margin: 0;
+}
+
+/* 상승/하락 토글 */
+.etf-toggle-btns, #etf-rank-toggle {
+    display: flex;
+    gap: 4px;
+}
+.etf-toggle-btn {
+    padding: 4px 12px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: transparent;
+    color: #9ca3af;
+    border-radius: 16px;
+    cursor: pointer;
+    font-size: 0.8em;
+}
+.etf-toggle-btn.active {
+    background: rgba(34,197,94,0.15);
+    color: #22c55e;
+    border-color: #22c55e;
+}
+.etf-toggle-btn[data-mode="down"].active {
+    background: rgba(239,68,68,0.15);
+    color: #ef4444;
+    border-color: #ef4444;
+}
+
+/* HOT 테마 카드 (횡스크롤) */
+.etf-theme-scroll {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    scrollbar-width: thin;
+}
+.etf-theme-card {
+    min-width: 180px;
+    max-width: 200px;
+    flex-shrink: 0;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 12px;
+}
+.etf-theme-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+.etf-theme-name {
+    font-weight: 700;
+    font-size: 0.95em;
+    color: #e5e7eb;
+}
+.etf-theme-rank {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 0.7em;
+    font-weight: 800;
+}
+.etf-theme-change {
+    font-size: 1.4em;
+    font-weight: 800;
+    margin-bottom: 8px;
+}
+.etf-theme-top {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78em;
+    color: #9ca3af;
+    margin-bottom: 8px;
+}
+.etf-theme-top-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 110px;
+}
+.etf-theme-bar {
+    display: flex;
+    height: 3px;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+.etf-theme-bar-fill {
+    height: 100%;
+}
+.etf-theme-counts {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7em;
+}
+
+/* 상승하락 분포 히스토그램 */
+.etf-distribution {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 6px;
+    height: 160px;
+    padding: 8px 0;
+}
+.etf-dist-bar-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+}
+.etf-dist-count {
+    font-size: 0.72em;
+    color: #9ca3af;
+    font-weight: 600;
+}
+.etf-dist-bar {
+    width: 100%;
+    max-width: 50px;
+    border-radius: 3px 3px 0 0;
+    min-height: 2px;
+    transition: height 0.3s;
+}
+.etf-dist-label {
+    font-size: 0.62em;
+    color: #6b7280;
+    white-space: nowrap;
+}
+.etf-dist-summary {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78em;
+    padding: 8px 0 0;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+/* 랭킹 탭 */
+.etf-rank-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+.etf-rank-tab {
+    padding: 6px 16px;
+    border: none;
+    background: rgba(255,255,255,0.05);
+    color: #9ca3af;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85em;
+}
+.etf-rank-tab.active {
+    background: rgba(99,102,241,0.2);
+    color: #818cf8;
+    font-weight: 600;
+}
+#etf-rank-toggle {
+    margin-bottom: 8px;
 }
