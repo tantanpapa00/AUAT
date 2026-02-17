@@ -715,8 +715,8 @@ async def get_etf_overview():
         elif pct <= -5: bins["m5"] += 1
         elif pct <= -3: bins["m3"] += 1
         elif pct <= -1: bins["m1"] += 1
-        elif pct < 0: bins["mz"] += 1
-        elif pct == 0: bins["z"] += 1
+        elif pct < -0.005: bins["mz"] += 1
+        elif abs(pct) < 0.005: bins["z"] += 1  # 보합 (0%)
         elif pct < 1: bins["pz"] += 1
         elif pct < 3: bins["p1"] += 1
         elif pct < 5: bins["p3"] += 1
@@ -737,13 +737,23 @@ async def get_etf_overview():
         {"label": "10%~", "count": bins["p10"], "type": "up"},
     ]
 
-    # === 정렬 ===
+    # === 정렬 + 중복 제거 ===
+    def unique_by_code(items):
+        """code 기준 중복 제거 (순서 유지)"""
+        seen = set()
+        result = []
+        for e in items:
+            if e['code'] not in seen:
+                seen.add(e['code'])
+                result.append(e)
+        return result
+
     themes_up = sorted([t for t in themes if t["avg_change"] > 0], key=lambda x: x["avg_change"], reverse=True)
     themes_down = sorted([t for t in themes if t["avg_change"] <= 0], key=lambda x: x["avg_change"])
-    top_by_return = sorted(all_etfs, key=lambda x: x["change_pct"], reverse=True)[:10]
-    bottom_by_return = sorted(all_etfs, key=lambda x: x["change_pct"])[:10]
-    top_by_volume = sorted(all_etfs, key=lambda x: x["volume"], reverse=True)[:10]
-    top_by_market = sorted(all_etfs, key=lambda x: x["market_sum"], reverse=True)[:10]
+    top_by_return = unique_by_code(sorted(all_etfs, key=lambda x: x["change_pct"], reverse=True))[:10]
+    bottom_by_return = unique_by_code(sorted(all_etfs, key=lambda x: x["change_pct"]))[:10]
+    top_by_volume = unique_by_code(sorted(all_etfs, key=lambda x: x["volume"], reverse=True))[:10]
+    top_by_market = unique_by_code(sorted(all_etfs, key=lambda x: x["market_sum"], reverse=True))[:10]
 
     # 주요 대표 ETF (ETFCheck 기준)
     MAJOR_CODES = [
@@ -779,8 +789,8 @@ async def get_etf_overview():
             elif pct <= -5: bins_arr[1] += 1
             elif pct <= -3: bins_arr[2] += 1
             elif pct <= -1: bins_arr[3] += 1
-            elif pct < 0: bins_arr[4] += 1
-            elif pct == 0: bins_arr[5] += 1
+            elif pct < -0.005: bins_arr[4] += 1
+            elif abs(pct) < 0.005: bins_arr[5] += 1  # 보합 (0%)
             elif pct < 1: bins_arr[6] += 1
             elif pct < 3: bins_arr[7] += 1
             elif pct < 5: bins_arr[8] += 1
@@ -788,19 +798,19 @@ async def get_etf_overview():
             else: bins_arr[10] += 1
         dist_by_asset[asset_name] = bins_arr
 
-    # 자산유형별 TOP
+    # 자산유형별 TOP (중복 제거 적용)
     top_return_by_asset = {}
     bottom_return_by_asset = {}
     top_volume_by_asset = {}
     top_market_by_asset = {}
     for asset_name, asset_etfs in by_asset.items():
-        top_return_by_asset[asset_name] = sorted(asset_etfs, key=lambda x: x["change_pct"], reverse=True)[:10]
-        bottom_return_by_asset[asset_name] = sorted(asset_etfs, key=lambda x: x["change_pct"])[:10]
-        top_volume_by_asset[asset_name] = sorted(asset_etfs, key=lambda x: x["volume"], reverse=True)[:10]
-        top_market_by_asset[asset_name] = sorted(asset_etfs, key=lambda x: x["market_sum"], reverse=True)[:10]
+        top_return_by_asset[asset_name] = unique_by_code(sorted(asset_etfs, key=lambda x: x["change_pct"], reverse=True))[:10]
+        bottom_return_by_asset[asset_name] = unique_by_code(sorted(asset_etfs, key=lambda x: x["change_pct"]))[:10]
+        top_volume_by_asset[asset_name] = unique_by_code(sorted(asset_etfs, key=lambda x: x["volume"], reverse=True))[:10]
+        top_market_by_asset[asset_name] = unique_by_code(sorted(asset_etfs, key=lambda x: x["market_sum"], reverse=True))[:10]
 
     # 거래량 TOP3 (상승하락 섹션의 TOP3거래량 탭용)
-    top3_volume = sorted(all_etfs, key=lambda x: x["volume"], reverse=True)[:3]
+    top3_volume = unique_by_code(sorted(all_etfs, key=lambda x: x["volume"], reverse=True))[:3]
 
     result = {
         "total_count": len(all_etfs),
