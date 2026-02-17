@@ -561,7 +561,12 @@ async def get_etf_overview():
                         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                     })
                     if r.status_code == 200:
-                        data = r.json()
+                        # 네이버 금융 API는 EUC-KR 인코딩
+                        try:
+                            text = r.content.decode('euc-kr')
+                        except:
+                            text = r.content.decode('cp949', errors='ignore')
+                        data = json.loads(text)
                         items = data.get("result", {}).get("etfItemList", [])
                         for item in items:
                             code = str(item.get("itemcode", ""))
