@@ -6865,11 +6865,11 @@ function renderEtfDashboard(data, container) {
                 </div>
                 <div class="etf-stat">
                     <span class="etf-stat-label">상승</span>
-                    <span class="etf-stat-value" style="color:#22c55e">▲${totalUp}</span>
+                    <span class="etf-stat-value" style="color:#ef4444">▲${totalUp}</span>
                 </div>
                 <div class="etf-stat">
                     <span class="etf-stat-label">하락</span>
-                    <span class="etf-stat-value" style="color:#ef4444">▼${totalDown}</span>
+                    <span class="etf-stat-value" style="color:#3b82f6">▼${totalDown}</span>
                 </div>
                 <div class="etf-stat">
                     <span class="etf-stat-label">보합</span>
@@ -6878,7 +6878,7 @@ function renderEtfDashboard(data, container) {
             </div>
         </div>
 
-        <!-- 1. HOT 테마 -->
+        <!-- 1. HOT 테마 (국내) -->
         <div class="card" id="etf-hot-section">
             <div class="etf-section-header">
                 <h3>HOT 테마</h3>
@@ -6957,7 +6957,7 @@ function renderEtfDashboard(data, container) {
 
         el.innerHTML = themes.slice(0, 15).map((t, i) => {
             const isUp = t.avg_change >= 0;
-            const color = isUp ? '#22c55e' : '#ef4444';
+            const color = isUp ? '#ef4444' : '#3b82f6';  // 상승=빨강, 하락=파랑
             const rankColors = ['#ef4444', '#f59e0b', '#22c55e', '#06b6d4', '#8b5cf6', '#ec4899', '#f97316', '#14b8a6'];
             return `
                 <div class="etf-theme-card">
@@ -6971,12 +6971,12 @@ function renderEtfDashboard(data, container) {
                         <span style="color:${color}">${(t.top_etf_change || 0) >= 0 ? '+' : ''}${(t.top_etf_change || 0).toFixed(2)}%</span>
                     </div>
                     <div class="etf-theme-bar">
-                        <div style="flex:${t.down || 1};background:#ef4444;height:100%"></div>
-                        <div style="flex:${t.up || 1};background:#22c55e;height:100%"></div>
+                        <div style="flex:${t.down || 1};background:#3b82f6;height:100%"></div>
+                        <div style="flex:${t.up || 1};background:#ef4444;height:100%"></div>
                     </div>
                     <div class="etf-theme-counts">
-                        <span style="color:#ef4444">하락/${t.down || 0}</span>
-                        <span style="color:#22c55e">${t.up || 0}/상승</span>
+                        <span style="color:#3b82f6">하락/${t.down || 0}</span>
+                        <span style="color:#ef4444">${t.up || 0}/상승</span>
                     </div>
                 </div>
             `;
@@ -7017,9 +7017,9 @@ function renderEtfDashboard(data, container) {
                     ${bins.map((count, i) => {
                         const hPct = Math.max((count / maxVal) * 100, 3);
                         let color = '#6b7280';
-                        if (i <= 4) color = '#3b82f6';      // 하락 (파랑)
-                        else if (i === 5) color = '#9ca3af'; // 보합 (회색)
-                        else color = '#ef4444';              // 상승 (빨강)
+                        if (i <= 4) color = '#3b82f6';
+                        else if (i === 5) color = '#9ca3af';
+                        else color = '#ef4444';
                         return `
                             <div class="etf-dist-bar-wrap">
                                 <span class="etf-dist-count" style="color:${color}">${count}</span>
@@ -7031,36 +7031,63 @@ function renderEtfDashboard(data, container) {
                 </div>
                 <div class="etf-dist-ratio-bar">
                     <div style="flex:${downCount || 1};background:#3b82f6;height:100%;border-radius:3px 0 0 3px"></div>
-                    <div style="flex:${unchCount || 1};background:#9ca3af;height:100%"></div>
+                    <div style="flex:${unchCount || 1};background:#fbbf24;height:100%"></div>
                     <div style="flex:${upCount || 1};background:#ef4444;height:100%;border-radius:0 3px 3px 0"></div>
                 </div>
                 <div class="etf-dist-summary">
                     <span style="color:#3b82f6">하락종목 / ${downCount}</span>
-                    <span style="color:#9ca3af">${unchCount}</span>
+                    <span style="color:#fbbf24">${unchCount}</span>
                     <span style="color:#ef4444">${upCount} / 상승종목</span>
                 </div>
             `;
         } else if (distMainTab === 'top3vol') {
             const top3 = data.top3_volume || [];
+            const colors = ['#4ade80', '#60a5fa', '#fbbf24'];
             contentEl.innerHTML = `
+                <div style="font-size:0.82em;color:#6b7280;margin-bottom:12px">
+                    거래량 증가 TOP3 종목의 현황입니다.
+                </div>
                 <div class="etf-top3-list">
-                    ${top3.map((e, i) => `
-                        <div class="etf-top3-item">
-                            <span class="etf-top3-rank">${i + 1}</span>
-                            <div class="etf-top3-info">
-                                <strong>${e.name}</strong>
-                                <span style="color:#6b7280">${(e.price || 0).toLocaleString()}원</span>
+                    ${top3.map((e, i) => {
+                        const isUp = (e.change_pct || 0) >= 0;
+                        return `
+                            <div class="etf-top3-item" style="border-left:3px solid ${colors[i]}">
+                                <div style="display:flex;align-items:center;gap:8px">
+                                    <span style="color:${colors[i]};font-size:0.8em">●</span>
+                                    <strong>${e.name}</strong>
+                                </div>
+                                <div style="display:flex;gap:16px;margin-top:6px;font-size:0.88em">
+                                    <span style="color:#9ca3af">현재가 ${(e.price||0).toLocaleString()}</span>
+                                    <span class="${isUp?'profit':'loss'}">${isUp?'+':''}${(e.change_pct||0).toFixed(2)}%</span>
+                                    <span style="color:#9ca3af">거래량 ${(e.volume||0).toLocaleString()}</span>
+                                </div>
                             </div>
-                            <div class="etf-top3-vol">
-                                <span class="${(e.change_pct || 0) >= 0 ? 'profit' : 'loss'}">${(e.change_pct || 0) >= 0 ? '+' : ''}${(e.change_pct || 0).toFixed(2)}%</span>
-                                <span style="color:#6b7280;font-size:0.8em">${(e.volume || 0).toLocaleString()}</span>
-                            </div>
-                        </div>
-                    `).join('') || '<div class="empty-cell">데이터 없음</div>'}
+                        `;
+                    }).join('') || '<div class="empty-cell">데이터 없음</div>'}
                 </div>
             `;
-        } else {
-            contentEl.innerHTML = '<div class="empty-cell" style="padding:40px 0">자금유입/순자산증감 데이터는 준비 중입니다</div>';
+        } else if (distMainTab === 'fund-flow') {
+            contentEl.innerHTML = `
+                <div style="text-align:center;padding:40px 0;color:#6b7280">
+                    <div style="font-size:1.5em;margin-bottom:8px">📊</div>
+                    <div>순자금유입 데이터는 ETFCheck 앱에서 확인 가능합니다</div>
+                    <a href="https://www.etfcheck.co.kr" target="_blank"
+                       style="color:#818cf8;font-size:0.85em;margin-top:8px;display:inline-block">
+                        ETFCheck 바로가기 →
+                    </a>
+                </div>
+            `;
+        } else if (distMainTab === 'asset-change') {
+            contentEl.innerHTML = `
+                <div style="text-align:center;padding:40px 0;color:#6b7280">
+                    <div style="font-size:1.5em;margin-bottom:8px">📊</div>
+                    <div>순자산증감 데이터는 ETFCheck 앱에서 확인 가능합니다</div>
+                    <a href="https://www.etfcheck.co.kr" target="_blank"
+                       style="color:#818cf8;font-size:0.85em;margin-top:8px;display:inline-block">
+                        ETFCheck 바로가기 →
+                    </a>
+                </div>
+            `;
         }
     }
     renderDistribution();
@@ -7111,6 +7138,7 @@ function renderEtfDashboard(data, container) {
         el.innerHTML = items.slice(0, 10).map((e, i) => {
             const isUp = (e.change_pct || 0) >= 0;
             const cls = isUp ? 'profit' : 'loss';
+            const navStr = e.nav ? `iNAV ${e.nav.toLocaleString()}` : '';
             return `
                 <div class="etf-rank-item">
                     <span class="etf-rank-num">${i + 1}</span>
@@ -7118,8 +7146,9 @@ function renderEtfDashboard(data, container) {
                         <strong>${e.name || '-'}</strong>
                         <span style="color:#6b7280;font-size:0.82em">현재가 ${(e.price || 0).toLocaleString()}</span>
                     </div>
+                    <div class="etf-rank-nav">${navStr}</div>
                     <div class="etf-rank-change">
-                        <span class="${cls}" style="font-weight:700">${isUp ? '+' : ''}${(e.change_pct || 0).toFixed(2)}%</span>
+                        <span class="${cls}" style="font-weight:700;font-size:1.05em">${isUp ? '+' : ''}${(e.change_pct || 0).toFixed(2)}%</span>
                     </div>
                 </div>
             `;
@@ -7168,14 +7197,21 @@ function renderEtfDashboard(data, container) {
             items = [...items].sort((a, b) => Math.abs(b.change_pct || 0) - Math.abs(a.change_pct || 0));
         }
 
-        el.innerHTML = items.map(e => {
+        el.innerHTML = `
+            <div class="etf-major-header">
+                <span>종목</span>
+                <span style="text-align:right">현재가</span>
+            </div>
+        ` + items.map(e => {
             const isUp = (e.change_pct || 0) >= 0;
             const cls = isUp ? 'profit' : 'loss';
             return `
                 <div class="etf-major-item">
-                    <div class="etf-major-name"><strong>${e.name || '-'}</strong></div>
-                    <div class="etf-major-price">${(e.price || 0).toLocaleString()}</div>
-                    <div class="etf-major-change ${cls}">${isUp ? '+' : ''}${(e.change_pct || 0).toFixed(2)}%</div>
+                    <div class="etf-major-name">${e.name || '-'}</div>
+                    <div class="etf-major-right">
+                        <span class="etf-major-price">${(e.price || 0).toLocaleString()}</span>
+                        <span class="etf-major-change ${cls}">${isUp ? '+' : ''}${(e.change_pct || 0).toFixed(2)}%</span>
+                    </div>
                 </div>
             `;
         }).join('') || '<div class="empty-cell">데이터 없음</div>';

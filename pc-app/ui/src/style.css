@@ -30,6 +30,7 @@ body {
     background: var(--bg-dark);
     color: var(--text-primary);
     line-height: 1.5;
+    overflow-x: hidden;
 }
 
 /* #app 기본 스타일 - display는 JS에서 제어 */
@@ -891,6 +892,8 @@ body {
 .main {
     flex: 1;
     padding: 25px;
+    overflow-x: hidden;
+    max-width: 100vw;
 }
 
 .dashboard-grid {
@@ -9537,6 +9540,11 @@ body {
 }
 
 /* ===== Phase 6: ETF 시장분석 - ETFCheck 스타일 ===== */
+/* 가로스크롤 방지 */
+#page-market-etf.main {
+    overflow-x: hidden !important;
+    overflow-y: auto;
+}
 .etf-overview-header {
     margin-bottom: 12px !important;
 }
@@ -9588,14 +9596,24 @@ body {
     font-size: 0.8em;
 }
 .etf-toggle-btn.active {
-    background: rgba(34,197,94,0.15);
-    color: #22c55e;
-    border-color: #22c55e;
-}
-.etf-toggle-btn[data-mode="down"].active {
     background: rgba(239,68,68,0.15);
     color: #ef4444;
     border-color: #ef4444;
+}
+.etf-toggle-btn[data-mode="down"].active {
+    background: rgba(59,130,246,0.15);
+    color: #3b82f6;
+    border-color: #3b82f6;
+}
+
+/* ETF 섹션 내 profit/loss 색상 (한국 증시 표준: 상승=빨강, 하락=파랑) */
+#market-etf-content .profit { color: #ef4444; }
+#market-etf-content .loss { color: #3b82f6; }
+
+/* HOT 테마 섹션 */
+#etf-hot-section,
+#etf-us-hot-section {
+    overflow: hidden;
 }
 
 /* HOT 테마 카드 (횡스크롤) */
@@ -9604,8 +9622,9 @@ body {
     gap: 12px;
     overflow-x: auto;
     padding-bottom: 8px;
-    padding-right: 20px;
     scrollbar-width: thin;
+    width: 0;
+    min-width: 100%;
 }
 .etf-theme-card {
     min-width: 180px;
@@ -9679,32 +9698,35 @@ body {
 .etf-distribution {
     display: flex;
     align-items: flex-end;
-    justify-content: center;
-    gap: 6px;
-    height: 160px;
+    justify-content: space-between;
+    gap: 2px;
+    height: 250px;
     padding: 8px 0;
+    overflow-x: hidden;
 }
 .etf-dist-bar-wrap {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
     flex: 1;
+    min-width: 0;
+    max-width: 40px;
 }
 .etf-dist-count {
-    font-size: 0.72em;
+    font-size: 0.65em;
     color: #9ca3af;
     font-weight: 600;
 }
 .etf-dist-bar {
     width: 100%;
-    max-width: 50px;
+    max-width: 30px;
     border-radius: 3px 3px 0 0;
     min-height: 2px;
     transition: height 0.3s;
 }
 .etf-dist-label {
-    font-size: 0.62em;
+    font-size: 0.55em;
     color: #6b7280;
     white-space: nowrap;
 }
@@ -9800,7 +9822,7 @@ body {
     margin: 8px 0 4px;
 }
 
-/* TOP3 거래량 */
+/* TOP3 거래량 (ETFCheck 스타일) */
 .etf-top3-list {
     display: flex;
     flex-direction: column;
@@ -9808,29 +9830,10 @@ body {
 }
 .etf-top3-item {
     display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px;
+    flex-direction: column;
+    padding: 12px 16px;
     background: rgba(255,255,255,0.03);
     border-radius: 6px;
-}
-.etf-top3-rank {
-    font-size: 1.2em;
-    font-weight: 800;
-    color: #818cf8;
-    min-width: 24px;
-}
-.etf-top3-info {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-.etf-top3-vol {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 2px;
 }
 
 /* 랭킹 리스트 (ETFCheck 스타일) */
@@ -9856,30 +9859,49 @@ body {
     flex-direction: column;
     gap: 2px;
 }
+.etf-rank-nav {
+    min-width: 100px;
+    text-align: center;
+    color: #6b7280;
+    font-size: 0.82em;
+}
 .etf-rank-change {
     text-align: right;
+    min-width: 70px;
 }
 
-/* 주요 종목현황 리스트 */
+/* 주요 종목현황 리스트 (ETFCheck 스타일) */
+.etf-major-header {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px;
+    color: #6b7280;
+    font-size: 0.78em;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
 .etf-major-item {
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    padding: 12px 8px;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
+    padding: 14px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
 }
 .etf-major-item:last-child {
     border-bottom: none;
 }
 .etf-major-name {
     flex: 1;
+    font-weight: 600;
+}
+.etf-major-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
 }
 .etf-major-price {
-    min-width: 80px;
-    text-align: right;
-    margin-right: 12px;
+    font-weight: 600;
 }
 .etf-major-change {
-    min-width: 60px;
-    text-align: right;
-    font-weight: 600;
+    font-size: 0.85em;
 }

@@ -708,34 +708,24 @@ async def get_etf_overview():
         })
 
     # === 상승하락 분포 (ETFCheck 11개 빈) ===
-    bins = {"m10": 0, "m5": 0, "m3": 0, "m1": 0, "mz": 0, "z": 0, "pz": 0, "p1": 0, "p3": 0, "p5": 0, "p10": 0}
-    for etf in all_etfs:
-        pct = etf["change_pct"]
-        if pct <= -10: bins["m10"] += 1
-        elif pct <= -5: bins["m5"] += 1
-        elif pct <= -3: bins["m3"] += 1
-        elif pct <= -1: bins["m1"] += 1
-        elif pct < -0.005: bins["mz"] += 1
-        elif abs(pct) < 0.005: bins["z"] += 1  # 보합 (0%)
-        elif pct < 1: bins["pz"] += 1
-        elif pct < 3: bins["p1"] += 1
-        elif pct < 5: bins["p3"] += 1
-        elif pct < 10: bins["p5"] += 1
-        else: bins["p10"] += 1
-
-    distribution = [
-        {"label": "-10%~", "count": bins["m10"], "type": "down"},
-        {"label": "-10~-5%", "count": bins["m5"], "type": "down"},
-        {"label": "-5~-3%", "count": bins["m3"], "type": "down"},
-        {"label": "-3~-1%", "count": bins["m1"], "type": "down"},
-        {"label": "-1~0%", "count": bins["mz"], "type": "down"},
-        {"label": "0", "count": bins["z"], "type": "neutral"},
-        {"label": "0~1%", "count": bins["pz"], "type": "up"},
-        {"label": "1~3%", "count": bins["p1"], "type": "up"},
-        {"label": "3~5%", "count": bins["p3"], "type": "up"},
-        {"label": "5~10%", "count": bins["p5"], "type": "up"},
-        {"label": "10%~", "count": bins["p10"], "type": "up"},
+    bin_defs = [
+        ("-10%~",    lambda p: p <= -10, "down"),
+        ("-10~-5%",  lambda p: -10 < p <= -5, "down"),
+        ("-5~-3%",   lambda p: -5 < p <= -3, "down"),
+        ("-3~-1%",   lambda p: -3 < p <= -1, "down"),
+        ("-1~0%",    lambda p: -1 < p < -0.005, "down"),
+        ("0",        lambda p: -0.005 <= p <= 0.005, "neutral"),
+        ("0~1%",     lambda p: 0.005 < p < 1, "up"),
+        ("1~3%",     lambda p: 1 <= p < 3, "up"),
+        ("3~5%",     lambda p: 3 <= p < 5, "up"),
+        ("5~10%",    lambda p: 5 <= p < 10, "up"),
+        ("10%~",     lambda p: p >= 10, "up"),
     ]
+
+    distribution = []
+    for label, cond, dtype in bin_defs:
+        count = sum(1 for e in all_etfs if cond(e["change_pct"]))
+        distribution.append({"label": label, "count": count, "type": dtype})
 
     # === 정렬 + 중복 제거 ===
     def unique_by_code(items):
@@ -779,23 +769,10 @@ async def get_etf_overview():
         if at in by_asset:
             by_asset[at].append(e)
 
-    # 자산유형별 분포 (11개 빈)
+    # 자산유형별 분포 (11개 빈 - bin_defs 재사용)
     dist_by_asset = {}
     for asset_name, asset_etfs in by_asset.items():
-        bins_arr = [0] * 11  # 11개 빈
-        for e in asset_etfs:
-            pct = e["change_pct"]
-            if pct <= -10: bins_arr[0] += 1
-            elif pct <= -5: bins_arr[1] += 1
-            elif pct <= -3: bins_arr[2] += 1
-            elif pct <= -1: bins_arr[3] += 1
-            elif pct < -0.005: bins_arr[4] += 1
-            elif abs(pct) < 0.005: bins_arr[5] += 1  # 보합 (0%)
-            elif pct < 1: bins_arr[6] += 1
-            elif pct < 3: bins_arr[7] += 1
-            elif pct < 5: bins_arr[8] += 1
-            elif pct < 10: bins_arr[9] += 1
-            else: bins_arr[10] += 1
+        bins_arr = [sum(1 for e in asset_etfs if cond(e["change_pct"])) for _, cond, _ in bin_defs]
         dist_by_asset[asset_name] = bins_arr
 
     # 자산유형별 TOP (중복 제거 적용)
