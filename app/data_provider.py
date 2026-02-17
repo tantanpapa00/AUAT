@@ -811,6 +811,27 @@ async def get_etf_overview():
     # 거래량 TOP3 (상승하락 섹션의 TOP3거래량 탭용)
     top3_volume = unique_by_code(sorted(all_etfs, key=lambda x: x["volume"], reverse=True))[:3]
 
+    # 순자금유입 대체 데이터 — 자산유형별 거래량
+    fund_flow = []
+    asset_categories = {
+        "국내주식": lambda e: e.get("asset_type") == "주식" and "미국" not in e.get("name", "") and "중국" not in e.get("name", "") and "해외" not in e.get("name", "") and "S&P" not in e.get("name", "") and "나스닥" not in e.get("name", ""),
+        "해외주식": lambda e: e.get("asset_type") == "주식" and ("미국" in e.get("name", "") or "중국" in e.get("name", "") or "해외" in e.get("name", "") or "S&P" in e.get("name", "") or "나스닥" in e.get("name", "")),
+        "국내채권": lambda e: e.get("asset_type") == "채권" and "미국" not in e.get("name", "") and "해외" not in e.get("name", ""),
+        "해외채권": lambda e: e.get("asset_type") == "채권" and ("미국" in e.get("name", "") or "해외" in e.get("name", "")),
+        "원자재": lambda e: e.get("asset_type") == "원자재",
+    }
+    for cat_name, cond in asset_categories.items():
+        cat_etfs = [e for e in all_etfs if cond(e)]
+        up_vol = sum(e.get("volume", 0) for e in cat_etfs if e.get("change_pct", 0) > 0)
+        down_vol = sum(e.get("volume", 0) for e in cat_etfs if e.get("change_pct", 0) < 0)
+        net = up_vol - down_vol
+        fund_flow.append({
+            "category": cat_name,
+            "net": net,
+            "up_vol": up_vol,
+            "down_vol": down_vol,
+        })
+
     result = {
         "total_count": len(all_etfs),
         "total_up": total_up,
@@ -829,6 +850,7 @@ async def get_etf_overview():
         "top_market_by_asset": top_market_by_asset,
         "top3_volume": top3_volume,
         "major_etfs": major_etfs,
+        "fund_flow": fund_flow,
         "success": True,
     }
     _set_cache("etf_overview", result)
