@@ -7001,14 +7001,15 @@ function renderEtfDashboard(data, container) {
         if (!contentEl) return;
 
         if (distMainTab === 'dist') {
-            // 히스토그램
-            const bins = (data.dist_by_asset || {})[distAsset] || [0,0,0,0,0,0,0,0,0];
-            const labels = ['-10%~', '-10~-5%', '-5~-3%', '-3~-1%', '-1~0%', '0~1%', '1~3%', '3~5%', '5~10%'];
+            // 히스토그램 (ETFCheck 11개 빈)
+            const bins = (data.dist_by_asset || {})[distAsset] || [0,0,0,0,0,0,0,0,0,0,0];
+            const labels = ['-10%~', '-10~-5%', '-5~-3%', '-3~-1%', '-1~0%', '0', '0~1%', '1~3%', '3~5%', '5~10%', '10%~'];
             const maxVal = Math.max(...bins, 1);
             const totalInAsset = bins.reduce((a, b) => a + b, 0);
-            const upCount = bins[5] + bins[6] + bins[7] + bins[8];
-            const downCount = bins[0] + bins[1] + bins[2] + bins[3];
-            const unchCount = bins[4];
+            // 하락: 0~4 (5개), 보합: 5 (1개), 상승: 6~10 (5개)
+            const downCount = bins[0] + bins[1] + bins[2] + bins[3] + bins[4];
+            const unchCount = bins[5];
+            const upCount = bins[6] + bins[7] + bins[8] + bins[9] + bins[10];
 
             contentEl.innerHTML = `
                 <div class="etf-total-label">전체 종목수 : <strong>${totalInAsset}</strong></div>
@@ -7016,9 +7017,9 @@ function renderEtfDashboard(data, container) {
                     ${bins.map((count, i) => {
                         const hPct = Math.max((count / maxVal) * 100, 3);
                         let color = '#6b7280';
-                        if (i <= 3) color = '#3b82f6';
-                        else if (i === 4) color = count > 0 ? '#fbbf24' : '#6b7280';
-                        else color = i <= 6 ? '#f87171' : '#22c55e';
+                        if (i <= 4) color = '#3b82f6';      // 하락 (파랑)
+                        else if (i === 5) color = '#9ca3af'; // 보합 (회색)
+                        else color = '#ef4444';              // 상승 (빨강)
                         return `
                             <div class="etf-dist-bar-wrap">
                                 <span class="etf-dist-count" style="color:${color}">${count}</span>
@@ -7030,12 +7031,12 @@ function renderEtfDashboard(data, container) {
                 </div>
                 <div class="etf-dist-ratio-bar">
                     <div style="flex:${downCount || 1};background:#3b82f6;height:100%;border-radius:3px 0 0 3px"></div>
-                    <div style="flex:${unchCount || 1};background:#fbbf24;height:100%"></div>
+                    <div style="flex:${unchCount || 1};background:#9ca3af;height:100%"></div>
                     <div style="flex:${upCount || 1};background:#ef4444;height:100%;border-radius:0 3px 3px 0"></div>
                 </div>
                 <div class="etf-dist-summary">
                     <span style="color:#3b82f6">하락종목 / ${downCount}</span>
-                    <span style="color:#fbbf24">${unchCount}</span>
+                    <span style="color:#9ca3af">${unchCount}</span>
                     <span style="color:#ef4444">${upCount} / 상승종목</span>
                 </div>
             `;

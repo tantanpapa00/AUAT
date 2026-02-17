@@ -576,11 +576,12 @@ async def get_etf_overview():
         return "주식"
 
     all_etfs = []
+    seen_codes = set()  # 중복 방지
 
     try:
         async with httpx.AsyncClient(timeout=20, headers=NAVER_HEADERS) as client:
-            # 네이버 ETF 시세 API (전체 목록)
-            for etf_type in range(8):
+            # 네이버 ETF 시세 API (etfType=0이 전체 목록)
+            for etf_type in [0]:
                 try:
                     url = f"https://finance.naver.com/api/sise/etfItemList.nhn?etfType={etf_type}"
                     r = await client.get(url, headers={
@@ -600,6 +601,9 @@ async def get_etf_overview():
                             name = item.get("itemname", "")
                             if not code or not name:
                                 continue
+                            if code in seen_codes:
+                                continue
+                            seen_codes.add(code)
 
                             close_price = int(item.get("nowVal", 0) or 0)
                             change_val = int(item.get("changeVal", 0) or 0)
@@ -609,7 +613,7 @@ async def get_etf_overview():
                             nav = int(item.get("nav", 0) or 0)
 
                             theme = classify_theme(name)
-                            asset_type = classify_asset_type(name, etf_type)
+                            asset_type = classify_asset_type(name, 0)
 
                             all_etfs.append({
                                 "code": code,
@@ -638,7 +642,11 @@ async def get_etf_overview():
                     "161510", "148020", "449170", "278530", "234310", "453810",
                 ]
                 all_etfs = []
+                seen_codes = set()
                 for code in MAJOR_ETFS:
+                    if code in seen_codes:
+                        continue
+                    seen_codes.add(code)
                     try:
                         url = f"https://m.stock.naver.com/api/stock/{code}/basic"
                         r = await client.get(url)
@@ -699,29 +707,34 @@ async def get_etf_overview():
             "top_etf_change": top_etf["change_pct"] if top_etf else 0,
         })
 
-    # === 상승하락 분포 ===
-    bins = {"m10": 0, "m5": 0, "m3": 0, "m1": 0, "z": 0, "p1": 0, "p3": 0, "p5": 0, "p10": 0}
+    # === 상승하락 분포 (ETFCheck 11개 빈) ===
+    bins = {"m10": 0, "m5": 0, "m3": 0, "m1": 0, "mz": 0, "z": 0, "pz": 0, "p1": 0, "p3": 0, "p5": 0, "p10": 0}
     for etf in all_etfs:
         pct = etf["change_pct"]
         if pct <= -10: bins["m10"] += 1
         elif pct <= -5: bins["m5"] += 1
         elif pct <= -3: bins["m3"] += 1
         elif pct <= -1: bins["m1"] += 1
-        elif pct < 1: bins["z"] += 1
-        elif pct < 3: bins["p3"] += 1
-        elif pct < 5: bins["p5"] += 1
-        elif pct < 10: bins["p10"] += 1
+        elif pct < 0: bins["mz"] += 1
+        elif pct == 0: bins["z"] += 1
+        elif pct < 1: bins["pz"] += 1
+        elif pct < 3: bins["p1"] += 1
+        elif pct < 5: bins["p3"] += 1
+        elif pct < 10: bins["p5"] += 1
         else: bins["p10"] += 1
 
     distribution = [
         {"label": "-10%~", "count": bins["m10"], "type": "down"},
-        {"label": "-5~-10%", "count": bins["m5"], "type": "down"},
-        {"label": "-3~-5%", "count": bins["m3"], "type": "down"},
-        {"label": "-1~-3%", "count": bins["m1"], "type": "down"},
-        {"label": "-1~1%", "count": bins["z"], "type": "neutral"},
-        {"label": "1~3%", "count": bins["p3"], "type": "up"},
-        {"label": "3~5%", "count": bins["p5"], "type": "up"},
-        {"label": "5~10%", "count": bins["p10"], "type": "up"},
+        {"label": "-10~-5%", "count": bins["m5"], "type": "down"},
+        {"label": "-5~-3%", "count": bins["m3"], "type": "down"},
+        {"label": "-3~-1%", "count": bins["m1"], "type": "down"},
+        {"label": "-1~0%", "count": bins["mz"], "type": "down"},
+        {"label": "0", "count": bins["z"], "type": "neutral"},
+        {"label": "0~1%", "count": bins["pz"], "type": "up"},
+        {"label": "1~3%", "count": bins["p1"], "type": "up"},
+        {"label": "3~5%", "count": bins["p3"], "type": "up"},
+        {"label": "5~10%", "count": bins["p5"], "type": "up"},
+        {"label": "10%~", "count": bins["p10"], "type": "up"},
     ]
 
     # === 정렬 ===
@@ -732,9 +745,19 @@ async def get_etf_overview():
     top_by_volume = sorted(all_etfs, key=lambda x: x["volume"], reverse=True)[:10]
     top_by_market = sorted(all_etfs, key=lambda x: x["market_sum"], reverse=True)[:10]
 
-    # 주요 대표 ETF
-    MAJOR_CODES = ["069500", "102110", "360750", "133690", "379810", "091160", "305720", "161510"]
-    major_etfs = [e for e in all_etfs if e["code"] in MAJOR_CODES]
+    # 주요 대표 ETF (ETFCheck 기준)
+    MAJOR_CODES = [
+        "069500", "360750", "459580", "379800", "133690",
+        "102110", "379810", "091160", "161510", "305720"
+    ]
+    major_etfs = []
+    major_seen = set()
+    for code in MAJOR_CODES:
+        for e in all_etfs:
+            if e["code"] == code and code not in major_seen:
+                major_seen.add(code)
+                major_etfs.append(e)
+                break
 
     total_up = sum(1 for e in all_etfs if e["change_pct"] > 0)
     total_down = sum(1 for e in all_etfs if e["change_pct"] < 0)
@@ -746,10 +769,10 @@ async def get_etf_overview():
         if at in by_asset:
             by_asset[at].append(e)
 
-    # 자산유형별 분포
+    # 자산유형별 분포 (11개 빈)
     dist_by_asset = {}
     for asset_name, asset_etfs in by_asset.items():
-        bins_arr = [0] * 9  # -10, -5~-10, -3~-5, -1~-3, -1~0, 0~1, 1~3, 3~5, 5~10
+        bins_arr = [0] * 11  # 11개 빈
         for e in asset_etfs:
             pct = e["change_pct"]
             if pct <= -10: bins_arr[0] += 1
@@ -757,11 +780,12 @@ async def get_etf_overview():
             elif pct <= -3: bins_arr[2] += 1
             elif pct <= -1: bins_arr[3] += 1
             elif pct < 0: bins_arr[4] += 1
-            elif pct == 0: bins_arr[4] += 1
-            elif pct < 1: bins_arr[5] += 1
-            elif pct < 3: bins_arr[6] += 1
-            elif pct < 5: bins_arr[7] += 1
-            else: bins_arr[8] += 1
+            elif pct == 0: bins_arr[5] += 1
+            elif pct < 1: bins_arr[6] += 1
+            elif pct < 3: bins_arr[7] += 1
+            elif pct < 5: bins_arr[8] += 1
+            elif pct < 10: bins_arr[9] += 1
+            else: bins_arr[10] += 1
         dist_by_asset[asset_name] = bins_arr
 
     # 자산유형별 TOP

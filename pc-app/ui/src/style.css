@@ -9604,6 +9604,7 @@ body {
     gap: 12px;
     overflow-x: auto;
     padding-bottom: 8px;
+    padding-right: 20px;
     scrollbar-width: thin;
 }
 .etf-theme-card {
@@ -9614,6 +9615,9 @@ body {
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 8px;
     padding: 12px;
+}
+.etf-theme-card:last-child {
+    margin-right: 20px;
 }
 .etf-theme-card-header {
     display: flex;
