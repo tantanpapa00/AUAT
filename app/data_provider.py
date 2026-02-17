@@ -832,6 +832,18 @@ async def get_etf_overview():
             "down_vol": down_vol,
         })
 
+    # 순자산증감 — 자산유형별 시총 합계
+    asset_change = []
+    for cat_name, cond in asset_categories.items():
+        cat_etfs = [e for e in all_etfs if cond(e)]
+        up_sum = sum(e.get("market_sum", 0) for e in cat_etfs if e.get("change_pct", 0) > 0)
+        down_sum = sum(e.get("market_sum", 0) for e in cat_etfs if e.get("change_pct", 0) < 0)
+        net = up_sum - down_sum
+        asset_change.append({
+            "category": cat_name,
+            "net": net,
+        })
+
     result = {
         "total_count": len(all_etfs),
         "total_up": total_up,
@@ -851,6 +863,7 @@ async def get_etf_overview():
         "top3_volume": top3_volume,
         "major_etfs": major_etfs,
         "fund_flow": fund_flow,
+        "asset_change": asset_change,
         "success": True,
     }
     _set_cache("etf_overview", result)
