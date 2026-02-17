@@ -521,23 +521,34 @@ async def get_etf_overview():
     if cached:
         return cached
 
-    # === 테마 분류를 위한 키워드 매핑 ===
+    # === 테마 분류를 위한 키워드 매핑 (26개 테마) ===
     THEME_KEYWORDS = {
-        "반도체": ["반도체", "필라델피아", "SOX", "semiconductor"],
-        "AI·로봇": ["AI", "인공지능", "로봇", "자율주행", "드론", "UAM"],
-        "2차전지": ["2차전지", "배터리", "리튬", "에코프로", "전기차"],
-        "바이오": ["바이오", "헬스케어", "제약", "게놈", "의료"],
-        "금융": ["금융", "은행", "증권", "보험", "고배당"],
-        "에너지": ["에너지", "원유", "천연가스", "신재생", "태양광", "원자력", "우라늄"],
-        "배당": ["배당", "커버드콜", "월배당", "인컴"],
-        "미국지수": ["S&P", "나스닥", "미국", "다우", "필라델피아"],
-        "중국·신흥": ["중국", "차이나", "CSI", "인도", "베트남", "신흥"],
-        "채권": ["채권", "국채", "회사채", "단기", "CD금리", "머니마켓"],
-        "금·원자재": ["금", "골드", "은", "원자재", "구리", "팔라듐"],
-        "인버스·레버리지": ["인버스", "레버리지", "곱버스", "2X", "3X", "숏"],
-        "우주항공": ["우주", "항공", "방산", "K방산"],
-        "게임·엔터": ["게임", "엔터", "미디어", "콘텐츠"],
-        "리츠·부동산": ["리츠", "부동산", "REITs"],
+        "반도체": ["반도체", "SOX", "필라델피아반도체", "semiconductor", "HBM"],
+        "AI": ["AI", "인공지능", "ChatGPT", "빅데이터", "클라우드"],
+        "로봇": ["로봇", "자율주행", "드론", "UAM", "로보틱스"],
+        "2차전지": ["2차전지", "배터리", "리튬", "에코프로", "전기차", "EV"],
+        "바이오": ["바이오", "헬스케어", "제약", "게놈", "의료기기", "신약"],
+        "금융": ["금융", "은행", "증권", "보험", "금융지주"],
+        "에너지": ["에너지", "원유", "천연가스", "신재생", "태양광", "풍력"],
+        "원자력": ["원자력", "우라늄", "원전", "SMR"],
+        "우주항공": ["우주", "항공", "방산", "K방산", "국방"],
+        "배당": ["배당", "고배당", "월배당", "커버드콜", "인컴", "KOFR"],
+        "미국지수": ["S&P", "나스닥", "미국", "다우", "Russell"],
+        "중국": ["중국", "차이나", "CSI", "항셍", "HSCEI"],
+        "인도·신흥": ["인도", "베트남", "신흥", "이머징", "브라질"],
+        "금·원자재": ["금", "골드", "은", "원자재", "구리", "팔라듐", "백금"],
+        "채권": ["채권", "국채", "회사채", "단기채", "장기채", "CD금리", "통안채"],
+        "리츠": ["리츠", "부동산", "REITs", "오피스"],
+        "인버스": ["인버스", "곱버스", "숏", "베어"],
+        "레버리지": ["레버리지", "2X", "3X", "불"],
+        "게임·미디어": ["게임", "엔터", "미디어", "콘텐츠", "K-POP"],
+        "자동차": ["자동차", "모빌리티", "현대차"],
+        "건설·인프라": ["건설", "인프라", "SOC"],
+        "철강·소재": ["철강", "소재", "화학", "정유"],
+        "식품": ["식품", "음식", "농산물"],
+        "우선주": ["우선주", "프리미엄"],
+        "명품": ["명품", "럭셔리", "글로벌브랜드"],
+        "AI전력": ["AI전력", "전력인프라", "데이터센터", "전력설비"],
     }
 
     def classify_theme(name):
@@ -547,6 +558,22 @@ async def get_etf_overview():
                 if kw in name:
                     return theme
         return "기타"
+
+    def classify_asset_type(name, etf_type):
+        """ETF를 주식/채권/원자재/기타로 분류"""
+        if etf_type == 6:  # 채권
+            return "채권"
+        if etf_type == 5:  # 원자재
+            return "원자재"
+        bond_keywords = ["채권", "국채", "회사채", "CD금리", "단기", "머니마켓", "KOFR", "통안", "금리"]
+        commodity_keywords = ["금", "골드", "은", "원유", "천연가스", "원자재", "구리", "팔라듐", "농산물"]
+        for kw in bond_keywords:
+            if kw in name:
+                return "채권"
+        for kw in commodity_keywords:
+            if kw in name:
+                return "원자재"
+        return "주식"
 
     all_etfs = []
 
@@ -582,6 +609,7 @@ async def get_etf_overview():
                             nav = int(item.get("nav", 0) or 0)
 
                             theme = classify_theme(name)
+                            asset_type = classify_asset_type(name, etf_type)
 
                             all_etfs.append({
                                 "code": code,
@@ -593,6 +621,7 @@ async def get_etf_overview():
                                 "market_sum": market_sum,
                                 "nav": nav,
                                 "theme": theme,
+                                "asset_type": asset_type,
                                 "etf_type": etf_type,
                             })
                 except Exception as e:
@@ -632,6 +661,7 @@ async def get_etf_overview():
                                 "market_sum": 0,
                                 "nav": 0,
                                 "theme": classify_theme(name),
+                                "asset_type": classify_asset_type(name, 0),
                                 "etf_type": 0,
                             })
                     except Exception as e:
@@ -709,6 +739,45 @@ async def get_etf_overview():
     total_up = sum(1 for e in all_etfs if e["change_pct"] > 0)
     total_down = sum(1 for e in all_etfs if e["change_pct"] < 0)
 
+    # === 자산유형별 분류 ===
+    by_asset = {"전체": all_etfs, "주식": [], "채권": [], "원자재": []}
+    for e in all_etfs:
+        at = e.get("asset_type", "주식")
+        if at in by_asset:
+            by_asset[at].append(e)
+
+    # 자산유형별 분포
+    dist_by_asset = {}
+    for asset_name, asset_etfs in by_asset.items():
+        bins_arr = [0] * 9  # -10, -5~-10, -3~-5, -1~-3, -1~0, 0~1, 1~3, 3~5, 5~10
+        for e in asset_etfs:
+            pct = e["change_pct"]
+            if pct <= -10: bins_arr[0] += 1
+            elif pct <= -5: bins_arr[1] += 1
+            elif pct <= -3: bins_arr[2] += 1
+            elif pct <= -1: bins_arr[3] += 1
+            elif pct < 0: bins_arr[4] += 1
+            elif pct == 0: bins_arr[4] += 1
+            elif pct < 1: bins_arr[5] += 1
+            elif pct < 3: bins_arr[6] += 1
+            elif pct < 5: bins_arr[7] += 1
+            else: bins_arr[8] += 1
+        dist_by_asset[asset_name] = bins_arr
+
+    # 자산유형별 TOP
+    top_return_by_asset = {}
+    bottom_return_by_asset = {}
+    top_volume_by_asset = {}
+    top_market_by_asset = {}
+    for asset_name, asset_etfs in by_asset.items():
+        top_return_by_asset[asset_name] = sorted(asset_etfs, key=lambda x: x["change_pct"], reverse=True)[:10]
+        bottom_return_by_asset[asset_name] = sorted(asset_etfs, key=lambda x: x["change_pct"])[:10]
+        top_volume_by_asset[asset_name] = sorted(asset_etfs, key=lambda x: x["volume"], reverse=True)[:10]
+        top_market_by_asset[asset_name] = sorted(asset_etfs, key=lambda x: x["market_sum"], reverse=True)[:10]
+
+    # 거래량 TOP3 (상승하락 섹션의 TOP3거래량 탭용)
+    top3_volume = sorted(all_etfs, key=lambda x: x["volume"], reverse=True)[:3]
+
     result = {
         "total_count": len(all_etfs),
         "total_up": total_up,
@@ -716,10 +785,16 @@ async def get_etf_overview():
         "themes_up": themes_up,
         "themes_down": themes_down,
         "distribution": distribution,
+        "dist_by_asset": dist_by_asset,
         "top_by_return": top_by_return,
         "bottom_by_return": bottom_by_return,
         "top_by_volume": top_by_volume,
         "top_by_market": top_by_market,
+        "top_return_by_asset": top_return_by_asset,
+        "bottom_return_by_asset": bottom_return_by_asset,
+        "top_volume_by_asset": top_volume_by_asset,
+        "top_market_by_asset": top_market_by_asset,
+        "top3_volume": top3_volume,
         "major_etfs": major_etfs,
         "success": True,
     }

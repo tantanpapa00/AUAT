@@ -6853,9 +6853,10 @@ function renderEtfDashboard(data, container) {
     const totalUp = data.total_up || 0;
     const totalDown = data.total_down || 0;
     const totalCount = data.total_count || 0;
+    const unchanged = totalCount - totalUp - totalDown;
 
     container.innerHTML = `
-        <!-- ETF 시장 개요 헤더 -->
+        <!-- 시장 개요 -->
         <div class="etf-overview-header card">
             <div class="etf-overview-row">
                 <div class="etf-stat">
@@ -6872,16 +6873,16 @@ function renderEtfDashboard(data, container) {
                 </div>
                 <div class="etf-stat">
                     <span class="etf-stat-label">보합</span>
-                    <span class="etf-stat-value" style="color:#6b7280">${totalCount - totalUp - totalDown}</span>
+                    <span class="etf-stat-value" style="color:#6b7280">${unchanged}</span>
                 </div>
             </div>
         </div>
 
         <!-- 1. HOT 테마 -->
-        <div class="card" id="etf-hot-theme-section">
+        <div class="card" id="etf-hot-section">
             <div class="etf-section-header">
                 <h3>HOT 테마</h3>
-                <div class="etf-toggle-btns">
+                <div class="etf-toggle-btns" id="etf-theme-toggle">
                     <button class="etf-toggle-btn active" data-mode="up">상승</button>
                     <button class="etf-toggle-btn" data-mode="down">하락</button>
                 </div>
@@ -6889,84 +6890,93 @@ function renderEtfDashboard(data, container) {
             <div class="etf-theme-scroll" id="etf-theme-cards"></div>
         </div>
 
-        <!-- 2. 상승하락 분포 -->
+        <!-- 2. 상승하락 (ETFCheck: 상승하락 | TOP3거래량 | 순자금유입 | 순자산증감) -->
         <div class="card">
-            <h3>상승하락 분포</h3>
-            <div class="etf-distribution" id="etf-distribution"></div>
-            <div class="etf-dist-summary">
-                <span style="color:#ef4444">하락 ${totalDown}</span>
-                <span style="color:#6b7280">${totalCount - totalUp - totalDown}</span>
-                <span style="color:#22c55e">${totalUp} 상승</span>
+            <div class="etf-main-tabs" id="etf-dist-main-tabs">
+                <button class="etf-main-tab active" data-tab="dist">상승하락</button>
+                <button class="etf-main-tab" data-tab="top3vol">TOP3거래량</button>
+                <button class="etf-main-tab" data-tab="fund-flow">순자금유입</button>
+                <button class="etf-main-tab" data-tab="asset-change">순자산증감</button>
             </div>
+            <div class="etf-sub-tabs" id="etf-dist-sub-tabs">
+                <button class="etf-sub-tab active" data-asset="전체">전체</button>
+                <button class="etf-sub-tab" data-asset="주식">주식</button>
+                <button class="etf-sub-tab" data-asset="채권">채권</button>
+                <button class="etf-sub-tab" data-asset="원자재">원자재</button>
+            </div>
+            <div id="etf-dist-content"></div>
         </div>
 
-        <!-- 3. 랭킹 TOP 10 -->
+        <!-- 3. 랭킹 TOP 10 (ETFCheck: 수익률 | 거래량 | 자금유입 | 순자산총액 | 투자자) -->
         <div class="card">
-            <div class="etf-section-header">
-                <h3>랭킹 TOP 10</h3>
+            <h3>랭킹 TOP 10</h3>
+            <div class="etf-main-tabs" id="etf-rank-main-tabs">
+                <button class="etf-main-tab active" data-tab="return">수익률</button>
+                <button class="etf-main-tab" data-tab="volume">거래량</button>
+                <button class="etf-main-tab" data-tab="fund">자금유입</button>
+                <button class="etf-main-tab" data-tab="asset-total">순자산총액</button>
+                <button class="etf-main-tab" data-tab="investor">투자자</button>
             </div>
-            <div class="etf-rank-tabs">
-                <button class="etf-rank-tab active" data-rank="return">수익률</button>
-                <button class="etf-rank-tab" data-rank="volume">거래량</button>
-                <button class="etf-rank-tab" data-rank="market">순자산</button>
+            <div class="etf-sub-tabs" id="etf-rank-sub-tabs">
+                <button class="etf-sub-tab active" data-asset="전체">전체</button>
+                <button class="etf-sub-tab" data-asset="주식">주식</button>
+                <button class="etf-sub-tab" data-asset="채권">채권</button>
+                <button class="etf-sub-tab" data-asset="원자재">원자재</button>
             </div>
-            <div class="etf-toggle-btns" id="etf-rank-toggle">
+            <div class="etf-toggle-btns" id="etf-rank-toggle" style="margin:8px 0">
                 <button class="etf-toggle-btn active" data-mode="up">상승</button>
                 <button class="etf-toggle-btn" data-mode="down">하락</button>
             </div>
-            <table class="data-table">
-                <thead>
-                    <tr><th>#</th><th>ETF명</th><th>현재가</th><th>등락률</th></tr>
-                </thead>
-                <tbody id="etf-rank-tbody"></tbody>
-            </table>
+            <div id="etf-rank-list"></div>
         </div>
 
-        <!-- 4. 주요 종목현황 -->
+        <!-- 4. 주요 종목현황 (ETFCheck: 전체|주식|채권|원자재 + 현재가|시세|거래량|자금유입) -->
         <div class="card">
             <h3>주요 종목현황</h3>
-            <table class="data-table">
-                <thead>
-                    <tr><th>종목</th><th>현재가</th><th>등락률</th><th>거래량</th></tr>
-                </thead>
-                <tbody id="etf-major-tbody"></tbody>
-            </table>
+            <div class="etf-sub-tabs" id="etf-major-asset-tabs">
+                <button class="etf-sub-tab active" data-asset="전체">전체</button>
+                <button class="etf-sub-tab" data-asset="주식">주식</button>
+                <button class="etf-sub-tab" data-asset="채권">채권</button>
+                <button class="etf-sub-tab" data-asset="원자재">원자재</button>
+            </div>
+            <div class="etf-main-tabs" id="etf-major-sort-tabs" style="margin-top:8px">
+                <button class="etf-main-tab active" data-sort="price">현재가</button>
+                <button class="etf-main-tab" data-sort="change">시세</button>
+                <button class="etf-main-tab" data-sort="volume">거래량</button>
+            </div>
+            <div id="etf-major-list"></div>
         </div>
     `;
 
-    // === HOT 테마 카드 렌더링 ===
-    const themeCardsEl = document.getElementById('etf-theme-cards');
-    let currentThemeMode = 'up';
-
+    // ========== 1. HOT 테마 ==========
     function renderThemeCards(mode) {
+        const el = document.getElementById('etf-theme-cards');
         const themes = mode === 'up' ? (data.themes_up || []) : (data.themes_down || []);
-        if (!themes.length) {
-            themeCardsEl.innerHTML = '<div class="empty-cell">테마 데이터 없음</div>';
-            return;
-        }
-        themeCardsEl.innerHTML = themes.map((t, i) => {
+        if (!el) return;
+        if (!themes.length) { el.innerHTML = '<div class="empty-cell">테마 데이터 없음</div>'; return; }
+
+        el.innerHTML = themes.slice(0, 15).map((t, i) => {
             const isUp = t.avg_change >= 0;
             const color = isUp ? '#22c55e' : '#ef4444';
-            const rankColors = ['#ef4444', '#f59e0b', '#22c55e', '#06b6d4', '#8b5cf6'];
-            const rankBg = rankColors[i % rankColors.length];
+            const rankColors = ['#ef4444', '#f59e0b', '#22c55e', '#06b6d4', '#8b5cf6', '#ec4899', '#f97316', '#14b8a6'];
             return `
                 <div class="etf-theme-card">
                     <div class="etf-theme-card-header">
                         <span class="etf-theme-name">${t.name}</span>
-                        <span class="etf-theme-rank" style="background:${rankBg}">${i + 1}</span>
+                        <span class="etf-theme-rank" style="background:${rankColors[i % rankColors.length]}">${i + 1}</span>
                     </div>
                     <div class="etf-theme-change" style="color:${color}">${isUp ? '+' : ''}${t.avg_change.toFixed(2)}%</div>
                     <div class="etf-theme-top">
                         <span class="etf-theme-top-name">${t.top_etf_name || '-'}</span>
-                        <span class="etf-theme-top-change" style="color:${color}">${t.top_etf_change >= 0 ? '+' : ''}${(t.top_etf_change || 0).toFixed(2)}%</span>
+                        <span style="color:${color}">${(t.top_etf_change || 0) >= 0 ? '+' : ''}${(t.top_etf_change || 0).toFixed(2)}%</span>
                     </div>
                     <div class="etf-theme-bar">
-                        <div class="etf-theme-bar-fill" style="width:${t.count > 0 ? (t.down / t.count * 100) : 50}%;background:#ef4444"></div>
-                        <div class="etf-theme-bar-fill" style="width:${t.count > 0 ? (t.up / t.count * 100) : 50}%;background:#22c55e"></div>
+                        <div style="flex:${t.down || 1};background:#ef4444;height:100%"></div>
+                        <div style="flex:${t.up || 1};background:#22c55e;height:100%"></div>
                     </div>
                     <div class="etf-theme-counts">
-                        <span style="color:#ef4444">하락 ${t.down}</span>
-                        <span style="color:#22c55e">${t.up} 상승</span>
+                        <span style="color:#ef4444">하락/${t.down || 0}</span>
+                        <span style="color:#22c55e">${t.up || 0}/상승</span>
                     </div>
                 </div>
             `;
@@ -6974,108 +6984,219 @@ function renderEtfDashboard(data, container) {
     }
     renderThemeCards('up');
 
-    // 상승/하락 토글
-    document.querySelectorAll('#etf-hot-theme-section .etf-toggle-btn').forEach(btn => {
+    document.querySelectorAll('#etf-theme-toggle .etf-toggle-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            document.querySelectorAll('#etf-hot-theme-section .etf-toggle-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('#etf-theme-toggle .etf-toggle-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            currentThemeMode = btn.dataset.mode;
-            renderThemeCards(currentThemeMode);
+            renderThemeCards(btn.dataset.mode);
         });
     });
 
-    // === 상승하락 분포 히스토그램 ===
-    const distEl = document.getElementById('etf-distribution');
-    const dist = data.distribution || [];
-    const maxCount = Math.max(...dist.map(d => d.count), 1);
+    // ========== 2. 상승하락 분포 ==========
+    let distMainTab = 'dist';
+    let distAsset = '전체';
 
-    distEl.innerHTML = dist.map(d => {
-        const heightPct = Math.max((d.count / maxCount) * 100, 2);
-        let barColor = '#6b7280';
-        if (d.type === 'up') barColor = '#22c55e';
-        else if (d.type === 'down') barColor = '#3b82f6';
-        return `
-            <div class="etf-dist-bar-wrap">
-                <span class="etf-dist-count">${d.count}</span>
-                <div class="etf-dist-bar" style="height:${heightPct}%;background:${barColor}"></div>
-                <span class="etf-dist-label">${d.label}</span>
-            </div>
-        `;
-    }).join('');
+    function renderDistribution() {
+        const contentEl = document.getElementById('etf-dist-content');
+        if (!contentEl) return;
 
-    // === 랭킹 TOP 10 ===
-    let currentRank = 'return';
-    let currentRankMode = 'up';
+        if (distMainTab === 'dist') {
+            // 히스토그램
+            const bins = (data.dist_by_asset || {})[distAsset] || [0,0,0,0,0,0,0,0,0];
+            const labels = ['-10%~', '-10~-5%', '-5~-3%', '-3~-1%', '-1~0%', '0~1%', '1~3%', '3~5%', '5~10%'];
+            const maxVal = Math.max(...bins, 1);
+            const totalInAsset = bins.reduce((a, b) => a + b, 0);
+            const upCount = bins[5] + bins[6] + bins[7] + bins[8];
+            const downCount = bins[0] + bins[1] + bins[2] + bins[3];
+            const unchCount = bins[4];
 
-    function renderRankTable() {
-        const tbody = document.getElementById('etf-rank-tbody');
+            contentEl.innerHTML = `
+                <div class="etf-total-label">전체 종목수 : <strong>${totalInAsset}</strong></div>
+                <div class="etf-distribution">
+                    ${bins.map((count, i) => {
+                        const hPct = Math.max((count / maxVal) * 100, 3);
+                        let color = '#6b7280';
+                        if (i <= 3) color = '#3b82f6';
+                        else if (i === 4) color = count > 0 ? '#fbbf24' : '#6b7280';
+                        else color = i <= 6 ? '#f87171' : '#22c55e';
+                        return `
+                            <div class="etf-dist-bar-wrap">
+                                <span class="etf-dist-count" style="color:${color}">${count}</span>
+                                <div class="etf-dist-bar" style="height:${hPct}%;background:${color}"></div>
+                                <span class="etf-dist-label">${labels[i]}</span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                <div class="etf-dist-ratio-bar">
+                    <div style="flex:${downCount || 1};background:#3b82f6;height:100%;border-radius:3px 0 0 3px"></div>
+                    <div style="flex:${unchCount || 1};background:#fbbf24;height:100%"></div>
+                    <div style="flex:${upCount || 1};background:#ef4444;height:100%;border-radius:0 3px 3px 0"></div>
+                </div>
+                <div class="etf-dist-summary">
+                    <span style="color:#3b82f6">하락종목 / ${downCount}</span>
+                    <span style="color:#fbbf24">${unchCount}</span>
+                    <span style="color:#ef4444">${upCount} / 상승종목</span>
+                </div>
+            `;
+        } else if (distMainTab === 'top3vol') {
+            const top3 = data.top3_volume || [];
+            contentEl.innerHTML = `
+                <div class="etf-top3-list">
+                    ${top3.map((e, i) => `
+                        <div class="etf-top3-item">
+                            <span class="etf-top3-rank">${i + 1}</span>
+                            <div class="etf-top3-info">
+                                <strong>${e.name}</strong>
+                                <span style="color:#6b7280">${(e.price || 0).toLocaleString()}원</span>
+                            </div>
+                            <div class="etf-top3-vol">
+                                <span class="${(e.change_pct || 0) >= 0 ? 'profit' : 'loss'}">${(e.change_pct || 0) >= 0 ? '+' : ''}${(e.change_pct || 0).toFixed(2)}%</span>
+                                <span style="color:#6b7280;font-size:0.8em">${(e.volume || 0).toLocaleString()}</span>
+                            </div>
+                        </div>
+                    `).join('') || '<div class="empty-cell">데이터 없음</div>'}
+                </div>
+            `;
+        } else {
+            contentEl.innerHTML = '<div class="empty-cell" style="padding:40px 0">자금유입/순자산증감 데이터는 준비 중입니다</div>';
+        }
+    }
+    renderDistribution();
+
+    document.querySelectorAll('#etf-dist-main-tabs .etf-main-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('#etf-dist-main-tabs .etf-main-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            distMainTab = tab.dataset.tab;
+            renderDistribution();
+        });
+    });
+    document.querySelectorAll('#etf-dist-sub-tabs .etf-sub-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('#etf-dist-sub-tabs .etf-sub-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            distAsset = tab.dataset.asset;
+            renderDistribution();
+        });
+    });
+
+    // ========== 3. 랭킹 TOP 10 ==========
+    let rankMainTab = 'return';
+    let rankAsset = '전체';
+    let rankMode = 'up';
+
+    function renderRankList() {
+        const el = document.getElementById('etf-rank-list');
         const toggleEl = document.getElementById('etf-rank-toggle');
-        if (!tbody) return;
+        if (!el) return;
+
+        // 상승/하락 토글은 수익률 탭에서만
+        if (toggleEl) toggleEl.style.display = rankMainTab === 'return' ? 'flex' : 'none';
 
         let items = [];
-        if (currentRank === 'return') {
-            items = currentRankMode === 'up' ? (data.top_by_return || []) : (data.bottom_by_return || []);
-            if (toggleEl) toggleEl.style.display = 'flex';
-        } else if (currentRank === 'volume') {
-            items = data.top_by_volume || [];
-            if (toggleEl) toggleEl.style.display = 'none';
-        } else if (currentRank === 'market') {
-            items = data.top_by_market || [];
-            if (toggleEl) toggleEl.style.display = 'none';
+        if (rankMainTab === 'return') {
+            const src = rankMode === 'up' ? (data.top_return_by_asset || {}) : (data.bottom_return_by_asset || {});
+            items = src[rankAsset] || [];
+        } else if (rankMainTab === 'volume') {
+            items = (data.top_volume_by_asset || {})[rankAsset] || [];
+        } else if (rankMainTab === 'asset-total') {
+            items = (data.top_market_by_asset || {})[rankAsset] || [];
+        } else {
+            el.innerHTML = '<div class="empty-cell" style="padding:30px 0">자금유입/투자자 데이터는 준비 중입니다</div>';
+            return;
         }
 
-        tbody.innerHTML = items.slice(0, 10).map((e, i) => {
+        el.innerHTML = items.slice(0, 10).map((e, i) => {
             const isUp = (e.change_pct || 0) >= 0;
             const cls = isUp ? 'profit' : 'loss';
             return `
-                <tr>
-                    <td><strong>${i + 1}</strong></td>
-                    <td>${e.name || '-'}</td>
-                    <td>${(e.price || 0).toLocaleString()}</td>
-                    <td class="${cls}">${isUp ? '+' : ''}${(e.change_pct || 0).toFixed(2)}%</td>
-                </tr>
+                <div class="etf-rank-item">
+                    <span class="etf-rank-num">${i + 1}</span>
+                    <div class="etf-rank-info">
+                        <strong>${e.name || '-'}</strong>
+                        <span style="color:#6b7280;font-size:0.82em">현재가 ${(e.price || 0).toLocaleString()}</span>
+                    </div>
+                    <div class="etf-rank-change">
+                        <span class="${cls}" style="font-weight:700">${isUp ? '+' : ''}${(e.change_pct || 0).toFixed(2)}%</span>
+                    </div>
+                </div>
             `;
-        }).join('') || '<tr><td colspan="4" class="empty-cell">데이터 없음</td></tr>';
+        }).join('') || '<div class="empty-cell">데이터 없음</div>';
     }
-    renderRankTable();
+    renderRankList();
 
-    // 랭킹 탭 전환
-    document.querySelectorAll('.etf-rank-tab').forEach(tab => {
+    document.querySelectorAll('#etf-rank-main-tabs .etf-main-tab').forEach(tab => {
         tab.addEventListener('click', () => {
-            document.querySelectorAll('.etf-rank-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('#etf-rank-main-tabs .etf-main-tab').forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
-            currentRank = tab.dataset.rank;
-            renderRankTable();
+            rankMainTab = tab.dataset.tab;
+            renderRankList();
         });
     });
-
-    // 랭킹 상승/하락 토글
+    document.querySelectorAll('#etf-rank-sub-tabs .etf-sub-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('#etf-rank-sub-tabs .etf-sub-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            rankAsset = tab.dataset.asset;
+            renderRankList();
+        });
+    });
     document.querySelectorAll('#etf-rank-toggle .etf-toggle-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('#etf-rank-toggle .etf-toggle-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            currentRankMode = btn.dataset.mode;
-            renderRankTable();
+            rankMode = btn.dataset.mode;
+            renderRankList();
         });
     });
 
-    // === 주요 종목현황 ===
-    const majorTbody = document.getElementById('etf-major-tbody');
-    const majorEtfs = data.major_etfs || [];
-    if (majorTbody) {
-        majorTbody.innerHTML = majorEtfs.map(e => {
+    // ========== 4. 주요 종목현황 ==========
+    let majorAsset = '전체';
+    let majorSort = 'price';
+
+    function renderMajorList() {
+        const el = document.getElementById('etf-major-list');
+        if (!el) return;
+
+        let items = data.major_etfs || [];
+
+        if (majorSort === 'volume') {
+            items = [...items].sort((a, b) => (b.volume || 0) - (a.volume || 0));
+        } else if (majorSort === 'change') {
+            items = [...items].sort((a, b) => Math.abs(b.change_pct || 0) - Math.abs(a.change_pct || 0));
+        }
+
+        el.innerHTML = items.map(e => {
             const isUp = (e.change_pct || 0) >= 0;
             const cls = isUp ? 'profit' : 'loss';
             return `
-                <tr>
-                    <td><strong>${e.name || '-'}</strong></td>
-                    <td>${(e.price || 0).toLocaleString()}</td>
-                    <td class="${cls}">${isUp ? '+' : ''}${(e.change_pct || 0).toFixed(2)}%</td>
-                    <td>${(e.volume || 0).toLocaleString()}</td>
-                </tr>
+                <div class="etf-major-item">
+                    <div class="etf-major-name"><strong>${e.name || '-'}</strong></div>
+                    <div class="etf-major-price">${(e.price || 0).toLocaleString()}</div>
+                    <div class="etf-major-change ${cls}">${isUp ? '+' : ''}${(e.change_pct || 0).toFixed(2)}%</div>
+                </div>
             `;
-        }).join('') || '<tr><td colspan="4" class="empty-cell">데이터 없음</td></tr>';
+        }).join('') || '<div class="empty-cell">데이터 없음</div>';
     }
+    renderMajorList();
+
+    document.querySelectorAll('#etf-major-asset-tabs .etf-sub-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('#etf-major-asset-tabs .etf-sub-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            majorAsset = tab.dataset.asset;
+            renderMajorList();
+        });
+    });
+    document.querySelectorAll('#etf-major-sort-tabs .etf-main-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('#etf-major-sort-tabs .etf-main-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            majorSort = tab.dataset.sort;
+            renderMajorList();
+        });
+    });
 }
 
 // 코인시장 로드

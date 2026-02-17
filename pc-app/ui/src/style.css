@@ -9735,3 +9735,147 @@ body {
 #etf-rank-toggle {
     margin-bottom: 8px;
 }
+
+/* 메인 탭 (상승하락 | TOP3거래량 | 순자금유입 | 순자산증감) */
+.etf-main-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+.etf-main-tab {
+    padding: 6px 14px;
+    border: none;
+    background: rgba(255,255,255,0.05);
+    color: #9ca3af;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.82em;
+    white-space: nowrap;
+}
+.etf-main-tab.active {
+    background: rgba(99,102,241,0.2);
+    color: #818cf8;
+    font-weight: 600;
+}
+
+/* 서브 탭 (전체 | 주식 | 채권 | 원자재) */
+.etf-sub-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+.etf-sub-tab {
+    padding: 4px 12px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: transparent;
+    color: #6b7280;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.78em;
+}
+.etf-sub-tab.active {
+    background: rgba(255,255,255,0.08);
+    color: #e5e7eb;
+    border-color: rgba(255,255,255,0.2);
+}
+
+/* 전체 종목수 라벨 */
+.etf-total-label {
+    font-size: 0.82em;
+    color: #9ca3af;
+    margin-bottom: 8px;
+}
+
+/* 비율 바 */
+.etf-dist-ratio-bar {
+    display: flex;
+    height: 6px;
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 8px 0 4px;
+}
+
+/* TOP3 거래량 */
+.etf-top3-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.etf-top3-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 6px;
+}
+.etf-top3-rank {
+    font-size: 1.2em;
+    font-weight: 800;
+    color: #818cf8;
+    min-width: 24px;
+}
+.etf-top3-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.etf-top3-vol {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+}
+
+/* 랭킹 리스트 (ETFCheck 스타일) */
+.etf-rank-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.etf-rank-item:last-child {
+    border-bottom: none;
+}
+.etf-rank-num {
+    font-size: 1em;
+    font-weight: 700;
+    color: #6b7280;
+    min-width: 24px;
+}
+.etf-rank-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.etf-rank-change {
+    text-align: right;
+}
+
+/* 주요 종목현황 리스트 */
+.etf-major-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.etf-major-item:last-child {
+    border-bottom: none;
+}
+.etf-major-name {
+    flex: 1;
+}
+.etf-major-price {
+    min-width: 80px;
+    text-align: right;
+    margin-right: 12px;
+}
+.etf-major-change {
+    min-width: 60px;
+    text-align: right;
+    font-weight: 600;
+}
