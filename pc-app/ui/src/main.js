@@ -7067,62 +7067,20 @@ function renderEtfDashboard(data, container) {
                 </div>
             `;
         } else if (distMainTab === 'fund-flow') {
-            const flows = data.fund_flow || [];
-            const maxAbs = Math.max(...flows.map(f => Math.max(Math.abs(f.net), 1)), 1);
-
             contentEl.innerHTML = `
-                <div style="font-size:0.75em;color:#6b7280;margin-bottom:4px">* 거래량 기반 추정치입니다 (상승종목 거래량 - 하락종목 거래량)</div>
-                <div style="display:flex;justify-content:space-between;margin-bottom:12px;font-size:0.82em;color:#6b7280">
-                    <span>◀ 순유출</span>
-                    <span>순유입 ▶</span>
+                <div style="text-align:center;padding:50px 0;color:#6b7280">
+                    <div style="font-size:2em;margin-bottom:12px">📊</div>
+                    <div style="font-size:0.95em;margin-bottom:6px">순자금유입 데이터 준비 중</div>
+                    <div style="font-size:0.8em;color:#4b5563">ETF 설정/환매 데이터 연동 후 제공 예정</div>
                 </div>
-                ${flows.map(f => {
-                    const isPositive = f.net >= 0;
-                    const barPct = Math.abs(f.net) / maxAbs * 45;
-                    const color = isPositive ? '#ef4444' : '#3b82f6';
-                    const netStr = isPositive ? '+' + f.net.toLocaleString() : f.net.toLocaleString();
-                    return `
-                        <div style="display:flex;align-items:center;margin-bottom:8px;height:32px">
-                            <div style="flex:1;display:flex;justify-content:flex-end">
-                                ${!isPositive ? `<div style="width:${barPct}%;background:${color};height:20px;border-radius:3px 0 0 3px;min-width:2px"></div>` : ''}
-                            </div>
-                            <div style="width:80px;text-align:center;font-size:0.82em;font-weight:600">${f.category}</div>
-                            <div style="flex:1;display:flex;justify-content:flex-start">
-                                ${isPositive ? `<div style="width:${barPct}%;background:${color};height:20px;border-radius:0 3px 3px 0;min-width:2px"></div>` : ''}
-                            </div>
-                            <span style="min-width:90px;text-align:right;font-size:0.82em;color:${color};font-weight:600">${netStr}</span>
-                        </div>
-                    `;
-                }).join('') || '<div class="empty-cell">데이터 없음</div>'}
             `;
         } else if (distMainTab === 'asset-change') {
-            const flows = data.asset_change || [];
-            const maxAbs = Math.max(...flows.map(f => Math.abs(f.net)), 1);
-
             contentEl.innerHTML = `
-                <div style="font-size:0.75em;color:#6b7280;margin-bottom:4px">* 시가총액 기반 추정치입니다 (상승종목 시총 - 하락종목 시총)</div>
-                <div style="display:flex;justify-content:space-between;margin-bottom:12px;font-size:0.82em;color:#6b7280">
-                    <span>◀ 순감소</span>
-                    <span>순증가 ▶</span>
+                <div style="text-align:center;padding:50px 0;color:#6b7280">
+                    <div style="font-size:2em;margin-bottom:12px">📈</div>
+                    <div style="font-size:0.95em;margin-bottom:6px">순자산증감 데이터 준비 중</div>
+                    <div style="font-size:0.8em;color:#4b5563">ETF 설정/환매 데이터 연동 후 제공 예정</div>
                 </div>
-                ${flows.map(f => {
-                    const isPositive = f.net >= 0;
-                    const barPct = Math.abs(f.net) / maxAbs * 45;
-                    const color = isPositive ? '#ef4444' : '#3b82f6';
-                    const netStr = isPositive ? '+' + f.net.toLocaleString() : f.net.toLocaleString();
-                    return `
-                        <div style="display:flex;align-items:center;margin-bottom:8px;height:32px">
-                            <div style="flex:1;display:flex;justify-content:flex-end">
-                                ${!isPositive ? `<div style="width:${barPct}%;background:${color};height:20px;border-radius:3px 0 0 3px;min-width:2px"></div>` : ''}
-                            </div>
-                            <div style="width:80px;text-align:center;font-size:0.82em;font-weight:600">${f.category}</div>
-                            <div style="flex:1;display:flex;justify-content:flex-start">
-                                ${isPositive ? `<div style="width:${barPct}%;background:${color};height:20px;border-radius:0 3px 3px 0;min-width:2px"></div>` : ''}
-                            </div>
-                            <span style="min-width:90px;text-align:right;font-size:0.82em;color:${color};font-weight:600">${netStr}</span>
-                        </div>
-                    `;
-                }).join('') || '<div class="empty-cell">데이터 없음</div>'}
             `;
         }
     }
