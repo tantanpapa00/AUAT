@@ -759,6 +759,28 @@ async def get_etf_overview():
                 major_etfs.append(e)
                 break
 
+    # 주요 ETF 미니차트용 분봉 데이터
+    try:
+        async with httpx.AsyncClient(timeout=10, headers=NAVER_HEADERS) as client:
+            for etf in major_etfs:
+                try:
+                    url = f"https://api.stock.naver.com/chart/domestic/item/{etf['code']}/minute?range=1"
+                    r = await client.get(url)
+                    if r.status_code == 200:
+                        minutes = r.json()
+                        prices = [m.get("currentPrice", 0) for m in minutes if m.get("currentPrice")]
+                        if len(prices) > 40:
+                            step = len(prices) // 40
+                            prices = prices[::step]
+                        etf["sparkline"] = prices
+                    else:
+                        etf["sparkline"] = []
+                except:
+                    etf["sparkline"] = []
+    except:
+        for etf in major_etfs:
+            etf["sparkline"] = []
+
     total_up = sum(1 for e in all_etfs if e["change_pct"] > 0)
     total_down = sum(1 for e in all_etfs if e["change_pct"] < 0)
 

@@ -9708,8 +9708,10 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
+    justify-content: flex-end;
+    gap: 4px;
     flex: 1;
+    height: 100%;
     min-width: 0;
     max-width: 40px;
 }
@@ -9868,6 +9870,27 @@ body {
 .etf-rank-change {
     text-align: right;
     min-width: 70px;
+    font-weight: 700;
+    font-size: 1.05em;
+}
+
+/* 더보기 버튼 */
+.etf-more-btn-wrap {
+    text-align: center;
+    padding: 12px 0;
+}
+.etf-more-btn {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #9ca3af;
+    padding: 8px 32px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85em;
+}
+.etf-more-btn:hover {
+    background: rgba(255,255,255,0.05);
+    color: #e5e7eb;
 }
 
 /* 주요 종목현황 리스트 (ETFCheck 스타일) */
@@ -9881,7 +9904,6 @@ body {
 }
 .etf-major-item {
     display: flex;
-    justify-content: space-between;
     align-items: center;
     padding: 14px 8px;
     border-bottom: 1px solid rgba(255,255,255,0.04);
@@ -9890,14 +9912,24 @@ body {
     border-bottom: none;
 }
 .etf-major-name {
-    flex: 1;
     font-weight: 600;
+    min-width: 180px;
+}
+.etf-major-chart {
+    flex: 1;
+    text-align: center;
+    padding: 4px 0;
+}
+.etf-major-chart svg {
+    display: block;
+    margin: 0 auto;
 }
 .etf-major-right {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
     gap: 2px;
+    min-width: 100px;
 }
 .etf-major-price {
     font-weight: 600;

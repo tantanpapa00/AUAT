@@ -7015,7 +7015,7 @@ function renderEtfDashboard(data, container) {
                 <div class="etf-total-label">전체 종목수 : <strong>${totalInAsset}</strong></div>
                 <div class="etf-distribution">
                     ${bins.map((count, i) => {
-                        const hPct = Math.max((count / maxVal) * 100, 3);
+                        const heightPx = Math.max(Math.round((count / maxVal) * 200), 4);
                         let color = '#6b7280';
                         if (i <= 4) color = '#3b82f6';
                         else if (i === 5) color = '#9ca3af';
@@ -7023,7 +7023,7 @@ function renderEtfDashboard(data, container) {
                         return `
                             <div class="etf-dist-bar-wrap">
                                 <span class="etf-dist-count" style="color:${color}">${count}</span>
-                                <div class="etf-dist-bar" style="height:${hPct}%;background:${color}"></div>
+                                <div class="etf-dist-bar" style="height:${heightPx}px;background:${color}"></div>
                                 <span class="etf-dist-label">${labels[i]}</span>
                             </div>
                         `;
@@ -7114,6 +7114,25 @@ function renderEtfDashboard(data, container) {
     let rankAsset = '전체';
     let rankMode = 'up';
 
+    function rankItemHtml(e, i) {
+        const isUp = (e.change_pct || 0) >= 0;
+        const cls = isUp ? 'profit' : 'loss';
+        const navStr = e.nav ? e.nav.toLocaleString() : '';
+        return `
+            <div class="etf-rank-item">
+                <span class="etf-rank-num">${i + 1}</span>
+                <div class="etf-rank-info">
+                    <strong>${e.name || '-'}</strong>
+                    <span style="color:#6b7280;font-size:0.82em">현재가 ${(e.price || 0).toLocaleString()}</span>
+                </div>
+                ${navStr ? `<div style="color:#6b7280;font-size:0.82em;min-width:90px;text-align:center">iNAV ${navStr}</div>` : ''}
+                <div class="etf-rank-change ${cls}">
+                    ${isUp ? '+' : ''}${(e.change_pct || 0).toFixed(2)}%
+                </div>
+            </div>
+        `;
+    }
+
     function renderRankList() {
         const el = document.getElementById('etf-rank-list');
         const toggleEl = document.getElementById('etf-rank-toggle');
@@ -7135,24 +7154,32 @@ function renderEtfDashboard(data, container) {
             return;
         }
 
-        el.innerHTML = items.slice(0, 10).map((e, i) => {
-            const isUp = (e.change_pct || 0) >= 0;
-            const cls = isUp ? 'profit' : 'loss';
-            const navStr = e.nav ? `iNAV ${e.nav.toLocaleString()}` : '';
-            return `
-                <div class="etf-rank-item">
-                    <span class="etf-rank-num">${i + 1}</span>
-                    <div class="etf-rank-info">
-                        <strong>${e.name || '-'}</strong>
-                        <span style="color:#6b7280;font-size:0.82em">현재가 ${(e.price || 0).toLocaleString()}</span>
-                    </div>
-                    <div class="etf-rank-nav">${navStr}</div>
-                    <div class="etf-rank-change">
-                        <span class="${cls}" style="font-weight:700;font-size:1.05em">${isUp ? '+' : ''}${(e.change_pct || 0).toFixed(2)}%</span>
-                    </div>
+        const first5 = items.slice(0, 5);
+        const rest5 = items.slice(5, 10);
+
+        el.innerHTML = first5.map((e, i) => rankItemHtml(e, i)).join('')
+            + (rest5.length > 0 ? `
+                <div id="etf-rank-more" style="display:none">
+                    ${rest5.map((e, i) => rankItemHtml(e, i + 5)).join('')}
                 </div>
-            `;
-        }).join('') || '<div class="empty-cell">데이터 없음</div>';
+                <div class="etf-more-btn-wrap">
+                    <button class="etf-more-btn" id="etf-rank-more-btn">더보기 ∨</button>
+                </div>
+            ` : '')
+            || '<div class="empty-cell">데이터 없음</div>';
+
+        // 더보기 버튼 이벤트
+        const moreBtn = document.getElementById('etf-rank-more-btn');
+        if (moreBtn) {
+            moreBtn.addEventListener('click', () => {
+                const moreEl = document.getElementById('etf-rank-more');
+                if (moreEl) {
+                    const isHidden = moreEl.style.display === 'none';
+                    moreEl.style.display = isHidden ? 'block' : 'none';
+                    moreBtn.textContent = isHidden ? '접기 ∧' : '더보기 ∨';
+                }
+            });
+        }
     }
     renderRankList();
 
@@ -7185,11 +7212,62 @@ function renderEtfDashboard(data, container) {
     let majorAsset = '전체';
     let majorSort = 'price';
 
+    function majorItemHtml(e) {
+        const isUp = (e.change_pct || 0) >= 0;
+        const cls = isUp ? 'profit' : 'loss';
+        const lineColor = isUp ? '#ef4444' : '#3b82f6';
+        const fillColor = isUp ? 'rgba(239,68,68,0.15)' : 'rgba(59,130,246,0.15)';
+
+        let chartHtml = '';
+        const prices = e.sparkline || [];
+        if (prices.length >= 2) {
+            const w = 160, h = 36;
+            const min = Math.min(...prices);
+            const max = Math.max(...prices);
+            const range = max - min || 1;
+
+            const points = prices.map((p, i) => {
+                const x = (i / (prices.length - 1)) * w;
+                const y = h - ((p - min) / range) * (h - 4) - 2;
+                return `${x.toFixed(1)},${y.toFixed(1)}`;
+            });
+
+            const polyline = points.join(' ');
+            const fillPoints = `0,${h} ${polyline} ${w},${h}`;
+
+            chartHtml = `
+                <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+                    <polygon points="${fillPoints}" fill="${fillColor}" />
+                    <polyline points="${polyline}" fill="none" stroke="${lineColor}" stroke-width="1.5" />
+                </svg>
+            `;
+        }
+
+        return `
+            <div class="etf-major-item">
+                <div class="etf-major-name">${e.name || '-'}</div>
+                <div class="etf-major-chart">${chartHtml}</div>
+                <div class="etf-major-right">
+                    <span class="etf-major-price">${(e.price || 0).toLocaleString()}</span>
+                    <span class="etf-major-change ${cls}">${isUp ? '+' : ''}${(e.change_pct || 0).toFixed(2)}%</span>
+                </div>
+            </div>
+        `;
+    }
+
     function renderMajorList() {
         const el = document.getElementById('etf-major-list');
         if (!el) return;
 
         let items = data.major_etfs || [];
+
+        // 중복 제거
+        const seen = new Set();
+        items = items.filter(e => {
+            if (seen.has(e.code)) return false;
+            seen.add(e.code);
+            return true;
+        });
 
         if (majorSort === 'volume') {
             items = [...items].sort((a, b) => (b.volume || 0) - (a.volume || 0));
@@ -7197,24 +7275,36 @@ function renderEtfDashboard(data, container) {
             items = [...items].sort((a, b) => Math.abs(b.change_pct || 0) - Math.abs(a.change_pct || 0));
         }
 
+        const first5 = items.slice(0, 5);
+        const rest = items.slice(5, 15);
+
         el.innerHTML = `
             <div class="etf-major-header">
                 <span>종목</span>
-                <span style="text-align:right">현재가</span>
+                <span>현재가</span>
             </div>
-        ` + items.map(e => {
-            const isUp = (e.change_pct || 0) >= 0;
-            const cls = isUp ? 'profit' : 'loss';
-            return `
-                <div class="etf-major-item">
-                    <div class="etf-major-name">${e.name || '-'}</div>
-                    <div class="etf-major-right">
-                        <span class="etf-major-price">${(e.price || 0).toLocaleString()}</span>
-                        <span class="etf-major-change ${cls}">${isUp ? '+' : ''}${(e.change_pct || 0).toFixed(2)}%</span>
-                    </div>
-                </div>
-            `;
-        }).join('') || '<div class="empty-cell">데이터 없음</div>';
+        ` + first5.map(e => majorItemHtml(e)).join('')
+        + (rest.length > 0 ? `
+            <div id="etf-major-more" style="display:none">
+                ${rest.map(e => majorItemHtml(e)).join('')}
+            </div>
+            <div class="etf-more-btn-wrap">
+                <button class="etf-more-btn" id="etf-major-more-btn">더보기 ∨</button>
+            </div>
+        ` : '')
+        || '<div class="empty-cell">데이터 없음</div>';
+
+        const majorMoreBtn = document.getElementById('etf-major-more-btn');
+        if (majorMoreBtn) {
+            majorMoreBtn.addEventListener('click', () => {
+                const moreEl = document.getElementById('etf-major-more');
+                if (moreEl) {
+                    const isHidden = moreEl.style.display === 'none';
+                    moreEl.style.display = isHidden ? 'block' : 'none';
+                    majorMoreBtn.textContent = isHidden ? '접기 ∧' : '더보기 ∨';
+                }
+            });
+        }
     }
     renderMajorList();
 
