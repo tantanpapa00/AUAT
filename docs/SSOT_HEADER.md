@@ -120,6 +120,70 @@
 - Day 22: DONE (시장분석 Phase 4 - 투자자순매수/거래대금 전일대비)
 - Day 23: DONE (시장분석 Phase 5 - 해외시장 완성)
 - Day 24: DONE (Phase 5 히트맵 개선 + Phase 6 ETF 시장분석)
+- Day 25: DONE (ETF 대시보드 개선 — ETFCheck 스타일 매칭)
+
+## Day 25 완료사항 (2026-02-18)
+
+### ETF 대시보드 개선 — ETFCheck 스타일 매칭
+
+**STEP 3: 히스토그램 수정**
+- 백엔드: 11개 빈 분포 (-10%~, -5~-10%, ..., +5~10%, +10%~)
+- 프론트엔드: 막대 높이 JS px 계산 (max 200px), CSS % 미작동 해결
+
+**STEP 4: 랭킹 TOP 10**
+- 기본 5개 표시 + "더보기" 버튼
+- 수익률/거래량/순자산 탭별 적용
+
+**STEP 5: 주요 종목현황**
+- 중복 제거 (unique_by_code)
+- 기본 5개 + "더보기" 버튼
+- 미니 sparkline 차트 SVG 직접 그리기 (네이버 분봉 API)
+  - 네이버 차트 이미지 → 다크 테마 색감 문제 → SVG polyline으로 해결
+  - `https://api.stock.naver.com/chart/domestic/item/{code}/minute?range=1`
+
+**STEP 6: 순자금유입/순자산증감 탭**
+- 거래량/시총 기반 추정치는 실제 ETF 설정/환매 데이터와 무관
+- 잘못된 데이터 제거 → "준비 중" placeholder로 교체
+
+### ETF 설정/환매 데이터 조사 결과
+
+| 소스 | 설정/환매 | 비고 |
+|------|----------|------|
+| 네이버 금융 API | ❌ | AUM, NAV만 제공 |
+| KRX data.krx.co.kr | ❌ | CSRF 보호로 API 직접 호출 차단 ("LOGOUT") |
+| pykrx 라이브러리 | ❌ | KRX 공개 통계에 설정/환매 없음 |
+| ETFCheck API | ❌ | 비공개 (인증 필요) |
+
+**pykrx 설치 및 테스트 (VPS Docker)**:
+```bash
+docker exec bbooster-app pip install pykrx
+```
+
+**pykrx 제공 ETF 함수**:
+- `get_etf_ticker_list()` — 1,070개 ETF 코드
+- `get_etf_ohlcv_by_ticker()` — 전종목 당일 시세
+- `get_etf_price_deviation()` — 괴리율
+- `get_etf_tracking_error()` — 추적오차
+- `get_etf_portfolio_deposit_file()` — PDF 구성종목
+- `get_etf_trading_volume_and_value()` — 투자자별 거래
+
+**결론**: 순자금유입/순자산증감 정확한 계산은 유료 데이터 서비스 필요 (FnGuide, Dataguide 등)
+
+### 커밋 이력
+
+| 해시 | 메시지 |
+|------|--------|
+| f949562 | fix: ETF 히스토그램 11빈 + US HOT 테마 제거 |
+| 2d3c630 | fix: ETF 데이터 중복 제거 (etf_type=0만, unique_by_code 적용) |
+| bff06da | fix: ETF 6버그 수정 - 중복제거, 11빈분포, 스크롤패딩 |
+| 3dcdd54 | feat: ETF 탭 ETFCheck 정밀 매칭 (26테마 + 자산유형 분류) |
+| 5fd3364 | fix: ETF API 인코딩 EUC-KR 처리 |
+| 5955712 | feat: ETF 주요종목 SVG 미니차트 (분봉 데이터) |
+| 4badfa3 | feat: ETF 순자금유입 탭 구현 (양방향 막대 차트) |
+| 3e1ed8f | feat: ETF 순자산증감 탭 구현 + 안내문구 추가 |
+| d54b543 | fix: ETF 순자금유입/순자산증감 탭 - 잘못된 데이터 제거 |
+
+---
 
 ## Day 24 완료사항 (2026-02-17)
 
