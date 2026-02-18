@@ -796,7 +796,7 @@ async def get_etf_overview():
             pool = all_etfs
         else:
             pool = [e for e in all_etfs if e.get("asset_type") == asset_name]
-        top = unique_by_code(sorted(pool, key=lambda x: x["volume"], reverse=True))[:10]
+        top = unique_by_code(sorted(pool, key=lambda x: x["market_sum"], reverse=True))[:10]
         major_by_asset[asset_name] = top
 
     # sparkline 데이터 수집 — major_by_asset의 모든 고유 ETF에 대해

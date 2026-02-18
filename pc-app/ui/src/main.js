@@ -7266,7 +7266,7 @@ function renderEtfDashboard(data, container) {
         } else if (majorSort === 'change') {
             items = [...items].sort((a, b) => Math.abs(b.change_pct || 0) - Math.abs(a.change_pct || 0));
         } else {
-            items = [...items];
+            items = [...items].sort((a, b) => (b.market_sum || 0) - (a.market_sum || 0));
         }
 
         const first5 = items.slice(0, 5);
