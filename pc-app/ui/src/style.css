@@ -9937,3 +9937,354 @@ body {
 .etf-major-change {
     font-size: 0.85em;
 }
+
+/* =====================================================
+   종목검색기 페이지 스타일 (Phase 7)
+   ===================================================== */
+
+.screener-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* 시장 선택 탭 */
+.screener-market-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 20px;
+    background: var(--card-bg);
+    border-radius: 8px;
+    padding: 4px;
+    width: fit-content;
+}
+
+.screener-tab {
+    padding: 10px 24px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.screener-tab:hover {
+    color: var(--text-primary);
+}
+
+.screener-tab.active {
+    background: var(--primary);
+    color: #fff;
+}
+
+/* 필터 영역 */
+.screener-filters {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+/* 필터 아코디언 */
+.filter-accordion {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+}
+
+.filter-accordion:last-of-type {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.filter-accordion-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 8px 0;
+    user-select: none;
+}
+
+.filter-accordion-header:hover {
+    color: var(--primary);
+}
+
+.accordion-arrow {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    width: 16px;
+    transition: transform 0.2s;
+}
+
+.filter-accordion.open .accordion-arrow {
+    transform: rotate(0deg);
+}
+
+.accordion-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.accordion-badge {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    color: var(--text-muted);
+}
+
+.filter-accordion-body {
+    padding: 12px 0 0 24px;
+}
+
+.filter-placeholder {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+/* 필터 행 */
+.filter-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.filter-row:last-child {
+    margin-bottom: 0;
+}
+
+.filter-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.filter-item label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.filter-item select,
+.filter-item input {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+/* 스크리너 드롭다운 가시성 향상 */
+#page-screener select {
+    color: #e5e7eb;
+    background-color: #1f2937;
+    border: 1px solid #374151;
+}
+
+#page-screener select option {
+    color: #e5e7eb;
+    background-color: #1f2937;
+}
+
+#page-screener input {
+    color: #e5e7eb;
+    background-color: #1f2937;
+    border: 1px solid #374151;
+}
+
+#page-screener input::placeholder {
+    color: #6b7280;
+}
+
+.filter-item select:focus,
+.filter-item input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.filter-range {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filter-range input {
+    flex: 1;
+    min-width: 80px;
+}
+
+.filter-range span {
+    color: var(--text-muted);
+}
+
+/* 필터 액션 버튼 */
+.filter-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+}
+
+.filter-actions .btn {
+    min-width: 80px;
+}
+
+.result-count {
+    margin-left: auto;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* 결과 테이블 */
+.screener-result-section {
+    margin-top: 20px;
+}
+
+.screener-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.screener-table th {
+    text-align: left;
+    padding: 12px 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+}
+
+.screener-table th.sortable {
+    cursor: pointer;
+}
+
+.screener-table th.sortable:hover {
+    color: var(--primary);
+}
+
+.screener-table th .sort-icon {
+    margin-left: 4px;
+    color: var(--text-muted);
+}
+
+.screener-table th.active .sort-icon {
+    color: var(--primary);
+}
+
+.screener-table td {
+    padding: 12px 8px;
+    font-size: 0.9rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.screener-table tbody tr:hover {
+    background: var(--bg-hover);
+    cursor: pointer;
+}
+
+.screener-table .code-cell {
+    font-family: 'Consolas', monospace;
+    color: var(--text-muted);
+}
+
+.screener-table .name-cell {
+    font-weight: 600;
+}
+
+.screener-table .price-cell {
+    text-align: right;
+    font-weight: 500;
+}
+
+.screener-table .change-cell {
+    text-align: right;
+    font-weight: 600;
+}
+
+.screener-table .change-cell.profit {
+    color: var(--profit-color, #ef4444);
+}
+
+.screener-table .change-cell.loss {
+    color: var(--loss-color, #3b82f6);
+}
+
+.screener-table .volume-cell,
+.screener-table .cap-cell {
+    text-align: right;
+}
+
+.screener-table .empty-cell {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 40px;
+}
+
+/* 페이지네이션 */
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    margin-top: 20px;
+    padding: 16px 0;
+}
+
+.page-btn {
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card-bg);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.page-btn:hover:not(:disabled) {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+
+.page-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.page-info {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+/* 반응형 */
+@media (max-width: 768px) {
+    .filter-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .screener-table th,
+    .screener-table td {
+        padding: 8px 4px;
+        font-size: 0.8rem;
+    }
+
+    .screener-table th:nth-child(7),
+    .screener-table th:nth-child(8),
+    .screener-table td:nth-child(7),
+    .screener-table td:nth-child(8) {
+        display: none;
+    }
+}

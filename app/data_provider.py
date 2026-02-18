@@ -2730,3 +2730,279 @@ async def get_or_calculate_cost_basis(
         await save_cost_basis_to_db(db_session, user_id, account_id, cost_basis)
 
     return cost_basis
+
+
+# =============================================================================
+# 종목검색기 (Phase 7)
+# =============================================================================
+
+_screener_cache = {
+    "kr_stocks": None,
+    "kr_timestamp": None,
+}
+SCREENER_CACHE_TTL = 300  # 5분
+
+async def screener_kr(filters: dict, sort: str, order: str, page: int, per_page: int) -> dict:
+    """
+    국내 주식 스크리너 — 네이버 금융 기반
+
+    filters 예시:
+    {
+        "exchange": "KOSPI",       # 전체/KOSPI/KOSDAQ
+        "sector": "반도체",         # 전체/업종명
+        "market_cap": "large",     # 전체/mega/large/mid/small/micro
+        "price_min": 10000,        # 현재가 최소
+        "price_max": 100000,       # 현재가 최대
+        "volume_min": 100000       # 최소 거래량
+    }
+    """
+    import time
+
+    # 캐시 확인
+    now = time.time()
+    if (_screener_cache["kr_stocks"] is not None and
+        _screener_cache["kr_timestamp"] and
+        now - _screener_cache["kr_timestamp"] < SCREENER_CACHE_TTL):
+        all_stocks = _screener_cache["kr_stocks"]
+    else:
+        # 전종목 시세 가져오기 (네이버 API)
+        all_stocks = await fetch_all_kr_stocks()
+        _screener_cache["kr_stocks"] = all_stocks
+        _screener_cache["kr_timestamp"] = now
+
+    if not all_stocks:
+        return {"items": [], "total": 0, "page": page, "per_page": per_page}
+
+    # 필터링
+    filtered = apply_screener_filters(all_stocks, filters)
+
+    # 정렬
+    filtered = sort_screener_results(filtered, sort, order)
+
+    total = len(filtered)
+
+    # 페이지네이션
+    start = (page - 1) * per_page
+    end = start + per_page
+    items = filtered[start:end]
+
+    # 시총 문자열 추가
+    for item in items:
+        cap = item.get("market_cap", 0)
+        if cap >= 10_000_000_000_000:  # 10조 이상
+            item["market_cap_str"] = f"{cap / 1_000_000_000_000:.1f}조"
+        elif cap >= 100_000_000:  # 1억 이상
+            item["market_cap_str"] = f"{int(cap / 100_000_000)}억"
+        else:
+            item["market_cap_str"] = "-"
+
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "filters_applied": list(filters.keys()),
+    }
+
+
+async def fetch_all_kr_stocks() -> list:
+    """네이버 금융에서 KOSPI/KOSDAQ 전종목 시세 가져오기"""
+    all_stocks = []
+
+    # KOSPI
+    kospi_stocks = await fetch_naver_market_stocks("KOSPI")
+    all_stocks.extend(kospi_stocks)
+
+    # KOSDAQ
+    kosdaq_stocks = await fetch_naver_market_stocks("KOSDAQ")
+    all_stocks.extend(kosdaq_stocks)
+
+    print(f"[Screener] Fetched {len(all_stocks)} stocks (KOSPI: {len(kospi_stocks)}, KOSDAQ: {len(kosdaq_stocks)})")
+    return all_stocks
+
+
+async def fetch_naver_market_stocks(market: str) -> list:
+    """네이버 증권에서 특정 시장 전종목 가져오기"""
+    import httpx
+
+    stocks = []
+    # 네이버 시세 API - 페이지별로 조회
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Referer": "https://finance.naver.com/"
+    }
+
+    # 네이버 금융 시세 API (sosok: 0=KOSPI, 1=KOSDAQ)
+    sosok = "0" if market == "KOSPI" else "1"
+
+    try:
+        async with httpx.AsyncClient(timeout=30, headers=headers) as client:
+            # 전종목 조회 (페이지네이션)
+            page = 1
+            per_page = 100
+
+            while True:
+                url = f"https://finance.naver.com/sise/sise_market_sum.naver?sosok={sosok}&page={page}"
+                resp = await client.get(url)
+
+                if resp.status_code != 200:
+                    break
+
+                html = resp.text
+
+                # HTML 파싱 (간단한 정규식 사용)
+                import re
+
+                # 테이블 행에서 종목 정보 추출
+                pattern = r'<a href="/item/main\.naver\?code=(\d{6})"[^>]*>([^<]+)</a>'
+                matches = re.findall(pattern, html)
+
+                if not matches:
+                    break
+
+                # 각 종목의 상세 정보 추출
+                for code, name in matches:
+                    stock = {
+                        "code": code,
+                        "name": name.strip(),
+                        "exchange": market,
+                        "price": 0,
+                        "change_pct": 0,
+                        "volume": 0,
+                        "market_cap": 0,
+                        "per": None,
+                        "pbr": None,
+                    }
+                    stocks.append(stock)
+
+                # 다음 페이지가 있는지 확인
+                if f'page={page + 1}' not in html:
+                    break
+
+                page += 1
+                if page > 30:  # 최대 30페이지
+                    break
+
+    except Exception as e:
+        print(f"[Screener] Error fetching {market}: {e}")
+
+    # 상세 시세 정보 보강 (별도 API 사용)
+    if stocks:
+        stocks = await enrich_stock_details(stocks, market)
+
+    return stocks
+
+
+async def enrich_stock_details(stocks: list, market: str) -> list:
+    """종목 상세 정보 보강 (시세, 거래량, 시총 등)"""
+    import httpx
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    }
+
+    # 네이버 API로 시세 일괄 조회
+    codes = [s["code"] for s in stocks]
+    code_map = {s["code"]: s for s in stocks}
+
+    try:
+        async with httpx.AsyncClient(timeout=30, headers=headers) as client:
+            # 100개씩 나눠서 조회
+            for i in range(0, len(codes), 100):
+                batch = codes[i:i+100]
+                codes_str = ",".join(batch)
+
+                # 네이버 시세 API
+                url = f"https://api.stock.naver.com/stock/exchange/{market}/marketValue?codes={codes_str}"
+                try:
+                    resp = await client.get(url)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        for item in data if isinstance(data, list) else data.get("stocks", []):
+                            code = item.get("itemCode") or item.get("code")
+                            if code in code_map:
+                                code_map[code]["price"] = item.get("closePrice") or item.get("price") or 0
+                                code_map[code]["change_pct"] = item.get("fluctuationsRatio") or item.get("changePct") or 0
+                                code_map[code]["volume"] = item.get("accumulatedTradingVolume") or item.get("volume") or 0
+                                code_map[code]["market_cap"] = item.get("marketValue") or item.get("marketCap") or 0
+                except Exception as e:
+                    print(f"[Screener] API batch error: {e}")
+                    # 대체: 개별 조회
+                    for code in batch:
+                        try:
+                            item_url = f"https://api.stock.naver.com/stock/{code}/basic"
+                            item_resp = await client.get(item_url)
+                            if item_resp.status_code == 200:
+                                item_data = item_resp.json()
+                                if code in code_map:
+                                    code_map[code]["price"] = int(item_data.get("closePrice", "0").replace(",", "") or 0)
+                                    code_map[code]["change_pct"] = float(item_data.get("compareToPreviousClosePrice", {}).get("rate", 0) or 0)
+                                    code_map[code]["volume"] = int(item_data.get("accumulatedTradingVolume", "0").replace(",", "") or 0)
+                                    code_map[code]["market_cap"] = int(item_data.get("marketValue", "0").replace(",", "").replace("억", "00000000").replace("조", "000000000000") or 0)
+                        except:
+                            pass
+
+    except Exception as e:
+        print(f"[Screener] Error enriching details: {e}")
+
+    return stocks
+
+
+def apply_screener_filters(stocks: list, filters: dict) -> list:
+    """필터 적용"""
+    result = stocks
+
+    # 거래소 필터
+    if filters.get("exchange"):
+        exchange = filters["exchange"].upper()
+        result = [s for s in result if s.get("exchange", "").upper() == exchange]
+
+    # 업종 필터
+    if filters.get("sector"):
+        sector = filters["sector"]
+        result = [s for s in result if s.get("sector") == sector]
+
+    # 시가총액 필터
+    if filters.get("market_cap"):
+        cap_filter = filters["market_cap"]
+        if cap_filter == "mega":  # 10조 이상
+            result = [s for s in result if (s.get("market_cap") or 0) >= 10_000_000_000_000]
+        elif cap_filter == "large":  # 1조~10조
+            result = [s for s in result if 1_000_000_000_000 <= (s.get("market_cap") or 0) < 10_000_000_000_000]
+        elif cap_filter == "mid":  # 5천억~1조
+            result = [s for s in result if 500_000_000_000 <= (s.get("market_cap") or 0) < 1_000_000_000_000]
+        elif cap_filter == "small":  # 1천억~5천억
+            result = [s for s in result if 100_000_000_000 <= (s.get("market_cap") or 0) < 500_000_000_000]
+        elif cap_filter == "micro":  # 1천억 미만
+            result = [s for s in result if (s.get("market_cap") or 0) < 100_000_000_000]
+
+    # 현재가 범위
+    if filters.get("price_min"):
+        result = [s for s in result if (s.get("price") or 0) >= filters["price_min"]]
+    if filters.get("price_max"):
+        result = [s for s in result if (s.get("price") or 0) <= filters["price_max"]]
+
+    # 거래량 필터
+    if filters.get("volume_min"):
+        result = [s for s in result if (s.get("volume") or 0) >= filters["volume_min"]]
+
+    return result
+
+
+def sort_screener_results(stocks: list, sort: str, order: str) -> list:
+    """정렬"""
+    reverse = order.lower() == "desc"
+
+    sort_key_map = {
+        "code": lambda x: x.get("code", ""),
+        "name": lambda x: x.get("name", ""),
+        "price": lambda x: x.get("price") or 0,
+        "change_pct": lambda x: x.get("change_pct") or 0,
+        "volume": lambda x: x.get("volume") or 0,
+        "market_cap": lambda x: x.get("market_cap") or 0,
+        "per": lambda x: x.get("per") or 9999,
+        "pbr": lambda x: x.get("pbr") or 9999,
+    }
+
+    key_func = sort_key_map.get(sort, sort_key_map["market_cap"])
+    return sorted(stocks, key=key_func, reverse=reverse)

@@ -10711,6 +10711,59 @@ async def api_market_crypto(
 
 
 # =============================================================================
+# 종목검색기 API (Phase 7)
+# =============================================================================
+
+@app.get("/api/screener")
+async def api_screener(
+    market: str = Query("kr", description="시장: kr, us, etf"),
+    filters: str = Query("{}", description="필터 JSON 문자열"),
+    sort: str = Query("market_cap", description="정렬 기준"),
+    order: str = Query("desc", description="정렬 방향: asc, desc"),
+    page: int = Query(1, description="페이지"),
+    per_page: int = Query(50, description="페이지당 개수"),
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """종목검색기 - Finviz 스타일 스크리너"""
+    # Pro 이상 체크
+    if current_user and current_user.role == "admin":
+        pass
+    elif not _check_pro_plan(current_user):
+        if not current_user:
+            raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+        raise HTTPException(status_code=403, detail="Pro 이상 요금제에서 이용 가능합니다")
+
+    import json
+    try:
+        filter_dict = json.loads(filters)
+    except:
+        filter_dict = {}
+
+    try:
+        if market == "kr":
+            result = await data_provider.screener_kr(filter_dict, sort, order, page, per_page)
+        elif market == "us":
+            result = {"items": [], "total": 0, "message": "해외 스크리너 준비중"}
+        elif market == "etf":
+            result = {"items": [], "total": 0, "message": "ETF 스크리너 준비중"}
+        else:
+            result = {"items": [], "total": 0, "message": "지원하지 않는 시장"}
+
+        return result
+
+    except Exception as e:
+        print(f"[API] Screener error: {e}")
+        traceback.print_exc()
+        return {
+            "items": [],
+            "total": 0,
+            "success": False,
+            "error": str(e),
+        }
+
+
+# =============================================================================
 # [BUG FIX] 종목분석 API - RS/신고가/밸류에이션
 # =============================================================================
 

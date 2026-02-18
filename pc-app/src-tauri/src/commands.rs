@@ -4183,3 +4183,57 @@ pub async fn get_market_trading_value_data(
         Err("거래대금 조회 실패".to_string())
     }
 }
+
+// =====================================================
+// 종목검색기 API (Phase 7)
+// =====================================================
+
+#[tauri::command]
+pub async fn get_screener(
+    access_token: String,
+    market: Option<String>,
+    filters: Option<String>,
+    sort: Option<String>,
+    order: Option<String>,
+    page: Option<i32>,
+    per_page: Option<i32>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .map_err(|e| format!("HTTP client error: {}", e))?;
+
+    let market_param = market.unwrap_or_else(|| "kr".to_string());
+    let filters_param = filters.unwrap_or_else(|| "{}".to_string());
+    let sort_param = sort.unwrap_or_else(|| "market_cap".to_string());
+    let order_param = order.unwrap_or_else(|| "desc".to_string());
+    let page_param = page.unwrap_or(1);
+    let per_page_param = per_page.unwrap_or(50);
+
+    let url = format!(
+        "{}/api/screener?market={}&filters={}&sort={}&order={}&page={}&per_page={}",
+        VPS_SERVER_URL,
+        market_param,
+        urlencoding::encode(&filters_param),
+        sort_param,
+        order_param,
+        page_param,
+        per_page_param
+    );
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(30))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        Err(format!("스크리너 조회 실패: {} - {}", status, body))
+    }
+}

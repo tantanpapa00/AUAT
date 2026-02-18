@@ -758,6 +758,8 @@ const pageTitles = {
     home: '홈',
     'tv-connect': '트레이딩뷰 연결',
     'premium-strategy': '프리미엄 전략',
+    // 종목검색
+    screener: '종목검색',
     // 시장분석
     'market-kr': '국내시장',
     'market-us': '해외시장',
@@ -855,6 +857,8 @@ window.navigateTo = function(page) {
     else if (page === 'tv-connect') loadTVConnectPage();
     else if (page === 'symbols') loadSymbolsPage();
     else if (page === 'premium-strategy') loadPremiumStrategyPage();
+    // 종목검색 (Phase 7)
+    else if (page === 'screener') loadScreener();
     // 시장분석 (신규)
     else if (page === 'market-kr') loadMarketKr();
     else if (page === 'market-us') loadMarketUs();
@@ -12287,6 +12291,328 @@ function drawTrendBacktestChart(equityCurve, initialCapital = 10000000, currency
             }
         }
     });
+}
+
+// =====================================================
+// 종목검색기 (Phase 7)
+// =====================================================
+let screenerState = {
+    market: 'kr',
+    sort: 'market_cap',
+    order: 'desc',
+    page: 1,
+    perPage: 50,
+    total: 0
+};
+
+async function loadScreener() {
+    const restrictionEl = document.getElementById('screener-restriction');
+    const contentEl = document.getElementById('screener-content');
+
+    // Pro 이상 또는 admin 체크
+    const plan = auth.user?.plan || 'free';
+    const role = auth.user?.role || 'user';
+    const isPro = ['pro', 'premium'].includes(plan) || role === 'admin';
+
+    if (!isPro) {
+        if (restrictionEl) restrictionEl.style.display = 'flex';
+        if (contentEl) contentEl.style.display = 'none';
+        return;
+    }
+    if (restrictionEl) restrictionEl.style.display = 'none';
+    if (contentEl) contentEl.style.display = 'block';
+
+    // 이벤트 바인딩 (최초 1회)
+    initScreenerEvents();
+
+    // 업종 목록 로드
+    await loadSectorOptions();
+
+    // 초기 검색 실행
+    await searchScreener();
+}
+
+let screenerEventsInitialized = false;
+function initScreenerEvents() {
+    if (screenerEventsInitialized) return;
+    screenerEventsInitialized = true;
+
+    // 시장 탭 클릭
+    document.querySelectorAll('.screener-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.screener-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            screenerState.market = tab.dataset.market;
+            screenerState.page = 1;
+            searchScreener();
+        });
+    });
+
+    // 아코디언 토글
+    document.querySelectorAll('.filter-accordion-header').forEach(header => {
+        header.addEventListener('click', () => {
+            const accordion = header.closest('.filter-accordion');
+            const body = accordion.querySelector('.filter-accordion-body');
+            const arrow = header.querySelector('.accordion-arrow');
+            const isOpen = accordion.classList.contains('open');
+
+            if (isOpen) {
+                accordion.classList.remove('open');
+                body.style.display = 'none';
+                arrow.textContent = '▶';
+            } else {
+                accordion.classList.add('open');
+                body.style.display = 'block';
+                arrow.textContent = '▼';
+            }
+        });
+    });
+
+    // 검색 버튼
+    document.getElementById('btn-screener-search')?.addEventListener('click', () => {
+        screenerState.page = 1;
+        searchScreener();
+    });
+
+    // 초기화 버튼
+    document.getElementById('btn-screener-reset')?.addEventListener('click', () => {
+        document.getElementById('filter-exchange').value = '';
+        document.getElementById('filter-sector').value = '';
+        document.getElementById('filter-market-cap').value = '';
+        document.getElementById('filter-price-min').value = '';
+        document.getElementById('filter-price-max').value = '';
+        document.getElementById('filter-volume').value = '';
+        screenerState.page = 1;
+        searchScreener();
+    });
+
+    // 테이블 헤더 정렬
+    document.querySelectorAll('#screener-table th.sortable').forEach(th => {
+        th.addEventListener('click', () => {
+            const sortKey = th.dataset.sort;
+            if (screenerState.sort === sortKey) {
+                screenerState.order = screenerState.order === 'desc' ? 'asc' : 'desc';
+            } else {
+                screenerState.sort = sortKey;
+                screenerState.order = 'desc';
+            }
+            screenerState.page = 1;
+            updateSortIcons();
+            searchScreener();
+        });
+    });
+
+    // 페이지네이션
+    document.getElementById('btn-page-prev')?.addEventListener('click', () => {
+        if (screenerState.page > 1) {
+            screenerState.page--;
+            searchScreener();
+        }
+    });
+
+    document.getElementById('btn-page-next')?.addEventListener('click', () => {
+        const maxPage = Math.ceil(screenerState.total / screenerState.perPage);
+        if (screenerState.page < maxPage) {
+            screenerState.page++;
+            searchScreener();
+        }
+    });
+}
+
+function updateSortIcons() {
+    document.querySelectorAll('#screener-table th.sortable').forEach(th => {
+        const icon = th.querySelector('.sort-icon');
+        if (th.dataset.sort === screenerState.sort) {
+            th.classList.add('active');
+            icon.textContent = screenerState.order === 'desc' ? '▼' : '▲';
+        } else {
+            th.classList.remove('active');
+            icon.textContent = '';
+        }
+    });
+}
+
+async function loadSectorOptions() {
+    // 네이버 기반 업종 목록 (하드코딩 - 추후 API로 대체 가능)
+    const sectors = [
+        '반도체', '자동차', '은행', '제약', '바이오', '화학', '철강', '건설',
+        '유통', '통신', '미디어', '엔터테인먼트', '식품', '음료', '의류',
+        '전기전자', '기계', '조선', 'IT서비스', '게임', '증권', '보험'
+    ];
+
+    const select = document.getElementById('filter-sector');
+    if (select && select.options.length <= 1) {
+        sectors.forEach(sector => {
+            const opt = document.createElement('option');
+            opt.value = sector;
+            opt.textContent = sector;
+            select.appendChild(opt);
+        });
+    }
+}
+
+function collectScreenerFilters() {
+    const filters = {};
+
+    const exchange = document.getElementById('filter-exchange')?.value;
+    if (exchange) filters.exchange = exchange;
+
+    const sector = document.getElementById('filter-sector')?.value;
+    if (sector) filters.sector = sector;
+
+    const marketCap = document.getElementById('filter-market-cap')?.value;
+    if (marketCap) filters.market_cap = marketCap;
+
+    const priceMin = document.getElementById('filter-price-min')?.value;
+    if (priceMin) filters.price_min = parseInt(priceMin);
+
+    const priceMax = document.getElementById('filter-price-max')?.value;
+    if (priceMax) filters.price_max = parseInt(priceMax);
+
+    const volumeMin = document.getElementById('filter-volume')?.value;
+    if (volumeMin) filters.volume_min = parseInt(volumeMin);
+
+    return filters;
+}
+
+async function searchScreener() {
+    const tbody = document.getElementById('screener-tbody');
+    const countEl = document.getElementById('screener-result-count');
+    const filtersEl = document.querySelector('.screener-filters');
+
+    // 시장별 필터 UI 전환
+    updateScreenerFiltersUI(screenerState.market);
+
+    // 해외/ETF는 준비중
+    if (screenerState.market !== 'kr') {
+        if (tbody) {
+            const marketName = screenerState.market === 'us' ? '해외' : 'ETF';
+            tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">${marketName} 종목검색 준비중입니다</td></tr>`;
+        }
+        if (countEl) countEl.textContent = '결과: 0건';
+        return;
+    }
+
+    if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">검색 중...</td></tr>';
+    }
+
+    try {
+        const filters = collectScreenerFilters();
+
+        const data = await invokeWithTimeout('get_screener', {
+            accessToken: auth.accessToken || '',
+            market: screenerState.market,
+            filters: JSON.stringify(filters),
+            sort: screenerState.sort,
+            order: screenerState.order,
+            page: screenerState.page,
+            perPage: screenerState.perPage
+        }, 30000);
+
+        if (data.message) {
+            // 준비중 메시지
+            if (tbody) {
+                tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">${data.message}</td></tr>`;
+            }
+            if (countEl) countEl.textContent = '결과: 0건';
+            return;
+        }
+
+        screenerState.total = data.total || 0;
+        if (countEl) countEl.textContent = `결과: ${screenerState.total.toLocaleString()}건`;
+
+        renderScreenerTable(data.items || []);
+        updatePagination();
+
+    } catch (err) {
+        console.error('Screener search error:', err);
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">오류 발생: ${err.message || err}</td></tr>`;
+        }
+    }
+}
+
+// 시장별 필터 UI 전환
+function updateScreenerFiltersUI(market) {
+    const filterBasic = document.getElementById('filter-basic');
+    const filterFinancial = document.getElementById('filter-financial');
+    const filterTechnical = document.getElementById('filter-technical');
+    const filterActions = document.querySelector('.filter-actions');
+
+    if (market === 'kr') {
+        // 국내: 모든 필터 표시
+        if (filterBasic) {
+            filterBasic.style.display = 'block';
+            filterBasic.classList.add('open');
+            const body = filterBasic.querySelector('.filter-accordion-body');
+            const arrow = filterBasic.querySelector('.accordion-arrow');
+            if (body) body.style.display = 'block';
+            if (arrow) arrow.textContent = '▼';
+        }
+        if (filterFinancial) filterFinancial.style.display = 'block';
+        if (filterTechnical) filterTechnical.style.display = 'block';
+        if (filterActions) filterActions.style.display = 'flex';
+    } else {
+        // 해외/ETF: 필터 숨김
+        if (filterBasic) filterBasic.style.display = 'none';
+        if (filterFinancial) filterFinancial.style.display = 'none';
+        if (filterTechnical) filterTechnical.style.display = 'none';
+        if (filterActions) filterActions.style.display = 'none';
+    }
+}
+
+function renderScreenerTable(items) {
+    const tbody = document.getElementById('screener-tbody');
+    if (!tbody) return;
+
+    if (!items || items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">검색 결과가 없습니다</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = items.map(item => {
+        const changePct = item.change_pct || 0;
+        const changeClass = changePct > 0 ? 'profit' : changePct < 0 ? 'loss' : '';
+        const changeStr = changePct > 0 ? `+${changePct.toFixed(2)}%` : `${changePct.toFixed(2)}%`;
+
+        const price = (item.price || 0).toLocaleString();
+        const volume = formatVolume(item.volume || 0);
+        const marketCap = item.market_cap_str || formatMarketCap(item.market_cap || 0);
+        const per = item.per ? item.per.toFixed(1) : '-';
+        const pbr = item.pbr ? item.pbr.toFixed(2) : '-';
+
+        return `
+            <tr onclick="console.log('선택:', '${item.code}', '${item.name}')">
+                <td class="code-cell">${item.code || '-'}</td>
+                <td class="name-cell">${item.name || '-'}</td>
+                <td class="price-cell">${price}</td>
+                <td class="change-cell ${changeClass}">${changeStr}</td>
+                <td class="volume-cell">${volume}</td>
+                <td class="cap-cell">${marketCap}</td>
+                <td>${per}</td>
+                <td>${pbr}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function formatMarketCap(cap) {
+    if (!cap || cap <= 0) return '-';
+    if (cap >= 1000000000000) return (cap / 1000000000000).toFixed(1) + '조';
+    if (cap >= 100000000) return (cap / 100000000).toFixed(0) + '억';
+    return cap.toLocaleString();
+}
+
+function updatePagination() {
+    const maxPage = Math.ceil(screenerState.total / screenerState.perPage) || 1;
+    const pageInfo = document.getElementById('screener-page-info');
+    const prevBtn = document.getElementById('btn-page-prev');
+    const nextBtn = document.getElementById('btn-page-next');
+
+    if (pageInfo) pageInfo.textContent = `${screenerState.page} / ${maxPage}`;
+    if (prevBtn) prevBtn.disabled = screenerState.page <= 1;
+    if (nextBtn) nextBtn.disabled = screenerState.page >= maxPage;
 }
 
 // =====================================================

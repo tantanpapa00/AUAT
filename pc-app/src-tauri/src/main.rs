@@ -160,6 +160,7 @@ fn main() {
             commands::get_market_breadth_with_index,
             commands::get_market_investors_data,
             commands::get_market_trading_value_data,
+            commands::get_screener,  // Phase 7: 종목검색기
             commands::get_market_trend_maintain,
             commands::get_market_sector_analysis,
             commands::get_market_rs_ranking,
