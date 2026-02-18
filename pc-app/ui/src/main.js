@@ -6890,13 +6890,11 @@ function renderEtfDashboard(data, container) {
             <div class="etf-theme-scroll" id="etf-theme-cards"></div>
         </div>
 
-        <!-- 2. 상승하락 (ETFCheck: 상승하락 | TOP3거래량 | 순자금유입 | 순자산증감) -->
+        <!-- 2. 상승하락 (ETFCheck: 상승하락 | TOP3거래량) -->
         <div class="card">
             <div class="etf-main-tabs" id="etf-dist-main-tabs">
                 <button class="etf-main-tab active" data-tab="dist">상승하락</button>
                 <button class="etf-main-tab" data-tab="top3vol">TOP3거래량</button>
-                <button class="etf-main-tab" data-tab="fund-flow">순자금유입</button>
-                <button class="etf-main-tab" data-tab="asset-change">순자산증감</button>
             </div>
             <div class="etf-sub-tabs" id="etf-dist-sub-tabs">
                 <button class="etf-sub-tab active" data-asset="전체">전체</button>
@@ -6907,15 +6905,13 @@ function renderEtfDashboard(data, container) {
             <div id="etf-dist-content"></div>
         </div>
 
-        <!-- 3. 랭킹 TOP 10 (ETFCheck: 수익률 | 거래량 | 자금유입 | 순자산총액 | 투자자) -->
+        <!-- 3. 랭킹 TOP 10 (ETFCheck: 수익률 | 거래량 | 순자산총액) -->
         <div class="card">
             <h3>랭킹 TOP 10</h3>
             <div class="etf-main-tabs" id="etf-rank-main-tabs">
                 <button class="etf-main-tab active" data-tab="return">수익률</button>
                 <button class="etf-main-tab" data-tab="volume">거래량</button>
-                <button class="etf-main-tab" data-tab="fund">자금유입</button>
                 <button class="etf-main-tab" data-tab="asset-total">순자산총액</button>
-                <button class="etf-main-tab" data-tab="investor">투자자</button>
             </div>
             <div class="etf-sub-tabs" id="etf-rank-sub-tabs">
                 <button class="etf-sub-tab active" data-asset="전체">전체</button>
@@ -7066,22 +7062,6 @@ function renderEtfDashboard(data, container) {
                     }).join('') || '<div class="empty-cell">데이터 없음</div>'}
                 </div>
             `;
-        } else if (distMainTab === 'fund-flow') {
-            contentEl.innerHTML = `
-                <div style="text-align:center;padding:50px 0;color:#6b7280">
-                    <div style="font-size:2em;margin-bottom:12px">📊</div>
-                    <div style="font-size:0.95em;margin-bottom:6px">순자금유입 데이터 준비 중</div>
-                    <div style="font-size:0.8em;color:#4b5563">ETF 설정/환매 데이터 연동 후 제공 예정</div>
-                </div>
-            `;
-        } else if (distMainTab === 'asset-change') {
-            contentEl.innerHTML = `
-                <div style="text-align:center;padding:50px 0;color:#6b7280">
-                    <div style="font-size:2em;margin-bottom:12px">📈</div>
-                    <div style="font-size:0.95em;margin-bottom:6px">순자산증감 데이터 준비 중</div>
-                    <div style="font-size:0.8em;color:#4b5563">ETF 설정/환매 데이터 연동 후 제공 예정</div>
-                </div>
-            `;
         }
     }
     renderDistribution();
@@ -7108,10 +7088,25 @@ function renderEtfDashboard(data, container) {
     let rankAsset = '전체';
     let rankMode = 'up';
 
-    function rankItemHtml(e, i) {
+    function rankItemHtml(e, i, tab) {
         const isUp = (e.change_pct || 0) >= 0;
         const cls = isUp ? 'profit' : 'loss';
         const navStr = e.nav ? e.nav.toLocaleString() : '';
+
+        let rightContent = '';
+        if (tab === 'asset-total') {
+            // 순자산총액 탭: 시총 표시
+            const marketStr = e.market_sum ? (e.market_sum >= 100000000
+                ? (e.market_sum / 100000000).toFixed(0) + '억'
+                : e.market_sum.toLocaleString()) : '-';
+            rightContent = `<span style="font-weight:700">${marketStr}</span>`;
+        } else if (tab === 'volume') {
+            // 거래량 탭: 거래량 표시
+            rightContent = `<span style="font-weight:700">${(e.volume || 0).toLocaleString()}</span>`;
+        } else {
+            // 수익률 탭: 등락률 표시
+            rightContent = `<span class="${cls}" style="font-weight:700">${isUp ? '+' : ''}${(e.change_pct || 0).toFixed(2)}%</span>`;
+        }
         return `
             <div class="etf-rank-item">
                 <span class="etf-rank-num">${i + 1}</span>
@@ -7120,9 +7115,7 @@ function renderEtfDashboard(data, container) {
                     <span style="color:#6b7280;font-size:0.82em">현재가 ${(e.price || 0).toLocaleString()}</span>
                 </div>
                 ${navStr ? `<div style="color:#6b7280;font-size:0.82em;min-width:90px;text-align:center">iNAV ${navStr}</div>` : ''}
-                <div class="etf-rank-change ${cls}">
-                    ${isUp ? '+' : ''}${(e.change_pct || 0).toFixed(2)}%
-                </div>
+                <div class="etf-rank-change">${rightContent}</div>
             </div>
         `;
     }
@@ -7143,18 +7136,15 @@ function renderEtfDashboard(data, container) {
             items = (data.top_volume_by_asset || {})[rankAsset] || [];
         } else if (rankMainTab === 'asset-total') {
             items = (data.top_market_by_asset || {})[rankAsset] || [];
-        } else {
-            el.innerHTML = '<div class="empty-cell" style="padding:30px 0">자금유입/투자자 데이터는 준비 중입니다</div>';
-            return;
         }
 
         const first5 = items.slice(0, 5);
         const rest5 = items.slice(5, 10);
 
-        el.innerHTML = first5.map((e, i) => rankItemHtml(e, i)).join('')
+        el.innerHTML = first5.map((e, i) => rankItemHtml(e, i, rankMainTab)).join('')
             + (rest5.length > 0 ? `
                 <div id="etf-rank-more" style="display:none">
-                    ${rest5.map((e, i) => rankItemHtml(e, i + 5)).join('')}
+                    ${rest5.map((e, i) => rankItemHtml(e, i + 5, rankMainTab)).join('')}
                 </div>
                 <div class="etf-more-btn-wrap">
                     <button class="etf-more-btn" id="etf-rank-more-btn">더보기 ∨</button>
@@ -7253,7 +7243,14 @@ function renderEtfDashboard(data, container) {
         const el = document.getElementById('etf-major-list');
         if (!el) return;
 
-        let items = data.major_etfs || [];
+        let items = [];
+        if (data.major_by_asset && data.major_by_asset[majorAsset]) {
+            items = data.major_by_asset[majorAsset];
+        } else if (majorAsset === '전체') {
+            items = data.major_etfs || [];
+        } else {
+            items = (data.major_etfs || []).filter(e => e.asset_type === majorAsset);
+        }
 
         // 중복 제거
         const seen = new Set();

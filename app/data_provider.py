@@ -811,6 +811,16 @@ async def get_etf_overview():
     # 거래량 TOP3 (상승하락 섹션의 TOP3거래량 탭용)
     top3_volume = unique_by_code(sorted(all_etfs, key=lambda x: x["volume"], reverse=True))[:3]
 
+    # 주요 종목 — 자산유형별 거래량 상위 10개씩
+    major_by_asset = {}
+    for asset_name in ["전체", "주식", "채권", "원자재"]:
+        if asset_name == "전체":
+            pool = all_etfs
+        else:
+            pool = [e for e in all_etfs if e.get("asset_type") == asset_name]
+        top = unique_by_code(sorted(pool, key=lambda x: x["volume"], reverse=True))[:10]
+        major_by_asset[asset_name] = top
+
     result = {
         "total_count": len(all_etfs),
         "total_up": total_up,
@@ -829,6 +839,7 @@ async def get_etf_overview():
         "top_market_by_asset": top_market_by_asset,
         "top3_volume": top3_volume,
         "major_etfs": major_etfs,
+        "major_by_asset": major_by_asset,
         "success": True,
     }
     _set_cache("etf_overview", result)
