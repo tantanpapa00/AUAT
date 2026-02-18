@@ -3216,10 +3216,76 @@
                                 <div class="filter-accordion-header">
                                     <span class="accordion-arrow">▶</span>
                                     <span class="accordion-title">재무지표</span>
-                                    <span class="accordion-badge">준비중</span>
                                 </div>
                                 <div class="filter-accordion-body" style="display:none;">
-                                    <p class="filter-placeholder">PER, PBR, ROE 등 재무지표 필터는 7-2에서 추가됩니다.</p>
+                                    <div class="filter-row">
+                                        <div class="filter-item">
+                                            <label>PER</label>
+                                            <select id="filter-per">
+                                                <option value="">전체</option>
+                                                <option value="loss">적자</option>
+                                                <option value="0~10">0~10</option>
+                                                <option value="10~20">10~20</option>
+                                                <option value="20~50">20~50</option>
+                                                <option value="50+">50 이상</option>
+                                            </select>
+                                        </div>
+                                        <div class="filter-item">
+                                            <label>PBR</label>
+                                            <select id="filter-pbr">
+                                                <option value="">전체</option>
+                                                <option value="0~0.5">0~0.5</option>
+                                                <option value="0.5~1">0.5~1</option>
+                                                <option value="1~2">1~2</option>
+                                                <option value="2~5">2~5</option>
+                                                <option value="5+">5 이상</option>
+                                            </select>
+                                        </div>
+                                        <div class="filter-item">
+                                            <label>ROE</label>
+                                            <select id="filter-roe">
+                                                <option value="">전체</option>
+                                                <option value="loss">적자</option>
+                                                <option value="0~5">0~5%</option>
+                                                <option value="5~10">5~10%</option>
+                                                <option value="10~20">10~20%</option>
+                                                <option value="20+">20% 이상</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="filter-row">
+                                        <div class="filter-item">
+                                            <label>영업이익률</label>
+                                            <select id="filter-operating-margin">
+                                                <option value="">전체</option>
+                                                <option value="loss">적자</option>
+                                                <option value="0~5">0~5%</option>
+                                                <option value="5~10">5~10%</option>
+                                                <option value="10~20">10~20%</option>
+                                                <option value="20+">20% 이상</option>
+                                            </select>
+                                        </div>
+                                        <div class="filter-item">
+                                            <label>부채비율</label>
+                                            <select id="filter-debt-ratio">
+                                                <option value="">전체</option>
+                                                <option value="0~50">0~50%</option>
+                                                <option value="50~100">50~100%</option>
+                                                <option value="100~200">100~200%</option>
+                                                <option value="200+">200% 이상</option>
+                                            </select>
+                                        </div>
+                                        <div class="filter-item">
+                                            <label>배당수익률</label>
+                                            <select id="filter-dividend-yield">
+                                                <option value="">전체</option>
+                                                <option value="1+">1% 이상</option>
+                                                <option value="2+">2% 이상</option>
+                                                <option value="3+">3% 이상</option>
+                                                <option value="5+">5% 이상</option>
+                                            </select>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -3228,10 +3294,70 @@
                                 <div class="filter-accordion-header">
                                     <span class="accordion-arrow">▶</span>
                                     <span class="accordion-title">기술적지표</span>
-                                    <span class="accordion-badge">준비중</span>
                                 </div>
                                 <div class="filter-accordion-body" style="display:none;">
-                                    <p class="filter-placeholder">이동평균, RSI, 볼린저밴드 등 기술적지표 필터는 7-3에서 추가됩니다.</p>
+                                    <div class="filter-row">
+                                        <div class="filter-item">
+                                            <label>등락률(당일)</label>
+                                            <select id="filter-change">
+                                                <option value="">전체</option>
+                                                <option value="up3">+3% 이상</option>
+                                                <option value="up5">+5% 이상</option>
+                                                <option value="up10">+10% 이상</option>
+                                                <option value="down3">-3% 이하</option>
+                                                <option value="down5">-5% 이하</option>
+                                                <option value="down10">-10% 이하</option>
+                                            </select>
+                                        </div>
+                                        <div class="filter-item">
+                                            <label>52주 고가 대비</label>
+                                            <select id="filter-52w-high">
+                                                <option value="">전체</option>
+                                                <option value="0~5">0~5% 하락</option>
+                                                <option value="5~10">5~10% 하락</option>
+                                                <option value="10~20">10~20% 하락</option>
+                                                <option value="20+">20% 이상 하락</option>
+                                            </select>
+                                        </div>
+                                        <div class="filter-item">
+                                            <label>거래량 급증</label>
+                                            <select id="filter-volume-surge">
+                                                <option value="">전체</option>
+                                                <option value="2">2배 이상</option>
+                                                <option value="5">5배 이상</option>
+                                                <option value="10">10배 이상</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="filter-row">
+                                        <div class="filter-item">
+                                            <label>20일선</label>
+                                            <select id="filter-sma20">
+                                                <option value="">전체</option>
+                                                <option value="above">위</option>
+                                                <option value="below">아래</option>
+                                                <option value="near">근접(±2%)</option>
+                                            </select>
+                                        </div>
+                                        <div class="filter-item">
+                                            <label>60일선</label>
+                                            <select id="filter-sma60">
+                                                <option value="">전체</option>
+                                                <option value="above">위</option>
+                                                <option value="below">아래</option>
+                                                <option value="near">근접(±2%)</option>
+                                            </select>
+                                        </div>
+                                        <div class="filter-item">
+                                            <label>120일선</label>
+                                            <select id="filter-sma120">
+                                                <option value="">전체</option>
+                                                <option value="above">위</option>
+                                                <option value="below">아래</option>
+                                                <option value="near">근접(±2%)</option>
+                                            </select>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -3256,6 +3382,8 @@
                                         <th data-sort="market_cap" class="sortable active desc">시총 <span class="sort-icon">▼</span></th>
                                         <th data-sort="per">PER</th>
                                         <th data-sort="pbr">PBR</th>
+                                        <th data-sort="roe">ROE</th>
+                                        <th data-sort="w52_high_pct">52주고가</th>
                                     </tr>
                                 </thead>
                                 <tbody id="screener-tbody">

@@ -12376,12 +12376,27 @@ function initScreenerEvents() {
 
     // 초기화 버튼
     document.getElementById('btn-screener-reset')?.addEventListener('click', () => {
+        // 기본정보
         document.getElementById('filter-exchange').value = '';
         document.getElementById('filter-sector').value = '';
         document.getElementById('filter-market-cap').value = '';
         document.getElementById('filter-price-min').value = '';
         document.getElementById('filter-price-max').value = '';
         document.getElementById('filter-volume').value = '';
+        // 재무지표
+        document.getElementById('filter-per').value = '';
+        document.getElementById('filter-pbr').value = '';
+        document.getElementById('filter-roe').value = '';
+        document.getElementById('filter-operating-margin').value = '';
+        document.getElementById('filter-debt-ratio').value = '';
+        document.getElementById('filter-dividend-yield').value = '';
+        // 기술적지표
+        document.getElementById('filter-change').value = '';
+        document.getElementById('filter-52w-high').value = '';
+        document.getElementById('filter-volume-surge').value = '';
+        document.getElementById('filter-sma20').value = '';
+        document.getElementById('filter-sma60').value = '';
+        document.getElementById('filter-sma120').value = '';
         screenerState.page = 1;
         searchScreener();
     });
@@ -12454,6 +12469,7 @@ async function loadSectorOptions() {
 function collectScreenerFilters() {
     const filters = {};
 
+    // 기본정보 필터
     const exchange = document.getElementById('filter-exchange')?.value;
     if (exchange) filters.exchange = exchange;
 
@@ -12472,6 +12488,44 @@ function collectScreenerFilters() {
     const volumeMin = document.getElementById('filter-volume')?.value;
     if (volumeMin) filters.volume_min = parseInt(volumeMin);
 
+    // 재무지표 필터
+    const per = document.getElementById('filter-per')?.value;
+    if (per) filters.per = per;
+
+    const pbr = document.getElementById('filter-pbr')?.value;
+    if (pbr) filters.pbr = pbr;
+
+    const roe = document.getElementById('filter-roe')?.value;
+    if (roe) filters.roe = roe;
+
+    const operatingMargin = document.getElementById('filter-operating-margin')?.value;
+    if (operatingMargin) filters.operating_margin = operatingMargin;
+
+    const debtRatio = document.getElementById('filter-debt-ratio')?.value;
+    if (debtRatio) filters.debt_ratio = debtRatio;
+
+    const dividendYield = document.getElementById('filter-dividend-yield')?.value;
+    if (dividendYield) filters.dividend_yield = dividendYield;
+
+    // 기술적지표 필터
+    const change = document.getElementById('filter-change')?.value;
+    if (change) filters.change_filter = change;
+
+    const w52High = document.getElementById('filter-52w-high')?.value;
+    if (w52High) filters.w52_high = w52High;
+
+    const volumeSurge = document.getElementById('filter-volume-surge')?.value;
+    if (volumeSurge) filters.volume_surge = volumeSurge;
+
+    const sma20 = document.getElementById('filter-sma20')?.value;
+    if (sma20) filters.sma20 = sma20;
+
+    const sma60 = document.getElementById('filter-sma60')?.value;
+    if (sma60) filters.sma60 = sma60;
+
+    const sma120 = document.getElementById('filter-sma120')?.value;
+    if (sma120) filters.sma120 = sma120;
+
     return filters;
 }
 
@@ -12487,14 +12541,14 @@ async function searchScreener() {
     if (screenerState.market !== 'kr') {
         if (tbody) {
             const marketName = screenerState.market === 'us' ? '해외' : 'ETF';
-            tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">${marketName} 종목검색 준비중입니다</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="10" class="empty-cell">${marketName} 종목검색 준비중입니다</td></tr>`;
         }
         if (countEl) countEl.textContent = '결과: 0건';
         return;
     }
 
     if (tbody) {
-        tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">검색 중...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="empty-cell">검색 중...</td></tr>';
     }
 
     try {
@@ -12513,7 +12567,7 @@ async function searchScreener() {
         if (data.message) {
             // 준비중 메시지
             if (tbody) {
-                tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">${data.message}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="10" class="empty-cell">${data.message}</td></tr>`;
             }
             if (countEl) countEl.textContent = '결과: 0건';
             return;
@@ -12528,7 +12582,7 @@ async function searchScreener() {
     } catch (err) {
         console.error('Screener search error:', err);
         if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">오류 발생: ${err.message || err}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="10" class="empty-cell">오류 발생: ${err.message || err}</td></tr>`;
         }
     }
 }
@@ -12567,7 +12621,7 @@ function renderScreenerTable(items) {
     if (!tbody) return;
 
     if (!items || items.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">검색 결과가 없습니다</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="empty-cell">검색 결과가 없습니다</td></tr>';
         return;
     }
 
@@ -12581,6 +12635,14 @@ function renderScreenerTable(items) {
         const marketCap = item.market_cap_str || formatMarketCap(item.market_cap || 0);
         const per = item.per ? item.per.toFixed(1) : '-';
         const pbr = item.pbr ? item.pbr.toFixed(2) : '-';
+        const roe = item.roe != null ? item.roe.toFixed(1) + '%' : '-';
+
+        // 52주 고가 대비 하락률
+        let w52HighStr = '-';
+        if (item.w52_high_pct != null) {
+            const pct = (item.w52_high_pct * 100).toFixed(1);
+            w52HighStr = pct > 0 ? `-${pct}%` : '신고가';
+        }
 
         return `
             <tr onclick="console.log('선택:', '${item.code}', '${item.name}')">
@@ -12592,6 +12654,8 @@ function renderScreenerTable(items) {
                 <td class="cap-cell">${marketCap}</td>
                 <td>${per}</td>
                 <td>${pbr}</td>
+                <td>${roe}</td>
+                <td>${w52HighStr}</td>
             </tr>
         `;
     }).join('');

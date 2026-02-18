@@ -2744,7 +2744,7 @@ SCREENER_CACHE_TTL = 300  # 5분
 
 async def screener_kr(filters: dict, sort: str, order: str, page: int, per_page: int) -> dict:
     """
-    국내 주식 스크리너 — 네이버 금융 기반
+    국내 주식 스크리너 — 네이버 금융 기반 (2단계 필터링)
 
     filters 예시:
     {
@@ -2773,8 +2773,28 @@ async def screener_kr(filters: dict, sort: str, order: str, page: int, per_page:
     if not all_stocks:
         return {"items": [], "total": 0, "page": page, "per_page": per_page}
 
-    # 필터링
-    filtered = apply_screener_filters(all_stocks, filters)
+    # === 1단계: 기본 필터 적용 (빠름) ===
+    basic_filters = {k: v for k, v in filters.items()
+                     if k in ["exchange", "sector", "market_cap", "price_min", "price_max", "volume_min"]}
+    filtered = apply_screener_filters(all_stocks, basic_filters)
+
+    # === 2단계: 재무/기술 필터가 있으면 데이터 보강 후 필터 적용 ===
+    financial_filter_keys = ["per", "pbr", "roe", "operating_margin", "debt_ratio", "dividend_yield",
+                             "change_filter", "w52_high", "volume_surge", "sma20", "sma60", "sma120"]
+    has_financial_filters = any(filters.get(k) for k in financial_filter_keys)
+
+    # 재무 필터가 있거나 결과가 500개 이하면 재무 데이터 보강
+    if has_financial_filters or len(filtered) <= 500:
+        # 최대 500개까지만 보강 (API 호출 제한)
+        stocks_to_enrich = filtered[:500]
+        enriched = await enrich_financial_data(stocks_to_enrich)
+        # 500개 초과분은 그대로 유지
+        filtered = enriched + filtered[500:]
+
+    # 재무/기술 필터 적용
+    advanced_filters = {k: v for k, v in filters.items() if k in financial_filter_keys}
+    if advanced_filters:
+        filtered = apply_screener_filters(filtered, advanced_filters)
 
     # 정렬
     filtered = sort_screener_results(filtered, sort, order)
@@ -2948,10 +2968,80 @@ async def enrich_stock_details(stocks: list, market: str) -> list:
     return stocks
 
 
+async def enrich_financial_data(stocks: list) -> list:
+    """
+    재무 데이터 보강 (PER, PBR, ROE, 배당수익률, 52주고가 등)
+    네이버 integration API 사용
+    """
+    import httpx
+    import asyncio
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    }
+
+    async def fetch_single(client, stock):
+        """단일 종목 재무 데이터 조회"""
+        code = stock.get("code")
+        if not code:
+            return stock
+
+        try:
+            url = f"https://m.stock.naver.com/api/stock/{code}/integration"
+            resp = await client.get(url, timeout=10)
+            if resp.status_code != 200:
+                return stock
+
+            data = resp.json()
+            total_infos = data.get("totalInfos", [])
+
+            for info in total_infos:
+                key = info.get("code", "")
+                value = info.get("value", "")
+
+                if key == "per":
+                    stock["per"] = _parse_float(value.replace("배", ""))
+                elif key == "pbr":
+                    stock["pbr"] = _parse_float(value.replace("배", ""))
+                elif key == "dividendYieldRatio":
+                    stock["dividend_yield"] = _parse_float(value.replace("%", ""))
+                elif key == "highPriceOf52Weeks":
+                    high_52w = _parse_price(value)
+                    stock["high_52w"] = high_52w
+                    # 52주 고가 대비 현재가 거리 계산 (비율)
+                    if high_52w > 0 and stock.get("price", 0) > 0:
+                        stock["w52_high_pct"] = (high_52w - stock["price"]) / high_52w
+                    else:
+                        stock["w52_high_pct"] = None
+                elif key == "lowPriceOf52Weeks":
+                    stock["low_52w"] = _parse_price(value)
+
+        except Exception as e:
+            print(f"[Screener] Financial enrich error for {code}: {e}")
+
+        return stock
+
+    # 동시 요청 수 제한 (10개씩)
+    enriched = []
+    async with httpx.AsyncClient(headers=headers) as client:
+        semaphore = asyncio.Semaphore(10)
+
+        async def limited_fetch(stock):
+            async with semaphore:
+                return await fetch_single(client, stock)
+
+        tasks = [limited_fetch(s) for s in stocks]
+        enriched = await asyncio.gather(*tasks)
+
+    print(f"[Screener] Enriched {len(enriched)} stocks with financial data")
+    return list(enriched)
+
+
 def apply_screener_filters(stocks: list, filters: dict) -> list:
     """필터 적용"""
     result = stocks
 
+    # === 기본정보 필터 ===
     # 거래소 필터
     if filters.get("exchange"):
         exchange = filters["exchange"].upper()
@@ -2986,7 +3076,110 @@ def apply_screener_filters(stocks: list, filters: dict) -> list:
     if filters.get("volume_min"):
         result = [s for s in result if (s.get("volume") or 0) >= filters["volume_min"]]
 
+    # === 재무지표 필터 ===
+    # PER 필터
+    if filters.get("per"):
+        result = _filter_by_range(result, "per", filters["per"])
+
+    # PBR 필터
+    if filters.get("pbr"):
+        result = _filter_by_range(result, "pbr", filters["pbr"])
+
+    # ROE 필터
+    if filters.get("roe"):
+        result = _filter_by_range(result, "roe", filters["roe"])
+
+    # 영업이익률 필터
+    if filters.get("operating_margin"):
+        result = _filter_by_range(result, "operating_margin", filters["operating_margin"])
+
+    # 부채비율 필터
+    if filters.get("debt_ratio"):
+        result = _filter_by_range(result, "debt_ratio", filters["debt_ratio"])
+
+    # 배당수익률 필터
+    if filters.get("dividend_yield"):
+        val = filters["dividend_yield"]
+        if val.endswith("+"):
+            threshold = float(val.replace("+", ""))
+            result = [s for s in result if (s.get("dividend_yield") or 0) >= threshold]
+
+    # === 기술적지표 필터 ===
+    # 등락률 필터
+    if filters.get("change_filter"):
+        change_val = filters["change_filter"]
+        if change_val == "up3":
+            result = [s for s in result if (s.get("change_pct") or 0) >= 3]
+        elif change_val == "up5":
+            result = [s for s in result if (s.get("change_pct") or 0) >= 5]
+        elif change_val == "up10":
+            result = [s for s in result if (s.get("change_pct") or 0) >= 10]
+        elif change_val == "down3":
+            result = [s for s in result if (s.get("change_pct") or 0) <= -3]
+        elif change_val == "down5":
+            result = [s for s in result if (s.get("change_pct") or 0) <= -5]
+        elif change_val == "down10":
+            result = [s for s in result if (s.get("change_pct") or 0) <= -10]
+
+    # 52주 고가 대비 필터
+    if filters.get("w52_high"):
+        w52_val = filters["w52_high"]
+        if w52_val == "0~5":
+            result = [s for s in result if s.get("w52_high_pct") is not None and 0 <= s["w52_high_pct"] < 0.05]
+        elif w52_val == "5~10":
+            result = [s for s in result if s.get("w52_high_pct") is not None and 0.05 <= s["w52_high_pct"] < 0.10]
+        elif w52_val == "10~20":
+            result = [s for s in result if s.get("w52_high_pct") is not None and 0.10 <= s["w52_high_pct"] < 0.20]
+        elif w52_val == "20+":
+            result = [s for s in result if s.get("w52_high_pct") is not None and s["w52_high_pct"] >= 0.20]
+
+    # 거래량 급증 필터
+    if filters.get("volume_surge"):
+        threshold = float(filters["volume_surge"])
+        result = [s for s in result if (s.get("volume_surge") or 0) >= threshold]
+
+    # 이동평균선 필터 (20일선)
+    if filters.get("sma20"):
+        sma_val = filters["sma20"]
+        result = _filter_by_sma(result, "sma20", sma_val)
+
+    # 이동평균선 필터 (60일선)
+    if filters.get("sma60"):
+        sma_val = filters["sma60"]
+        result = _filter_by_sma(result, "sma60", sma_val)
+
+    # 이동평균선 필터 (120일선)
+    if filters.get("sma120"):
+        sma_val = filters["sma120"]
+        result = _filter_by_sma(result, "sma120", sma_val)
+
     return result
+
+
+def _filter_by_range(stocks: list, field: str, value: str) -> list:
+    """범위 필터: '0~10', '10~20', 'loss', '50+' 등"""
+    if value == "loss":
+        return [s for s in stocks if s.get(field) is not None and s.get(field) < 0]
+    if "~" in value:
+        parts = value.split("~")
+        lo = float(parts[0])
+        hi = float(parts[1].replace("%", "").replace("+", ""))
+        return [s for s in stocks if s.get(field) is not None and lo <= s.get(field) < hi]
+    if value.endswith("+"):
+        threshold = float(value.replace("+", "").replace("%", ""))
+        return [s for s in stocks if s.get(field) is not None and s.get(field) >= threshold]
+    return stocks
+
+
+def _filter_by_sma(stocks: list, sma_field: str, value: str) -> list:
+    """이동평균선 필터: 'above', 'below', 'near'"""
+    if value == "above":
+        return [s for s in stocks if s.get(sma_field) and s.get("price") and s["price"] > s[sma_field]]
+    elif value == "below":
+        return [s for s in stocks if s.get(sma_field) and s.get("price") and s["price"] < s[sma_field]]
+    elif value == "near":
+        return [s for s in stocks if s.get(sma_field) and s.get("price") and abs(s["price"] - s[sma_field]) / s[sma_field] <= 0.02]
+    return stocks
 
 
 def sort_screener_results(stocks: list, sort: str, order: str) -> list:
@@ -3002,6 +3195,9 @@ def sort_screener_results(stocks: list, sort: str, order: str) -> list:
         "market_cap": lambda x: x.get("market_cap") or 0,
         "per": lambda x: x.get("per") or 9999,
         "pbr": lambda x: x.get("pbr") or 9999,
+        "roe": lambda x: x.get("roe") or -9999,
+        "w52_high_pct": lambda x: x.get("w52_high_pct") or 9999,
+        "dividend_yield": lambda x: x.get("dividend_yield") or 0,
     }
 
     key_func = sort_key_map.get(sort, sort_key_map["market_cap"])
