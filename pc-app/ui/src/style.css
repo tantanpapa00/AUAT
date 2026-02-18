@@ -10599,6 +10599,201 @@ body {
     outline: none;
 }
 
+/* 팝오버 V2 - 프리셋 버튼 */
+.popover-preset-btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.popover-preset-btn {
+    padding: 6px 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.popover-preset-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--text-muted);
+}
+
+.popover-preset-btn.selected {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+/* 팝오버 V2 - 범위 입력 */
+.popover-range-section {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+
+.popover-range-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    display: block;
+}
+
+.popover-range {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.popover-range input {
+    flex: 1;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    max-width: 100px;
+}
+
+.popover-range input:focus {
+    border-color: var(--primary);
+    outline: none;
+}
+
+.range-sep {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.range-unit {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    min-width: 30px;
+}
+
+/* 팝오버 V2 - 파라미터 입력 */
+.popover-params {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.popover-param {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.popover-param label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.popover-param input,
+.popover-param select {
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+}
+
+.popover-param input:focus,
+.popover-param select:focus {
+    border-color: var(--primary);
+    outline: none;
+}
+
+.param-unit {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+/* 팝오버 V2 - 라디오 버튼 */
+.popover-radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.popover-radio {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    transition: all 0.15s;
+}
+
+.popover-radio:hover {
+    background: var(--bg-tertiary);
+}
+
+.popover-radio input[type="radio"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
+}
+
+.popover-radio:has(input:checked) {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+/* 팝오버 V2 - 조건 선택 */
+.popover-conditions {
+    margin-top: 12px;
+}
+
+.popover-conditions .popover-presets-label {
+    margin-bottom: 8px;
+}
+
+/* 팝오버 V2 - 이동평균선 */
+.popover-sma,
+.popover-sma-cross {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.cross-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cross-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    min-width: 40px;
+}
+
+.cross-row select,
+.cross-row input {
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+}
+
 /* 메인 컨텐츠 레이아웃 (테이블 + 상세패널) */
 .screener-main-content {
     display: flex;

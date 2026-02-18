@@ -12297,9 +12297,9 @@ function drawTrendBacktestChart(equityCurve, initialCapital = 10000000, currency
 // 종목검색기 (Phase 7) - TradingView 스타일 칩 필터
 // =====================================================
 
-// 필터 정의 (칩별 옵션 및 타입)
+// 필터 정의 (35개 필터 - 프리셋 + 직접입력 + 파라미터 지원)
 const FILTER_DEFINITIONS = {
-    // 기본정보
+    // ===== 기본정보 (7개) =====
     exchange: {
         label: '거래소',
         type: 'select',
@@ -12312,33 +12312,26 @@ const FILTER_DEFINITIONS = {
         label: '업종',
         type: 'select',
         options: [
-            { value: '반도체', label: '반도체' },
-            { value: '자동차', label: '자동차' },
-            { value: '은행', label: '은행' },
-            { value: '제약', label: '제약' },
-            { value: '바이오', label: '바이오' },
-            { value: '화학', label: '화학' },
-            { value: '철강', label: '철강' },
-            { value: '건설', label: '건설' },
-            { value: '유통', label: '유통' },
-            { value: '통신', label: '통신' },
-            { value: '미디어', label: '미디어' },
-            { value: '식품', label: '식품' },
-            { value: '전기전자', label: '전기전자' },
-            { value: '기계', label: '기계' },
-            { value: 'IT서비스', label: 'IT서비스' },
-            { value: '게임', label: '게임' }
+            { value: '반도체', label: '반도체' }, { value: '자동차', label: '자동차' },
+            { value: '은행', label: '은행' }, { value: '제약', label: '제약' },
+            { value: '바이오', label: '바이오' }, { value: '화학', label: '화학' },
+            { value: '철강', label: '철강' }, { value: '건설', label: '건설' },
+            { value: '유통', label: '유통' }, { value: '통신', label: '통신' },
+            { value: '미디어', label: '미디어' }, { value: '식품', label: '식품' },
+            { value: '전기전자', label: '전기전자' }, { value: '기계', label: '기계' },
+            { value: 'IT서비스', label: 'IT서비스' }, { value: '게임', label: '게임' }
         ]
     },
     market_cap: {
         label: '시가총액',
-        type: 'select',
-        options: [
-            { value: 'mega', label: '초대형 (10조+)' },
-            { value: 'large', label: '대형 (1조~10조)' },
-            { value: 'mid', label: '중형 (5천억~1조)' },
-            { value: 'small', label: '소형 (1천억~5천억)' },
-            { value: 'micro', label: '초소형 (1천억 미만)' }
+        type: 'range',
+        unit: '억원',
+        presets: [
+            { min: 100000, max: null, label: '초대형 (10조+)' },
+            { min: 10000, max: 100000, label: '대형 (1조~10조)' },
+            { min: 5000, max: 10000, label: '중형 (5천억~1조)' },
+            { min: 1000, max: 5000, label: '소형 (1천억~5천억)' },
+            { min: null, max: 1000, label: '초소형 (1천억 미만)' }
         ]
     },
     price: {
@@ -12346,142 +12339,279 @@ const FILTER_DEFINITIONS = {
         type: 'range',
         unit: '원',
         presets: [
-            { value: '0~5000', label: '5천원 이하' },
-            { value: '5000~10000', label: '5천~1만원' },
-            { value: '10000~50000', label: '1만~5만원' },
-            { value: '50000~', label: '5만원 이상' }
+            { min: null, max: 5000, label: '5천원 이하' },
+            { min: 5000, max: 10000, label: '5천~1만원' },
+            { min: 10000, max: 50000, label: '1만~5만원' },
+            { min: 50000, max: 100000, label: '5만~10만원' },
+            { min: 100000, max: null, label: '10만원 이상' }
         ]
     },
     volume: {
         label: '거래량',
-        type: 'select',
-        options: [
-            { value: '100000', label: '10만 이상' },
-            { value: '500000', label: '50만 이상' },
-            { value: '1000000', label: '100만 이상' },
-            { value: '5000000', label: '500만 이상' }
+        type: 'range',
+        unit: '주',
+        presets: [
+            { min: 100000, max: null, label: '10만 이상' },
+            { min: 500000, max: null, label: '50만 이상' },
+            { min: 1000000, max: null, label: '100만 이상' },
+            { min: 5000000, max: null, label: '500만 이상' }
         ]
     },
-    change: {
+    foreign_ratio: {
+        label: '외국인비율',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 30, max: null, label: '30% 이상' },
+            { min: 20, max: 30, label: '20~30%' },
+            { min: 10, max: 20, label: '10~20%' },
+            { min: null, max: 10, label: '10% 미만' }
+        ]
+    },
+    change_pct: {
         label: '등락률',
-        type: 'select',
-        options: [
-            { value: 'up3', label: '+3% 이상' },
-            { value: 'up5', label: '+5% 이상' },
-            { value: 'up10', label: '+10% 이상' },
-            { value: 'down3', label: '-3% 이하' },
-            { value: 'down5', label: '-5% 이하' },
-            { value: 'down10', label: '-10% 이하' }
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 10, max: null, label: '+10% 이상' },
+            { min: 5, max: null, label: '+5% 이상' },
+            { min: 3, max: null, label: '+3% 이상' },
+            { min: null, max: -3, label: '-3% 이하' },
+            { min: null, max: -5, label: '-5% 이하' },
+            { min: null, max: -10, label: '-10% 이하' }
         ]
     },
-    // 재무지표
+
+    // ===== 재무지표 (16개) =====
     per: {
         label: 'PER',
-        type: 'select',
-        options: [
-            { value: 'loss', label: '적자' },
-            { value: '0~10', label: '0~10' },
-            { value: '10~20', label: '10~20' },
-            { value: '20~50', label: '20~50' },
-            { value: '50+', label: '50 이상' }
+        type: 'range',
+        unit: '배',
+        presets: [
+            { min: null, max: 0, label: '적자' },
+            { min: 0, max: 10, label: '저PER (0~10)' },
+            { min: 10, max: 20, label: '적정 (10~20)' },
+            { min: 20, max: 50, label: '고PER (20~50)' },
+            { min: 50, max: null, label: '50 이상' }
         ]
     },
     pbr: {
         label: 'PBR',
-        type: 'select',
-        options: [
-            { value: '0~0.5', label: '0~0.5' },
-            { value: '0.5~1', label: '0.5~1' },
-            { value: '1~2', label: '1~2' },
-            { value: '2~5', label: '2~5' },
-            { value: '5+', label: '5 이상' }
+        type: 'range',
+        unit: '배',
+        presets: [
+            { min: null, max: 0.5, label: '저평가 (0~0.5)' },
+            { min: 0.5, max: 1, label: '0.5~1' },
+            { min: 1, max: 2, label: '적정 (1~2)' },
+            { min: 2, max: 5, label: '2~5' },
+            { min: 5, max: null, label: '5 이상' }
+        ]
+    },
+    psr: {
+        label: 'PSR',
+        type: 'range',
+        unit: '배',
+        presets: [
+            { min: null, max: 1, label: '저평가 (0~1)' },
+            { min: 1, max: 3, label: '1~3' },
+            { min: 3, max: 10, label: '3~10' },
+            { min: 10, max: null, label: '10 이상' }
         ]
     },
     roe: {
         label: 'ROE',
-        type: 'select',
-        options: [
-            { value: 'loss', label: '적자' },
-            { value: '0~5', label: '0~5%' },
-            { value: '5~10', label: '5~10%' },
-            { value: '10~20', label: '10~20%' },
-            { value: '20+', label: '20% 이상' }
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: null, max: 0, label: '적자' },
+            { min: 0, max: 5, label: '0~5%' },
+            { min: 5, max: 10, label: '5~10%' },
+            { min: 10, max: 20, label: '우량 (10~20%)' },
+            { min: 20, max: null, label: '고수익 (20%+)' }
+        ]
+    },
+    roa: {
+        label: 'ROA',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: null, max: 0, label: '적자' },
+            { min: 0, max: 3, label: '0~3%' },
+            { min: 3, max: 7, label: '3~7%' },
+            { min: 7, max: null, label: '7% 이상' }
         ]
     },
     operating_margin: {
         label: '영업이익률',
-        type: 'select',
-        options: [
-            { value: 'loss', label: '적자' },
-            { value: '0~5', label: '0~5%' },
-            { value: '5~10', label: '5~10%' },
-            { value: '10~20', label: '10~20%' },
-            { value: '20+', label: '20% 이상' }
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: null, max: 0, label: '적자' },
+            { min: 0, max: 5, label: '0~5%' },
+            { min: 5, max: 10, label: '5~10%' },
+            { min: 10, max: 20, label: '우량 (10~20%)' },
+            { min: 20, max: null, label: '고수익 (20%+)' }
+        ]
+    },
+    net_margin: {
+        label: '순이익률',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: null, max: 0, label: '적자' },
+            { min: 0, max: 5, label: '0~5%' },
+            { min: 5, max: 10, label: '5~10%' },
+            { min: 10, max: null, label: '10% 이상' }
         ]
     },
     debt_ratio: {
         label: '부채비율',
-        type: 'select',
-        options: [
-            { value: '0~50', label: '0~50%' },
-            { value: '50~100', label: '50~100%' },
-            { value: '100~200', label: '100~200%' },
-            { value: '200+', label: '200% 이상' }
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: null, max: 50, label: '우량 (50% 미만)' },
+            { min: 50, max: 100, label: '50~100%' },
+            { min: 100, max: 200, label: '100~200%' },
+            { min: 200, max: null, label: '200% 이상' }
+        ]
+    },
+    current_ratio: {
+        label: '유동비율',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 200, max: null, label: '우량 (200%+)' },
+            { min: 150, max: 200, label: '150~200%' },
+            { min: 100, max: 150, label: '100~150%' },
+            { min: null, max: 100, label: '100% 미만' }
+        ]
+    },
+    quick_ratio: {
+        label: '당좌비율',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 100, max: null, label: '100% 이상' },
+            { min: 50, max: 100, label: '50~100%' },
+            { min: null, max: 50, label: '50% 미만' }
+        ]
+    },
+    reserve_ratio: {
+        label: '유보율',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 1000, max: null, label: '1000% 이상' },
+            { min: 500, max: 1000, label: '500~1000%' },
+            { min: 100, max: 500, label: '100~500%' },
+            { min: null, max: 100, label: '100% 미만' }
         ]
     },
     dividend_yield: {
         label: '배당수익률',
-        type: 'select',
-        options: [
-            { value: '1+', label: '1% 이상' },
-            { value: '2+', label: '2% 이상' },
-            { value: '3+', label: '3% 이상' },
-            { value: '5+', label: '5% 이상' }
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 5, max: null, label: '고배당 (5%+)' },
+            { min: 3, max: 5, label: '3~5%' },
+            { min: 2, max: 3, label: '2~3%' },
+            { min: 1, max: 2, label: '1~2%' }
         ]
     },
-    // 기술적지표
+    eps: {
+        label: 'EPS',
+        type: 'range',
+        unit: '원',
+        presets: [
+            { min: 10000, max: null, label: '1만원 이상' },
+            { min: 5000, max: 10000, label: '5천~1만원' },
+            { min: 1000, max: 5000, label: '1천~5천원' },
+            { min: null, max: 0, label: '적자' }
+        ]
+    },
+    bps: {
+        label: 'BPS',
+        type: 'compare',
+        options: [
+            { value: 'above', label: '현재가 > BPS (고평가)' },
+            { value: 'below', label: '현재가 < BPS (저평가)' }
+        ]
+    },
+    sales_growth: {
+        label: '매출성장률',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 30, max: null, label: '고성장 (30%+)' },
+            { min: 10, max: 30, label: '성장 (10~30%)' },
+            { min: 0, max: 10, label: '안정 (0~10%)' },
+            { min: null, max: 0, label: '역성장' }
+        ]
+    },
+    op_growth: {
+        label: '영업이익성장률',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 30, max: null, label: '고성장 (30%+)' },
+            { min: 10, max: 30, label: '성장 (10~30%)' },
+            { min: 0, max: 10, label: '안정 (0~10%)' },
+            { min: null, max: 0, label: '역성장' }
+        ]
+    },
+    payout_ratio: {
+        label: '배당성향',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 50, max: null, label: '고배당 (50%+)' },
+            { min: 30, max: 50, label: '30~50%' },
+            { min: 10, max: 30, label: '10~30%' },
+            { min: null, max: 10, label: '10% 미만' }
+        ]
+    },
+
+    // ===== 기술적지표 (12개) =====
     rsi: {
         label: 'RSI',
-        type: 'select',
-        options: [
-            { value: '과매수', label: '과매수 (70+)' },
-            { value: '과매도', label: '과매도 (30-)' },
-            { value: '중립', label: '중립 (30~70)' }
+        type: 'indicator',
+        params: [
+            { key: 'period', label: '기간', default: 14, unit: '일' }
+        ],
+        presets: [
+            { min: 70, max: null, label: '과매수 (70+)' },
+            { min: null, max: 30, label: '과매도 (30-)' },
+            { min: 30, max: 70, label: '중립 (30~70)' }
         ]
     },
     sma: {
-        label: '이평선',
-        type: 'multi_select',
-        subFilters: {
-            sma20: { label: '20일선', options: [
-                { value: 'above', label: '위' },
-                { value: 'below', label: '아래' },
-                { value: 'near', label: '근접' }
-            ]},
-            sma50: { label: '50일선', options: [
-                { value: 'above', label: '위' },
-                { value: 'below', label: '아래' },
-                { value: 'near', label: '근접' }
-            ]},
-            sma200: { label: '200일선', options: [
-                { value: 'above', label: '위' },
-                { value: 'below', label: '아래' },
-                { value: 'near', label: '근접' }
-            ]}
-        }
+        label: '이동평균선',
+        type: 'sma',
+        multiple: true,
+        maTypes: ['SMA', 'EMA', 'WMA'],
+        conditions: [
+            { value: 'above', label: '현재가가 위' },
+            { value: 'below', label: '현재가가 아래' },
+            { value: 'near', label: '근접 (±2%)' }
+        ]
     },
     sma_cross: {
-        label: '이평교차',
-        type: 'select',
-        options: [
-            { value: 'golden', label: '골든크로스' },
-            { value: 'dead', label: '데드크로스' }
+        label: '이평선교차',
+        type: 'sma_cross',
+        maTypes: ['SMA', 'EMA', 'WMA'],
+        conditions: [
+            { value: 'golden', label: '골든크로스 (단기 > 장기)' },
+            { value: 'dead', label: '데드크로스 (단기 < 장기)' }
         ]
     },
     bollinger: {
-        label: '볼린저',
-        type: 'select',
-        options: [
+        label: '볼린저밴드',
+        type: 'indicator',
+        params: [
+            { key: 'period', label: '기간', default: 20, unit: '일' },
+            { key: 'mult', label: '승수', default: 2, unit: 'σ' }
+        ],
+        presets: [
             { value: 'upper', label: '상단 돌파' },
             { value: 'lower', label: '하단 돌파' },
             { value: 'middle', label: '중심선 부근' }
@@ -12489,68 +12619,98 @@ const FILTER_DEFINITIONS = {
     },
     macd: {
         label: 'MACD',
-        type: 'select',
-        options: [
-            { value: 'buy', label: '매수신호' },
-            { value: 'sell', label: '매도신호' }
+        type: 'indicator',
+        params: [
+            { key: 'fast', label: '빠른선', default: 12, unit: '일' },
+            { key: 'slow', label: '느린선', default: 26, unit: '일' },
+            { key: 'signal', label: '시그널', default: 9, unit: '일' }
+        ],
+        presets: [
+            { value: 'buy', label: '매수신호 (MACD > Signal)' },
+            { value: 'sell', label: '매도신호 (MACD < Signal)' },
+            { value: 'above_zero', label: '0선 위' },
+            { value: 'below_zero', label: '0선 아래' }
         ]
     },
     stochastic: {
         label: '스토캐스틱',
-        type: 'select',
-        options: [
-            { value: '과매수', label: '과매수 (80+)' },
-            { value: '과매도', label: '과매도 (20-)' }
+        type: 'indicator',
+        params: [
+            { key: 'k_period', label: '%K', default: 14, unit: '일' },
+            { key: 'd_period', label: '%D', default: 3, unit: '일' }
+        ],
+        presets: [
+            { min: 80, max: null, label: '과매수 (80+)' },
+            { min: null, max: 20, label: '과매도 (20-)' }
         ]
     },
     volume_surge: {
         label: '거래량급증',
-        type: 'select',
-        options: [
-            { value: '2', label: '2배 이상' },
-            { value: '5', label: '5배 이상' },
-            { value: '10', label: '10배 이상' }
-        ]
+        type: 'indicator',
+        params: [
+            { key: 'period', label: '기준기간', default: 20, unit: '일' }
+        ],
+        presets: [
+            { min: 2, max: null, label: '2배 이상' },
+            { min: 5, max: null, label: '5배 이상' },
+            { min: 10, max: null, label: '10배 이상' }
+        ],
+        unit: '배'
     },
     w52_high: {
-        label: '52주고가',
-        type: 'select',
-        options: [
-            { value: '0~5', label: '0~5% 하락' },
-            { value: '5~10', label: '5~10% 하락' },
-            { value: '10~20', label: '10~20% 하락' },
-            { value: '20+', label: '20%+ 하락' }
+        label: '52주고가대비',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: -5, max: 0, label: '신고가 근접 (0~5% 하락)' },
+            { min: -10, max: -5, label: '5~10% 하락' },
+            { min: -20, max: -10, label: '10~20% 하락' },
+            { min: null, max: -20, label: '20%+ 하락' }
         ]
     },
     w52_low: {
-        label: '52주저가',
-        type: 'select',
-        options: [
-            { value: '0~5', label: '0~5% 상승' },
-            { value: '5~10', label: '5~10% 상승' },
-            { value: '10~20', label: '10~20% 상승' },
-            { value: '20+', label: '20%+ 상승' }
+        label: '52주저가대비',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 0, max: 5, label: '바닥 근접 (0~5% 상승)' },
+            { min: 5, max: 10, label: '5~10% 상승' },
+            { min: 10, max: 20, label: '10~20% 상승' },
+            { min: 20, max: null, label: '20%+ 상승' }
         ]
     },
     atr: {
         label: 'ATR',
-        type: 'select',
-        options: [
-            { value: 'high', label: '고변동' },
-            { value: 'medium', label: '중변동' },
-            { value: 'low', label: '저변동' }
+        type: 'indicator',
+        params: [
+            { key: 'period', label: '기간', default: 14, unit: '일' }
+        ],
+        presets: [
+            { value: 'high', label: '고변동 (3%+)' },
+            { value: 'medium', label: '중변동 (1.5~3%)' },
+            { value: 'low', label: '저변동 (1.5% 미만)' }
         ]
     },
     period_return: {
         label: '기간수익률',
-        type: 'select',
-        options: [
-            { value: '1w+10', label: '1주 +10%' },
-            { value: '1m+20', label: '1개월 +20%' },
-            { value: '3m+30', label: '3개월 +30%' },
-            { value: '1w-10', label: '1주 -10%' },
-            { value: '1m-20', label: '1개월 -20%' }
-        ]
+        type: 'indicator',
+        params: [
+            { key: 'period', label: '기간', default: '1m', unit: '', options: [
+                { value: '1w', label: '1주' },
+                { value: '1m', label: '1개월' },
+                { value: '3m', label: '3개월' },
+                { value: '6m', label: '6개월' },
+                { value: '1y', label: '1년' }
+            ]}
+        ],
+        presets: [
+            { min: 30, max: null, label: '+30% 이상' },
+            { min: 20, max: 30, label: '+20~30%' },
+            { min: 10, max: 20, label: '+10~20%' },
+            { min: null, max: -10, label: '-10% 이하' },
+            { min: null, max: -20, label: '-20% 이하' }
+        ],
+        unit: '%'
     }
 };
 
@@ -12705,7 +12865,7 @@ function initScreenerEvents() {
     });
 }
 
-// 필터 팝오버 표시
+// 필터 팝오버 표시 (모든 타입 지원)
 function showFilterPopover(filterKey, chipElement) {
     const popover = document.getElementById('filter-popover');
     const titleEl = document.getElementById('popover-title');
@@ -12718,64 +12878,160 @@ function showFilterPopover(filterKey, chipElement) {
 
     // 현재 필터 키 저장
     popover.dataset.currentFilter = filterKey;
-
-    // 제목 설정
     titleEl.textContent = filterDef.label;
 
-    // 팝오버 내용 생성
-    let html = '';
-    const currentValue = screenerState.activeFilters[filterKey]?.value;
+    // 현재 값 가져오기
+    const currentFilter = screenerState.activeFilters[filterKey];
+    const currentMin = currentFilter?.min || '';
+    const currentMax = currentFilter?.max || '';
+    const currentParams = currentFilter?.params || {};
 
+    let html = '';
+
+    // ===== 타입별 팝오버 렌더링 =====
     if (filterDef.type === 'select') {
+        // 단순 선택형
         html = '<div class="popover-options">';
         filterDef.options.forEach(opt => {
-            const selected = currentValue === opt.value ? 'selected' : '';
+            const selected = currentFilter?.value === opt.value ? 'selected' : '';
             html += `<button class="popover-option ${selected}" data-value="${opt.value}">${opt.label}</button>`;
         });
         html += '</div>';
+
+    } else if (filterDef.type === 'compare') {
+        // 비교형 (BPS 등)
+        html = '<div class="popover-radio-group">';
+        filterDef.options.forEach(opt => {
+            const checked = currentFilter?.value === opt.value ? 'checked' : '';
+            html += `<label class="popover-radio"><input type="radio" name="compare" value="${opt.value}" ${checked}> ${opt.label}</label>`;
+        });
+        html += '</div>';
+
     } else if (filterDef.type === 'range') {
-        // 프리셋 버튼
+        // 범위형: 프리셋 + min/max 입력
         if (filterDef.presets) {
-            html = '<div class="popover-presets">';
-            html += '<span class="popover-presets-label">빠른 선택</span>';
-            html += '<div class="popover-options">';
-            filterDef.presets.forEach(preset => {
-                const selected = currentValue === preset.value ? 'selected' : '';
-                html += `<button class="popover-option ${selected}" data-value="${preset.value}">${preset.label}</button>`;
+            html += '<div class="popover-presets"><span class="popover-presets-label">빠른 선택</span><div class="popover-preset-btns">';
+            filterDef.presets.forEach((preset, idx) => {
+                html += `<button class="popover-preset-btn" data-idx="${idx}" data-min="${preset.min ?? ''}" data-max="${preset.max ?? ''}">${preset.label}</button>`;
             });
             html += '</div></div>';
         }
-        // 커스텀 범위 입력
-        const [minVal, maxVal] = currentValue ? currentValue.split('~') : ['', ''];
-        html += '<div class="popover-custom">';
-        html += '<span class="popover-custom-label">직접 입력</span>';
-        html += '<div class="popover-range">';
-        html += `<input type="number" id="popover-range-min" placeholder="최소" value="${minVal || ''}">`;
-        html += '<span>~</span>';
-        html += `<input type="number" id="popover-range-max" placeholder="최대" value="${maxVal || ''}">`;
-        html += `<span>${filterDef.unit || ''}</span>`;
-        html += '</div></div>';
-    } else if (filterDef.type === 'multi_select' && filterDef.subFilters) {
-        // 이평선처럼 여러 서브필터가 있는 경우
-        html = '<div class="popover-multi-select">';
-        for (const [subKey, subDef] of Object.entries(filterDef.subFilters)) {
-            const subValue = screenerState.activeFilters[subKey]?.value;
-            html += `<div class="popover-sub-filter">`;
-            html += `<span class="popover-sub-label">${subDef.label}</span>`;
-            html += `<select class="popover-sub-select" data-subkey="${subKey}">`;
-            html += '<option value="">전체</option>';
-            subDef.options.forEach(opt => {
-                const selected = subValue === opt.value ? 'selected' : '';
-                html += `<option value="${opt.value}" ${selected}>${opt.label}</option>`;
+        html += `<div class="popover-range-section"><span class="popover-range-label">직접 입력</span><div class="popover-range">`;
+        html += `<input type="number" inputmode="decimal" id="popover-range-min" placeholder="최소" value="${currentMin}">`;
+        html += '<span class="range-sep">~</span>';
+        html += `<input type="number" inputmode="decimal" id="popover-range-max" placeholder="최대" value="${currentMax}">`;
+        html += `<span class="range-unit">${filterDef.unit || ''}</span></div></div>`;
+
+    } else if (filterDef.type === 'indicator') {
+        // 지표형: 파라미터 + 프리셋/범위
+        if (filterDef.params) {
+            html += '<div class="popover-params">';
+            filterDef.params.forEach(param => {
+                const paramVal = currentParams[param.key] || param.default;
+                if (param.options) {
+                    // 드롭다운 파라미터 (기간 선택 등)
+                    html += `<div class="popover-param"><label>${param.label}:</label><select id="popover-param-${param.key}">`;
+                    param.options.forEach(opt => {
+                        const sel = paramVal === opt.value ? 'selected' : '';
+                        html += `<option value="${opt.value}" ${sel}>${opt.label}</option>`;
+                    });
+                    html += '</select></div>';
+                } else {
+                    // 숫자 입력 파라미터
+                    html += `<div class="popover-param"><label>${param.label}:</label>`;
+                    html += `<input type="number" id="popover-param-${param.key}" value="${paramVal}" style="width:60px;">`;
+                    html += `<span class="param-unit">${param.unit || ''}</span></div>`;
+                }
             });
-            html += '</select></div>';
+            html += '</div>';
         }
-        html += '</div>';
+        // 프리셋 (value 기반 또는 min/max 기반)
+        if (filterDef.presets) {
+            html += '<div class="popover-presets"><span class="popover-presets-label">조건</span><div class="popover-preset-btns">';
+            filterDef.presets.forEach((preset, idx) => {
+                if (preset.value !== undefined) {
+                    html += `<button class="popover-preset-btn" data-value="${preset.value}">${preset.label}</button>`;
+                } else {
+                    html += `<button class="popover-preset-btn" data-idx="${idx}" data-min="${preset.min ?? ''}" data-max="${preset.max ?? ''}">${preset.label}</button>`;
+                }
+            });
+            html += '</div></div>';
+        }
+        // min/max 범위가 필요한 지표는 직접 입력도 제공
+        if (filterDef.presets?.some(p => p.min !== undefined || p.max !== undefined)) {
+            html += `<div class="popover-range-section"><span class="popover-range-label">직접 입력</span><div class="popover-range">`;
+            html += `<input type="number" inputmode="decimal" id="popover-range-min" placeholder="최소" value="${currentMin}">`;
+            html += '<span class="range-sep">~</span>';
+            html += `<input type="number" inputmode="decimal" id="popover-range-max" placeholder="최대" value="${currentMax}">`;
+            html += `<span class="range-unit">${filterDef.unit || ''}</span></div></div>`;
+        }
+
+    } else if (filterDef.type === 'sma') {
+        // 이동평균선: 종류 + 기간 + 조건
+        const curType = currentParams.maType || 'SMA';
+        const curPeriod = currentParams.period || 20;
+        const curCond = currentFilter?.value || '';
+
+        html += '<div class="popover-sma">';
+        html += '<div class="popover-param"><label>종류:</label><select id="popover-sma-type">';
+        filterDef.maTypes.forEach(t => {
+            html += `<option value="${t}" ${curType === t ? 'selected' : ''}>${t}</option>`;
+        });
+        html += '</select></div>';
+        html += `<div class="popover-param"><label>기간:</label><input type="number" id="popover-sma-period" value="${curPeriod}" style="width:60px;"><span class="param-unit">일</span></div>`;
+        html += '<div class="popover-conditions"><span class="popover-presets-label">조건</span>';
+        filterDef.conditions.forEach(c => {
+            const checked = curCond === c.value ? 'checked' : '';
+            html += `<label class="popover-radio"><input type="radio" name="sma-cond" value="${c.value}" ${checked}> ${c.label}</label>`;
+        });
+        html += '</div></div>';
+
+    } else if (filterDef.type === 'sma_cross') {
+        // 이평선 교차: 단기/장기 + 조건
+        const curShortType = currentParams.shortType || 'SMA';
+        const curShortPeriod = currentParams.shortPeriod || 20;
+        const curLongType = currentParams.longType || 'SMA';
+        const curLongPeriod = currentParams.longPeriod || 50;
+        const curCond = currentFilter?.value || '';
+
+        html += '<div class="popover-sma-cross">';
+        html += '<div class="cross-row"><span class="cross-label">단기:</span>';
+        html += '<select id="popover-short-type">';
+        filterDef.maTypes.forEach(t => html += `<option value="${t}" ${curShortType === t ? 'selected' : ''}>${t}</option>`);
+        html += '</select>';
+        html += `<input type="number" id="popover-short-period" value="${curShortPeriod}" style="width:50px;"><span class="param-unit">일</span></div>`;
+
+        html += '<div class="cross-row"><span class="cross-label">장기:</span>';
+        html += '<select id="popover-long-type">';
+        filterDef.maTypes.forEach(t => html += `<option value="${t}" ${curLongType === t ? 'selected' : ''}>${t}</option>`);
+        html += '</select>';
+        html += `<input type="number" id="popover-long-period" value="${curLongPeriod}" style="width:50px;"><span class="param-unit">일</span></div>`;
+
+        html += '<div class="popover-conditions"><span class="popover-presets-label">조건</span>';
+        filterDef.conditions.forEach(c => {
+            const checked = curCond === c.value ? 'checked' : '';
+            html += `<label class="popover-radio"><input type="radio" name="cross-cond" value="${c.value}" ${checked}> ${c.label}</label>`;
+        });
+        html += '</div></div>';
     }
 
     bodyEl.innerHTML = html;
 
-    // 옵션 클릭 이벤트
+    // ===== 이벤트 바인딩 =====
+    // 프리셋 버튼 클릭 -> min/max 자동 채움
+    bodyEl.querySelectorAll('.popover-preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            bodyEl.querySelectorAll('.popover-preset-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            // min/max 있으면 입력칸에 채움
+            const minInput = document.getElementById('popover-range-min');
+            const maxInput = document.getElementById('popover-range-max');
+            if (minInput && btn.dataset.min !== undefined) minInput.value = btn.dataset.min;
+            if (maxInput && btn.dataset.max !== undefined) maxInput.value = btn.dataset.max;
+        });
+    });
+
+    // 단순 옵션 클릭
     bodyEl.querySelectorAll('.popover-option').forEach(opt => {
         opt.addEventListener('click', () => {
             bodyEl.querySelectorAll('.popover-option').forEach(o => o.classList.remove('selected'));
@@ -12789,7 +13045,6 @@ function showFilterPopover(filterKey, chipElement) {
     popover.style.left = `${chipRect.left}px`;
     popover.style.top = `${chipRect.bottom + 8}px`;
 
-    // 화면 밖으로 나가면 조정
     const popoverRect = popover.getBoundingClientRect();
     if (popoverRect.right > window.innerWidth - 10) {
         popover.style.left = `${window.innerWidth - popoverRect.width - 10}px`;
@@ -12808,7 +13063,7 @@ function hideFilterPopover() {
     }
 }
 
-// 팝오버에서 필터 적용
+// 팝오버에서 필터 적용 (모든 타입 지원)
 function applyPopoverFilter() {
     const popover = document.getElementById('filter-popover');
     const filterKey = popover?.dataset?.currentFilter;
@@ -12817,59 +13072,117 @@ function applyPopoverFilter() {
     const filterDef = FILTER_DEFINITIONS[filterKey];
     if (!filterDef) return;
 
+    let filterData = { key: filterKey };
+
     if (filterDef.type === 'select') {
         const selectedOpt = document.querySelector('#popover-body .popover-option.selected');
         if (selectedOpt) {
-            const value = selectedOpt.dataset.value;
-            const label = selectedOpt.textContent;
-            setFilter(filterKey, value, label);
+            filterData.value = selectedOpt.dataset.value;
+            filterData.label = selectedOpt.textContent;
+            setFilterV2(filterKey, filterData);
         }
-    } else if (filterDef.type === 'range') {
-        // 선택된 프리셋 확인
-        const selectedOpt = document.querySelector('#popover-body .popover-option.selected');
-        if (selectedOpt) {
-            const value = selectedOpt.dataset.value;
-            const label = selectedOpt.textContent;
-            setFilter(filterKey, value, label);
-        } else {
-            // 커스텀 범위
-            const minVal = document.getElementById('popover-range-min')?.value || '';
-            const maxVal = document.getElementById('popover-range-max')?.value || '';
-            if (minVal || maxVal) {
-                const value = `${minVal}~${maxVal}`;
-                const label = minVal && maxVal ? `${minVal}~${maxVal}` : minVal ? `${minVal}+` : `~${maxVal}`;
-                // 백엔드 필터명에 맞게 변환
-                if (filterKey === 'price') {
-                    if (minVal) setFilter('price_min', minVal, `${minVal}원+`);
-                    if (maxVal) setFilter('price_max', maxVal, `~${maxVal}원`);
-                } else {
-                    setFilter(filterKey, value, label);
-                }
-            }
+
+    } else if (filterDef.type === 'compare') {
+        const selected = document.querySelector('#popover-body input[name="compare"]:checked');
+        if (selected) {
+            filterData.value = selected.value;
+            const labelEl = selected.closest('label');
+            filterData.label = labelEl ? labelEl.textContent.trim() : selected.value;
+            setFilterV2(filterKey, filterData);
         }
-    } else if (filterDef.type === 'multi_select') {
-        // 이평선 서브필터들
-        document.querySelectorAll('#popover-body .popover-sub-select').forEach(sel => {
-            const subKey = sel.dataset.subkey;
-            const value = sel.value;
-            if (value) {
-                const label = sel.options[sel.selectedIndex].text;
-                setFilter(subKey, value, `${FILTER_DEFINITIONS[filterKey].subFilters[subKey].label}: ${label}`);
+
+    } else if (filterDef.type === 'range' || (filterDef.type === 'indicator' && filterDef.presets?.some(p => p.min !== undefined))) {
+        const minVal = document.getElementById('popover-range-min')?.value;
+        const maxVal = document.getElementById('popover-range-max')?.value;
+
+        // 파라미터 수집 (indicator 타입)
+        if (filterDef.params) {
+            filterData.params = {};
+            filterDef.params.forEach(param => {
+                const el = document.getElementById(`popover-param-${param.key}`);
+                if (el) filterData.params[param.key] = el.tagName === 'SELECT' ? el.value : parseFloat(el.value) || param.default;
+            });
+        }
+
+        if (minVal || maxVal) {
+            filterData.min = minVal ? parseFloat(minVal) : null;
+            filterData.max = maxVal ? parseFloat(maxVal) : null;
+            // 라벨 생성
+            const unit = filterDef.unit || '';
+            if (filterData.params?.period) {
+                filterData.label = `${filterDef.label}(${filterData.params.period}): ${minVal || ''}~${maxVal || ''}${unit}`;
             } else {
-                removeFilter(subKey);
+                filterData.label = minVal && maxVal ? `${minVal}~${maxVal}${unit}` : minVal ? `${minVal}${unit}+` : `~${maxVal}${unit}`;
             }
-        });
+            setFilterV2(filterKey, filterData);
+        }
+
+    } else if (filterDef.type === 'indicator' && filterDef.presets?.some(p => p.value !== undefined)) {
+        // value 기반 프리셋 (볼린저, MACD, ATR 등)
+        const selectedPreset = document.querySelector('#popover-body .popover-preset-btn.selected');
+        if (selectedPreset && selectedPreset.dataset.value) {
+            filterData.value = selectedPreset.dataset.value;
+            filterData.label = selectedPreset.textContent;
+            // 파라미터 수집
+            if (filterDef.params) {
+                filterData.params = {};
+                filterDef.params.forEach(param => {
+                    const el = document.getElementById(`popover-param-${param.key}`);
+                    if (el) filterData.params[param.key] = el.tagName === 'SELECT' ? el.value : parseFloat(el.value) || param.default;
+                });
+                // 라벨에 파라미터 추가
+                const paramStr = Object.entries(filterData.params).map(([k,v]) => v).join(',');
+                filterData.label = `${filterDef.label}(${paramStr}): ${selectedPreset.textContent}`;
+            }
+            setFilterV2(filterKey, filterData);
+        }
+
+    } else if (filterDef.type === 'sma') {
+        const maType = document.getElementById('popover-sma-type')?.value || 'SMA';
+        const period = parseInt(document.getElementById('popover-sma-period')?.value) || 20;
+        const condition = document.querySelector('#popover-body input[name="sma-cond"]:checked')?.value;
+
+        if (condition) {
+            const condLabel = filterDef.conditions.find(c => c.value === condition)?.label || condition;
+            filterData.value = condition;
+            filterData.params = { maType, period };
+            filterData.label = `${maType}(${period}) ${condLabel.replace('현재가가 ', '')}`;
+
+            // 다중 SMA 지원: 고유 키 생성
+            const uniqueKey = `sma_${maType}_${period}`;
+            setFilterV2(uniqueKey, filterData);
+        }
+
+    } else if (filterDef.type === 'sma_cross') {
+        const shortType = document.getElementById('popover-short-type')?.value || 'SMA';
+        const shortPeriod = parseInt(document.getElementById('popover-short-period')?.value) || 20;
+        const longType = document.getElementById('popover-long-type')?.value || 'SMA';
+        const longPeriod = parseInt(document.getElementById('popover-long-period')?.value) || 50;
+        const condition = document.querySelector('#popover-body input[name="cross-cond"]:checked')?.value;
+
+        if (condition) {
+            const condLabel = condition === 'golden' ? '골든' : '데드';
+            filterData.value = condition;
+            filterData.params = { shortType, shortPeriod, longType, longPeriod };
+            filterData.label = `${shortType}(${shortPeriod})×${longType}(${longPeriod}) ${condLabel}`;
+            setFilterV2(filterKey, filterData);
+        }
     }
 
     screenerState.page = 1;
     searchScreener();
 }
 
-// 필터 설정
-function setFilter(key, value, label) {
-    screenerState.activeFilters[key] = { value, label };
+// 새로운 필터 설정 함수 (V2 - 파라미터 지원)
+function setFilterV2(key, filterData) {
+    screenerState.activeFilters[key] = filterData;
     updateActiveFiltersUI();
     updateChipStates();
+}
+
+// 기존 setFilter를 setFilterV2로 래핑
+function setFilter(key, value, label) {
+    setFilterV2(key, { key, value, label });
 }
 
 // 필터 제거
@@ -12901,8 +13214,8 @@ function updateActiveFiltersUI() {
 
     container.innerHTML = filterKeys.map(key => {
         const filter = filters[key];
-        const def = FILTER_DEFINITIONS[key];
-        const displayLabel = def ? `${def.label}: ${filter.label}` : `${key}: ${filter.label}`;
+        // V2 구조: filter.label 우선 사용
+        const displayLabel = filter.label || `${key}: ${filter.value || ''}`;
         return `
             <span class="active-filter-chip" data-key="${key}">
                 ${displayLabel}
@@ -12916,15 +13229,13 @@ function updateActiveFiltersUI() {
 function updateChipStates() {
     document.querySelectorAll('.filter-chip').forEach(chip => {
         const filterKey = chip.dataset.filter;
-        const hasFilter = screenerState.activeFilters[filterKey];
 
-        // 이평선 칩은 서브필터 확인
+        // 이평선 칩: sma_ 접두사로 시작하는 필터가 있는지 확인
         if (filterKey === 'sma') {
-            const hasSubFilter = screenerState.activeFilters.sma20 ||
-                                 screenerState.activeFilters.sma50 ||
-                                 screenerState.activeFilters.sma200;
-            chip.classList.toggle('active', !!hasSubFilter);
+            const hasSmtFilter = Object.keys(screenerState.activeFilters).some(k => k.startsWith('sma_') && k !== 'sma_cross');
+            chip.classList.toggle('active', hasSmtFilter);
         } else {
+            const hasFilter = screenerState.activeFilters[filterKey];
             chip.classList.toggle('active', !!hasFilter);
         }
     });
@@ -12943,17 +13254,56 @@ function updateSortIcons() {
     });
 }
 
-// 필터 수집 (activeFilters 기반)
+// 필터 수집 (activeFilters 기반 - V2 구조 지원)
 function collectScreenerFilters() {
     const filters = {};
 
     for (const [key, filter] of Object.entries(screenerState.activeFilters)) {
-        // 백엔드 필터명에 맞게 변환
-        if (key === 'volume') {
-            filters.volume_min = parseInt(filter.value);
-        } else if (key === 'price_min' || key === 'price_max') {
-            filters[key] = parseInt(filter.value);
-        } else {
+        // SMA 다중 필터 (sma_SMA_20 형식)
+        if (key.startsWith('sma_') && key !== 'sma_cross') {
+            if (!filters.sma_filters) filters.sma_filters = [];
+            filters.sma_filters.push({
+                type: filter.params?.maType || 'SMA',
+                period: filter.params?.period || 20,
+                condition: filter.value
+            });
+            continue;
+        }
+
+        // 이평선 교차
+        if (key === 'sma_cross') {
+            filters.sma_cross = {
+                shortType: filter.params?.shortType || 'SMA',
+                shortPeriod: filter.params?.shortPeriod || 20,
+                longType: filter.params?.longType || 'SMA',
+                longPeriod: filter.params?.longPeriod || 50,
+                condition: filter.value
+            };
+            continue;
+        }
+
+        // min/max 범위 필터
+        if (filter.min !== undefined || filter.max !== undefined) {
+            if (filter.min !== null) filters[`${key}_min`] = filter.min;
+            if (filter.max !== null) filters[`${key}_max`] = filter.max;
+            // 파라미터도 전송
+            if (filter.params) {
+                filters[`${key}_params`] = filter.params;
+            }
+            continue;
+        }
+
+        // 파라미터가 있는 지표 필터
+        if (filter.params) {
+            filters[key] = {
+                value: filter.value,
+                params: filter.params
+            };
+            continue;
+        }
+
+        // 단순 값 필터
+        if (filter.value !== undefined) {
             filters[key] = filter.value;
         }
     }
