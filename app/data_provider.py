@@ -2872,25 +2872,31 @@ async def fetch_naver_market_stocks(market: str) -> list:
                     break
 
                 for item in items:
-                    # 가격 파싱 (콤마 제거)
+                    # 가격 파싱 (콤마 제거, "-"는 0으로)
                     close_price = item.get("closePrice", "0")
                     if isinstance(close_price, str):
-                        close_price = int(close_price.replace(",", "") or 0)
+                        close_price = close_price.replace(",", "").replace("-", "").strip()
+                        close_price = int(close_price) if close_price.isdigit() else 0
 
                     # 등락률 파싱
                     change_pct = item.get("fluctuationsRatio", "0")
                     if isinstance(change_pct, str):
-                        change_pct = float(change_pct.replace(",", "") or 0)
+                        try:
+                            change_pct = float(change_pct.replace(",", "").replace("-", "0") or 0)
+                        except:
+                            change_pct = 0
 
-                    # 거래량 파싱
+                    # 거래량 파싱 ("-"는 0으로)
                     volume = item.get("accumulatedTradingVolume", "0")
                     if isinstance(volume, str):
-                        volume = int(volume.replace(",", "") or 0)
+                        volume = volume.replace(",", "").replace("-", "").strip()
+                        volume = int(volume) if volume.isdigit() else 0
 
                     # 시가총액 파싱 (억 단위)
                     market_value = item.get("marketValue", "0")
                     if isinstance(market_value, str):
-                        market_value = int(market_value.replace(",", "") or 0) * 100_000_000  # 억 → 원
+                        market_value = market_value.replace(",", "").replace("-", "").strip()
+                        market_value = int(market_value) * 100_000_000 if market_value.isdigit() else 0
 
                     stock = {
                         "code": item.get("itemCode", ""),
