@@ -2842,74 +2842,84 @@ async def fetch_all_kr_stocks() -> list:
 
 
 async def fetch_naver_market_stocks(market: str) -> list:
-    """네이버 증권에서 특정 시장 전종목 가져오기"""
+    """네이버 모바일 API로 특정 시장 전종목 가져오기 (JSON API)"""
     import httpx
 
     stocks = []
-    # 네이버 시세 API - 페이지별로 조회
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Referer": "https://finance.naver.com/"
+        "Referer": "https://m.stock.naver.com/"
     }
-
-    # 네이버 금융 시세 API (sosok: 0=KOSPI, 1=KOSDAQ)
-    sosok = "0" if market == "KOSPI" else "1"
 
     try:
         async with httpx.AsyncClient(timeout=30, headers=headers) as client:
-            # 전종목 조회 (페이지네이션)
             page = 1
-            per_page = 100
+            page_size = 100
 
             while True:
-                url = f"https://finance.naver.com/sise/sise_market_sum.naver?sosok={sosok}&page={page}"
+                # 네이버 모바일 시총순 API
+                url = f"https://m.stock.naver.com/api/stocks/marketValue/{market}?page={page}&pageSize={page_size}"
                 resp = await client.get(url)
 
                 if resp.status_code != 200:
+                    print(f"[Screener] API error {resp.status_code} for {market} page {page}")
                     break
 
-                html = resp.text
+                data = resp.json()
+                items = data.get("stocks", [])
 
-                # HTML 파싱 (간단한 정규식 사용)
-                import re
-
-                # 테이블 행에서 종목 정보 추출
-                pattern = r'<a href="/item/main\.naver\?code=(\d{6})"[^>]*>([^<]+)</a>'
-                matches = re.findall(pattern, html)
-
-                if not matches:
+                if not items:
                     break
 
-                # 각 종목의 상세 정보 추출
-                for code, name in matches:
+                for item in items:
+                    # 가격 파싱 (콤마 제거)
+                    close_price = item.get("closePrice", "0")
+                    if isinstance(close_price, str):
+                        close_price = int(close_price.replace(",", "") or 0)
+
+                    # 등락률 파싱
+                    change_pct = item.get("fluctuationsRatio", "0")
+                    if isinstance(change_pct, str):
+                        change_pct = float(change_pct.replace(",", "") or 0)
+
+                    # 거래량 파싱
+                    volume = item.get("accumulatedTradingVolume", "0")
+                    if isinstance(volume, str):
+                        volume = int(volume.replace(",", "") or 0)
+
+                    # 시가총액 파싱 (억 단위)
+                    market_value = item.get("marketValue", "0")
+                    if isinstance(market_value, str):
+                        market_value = int(market_value.replace(",", "") or 0) * 100_000_000  # 억 → 원
+
                     stock = {
-                        "code": code,
-                        "name": name.strip(),
+                        "code": item.get("itemCode", ""),
+                        "name": item.get("stockName", ""),
                         "exchange": market,
-                        "price": 0,
-                        "change_pct": 0,
-                        "volume": 0,
-                        "market_cap": 0,
+                        "price": close_price,
+                        "change_pct": change_pct,
+                        "volume": volume,
+                        "market_cap": market_value,
                         "per": None,
                         "pbr": None,
                     }
                     stocks.append(stock)
 
-                # 다음 페이지가 있는지 확인
-                if f'page={page + 1}' not in html:
+                # 다음 페이지 확인
+                total_count = data.get("totalCount", 0)
+                if page * page_size >= total_count:
                     break
 
                 page += 1
-                if page > 30:  # 최대 30페이지
+                if page > 30:  # 최대 30페이지 (3000종목)
                     break
 
     except Exception as e:
         print(f"[Screener] Error fetching {market}: {e}")
+        import traceback
+        traceback.print_exc()
 
-    # 상세 시세 정보 보강 (별도 API 사용)
-    if stocks:
-        stocks = await enrich_stock_details(stocks, market)
-
+    print(f"[Screener] Fetched {len(stocks)} stocks from {market}")
     return stocks
 
 
