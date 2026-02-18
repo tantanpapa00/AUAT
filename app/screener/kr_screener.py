@@ -1,14 +1,30 @@
 """
 국내 주식 스크리너 (KOSPI/KOSDAQ)
-네이버 금융 API 기반
+네이버 금융 API 기반 + 기술적 지표 계산
 """
 
 import asyncio
 import httpx
 from typing import List, Dict, Any
+from datetime import datetime, timedelta
 
 from .cache import screener_cache, CACHE_TTL
 from .filters import apply_screener_filters, sort_screener_results
+from .technicals import compute_all_technicals
+
+# 기술적 지표 필터 키 목록
+TECHNICAL_FILTER_KEYS = [
+    "rsi", "sma20", "sma50", "sma200", "sma_cross",
+    "bollinger", "macd", "stochastic", "atr",
+    "volume_surge", "w52_high", "w52_low",
+    "period_return"
+]
+
+# 재무 지표 필터 키 목록
+FINANCIAL_FILTER_KEYS = [
+    "per", "pbr", "roe", "dividend_yield",
+    "change_filter", "change"
+]
 
 
 def _parse_float(val) -> float:
@@ -43,17 +59,16 @@ def _parse_price(val) -> int:
 
 async def screener_kr(filters: dict, sort: str, order: str, page: int, per_page: int) -> dict:
     """
-    국내 주식 스크리너 — 네이버 금융 기반 (2단계 필터링)
+    국내 주식 스크리너 — 네이버 금융 기반 + 기술적 지표
 
-    filters 예시:
-    {
-        "exchange": "KOSPI",       # 전체/KOSPI/KOSDAQ
-        "sector": "반도체",         # 전체/업종명
-        "market_cap": "large",     # 전체/mega/large/mid/small/micro
-        "price_min": 10000,        # 현재가 최소
-        "price_max": 100000,       # 현재가 최대
-        "volume_min": 100000       # 최소 거래량
-    }
+    [흐름]
+    1. 전종목 기본 시세 (네이버 — 캐시 5분)
+    2. 기본정보 필터 적용 (거래소, 업종, 시총, 현재가, 거래량)
+    3. 재무 데이터 보강 (PER, PBR, 배당수익률, 52주고가)
+    4. 재무 필터 적용
+    5. 기술적 지표 보강 (RSI, SMA, 볼린저, MACD 등) - 상위 200건
+    6. 기술적 필터 적용
+    7. 정렬 + 페이지네이션
     """
     # 캐시에서 전종목 데이터 가져오기
     all_stocks = await screener_cache.get_or_fetch(
@@ -66,25 +81,36 @@ async def screener_kr(filters: dict, sort: str, order: str, page: int, per_page:
         return {"items": [], "total": 0, "page": page, "per_page": per_page}
 
     # === 1단계: 기본 필터 적용 (빠름) ===
-    basic_filters = {k: v for k, v in filters.items()
-                     if k in ["exchange", "sector", "market_cap", "price_min", "price_max", "volume_min"]}
+    basic_filter_keys = ["exchange", "sector", "market_cap", "price_min", "price_max", "volume_min"]
+    basic_filters = {k: v for k, v in filters.items() if k in basic_filter_keys}
     filtered = apply_screener_filters(all_stocks, basic_filters)
 
-    # === 2단계: 재무/기술 필터가 있으면 데이터 보강 후 필터 적용 ===
-    financial_filter_keys = ["per", "pbr", "roe", "operating_margin", "debt_ratio", "dividend_yield",
-                             "change_filter", "w52_high", "volume_surge", "sma20", "sma60", "sma120"]
-    has_financial_filters = any(filters.get(k) for k in financial_filter_keys)
-
-    # 재무 필터가 있으면 상위 500개 보강 후 필터 적용
+    # === 2단계: 재무 데이터 보강 + 필터 ===
+    has_financial_filters = any(filters.get(k) for k in FINANCIAL_FILTER_KEYS)
     if has_financial_filters:
         stocks_to_enrich = filtered[:500]
         enriched = await enrich_financial_data(stocks_to_enrich)
         filtered = enriched + filtered[500:]
 
-    # 재무/기술 필터 적용
-    advanced_filters = {k: v for k, v in filters.items() if k in financial_filter_keys}
-    if advanced_filters:
-        filtered = apply_screener_filters(filtered, advanced_filters)
+    # 재무 필터 적용
+    financial_filters = {k: v for k, v in filters.items() if k in FINANCIAL_FILTER_KEYS}
+    if financial_filters:
+        filtered = apply_screener_filters(filtered, financial_filters)
+
+    # === 3단계: 기술적 지표 보강 + 필터 (상위 200건) ===
+    has_technical_filters = any(filters.get(k) for k in TECHNICAL_FILTER_KEYS)
+    technical_sort_keys = ["rsi", "sma20", "sma50", "sma200", "volume_surge", "atr"]
+    needs_technicals = has_technical_filters or sort in technical_sort_keys
+
+    if needs_technicals:
+        stocks_to_enrich = filtered[:200]
+        enriched = await enrich_with_technicals(stocks_to_enrich)
+        filtered = enriched + filtered[200:]
+
+    # 기술적 필터 적용
+    technical_filters = {k: v for k, v in filters.items() if k in TECHNICAL_FILTER_KEYS}
+    if technical_filters:
+        filtered = apply_screener_filters(filtered, technical_filters)
 
     # 정렬
     filtered = sort_screener_results(filtered, sort, order)
@@ -96,8 +122,9 @@ async def screener_kr(filters: dict, sort: str, order: str, page: int, per_page:
     end = start + per_page
     items = filtered[start:end]
 
-    # 페이지 결과에 대해 재무 데이터 보강 (항상)
+    # 페이지 결과에 대해 재무 + 기술 데이터 보강 (항상)
     items = await enrich_financial_data(list(items))
+    items = await enrich_with_technicals(items)
 
     # 시총 문자열 추가
     for item in items:
@@ -310,4 +337,77 @@ async def enrich_financial_data(stocks: List[Dict]) -> List[Dict]:
             result.append(r)
 
     print(f"[Screener] Enriched {len(result)} stocks with financial data")
+    return result
+
+
+async def enrich_with_technicals(stocks: List[Dict]) -> List[Dict]:
+    """
+    기술적 지표 보강 (RSI, SMA, 볼린저, MACD, 스토캐스틱, ATR 등)
+    네이버 일봉 API 기반
+    """
+    if not stocks:
+        return stocks
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    }
+
+    async def fetch_and_compute(client, stock, semaphore):
+        """단일 종목 기술적 지표 계산"""
+        code = stock.get("code")
+        if not code:
+            return stock
+
+        # 캐시 확인 (24시간)
+        cache_key = f"technicals_{code}"
+        cached = screener_cache.get(cache_key)
+        if cached:
+            stock.update(cached)
+            return stock
+
+        async with semaphore:
+            try:
+                # 네이버 일봉 API (최근 1년)
+                end_date = datetime.now().strftime("%Y%m%d")
+                start_date = (datetime.now() - timedelta(days=365)).strftime("%Y%m%d")
+                url = f"https://api.stock.naver.com/chart/domestic/item/{code}/day?startDateTime={start_date}&endDateTime={end_date}"
+
+                resp = await client.get(url, timeout=15)
+                if resp.status_code != 200:
+                    return stock
+
+                candles = resp.json()
+                if not candles or not isinstance(candles, list):
+                    return stock
+
+                # 기술적 지표 계산
+                technicals = compute_all_technicals(candles)
+
+                if technicals:
+                    # 캐시 저장 (24시간)
+                    screener_cache.set(cache_key, technicals, 86400)
+                    stock.update(technicals)
+
+            except Exception as e:
+                # 개별 종목 에러는 무시
+                pass
+
+            return stock
+
+    # 동시 요청 수 제한 (5개씩 - 네이버 차트 API 제한)
+    semaphore = asyncio.Semaphore(5)
+
+    async with httpx.AsyncClient(headers=headers) as client:
+        tasks = [fetch_and_compute(client, dict(s), semaphore) for s in stocks]
+        enriched = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # 예외 발생한 항목은 원본 유지
+    result = []
+    for i, r in enumerate(enriched):
+        if isinstance(r, Exception):
+            result.append(stocks[i])
+        else:
+            result.append(r)
+
+    print(f"[Screener] Enriched {len(result)} stocks with technical indicators")
     return result
