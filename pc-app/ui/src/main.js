@@ -7260,10 +7260,13 @@ function renderEtfDashboard(data, container) {
             return true;
         });
 
+        // 정렬 (원본 변경 방지)
         if (majorSort === 'volume') {
             items = [...items].sort((a, b) => (b.volume || 0) - (a.volume || 0));
         } else if (majorSort === 'change') {
             items = [...items].sort((a, b) => Math.abs(b.change_pct || 0) - Math.abs(a.change_pct || 0));
+        } else {
+            items = [...items];
         }
 
         const first5 = items.slice(0, 5);
