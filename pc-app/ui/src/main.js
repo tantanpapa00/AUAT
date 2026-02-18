@@ -12328,7 +12328,10 @@ async function loadScreener() {
     // 업종 목록 로드
     await loadSectorOptions();
 
-    // 초기 검색 실행
+    // 필터 UI 초기화 (국내 탭 기본)
+    updateScreenerFiltersUI(screenerState.market);
+
+    // 초기 검색 실행 (페이지 진입시 자동 검색)
     await searchScreener();
 }
 
@@ -12595,7 +12598,7 @@ function updateScreenerFiltersUI(market) {
     const filterActions = document.querySelector('.filter-actions');
 
     if (market === 'kr') {
-        // 국내: 모든 필터 표시
+        // 국내: 모든 필터 표시 + 아코디언 펼침
         if (filterBasic) {
             filterBasic.style.display = 'block';
             filterBasic.classList.add('open');
@@ -12604,8 +12607,22 @@ function updateScreenerFiltersUI(market) {
             if (body) body.style.display = 'block';
             if (arrow) arrow.textContent = '▼';
         }
-        if (filterFinancial) filterFinancial.style.display = 'block';
-        if (filterTechnical) filterTechnical.style.display = 'block';
+        if (filterFinancial) {
+            filterFinancial.style.display = 'block';
+            filterFinancial.classList.add('open');
+            const body = filterFinancial.querySelector('.filter-accordion-body');
+            const arrow = filterFinancial.querySelector('.accordion-arrow');
+            if (body) body.style.display = 'block';
+            if (arrow) arrow.textContent = '▼';
+        }
+        if (filterTechnical) {
+            filterTechnical.style.display = 'block';
+            filterTechnical.classList.add('open');
+            const body = filterTechnical.querySelector('.filter-accordion-body');
+            const arrow = filterTechnical.querySelector('.accordion-arrow');
+            if (body) body.style.display = 'block';
+            if (arrow) arrow.textContent = '▼';
+        }
         if (filterActions) filterActions.style.display = 'flex';
     } else {
         // 해외/ETF: 필터 숨김
