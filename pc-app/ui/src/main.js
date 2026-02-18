@@ -12512,22 +12512,54 @@ function collectScreenerFilters() {
 
     // 기술적지표 필터
     const change = document.getElementById('filter-change')?.value;
-    if (change) filters.change_filter = change;
+    if (change) filters.change = change;
 
     const w52High = document.getElementById('filter-52w-high')?.value;
     if (w52High) filters.w52_high = w52High;
 
+    const w52Low = document.getElementById('filter-52w-low')?.value;
+    if (w52Low) filters.w52_low = w52Low;
+
     const volumeSurge = document.getElementById('filter-volume-surge')?.value;
     if (volumeSurge) filters.volume_surge = volumeSurge;
 
+    // 이동평균선 (SSOT: 20/50/200)
     const sma20 = document.getElementById('filter-sma20')?.value;
     if (sma20) filters.sma20 = sma20;
 
-    const sma60 = document.getElementById('filter-sma60')?.value;
-    if (sma60) filters.sma60 = sma60;
+    const sma50 = document.getElementById('filter-sma50')?.value;
+    if (sma50) filters.sma50 = sma50;
 
-    const sma120 = document.getElementById('filter-sma120')?.value;
-    if (sma120) filters.sma120 = sma120;
+    const sma200 = document.getElementById('filter-sma200')?.value;
+    if (sma200) filters.sma200 = sma200;
+
+    // 이평선 교차
+    const smaCross = document.getElementById('filter-sma-cross')?.value;
+    if (smaCross) filters.sma_cross = smaCross;
+
+    // RSI
+    const rsi = document.getElementById('filter-rsi')?.value;
+    if (rsi) filters.rsi = rsi;
+
+    // 볼린저밴드
+    const bollinger = document.getElementById('filter-bollinger')?.value;
+    if (bollinger) filters.bollinger = bollinger;
+
+    // MACD
+    const macd = document.getElementById('filter-macd')?.value;
+    if (macd) filters.macd = macd;
+
+    // 스토캐스틱
+    const stochastic = document.getElementById('filter-stochastic')?.value;
+    if (stochastic) filters.stochastic = stochastic;
+
+    // ATR (변동성)
+    const atr = document.getElementById('filter-atr')?.value;
+    if (atr) filters.atr = atr;
+
+    // 기간 수익률
+    const periodReturn = document.getElementById('filter-period-return')?.value;
+    if (periodReturn) filters.period_return = periodReturn;
 
     return filters;
 }
@@ -12638,7 +12670,7 @@ function renderScreenerTable(items) {
     if (!tbody) return;
 
     if (!items || items.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" class="empty-cell">검색 결과가 없습니다</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" class="empty-cell">검색 결과가 없습니다</td></tr>';
         return;
     }
 
@@ -12652,13 +12684,20 @@ function renderScreenerTable(items) {
         const marketCap = item.market_cap_str || formatMarketCap(item.market_cap || 0);
         const per = item.per ? item.per.toFixed(1) : '-';
         const pbr = item.pbr ? item.pbr.toFixed(2) : '-';
-        const roe = item.roe != null ? item.roe.toFixed(1) + '%' : '-';
 
-        // 52주 고가 대비 하락률
+        // RSI (기술적 지표)
+        const rsi = item.rsi != null ? item.rsi.toFixed(0) : '-';
+        const rsiClass = item.rsi >= 70 ? 'loss' : item.rsi <= 30 ? 'profit' : '';
+
+        // 52주 고가 대비 (백분율 값으로 저장됨)
         let w52HighStr = '-';
         if (item.w52_high_pct != null) {
-            const pct = (item.w52_high_pct * 100).toFixed(1);
-            w52HighStr = pct > 0 ? `-${pct}%` : '신고가';
+            const pct = item.w52_high_pct;  // 이미 백분율
+            if (pct >= -1 && pct <= 0) {
+                w52HighStr = '신고가';
+            } else {
+                w52HighStr = pct.toFixed(1) + '%';
+            }
         }
 
         return `
@@ -12671,7 +12710,7 @@ function renderScreenerTable(items) {
                 <td class="cap-cell">${marketCap}</td>
                 <td>${per}</td>
                 <td>${pbr}</td>
-                <td>${roe}</td>
+                <td class="${rsiClass}">${rsi}</td>
                 <td>${w52HighStr}</td>
             </tr>
         `;
