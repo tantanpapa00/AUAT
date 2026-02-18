@@ -220,9 +220,9 @@ from app.data_provider import (
     # Day14: 환율 + 거래소별 잔고 조회
     get_usd_krw_rate, fetch_upbit_balances, fetch_binance_balances,
     fetch_okx_balances, fetch_bybit_balances, fetch_kis_kr_balances, fetch_kis_us_balances,
-    # Phase 7: 종목검색기
-    screener_kr
 )
+# Phase 7: 종목검색기 (분리된 모듈)
+from app.screener import screener_kr
 
 # 세션 미들웨어 (OAuth 콜백용)
 app.add_middleware(
