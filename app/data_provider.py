@@ -2783,12 +2783,10 @@ async def screener_kr(filters: dict, sort: str, order: str, page: int, per_page:
                              "change_filter", "w52_high", "volume_surge", "sma20", "sma60", "sma120"]
     has_financial_filters = any(filters.get(k) for k in financial_filter_keys)
 
-    # 재무 필터가 있거나 결과가 500개 이하면 재무 데이터 보강
-    if has_financial_filters or len(filtered) <= 500:
-        # 최대 500개까지만 보강 (API 호출 제한)
+    # 재무 필터가 있으면 상위 500개 보강 후 필터 적용
+    if has_financial_filters:
         stocks_to_enrich = filtered[:500]
         enriched = await enrich_financial_data(stocks_to_enrich)
-        # 500개 초과분은 그대로 유지
         filtered = enriched + filtered[500:]
 
     # 재무/기술 필터 적용
@@ -2805,6 +2803,9 @@ async def screener_kr(filters: dict, sort: str, order: str, page: int, per_page:
     start = (page - 1) * per_page
     end = start + per_page
     items = filtered[start:end]
+
+    # 페이지 결과에 대해 재무 데이터 보강 (항상)
+    items = await enrich_financial_data(items)
 
     # 시총 문자열 추가
     for item in items:
@@ -2872,6 +2873,18 @@ async def fetch_naver_market_stocks(market: str) -> list:
                     break
 
                 for item in items:
+                    # ETF, ETN, 스팩 등 제외 (일반 주식만)
+                    stock_end_type = item.get("stockEndType", "")
+                    if stock_end_type != "stock":
+                        continue
+
+                    # 종목명으로 추가 필터링 (ETF 브랜드명)
+                    stock_name = item.get("stockName", "")
+                    etf_keywords = ["TIGER", "KODEX", "ARIRANG", "KBSTAR", "HANARO", "SOL", "ACE",
+                                    "ETF", "ETN", "스팩", "리츠", "인프라"]
+                    if any(kw in stock_name for kw in etf_keywords):
+                        continue
+
                     # 가격 파싱 (콤마 제거, "-"는 0으로)
                     close_price = item.get("closePrice", "0")
                     if isinstance(close_price, str):
