@@ -10288,3 +10288,489 @@ body {
         display: none;
     }
 }
+
+/* =====================================================
+   종목검색기 v2 - TradingView 스타일 칩 필터
+   ===================================================== */
+
+.screener-filters-v2 {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+/* 활성 필터 표시 영역 */
+.active-filters-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 36px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.active-filters-label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.active-filters-chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.active-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: var(--primary);
+    color: #fff;
+    border-radius: 16px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.active-filter-chip .chip-remove {
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    margin-left: 2px;
+    opacity: 0.8;
+}
+
+.active-filter-chip .chip-remove:hover {
+    opacity: 1;
+}
+
+.clear-all-btn {
+    padding: 4px 12px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    cursor: pointer;
+    margin-left: auto;
+}
+
+.clear-all-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+/* 필터 칩 그룹 */
+.filter-chip-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.filter-chip-group {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.chip-group-label {
+    flex-shrink: 0;
+    width: 40px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding-top: 6px;
+}
+
+.chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* 필터 칩 버튼 */
+.filter-chip {
+    padding: 6px 14px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.filter-chip:hover {
+    background: var(--bg-hover);
+    border-color: var(--text-muted);
+    color: var(--text-primary);
+}
+
+.filter-chip.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+/* 필터 액션 버튼 v2 */
+.filter-actions-v2 {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+}
+
+.filter-actions-v2 .result-count {
+    margin-left: auto;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+/* 필터 팝오버 */
+.filter-popover {
+    position: fixed;
+    z-index: 1000;
+    width: 320px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+}
+
+.popover-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.popover-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.popover-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+}
+
+.popover-close:hover {
+    color: var(--text-primary);
+}
+
+.popover-body {
+    padding: 16px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.popover-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+}
+
+/* 팝오버 내부 스타일 */
+.popover-options {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.popover-option {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    transition: all 0.15s;
+}
+
+.popover-option:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--text-muted);
+}
+
+.popover-option.selected {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+.popover-range {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.popover-range input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+.popover-range input:focus {
+    border-color: var(--primary);
+    outline: none;
+}
+
+.popover-range span {
+    color: var(--text-muted);
+}
+
+/* 팝오버 프리셋 + 커스텀 레이아웃 */
+.popover-presets {
+    margin-bottom: 12px;
+}
+
+.popover-presets-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    display: block;
+}
+
+.popover-custom {
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+}
+
+.popover-custom-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    display: block;
+}
+
+/* 팝오버 멀티셀렉트 (이평선 등) */
+.popover-multi-select {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.popover-sub-filter {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.popover-sub-label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.popover-sub-select {
+    flex: 1;
+    max-width: 120px;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.popover-sub-select:focus {
+    border-color: var(--primary);
+    outline: none;
+}
+
+/* 메인 컨텐츠 레이아웃 (테이블 + 상세패널) */
+.screener-main-content {
+    display: flex;
+    gap: 20px;
+}
+
+.screener-result-section {
+    flex: 1;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    overflow-x: auto;
+}
+
+/* 종목 상세 패널 */
+.stock-detail-panel {
+    width: 320px;
+    flex-shrink: 0;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.detail-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-tertiary);
+}
+
+.detail-stock-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.detail-stock-name {
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.detail-stock-code {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.detail-close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    line-height: 1;
+}
+
+.detail-close-btn:hover {
+    color: var(--text-primary);
+}
+
+.detail-panel-body {
+    padding: 16px;
+    max-height: calc(100vh - 300px);
+    overflow-y: auto;
+}
+
+.detail-price-section {
+    text-align: center;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+}
+
+.detail-current-price {
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+.detail-price-change {
+    font-size: 1rem;
+    margin-top: 4px;
+}
+
+.detail-price-change.profit {
+    color: var(--profit-color, #ef4444);
+}
+
+.detail-price-change.loss {
+    color: var(--loss-color, #3b82f6);
+}
+
+.detail-section {
+    margin-bottom: 16px;
+}
+
+.detail-section h4 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+}
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+}
+
+.detail-item .label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.detail-item .value {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+/* 반응형 - 모바일에서 상세패널을 바텀시트로 */
+@media (max-width: 1024px) {
+    .screener-main-content {
+        flex-direction: column;
+    }
+
+    .stock-detail-panel {
+        width: 100%;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        border-radius: 16px 16px 0 0;
+        max-height: 60vh;
+        transform: translateY(100%);
+        transition: transform 0.3s ease;
+    }
+
+    .stock-detail-panel.show {
+        transform: translateY(0);
+    }
+
+    .detail-panel-body {
+        max-height: 50vh;
+    }
+}
+
+@media (max-width: 768px) {
+    .filter-chip-group {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .chip-group-label {
+        width: auto;
+        margin-bottom: 4px;
+    }
+
+    .filter-popover {
+        left: 10px !important;
+        right: 10px !important;
+        width: auto !important;
+    }
+}

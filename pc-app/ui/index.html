@@ -3151,339 +3151,175 @@
                             <button class="screener-tab" data-market="etf">ETF</button>
                         </div>
 
-                        <!-- 필터 영역 -->
-                        <div class="screener-filters">
-                            <!-- 기본정보 (기본 펼침) -->
-                            <div class="filter-accordion open" id="filter-basic">
-                                <div class="filter-accordion-header">
-                                    <span class="accordion-arrow">▼</span>
-                                    <span class="accordion-title">기본정보</span>
-                                </div>
-                                <div class="filter-accordion-body">
-                                    <div class="filter-row">
-                                        <div class="filter-item">
-                                            <label>거래소</label>
-                                            <select id="filter-exchange">
-                                                <option value="">전체</option>
-                                                <option value="KOSPI">KOSPI</option>
-                                                <option value="KOSDAQ">KOSDAQ</option>
-                                            </select>
-                                        </div>
-                                        <div class="filter-item">
-                                            <label>업종</label>
-                                            <select id="filter-sector">
-                                                <option value="">전체</option>
-                                            </select>
-                                        </div>
-                                        <div class="filter-item">
-                                            <label>시가총액</label>
-                                            <select id="filter-market-cap">
-                                                <option value="">전체</option>
-                                                <option value="mega">초대형 (10조 이상)</option>
-                                                <option value="large">대형 (1조~10조)</option>
-                                                <option value="mid">중형 (5천억~1조)</option>
-                                                <option value="small">소형 (1천억~5천억)</option>
-                                                <option value="micro">초소형 (1천억 미만)</option>
-                                            </select>
-                                        </div>
+                        <!-- 필터 영역 (TradingView 스타일 칩) -->
+                        <div class="screener-filters-v2">
+                            <!-- 활성 필터 표시 영역 -->
+                            <div class="active-filters-row" id="active-filters-row">
+                                <span class="active-filters-label">필터:</span>
+                                <div class="active-filters-chips" id="active-filters-chips"></div>
+                                <button class="clear-all-btn" id="btn-clear-all-filters" style="display:none;">모두 지우기</button>
+                            </div>
+
+                            <!-- 필터 칩 그룹 -->
+                            <div class="filter-chip-groups">
+                                <!-- 기본정보 그룹 -->
+                                <div class="filter-chip-group">
+                                    <span class="chip-group-label">기본</span>
+                                    <div class="chip-row">
+                                        <button class="filter-chip" data-filter="exchange">거래소</button>
+                                        <button class="filter-chip" data-filter="sector">업종</button>
+                                        <button class="filter-chip" data-filter="market_cap">시가총액</button>
+                                        <button class="filter-chip" data-filter="price">현재가</button>
+                                        <button class="filter-chip" data-filter="volume">거래량</button>
+                                        <button class="filter-chip" data-filter="change">등락률</button>
                                     </div>
-                                    <div class="filter-row">
-                                        <div class="filter-item">
-                                            <label>현재가 (원)</label>
-                                            <div class="filter-range">
-                                                <input type="number" id="filter-price-min" placeholder="최소">
-                                                <span>~</span>
-                                                <input type="number" id="filter-price-max" placeholder="최대">
-                                            </div>
-                                        </div>
-                                        <div class="filter-item">
-                                            <label>거래량</label>
-                                            <select id="filter-volume">
-                                                <option value="">전체</option>
-                                                <option value="100000">10만 이상</option>
-                                                <option value="500000">50만 이상</option>
-                                                <option value="1000000">100만 이상</option>
-                                                <option value="5000000">500만 이상</option>
-                                            </select>
-                                        </div>
-                                        <div class="filter-item"></div>
+                                </div>
+
+                                <!-- 재무지표 그룹 -->
+                                <div class="filter-chip-group">
+                                    <span class="chip-group-label">재무</span>
+                                    <div class="chip-row">
+                                        <button class="filter-chip" data-filter="per">PER</button>
+                                        <button class="filter-chip" data-filter="pbr">PBR</button>
+                                        <button class="filter-chip" data-filter="roe">ROE</button>
+                                        <button class="filter-chip" data-filter="operating_margin">영업이익률</button>
+                                        <button class="filter-chip" data-filter="debt_ratio">부채비율</button>
+                                        <button class="filter-chip" data-filter="dividend_yield">배당수익률</button>
+                                    </div>
+                                </div>
+
+                                <!-- 기술적지표 그룹 -->
+                                <div class="filter-chip-group">
+                                    <span class="chip-group-label">기술</span>
+                                    <div class="chip-row">
+                                        <button class="filter-chip" data-filter="rsi">RSI</button>
+                                        <button class="filter-chip" data-filter="sma">이평선</button>
+                                        <button class="filter-chip" data-filter="sma_cross">이평교차</button>
+                                        <button class="filter-chip" data-filter="bollinger">볼린저</button>
+                                        <button class="filter-chip" data-filter="macd">MACD</button>
+                                        <button class="filter-chip" data-filter="stochastic">스토캐스틱</button>
+                                        <button class="filter-chip" data-filter="volume_surge">거래량급증</button>
+                                        <button class="filter-chip" data-filter="w52_high">52주고가</button>
+                                        <button class="filter-chip" data-filter="w52_low">52주저가</button>
+                                        <button class="filter-chip" data-filter="atr">ATR</button>
+                                        <button class="filter-chip" data-filter="period_return">기간수익률</button>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- 재무지표 (기본 접힘) -->
-                            <div class="filter-accordion" id="filter-financial">
-                                <div class="filter-accordion-header">
-                                    <span class="accordion-arrow">▶</span>
-                                    <span class="accordion-title">재무지표</span>
-                                </div>
-                                <div class="filter-accordion-body" style="display:none;">
-                                    <div class="filter-row">
-                                        <div class="filter-item">
-                                            <label>PER</label>
-                                            <select id="filter-per">
-                                                <option value="">전체</option>
-                                                <option value="loss">적자</option>
-                                                <option value="0~10">0~10</option>
-                                                <option value="10~20">10~20</option>
-                                                <option value="20~50">20~50</option>
-                                                <option value="50+">50 이상</option>
-                                            </select>
-                                        </div>
-                                        <div class="filter-item">
-                                            <label>PBR</label>
-                                            <select id="filter-pbr">
-                                                <option value="">전체</option>
-                                                <option value="0~0.5">0~0.5</option>
-                                                <option value="0.5~1">0.5~1</option>
-                                                <option value="1~2">1~2</option>
-                                                <option value="2~5">2~5</option>
-                                                <option value="5+">5 이상</option>
-                                            </select>
-                                        </div>
-                                        <div class="filter-item">
-                                            <label>ROE</label>
-                                            <select id="filter-roe">
-                                                <option value="">전체</option>
-                                                <option value="loss">적자</option>
-                                                <option value="0~5">0~5%</option>
-                                                <option value="5~10">5~10%</option>
-                                                <option value="10~20">10~20%</option>
-                                                <option value="20+">20% 이상</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="filter-row">
-                                        <div class="filter-item">
-                                            <label>영업이익률</label>
-                                            <select id="filter-operating-margin">
-                                                <option value="">전체</option>
-                                                <option value="loss">적자</option>
-                                                <option value="0~5">0~5%</option>
-                                                <option value="5~10">5~10%</option>
-                                                <option value="10~20">10~20%</option>
-                                                <option value="20+">20% 이상</option>
-                                            </select>
-                                        </div>
-                                        <div class="filter-item">
-                                            <label>부채비율</label>
-                                            <select id="filter-debt-ratio">
-                                                <option value="">전체</option>
-                                                <option value="0~50">0~50%</option>
-                                                <option value="50~100">50~100%</option>
-                                                <option value="100~200">100~200%</option>
-                                                <option value="200+">200% 이상</option>
-                                            </select>
-                                        </div>
-                                        <div class="filter-item">
-                                            <label>배당수익률</label>
-                                            <select id="filter-dividend-yield">
-                                                <option value="">전체</option>
-                                                <option value="1+">1% 이상</option>
-                                                <option value="2+">2% 이상</option>
-                                                <option value="3+">3% 이상</option>
-                                                <option value="5+">5% 이상</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- 기술적지표 (기본 접힘) -->
-                            <div class="filter-accordion" id="filter-technical">
-                                <div class="filter-accordion-header">
-                                    <span class="accordion-arrow">▶</span>
-                                    <span class="accordion-title">기술적지표</span>
-                                </div>
-                                <div class="filter-accordion-body" style="display:none;">
-                                    <!-- Row 1: 등락률, 52주고가, 52주저가 -->
-                                    <div class="filter-row">
-                                        <div class="filter-item">
-                                            <label>등락률(당일)</label>
-                                            <select id="filter-change">
-                                                <option value="">전체</option>
-                                                <option value="up3">+3% 이상</option>
-                                                <option value="up5">+5% 이상</option>
-                                                <option value="up10">+10% 이상</option>
-                                                <option value="down3">-3% 이하</option>
-                                                <option value="down5">-5% 이하</option>
-                                                <option value="down10">-10% 이하</option>
-                                            </select>
-                                        </div>
-                                        <div class="filter-item">
-                                            <label>52주 고가 대비</label>
-                                            <select id="filter-52w-high">
-                                                <option value="">전체</option>
-                                                <option value="0~5">0~5% 하락</option>
-                                                <option value="5~10">5~10% 하락</option>
-                                                <option value="10~20">10~20% 하락</option>
-                                                <option value="20+">20%+ 하락</option>
-                                            </select>
-                                        </div>
-                                        <div class="filter-item">
-                                            <label>52주 저가 대비</label>
-                                            <select id="filter-52w-low">
-                                                <option value="">전체</option>
-                                                <option value="0~5">0~5% 상승</option>
-                                                <option value="5~10">5~10% 상승</option>
-                                                <option value="10~20">10~20% 상승</option>
-                                                <option value="20+">20%+ 상승</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <!-- Row 2: 이동평균선 (SSOT: 20/50/200) -->
-                                    <div class="filter-row">
-                                        <div class="filter-item">
-                                            <label>20일선</label>
-                                            <select id="filter-sma20">
-                                                <option value="">전체</option>
-                                                <option value="above">위</option>
-                                                <option value="below">아래</option>
-                                                <option value="near">근접(±2%)</option>
-                                            </select>
-                                        </div>
-                                        <div class="filter-item">
-                                            <label>50일선</label>
-                                            <select id="filter-sma50">
-                                                <option value="">전체</option>
-                                                <option value="above">위</option>
-                                                <option value="below">아래</option>
-                                                <option value="near">근접(±2%)</option>
-                                            </select>
-                                        </div>
-                                        <div class="filter-item">
-                                            <label>200일선</label>
-                                            <select id="filter-sma200">
-                                                <option value="">전체</option>
-                                                <option value="above">위</option>
-                                                <option value="below">아래</option>
-                                                <option value="near">근접(±2%)</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <!-- Row 3: RSI, 볼린저, MACD -->
-                                    <div class="filter-row">
-                                        <div class="filter-item">
-                                            <label>RSI(14)</label>
-                                            <select id="filter-rsi">
-                                                <option value="">전체</option>
-                                                <option value="과매수">과매수(70+)</option>
-                                                <option value="과매도">과매도(30-)</option>
-                                                <option value="중립">중립(30~70)</option>
-                                            </select>
-                                        </div>
-                                        <div class="filter-item">
-                                            <label>볼린저밴드</label>
-                                            <select id="filter-bollinger">
-                                                <option value="">전체</option>
-                                                <option value="upper">상단 돌파</option>
-                                                <option value="lower">하단 돌파</option>
-                                                <option value="middle">중심선 부근</option>
-                                            </select>
-                                        </div>
-                                        <div class="filter-item">
-                                            <label>MACD</label>
-                                            <select id="filter-macd">
-                                                <option value="">전체</option>
-                                                <option value="buy">매수신호</option>
-                                                <option value="sell">매도신호</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <!-- Row 4: 스토캐스틱, 거래량급증, 이평선교차 -->
-                                    <div class="filter-row">
-                                        <div class="filter-item">
-                                            <label>스토캐스틱</label>
-                                            <select id="filter-stochastic">
-                                                <option value="">전체</option>
-                                                <option value="과매수">과매수(80+)</option>
-                                                <option value="과매도">과매도(20-)</option>
-                                            </select>
-                                        </div>
-                                        <div class="filter-item">
-                                            <label>거래량 급증</label>
-                                            <select id="filter-volume-surge">
-                                                <option value="">전체</option>
-                                                <option value="2">2배 이상</option>
-                                                <option value="5">5배 이상</option>
-                                                <option value="10">10배 이상</option>
-                                            </select>
-                                        </div>
-                                        <div class="filter-item">
-                                            <label>이평선 교차</label>
-                                            <select id="filter-sma-cross">
-                                                <option value="">전체</option>
-                                                <option value="golden">골든크로스</option>
-                                                <option value="dead">데드크로스</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <!-- Row 5: ATR, 기간수익률 -->
-                                    <div class="filter-row">
-                                        <div class="filter-item">
-                                            <label>ATR(변동성)</label>
-                                            <select id="filter-atr">
-                                                <option value="">전체</option>
-                                                <option value="high">고변동</option>
-                                                <option value="medium">중변동</option>
-                                                <option value="low">저변동</option>
-                                            </select>
-                                        </div>
-                                        <div class="filter-item">
-                                            <label>기간 수익률</label>
-                                            <select id="filter-period-return">
-                                                <option value="">전체</option>
-                                                <option value="1w+10">1주 +10%</option>
-                                                <option value="1m+20">1개월 +20%</option>
-                                                <option value="3m+30">3개월 +30%</option>
-                                                <option value="1w-10">1주 -10%</option>
-                                                <option value="1m-20">1개월 -20%</option>
-                                            </select>
-                                        </div>
-                                        <div class="filter-item">
-                                            <!-- 빈 공간 -->
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- 검색 버튼 -->
-                            <div class="filter-actions">
+                            <!-- 검색/초기화 버튼 -->
+                            <div class="filter-actions-v2">
                                 <button class="btn btn-primary" id="btn-screener-search">검색</button>
                                 <button class="btn btn-secondary" id="btn-screener-reset">초기화</button>
                                 <span class="result-count" id="screener-result-count">결과: -건</span>
                             </div>
                         </div>
 
-                        <!-- 결과 테이블 -->
-                        <section class="card screener-result-section">
-                            <table class="data-table screener-table" id="screener-table">
-                                <thead>
-                                    <tr>
-                                        <th data-sort="code">종목코드</th>
-                                        <th data-sort="name">종목명</th>
-                                        <th data-sort="price" class="sortable">현재가 <span class="sort-icon"></span></th>
-                                        <th data-sort="change_pct" class="sortable">등락률 <span class="sort-icon"></span></th>
-                                        <th data-sort="volume" class="sortable">거래량 <span class="sort-icon"></span></th>
-                                        <th data-sort="market_cap" class="sortable active desc">시총 <span class="sort-icon">▼</span></th>
-                                        <th data-sort="per">PER</th>
-                                        <th data-sort="pbr">PBR</th>
-                                        <th data-sort="rsi">RSI</th>
-                                        <th data-sort="w52_high_pct">52주고가</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="screener-tbody">
-                                    <tr><td colspan="10" class="empty-cell">검색 버튼을 클릭하세요</td></tr>
-                                </tbody>
-                            </table>
-
-                            <!-- 페이지네이션 -->
-                            <div class="pagination" id="screener-pagination">
-                                <button class="page-btn" id="btn-page-prev" disabled>◀</button>
-                                <span class="page-info" id="screener-page-info">1 / 1</span>
-                                <button class="page-btn" id="btn-page-next" disabled>▶</button>
+                        <!-- 필터 팝오버 (동적 생성) -->
+                        <div class="filter-popover" id="filter-popover" style="display:none;">
+                            <div class="popover-header">
+                                <span class="popover-title" id="popover-title">필터</span>
+                                <button class="popover-close" id="popover-close">&times;</button>
                             </div>
-                        </section>
+                            <div class="popover-body" id="popover-body"></div>
+                            <div class="popover-footer">
+                                <button class="btn btn-sm btn-secondary" id="popover-clear">초기화</button>
+                                <button class="btn btn-sm btn-primary" id="popover-apply">적용</button>
+                            </div>
+                        </div>
+
+                        <!-- 메인 컨텐츠 (테이블 + 상세패널) -->
+                        <div class="screener-main-content">
+                            <!-- 결과 테이블 -->
+                            <section class="screener-result-section">
+                                <table class="data-table screener-table" id="screener-table">
+                                    <thead>
+                                        <tr>
+                                            <th data-sort="code">종목코드</th>
+                                            <th data-sort="name">종목명</th>
+                                            <th data-sort="price" class="sortable">현재가 <span class="sort-icon"></span></th>
+                                            <th data-sort="change_pct" class="sortable">등락률 <span class="sort-icon"></span></th>
+                                            <th data-sort="volume" class="sortable">거래량 <span class="sort-icon"></span></th>
+                                            <th data-sort="market_cap" class="sortable active desc">시총 <span class="sort-icon">▼</span></th>
+                                            <th data-sort="per" class="sortable">PER <span class="sort-icon"></span></th>
+                                            <th data-sort="rsi" class="sortable">RSI <span class="sort-icon"></span></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="screener-tbody">
+                                        <tr><td colspan="8" class="empty-cell">검색 버튼을 클릭하세요</td></tr>
+                                    </tbody>
+                                </table>
+
+                                <!-- 페이지네이션 -->
+                                <div class="pagination" id="screener-pagination">
+                                    <button class="page-btn" id="btn-page-prev" disabled>◀</button>
+                                    <span class="page-info" id="screener-page-info">1 / 1</span>
+                                    <button class="page-btn" id="btn-page-next" disabled>▶</button>
+                                </div>
+                            </section>
+
+                            <!-- 종목 상세 패널 (우측) -->
+                            <aside class="stock-detail-panel" id="stock-detail-panel" style="display:none;">
+                                <div class="detail-panel-header">
+                                    <div class="detail-stock-info">
+                                        <span class="detail-stock-name" id="detail-stock-name">-</span>
+                                        <span class="detail-stock-code" id="detail-stock-code">-</span>
+                                    </div>
+                                    <button class="detail-close-btn" id="detail-close-btn">&times;</button>
+                                </div>
+                                <div class="detail-panel-body">
+                                    <!-- 현재가 정보 -->
+                                    <div class="detail-price-section">
+                                        <div class="detail-current-price" id="detail-current-price">-</div>
+                                        <div class="detail-price-change" id="detail-price-change">-</div>
+                                    </div>
+
+                                    <!-- 기본 정보 -->
+                                    <div class="detail-section">
+                                        <h4>기본 정보</h4>
+                                        <div class="detail-grid">
+                                            <div class="detail-item"><span class="label">시가총액</span><span class="value" id="detail-market-cap">-</span></div>
+                                            <div class="detail-item"><span class="label">거래량</span><span class="value" id="detail-volume">-</span></div>
+                                            <div class="detail-item"><span class="label">52주고가</span><span class="value" id="detail-w52-high">-</span></div>
+                                            <div class="detail-item"><span class="label">52주저가</span><span class="value" id="detail-w52-low">-</span></div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 재무 지표 -->
+                                    <div class="detail-section">
+                                        <h4>재무 지표</h4>
+                                        <div class="detail-grid">
+                                            <div class="detail-item"><span class="label">PER</span><span class="value" id="detail-per">-</span></div>
+                                            <div class="detail-item"><span class="label">PBR</span><span class="value" id="detail-pbr">-</span></div>
+                                            <div class="detail-item"><span class="label">ROE</span><span class="value" id="detail-roe">-</span></div>
+                                            <div class="detail-item"><span class="label">배당수익률</span><span class="value" id="detail-dividend">-</span></div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 기술적 지표 -->
+                                    <div class="detail-section">
+                                        <h4>기술적 지표</h4>
+                                        <div class="detail-grid">
+                                            <div class="detail-item"><span class="label">RSI(14)</span><span class="value" id="detail-rsi">-</span></div>
+                                            <div class="detail-item"><span class="label">MACD</span><span class="value" id="detail-macd">-</span></div>
+                                            <div class="detail-item"><span class="label">볼린저</span><span class="value" id="detail-bb">-</span></div>
+                                            <div class="detail-item"><span class="label">거래량급증</span><span class="value" id="detail-vol-surge">-</span></div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 이평선 -->
+                                    <div class="detail-section">
+                                        <h4>이동평균선</h4>
+                                        <div class="detail-grid">
+                                            <div class="detail-item"><span class="label">20일선</span><span class="value" id="detail-sma20">-</span></div>
+                                            <div class="detail-item"><span class="label">50일선</span><span class="value" id="detail-sma50">-</span></div>
+                                            <div class="detail-item"><span class="label">200일선</span><span class="value" id="detail-sma200">-</span></div>
+                                            <div class="detail-item"><span class="label">이평교차</span><span class="value" id="detail-sma-cross">-</span></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </aside>
+                        </div>
                     </div>
                 </div>
             </main>

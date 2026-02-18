@@ -12294,15 +12294,275 @@ function drawTrendBacktestChart(equityCurve, initialCapital = 10000000, currency
 }
 
 // =====================================================
-// 종목검색기 (Phase 7)
+// 종목검색기 (Phase 7) - TradingView 스타일 칩 필터
 // =====================================================
+
+// 필터 정의 (칩별 옵션 및 타입)
+const FILTER_DEFINITIONS = {
+    // 기본정보
+    exchange: {
+        label: '거래소',
+        type: 'select',
+        options: [
+            { value: 'KOSPI', label: 'KOSPI' },
+            { value: 'KOSDAQ', label: 'KOSDAQ' }
+        ]
+    },
+    sector: {
+        label: '업종',
+        type: 'select',
+        options: [
+            { value: '반도체', label: '반도체' },
+            { value: '자동차', label: '자동차' },
+            { value: '은행', label: '은행' },
+            { value: '제약', label: '제약' },
+            { value: '바이오', label: '바이오' },
+            { value: '화학', label: '화학' },
+            { value: '철강', label: '철강' },
+            { value: '건설', label: '건설' },
+            { value: '유통', label: '유통' },
+            { value: '통신', label: '통신' },
+            { value: '미디어', label: '미디어' },
+            { value: '식품', label: '식품' },
+            { value: '전기전자', label: '전기전자' },
+            { value: '기계', label: '기계' },
+            { value: 'IT서비스', label: 'IT서비스' },
+            { value: '게임', label: '게임' }
+        ]
+    },
+    market_cap: {
+        label: '시가총액',
+        type: 'select',
+        options: [
+            { value: 'mega', label: '초대형 (10조+)' },
+            { value: 'large', label: '대형 (1조~10조)' },
+            { value: 'mid', label: '중형 (5천억~1조)' },
+            { value: 'small', label: '소형 (1천억~5천억)' },
+            { value: 'micro', label: '초소형 (1천억 미만)' }
+        ]
+    },
+    price: {
+        label: '현재가',
+        type: 'range',
+        unit: '원',
+        presets: [
+            { value: '0~5000', label: '5천원 이하' },
+            { value: '5000~10000', label: '5천~1만원' },
+            { value: '10000~50000', label: '1만~5만원' },
+            { value: '50000~', label: '5만원 이상' }
+        ]
+    },
+    volume: {
+        label: '거래량',
+        type: 'select',
+        options: [
+            { value: '100000', label: '10만 이상' },
+            { value: '500000', label: '50만 이상' },
+            { value: '1000000', label: '100만 이상' },
+            { value: '5000000', label: '500만 이상' }
+        ]
+    },
+    change: {
+        label: '등락률',
+        type: 'select',
+        options: [
+            { value: 'up3', label: '+3% 이상' },
+            { value: 'up5', label: '+5% 이상' },
+            { value: 'up10', label: '+10% 이상' },
+            { value: 'down3', label: '-3% 이하' },
+            { value: 'down5', label: '-5% 이하' },
+            { value: 'down10', label: '-10% 이하' }
+        ]
+    },
+    // 재무지표
+    per: {
+        label: 'PER',
+        type: 'select',
+        options: [
+            { value: 'loss', label: '적자' },
+            { value: '0~10', label: '0~10' },
+            { value: '10~20', label: '10~20' },
+            { value: '20~50', label: '20~50' },
+            { value: '50+', label: '50 이상' }
+        ]
+    },
+    pbr: {
+        label: 'PBR',
+        type: 'select',
+        options: [
+            { value: '0~0.5', label: '0~0.5' },
+            { value: '0.5~1', label: '0.5~1' },
+            { value: '1~2', label: '1~2' },
+            { value: '2~5', label: '2~5' },
+            { value: '5+', label: '5 이상' }
+        ]
+    },
+    roe: {
+        label: 'ROE',
+        type: 'select',
+        options: [
+            { value: 'loss', label: '적자' },
+            { value: '0~5', label: '0~5%' },
+            { value: '5~10', label: '5~10%' },
+            { value: '10~20', label: '10~20%' },
+            { value: '20+', label: '20% 이상' }
+        ]
+    },
+    operating_margin: {
+        label: '영업이익률',
+        type: 'select',
+        options: [
+            { value: 'loss', label: '적자' },
+            { value: '0~5', label: '0~5%' },
+            { value: '5~10', label: '5~10%' },
+            { value: '10~20', label: '10~20%' },
+            { value: '20+', label: '20% 이상' }
+        ]
+    },
+    debt_ratio: {
+        label: '부채비율',
+        type: 'select',
+        options: [
+            { value: '0~50', label: '0~50%' },
+            { value: '50~100', label: '50~100%' },
+            { value: '100~200', label: '100~200%' },
+            { value: '200+', label: '200% 이상' }
+        ]
+    },
+    dividend_yield: {
+        label: '배당수익률',
+        type: 'select',
+        options: [
+            { value: '1+', label: '1% 이상' },
+            { value: '2+', label: '2% 이상' },
+            { value: '3+', label: '3% 이상' },
+            { value: '5+', label: '5% 이상' }
+        ]
+    },
+    // 기술적지표
+    rsi: {
+        label: 'RSI',
+        type: 'select',
+        options: [
+            { value: '과매수', label: '과매수 (70+)' },
+            { value: '과매도', label: '과매도 (30-)' },
+            { value: '중립', label: '중립 (30~70)' }
+        ]
+    },
+    sma: {
+        label: '이평선',
+        type: 'multi_select',
+        subFilters: {
+            sma20: { label: '20일선', options: [
+                { value: 'above', label: '위' },
+                { value: 'below', label: '아래' },
+                { value: 'near', label: '근접' }
+            ]},
+            sma50: { label: '50일선', options: [
+                { value: 'above', label: '위' },
+                { value: 'below', label: '아래' },
+                { value: 'near', label: '근접' }
+            ]},
+            sma200: { label: '200일선', options: [
+                { value: 'above', label: '위' },
+                { value: 'below', label: '아래' },
+                { value: 'near', label: '근접' }
+            ]}
+        }
+    },
+    sma_cross: {
+        label: '이평교차',
+        type: 'select',
+        options: [
+            { value: 'golden', label: '골든크로스' },
+            { value: 'dead', label: '데드크로스' }
+        ]
+    },
+    bollinger: {
+        label: '볼린저',
+        type: 'select',
+        options: [
+            { value: 'upper', label: '상단 돌파' },
+            { value: 'lower', label: '하단 돌파' },
+            { value: 'middle', label: '중심선 부근' }
+        ]
+    },
+    macd: {
+        label: 'MACD',
+        type: 'select',
+        options: [
+            { value: 'buy', label: '매수신호' },
+            { value: 'sell', label: '매도신호' }
+        ]
+    },
+    stochastic: {
+        label: '스토캐스틱',
+        type: 'select',
+        options: [
+            { value: '과매수', label: '과매수 (80+)' },
+            { value: '과매도', label: '과매도 (20-)' }
+        ]
+    },
+    volume_surge: {
+        label: '거래량급증',
+        type: 'select',
+        options: [
+            { value: '2', label: '2배 이상' },
+            { value: '5', label: '5배 이상' },
+            { value: '10', label: '10배 이상' }
+        ]
+    },
+    w52_high: {
+        label: '52주고가',
+        type: 'select',
+        options: [
+            { value: '0~5', label: '0~5% 하락' },
+            { value: '5~10', label: '5~10% 하락' },
+            { value: '10~20', label: '10~20% 하락' },
+            { value: '20+', label: '20%+ 하락' }
+        ]
+    },
+    w52_low: {
+        label: '52주저가',
+        type: 'select',
+        options: [
+            { value: '0~5', label: '0~5% 상승' },
+            { value: '5~10', label: '5~10% 상승' },
+            { value: '10~20', label: '10~20% 상승' },
+            { value: '20+', label: '20%+ 상승' }
+        ]
+    },
+    atr: {
+        label: 'ATR',
+        type: 'select',
+        options: [
+            { value: 'high', label: '고변동' },
+            { value: 'medium', label: '중변동' },
+            { value: 'low', label: '저변동' }
+        ]
+    },
+    period_return: {
+        label: '기간수익률',
+        type: 'select',
+        options: [
+            { value: '1w+10', label: '1주 +10%' },
+            { value: '1m+20', label: '1개월 +20%' },
+            { value: '3m+30', label: '3개월 +30%' },
+            { value: '1w-10', label: '1주 -10%' },
+            { value: '1m-20', label: '1개월 -20%' }
+        ]
+    }
+};
+
 let screenerState = {
     market: 'kr',
     sort: 'market_cap',
     order: 'desc',
     page: 1,
     perPage: 50,
-    total: 0
+    total: 0,
+    activeFilters: {},      // { filterKey: { value, label } }
+    selectedStock: null     // 상세 패널용
 };
 
 async function loadScreener() {
@@ -12325,13 +12585,7 @@ async function loadScreener() {
     // 이벤트 바인딩 (최초 1회)
     initScreenerEvents();
 
-    // 업종 목록 로드
-    await loadSectorOptions();
-
-    // 필터 UI 초기화 (국내 탭 기본)
-    updateScreenerFiltersUI(screenerState.market);
-
-    // 초기 검색 실행 (페이지 진입시 자동 검색)
+    // 초기 검색 실행
     await searchScreener();
 }
 
@@ -12347,27 +12601,16 @@ function initScreenerEvents() {
             tab.classList.add('active');
             screenerState.market = tab.dataset.market;
             screenerState.page = 1;
+            updateScreenerFiltersUI(screenerState.market);
             searchScreener();
         });
     });
 
-    // 아코디언 토글
-    document.querySelectorAll('.filter-accordion-header').forEach(header => {
-        header.addEventListener('click', () => {
-            const accordion = header.closest('.filter-accordion');
-            const body = accordion.querySelector('.filter-accordion-body');
-            const arrow = header.querySelector('.accordion-arrow');
-            const isOpen = accordion.classList.contains('open');
-
-            if (isOpen) {
-                accordion.classList.remove('open');
-                body.style.display = 'none';
-                arrow.textContent = '▶';
-            } else {
-                accordion.classList.add('open');
-                body.style.display = 'block';
-                arrow.textContent = '▼';
-            }
+    // 필터 칩 클릭 이벤트
+    document.querySelectorAll('.filter-chip').forEach(chip => {
+        chip.addEventListener('click', (e) => {
+            const filterKey = chip.dataset.filter;
+            showFilterPopover(filterKey, chip);
         });
     });
 
@@ -12379,29 +12622,49 @@ function initScreenerEvents() {
 
     // 초기화 버튼
     document.getElementById('btn-screener-reset')?.addEventListener('click', () => {
-        // 기본정보
-        document.getElementById('filter-exchange').value = '';
-        document.getElementById('filter-sector').value = '';
-        document.getElementById('filter-market-cap').value = '';
-        document.getElementById('filter-price-min').value = '';
-        document.getElementById('filter-price-max').value = '';
-        document.getElementById('filter-volume').value = '';
-        // 재무지표
-        document.getElementById('filter-per').value = '';
-        document.getElementById('filter-pbr').value = '';
-        document.getElementById('filter-roe').value = '';
-        document.getElementById('filter-operating-margin').value = '';
-        document.getElementById('filter-debt-ratio').value = '';
-        document.getElementById('filter-dividend-yield').value = '';
-        // 기술적지표
-        document.getElementById('filter-change').value = '';
-        document.getElementById('filter-52w-high').value = '';
-        document.getElementById('filter-volume-surge').value = '';
-        document.getElementById('filter-sma20').value = '';
-        document.getElementById('filter-sma60').value = '';
-        document.getElementById('filter-sma120').value = '';
+        screenerState.activeFilters = {};
         screenerState.page = 1;
+        updateActiveFiltersUI();
+        updateChipStates();
         searchScreener();
+    });
+
+    // 모두 지우기 버튼
+    document.getElementById('btn-clear-all-filters')?.addEventListener('click', () => {
+        screenerState.activeFilters = {};
+        screenerState.page = 1;
+        updateActiveFiltersUI();
+        updateChipStates();
+        searchScreener();
+    });
+
+    // 팝오버 닫기 버튼
+    document.getElementById('popover-close')?.addEventListener('click', hideFilterPopover);
+
+    // 팝오버 적용 버튼
+    document.getElementById('popover-apply')?.addEventListener('click', () => {
+        applyPopoverFilter();
+        hideFilterPopover();
+    });
+
+    // 팝오버 초기화 버튼
+    document.getElementById('popover-clear')?.addEventListener('click', () => {
+        const popover = document.getElementById('filter-popover');
+        const filterKey = popover?.dataset?.currentFilter;
+        if (filterKey) {
+            removeFilter(filterKey);
+            hideFilterPopover();
+        }
+    });
+
+    // 팝오버 외부 클릭시 닫기
+    document.addEventListener('click', (e) => {
+        const popover = document.getElementById('filter-popover');
+        if (popover && popover.style.display !== 'none') {
+            if (!popover.contains(e.target) && !e.target.classList.contains('filter-chip')) {
+                hideFilterPopover();
+            }
+        }
     });
 
     // 테이블 헤더 정렬
@@ -12435,6 +12698,236 @@ function initScreenerEvents() {
             searchScreener();
         }
     });
+
+    // 상세패널 닫기
+    document.getElementById('detail-close-btn')?.addEventListener('click', () => {
+        hideStockDetailPanel();
+    });
+}
+
+// 필터 팝오버 표시
+function showFilterPopover(filterKey, chipElement) {
+    const popover = document.getElementById('filter-popover');
+    const titleEl = document.getElementById('popover-title');
+    const bodyEl = document.getElementById('popover-body');
+
+    if (!popover || !titleEl || !bodyEl) return;
+
+    const filterDef = FILTER_DEFINITIONS[filterKey];
+    if (!filterDef) return;
+
+    // 현재 필터 키 저장
+    popover.dataset.currentFilter = filterKey;
+
+    // 제목 설정
+    titleEl.textContent = filterDef.label;
+
+    // 팝오버 내용 생성
+    let html = '';
+    const currentValue = screenerState.activeFilters[filterKey]?.value;
+
+    if (filterDef.type === 'select') {
+        html = '<div class="popover-options">';
+        filterDef.options.forEach(opt => {
+            const selected = currentValue === opt.value ? 'selected' : '';
+            html += `<button class="popover-option ${selected}" data-value="${opt.value}">${opt.label}</button>`;
+        });
+        html += '</div>';
+    } else if (filterDef.type === 'range') {
+        // 프리셋 버튼
+        if (filterDef.presets) {
+            html = '<div class="popover-presets">';
+            html += '<span class="popover-presets-label">빠른 선택</span>';
+            html += '<div class="popover-options">';
+            filterDef.presets.forEach(preset => {
+                const selected = currentValue === preset.value ? 'selected' : '';
+                html += `<button class="popover-option ${selected}" data-value="${preset.value}">${preset.label}</button>`;
+            });
+            html += '</div></div>';
+        }
+        // 커스텀 범위 입력
+        const [minVal, maxVal] = currentValue ? currentValue.split('~') : ['', ''];
+        html += '<div class="popover-custom">';
+        html += '<span class="popover-custom-label">직접 입력</span>';
+        html += '<div class="popover-range">';
+        html += `<input type="number" id="popover-range-min" placeholder="최소" value="${minVal || ''}">`;
+        html += '<span>~</span>';
+        html += `<input type="number" id="popover-range-max" placeholder="최대" value="${maxVal || ''}">`;
+        html += `<span>${filterDef.unit || ''}</span>`;
+        html += '</div></div>';
+    } else if (filterDef.type === 'multi_select' && filterDef.subFilters) {
+        // 이평선처럼 여러 서브필터가 있는 경우
+        html = '<div class="popover-multi-select">';
+        for (const [subKey, subDef] of Object.entries(filterDef.subFilters)) {
+            const subValue = screenerState.activeFilters[subKey]?.value;
+            html += `<div class="popover-sub-filter">`;
+            html += `<span class="popover-sub-label">${subDef.label}</span>`;
+            html += `<select class="popover-sub-select" data-subkey="${subKey}">`;
+            html += '<option value="">전체</option>';
+            subDef.options.forEach(opt => {
+                const selected = subValue === opt.value ? 'selected' : '';
+                html += `<option value="${opt.value}" ${selected}>${opt.label}</option>`;
+            });
+            html += '</select></div>';
+        }
+        html += '</div>';
+    }
+
+    bodyEl.innerHTML = html;
+
+    // 옵션 클릭 이벤트
+    bodyEl.querySelectorAll('.popover-option').forEach(opt => {
+        opt.addEventListener('click', () => {
+            bodyEl.querySelectorAll('.popover-option').forEach(o => o.classList.remove('selected'));
+            opt.classList.add('selected');
+        });
+    });
+
+    // 팝오버 위치 설정
+    const chipRect = chipElement.getBoundingClientRect();
+    popover.style.display = 'block';
+    popover.style.left = `${chipRect.left}px`;
+    popover.style.top = `${chipRect.bottom + 8}px`;
+
+    // 화면 밖으로 나가면 조정
+    const popoverRect = popover.getBoundingClientRect();
+    if (popoverRect.right > window.innerWidth - 10) {
+        popover.style.left = `${window.innerWidth - popoverRect.width - 10}px`;
+    }
+    if (popoverRect.bottom > window.innerHeight - 10) {
+        popover.style.top = `${chipRect.top - popoverRect.height - 8}px`;
+    }
+}
+
+// 팝오버 숨기기
+function hideFilterPopover() {
+    const popover = document.getElementById('filter-popover');
+    if (popover) {
+        popover.style.display = 'none';
+        popover.dataset.currentFilter = '';
+    }
+}
+
+// 팝오버에서 필터 적용
+function applyPopoverFilter() {
+    const popover = document.getElementById('filter-popover');
+    const filterKey = popover?.dataset?.currentFilter;
+    if (!filterKey) return;
+
+    const filterDef = FILTER_DEFINITIONS[filterKey];
+    if (!filterDef) return;
+
+    if (filterDef.type === 'select') {
+        const selectedOpt = document.querySelector('#popover-body .popover-option.selected');
+        if (selectedOpt) {
+            const value = selectedOpt.dataset.value;
+            const label = selectedOpt.textContent;
+            setFilter(filterKey, value, label);
+        }
+    } else if (filterDef.type === 'range') {
+        // 선택된 프리셋 확인
+        const selectedOpt = document.querySelector('#popover-body .popover-option.selected');
+        if (selectedOpt) {
+            const value = selectedOpt.dataset.value;
+            const label = selectedOpt.textContent;
+            setFilter(filterKey, value, label);
+        } else {
+            // 커스텀 범위
+            const minVal = document.getElementById('popover-range-min')?.value || '';
+            const maxVal = document.getElementById('popover-range-max')?.value || '';
+            if (minVal || maxVal) {
+                const value = `${minVal}~${maxVal}`;
+                const label = minVal && maxVal ? `${minVal}~${maxVal}` : minVal ? `${minVal}+` : `~${maxVal}`;
+                // 백엔드 필터명에 맞게 변환
+                if (filterKey === 'price') {
+                    if (minVal) setFilter('price_min', minVal, `${minVal}원+`);
+                    if (maxVal) setFilter('price_max', maxVal, `~${maxVal}원`);
+                } else {
+                    setFilter(filterKey, value, label);
+                }
+            }
+        }
+    } else if (filterDef.type === 'multi_select') {
+        // 이평선 서브필터들
+        document.querySelectorAll('#popover-body .popover-sub-select').forEach(sel => {
+            const subKey = sel.dataset.subkey;
+            const value = sel.value;
+            if (value) {
+                const label = sel.options[sel.selectedIndex].text;
+                setFilter(subKey, value, `${FILTER_DEFINITIONS[filterKey].subFilters[subKey].label}: ${label}`);
+            } else {
+                removeFilter(subKey);
+            }
+        });
+    }
+
+    screenerState.page = 1;
+    searchScreener();
+}
+
+// 필터 설정
+function setFilter(key, value, label) {
+    screenerState.activeFilters[key] = { value, label };
+    updateActiveFiltersUI();
+    updateChipStates();
+}
+
+// 필터 제거
+function removeFilter(key) {
+    delete screenerState.activeFilters[key];
+    updateActiveFiltersUI();
+    updateChipStates();
+    screenerState.page = 1;
+    searchScreener();
+}
+
+// 활성 필터 UI 업데이트
+function updateActiveFiltersUI() {
+    const container = document.getElementById('active-filters-chips');
+    const clearAllBtn = document.getElementById('btn-clear-all-filters');
+
+    if (!container) return;
+
+    const filters = screenerState.activeFilters;
+    const filterKeys = Object.keys(filters);
+
+    if (filterKeys.length === 0) {
+        container.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">선택된 필터 없음</span>';
+        if (clearAllBtn) clearAllBtn.style.display = 'none';
+        return;
+    }
+
+    if (clearAllBtn) clearAllBtn.style.display = 'block';
+
+    container.innerHTML = filterKeys.map(key => {
+        const filter = filters[key];
+        const def = FILTER_DEFINITIONS[key];
+        const displayLabel = def ? `${def.label}: ${filter.label}` : `${key}: ${filter.label}`;
+        return `
+            <span class="active-filter-chip" data-key="${key}">
+                ${displayLabel}
+                <span class="chip-remove" onclick="removeFilter('${key}')">&times;</span>
+            </span>
+        `;
+    }).join('');
+}
+
+// 칩 상태 업데이트 (활성 필터가 있으면 하이라이트)
+function updateChipStates() {
+    document.querySelectorAll('.filter-chip').forEach(chip => {
+        const filterKey = chip.dataset.filter;
+        const hasFilter = screenerState.activeFilters[filterKey];
+
+        // 이평선 칩은 서브필터 확인
+        if (filterKey === 'sma') {
+            const hasSubFilter = screenerState.activeFilters.sma20 ||
+                                 screenerState.activeFilters.sma50 ||
+                                 screenerState.activeFilters.sma200;
+            chip.classList.toggle('active', !!hasSubFilter);
+        } else {
+            chip.classList.toggle('active', !!hasFilter);
+        }
+    });
 }
 
 function updateSortIcons() {
@@ -12442,124 +12935,28 @@ function updateSortIcons() {
         const icon = th.querySelector('.sort-icon');
         if (th.dataset.sort === screenerState.sort) {
             th.classList.add('active');
-            icon.textContent = screenerState.order === 'desc' ? '▼' : '▲';
+            if (icon) icon.textContent = screenerState.order === 'desc' ? '▼' : '▲';
         } else {
             th.classList.remove('active');
-            icon.textContent = '';
+            if (icon) icon.textContent = '';
         }
     });
 }
 
-async function loadSectorOptions() {
-    // 네이버 기반 업종 목록 (하드코딩 - 추후 API로 대체 가능)
-    const sectors = [
-        '반도체', '자동차', '은행', '제약', '바이오', '화학', '철강', '건설',
-        '유통', '통신', '미디어', '엔터테인먼트', '식품', '음료', '의류',
-        '전기전자', '기계', '조선', 'IT서비스', '게임', '증권', '보험'
-    ];
-
-    const select = document.getElementById('filter-sector');
-    if (select && select.options.length <= 1) {
-        sectors.forEach(sector => {
-            const opt = document.createElement('option');
-            opt.value = sector;
-            opt.textContent = sector;
-            select.appendChild(opt);
-        });
-    }
-}
-
+// 필터 수집 (activeFilters 기반)
 function collectScreenerFilters() {
     const filters = {};
 
-    // 기본정보 필터
-    const exchange = document.getElementById('filter-exchange')?.value;
-    if (exchange) filters.exchange = exchange;
-
-    const sector = document.getElementById('filter-sector')?.value;
-    if (sector) filters.sector = sector;
-
-    const marketCap = document.getElementById('filter-market-cap')?.value;
-    if (marketCap) filters.market_cap = marketCap;
-
-    const priceMin = document.getElementById('filter-price-min')?.value;
-    if (priceMin) filters.price_min = parseInt(priceMin);
-
-    const priceMax = document.getElementById('filter-price-max')?.value;
-    if (priceMax) filters.price_max = parseInt(priceMax);
-
-    const volumeMin = document.getElementById('filter-volume')?.value;
-    if (volumeMin) filters.volume_min = parseInt(volumeMin);
-
-    // 재무지표 필터
-    const per = document.getElementById('filter-per')?.value;
-    if (per) filters.per = per;
-
-    const pbr = document.getElementById('filter-pbr')?.value;
-    if (pbr) filters.pbr = pbr;
-
-    const roe = document.getElementById('filter-roe')?.value;
-    if (roe) filters.roe = roe;
-
-    const operatingMargin = document.getElementById('filter-operating-margin')?.value;
-    if (operatingMargin) filters.operating_margin = operatingMargin;
-
-    const debtRatio = document.getElementById('filter-debt-ratio')?.value;
-    if (debtRatio) filters.debt_ratio = debtRatio;
-
-    const dividendYield = document.getElementById('filter-dividend-yield')?.value;
-    if (dividendYield) filters.dividend_yield = dividendYield;
-
-    // 기술적지표 필터
-    const change = document.getElementById('filter-change')?.value;
-    if (change) filters.change = change;
-
-    const w52High = document.getElementById('filter-52w-high')?.value;
-    if (w52High) filters.w52_high = w52High;
-
-    const w52Low = document.getElementById('filter-52w-low')?.value;
-    if (w52Low) filters.w52_low = w52Low;
-
-    const volumeSurge = document.getElementById('filter-volume-surge')?.value;
-    if (volumeSurge) filters.volume_surge = volumeSurge;
-
-    // 이동평균선 (SSOT: 20/50/200)
-    const sma20 = document.getElementById('filter-sma20')?.value;
-    if (sma20) filters.sma20 = sma20;
-
-    const sma50 = document.getElementById('filter-sma50')?.value;
-    if (sma50) filters.sma50 = sma50;
-
-    const sma200 = document.getElementById('filter-sma200')?.value;
-    if (sma200) filters.sma200 = sma200;
-
-    // 이평선 교차
-    const smaCross = document.getElementById('filter-sma-cross')?.value;
-    if (smaCross) filters.sma_cross = smaCross;
-
-    // RSI
-    const rsi = document.getElementById('filter-rsi')?.value;
-    if (rsi) filters.rsi = rsi;
-
-    // 볼린저밴드
-    const bollinger = document.getElementById('filter-bollinger')?.value;
-    if (bollinger) filters.bollinger = bollinger;
-
-    // MACD
-    const macd = document.getElementById('filter-macd')?.value;
-    if (macd) filters.macd = macd;
-
-    // 스토캐스틱
-    const stochastic = document.getElementById('filter-stochastic')?.value;
-    if (stochastic) filters.stochastic = stochastic;
-
-    // ATR (변동성)
-    const atr = document.getElementById('filter-atr')?.value;
-    if (atr) filters.atr = atr;
-
-    // 기간 수익률
-    const periodReturn = document.getElementById('filter-period-return')?.value;
-    if (periodReturn) filters.period_return = periodReturn;
+    for (const [key, filter] of Object.entries(screenerState.activeFilters)) {
+        // 백엔드 필터명에 맞게 변환
+        if (key === 'volume') {
+            filters.volume_min = parseInt(filter.value);
+        } else if (key === 'price_min' || key === 'price_max') {
+            filters[key] = parseInt(filter.value);
+        } else {
+            filters[key] = filter.value;
+        }
+    }
 
     return filters;
 }
@@ -12567,23 +12964,19 @@ function collectScreenerFilters() {
 async function searchScreener() {
     const tbody = document.getElementById('screener-tbody');
     const countEl = document.getElementById('screener-result-count');
-    const filtersEl = document.querySelector('.screener-filters');
-
-    // 시장별 필터 UI 전환
-    updateScreenerFiltersUI(screenerState.market);
 
     // 해외/ETF는 준비중
     if (screenerState.market !== 'kr') {
         if (tbody) {
             const marketName = screenerState.market === 'us' ? '해외' : 'ETF';
-            tbody.innerHTML = `<tr><td colspan="10" class="empty-cell">${marketName} 종목검색 준비중입니다</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">${marketName} 종목검색 준비중입니다</td></tr>`;
         }
         if (countEl) countEl.textContent = '결과: 0건';
         return;
     }
 
     if (tbody) {
-        tbody.innerHTML = '<tr><td colspan="10" class="empty-cell">검색 중...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">검색 중...</td></tr>';
     }
 
     try {
@@ -12600,9 +12993,8 @@ async function searchScreener() {
         }, 30000);
 
         if (data.message) {
-            // 준비중 메시지
             if (tbody) {
-                tbody.innerHTML = `<tr><td colspan="10" class="empty-cell">${data.message}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">${data.message}</td></tr>`;
             }
             if (countEl) countEl.textContent = '결과: 0건';
             return;
@@ -12617,52 +13009,93 @@ async function searchScreener() {
     } catch (err) {
         console.error('Screener search error:', err);
         if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="10" class="empty-cell">오류 발생: ${err.message || err}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">오류 발생: ${err.message || err}</td></tr>`;
         }
     }
 }
 
 // 시장별 필터 UI 전환
 function updateScreenerFiltersUI(market) {
-    const filterBasic = document.getElementById('filter-basic');
-    const filterFinancial = document.getElementById('filter-financial');
-    const filterTechnical = document.getElementById('filter-technical');
-    const filterActions = document.querySelector('.filter-actions');
+    const filtersEl = document.querySelector('.screener-filters-v2');
+    const actionsEl = document.querySelector('.filter-actions-v2');
 
     if (market === 'kr') {
-        // 국내: 모든 필터 표시 + 아코디언 펼침
-        if (filterBasic) {
-            filterBasic.style.display = 'block';
-            filterBasic.classList.add('open');
-            const body = filterBasic.querySelector('.filter-accordion-body');
-            const arrow = filterBasic.querySelector('.accordion-arrow');
-            if (body) body.style.display = 'block';
-            if (arrow) arrow.textContent = '▼';
-        }
-        if (filterFinancial) {
-            filterFinancial.style.display = 'block';
-            filterFinancial.classList.add('open');
-            const body = filterFinancial.querySelector('.filter-accordion-body');
-            const arrow = filterFinancial.querySelector('.accordion-arrow');
-            if (body) body.style.display = 'block';
-            if (arrow) arrow.textContent = '▼';
-        }
-        if (filterTechnical) {
-            filterTechnical.style.display = 'block';
-            filterTechnical.classList.add('open');
-            const body = filterTechnical.querySelector('.filter-accordion-body');
-            const arrow = filterTechnical.querySelector('.accordion-arrow');
-            if (body) body.style.display = 'block';
-            if (arrow) arrow.textContent = '▼';
-        }
-        if (filterActions) filterActions.style.display = 'flex';
+        if (filtersEl) filtersEl.style.display = 'block';
+        if (actionsEl) actionsEl.style.display = 'flex';
     } else {
-        // 해외/ETF: 필터 숨김
-        if (filterBasic) filterBasic.style.display = 'none';
-        if (filterFinancial) filterFinancial.style.display = 'none';
-        if (filterTechnical) filterTechnical.style.display = 'none';
-        if (filterActions) filterActions.style.display = 'none';
+        if (filtersEl) filtersEl.style.display = 'none';
+        if (actionsEl) actionsEl.style.display = 'none';
     }
+}
+
+// 종목 상세 패널 표시
+function showStockDetailPanel(stock) {
+    const panel = document.getElementById('stock-detail-panel');
+    if (!panel || !stock) return;
+
+    screenerState.selectedStock = stock;
+
+    // 기본 정보
+    document.getElementById('detail-stock-name').textContent = stock.name || '-';
+    document.getElementById('detail-stock-code').textContent = stock.code || '-';
+
+    // 현재가
+    const price = (stock.price || 0).toLocaleString();
+    document.getElementById('detail-current-price').textContent = `${price}원`;
+
+    // 등락률
+    const changePct = stock.change_pct || 0;
+    const changeEl = document.getElementById('detail-price-change');
+    const changeStr = changePct > 0 ? `+${changePct.toFixed(2)}%` : `${changePct.toFixed(2)}%`;
+    changeEl.textContent = changeStr;
+    changeEl.className = 'detail-price-change ' + (changePct > 0 ? 'profit' : changePct < 0 ? 'loss' : '');
+
+    // 기본 정보 그리드
+    document.getElementById('detail-market-cap').textContent = stock.market_cap_str || formatMarketCap(stock.market_cap);
+    document.getElementById('detail-volume').textContent = formatVolume(stock.volume || 0);
+    document.getElementById('detail-w52-high').textContent = stock.high_52w ? stock.high_52w.toLocaleString() + '원' : '-';
+    document.getElementById('detail-w52-low').textContent = stock.low_52w ? stock.low_52w.toLocaleString() + '원' : '-';
+
+    // 재무 지표
+    document.getElementById('detail-per').textContent = stock.per ? stock.per.toFixed(1) : '-';
+    document.getElementById('detail-pbr').textContent = stock.pbr ? stock.pbr.toFixed(2) : '-';
+    document.getElementById('detail-roe').textContent = stock.roe ? stock.roe.toFixed(1) + '%' : '-';
+    document.getElementById('detail-dividend').textContent = stock.dividend_yield ? stock.dividend_yield.toFixed(2) + '%' : '-';
+
+    // 기술적 지표
+    document.getElementById('detail-rsi').textContent = stock.rsi ? stock.rsi.toFixed(0) : '-';
+    document.getElementById('detail-macd').textContent = stock.macd_cross === 'buy' ? '매수' : stock.macd_cross === 'sell' ? '매도' : '-';
+    document.getElementById('detail-bb').textContent = stock.bb_position === 'upper' ? '상단' : stock.bb_position === 'lower' ? '하단' : stock.bb_position === 'middle' ? '중심' : '-';
+    document.getElementById('detail-vol-surge').textContent = stock.volume_surge ? stock.volume_surge.toFixed(1) + '배' : '-';
+
+    // 이평선
+    const smaFormat = (pos) => pos === 'above' ? '위' : pos === 'below' ? '아래' : pos === 'near' ? '근접' : '-';
+    document.getElementById('detail-sma20').textContent = smaFormat(stock.sma20_position);
+    document.getElementById('detail-sma50').textContent = smaFormat(stock.sma50_position);
+    document.getElementById('detail-sma200').textContent = smaFormat(stock.sma200_position);
+    document.getElementById('detail-sma-cross').textContent = stock.sma_cross === 'golden' ? '골든' : stock.sma_cross === 'dead' ? '데드' : '-';
+
+    // 패널 표시
+    panel.style.display = 'block';
+
+    // 모바일에서는 바텀시트처럼 표시
+    if (window.innerWidth <= 1024) {
+        setTimeout(() => panel.classList.add('show'), 10);
+    }
+}
+
+// 종목 상세 패널 숨기기
+function hideStockDetailPanel() {
+    const panel = document.getElementById('stock-detail-panel');
+    if (!panel) return;
+
+    if (window.innerWidth <= 1024) {
+        panel.classList.remove('show');
+        setTimeout(() => panel.style.display = 'none', 300);
+    } else {
+        panel.style.display = 'none';
+    }
+    screenerState.selectedStock = null;
 }
 
 function renderScreenerTable(items) {
@@ -12670,11 +13103,14 @@ function renderScreenerTable(items) {
     if (!tbody) return;
 
     if (!items || items.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="11" class="empty-cell">검색 결과가 없습니다</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">검색 결과가 없습니다</td></tr>';
         return;
     }
 
-    tbody.innerHTML = items.map(item => {
+    // 전역에서 접근 가능하도록 저장
+    window._screenerItems = items;
+
+    tbody.innerHTML = items.map((item, idx) => {
         const changePct = item.change_pct || 0;
         const changeClass = changePct > 0 ? 'profit' : changePct < 0 ? 'loss' : '';
         const changeStr = changePct > 0 ? `+${changePct.toFixed(2)}%` : `${changePct.toFixed(2)}%`;
@@ -12683,25 +13119,13 @@ function renderScreenerTable(items) {
         const volume = formatVolume(item.volume || 0);
         const marketCap = item.market_cap_str || formatMarketCap(item.market_cap || 0);
         const per = item.per ? item.per.toFixed(1) : '-';
-        const pbr = item.pbr ? item.pbr.toFixed(2) : '-';
 
         // RSI (기술적 지표)
         const rsi = item.rsi != null ? item.rsi.toFixed(0) : '-';
         const rsiClass = item.rsi >= 70 ? 'loss' : item.rsi <= 30 ? 'profit' : '';
 
-        // 52주 고가 대비 (백분율 값으로 저장됨)
-        let w52HighStr = '-';
-        if (item.w52_high_pct != null) {
-            const pct = item.w52_high_pct;  // 이미 백분율
-            if (pct >= -1 && pct <= 0) {
-                w52HighStr = '신고가';
-            } else {
-                w52HighStr = pct.toFixed(1) + '%';
-            }
-        }
-
         return `
-            <tr onclick="console.log('선택:', '${item.code}', '${item.name}')">
+            <tr onclick="onScreenerRowClick(${idx})" style="cursor:pointer;">
                 <td class="code-cell">${item.code || '-'}</td>
                 <td class="name-cell">${item.name || '-'}</td>
                 <td class="price-cell">${price}</td>
@@ -12709,12 +13133,18 @@ function renderScreenerTable(items) {
                 <td class="volume-cell">${volume}</td>
                 <td class="cap-cell">${marketCap}</td>
                 <td>${per}</td>
-                <td>${pbr}</td>
                 <td class="${rsiClass}">${rsi}</td>
-                <td>${w52HighStr}</td>
             </tr>
         `;
     }).join('');
+}
+
+// 테이블 행 클릭 핸들러
+function onScreenerRowClick(idx) {
+    const items = window._screenerItems;
+    if (items && items[idx]) {
+        showStockDetailPanel(items[idx]);
+    }
 }
 
 function formatMarketCap(cap) {
