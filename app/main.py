@@ -219,7 +219,9 @@ from app.data_provider import (
     get_stock_consensus,
     # Day14: 환율 + 거래소별 잔고 조회
     get_usd_krw_rate, fetch_upbit_balances, fetch_binance_balances,
-    fetch_okx_balances, fetch_bybit_balances, fetch_kis_kr_balances, fetch_kis_us_balances
+    fetch_okx_balances, fetch_bybit_balances, fetch_kis_kr_balances, fetch_kis_us_balances,
+    # Phase 7: 종목검색기
+    screener_kr
 )
 
 # 세션 미들웨어 (OAuth 콜백용)
@@ -10742,7 +10744,7 @@ async def api_screener(
 
     try:
         if market == "kr":
-            result = await data_provider.screener_kr(filter_dict, sort, order, page, per_page)
+            result = await screener_kr(filter_dict, sort, order, page, per_page)
         elif market == "us":
             result = {"items": [], "total": 0, "message": "해외 스크리너 준비중"}
         elif market == "etf":
@@ -10754,6 +10756,7 @@ async def api_screener(
 
     except Exception as e:
         print(f"[API] Screener error: {e}")
+        import traceback
         traceback.print_exc()
         return {
             "items": [],
