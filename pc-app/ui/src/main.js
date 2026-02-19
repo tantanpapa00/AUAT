@@ -13507,17 +13507,19 @@ function renderScreenerTable(items) {
 
     tbody.innerHTML = items.map((item, idx) => {
         const changePct = item.change_pct || 0;
-        const changeClass = changePct > 0 ? 'profit' : changePct < 0 ? 'loss' : '';
+        // 상승=빨강(change-up), 하락=파랑(change-down) - 한국 주식시장 컨벤션
+        const changeClass = changePct > 0 ? 'change-up' : changePct < 0 ? 'change-down' : '';
         const changeStr = changePct > 0 ? `+${changePct.toFixed(2)}%` : `${changePct.toFixed(2)}%`;
 
-        const price = (item.price || 0).toLocaleString();
+        // 가격: 천단위 콤마, 원화는 정수
+        const price = (item.price || 0).toLocaleString('ko-KR', { maximumFractionDigits: 0 });
         const volume = formatVolume(item.volume || 0);
         const marketCap = item.market_cap_str || formatMarketCap(item.market_cap || 0);
-        const per = item.per ? item.per.toFixed(1) : '-';
+        const per = item.per != null ? item.per.toFixed(1) : '-';
 
-        // RSI (기술적 지표)
+        // RSI (기술적 지표) - 과매수(70↑)=파랑, 과매도(30↓)=빨강
         const rsi = item.rsi != null ? item.rsi.toFixed(0) : '-';
-        const rsiClass = item.rsi >= 70 ? 'loss' : item.rsi <= 30 ? 'profit' : '';
+        const rsiClass = item.rsi >= 70 ? 'change-down' : item.rsi <= 30 ? 'change-up' : '';
 
         return `
             <tr onclick="onScreenerRowClick(${idx})" style="cursor:pointer;">
@@ -13527,8 +13529,8 @@ function renderScreenerTable(items) {
                 <td class="change-cell ${changeClass}">${changeStr}</td>
                 <td class="volume-cell">${volume}</td>
                 <td class="cap-cell">${marketCap}</td>
-                <td>${per}</td>
-                <td class="${rsiClass}">${rsi}</td>
+                <td class="num-cell">${per}</td>
+                <td class="num-cell ${rsiClass}">${rsi}</td>
             </tr>
         `;
     }).join('');

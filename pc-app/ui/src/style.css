@@ -10155,7 +10155,18 @@ body {
 .screener-table {
     width: 100%;
     border-collapse: collapse;
+    table-layout: fixed;
 }
+
+/* 열 너비 고정 */
+.screener-table th:nth-child(1) { width: 80px; }   /* 종목코드 */
+.screener-table th:nth-child(2) { width: 140px; }  /* 종목명 */
+.screener-table th:nth-child(3) { width: 100px; }  /* 현재가 */
+.screener-table th:nth-child(4) { width: 80px; }   /* 등락률 */
+.screener-table th:nth-child(5) { width: 90px; }   /* 거래량 */
+.screener-table th:nth-child(6) { width: 90px; }   /* 시총 */
+.screener-table th:nth-child(7) { width: 70px; }   /* PER */
+.screener-table th:nth-child(8) { width: 60px; }   /* RSI */
 
 .screener-table th {
     text-align: left;
@@ -10165,6 +10176,8 @@ body {
     color: var(--text-secondary);
     border-bottom: 2px solid var(--border);
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .screener-table th.sortable {
@@ -10204,27 +10217,45 @@ body {
     font-weight: 600;
 }
 
-.screener-table .price-cell {
+/* 숫자 셀 - 우측 정렬 */
+.screener-table .price-cell,
+.screener-table .change-cell,
+.screener-table .volume-cell,
+.screener-table .cap-cell,
+.screener-table .num-cell {
     text-align: right;
+}
+
+/* 숫자 헤더도 우측 정렬 */
+.screener-table th.align-right {
+    text-align: right;
+}
+
+.screener-table .price-cell {
     font-weight: 500;
 }
 
 .screener-table .change-cell {
-    text-align: right;
     font-weight: 600;
 }
 
+/* 상승: 빨강 (한국 주식시장 컨벤션) */
+.screener-table .change-up {
+    color: #ef4444;
+}
+
+/* 하락: 파랑 */
+.screener-table .change-down {
+    color: #3b82f6;
+}
+
+/* 기존 호환성 유지 */
 .screener-table .change-cell.profit {
-    color: var(--profit-color, #ef4444);
+    color: #ef4444;
 }
 
 .screener-table .change-cell.loss {
-    color: var(--loss-color, #3b82f6);
-}
-
-.screener-table .volume-cell,
-.screener-table .cap-cell {
-    text-align: right;
+    color: #3b82f6;
 }
 
 .screener-table .empty-cell {
