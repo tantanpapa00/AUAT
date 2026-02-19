@@ -13466,14 +13466,25 @@ function updateTableHeader(market) {
 function updateScreenerFiltersUI(market) {
     const filtersEl = document.querySelector('.screener-filters-v2');
     const actionsEl = document.querySelector('.filter-actions-v2');
+    const filterChips = document.querySelector('.filter-chips');
 
-    // 국내만 필터 표시 (US/ETF는 아직 미구현)
     if (market === 'kr') {
+        // 국내: 전체 필터 표시
         if (filtersEl) filtersEl.style.display = 'block';
         if (actionsEl) actionsEl.style.display = 'flex';
+        if (filterChips) filterChips.innerHTML = ''; // 기존 칩 복원 (별도 처리)
     } else {
-        if (filtersEl) filtersEl.style.display = 'none';
+        // US/ETF: 필터 숨기고 안내 메시지 표시
+        if (filtersEl) filtersEl.style.display = 'block';  // 컨테이너는 표시
         if (actionsEl) actionsEl.style.display = 'none';
+        if (filterChips) {
+            const marketName = market === 'us' ? '해외(S&P 500)' : 'ETF';
+            filterChips.innerHTML = `
+                <div style="color: var(--text-muted); padding: 12px; text-align: center;">
+                    ${marketName} 종목은 기본 정렬만 지원됩니다. (필터 추가 예정)
+                </div>
+            `;
+        }
     }
 }
 
