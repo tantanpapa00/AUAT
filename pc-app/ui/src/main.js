@@ -13360,15 +13360,8 @@ async function searchScreener() {
     const tbody = document.getElementById('screener-tbody');
     const countEl = document.getElementById('screener-result-count');
 
-    // 해외/ETF는 준비중
-    if (screenerState.market !== 'kr') {
-        if (tbody) {
-            const marketName = screenerState.market === 'us' ? '해외' : 'ETF';
-            tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">${marketName} 종목검색 준비중입니다</td></tr>`;
-        }
-        if (countEl) countEl.textContent = '결과: 0건';
-        return;
-    }
+    // 시장별 테이블 헤더 업데이트
+    updateTableHeader(screenerState.market);
 
     if (tbody) {
         tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">검색 중...</td></tr>';
@@ -13409,11 +13402,67 @@ async function searchScreener() {
     }
 }
 
+// 시장별 테이블 헤더 업데이트
+function updateTableHeader(market) {
+    const thead = document.querySelector('#screener-table thead tr');
+    if (!thead) return;
+
+    if (market === 'kr') {
+        thead.innerHTML = `
+            <th data-sort="code" class="sortable">코드 <span class="sort-icon"></span></th>
+            <th data-sort="name" class="sortable">종목명 <span class="sort-icon"></span></th>
+            <th data-sort="price" class="sortable align-right">현재가 <span class="sort-icon"></span></th>
+            <th data-sort="change_pct" class="sortable align-right">등락률 <span class="sort-icon"></span></th>
+            <th data-sort="volume" class="sortable align-right">거래량 <span class="sort-icon"></span></th>
+            <th data-sort="market_cap" class="sortable align-right active">시총 <span class="sort-icon">▼</span></th>
+            <th data-sort="per" class="sortable align-right">PER <span class="sort-icon"></span></th>
+            <th data-sort="rsi" class="sortable align-right">RSI <span class="sort-icon"></span></th>
+        `;
+    } else if (market === 'us') {
+        thead.innerHTML = `
+            <th data-sort="code" class="sortable">티커 <span class="sort-icon"></span></th>
+            <th data-sort="name" class="sortable">종목명 <span class="sort-icon"></span></th>
+            <th data-sort="sector" class="sortable">섹터 <span class="sort-icon"></span></th>
+            <th data-sort="change_pct" class="sortable align-right">등락률 <span class="sort-icon"></span></th>
+            <th data-sort="market_cap" class="sortable align-right active">시총 <span class="sort-icon">▼</span></th>
+            <th colspan="3"></th>
+        `;
+    } else if (market === 'etf') {
+        thead.innerHTML = `
+            <th data-sort="code" class="sortable">코드 <span class="sort-icon"></span></th>
+            <th data-sort="name" class="sortable">종목명 <span class="sort-icon"></span></th>
+            <th data-sort="price" class="sortable align-right">현재가 <span class="sort-icon"></span></th>
+            <th data-sort="change_pct" class="sortable align-right">등락률 <span class="sort-icon"></span></th>
+            <th data-sort="volume" class="sortable align-right">거래량 <span class="sort-icon"></span></th>
+            <th data-sort="nav" class="sortable align-right active">순자산 <span class="sort-icon">▼</span></th>
+            <th data-sort="issuer" class="sortable">운용사 <span class="sort-icon"></span></th>
+            <th data-sort="category" class="sortable">카테고리 <span class="sort-icon"></span></th>
+        `;
+    }
+
+    // 헤더 정렬 이벤트 재바인딩
+    document.querySelectorAll('#screener-table th.sortable').forEach(th => {
+        th.addEventListener('click', () => {
+            const sortKey = th.dataset.sort;
+            if (screenerState.sort === sortKey) {
+                screenerState.order = screenerState.order === 'desc' ? 'asc' : 'desc';
+            } else {
+                screenerState.sort = sortKey;
+                screenerState.order = 'desc';
+            }
+            screenerState.page = 1;
+            updateSortIcons();
+            searchScreener();
+        });
+    });
+}
+
 // 시장별 필터 UI 전환
 function updateScreenerFiltersUI(market) {
     const filtersEl = document.querySelector('.screener-filters-v2');
     const actionsEl = document.querySelector('.filter-actions-v2');
 
+    // 국내만 필터 표시 (US/ETF는 아직 미구현)
     if (market === 'kr') {
         if (filtersEl) filtersEl.style.display = 'block';
         if (actionsEl) actionsEl.style.display = 'flex';
@@ -13505,34 +13554,66 @@ function renderScreenerTable(items) {
     // 전역에서 접근 가능하도록 저장
     window._screenerItems = items;
 
+    const market = screenerState.market;
+
     tbody.innerHTML = items.map((item, idx) => {
         const changePct = item.change_pct || 0;
-        // 상승=빨강(change-up), 하락=파랑(change-down) - 한국 주식시장 컨벤션
+        // 상승=빨강(change-up), 하락=파랑(change-down)
         const changeClass = changePct > 0 ? 'change-up' : changePct < 0 ? 'change-down' : '';
         const changeStr = changePct > 0 ? `+${changePct.toFixed(2)}%` : `${changePct.toFixed(2)}%`;
 
-        // 가격: 천단위 콤마, 원화는 정수
-        const price = (item.price || 0).toLocaleString('ko-KR', { maximumFractionDigits: 0 });
-        const volume = formatVolume(item.volume || 0);
-        const marketCap = item.market_cap_str || formatMarketCap(item.market_cap || 0);
-        const per = item.per != null ? item.per.toFixed(1) : '-';
+        if (market === 'us') {
+            // US 마켓: 티커, 종목명, 섹터, 등락률, 시총
+            const marketCap = item.market_cap_str || '-';
+            return `
+                <tr onclick="onScreenerRowClick(${idx})" style="cursor:pointer;">
+                    <td class="code-cell">${item.code || '-'}</td>
+                    <td class="name-cell">${item.name || '-'}</td>
+                    <td>${item.sector || '-'}</td>
+                    <td class="change-cell ${changeClass}">${changeStr}</td>
+                    <td class="cap-cell">${marketCap}</td>
+                    <td colspan="3"></td>
+                </tr>
+            `;
+        } else if (market === 'etf') {
+            // ETF 마켓: 코드, 종목명, 현재가, 등락률, 거래량, 순자산, 운용사, 카테고리
+            const price = (item.price || 0).toLocaleString('ko-KR', { maximumFractionDigits: 0 });
+            const volume = formatVolume(item.volume || 0);
+            const nav = item.nav_str || '-';
+            return `
+                <tr onclick="onScreenerRowClick(${idx})" style="cursor:pointer;">
+                    <td class="code-cell">${item.code || '-'}</td>
+                    <td class="name-cell">${item.name || '-'}</td>
+                    <td class="price-cell">${price}</td>
+                    <td class="change-cell ${changeClass}">${changeStr}</td>
+                    <td class="volume-cell">${volume}</td>
+                    <td class="cap-cell">${nav}</td>
+                    <td>${item.issuer || '-'}</td>
+                    <td>${item.category || '-'}</td>
+                </tr>
+            `;
+        } else {
+            // KR 마켓 (기본): 코드, 종목명, 현재가, 등락률, 거래량, 시총, PER, RSI
+            const price = (item.price || 0).toLocaleString('ko-KR', { maximumFractionDigits: 0 });
+            const volume = formatVolume(item.volume || 0);
+            const marketCap = item.market_cap_str || formatMarketCap(item.market_cap || 0);
+            const per = item.per != null ? item.per.toFixed(1) : '-';
+            const rsi = item.rsi != null ? item.rsi.toFixed(0) : '-';
+            const rsiClass = item.rsi >= 70 ? 'change-down' : item.rsi <= 30 ? 'change-up' : '';
 
-        // RSI (기술적 지표) - 과매수(70↑)=파랑, 과매도(30↓)=빨강
-        const rsi = item.rsi != null ? item.rsi.toFixed(0) : '-';
-        const rsiClass = item.rsi >= 70 ? 'change-down' : item.rsi <= 30 ? 'change-up' : '';
-
-        return `
-            <tr onclick="onScreenerRowClick(${idx})" style="cursor:pointer;">
-                <td class="code-cell">${item.code || '-'}</td>
-                <td class="name-cell">${item.name || '-'}</td>
-                <td class="price-cell">${price}</td>
-                <td class="change-cell ${changeClass}">${changeStr}</td>
-                <td class="volume-cell">${volume}</td>
-                <td class="cap-cell">${marketCap}</td>
-                <td class="num-cell">${per}</td>
-                <td class="num-cell ${rsiClass}">${rsi}</td>
-            </tr>
-        `;
+            return `
+                <tr onclick="onScreenerRowClick(${idx})" style="cursor:pointer;">
+                    <td class="code-cell">${item.code || '-'}</td>
+                    <td class="name-cell">${item.name || '-'}</td>
+                    <td class="price-cell">${price}</td>
+                    <td class="change-cell ${changeClass}">${changeStr}</td>
+                    <td class="volume-cell">${volume}</td>
+                    <td class="cap-cell">${marketCap}</td>
+                    <td class="num-cell">${per}</td>
+                    <td class="num-cell ${rsiClass}">${rsi}</td>
+                </tr>
+            `;
+        }
     }).join('');
 }
 

@@ -10990,9 +10990,11 @@ async def api_screener(
         if market == "kr":
             result = await screener_kr(filter_dict, sort, order, page, per_page)
         elif market == "us":
-            result = {"items": [], "total": 0, "message": "해외 스크리너 준비중"}
+            from app.screener.us_screener import screener_us
+            result = await screener_us(filter_dict, sort, order, page, per_page)
         elif market == "etf":
-            result = {"items": [], "total": 0, "message": "ETF 스크리너 준비중"}
+            from app.screener.etf_screener import screener_etf
+            result = await screener_etf(filter_dict, sort, order, page, per_page)
         else:
             result = {"items": [], "total": 0, "message": "지원하지 않는 시장"}
 
