@@ -12732,6 +12732,21 @@ const FILTER_DEFINITIONS = {
     }
 };
 
+// 기술적 지표 — 국내/해외 공통 (일봉 데이터로 계산)
+const COMMON_TECHNICAL_FILTERS = {
+    rsi: { ...FILTER_DEFINITIONS.rsi, category: 'technical' },
+    sma: { ...FILTER_DEFINITIONS.sma, category: 'technical' },
+    sma_cross: { ...FILTER_DEFINITIONS.sma_cross, category: 'technical' },
+    bollinger: { ...FILTER_DEFINITIONS.bollinger, category: 'technical' },
+    macd: { ...FILTER_DEFINITIONS.macd, category: 'technical' },
+    stochastic: { ...FILTER_DEFINITIONS.stochastic, category: 'technical' },
+    volume_surge: { ...FILTER_DEFINITIONS.volume_surge, category: 'technical' },
+    w52_high: { ...FILTER_DEFINITIONS.w52_high, category: 'technical' },
+    w52_low: { ...FILTER_DEFINITIONS.w52_low, category: 'technical' },
+    atr: { ...FILTER_DEFINITIONS.atr, category: 'technical' },
+    period_return: { ...FILTER_DEFINITIONS.period_return, category: 'technical' },
+};
+
 // US (해외) 필터 정의
 const US_FILTER_DEFINITIONS = {
     sector: {
@@ -12820,7 +12835,9 @@ const US_FILTER_DEFINITIONS = {
             { min: 2, max: null, label: '2%+' },
             { min: 1, max: null, label: '1%+' }
         ]
-    }
+    },
+    // 기술적 지표 (11개 — 국내와 동일)
+    ...COMMON_TECHNICAL_FILTERS
 };
 
 // ETF 필터 정의
@@ -12901,7 +12918,9 @@ const ETF_FILTER_DEFINITIONS = {
             { min: 500000, max: null, label: '50만+' },
             { min: 100000, max: null, label: '10만+' }
         ]
-    }
+    },
+    // 기술적 지표 (11개 — 국내와 동일)
+    ...COMMON_TECHNICAL_FILTERS
 };
 
 // 시장별 필터 정의 반환
