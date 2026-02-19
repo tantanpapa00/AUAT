@@ -13217,6 +13217,10 @@ async def remove_watchlist_item(
 
 from app.backtest import run_backtest, BacktestRequest, BacktestResult
 
+# Trend v8 Engine (for /api/backtest strategy_type="trend")
+from app.strategy_engine.backtest_engine_trend import run_trend_backtest as run_trend_v8
+from app.strategy_engine.signal_generator_trend import TrendConfig
+
 # Custom Strategy (Phase 3)
 from app.strategy_engine.indicator_registry import INDICATOR_REGISTRY, INDICATOR_CATEGORIES, OPERATORS
 from app.strategy_engine.custom_strategy import (
@@ -13265,7 +13269,7 @@ async def api_run_backtest(
     request: BacktestRequestBody,
     current_user: User = Depends(get_current_user_optional)
 ):
-    """백테스팅 실행"""
+    """백테스팅 실행 (trend는 v8 엔진 사용)"""
     # 요금제 확인 (프리미엄 전용)
     if current_user:
         plan = getattr(current_user, "plan", "free")
@@ -13274,6 +13278,11 @@ async def api_run_backtest(
             raise HTTPException(status_code=403, detail="프리미엄 요금제에서 이용 가능합니다")
 
     try:
+        # Trend 전략은 v8 엔진 사용 (signal-log와 동일한 로직)
+        if request.strategy_type == "trend":
+            return await _run_trend_v8_backtest(request)
+
+        # 그 외 전략은 기존 로직
         backtest_request = BacktestRequest(
             strategy_type=request.strategy_type,
             exchange=request.exchange,
@@ -13289,7 +13298,110 @@ async def api_run_backtest(
         return result.dict()
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"백테스팅 실행 오류: {str(e)}")
+
+
+async def _run_trend_v8_backtest(request: BacktestRequestBody) -> dict:
+    """
+    Trend v8 백테스트 실행 (signal-log와 동일한 엔진).
+
+    Entry: SuperTrend 상승 + HVI 초록 + QQE 양수 + close > HTF filter
+    Exit: SPO Split, ST Flip 등
+    """
+    from datetime import datetime
+
+    # 날짜 → 일수 계산
+    try:
+        d1 = datetime.strptime(request.start_date, "%Y-%m-%d")
+        d2 = datetime.strptime(request.end_date, "%Y-%m-%d")
+        days = (d2 - d1).days + 50  # lookback 여유
+    except:
+        days = 400
+
+    # 자산 타입 결정
+    exchange_lower = request.exchange.lower()
+    is_crypto = exchange_lower in ("okx", "binance", "bybit")
+    asset_type = "crypto" if is_crypto else "stock"
+
+    # 캔들 조회
+    candles = await fetch_candles_for_backtest(
+        exchange=exchange_lower,
+        symbol=request.symbol,
+        timeframe="1D",
+        days=days,
+        timeout=60,
+    )
+
+    if not candles or len(candles) < 200:
+        return {
+            "success": False,
+            "message": f"캔들 부족: {len(candles) if candles else 0}개 (최소 200개 필요)",
+            "trades": [],
+            "summary": {},
+        }
+
+    # v8 설정 (signal-log와 동일)
+    config = TrendConfig(
+        st_atr_len=20,
+        st_factor=5.0,
+        asset_type=asset_type,
+        htf_sma_len=200 if is_crypto else 156,
+        htf_vwma_len=156,
+        # 피라미딩 활성화
+        use_pyramiding=True,
+        max_pyr_entries=4,
+        pyr_weights=[0.25, 0.25, 0.25, 0.25],
+        # Exit 설정
+        use_spo_split=True,
+        use_st_flip_exit=True,
+    )
+
+    # v8 백테스트 실행
+    result = run_trend_v8(
+        candles=candles,
+        config=config,
+        initial_capital=request.initial_capital,
+    )
+
+    if not result.success:
+        return {
+            "success": False,
+            "message": result.message,
+            "trades": [],
+            "summary": {},
+        }
+
+    # 결과 변환 (기존 API 형식과 호환)
+    trades_list = []
+    for t in result.trades:
+        date_str = datetime.fromtimestamp(t.timestamp / 1000).strftime("%Y-%m-%d") if t.timestamp else ""
+        trades_list.append({
+            "date": date_str,
+            "type": t.action,
+            "price": t.price,
+            "qty": t.quantity,
+            "pnl": t.pnl,
+            "reason": t.reason_code,
+        })
+
+    return {
+        "success": True,
+        "engine": "trend_v8",
+        "total_trades": len(trades_list),
+        "trades": trades_list,
+        "summary": {
+            "initial_capital": result.metrics.initial_capital,
+            "final_capital": result.metrics.final_capital,
+            "total_return_pct": result.metrics.total_return_pct,
+            "max_drawdown_pct": result.metrics.max_drawdown_pct,
+            "win_rate_pct": result.metrics.win_rate_pct,
+            "profit_factor": result.metrics.profit_factor,
+            "total_trades": result.metrics.total_trades,
+        },
+        "equity_curve": result.equity_curve,
+    }
 
 
 # =============================================================================
