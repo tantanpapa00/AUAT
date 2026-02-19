@@ -328,3 +328,35 @@ class SectorTrend(Base):
         Index('ix_sector_trends_etf', 'etf_symbol', 'date'),
         UniqueConstraint('date', 'etf_symbol', name='uq_sector_trends_date_etf'),
     )
+
+
+class ScreenerPreset(Base):
+    """
+    스크리너 필터 프리셋 (Phase 7 Stage 3)
+    - 사용자별 필터 설정 저장
+    - 빠른 필터 적용을 위한 프리셋
+    """
+    __tablename__ = "screener_presets"
+
+    id = Column(BigInteger, primary_key=True)
+    user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
+    name = Column(Text, nullable=False)  # 프리셋 이름
+    market = Column(Text, nullable=False, default="kr")  # kr, us, etf
+
+    # 필터 설정 (JSON)
+    # {"per": {"min": 0, "max": 10}, "rsi": {"min": 30, "max": 70, "params": {"period": 14}}, ...}
+    filters = Column(JSONB, nullable=False, default={})
+
+    # 정렬 설정
+    sort_by = Column(Text, nullable=True, default="market_cap")
+    sort_order = Column(Text, nullable=True, default="desc")
+
+    # 메타
+    is_default = Column(Boolean, nullable=False, default=False)  # 기본 프리셋 여부
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index('ix_screener_presets_user', 'user_id'),
+        UniqueConstraint('user_id', 'name', 'market', name='uq_screener_preset_user_name_market'),
+    )

@@ -6,16 +6,26 @@ import numpy as np
 from typing import List, Optional, Dict, Any
 
 
-def compute_all_technicals(candles: List[Dict[str, Any]]) -> Dict[str, Any]:
+def compute_all_technicals(candles: List[Dict[str, Any]], params: Dict[str, Any] = None) -> Dict[str, Any]:
     """
-    일봉 데이터로 전체 기술적 지표 계산
+    일봉 데이터로 전체 기술적 지표 계산 (동적 파라미터 지원)
 
     candles: [{"localDate": "20260218", "closePrice": 181200, "highPrice": 182000,
                "lowPrice": 180000, "accumulatedTradingVolume": 3345000}, ...]
 
+    params: 동적 파라미터 (프론트엔드에서 전달)
+    {
+        "rsi": {"period": 14},
+        "macd": {"fast": 12, "slow": 26, "signal": 9},
+        "bollinger": {"period": 20, "mult": 2.0},
+        "stochastic": {"k_period": 14, "d_period": 3},
+        "atr": {"period": 14},
+        "sma": [{"type": "SMA", "period": 20}, {"type": "EMA", "period": 50}]
+    }
+
     반환:
     {
-        "rsi": 55.3,
+        "rsi": 55.3, "rsi_period": 14,
         "sma20": 178500, "sma50": 175000, "sma200": 170000,
         "bb_upper": 185000, "bb_middle": 178500, "bb_lower": 172000,
         "bb_position": "middle",
@@ -33,8 +43,12 @@ def compute_all_technicals(candles: List[Dict[str, Any]]) -> Dict[str, Any]:
         "period_return_1w": 2.5,
         "period_return_1m": -3.2,
         "period_return_3m": 15.0,
+        # 동적 이평선 (프론트엔드 요청시)
+        "sma_SMA_20": 178500, "sma_SMA_20_position": "above",
+        "sma_EMA_50": 175000, "sma_EMA_50_position": "below",
     }
     """
+    params = params or {}
     if not candles or len(candles) < 20:
         return {}
 
@@ -51,10 +65,12 @@ def compute_all_technicals(candles: List[Dict[str, Any]]) -> Dict[str, Any]:
     result = {}
     current_price = closes[-1]
 
-    # RSI(14)
-    result['rsi'] = _calc_rsi(closes, 14)
+    # RSI (동적 기간 지원)
+    rsi_period = params.get('rsi', {}).get('period', 14)
+    result['rsi'] = _calc_rsi(closes, rsi_period)
+    result['rsi_period'] = rsi_period
 
-    # SMA (20, 50, 200)
+    # SMA (20, 50, 200) - 기본 이평선
     result['sma20'] = _calc_sma(closes, 20)
     result['sma50'] = _calc_sma(closes, 50)
     result['sma200'] = _calc_sma(closes, 200)
@@ -64,6 +80,38 @@ def compute_all_technicals(candles: List[Dict[str, Any]]) -> Dict[str, Any]:
         sma_val = result.get(key)
         if sma_val and current_price:
             pct = (current_price - sma_val) / sma_val
+            if pct > 0.02:
+                result[f'{key}_position'] = 'above'
+            elif pct < -0.02:
+                result[f'{key}_position'] = 'below'
+            else:
+                result[f'{key}_position'] = 'near'
+
+    # 동적 이평선 계산 (프론트엔드 요청시)
+    # params['sma'] = [{"type": "SMA", "period": 20}, {"type": "EMA", "period": 7}]
+    dynamic_sma_list = params.get('sma', [])
+    for sma_config in dynamic_sma_list:
+        ma_type = sma_config.get('type', 'SMA').upper()
+        period = int(sma_config.get('period', 20))
+        if period > len(closes):
+            continue
+
+        key = f"sma_{ma_type}_{period}"
+        if ma_type == 'SMA':
+            ma_value = _calc_sma(closes, period)
+        elif ma_type == 'EMA':
+            ema_arr = _ema(closes, period)
+            ma_value = round(float(ema_arr[-1]), 2) if len(ema_arr) > 0 else None
+        elif ma_type == 'WMA':
+            ma_value = _calc_wma(closes, period)
+        else:
+            ma_value = _calc_sma(closes, period)
+
+        result[key] = ma_value
+
+        # 동적 이평선 포지션
+        if ma_value and current_price:
+            pct = (current_price - ma_value) / ma_value
             if pct > 0.02:
                 result[f'{key}_position'] = 'above'
             elif pct < -0.02:
@@ -83,12 +131,17 @@ def compute_all_technicals(candles: List[Dict[str, Any]]) -> Dict[str, Any]:
             else:
                 result['sma_cross'] = 'none'
 
-    # 볼린저밴드 (20일, 2σ)
-    bb = _calc_bollinger(closes, 20, 2.0)
+    # 볼린저밴드 (동적 파라미터 지원)
+    bb_params = params.get('bollinger', {})
+    bb_period = bb_params.get('period', 20)
+    bb_mult = bb_params.get('mult', 2.0)
+    bb = _calc_bollinger(closes, bb_period, bb_mult)
     if bb:
         result['bb_upper'] = bb[0]
         result['bb_middle'] = bb[1]
         result['bb_lower'] = bb[2]
+        result['bb_period'] = bb_period
+        result['bb_mult'] = bb_mult
         if current_price >= bb[0]:
             result['bb_position'] = 'upper'
         elif current_price <= bb[2]:
@@ -96,25 +149,37 @@ def compute_all_technicals(candles: List[Dict[str, Any]]) -> Dict[str, Any]:
         else:
             result['bb_position'] = 'middle'
 
-    # MACD (12, 26, 9)
-    macd = _calc_macd(closes, 12, 26, 9)
+    # MACD (동적 파라미터 지원)
+    macd_params = params.get('macd', {})
+    macd_fast = macd_params.get('fast', 12)
+    macd_slow = macd_params.get('slow', 26)
+    macd_signal_period = macd_params.get('signal', 9)
+    macd = _calc_macd(closes, macd_fast, macd_slow, macd_signal_period)
     if macd:
         result['macd'] = macd[0]
         result['macd_signal'] = macd[1]
         result['macd_histogram'] = macd[2]
+        result['macd_params'] = {'fast': macd_fast, 'slow': macd_slow, 'signal': macd_signal_period}
         if macd[0] is not None and macd[1] is not None:
             result['macd_cross'] = 'buy' if macd[0] > macd[1] else 'sell'
 
-    # 스토캐스틱 (14, 3, 3)
-    if len(highs) >= 14 and len(lows) >= 14:
-        stoch = _calc_stochastic(highs, lows, closes, 14, 3)
+    # 스토캐스틱 (동적 파라미터 지원)
+    stoch_params = params.get('stochastic', {})
+    stoch_k_period = stoch_params.get('k_period', 14)
+    stoch_d_period = stoch_params.get('d_period', 3)
+    if len(highs) >= stoch_k_period and len(lows) >= stoch_k_period:
+        stoch = _calc_stochastic(highs, lows, closes, stoch_k_period, stoch_d_period)
         if stoch:
             result['stoch_k'] = stoch[0]
             result['stoch_d'] = stoch[1]
+            result['stoch_params'] = {'k_period': stoch_k_period, 'd_period': stoch_d_period}
 
-    # ATR (14)
-    if len(highs) >= 15:
-        result['atr'] = _calc_atr(highs, lows, closes, 14)
+    # ATR (동적 파라미터 지원)
+    atr_params = params.get('atr', {})
+    atr_period = atr_params.get('period', 14)
+    if len(highs) >= atr_period + 1:
+        result['atr'] = _calc_atr(highs, lows, closes, atr_period)
+        result['atr_period'] = atr_period
 
     # 거래량 급증 (당일 / 20일 평균)
     if len(volumes) >= 21:
@@ -165,6 +230,15 @@ def _calc_sma(closes: list, period: int) -> Optional[float]:
     if len(closes) < period:
         return None
     return round(np.mean(closes[-period:]), 2)
+
+
+def _calc_wma(closes: list, period: int) -> Optional[float]:
+    """가중이동평균 (Weighted Moving Average)"""
+    if len(closes) < period:
+        return None
+    data = closes[-period:]
+    weights = np.arange(1, period + 1)
+    return round(np.sum(data * weights) / np.sum(weights), 2)
 
 
 def _calc_bollinger(closes: list, period: int = 20, mult: float = 2.0):

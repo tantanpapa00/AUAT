@@ -10363,6 +10363,94 @@ body {
     color: var(--text-primary);
 }
 
+/* 프리셋 도구 영역 */
+.screener-preset-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.preset-left, .preset-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.preset-select {
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    min-width: 150px;
+    cursor: pointer;
+}
+
+.preset-select:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.preset-name-input {
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    width: 150px;
+}
+
+.preset-name-input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.preset-btn {
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.preset-btn:hover {
+    background: var(--hover);
+    color: var(--text);
+}
+
+.preset-btn-primary {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.preset-btn-primary:hover {
+    background: var(--primary-dark);
+}
+
+/* 상세 패널 액션 버튼 */
+.detail-actions {
+    display: flex;
+    gap: 8px;
+    padding: 16px 0 0;
+    margin-top: 16px;
+    border-top: 1px solid var(--border);
+}
+
+.detail-actions .btn {
+    flex: 1;
+}
+
 /* 필터 칩 그룹 */
 .filter-chip-groups {
     display: flex;

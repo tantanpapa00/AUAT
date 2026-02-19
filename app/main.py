@@ -204,7 +204,9 @@ from app.kis_api import (
     get_investor_daily, get_market_cap_rank, get_foreign_net_rank,
     get_institution_net_rank, get_naver_index, get_yahoo_index,
     get_naver_sector_list, get_naver_volume_rank, get_naver_fluctuation_rank,
-    SECTOR_CODES
+    SECTOR_CODES,
+    # US 심볼 유틸리티 (Task 3: KIS_US 필터링 개선)
+    normalize_us_symbol, is_otc_symbol, detect_exchange_from_symbol
 )
 
 # Yahoo Finance 모듈 (naver_finance는 data_provider로 대체)
@@ -991,6 +993,191 @@ async def api_debug_master_cache():
         "market_counts": market_counts,
         "samples": sample_by_market,
     }
+
+
+@app.post("/api/debug/signal-log")
+async def api_debug_signal_log(request: Request):
+    """
+    추세매매 v8 시그널 로그 생성 (Pine vs Python 비교용).
+
+    요청:
+    {
+        "symbol": "BTC/USDT" 또는 "005930",
+        "exchange": "okx" 또는 "kis_kr",
+        "timeframe": "1d",
+        "start_date": "2024-01-01",
+        "end_date": "2025-01-01"
+    }
+
+    응답:
+    {
+        "symbol": "BTC/USDT",
+        "exchange": "okx",
+        "total_signals": 15,
+        "signals": [
+            {"date": "2024-06-15", "signal": "BUY", "price": 65000, "st_value": 62000, "st_dir": -1, "reason": "ENTRY_ALL_CONDITIONS"},
+            ...
+        ]
+    }
+    """
+    from datetime import datetime, timedelta
+    from .strategy_engine.candle_fetcher import fetch_candles_for_backtest
+    from .strategy_engine.backtest_engine_trend import (
+        precompute_supertrend,
+        precompute_sma,
+        precompute_vwma,
+        build_htf_index_map,
+    )
+    from .strategy_engine.signal_generator_trend import TrendConfig, TrendState, generate_trend_signal
+    from .strategy_engine.indicators import calc_hvi, calc_qqe_mod, calc_spo
+    import numpy as np
+
+    body = await request.json()
+    symbol = body.get("symbol", "BTC/USDT")
+    exchange = body.get("exchange", "okx").lower()
+    timeframe = body.get("timeframe", "1d")
+    start_date = body.get("start_date", "2024-01-01")
+    end_date = body.get("end_date", "2025-02-19")
+
+    # 날짜 → 일수 계산
+    try:
+        d1 = datetime.strptime(start_date, "%Y-%m-%d")
+        d2 = datetime.strptime(end_date, "%Y-%m-%d")
+        days = (d2 - d1).days + 50  # lookback 여유
+    except:
+        days = 400
+
+    # 자산 타입 결정
+    is_crypto = exchange in ("okx", "binance", "bybit")
+    asset_type = "crypto" if is_crypto else "stock"
+
+    try:
+        # 캔들 조회
+        candles = await fetch_candles_for_backtest(
+            exchange=exchange,
+            symbol=symbol,
+            timeframe=timeframe,
+            days=days,
+            timeout=60,
+        )
+
+        if not candles or len(candles) < 50:
+            return {
+                "symbol": symbol,
+                "exchange": exchange,
+                "error": f"캔들 부족: {len(candles) if candles else 0}개",
+                "signals": []
+            }
+
+        # 배열 변환
+        closes = np.array([c.c for c in candles])
+        highs = np.array([c.h for c in candles])
+        lows = np.array([c.l for c in candles])
+        volumes = np.array([c.v for c in candles])
+
+        # 기본 설정 (v8 디폴트)
+        config = TrendConfig(
+            st_atr_len=20,
+            st_factor=5.0,
+            asset_type=asset_type,
+            htf_sma_len=200 if is_crypto else 156,
+            htf_vwma_len=156,
+        )
+
+        # SuperTrend 계산
+        st_result = precompute_supertrend(highs, lows, closes, config.st_atr_len, config.st_factor)
+        st_values = st_result["value"]
+        st_dirs = st_result["direction"]
+
+        # HTF 필터 (크립토: SMA200, 주식: VWMA156)
+        if is_crypto:
+            htf_filter = precompute_sma(closes, config.htf_sma_len)
+        else:
+            htf_filter = precompute_vwma(closes, volumes, config.htf_vwma_len)
+
+        # HVI, QQE, SPO 계산
+        hvi_result = calc_hvi(highs, lows, closes, volumes, config.hvi_length, config.hvi_divisor)
+        qqe_result = calc_qqe_mod(closes, config.qqe_rsi_length, config.qqe_rsi_smoothing, config.qqe_factor)
+        spo_result = calc_spo(closes, config.exit_spo_smooth_len, config.exit_spo_threshold,
+                              config.exit_spo_std_len, config.exit_spo_hma_len)
+
+        # 시그널 수집
+        signals = []
+        state = TrendState()
+        lookback = 200  # 충분한 lookback
+
+        for i in range(lookback, len(candles)):
+            candle = candles[i]
+
+            # 날짜 필터
+            candle_date = datetime.fromtimestamp(candle.ts / 1000).strftime("%Y-%m-%d")
+            if candle_date < start_date or candle_date > end_date:
+                continue
+
+            # 슬라이스
+            slice_start = max(0, i - lookback + 1)
+            slice_end = i + 1
+
+            hvi_slice = {k: v[slice_start:slice_end] if isinstance(v, np.ndarray) else v for k, v in hvi_result.items()}
+            qqe_slice = {k: v[slice_start:slice_end] if isinstance(v, np.ndarray) else v for k, v in qqe_result.items()}
+
+            signal, state = generate_trend_signal(
+                entry_close=closes[slice_start:slice_end],
+                entry_st_dir=st_dirs[slice_start:slice_end],
+                entry_hvi=hvi_slice,
+                entry_qqe=qqe_slice,
+                htf_vwma=htf_filter[slice_start:slice_end],
+                exit_close=closes[slice_start:slice_end],
+                exit_st_dir=st_dirs[slice_start:slice_end],
+                exit_spo_norm=spo_result["normalized_osc"][slice_start:slice_end],
+                config=config,
+                state=state,
+                current_ts=candle.ts,
+                entry_atr=None,
+                entry_high=highs[slice_start:slice_end],
+                bar_index=i,
+                is_bar_confirmed=True,
+            )
+
+            # 시그널 발생 시 기록
+            if signal.action != "hold":
+                curr_st_val = float(st_values[i]) if not np.isnan(st_values[i]) else None
+                curr_st_dir = int(st_dirs[i])
+                curr_htf = float(htf_filter[i]) if i < len(htf_filter) and not np.isnan(htf_filter[i]) else None
+
+                signals.append({
+                    "date": candle_date,
+                    "signal": signal.action.upper(),
+                    "price": float(candle.c),
+                    "st_value": round(curr_st_val, 2) if curr_st_val else None,
+                    "st_dir": curr_st_dir,  # -1=bullish, 1=bearish
+                    "htf_filter": round(curr_htf, 2) if curr_htf else None,
+                    "reason": signal.reason_code,
+                })
+
+        return {
+            "symbol": symbol,
+            "exchange": exchange,
+            "timeframe": timeframe,
+            "period": f"{start_date} ~ {end_date}",
+            "total_signals": len(signals),
+            "config": {
+                "st_atr_len": config.st_atr_len,
+                "st_factor": config.st_factor,
+                "htf_filter": f"SMA({config.htf_sma_len})" if is_crypto else f"VWMA({config.htf_vwma_len})",
+            },
+            "signals": signals
+        }
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {
+            "symbol": symbol,
+            "exchange": exchange,
+            "error": str(e),
+            "signals": []
+        }
 
 
 # # ---- Home API (Dashboard) ----
@@ -9583,9 +9770,18 @@ def _build_symbol_info(s: dict) -> SymbolInfo:
 async def search_symbols(
     q: str = Query("", description="검색어"),
     exchange: Optional[str] = Query(None, description="거래소 필터"),
+    exclude_etf: bool = Query(False, description="ETF 제외 (주식만)"),
+    exclude_otc: bool = Query(False, description="OTC/Pink Sheets 제외"),
+    only_etf: bool = Query(False, description="ETF만 표시"),
     current_user: User = Depends(get_current_user_optional)
 ):
-    """심볼 검색 — 거래소 API + KIS 종목 마스터"""
+    """심볼 검색 — 거래소 API + KIS 종목 마스터
+
+    필터 옵션:
+    - exclude_etf: ETF 제외 (주식만 검색)
+    - exclude_otc: OTC/Pink Sheets 종목 제외 (US 주식)
+    - only_etf: ETF만 검색
+    """
     # 요금제 확인 (무료 사용자는 제한)
     if current_user:
         plan = getattr(current_user, "plan", "free")
@@ -9603,7 +9799,15 @@ async def search_symbols(
         if not master.is_valid():
             await refresh_master_cache()
 
-        kis_results = master.search(query, market=ex_lower, limit=30)
+        # 개선된 검색 (ETF/OTC 필터링 지원)
+        kis_results = master.search(
+            query,
+            market=ex_lower,
+            limit=30,
+            exclude_etf=exclude_etf,
+            exclude_otc=exclude_otc,
+            only_etf=only_etf
+        )
         for stock in kis_results:
             # 마켓 기반 exchange 결정
             if stock.market in ("KOSPI", "KOSDAQ"):
@@ -9615,8 +9819,9 @@ async def search_symbols(
                 "symbol": stock.code,
                 "name": stock.name,
                 "exchange": ex_name,
-                "market": stock.market,
+                "market": stock.market,  # NYSE, NASDAQ, AMEX 등 거래소 구분
                 "is_etf": stock.is_etf,
+                "is_otc": getattr(stock, 'is_otc', False),
                 "price": 0,
                 "change": 0,
                 "volume": 0,
@@ -9648,6 +9853,43 @@ async def search_symbols(
 
     # SymbolInfo로 변환 (최대 50개)
     return {"symbols": [_build_symbol_info(r) for r in results[:50]]}
+
+
+@app.get("/api/symbols/normalize")
+async def normalize_symbol(
+    symbol: str = Query(..., description="정규화할 심볼 (예: AAPL.O)"),
+):
+    """
+    US 심볼 정규화 유틸리티
+
+    거래소 접미사를 제거하고 표준 심볼로 변환:
+    - AAPL.O → AAPL (NASDAQ)
+    - JPM.N → JPM (NYSE)
+    - SPY.A → SPY (AMEX)
+    - ABML.PK → ABML (OTC/Pink Sheets)
+    """
+    original = symbol.strip().upper()
+    normalized = normalize_us_symbol(original)
+    detected_exchange = detect_exchange_from_symbol(original)
+    is_otc = is_otc_symbol(original)
+
+    # 마스터에서 종목 정보 조회
+    master = get_master_cache()
+    stock = master.get_stock(normalized)
+
+    return {
+        "original": original,
+        "normalized": normalized,
+        "detected_exchange": detected_exchange,
+        "is_otc": is_otc,
+        "stock_info": {
+            "code": stock.code,
+            "name": stock.name,
+            "market": stock.market,
+            "is_etf": stock.is_etf,
+            "is_otc": getattr(stock, 'is_otc', False),
+        } if stock else None
+    }
 
 
 async def _get_kis_credentials(db: Session, user_id: int) -> Optional[tuple]:
@@ -10764,6 +11006,134 @@ async def api_screener(
             "success": False,
             "error": str(e),
         }
+
+
+# =============================================================================
+# 스크리너 프리셋 API (Phase 7 Stage 3)
+# =============================================================================
+
+@app.get("/api/screener/presets")
+async def api_screener_presets_list(
+    market: str = Query("kr", description="시장: kr, us, etf"),
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """사용자 프리셋 목록 조회"""
+    if not current_user:
+        return {"presets": [], "success": False, "error": "로그인이 필요합니다"}
+
+    from app.models import ScreenerPreset
+    presets = db.query(ScreenerPreset).filter(
+        ScreenerPreset.user_id == current_user.id,
+        ScreenerPreset.market == market
+    ).order_by(ScreenerPreset.is_default.desc(), ScreenerPreset.name).all()
+
+    return {
+        "presets": [
+            {
+                "id": p.id,
+                "name": p.name,
+                "market": p.market,
+                "filters": p.filters,
+                "sort_by": p.sort_by,
+                "sort_order": p.sort_order,
+                "is_default": p.is_default,
+                "created_at": p.created_at.isoformat() if p.created_at else None,
+            }
+            for p in presets
+        ],
+        "success": True,
+    }
+
+
+@app.post("/api/screener/presets")
+async def api_screener_preset_create(
+    request: Request,
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """프리셋 저장"""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+
+    body = await request.json()
+    name = body.get("name", "").strip()
+    market = body.get("market", "kr")
+    filters = body.get("filters", {})
+    sort_by = body.get("sort_by", "market_cap")
+    sort_order = body.get("sort_order", "desc")
+    is_default = body.get("is_default", False)
+
+    if not name:
+        raise HTTPException(status_code=400, detail="프리셋 이름을 입력하세요")
+
+    from app.models import ScreenerPreset
+
+    # 중복 이름 체크
+    existing = db.query(ScreenerPreset).filter(
+        ScreenerPreset.user_id == current_user.id,
+        ScreenerPreset.name == name,
+        ScreenerPreset.market == market
+    ).first()
+
+    if existing:
+        # 덮어쓰기
+        existing.filters = filters
+        existing.sort_by = sort_by
+        existing.sort_order = sort_order
+        existing.is_default = is_default
+        db.commit()
+        preset_id = existing.id
+    else:
+        # 신규 생성
+        preset = ScreenerPreset(
+            user_id=current_user.id,
+            name=name,
+            market=market,
+            filters=filters,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            is_default=is_default,
+        )
+        db.add(preset)
+        db.commit()
+        preset_id = preset.id
+
+    # is_default가 True면 다른 프리셋의 is_default를 False로
+    if is_default:
+        db.query(ScreenerPreset).filter(
+            ScreenerPreset.user_id == current_user.id,
+            ScreenerPreset.market == market,
+            ScreenerPreset.id != preset_id
+        ).update({"is_default": False})
+        db.commit()
+
+    return {"success": True, "preset_id": preset_id}
+
+
+@app.delete("/api/screener/presets/{preset_id}")
+async def api_screener_preset_delete(
+    preset_id: int,
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """프리셋 삭제"""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+
+    from app.models import ScreenerPreset
+    preset = db.query(ScreenerPreset).filter(
+        ScreenerPreset.id == preset_id,
+        ScreenerPreset.user_id == current_user.id
+    ).first()
+
+    if not preset:
+        raise HTTPException(status_code=404, detail="프리셋을 찾을 수 없습니다")
+
+    db.delete(preset)
+    db.commit()
+
+    return {"success": True}
 
 
 # =============================================================================
@@ -12845,6 +13215,16 @@ async def remove_watchlist_item(
 
 from app.backtest import run_backtest, BacktestRequest, BacktestResult
 
+# Custom Strategy (Phase 3)
+from app.strategy_engine.indicator_registry import INDICATOR_REGISTRY, INDICATOR_CATEGORIES, OPERATORS
+from app.strategy_engine.custom_strategy import (
+    CustomStrategyConfig, CustomBacktestRequest, CustomBacktestResponse,
+    ConditionItem, ConditionGroup, CustomRule
+)
+from app.strategy_engine.backtest_engine_custom import run_custom_backtest
+from app.strategy_engine.candle_fetcher import fetch_candles_for_backtest
+from app.strategy_engine.models import Candle
+
 
 def _ensure_strategies_table(db: Session):
     """strategies 테이블이 없으면 생성"""
@@ -12908,6 +13288,80 @@ async def api_run_backtest(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"백테스팅 실행 오류: {str(e)}")
+
+
+# =============================================================================
+# [PHASE 3] Custom Strategy Builder API
+# =============================================================================
+
+@app.get("/api/strategies/indicators")
+async def api_get_indicators():
+    """
+    커스텀 전략 빌더용 지표 목록
+
+    Returns:
+        indicators: 지표 레지스트리 (파라미터, 출력 등)
+        categories: 카테고리별 지표 그룹
+        operators: 사용 가능한 연산자
+    """
+    return {
+        "indicators": INDICATOR_REGISTRY,
+        "categories": INDICATOR_CATEGORIES,
+        "operators": OPERATORS,
+    }
+
+
+@app.post("/api/backtest/custom")
+async def api_run_custom_backtest(
+    request: CustomBacktestRequest,
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    커스텀 전략 백테스트 실행
+
+    사용자 정의 진입/청산 규칙으로 백테스트 수행.
+    지표 기반 조건 빌더 사용.
+    """
+    # 요금제 확인 (프리미엄 전용)
+    if current_user:
+        plan = getattr(current_user, "plan", "free")
+        role = getattr(current_user, "role", "user")
+        if plan != "premium" and role != "admin":
+            raise HTTPException(status_code=403, detail="프리미엄 요금제에서 이용 가능합니다")
+
+    try:
+        # 캔들 데이터 조회
+        candles = await fetch_candles_for_backtest(
+            exchange=request.exchange,
+            symbol=request.symbol,
+            timeframe=request.timeframe,
+            start_date=request.start_date,
+            end_date=request.end_date,
+            days=request.days,
+        )
+
+        if not candles:
+            return CustomBacktestResponse(
+                success=False,
+                message="캔들 데이터를 조회할 수 없습니다",
+            ).model_dump()
+
+        # 백테스트 실행
+        result = await run_custom_backtest(
+            candles=candles,
+            config=request.strategy,
+            initial_capital=request.initial_capital,
+        )
+
+        return result
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return CustomBacktestResponse(
+            success=False,
+            message=f"백테스트 실행 오류: {str(e)}",
+        ).model_dump()
 
 
 class StrategyCreateRequest(BaseModel):

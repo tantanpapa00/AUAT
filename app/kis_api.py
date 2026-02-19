@@ -41,6 +41,58 @@ class StockMaster:
     sector: str = ""
     is_etf: bool = False
     is_etn: bool = False
+    is_otc: bool = False  # OTC/Pink Sheets 종목
+
+
+def normalize_us_symbol(symbol: str) -> str:
+    """
+    US 심볼 정규화: AAPL.O → AAPL, TSLA.O → TSLA
+
+    거래소 접미사 제거:
+    - .O = NASDAQ (예: AAPL.O)
+    - .N = NYSE (예: JPM.N)
+    - .A = AMEX (예: SPY.A)
+    - .PK = Pink Sheets/OTC (예: ABML.PK)
+    - .OB = OTC Bulletin Board
+    """
+    if not symbol:
+        return ""
+
+    symbol = symbol.strip().upper()
+
+    # 거래소 접미사 패턴 제거
+    suffixes = ['.O', '.N', '.A', '.PK', '.OB', '-O', '-N', '-A', '-PK', '-OB']
+    for suffix in suffixes:
+        if symbol.endswith(suffix):
+            return symbol[:-len(suffix)]
+
+    return symbol
+
+
+def is_otc_symbol(symbol: str) -> bool:
+    """OTC/Pink Sheets 심볼인지 확인"""
+    symbol = symbol.strip().upper()
+    otc_suffixes = ['.PK', '.OB', '-PK', '-OB', '.PINK', '.OTC']
+    for suffix in otc_suffixes:
+        if symbol.endswith(suffix):
+            return True
+    # 5글자 이상이고 숫자가 없는 티커는 OTC 가능성 (일부)
+    # 단, ETF는 제외 (예: TQQQ, SOXL)
+    return False
+
+
+def detect_exchange_from_symbol(symbol: str) -> Optional[str]:
+    """심볼 접미사로 거래소 감지"""
+    symbol = symbol.strip().upper()
+    if symbol.endswith('.O') or symbol.endswith('-O'):
+        return "NASDAQ"
+    elif symbol.endswith('.N') or symbol.endswith('-N'):
+        return "NYSE"
+    elif symbol.endswith('.A') or symbol.endswith('-A'):
+        return "AMEX"
+    elif symbol.endswith('.PK') or symbol.endswith('.OB'):
+        return "OTC"
+    return None
 
 
 @dataclass
@@ -67,13 +119,47 @@ class KISMasterCache:
         return age < 86400  # 24시간
 
     def get_stock(self, code: str) -> Optional[StockMaster]:
-        """종목 코드로 조회"""
-        return self.stocks.get(code.upper())
+        """종목 코드로 조회 (정규화된 심볼도 지원)"""
+        code_upper = code.upper()
+        # 직접 매칭 시도
+        stock = self.stocks.get(code_upper)
+        if stock:
+            return stock
+        # 정규화된 심볼로 재시도 (AAPL.O → AAPL)
+        normalized = normalize_us_symbol(code_upper)
+        if normalized != code_upper:
+            return self.stocks.get(normalized)
+        return None
 
-    def search(self, query: str, market: Optional[str] = None, limit: int = 50) -> List[StockMaster]:
-        """종목 검색"""
-        query_upper = query.upper()
+    def search(
+        self,
+        query: str,
+        market: Optional[str] = None,
+        limit: int = 50,
+        exclude_etf: bool = False,
+        exclude_otc: bool = False,
+        only_etf: bool = False,
+    ) -> List[StockMaster]:
+        """
+        종목 검색 (개선된 필터링)
+
+        Args:
+            query: 검색어 (심볼 또는 이름)
+            market: 마켓 필터 (KIS_KR, KIS_US, NYSE, NASDAQ, AMEX 등)
+            limit: 최대 결과 수
+            exclude_etf: ETF 제외 (주식만)
+            exclude_otc: OTC/Pink Sheets 제외
+            only_etf: ETF만 표시
+
+        Returns:
+            매칭된 종목 리스트
+        """
+        # 검색어 정규화
+        query_upper = query.upper().strip() if query else ""
+        query_normalized = normalize_us_symbol(query_upper) if query_upper else ""
+
         results = []
+        exact_matches = []  # 정확히 일치하는 결과 우선 표시
 
         for stock in self.stocks.values():
             # 마켓 필터
@@ -91,16 +177,46 @@ class KISMasterCache:
                 elif market_upper == "KIS_US_ETF":
                     if stock.market not in ("NYSE", "NASDAQ", "AMEX") or not stock.is_etf:
                         continue
+                elif market_upper == "KIS_US_STOCK":
+                    # US 주식만 (ETF 제외)
+                    if stock.market not in ("NYSE", "NASDAQ", "AMEX") or stock.is_etf:
+                        continue
                 elif market_upper not in (stock.market, "ALL"):
                     continue
 
-            # 검색어 매칭
-            if not query or query_upper in stock.code.upper() or query_upper in stock.name.upper():
-                results.append(stock)
-                if len(results) >= limit:
-                    break
+            # ETF 필터
+            if exclude_etf and stock.is_etf:
+                continue
+            if only_etf and not stock.is_etf:
+                continue
 
-        return results
+            # OTC 필터
+            if exclude_otc and stock.is_otc:
+                continue
+
+            # 검색어 매칭
+            stock_code_upper = stock.code.upper()
+            stock_name_upper = stock.name.upper()
+
+            if not query_upper:
+                # 검색어 없으면 모두 포함
+                results.append(stock)
+            elif stock_code_upper == query_normalized or stock_code_upper == query_upper:
+                # 정확히 일치 → 최우선
+                exact_matches.insert(0, stock)
+            elif query_normalized in stock_code_upper or query_upper in stock_code_upper:
+                # 심볼에 포함
+                exact_matches.append(stock)
+            elif query_upper in stock_name_upper:
+                # 이름에 포함
+                results.append(stock)
+
+            if len(exact_matches) + len(results) >= limit * 2:
+                break
+
+        # 정확한 매칭 우선 + 나머지
+        final_results = exact_matches + results
+        return final_results[:limit]
 
     def get_popular(self, market: Optional[str] = None, limit: int = 10) -> List[StockMaster]:
         """인기 종목 (하드코딩된 주요 종목)"""
@@ -229,43 +345,53 @@ def _parse_overseas_master(content: bytes, market: str) -> Dict[str, StockMaster
                     parts = line.split('\t')
                     if len(parts) >= 2:
                         # 심볼은 첫 필드, 이름은 두 번째 필드
-                        code = parts[0].strip()
+                        raw_code = parts[0].strip()
                         name = parts[1].strip()
+                        # 심볼 정규화 (AAPL.O → AAPL)
+                        code = normalize_us_symbol(raw_code)
                         # 심볼 유효성 검사 (영문+숫자만, 1~10자)
                         if code and len(code) <= 10 and code.replace('.', '').replace('-', '').isalnum():
                             is_etf = "ETF" in name.upper() or (len(parts) > 2 and "ETF" in ' '.join(parts[2:]).upper())
+                            is_otc = is_otc_symbol(raw_code)
                             stocks[code] = StockMaster(
                                 code=code,
                                 name=name,
                                 market=market,
-                                is_etf=is_etf
+                                is_etf=is_etf,
+                                is_otc=is_otc
                             )
                 # 파이프 구분자
                 elif '|' in line:
                     parts = line.split('|')
                     if len(parts) >= 2:
-                        code = parts[0].strip()
+                        raw_code = parts[0].strip()
                         name = parts[1].strip()
+                        code = normalize_us_symbol(raw_code)
                         if code and len(code) <= 10:
                             is_etf = "ETF" in name.upper() or len(parts) > 5 and "ETF" in parts[5].upper()
+                            is_otc = is_otc_symbol(raw_code)
                             stocks[code] = StockMaster(
                                 code=code,
                                 name=name,
                                 market=market,
-                                is_etf=is_etf
+                                is_etf=is_etf,
+                                is_otc=is_otc
                             )
                 # 고정폭 형식
                 else:
                     if len(line) >= 20:
-                        code = line[0:12].strip()
+                        raw_code = line[0:12].strip()
                         name = line[12:62].strip() if len(line) > 62 else line[12:].strip()
+                        code = normalize_us_symbol(raw_code)
                         if code and name and len(code) <= 10:
                             is_etf = "ETF" in name.upper()
+                            is_otc = is_otc_symbol(raw_code)
                             stocks[code] = StockMaster(
                                 code=code,
                                 name=name,
                                 market=market,
-                                is_etf=is_etf
+                                is_etf=is_etf,
+                                is_otc=is_otc
                             )
             except Exception:
                 continue

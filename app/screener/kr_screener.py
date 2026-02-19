@@ -23,8 +23,71 @@ TECHNICAL_FILTER_KEYS = [
 # 재무 지표 필터 키 목록
 FINANCIAL_FILTER_KEYS = [
     "per", "pbr", "roe", "dividend_yield",
-    "change_filter", "change"
+    "change_filter", "change",
+    # V2 추가 재무지표
+    "psr", "roa", "net_margin", "operating_margin", "debt_ratio",
+    "current_ratio", "quick_ratio", "reserve_ratio",
+    "eps", "bps", "sales_growth", "op_growth",
+    "payout_ratio", "foreign_ratio"
 ]
+
+
+def extract_technical_params(filters: dict) -> dict:
+    """
+    필터에서 기술적 지표 파라미터 추출
+
+    V2 필터 포맷: {"rsi": {"min": 70, "params": {"period": 7}}}
+    반환: {"rsi": {"period": 7}, "macd": {"fast": 12, "slow": 26, "signal": 9}}
+    """
+    params = {}
+
+    # RSI 파라미터
+    if isinstance(filters.get("rsi"), dict):
+        rsi_params = filters["rsi"].get("params", {})
+        if rsi_params:
+            params["rsi"] = rsi_params
+
+    # MACD 파라미터
+    if isinstance(filters.get("macd"), dict):
+        macd_params = filters["macd"].get("params", {})
+        if macd_params:
+            params["macd"] = macd_params
+
+    # 볼린저 파라미터
+    if isinstance(filters.get("bollinger"), dict):
+        bb_params = filters["bollinger"].get("params", {})
+        if bb_params:
+            params["bollinger"] = bb_params
+
+    # 스토캐스틱 파라미터
+    if isinstance(filters.get("stochastic"), dict):
+        stoch_params = filters["stochastic"].get("params", {})
+        if stoch_params:
+            params["stochastic"] = stoch_params
+
+    # ATR 파라미터
+    if isinstance(filters.get("atr"), dict):
+        atr_params = filters["atr"].get("params", {})
+        if atr_params:
+            params["atr"] = atr_params
+
+    # 동적 이동평균선 (sma_SMA_20, sma_EMA_7 등)
+    sma_list = []
+    for key, value in filters.items():
+        if key.startswith("sma_") and "_" in key[4:]:
+            # 예: sma_SMA_20 → type=SMA, period=20
+            parts = key.split("_")
+            if len(parts) >= 3:
+                ma_type = parts[1]
+                try:
+                    period = int(parts[2])
+                    sma_list.append({"type": ma_type, "period": period})
+                except ValueError:
+                    pass
+    if sma_list:
+        params["sma"] = sma_list
+
+    return params
 
 
 def _parse_float(val) -> float:
@@ -99,12 +162,17 @@ async def screener_kr(filters: dict, sort: str, order: str, page: int, per_page:
 
     # === 3단계: 기술적 지표 보강 + 필터 (상위 200건) ===
     has_technical_filters = any(filters.get(k) for k in TECHNICAL_FILTER_KEYS)
+    # 동적 SMA 필터도 확인
+    has_dynamic_sma = any(k.startswith("sma_") and "_" in k[4:] for k in filters.keys())
     technical_sort_keys = ["rsi", "sma20", "sma50", "sma200", "volume_surge", "atr"]
-    needs_technicals = has_technical_filters or sort in technical_sort_keys
+    needs_technicals = has_technical_filters or has_dynamic_sma or sort in technical_sort_keys
+
+    # 기술적 지표 파라미터 추출
+    technical_params = extract_technical_params(filters)
 
     if needs_technicals:
         stocks_to_enrich = filtered[:200]
-        enriched = await enrich_with_technicals(stocks_to_enrich)
+        enriched = await enrich_with_technicals(stocks_to_enrich, technical_params)
         filtered = enriched + filtered[200:]
 
     # 기술적 필터 적용
@@ -124,7 +192,7 @@ async def screener_kr(filters: dict, sort: str, order: str, page: int, per_page:
 
     # 페이지 결과에 대해 재무 + 기술 데이터 보강 (항상)
     items = await enrich_financial_data(list(items))
-    items = await enrich_with_technicals(items)
+    items = await enrich_with_technicals(items, technical_params)
 
     # 시총 문자열 추가
     for item in items:
@@ -302,8 +370,30 @@ async def enrich_financial_data(stocks: List[Dict]) -> List[Dict]:
                         stock["per"] = _parse_float(value.replace("배", ""))
                     elif key == "pbr":
                         stock["pbr"] = _parse_float(value.replace("배", ""))
+                    elif key == "eps":
+                        stock["eps"] = _parse_float(value.replace("원", "").replace(",", ""))
+                    elif key == "bps":
+                        stock["bps"] = _parse_float(value.replace("원", "").replace(",", ""))
+                    elif key == "roe":
+                        stock["roe"] = _parse_float(value.replace("%", ""))
+                    elif key == "roa":
+                        stock["roa"] = _parse_float(value.replace("%", ""))
                     elif key == "dividendYieldRatio":
                         stock["dividend_yield"] = _parse_float(value.replace("%", ""))
+                    elif key == "foreignRatio":
+                        stock["foreign_ratio"] = _parse_float(value.replace("%", ""))
+                    elif key == "debtRatio":
+                        stock["debt_ratio"] = _parse_float(value.replace("%", ""))
+                    elif key == "currentRatio":
+                        stock["current_ratio"] = _parse_float(value.replace("%", ""))
+                    elif key == "operatingMargin":
+                        stock["operating_margin"] = _parse_float(value.replace("%", ""))
+                    elif key == "netMargin":
+                        stock["net_margin"] = _parse_float(value.replace("%", ""))
+                    elif key == "salesGrowth":
+                        stock["sales_growth"] = _parse_float(value.replace("%", ""))
+                    elif key == "operatingProfitGrowth":
+                        stock["op_growth"] = _parse_float(value.replace("%", ""))
                     elif key == "highPriceOf52Weeks":
                         high_52w = _parse_price(value)
                         stock["high_52w"] = high_52w
@@ -340,17 +430,30 @@ async def enrich_financial_data(stocks: List[Dict]) -> List[Dict]:
     return result
 
 
-async def enrich_with_technicals(stocks: List[Dict]) -> List[Dict]:
+async def enrich_with_technicals(stocks: List[Dict], params: Dict = None) -> List[Dict]:
     """
     기술적 지표 보강 (RSI, SMA, 볼린저, MACD, 스토캐스틱, ATR 등)
-    네이버 일봉 API 기반
+    네이버 일봉 API 기반 + 동적 파라미터 지원
+
+    params: 기술적 지표 파라미터
+    {
+        "rsi": {"period": 7},
+        "macd": {"fast": 12, "slow": 26, "signal": 9},
+        "sma": [{"type": "SMA", "period": 20}, {"type": "EMA", "period": 7}]
+    }
     """
     if not stocks:
         return stocks
 
+    params = params or {}
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
     }
+
+    # 파라미터 해시 (캐시 키용)
+    import hashlib
+    import json
+    params_hash = hashlib.md5(json.dumps(params, sort_keys=True).encode()).hexdigest()[:8] if params else ""
 
     async def fetch_and_compute(client, stock, semaphore):
         """단일 종목 기술적 지표 계산"""
@@ -358,8 +461,8 @@ async def enrich_with_technicals(stocks: List[Dict]) -> List[Dict]:
         if not code:
             return stock
 
-        # 캐시 확인 (24시간)
-        cache_key = f"technicals_{code}"
+        # 캐시 확인 (파라미터별 캐시, 24시간)
+        cache_key = f"technicals_{code}_{params_hash}" if params_hash else f"technicals_{code}"
         cached = screener_cache.get(cache_key)
         if cached:
             stock.update(cached)
@@ -380,8 +483,8 @@ async def enrich_with_technicals(stocks: List[Dict]) -> List[Dict]:
                 if not candles or not isinstance(candles, list):
                     return stock
 
-                # 기술적 지표 계산
-                technicals = compute_all_technicals(candles)
+                # 기술적 지표 계산 (동적 파라미터 전달)
+                technicals = compute_all_technicals(candles, params)
 
                 if technicals:
                     # 캐시 저장 (24시간)

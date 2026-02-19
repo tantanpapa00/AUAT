@@ -11754,11 +11754,29 @@ function createCustomBacktestChart(candles, trades, exchange, symbol) {
         timeScale: {
             borderColor: '#485c7b',
             timeVisible: true,
+            secondsVisible: false,
             fixLeftEdge: true,
             fixRightEdge: true,
             lockVisibleTimeRangeOnResize: true,
+            tickMarkFormatter: (time) => {
+                const date = new Date(time * 1000);
+                const month = date.getMonth() + 1;
+                const day = date.getDate();
+                return `${month}/${day}`;
+            },
         },
         rightPriceScale: { borderColor: '#485c7b' },
+        localization: {
+            dateFormat: 'yyyy-MM-dd',
+            locale: 'ko-KR',
+            timeFormatter: (time) => {
+                const date = new Date(time * 1000);
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
+                return `${y}-${m}-${d}`;
+            },
+        },
         handleScale: { axisPressedMouseMove: true },
         handleScroll: { vertTouchDrag: false },
     };
@@ -12863,6 +12881,33 @@ function initScreenerEvents() {
     document.getElementById('detail-close-btn')?.addEventListener('click', () => {
         hideStockDetailPanel();
     });
+
+    // ===== 프리셋 관리 이벤트 (Stage 3) =====
+
+    // 프리셋 목록 로드
+    loadScreenerPresets();
+
+    // 프리셋 저장
+    document.getElementById('btn-save-preset')?.addEventListener('click', saveScreenerPreset);
+
+    // 프리셋 불러오기
+    document.getElementById('btn-load-preset')?.addEventListener('click', loadSelectedPreset);
+
+    // 프리셋 삭제
+    document.getElementById('btn-delete-preset')?.addEventListener('click', deleteSelectedPreset);
+
+    // 프리셋 선택 변경 시 자동 적용
+    document.getElementById('preset-select')?.addEventListener('change', (e) => {
+        if (e.target.value) {
+            loadSelectedPreset();
+        }
+    });
+
+    // 백테스트 실행 버튼
+    document.getElementById('btn-run-backtest')?.addEventListener('click', runBacktestFromScreener);
+
+    // 관심종목 추가 버튼
+    document.getElementById('btn-add-to-watchlist')?.addEventListener('click', addToWatchlistFromScreener);
 }
 
 // 필터 팝오버 표시 (모든 타입 지원)
@@ -13513,6 +13558,217 @@ function updatePagination() {
     if (pageInfo) pageInfo.textContent = `${screenerState.page} / ${maxPage}`;
     if (prevBtn) prevBtn.disabled = screenerState.page <= 1;
     if (nextBtn) nextBtn.disabled = screenerState.page >= maxPage;
+}
+
+// =====================================================
+// 스크리너 프리셋 관리 (Phase 7 Stage 3)
+// =====================================================
+
+let screenerPresets = [];
+
+async function loadScreenerPresets() {
+    const select = document.getElementById('preset-select');
+    if (!select) return;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/screener/presets?market=${screenerState.market}`, {
+            credentials: 'include'
+        });
+        const data = await response.json();
+
+        if (data.success && data.presets) {
+            screenerPresets = data.presets;
+            renderPresetSelect();
+        }
+    } catch (error) {
+        console.error('[Screener] Failed to load presets:', error);
+    }
+}
+
+function renderPresetSelect() {
+    const select = document.getElementById('preset-select');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">프리셋 선택...</option>';
+    screenerPresets.forEach(preset => {
+        const option = document.createElement('option');
+        option.value = preset.id;
+        option.textContent = preset.is_default ? `★ ${preset.name}` : preset.name;
+        select.appendChild(option);
+    });
+}
+
+async function saveScreenerPreset() {
+    const nameInput = document.getElementById('preset-name-input');
+    const name = nameInput?.value?.trim();
+
+    if (!name) {
+        showNotification('프리셋 이름을 입력하세요', 'warning');
+        nameInput?.focus();
+        return;
+    }
+
+    // 현재 필터 수집
+    const filters = collectScreenerFilters();
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/screener/presets`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                name,
+                market: screenerState.market,
+                filters,
+                sort_by: screenerState.sort,
+                sort_order: screenerState.order
+            })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            showNotification(`프리셋 "${name}" 저장 완료`, 'success');
+            nameInput.value = '';
+            await loadScreenerPresets();
+        } else {
+            showNotification(data.detail || '저장 실패', 'error');
+        }
+    } catch (error) {
+        console.error('[Screener] Failed to save preset:', error);
+        showNotification('프리셋 저장 실패', 'error');
+    }
+}
+
+function loadSelectedPreset() {
+    const select = document.getElementById('preset-select');
+    const presetId = select?.value;
+
+    if (!presetId) {
+        showNotification('프리셋을 선택하세요', 'warning');
+        return;
+    }
+
+    const preset = screenerPresets.find(p => p.id == presetId);
+    if (!preset) return;
+
+    // 필터 적용
+    screenerState.activeFilters = {};
+
+    if (preset.filters && typeof preset.filters === 'object') {
+        Object.entries(preset.filters).forEach(([key, value]) => {
+            if (value && (value.min != null || value.max != null || value.value != null || value.condition != null)) {
+                // V2 포맷 또는 레거시 포맷 모두 처리
+                const label = generateFilterLabel(key, value);
+                screenerState.activeFilters[key] = { ...value, label };
+            }
+        });
+    }
+
+    // 정렬 적용
+    if (preset.sort_by) screenerState.sort = preset.sort_by;
+    if (preset.sort_order) screenerState.order = preset.sort_order;
+
+    // UI 업데이트
+    updateActiveFiltersUI();
+    updateChipStates();
+    updateSortIcons();
+
+    // 검색 실행
+    screenerState.page = 1;
+    searchScreener();
+
+    showNotification(`프리셋 "${preset.name}" 적용`, 'success');
+}
+
+async function deleteSelectedPreset() {
+    const select = document.getElementById('preset-select');
+    const presetId = select?.value;
+
+    if (!presetId) {
+        showNotification('삭제할 프리셋을 선택하세요', 'warning');
+        return;
+    }
+
+    const preset = screenerPresets.find(p => p.id == presetId);
+    if (!confirm(`프리셋 "${preset?.name}"을(를) 삭제하시겠습니까?`)) return;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/screener/presets/${presetId}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            showNotification('프리셋 삭제 완료', 'success');
+            await loadScreenerPresets();
+        } else {
+            showNotification(data.detail || '삭제 실패', 'error');
+        }
+    } catch (error) {
+        console.error('[Screener] Failed to delete preset:', error);
+        showNotification('프리셋 삭제 실패', 'error');
+    }
+}
+
+function generateFilterLabel(key, value) {
+    const def = FILTER_DEFINITIONS[key];
+    if (!def) return key;
+
+    if (value.label) return value.label;
+
+    if (value.min != null && value.max != null) {
+        return `${def.label}: ${value.min}~${value.max}`;
+    } else if (value.min != null) {
+        return `${def.label}: ${value.min}+`;
+    } else if (value.max != null) {
+        return `${def.label}: ~${value.max}`;
+    } else if (value.value) {
+        return `${def.label}: ${value.value}`;
+    } else if (value.condition) {
+        return `${def.label}: ${value.condition}`;
+    }
+
+    return def.label;
+}
+
+// 전략 연계: 백테스트 실행
+function runBacktestFromScreener() {
+    const stock = screenerState.selectedStock;
+    if (!stock) {
+        showNotification('종목을 먼저 선택하세요', 'warning');
+        return;
+    }
+
+    // KIS_KR 거래소로 심볼 설정
+    const exchange = stock.exchange === 'KOSDAQ' ? 'KIS_KR' : 'KIS_KR';
+    const symbol = stock.code;
+
+    // 백테스트 탭으로 이동하고 심볼 설정
+    navigateTo('strategy-test');
+
+    // 약간의 지연 후 심볼 입력
+    setTimeout(() => {
+        const exchangeSelect = document.getElementById('bt-exchange');
+        const symbolInput = document.getElementById('bt-symbol');
+
+        if (exchangeSelect) exchangeSelect.value = exchange;
+        if (symbolInput) symbolInput.value = symbol;
+
+        showNotification(`${stock.name} (${symbol}) 백테스트 준비 완료`, 'success');
+    }, 300);
+}
+
+// 관심종목 추가 (추후 구현)
+function addToWatchlistFromScreener() {
+    const stock = screenerState.selectedStock;
+    if (!stock) {
+        showNotification('종목을 먼저 선택하세요', 'warning');
+        return;
+    }
+
+    // TODO: 관심종목 기능 연동
+    showNotification(`${stock.name} 관심종목 기능은 준비중입니다`, 'info');
 }
 
 // =====================================================

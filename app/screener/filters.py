@@ -1,9 +1,80 @@
 """
 스크리너 필터 함수 모음
 기본정보 + 재무지표 + 기술적지표 필터 지원
+
+필터 포맷 V2:
+- 레거시: {"rsi": "70+"}
+- V2: {"rsi": {"min": 70, "max": null, "params": {"period": 7}}}
 """
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union, Tuple
+
+
+def _parse_filter_v2(value: Any) -> Tuple[float, float, Dict]:
+    """
+    V2 필터 파서 - min/max/params 추출
+
+    반환: (min_val, max_val, params)
+    - min_val: 최소값 (None이면 제한 없음)
+    - max_val: 최대값 (None이면 제한 없음)
+    - params: 파라미터 딕셔너리
+    """
+    if value is None:
+        return None, None, {}
+
+    # V2 포맷: {"min": 70, "max": null, "params": {...}}
+    if isinstance(value, dict):
+        min_val = value.get('min')
+        max_val = value.get('max')
+        params = value.get('params', {})
+        return min_val, max_val, params
+
+    # 레거시 문자열 포맷
+    value = str(value).strip()
+
+    # 적자/역성장
+    if value in ("loss", "적자", "역성장"):
+        return None, 0, {}
+
+    # "N+" 또는 "N 이상"
+    if value.endswith("+") or "이상" in value:
+        num_str = value.replace("+", "").replace("이상", "").replace("%", "").strip()
+        try:
+            return float(num_str), None, {}
+        except ValueError:
+            return None, None, {}
+
+    # "A~B" 범위
+    if "~" in value:
+        parts = value.replace("%", "").split("~")
+        try:
+            lo = float(parts[0].strip())
+            hi_str = parts[1].strip().replace("+", "")
+            hi = float(hi_str) if hi_str else None
+            return lo, hi, {}
+        except (ValueError, IndexError):
+            return None, None, {}
+
+    # 단일 숫자
+    try:
+        return float(value), None, {}
+    except ValueError:
+        return None, None, {}
+
+
+def _filter_by_minmax(stocks: List[Dict], field: str, min_val: float, max_val: float) -> List[Dict]:
+    """min/max 범위 필터"""
+    result = []
+    for s in stocks:
+        val = s.get(field)
+        if val is None:
+            continue
+        if min_val is not None and val < min_val:
+            continue
+        if max_val is not None and val > max_val:
+            continue
+        result.append(s)
+    return result
 
 
 def apply_screener_filters(stocks: List[Dict], filters: Dict) -> List[Dict]:
@@ -57,24 +128,63 @@ def apply_screener_filters(stocks: List[Dict], filters: Dict) -> List[Dict]:
         except (ValueError, TypeError):
             pass
 
-    # === 재무지표 필터 ===
+    # === 재무지표 필터 (V2 포맷 지원) ===
+    # PER
     if filters.get("per"):
-        result = _filter_by_range(result, "per", filters["per"])
+        min_val, max_val, _ = _parse_filter_v2(filters["per"])
+        if min_val is not None or max_val is not None:
+            result = _filter_by_minmax(result, "per", min_val, max_val)
+        else:
+            result = _filter_by_range(result, "per", filters["per"])
 
+    # PBR
     if filters.get("pbr"):
-        result = _filter_by_range(result, "pbr", filters["pbr"])
+        min_val, max_val, _ = _parse_filter_v2(filters["pbr"])
+        if min_val is not None or max_val is not None:
+            result = _filter_by_minmax(result, "pbr", min_val, max_val)
+        else:
+            result = _filter_by_range(result, "pbr", filters["pbr"])
 
+    # ROE
     if filters.get("roe"):
-        result = _filter_by_range(result, "roe", filters["roe"])
+        min_val, max_val, _ = _parse_filter_v2(filters["roe"])
+        if min_val is not None or max_val is not None:
+            result = _filter_by_minmax(result, "roe", min_val, max_val)
+        else:
+            result = _filter_by_range(result, "roe", filters["roe"])
 
+    # 영업이익률
     if filters.get("operating_margin"):
-        result = _filter_by_range(result, "operating_margin", filters["operating_margin"])
+        min_val, max_val, _ = _parse_filter_v2(filters["operating_margin"])
+        if min_val is not None or max_val is not None:
+            result = _filter_by_minmax(result, "operating_margin", min_val, max_val)
+        else:
+            result = _filter_by_range(result, "operating_margin", filters["operating_margin"])
 
+    # 부채비율
     if filters.get("debt_ratio"):
-        result = _filter_by_range(result, "debt_ratio", filters["debt_ratio"])
+        min_val, max_val, _ = _parse_filter_v2(filters["debt_ratio"])
+        if min_val is not None or max_val is not None:
+            result = _filter_by_minmax(result, "debt_ratio", min_val, max_val)
+        else:
+            result = _filter_by_range(result, "debt_ratio", filters["debt_ratio"])
 
+    # 배당수익률
     if filters.get("dividend_yield"):
-        result = _filter_by_range(result, "dividend_yield", filters["dividend_yield"])
+        min_val, max_val, _ = _parse_filter_v2(filters["dividend_yield"])
+        if min_val is not None or max_val is not None:
+            result = _filter_by_minmax(result, "dividend_yield", min_val, max_val)
+        else:
+            result = _filter_by_range(result, "dividend_yield", filters["dividend_yield"])
+
+    # 추가 재무지표 (V2)
+    for field in ["psr", "roa", "net_margin", "current_ratio", "quick_ratio",
+                  "reserve_ratio", "eps", "bps", "sales_growth", "op_growth",
+                  "payout_ratio", "foreign_ratio"]:
+        if filters.get(field):
+            min_val, max_val, _ = _parse_filter_v2(filters[field])
+            if min_val is not None or max_val is not None:
+                result = _filter_by_minmax(result, field, min_val, max_val)
 
     # === 기술적지표 필터 ===
     # 등락률 필터 (change_filter 또는 change)
@@ -115,43 +225,114 @@ def apply_screener_filters(stocks: List[Dict], filters: Dict) -> List[Dict]:
     if filters.get("sma120"):
         result = _filter_by_sma_position(result, "sma200_position", filters["sma120"])
 
-    # 이평선 교차 필터
+    # 동적 이동평균선 필터 (V2: sma_SMA_20, sma_EMA_7 등)
+    for key, value in filters.items():
+        if key.startswith("sma_") and "_" in key[4:]:
+            # 예: sma_SMA_20, sma_EMA_7, sma_WMA_50
+            position_key = f"{key}_position"
+            if isinstance(value, dict):
+                condition = value.get("condition", value.get("value", ""))
+            else:
+                condition = value
+            if condition == "above":
+                result = [s for s in result if s.get(position_key) == "above"]
+            elif condition == "below":
+                result = [s for s in result if s.get(position_key) == "below"]
+            elif condition == "near":
+                result = [s for s in result if s.get(position_key) == "near"]
+
+    # 이평선 교차 필터 (V2 포맷 지원)
     if filters.get("sma_cross"):
-        cross_val = filters["sma_cross"]
+        cross_filter = filters["sma_cross"]
+        if isinstance(cross_filter, dict):
+            # V2: {"short_type": "SMA", "short_period": 20, "long_type": "SMA", "long_period": 50, "condition": "golden"}
+            cross_val = cross_filter.get("condition", "")
+        else:
+            cross_val = cross_filter
         if cross_val == "golden":
             result = [s for s in result if s.get("sma_cross") == "golden"]
         elif cross_val == "dead":
             result = [s for s in result if s.get("sma_cross") == "dead"]
 
-    # RSI 필터
+    # RSI 필터 (V2 포맷 지원)
     if filters.get("rsi"):
-        result = _filter_by_rsi(result, filters["rsi"])
+        min_val, max_val, params = _parse_filter_v2(filters["rsi"])
+        if min_val is not None or max_val is not None:
+            # V2: params에 period가 있으면 해당 기간 RSI 값 사용
+            # 현재는 기본 RSI(14) 필드만 사용
+            result = _filter_by_minmax(result, "rsi", min_val, max_val)
+        else:
+            result = _filter_by_rsi(result, filters["rsi"])
 
-    # 볼린저밴드 필터
+    # 볼린저밴드 필터 (V2 포맷 지원)
     if filters.get("bollinger"):
-        bb_val = filters["bollinger"]
-        if bb_val == "upper":
+        bb_filter = filters["bollinger"]
+        if isinstance(bb_filter, dict):
+            # V2: {"condition": "upper", "params": {"period": 20, "mult": 2}}
+            bb_condition = bb_filter.get("condition", bb_filter.get("value", ""))
+        else:
+            bb_condition = bb_filter
+        if bb_condition == "upper":
             result = [s for s in result if s.get("bb_position") == "upper"]
-        elif bb_val == "lower":
+        elif bb_condition == "lower":
             result = [s for s in result if s.get("bb_position") == "lower"]
-        elif bb_val == "middle":
+        elif bb_condition == "middle":
             result = [s for s in result if s.get("bb_position") == "middle"]
 
-    # MACD 필터
+    # MACD 필터 (V2 포맷 지원)
     if filters.get("macd"):
-        macd_val = filters["macd"]
-        if macd_val == "buy":
+        macd_filter = filters["macd"]
+        if isinstance(macd_filter, dict):
+            # V2: {"condition": "buy", "params": {"fast": 12, "slow": 26, "signal": 9}}
+            macd_condition = macd_filter.get("condition", macd_filter.get("value", ""))
+        else:
+            macd_condition = macd_filter
+        if macd_condition == "buy":
             result = [s for s in result if s.get("macd_cross") == "buy"]
-        elif macd_val == "sell":
+        elif macd_condition == "sell":
             result = [s for s in result if s.get("macd_cross") == "sell"]
 
-    # 스토캐스틱 필터
+    # 스토캐스틱 필터 (V2 포맷 지원)
     if filters.get("stochastic"):
-        result = _filter_by_stochastic(result, filters["stochastic"])
+        stoch_filter = filters["stochastic"]
+        if isinstance(stoch_filter, dict):
+            # V2: {"min": 80, "max": null} 또는 {"condition": "overbought"}
+            min_val = stoch_filter.get("min")
+            max_val = stoch_filter.get("max")
+            if min_val is not None or max_val is not None:
+                result = _filter_by_minmax(result, "stoch_k", min_val, max_val)
+            else:
+                condition = stoch_filter.get("condition", "")
+                result = _filter_by_stochastic(result, condition)
+        else:
+            result = _filter_by_stochastic(result, stoch_filter)
 
-    # ATR 필터 (변동성)
+    # ATR 필터 (변동성) (V2 포맷 지원)
     if filters.get("atr"):
-        result = _filter_by_atr(result, filters["atr"])
+        atr_filter = filters["atr"]
+        if isinstance(atr_filter, dict):
+            # V2: {"condition": "high"} 또는 min/max
+            min_val = atr_filter.get("min")
+            max_val = atr_filter.get("max")
+            if min_val is not None or max_val is not None:
+                # ATR % (ATR / price * 100)
+                filtered = []
+                for s in result:
+                    atr = s.get("atr")
+                    price = s.get("price")
+                    if atr and price:
+                        atr_pct = atr / price * 100
+                        if min_val is not None and atr_pct < min_val:
+                            continue
+                        if max_val is not None and atr_pct > max_val:
+                            continue
+                        filtered.append(s)
+                result = filtered
+            else:
+                condition = atr_filter.get("condition", "")
+                result = _filter_by_atr(result, condition)
+        else:
+            result = _filter_by_atr(result, atr_filter)
 
     # 기간 수익률 필터
     if filters.get("period_return"):
@@ -376,11 +557,22 @@ def sort_screener_results(stocks: List[Dict], sort: str, order: str) -> List[Dic
         "volume": lambda x: x.get("volume") or 0,
         "name": lambda x: x.get("name") or "",
         "code": lambda x: x.get("code") or "",
-        # 재무
+        # 재무 (기본)
         "per": lambda x: x.get("per") or 9999,
         "pbr": lambda x: x.get("pbr") or 9999,
         "roe": lambda x: x.get("roe") or -9999,
+        "roa": lambda x: x.get("roa") or -9999,
         "dividend_yield": lambda x: x.get("dividend_yield") or 0,
+        # 재무 (추가)
+        "eps": lambda x: x.get("eps") or 0,
+        "bps": lambda x: x.get("bps") or 0,
+        "debt_ratio": lambda x: x.get("debt_ratio") or 9999,
+        "current_ratio": lambda x: x.get("current_ratio") or 0,
+        "operating_margin": lambda x: x.get("operating_margin") or -9999,
+        "net_margin": lambda x: x.get("net_margin") or -9999,
+        "sales_growth": lambda x: x.get("sales_growth") or -9999,
+        "op_growth": lambda x: x.get("op_growth") or -9999,
+        "foreign_ratio": lambda x: x.get("foreign_ratio") or 0,
         # 52주
         "w52_high_pct": lambda x: x.get("w52_high_pct") or -9999,
         "w52_low_pct": lambda x: x.get("w52_low_pct") or 0,
