@@ -12736,6 +12736,7 @@ const FILTER_DEFINITIONS = {
 const US_FILTER_DEFINITIONS = {
     sector: {
         label: '섹터',
+        category: 'basic',
         type: 'select',
         options: [
             { value: 'Technology', label: 'Technology' },
@@ -12753,6 +12754,7 @@ const US_FILTER_DEFINITIONS = {
     },
     market_cap: {
         label: '시가총액',
+        category: 'basic',
         type: 'range',
         unit: 'B$',
         presets: [
@@ -12762,8 +12764,21 @@ const US_FILTER_DEFINITIONS = {
             { min: null, max: 2, label: 'Small (~$2B)' }
         ]
     },
+    price: {
+        label: '현재가',
+        category: 'basic',
+        type: 'range',
+        unit: '$',
+        presets: [
+            { min: 100, max: null, label: '$100+' },
+            { min: 50, max: 100, label: '$50~100' },
+            { min: 10, max: 50, label: '$10~50' },
+            { min: null, max: 10, label: '~$10' }
+        ]
+    },
     change_pct: {
         label: '등락률',
+        category: 'basic',
         type: 'range',
         unit: '%',
         presets: [
@@ -12772,6 +12787,39 @@ const US_FILTER_DEFINITIONS = {
             { min: null, max: -3, label: '-3% 이하' },
             { min: null, max: -5, label: '-5% 이하' }
         ]
+    },
+    volume: {
+        label: '거래량',
+        category: 'basic',
+        type: 'range',
+        unit: '',
+        presets: [
+            { min: 10000000, max: null, label: '10M+' },
+            { min: 5000000, max: null, label: '5M+' },
+            { min: 1000000, max: null, label: '1M+' }
+        ]
+    },
+    per: {
+        label: 'P/E',
+        category: 'financial',
+        type: 'range',
+        unit: '',
+        presets: [
+            { min: 0, max: 15, label: 'Value (<15)' },
+            { min: 15, max: 25, label: 'Fair (15~25)' },
+            { min: 30, max: null, label: 'Growth (>30)' }
+        ]
+    },
+    dividend_yield: {
+        label: '배당수익률',
+        category: 'financial',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 4, max: null, label: '4%+' },
+            { min: 2, max: null, label: '2%+' },
+            { min: 1, max: null, label: '1%+' }
+        ]
     }
 };
 
@@ -12779,6 +12827,7 @@ const US_FILTER_DEFINITIONS = {
 const ETF_FILTER_DEFINITIONS = {
     category: {
         label: '카테고리',
+        category: 'basic',
         type: 'select',
         options: [
             { value: '인덱스', label: '인덱스' },
@@ -12794,6 +12843,7 @@ const ETF_FILTER_DEFINITIONS = {
     },
     issuer: {
         label: '운용사',
+        category: 'basic',
         type: 'select',
         options: [
             { value: '삼성자산운용', label: 'KODEX (삼성)' },
@@ -12808,6 +12858,7 @@ const ETF_FILTER_DEFINITIONS = {
     },
     nav: {
         label: '순자산',
+        category: 'basic',
         type: 'range',
         unit: '억원',
         presets: [
@@ -12817,8 +12868,20 @@ const ETF_FILTER_DEFINITIONS = {
             { min: null, max: 1000, label: '1천억 미만' }
         ]
     },
+    price: {
+        label: '현재가',
+        category: 'basic',
+        type: 'range',
+        unit: '원',
+        presets: [
+            { min: 50000, max: null, label: '5만원+' },
+            { min: 10000, max: 50000, label: '1~5만원' },
+            { min: null, max: 10000, label: '1만원 미만' }
+        ]
+    },
     change_pct: {
         label: '등락률',
+        category: 'basic',
         type: 'range',
         unit: '%',
         presets: [
@@ -12826,6 +12889,17 @@ const ETF_FILTER_DEFINITIONS = {
             { min: 1, max: null, label: '+1% 이상' },
             { min: null, max: -1, label: '-1% 이하' },
             { min: null, max: -3, label: '-3% 이하' }
+        ]
+    },
+    volume: {
+        label: '거래량',
+        category: 'basic',
+        type: 'range',
+        unit: '',
+        presets: [
+            { min: 1000000, max: null, label: '100만+' },
+            { min: 500000, max: null, label: '50만+' },
+            { min: 100000, max: null, label: '10만+' }
         ]
     }
 };
@@ -13667,34 +13741,35 @@ function updateScreenerFiltersUI(market) {
                 </div>
             `;
         }
-    } else if (market === 'us') {
-        // US: 해외 필터칩
+    } else if (market === 'us' || market === 'etf') {
+        // US/ETF: 동적 필터칩 생성
         if (chipGroups) {
-            chipGroups.innerHTML = `
-                <div class="filter-chip-group">
-                    <span class="chip-group-label">기본</span>
-                    <div class="chip-row">
-                        <button class="filter-chip" data-filter="sector">섹터</button>
-                        <button class="filter-chip" data-filter="market_cap">시가총액</button>
-                        <button class="filter-chip" data-filter="change_pct">등락률</button>
+            const filterDefs = getFilterDefinitions(market);
+            const categories = {};
+
+            // 카테고리별 필터 분류
+            Object.entries(filterDefs).forEach(([key, def]) => {
+                const cat = def.category || 'basic';
+                if (!categories[cat]) categories[cat] = [];
+                categories[cat].push({ key, label: def.label });
+            });
+
+            // 카테고리 라벨 매핑
+            const catLabels = { basic: '기본', financial: '재무', technical: '기술' };
+
+            let html = '';
+            Object.entries(categories).forEach(([cat, filters]) => {
+                html += `
+                    <div class="filter-chip-group">
+                        <span class="chip-group-label">${catLabels[cat] || cat}</span>
+                        <div class="chip-row">
+                            ${filters.map(f => `<button class="filter-chip" data-filter="${f.key}">${f.label}</button>`).join('')}
+                        </div>
                     </div>
-                </div>
-            `;
-        }
-    } else if (market === 'etf') {
-        // ETF: ETF 필터칩
-        if (chipGroups) {
-            chipGroups.innerHTML = `
-                <div class="filter-chip-group">
-                    <span class="chip-group-label">기본</span>
-                    <div class="chip-row">
-                        <button class="filter-chip" data-filter="category">카테고리</button>
-                        <button class="filter-chip" data-filter="issuer">운용사</button>
-                        <button class="filter-chip" data-filter="nav">순자산</button>
-                        <button class="filter-chip" data-filter="change_pct">등락률</button>
-                    </div>
-                </div>
-            `;
+                `;
+            });
+
+            chipGroups.innerHTML = html;
         }
     }
 
