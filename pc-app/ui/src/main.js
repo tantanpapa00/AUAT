@@ -12732,6 +12732,111 @@ const FILTER_DEFINITIONS = {
     }
 };
 
+// US (해외) 필터 정의
+const US_FILTER_DEFINITIONS = {
+    sector: {
+        label: '섹터',
+        type: 'select',
+        options: [
+            { value: 'Technology', label: 'Technology' },
+            { value: 'Healthcare', label: 'Healthcare' },
+            { value: 'Financial', label: 'Financial' },
+            { value: 'Consumer Cyclical', label: 'Consumer Cyclical' },
+            { value: 'Consumer Defensive', label: 'Consumer Defensive' },
+            { value: 'Energy', label: 'Energy' },
+            { value: 'Industrials', label: 'Industrials' },
+            { value: 'Communication Services', label: 'Communication' },
+            { value: 'Utilities', label: 'Utilities' },
+            { value: 'Real Estate', label: 'Real Estate' },
+            { value: 'Basic Materials', label: 'Materials' }
+        ]
+    },
+    market_cap: {
+        label: '시가총액',
+        type: 'range',
+        unit: 'B$',
+        presets: [
+            { min: 200, max: null, label: 'Mega ($200B+)' },
+            { min: 10, max: 200, label: 'Large ($10~200B)' },
+            { min: 2, max: 10, label: 'Mid ($2~10B)' },
+            { min: null, max: 2, label: 'Small (~$2B)' }
+        ]
+    },
+    change_pct: {
+        label: '등락률',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 5, max: null, label: '+5% 이상' },
+            { min: 3, max: null, label: '+3% 이상' },
+            { min: null, max: -3, label: '-3% 이하' },
+            { min: null, max: -5, label: '-5% 이하' }
+        ]
+    }
+};
+
+// ETF 필터 정의
+const ETF_FILTER_DEFINITIONS = {
+    category: {
+        label: '카테고리',
+        type: 'select',
+        options: [
+            { value: '인덱스', label: '인덱스' },
+            { value: '해외', label: '해외' },
+            { value: '섹터', label: '섹터' },
+            { value: '레버리지/인버스', label: '레버리지/인버스' },
+            { value: '채권', label: '채권' },
+            { value: '원자재', label: '원자재' },
+            { value: '통화', label: '통화' },
+            { value: '테마', label: '테마' },
+            { value: '기타', label: '기타' }
+        ]
+    },
+    issuer: {
+        label: '운용사',
+        type: 'select',
+        options: [
+            { value: '삼성자산운용', label: 'KODEX (삼성)' },
+            { value: '미래에셋자산운용', label: 'TIGER (미래에셋)' },
+            { value: 'KB자산운용', label: 'KBSTAR (KB)' },
+            { value: '한국투자신탁운용', label: 'ACE (한투)' },
+            { value: '한화자산운용', label: 'ARIRANG (한화)' },
+            { value: '신한자산운용', label: 'SOL (신한)' },
+            { value: 'NH-Amundi자산운용', label: 'HANARO (NH)' },
+            { value: '키움투자자산운용', label: 'KOSEF (키움)' }
+        ]
+    },
+    nav: {
+        label: '순자산',
+        type: 'range',
+        unit: '억원',
+        presets: [
+            { min: 10000, max: null, label: '1조 이상' },
+            { min: 5000, max: null, label: '5천억 이상' },
+            { min: 1000, max: null, label: '1천억 이상' },
+            { min: null, max: 1000, label: '1천억 미만' }
+        ]
+    },
+    change_pct: {
+        label: '등락률',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 3, max: null, label: '+3% 이상' },
+            { min: 1, max: null, label: '+1% 이상' },
+            { min: null, max: -1, label: '-1% 이하' },
+            { min: null, max: -3, label: '-3% 이하' }
+        ]
+    }
+};
+
+// 시장별 필터 정의 반환
+function getFilterDefinitions(market) {
+    if (market === 'us') return US_FILTER_DEFINITIONS;
+    if (market === 'etf') return ETF_FILTER_DEFINITIONS;
+    return FILTER_DEFINITIONS;
+}
+
 let screenerState = {
     market: 'kr',
     sort: 'market_cap',
@@ -12923,7 +13028,8 @@ function showFilterPopover(filterKey, chipElement) {
 
     if (!popover || !titleEl || !bodyEl) return;
 
-    const filterDef = FILTER_DEFINITIONS[filterKey];
+    const filterDefs = getFilterDefinitions(screenerState.market);
+    const filterDef = filterDefs[filterKey];
     if (!filterDef) return;
 
     // 현재 필터 키 저장
@@ -13119,7 +13225,8 @@ function applyPopoverFilter() {
     const filterKey = popover?.dataset?.currentFilter;
     if (!filterKey) return;
 
-    const filterDef = FILTER_DEFINITIONS[filterKey];
+    const filterDefs = getFilterDefinitions(screenerState.market);
+    const filterDef = filterDefs[filterKey];
     if (!filterDef) return;
 
     let filterData = { key: filterKey };
@@ -13466,26 +13573,93 @@ function updateTableHeader(market) {
 function updateScreenerFiltersUI(market) {
     const filtersEl = document.querySelector('.screener-filters-v2');
     const actionsEl = document.querySelector('.filter-actions-v2');
-    const filterChips = document.querySelector('.filter-chips');
+    const chipGroups = document.querySelector('.filter-chip-groups');
+
+    if (!filtersEl) return;
+
+    // 필터 컨테이너는 항상 표시
+    filtersEl.style.display = 'block';
+    if (actionsEl) actionsEl.style.display = 'flex';
 
     if (market === 'kr') {
-        // 국내: 전체 필터 표시
-        if (filtersEl) filtersEl.style.display = 'block';
-        if (actionsEl) actionsEl.style.display = 'flex';
-        if (filterChips) filterChips.innerHTML = ''; // 기존 칩 복원 (별도 처리)
-    } else {
-        // US/ETF: 필터 숨기고 안내 메시지 표시
-        if (filtersEl) filtersEl.style.display = 'block';  // 컨테이너는 표시
-        if (actionsEl) actionsEl.style.display = 'none';
-        if (filterChips) {
-            const marketName = market === 'us' ? '해외(S&P 500)' : 'ETF';
-            filterChips.innerHTML = `
-                <div style="color: var(--text-muted); padding: 12px; text-align: center;">
-                    ${marketName} 종목은 기본 정렬만 지원됩니다. (필터 추가 예정)
+        // 국내: 기존 HTML 필터칩 표시
+        if (chipGroups) {
+            chipGroups.innerHTML = `
+                <div class="filter-chip-group">
+                    <span class="chip-group-label">기본</span>
+                    <div class="chip-row">
+                        <button class="filter-chip" data-filter="exchange">거래소</button>
+                        <button class="filter-chip" data-filter="sector">업종</button>
+                        <button class="filter-chip" data-filter="market_cap">시가총액</button>
+                        <button class="filter-chip" data-filter="price">현재가</button>
+                        <button class="filter-chip" data-filter="volume">거래량</button>
+                        <button class="filter-chip" data-filter="change_pct">등락률</button>
+                    </div>
+                </div>
+                <div class="filter-chip-group">
+                    <span class="chip-group-label">재무</span>
+                    <div class="chip-row">
+                        <button class="filter-chip" data-filter="per">PER</button>
+                        <button class="filter-chip" data-filter="pbr">PBR</button>
+                        <button class="filter-chip" data-filter="roe">ROE</button>
+                        <button class="filter-chip" data-filter="dividend_yield">배당수익률</button>
+                    </div>
+                </div>
+                <div class="filter-chip-group">
+                    <span class="chip-group-label">기술</span>
+                    <div class="chip-row">
+                        <button class="filter-chip" data-filter="rsi">RSI</button>
+                        <button class="filter-chip" data-filter="sma">이평선</button>
+                        <button class="filter-chip" data-filter="volume_surge">거래량급증</button>
+                        <button class="filter-chip" data-filter="w52_high">52주고가</button>
+                    </div>
+                </div>
+            `;
+        }
+    } else if (market === 'us') {
+        // US: 해외 필터칩
+        if (chipGroups) {
+            chipGroups.innerHTML = `
+                <div class="filter-chip-group">
+                    <span class="chip-group-label">기본</span>
+                    <div class="chip-row">
+                        <button class="filter-chip" data-filter="sector">섹터</button>
+                        <button class="filter-chip" data-filter="market_cap">시가총액</button>
+                        <button class="filter-chip" data-filter="change_pct">등락률</button>
+                    </div>
+                </div>
+            `;
+        }
+    } else if (market === 'etf') {
+        // ETF: ETF 필터칩
+        if (chipGroups) {
+            chipGroups.innerHTML = `
+                <div class="filter-chip-group">
+                    <span class="chip-group-label">기본</span>
+                    <div class="chip-row">
+                        <button class="filter-chip" data-filter="category">카테고리</button>
+                        <button class="filter-chip" data-filter="issuer">운용사</button>
+                        <button class="filter-chip" data-filter="nav">순자산</button>
+                        <button class="filter-chip" data-filter="change_pct">등락률</button>
+                    </div>
                 </div>
             `;
         }
     }
+
+    // 필터 칩 이벤트 재바인딩
+    rebindFilterChipEvents();
+}
+
+// 필터 칩 이벤트 바인딩 (시장 전환 시 재호출)
+function rebindFilterChipEvents() {
+    document.querySelectorAll('.filter-chip').forEach(chip => {
+        // 기존 이벤트 제거를 위해 새 이벤트로 덮어쓰기
+        chip.onclick = (e) => {
+            const filterKey = chip.dataset.filter;
+            showFilterPopover(filterKey, chip);
+        };
+    });
 }
 
 // 종목 상세 패널 표시
@@ -13811,7 +13985,8 @@ async function deleteSelectedPreset() {
 }
 
 function generateFilterLabel(key, value) {
-    const def = FILTER_DEFINITIONS[key];
+    const filterDefs = getFilterDefinitions(screenerState.market);
+    const def = filterDefs[key];
     if (!def) return key;
 
     if (value.label) return value.label;

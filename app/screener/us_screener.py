@@ -99,15 +99,19 @@ def apply_us_filters(stocks: List[Dict], filters: dict) -> List[Dict]:
             sector = sector.get("value", sector)
         result = [s for s in result if s.get("sector") == sector]
 
-    # 시총 필터 (조 달러 단위)
+    # 시총 필터 (프론트: B$단위, 데이터: 조달러단위)
     if filters.get("market_cap"):
         mc_filter = filters["market_cap"]
         if isinstance(mc_filter, dict):
-            min_val = mc_filter.get("min", 0)
+            min_val = mc_filter.get("min")
             max_val = mc_filter.get("max")
-            result = [s for s in result if s.get("market_cap", 0) >= min_val]
-            if max_val:
-                result = [s for s in result if s.get("market_cap", 0) <= max_val]
+            # B$ → T$ 변환 (200B = 0.2T)
+            if min_val is not None:
+                min_trillion = min_val / 1000
+                result = [s for s in result if s.get("market_cap", 0) >= min_trillion]
+            if max_val is not None:
+                max_trillion = max_val / 1000
+                result = [s for s in result if s.get("market_cap", 0) <= max_trillion]
 
     # 등락률 필터
     if filters.get("change_pct"):

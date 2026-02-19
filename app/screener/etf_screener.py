@@ -85,10 +85,11 @@ def apply_etf_filters(etfs: List[Dict], filters: dict) -> List[Dict]:
     if filters.get("nav"):
         nav_filter = filters["nav"]
         if isinstance(nav_filter, dict):
-            min_val = nav_filter.get("min", 0)
+            min_val = nav_filter.get("min")
             max_val = nav_filter.get("max")
-            result = [e for e in result if e.get("nav", 0) >= min_val]
-            if max_val:
+            if min_val is not None:
+                result = [e for e in result if e.get("nav", 0) >= min_val]
+            if max_val is not None:
                 result = [e for e in result if e.get("nav", 0) <= max_val]
 
     # 등락률 필터
