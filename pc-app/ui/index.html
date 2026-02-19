@@ -3259,7 +3259,13 @@
                         <div class="screener-main-content">
                             <!-- 결과 테이블 -->
                             <section class="screener-result-section">
-                                <table class="data-table screener-table" id="screener-table">
+                                <!-- 빈 상태 안내 -->
+                                <div id="screener-empty-state" class="screener-empty-state">
+                                    <div class="empty-icon">🔍</div>
+                                    <div class="empty-title">필터를 설정하고 검색하세요</div>
+                                    <div class="empty-desc">위의 필터 버튼으로 원하는 조건을 설정하거나,<br>프리셋을 선택하면 바로 검색됩니다.</div>
+                                </div>
+                                <table class="data-table screener-table" id="screener-table" style="display:none;">
                                     <thead>
                                         <tr>
                                             <th data-sort="code" class="sortable">코드 <span class="sort-icon"></span></th>

@@ -12845,7 +12845,8 @@ let screenerState = {
     perPage: 50,
     total: 0,
     activeFilters: {},      // { filterKey: { value, label } }
-    selectedStock: null     // 상세 패널용
+    selectedStock: null,    // 상세 패널용
+    hasSearched: false      // 검색 실행 여부 (필터 적용 전에는 빈 상태)
 };
 
 async function loadScreener() {
@@ -12868,8 +12869,33 @@ async function loadScreener() {
     // 이벤트 바인딩 (최초 1회)
     initScreenerEvents();
 
-    // 초기 검색 실행
-    await searchScreener();
+    // 초기 상태: 빈 화면 표시 (자동 검색 제거)
+    screenerState.hasSearched = false;
+    showScreenerEmptyState();
+}
+
+// 빈 상태 표시
+function showScreenerEmptyState() {
+    const emptyState = document.getElementById('screener-empty-state');
+    const table = document.getElementById('screener-table');
+    const pagination = document.getElementById('screener-pagination');
+    const countEl = document.getElementById('screener-result-count');
+
+    if (emptyState) emptyState.style.display = 'flex';
+    if (table) table.style.display = 'none';
+    if (pagination) pagination.style.display = 'none';
+    if (countEl) countEl.textContent = '';
+}
+
+// 결과 상태 표시
+function showScreenerResultState() {
+    const emptyState = document.getElementById('screener-empty-state');
+    const table = document.getElementById('screener-table');
+    const pagination = document.getElementById('screener-pagination');
+
+    if (emptyState) emptyState.style.display = 'none';
+    if (table) table.style.display = 'table';
+    if (pagination) pagination.style.display = 'flex';
 }
 
 let screenerEventsInitialized = false;
@@ -12888,9 +12914,10 @@ function initScreenerEvents() {
             screenerState.sort = tab.dataset.market === 'etf' ? 'nav' : 'market_cap';
             screenerState.order = 'desc';
             screenerState.activeFilters = {};  // 필터도 리셋
+            screenerState.hasSearched = false; // 마켓 전환 시 빈 상태로
             updateScreenerFiltersUI(screenerState.market);
             updateChipStates();
-            searchScreener();
+            showScreenerEmptyState();
         });
     });
 
@@ -12904,7 +12931,13 @@ function initScreenerEvents() {
 
     // 검색 버튼
     document.getElementById('btn-screener-search')?.addEventListener('click', () => {
+        // 필터가 1개 이상 있어야 검색 실행
+        if (Object.keys(screenerState.activeFilters).length === 0) {
+            showNotification('필터를 1개 이상 설정해주세요', 'warning');
+            return;
+        }
         screenerState.page = 1;
+        screenerState.hasSearched = true;
         searchScreener();
     });
 
@@ -12912,18 +12945,20 @@ function initScreenerEvents() {
     document.getElementById('btn-screener-reset')?.addEventListener('click', () => {
         screenerState.activeFilters = {};
         screenerState.page = 1;
+        screenerState.hasSearched = false;
         updateActiveFiltersUI();
         updateChipStates();
-        searchScreener();
+        showScreenerEmptyState();
     });
 
     // 모두 지우기 버튼
     document.getElementById('btn-clear-all-filters')?.addEventListener('click', () => {
         screenerState.activeFilters = {};
         screenerState.page = 1;
+        screenerState.hasSearched = false;
         updateActiveFiltersUI();
         updateChipStates();
-        searchScreener();
+        showScreenerEmptyState();
     });
 
     // 팝오버 닫기 버튼
@@ -13348,7 +13383,14 @@ function removeFilter(key) {
     updateActiveFiltersUI();
     updateChipStates();
     screenerState.page = 1;
-    searchScreener();
+
+    // 모든 필터 제거 시 빈 상태로 복귀
+    if (Object.keys(screenerState.activeFilters).length === 0) {
+        screenerState.hasSearched = false;
+        showScreenerEmptyState();
+    } else {
+        searchScreener();
+    }
 }
 
 // 활성 필터 UI 업데이트
@@ -13469,8 +13511,17 @@ function collectScreenerFilters() {
 }
 
 async function searchScreener() {
+    // 검색 실행 여부 체크 (필터 없이 첫 진입 시 빈 상태 유지)
+    if (!screenerState.hasSearched) {
+        showScreenerEmptyState();
+        return;
+    }
+
     const tbody = document.getElementById('screener-tbody');
     const countEl = document.getElementById('screener-result-count');
+
+    // 결과 영역 표시
+    showScreenerResultState();
 
     // 시장별 테이블 헤더 업데이트
     updateTableHeader(screenerState.market);
@@ -13946,8 +13997,9 @@ function loadSelectedPreset() {
     updateChipStates();
     updateSortIcons();
 
-    // 검색 실행
+    // 검색 실행 (프리셋 선택은 자동 검색)
     screenerState.page = 1;
+    screenerState.hasSearched = true;
     searchScreener();
 
     showNotification(`프리셋 "${preset.name}" 적용`, 'success');
