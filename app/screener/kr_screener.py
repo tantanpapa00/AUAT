@@ -372,8 +372,9 @@ async def enrich_financial_data(stocks: List[Dict]) -> List[Dict]:
                         stock["pbr"] = _parse_float(value.replace("배", ""))
                     elif key == "eps":
                         stock["eps"] = _parse_float(value.replace("원", "").replace(",", ""))
-                    elif key == "epsGrowth" or key == "eps_growth":
-                        stock["eps_growth"] = _parse_float(value.replace("%", ""))
+                    elif key == "cnsEps":
+                        # 컨센서스 EPS (애널리스트 추정치)
+                        stock["cns_eps"] = _parse_float(value.replace("원", "").replace(",", ""))
                     elif key == "bps":
                         stock["bps"] = _parse_float(value.replace("원", "").replace(",", ""))
                     elif key == "roe":
@@ -406,6 +407,13 @@ async def enrich_financial_data(stocks: List[Dict]) -> List[Dict]:
                             stock["w52_high_pct"] = None
                     elif key == "lowPriceOf52Weeks":
                         stock["low_52w"] = _parse_price(value)
+
+                # EPS 성장률 계산 (컨센서스 기반)
+                # eps_growth = (cnsEps - eps) / abs(eps) * 100
+                eps = stock.get("eps")
+                cns_eps = stock.get("cns_eps")
+                if eps and cns_eps and eps != 0:
+                    stock["eps_growth"] = round((cns_eps - eps) / abs(eps) * 100, 2)
 
             except Exception as e:
                 # 개별 종목 에러는 무시하고 계속 진행

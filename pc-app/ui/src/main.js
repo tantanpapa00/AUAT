@@ -12425,106 +12425,7 @@ const FILTER_DEFINITIONS = {
             { min: 5, max: null, label: '5 이상' }
         ]
     },
-    psr: {
-        label: 'PSR',
-        type: 'range',
-        unit: '배',
-        presets: [
-            { min: null, max: 1, label: '저평가 (0~1)' },
-            { min: 1, max: 3, label: '1~3' },
-            { min: 3, max: 10, label: '3~10' },
-            { min: 10, max: null, label: '10 이상' }
-        ]
-    },
-    roe: {
-        label: 'ROE',
-        type: 'range',
-        unit: '%',
-        presets: [
-            { min: null, max: 0, label: '적자' },
-            { min: 0, max: 5, label: '0~5%' },
-            { min: 5, max: 10, label: '5~10%' },
-            { min: 10, max: 20, label: '우량 (10~20%)' },
-            { min: 20, max: null, label: '고수익 (20%+)' }
-        ]
-    },
-    roa: {
-        label: 'ROA',
-        type: 'range',
-        unit: '%',
-        presets: [
-            { min: null, max: 0, label: '적자' },
-            { min: 0, max: 3, label: '0~3%' },
-            { min: 3, max: 7, label: '3~7%' },
-            { min: 7, max: null, label: '7% 이상' }
-        ]
-    },
-    operating_margin: {
-        label: '영업이익률',
-        type: 'range',
-        unit: '%',
-        presets: [
-            { min: null, max: 0, label: '적자' },
-            { min: 0, max: 5, label: '0~5%' },
-            { min: 5, max: 10, label: '5~10%' },
-            { min: 10, max: 20, label: '우량 (10~20%)' },
-            { min: 20, max: null, label: '고수익 (20%+)' }
-        ]
-    },
-    net_margin: {
-        label: '순이익률',
-        type: 'range',
-        unit: '%',
-        presets: [
-            { min: null, max: 0, label: '적자' },
-            { min: 0, max: 5, label: '0~5%' },
-            { min: 5, max: 10, label: '5~10%' },
-            { min: 10, max: null, label: '10% 이상' }
-        ]
-    },
-    debt_ratio: {
-        label: '부채비율',
-        type: 'range',
-        unit: '%',
-        presets: [
-            { min: null, max: 50, label: '우량 (50% 미만)' },
-            { min: 50, max: 100, label: '50~100%' },
-            { min: 100, max: 200, label: '100~200%' },
-            { min: 200, max: null, label: '200% 이상' }
-        ]
-    },
-    current_ratio: {
-        label: '유동비율',
-        type: 'range',
-        unit: '%',
-        presets: [
-            { min: 200, max: null, label: '우량 (200%+)' },
-            { min: 150, max: 200, label: '150~200%' },
-            { min: 100, max: 150, label: '100~150%' },
-            { min: null, max: 100, label: '100% 미만' }
-        ]
-    },
-    quick_ratio: {
-        label: '당좌비율',
-        type: 'range',
-        unit: '%',
-        presets: [
-            { min: 100, max: null, label: '100% 이상' },
-            { min: 50, max: 100, label: '50~100%' },
-            { min: null, max: 50, label: '50% 미만' }
-        ]
-    },
-    reserve_ratio: {
-        label: '유보율',
-        type: 'range',
-        unit: '%',
-        presets: [
-            { min: 1000, max: null, label: '1000% 이상' },
-            { min: 500, max: 1000, label: '500~1000%' },
-            { min: 100, max: 500, label: '100~500%' },
-            { min: null, max: 100, label: '100% 미만' }
-        ]
-    },
+    // PSR, ROE, ROA, 영업이익률, 순이익률, 부채비율, 유동비율, 당좌비율, 유보율 제거 (네이버 API 미제공)
     dividend_yield: {
         label: '배당수익률',
         type: 'range',
@@ -12537,7 +12438,7 @@ const FILTER_DEFINITIONS = {
         ]
     },
     eps_growth: {
-        label: 'EPS 성장률',
+        label: 'EPS 성장률(컨센서스)',
         type: 'range',
         unit: '%',
         presets: [
@@ -12547,47 +12448,8 @@ const FILTER_DEFINITIONS = {
             { min: null, max: 0, label: '역성장' }
         ]
     },
-    bps: {
-        label: 'BPS',
-        type: 'compare',
-        options: [
-            { value: 'above', label: '현재가 > BPS (고평가)' },
-            { value: 'below', label: '현재가 < BPS (저평가)' }
-        ]
-    },
-    sales_growth: {
-        label: '매출성장률',
-        type: 'range',
-        unit: '%',
-        presets: [
-            { min: 30, max: null, label: '고성장 (30%+)' },
-            { min: 10, max: 30, label: '성장 (10~30%)' },
-            { min: 0, max: 10, label: '안정 (0~10%)' },
-            { min: null, max: 0, label: '역성장' }
-        ]
-    },
-    op_growth: {
-        label: '영업이익성장률',
-        type: 'range',
-        unit: '%',
-        presets: [
-            { min: 30, max: null, label: '고성장 (30%+)' },
-            { min: 10, max: 30, label: '성장 (10~30%)' },
-            { min: 0, max: 10, label: '안정 (0~10%)' },
-            { min: null, max: 0, label: '역성장' }
-        ]
-    },
-    payout_ratio: {
-        label: '배당성향',
-        type: 'range',
-        unit: '%',
-        presets: [
-            { min: 50, max: null, label: '고배당 (50%+)' },
-            { min: 30, max: 50, label: '30~50%' },
-            { min: 10, max: 30, label: '10~30%' },
-            { min: null, max: 10, label: '10% 미만' }
-        ]
-    },
+    // 매출성장률, 영업이익성장률, 배당성향 제거 (네이버 API 미제공)
+    // BPS는 네이버 API 제공하지만 필터 용도로 부적합 (절대값) - 제거
 
     // ===== 기술적지표 (12개) =====
     rsi: {
@@ -12732,30 +12594,18 @@ const FILTER_DEFINITIONS = {
     }
 };
 
-// 재무 지표 — 국내/해외 공통 (17개)
-const COMMON_FINANCIAL_FILTERS = {
-    // 가치 평가
+// 재무 지표 — 국내(KR) 전용 (네이버 API 제공 데이터만)
+const KR_FINANCIAL_FILTERS = {
     per: { ...FILTER_DEFINITIONS.per, category: 'financial' },
     pbr: { ...FILTER_DEFINITIONS.pbr, category: 'financial' },
-    psr: { ...FILTER_DEFINITIONS.psr, category: 'financial' },
     eps_growth: { ...FILTER_DEFINITIONS.eps_growth, category: 'financial' },
-    bps: { ...FILTER_DEFINITIONS.bps, category: 'financial' },
-    // 수익성
-    roe: { ...FILTER_DEFINITIONS.roe, category: 'financial' },
-    roa: { ...FILTER_DEFINITIONS.roa, category: 'financial' },
-    operating_margin: { ...FILTER_DEFINITIONS.operating_margin, category: 'financial' },
-    net_margin: { ...FILTER_DEFINITIONS.net_margin, category: 'financial' },
-    // 재무 건전성
-    debt_ratio: { ...FILTER_DEFINITIONS.debt_ratio, category: 'financial' },
-    current_ratio: { ...FILTER_DEFINITIONS.current_ratio, category: 'financial' },
-    quick_ratio: { ...FILTER_DEFINITIONS.quick_ratio, category: 'financial' },
-    reserve_ratio: { ...FILTER_DEFINITIONS.reserve_ratio, category: 'financial' },
-    // 성장성
-    sales_growth: { ...FILTER_DEFINITIONS.sales_growth, category: 'financial' },
-    op_growth: { ...FILTER_DEFINITIONS.op_growth, category: 'financial' },
-    // 배당
     dividend_yield: { ...FILTER_DEFINITIONS.dividend_yield, category: 'financial' },
-    payout_ratio: { ...FILTER_DEFINITIONS.payout_ratio, category: 'financial' },
+};
+
+// 재무 지표 — 해외(US) 전용 (Finviz 스크리너 제공 데이터만)
+// 현재 Finviz 스크리너에서 섹터/시총/등락률만 제공
+const US_FINANCIAL_FILTERS = {
+    // 상세 재무 데이터 없음 (개별 종목 페이지 스크래핑 필요)
 };
 
 // 기술적 지표 — 국내/해외 공통 (16개: 기존 11 + 신규 5)
@@ -12935,9 +12785,9 @@ const US_FILTER_DEFINITIONS = {
             { min: 1, max: null, label: '1%+' }
         ]
     },
-    // 재무 지표 (17개 — 국내와 동일)
-    ...COMMON_FINANCIAL_FILTERS,
-    // 기술적 지표 (16개 — 국내와 동일)
+    // 재무 지표 — US는 Finviz 스크리너에서 제공 안 함
+    ...US_FINANCIAL_FILTERS,
+    // 기술적 지표 (16개)
     ...COMMON_TECHNICAL_FILTERS
 };
 
@@ -13846,7 +13696,7 @@ function updateScreenerFiltersUI(market) {
                     <div class="chip-row">
                         <button class="filter-chip" data-filter="per">PER</button>
                         <button class="filter-chip" data-filter="pbr">PBR</button>
-                        <button class="filter-chip" data-filter="roe">ROE</button>
+                        <button class="filter-chip" data-filter="eps_growth">EPS성장률</button>
                         <button class="filter-chip" data-filter="dividend_yield">배당수익률</button>
                     </div>
                 </div>

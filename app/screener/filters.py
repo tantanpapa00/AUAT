@@ -177,10 +177,8 @@ def apply_screener_filters(stocks: List[Dict], filters: Dict) -> List[Dict]:
         else:
             result = _filter_by_range(result, "dividend_yield", filters["dividend_yield"])
 
-    # 추가 재무지표 (V2)
-    for field in ["psr", "roa", "net_margin", "current_ratio", "quick_ratio",
-                  "reserve_ratio", "eps_growth", "bps", "sales_growth", "op_growth",
-                  "payout_ratio", "foreign_ratio"]:
+    # 추가 재무지표 (V2) - 네이버 API 제공 필드만
+    for field in ["eps_growth", "foreign_ratio"]:
         if filters.get(field):
             min_val, max_val, _ = _parse_filter_v2(filters[field])
             if min_val is not None or max_val is not None:
@@ -561,21 +559,11 @@ def sort_screener_results(stocks: List[Dict], sort: str, order: str) -> List[Dic
         "sector": lambda x: x.get("sector") or "",  # US 섹터
         "issuer": lambda x: x.get("issuer") or "",  # ETF 운용사
         "category": lambda x: x.get("category") or "",  # ETF 카테고리
-        # 재무 (기본)
+        # 재무 (네이버 API 제공 필드만)
         "per": lambda x: x.get("per") or 9999,
         "pbr": lambda x: x.get("pbr") or 9999,
-        "roe": lambda x: x.get("roe") or -9999,
-        "roa": lambda x: x.get("roa") or -9999,
         "dividend_yield": lambda x: x.get("dividend_yield") or 0,
-        # 재무 (추가)
         "eps_growth": lambda x: x.get("eps_growth") or 0,
-        "bps": lambda x: x.get("bps") or 0,
-        "debt_ratio": lambda x: x.get("debt_ratio") or 9999,
-        "current_ratio": lambda x: x.get("current_ratio") or 0,
-        "operating_margin": lambda x: x.get("operating_margin") or -9999,
-        "net_margin": lambda x: x.get("net_margin") or -9999,
-        "sales_growth": lambda x: x.get("sales_growth") or -9999,
-        "op_growth": lambda x: x.get("op_growth") or -9999,
         "foreign_ratio": lambda x: x.get("foreign_ratio") or 0,
         # 52주
         "w52_high_pct": lambda x: x.get("w52_high_pct") or -9999,
