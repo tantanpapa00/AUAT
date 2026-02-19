@@ -119,17 +119,31 @@ def compute_all_technicals(candles: List[Dict[str, Any]], params: Dict[str, Any]
             else:
                 result[f'{key}_position'] = 'near'
 
-    # 이평선 교차 (20일 vs 50일)
-    if result.get('sma20') and result.get('sma50') and len(closes) > 51:
-        prev_sma20 = _calc_sma(closes[:-1], 20)
-        prev_sma50 = _calc_sma(closes[:-1], 50)
-        if prev_sma20 and prev_sma50:
-            if result['sma20'] > result['sma50'] and prev_sma20 <= prev_sma50:
-                result['sma_cross'] = 'golden'
-            elif result['sma20'] < result['sma50'] and prev_sma20 >= prev_sma50:
-                result['sma_cross'] = 'dead'
-            else:
-                result['sma_cross'] = 'none'
+    # 이평선 교차 (20일 vs 50일) - lookback 5일 내 교차 감지
+    if result.get('sma20') and result.get('sma50') and len(closes) > 55:
+        lookback = 5  # 최근 5일 내 교차 감지
+        result['sma_cross'] = 'none'
+
+        for offset in range(lookback):
+            if offset >= len(closes) - 51:
+                break
+
+            # 현재 위치에서 SMA 계산
+            idx = len(closes) - offset
+            sma20_now = _calc_sma(closes[:idx], 20)
+            sma50_now = _calc_sma(closes[:idx], 50)
+            sma20_prev = _calc_sma(closes[:idx-1], 20) if idx > 21 else None
+            sma50_prev = _calc_sma(closes[:idx-1], 50) if idx > 51 else None
+
+            if sma20_now and sma50_now and sma20_prev and sma50_prev:
+                if sma20_now > sma50_now and sma20_prev <= sma50_prev:
+                    result['sma_cross'] = 'golden'
+                    result['sma_cross_days_ago'] = offset
+                    break
+                elif sma20_now < sma50_now and sma20_prev >= sma50_prev:
+                    result['sma_cross'] = 'dead'
+                    result['sma_cross_days_ago'] = offset
+                    break
 
     # 볼린저밴드 (동적 파라미터 지원)
     bb_params = params.get('bollinger', {})
@@ -245,14 +259,31 @@ def compute_all_technicals(candles: List[Dict[str, Any]], params: Dict[str, Any]
 
 
 def _calc_rsi(closes: list, period: int = 14) -> Optional[float]:
-    """RSI 계산"""
+    """
+    RSI 계산 - TradingView 동일 방식 (Wilder's Smoothing/RMA)
+
+    Wilder's smoothing: alpha = 1/period (일반 EMA는 2/(period+1))
+    첫 번째 평균은 SMA, 이후 RMA로 스무딩
+    """
     if len(closes) < period + 1:
         return None
-    deltas = np.diff(closes[-period-1:])
+
+    # 전체 변화량 계산 (충분한 데이터 사용)
+    data_len = min(len(closes), period * 3)  # 최소 period*3 봉 사용
+    deltas = np.diff(closes[-data_len:])
     gains = np.where(deltas > 0, deltas, 0)
     losses = np.where(deltas < 0, -deltas, 0)
-    avg_gain = np.mean(gains)
-    avg_loss = np.mean(losses)
+
+    # 첫 번째 평균 (SMA)
+    avg_gain = np.mean(gains[:period])
+    avg_loss = np.mean(losses[:period])
+
+    # Wilder's smoothing (RMA) 적용
+    alpha = 1.0 / period
+    for i in range(period, len(gains)):
+        avg_gain = alpha * gains[i] + (1 - alpha) * avg_gain
+        avg_loss = alpha * losses[i] + (1 - alpha) * avg_loss
+
     if avg_loss == 0:
         return 100.0
     rs = avg_gain / avg_loss
@@ -418,20 +449,32 @@ def calc_ichimoku(highs, lows, closes, tenkan=9, kijun=26, senkou_b=52) -> Dict[
 
 
 def calc_stoch_rsi(closes, rsi_period=14, stoch_period=14, k_period=3, d_period=3) -> Dict[str, Any]:
-    """Stochastic RSI 계산"""
-    if len(closes) < rsi_period + stoch_period:
+    """
+    Stochastic RSI 계산 - TradingView 동일 방식
+
+    내부 RSI도 Wilder's smoothing 사용
+    """
+    if len(closes) < rsi_period + stoch_period + 10:
         return {'stoch_rsi': None}
 
-    # RSI 계산
+    # RSI 시계열 계산 (Wilder's smoothing)
+    deltas = np.diff(closes)
+    gains = np.where(deltas > 0, deltas, 0)
+    losses = np.where(deltas < 0, -deltas, 0)
+
+    # 첫 번째 평균 (SMA)
+    avg_gain = np.mean(gains[:rsi_period])
+    avg_loss = np.mean(losses[:rsi_period])
+
     rsi_values = []
-    for i in range(rsi_period, len(closes)):
-        deltas = np.diff(closes[i-rsi_period:i+1])
-        gains = np.where(deltas > 0, deltas, 0)
-        losses = np.where(deltas < 0, -deltas, 0)
-        avg_gain = np.mean(gains)
-        avg_loss = np.mean(losses)
+    alpha = 1.0 / rsi_period
+
+    for i in range(rsi_period, len(gains)):
+        avg_gain = alpha * gains[i] + (1 - alpha) * avg_gain
+        avg_loss = alpha * losses[i] + (1 - alpha) * avg_loss
+
         if avg_loss == 0:
-            rsi_values.append(100)
+            rsi_values.append(100.0)
         else:
             rs = avg_gain / avg_loss
             rsi_values.append(100 - (100 / (1 + rs)))
@@ -439,7 +482,7 @@ def calc_stoch_rsi(closes, rsi_period=14, stoch_period=14, k_period=3, d_period=
     if len(rsi_values) < stoch_period:
         return {'stoch_rsi': None}
 
-    # Stochastic 적용
+    # Stochastic 적용 (최근 stoch_period 구간의 RSI 기준)
     recent_rsi = rsi_values[-stoch_period:]
     rsi_high = max(recent_rsi)
     rsi_low = min(recent_rsi)

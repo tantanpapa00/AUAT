@@ -12536,15 +12536,15 @@ const FILTER_DEFINITIONS = {
             { min: 1, max: 2, label: '1~2%' }
         ]
     },
-    eps: {
-        label: 'EPS',
+    eps_growth: {
+        label: 'EPS 성장률',
         type: 'range',
-        unit: '원',
+        unit: '%',
         presets: [
-            { min: 10000, max: null, label: '1만원 이상' },
-            { min: 5000, max: 10000, label: '5천~1만원' },
-            { min: 1000, max: 5000, label: '1천~5천원' },
-            { min: null, max: 0, label: '적자' }
+            { min: 100, max: null, label: '100%+' },
+            { min: 50, max: null, label: '50%+' },
+            { min: 20, max: null, label: '20%+' },
+            { min: null, max: 0, label: '역성장' }
         ]
     },
     bps: {
@@ -12738,7 +12738,7 @@ const COMMON_FINANCIAL_FILTERS = {
     per: { ...FILTER_DEFINITIONS.per, category: 'financial' },
     pbr: { ...FILTER_DEFINITIONS.pbr, category: 'financial' },
     psr: { ...FILTER_DEFINITIONS.psr, category: 'financial' },
-    eps: { ...FILTER_DEFINITIONS.eps, category: 'financial' },
+    eps_growth: { ...FILTER_DEFINITIONS.eps_growth, category: 'financial' },
     bps: { ...FILTER_DEFINITIONS.bps, category: 'financial' },
     // 수익성
     roe: { ...FILTER_DEFINITIONS.roe, category: 'financial' },

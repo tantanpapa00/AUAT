@@ -27,7 +27,7 @@ FINANCIAL_FILTER_KEYS = [
     # V2 추가 재무지표
     "psr", "roa", "net_margin", "operating_margin", "debt_ratio",
     "current_ratio", "quick_ratio", "reserve_ratio",
-    "eps", "bps", "sales_growth", "op_growth",
+    "eps_growth", "bps", "sales_growth", "op_growth",
     "payout_ratio", "foreign_ratio"
 ]
 
@@ -372,6 +372,8 @@ async def enrich_financial_data(stocks: List[Dict]) -> List[Dict]:
                         stock["pbr"] = _parse_float(value.replace("배", ""))
                     elif key == "eps":
                         stock["eps"] = _parse_float(value.replace("원", "").replace(",", ""))
+                    elif key == "epsGrowth" or key == "eps_growth":
+                        stock["eps_growth"] = _parse_float(value.replace("%", ""))
                     elif key == "bps":
                         stock["bps"] = _parse_float(value.replace("원", "").replace(",", ""))
                     elif key == "roe":

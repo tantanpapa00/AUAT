@@ -179,7 +179,7 @@ def apply_screener_filters(stocks: List[Dict], filters: Dict) -> List[Dict]:
 
     # 추가 재무지표 (V2)
     for field in ["psr", "roa", "net_margin", "current_ratio", "quick_ratio",
-                  "reserve_ratio", "eps", "bps", "sales_growth", "op_growth",
+                  "reserve_ratio", "eps_growth", "bps", "sales_growth", "op_growth",
                   "payout_ratio", "foreign_ratio"]:
         if filters.get(field):
             min_val, max_val, _ = _parse_filter_v2(filters[field])
@@ -568,7 +568,7 @@ def sort_screener_results(stocks: List[Dict], sort: str, order: str) -> List[Dic
         "roa": lambda x: x.get("roa") or -9999,
         "dividend_yield": lambda x: x.get("dividend_yield") or 0,
         # 재무 (추가)
-        "eps": lambda x: x.get("eps") or 0,
+        "eps_growth": lambda x: x.get("eps_growth") or 0,
         "bps": lambda x: x.get("bps") or 0,
         "debt_ratio": lambda x: x.get("debt_ratio") or 9999,
         "current_ratio": lambda x: x.get("current_ratio") or 0,
