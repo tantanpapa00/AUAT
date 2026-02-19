@@ -552,11 +552,15 @@ def sort_screener_results(stocks: List[Dict], sort: str, order: str) -> List[Dic
     sort_keys = {
         # 기본
         "market_cap": lambda x: x.get("market_cap") or 0,
+        "nav": lambda x: x.get("nav") or 0,  # ETF 순자산
         "price": lambda x: x.get("price") or 0,
         "change_pct": lambda x: x.get("change_pct") or 0,
         "volume": lambda x: x.get("volume") or 0,
         "name": lambda x: x.get("name") or "",
         "code": lambda x: x.get("code") or "",
+        "sector": lambda x: x.get("sector") or "",  # US 섹터
+        "issuer": lambda x: x.get("issuer") or "",  # ETF 운용사
+        "category": lambda x: x.get("category") or "",  # ETF 카테고리
         # 재무 (기본)
         "per": lambda x: x.get("per") or 9999,
         "pbr": lambda x: x.get("pbr") or 9999,

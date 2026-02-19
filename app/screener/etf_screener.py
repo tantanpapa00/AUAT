@@ -130,65 +130,60 @@ def sort_etf_results(etfs: List[Dict], sort: str, order: str) -> List[Dict]:
 async def fetch_all_etfs() -> List[Dict]:
     """
     네이버 금융에서 ETF 전체 목록 가져오기
+    https://finance.naver.com/api/sise/etfItemList.naver
     """
     all_etfs = []
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Referer": "https://m.stock.naver.com/"
+        "Referer": "https://finance.naver.com/"
     }
 
     try:
         async with httpx.AsyncClient(timeout=30, headers=headers) as client:
-            page = 1
-            page_size = 100
+            # 네이버 금융 ETF API
+            url = "https://finance.naver.com/api/sise/etfItemList.naver"
+            resp = await client.get(url)
 
-            while True:
-                # 네이버 ETF API (순자산 정렬)
-                url = f"https://m.stock.naver.com/api/stocks/etf/all?page={page}&pageSize={page_size}"
-                resp = await client.get(url)
+            if resp.status_code != 200:
+                print(f"[ETF Screener] API 오류: {resp.status_code}")
+                return all_etfs
 
-                if resp.status_code != 200:
-                    print(f"[ETF Screener] API 오류: {resp.status_code}")
-                    break
+            data = resp.json()
+            result = data.get("result", {})
+            stocks = result.get("etfItemList", [])
 
-                data = resp.json()
-                stocks = data.get("stocks", [])
+            if not stocks:
+                print("[ETF Screener] etfItemList가 비어있음")
+                return all_etfs
 
-                if not stocks:
-                    break
+            for s in stocks:
+                try:
+                    # 네이버 금융 ETF API 필드명
+                    # itemcode, itemname, nowVal, changeRate, quant, nav, marketSum
+                    code = s.get("itemcode", "")
+                    name = s.get("itemname", "")
+                    price = _parse_price(s.get("nowVal", 0))
+                    change_pct = _parse_float(s.get("changeRate", 0))
+                    volume = _parse_int(s.get("quant", 0))
+                    nav = _parse_float(s.get("nav", 0))  # 순자산
+                    market_sum = _parse_float(s.get("marketSum", 0))  # 시가총액 (억원)
 
-                for s in stocks:
-                    try:
-                        code = s.get("itemCode", "")
-                        name = s.get("stockName", "")
-                        price = _parse_price(s.get("closePrice", 0))
-                        prev_price = _parse_price(s.get("compareToPreviousClosePrice", 0))
-                        change_pct = _parse_float(s.get("fluctuationsRatio", 0))
-                        volume = _parse_int(s.get("accumulatedTradingVolume", 0))
-                        nav = _parse_float(s.get("totalNetAsset", 0))  # 순자산 (억원)
+                    issuer = _extract_issuer(name)
+                    category = _extract_category(name)
 
-                        # ETF 종목은 운용사 정보 별도 파싱 필요
-                        # 현재는 기본값 사용
-                        issuer = _extract_issuer(name)
-                        category = _extract_category(name)
-
-                        all_etfs.append({
-                            "code": code,
-                            "name": name,
-                            "price": price,
-                            "change_pct": change_pct,
-                            "volume": volume,
-                            "nav": nav / 100000000 if nav > 1000000 else nav,  # 억원 단위로 변환
-                            "issuer": issuer,
-                            "category": category,
-                            "exchange": "ETF",
-                        })
-                    except Exception as e:
-                        continue
-
-                if len(stocks) < page_size:
-                    break
-                page += 1
+                    all_etfs.append({
+                        "code": code,
+                        "name": name,
+                        "price": price,
+                        "change_pct": change_pct,
+                        "volume": volume,
+                        "nav": market_sum,  # 시가총액을 nav로 사용 (억원)
+                        "issuer": issuer,
+                        "category": category,
+                        "exchange": "ETF",
+                    })
+                except Exception as e:
+                    continue
 
     except Exception as e:
         print(f"[ETF Screener] 오류: {e}")

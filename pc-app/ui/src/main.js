@@ -12779,7 +12779,12 @@ function initScreenerEvents() {
             tab.classList.add('active');
             screenerState.market = tab.dataset.market;
             screenerState.page = 1;
+            // 마켓 전환 시 정렬 키 리셋
+            screenerState.sort = tab.dataset.market === 'etf' ? 'nav' : 'market_cap';
+            screenerState.order = 'desc';
+            screenerState.activeFilters = {};  // 필터도 리셋
             updateScreenerFiltersUI(screenerState.market);
+            updateChipStates();
             searchScreener();
         });
     });
