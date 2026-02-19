@@ -13330,13 +13330,11 @@ async def api_run_custom_backtest(
             raise HTTPException(status_code=403, detail="프리미엄 요금제에서 이용 가능합니다")
 
     try:
-        # 캔들 데이터 조회
+        # 캔들 데이터 조회 (days 기반)
         candles = await fetch_candles_for_backtest(
             exchange=request.exchange,
             symbol=request.symbol,
             timeframe=request.timeframe,
-            start_date=request.start_date,
-            end_date=request.end_date,
             days=request.days,
         )
 
