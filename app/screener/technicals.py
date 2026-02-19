@@ -207,6 +207,40 @@ def compute_all_technicals(candles: List[Dict[str, Any]], params: Dict[str, Any]
     if len(closes) >= 66:
         result['period_return_3m'] = round((closes[-1] - closes[-66]) / closes[-66] * 100, 2)
 
+    # 일목균형표 (동적 파라미터 지원)
+    ichimoku_params = params.get('ichimoku', {})
+    tenkan = ichimoku_params.get('tenkan', 9)
+    kijun = ichimoku_params.get('kijun', 26)
+    senkou_b_period = ichimoku_params.get('senkou_b', 52)
+    ichimoku_result = calc_ichimoku(highs, lows, closes, tenkan, kijun, senkou_b_period)
+    result.update(ichimoku_result)
+
+    # Stochastic RSI (동적 파라미터 지원)
+    stoch_rsi_params = params.get('stoch_rsi', {})
+    stoch_rsi_result = calc_stoch_rsi(
+        closes,
+        rsi_period=stoch_rsi_params.get('rsi_period', 14),
+        stoch_period=stoch_rsi_params.get('stoch_period', 14),
+        k_period=stoch_rsi_params.get('k_period', 3),
+        d_period=stoch_rsi_params.get('d_period', 3)
+    )
+    result.update(stoch_rsi_result)
+
+    # ADX (동적 파라미터 지원)
+    adx_params = params.get('adx', {})
+    adx_result = calc_adx(highs, lows, closes, period=adx_params.get('period', 14))
+    result.update(adx_result)
+
+    # CCI (동적 파라미터 지원)
+    cci_params = params.get('cci', {})
+    cci_result = calc_cci(highs, lows, closes, period=cci_params.get('period', 20))
+    result.update(cci_result)
+
+    # Williams %R (동적 파라미터 지원)
+    wr_params = params.get('williams_r', {})
+    wr_result = calc_williams_r(highs, lows, closes, period=wr_params.get('period', 14))
+    result.update(wr_result)
+
     return result
 
 
@@ -317,3 +351,185 @@ def _calc_atr(highs, lows, closes, period=14) -> Optional[float]:
         )
         trs.append(tr)
     return round(np.mean(trs), 2)
+
+
+def calc_ichimoku(highs, lows, closes, tenkan=9, kijun=26, senkou_b=52) -> Dict[str, Any]:
+    """
+    일목균형표 계산
+    - 전환선(Tenkan): (9일 최고 + 9일 최저) / 2
+    - 기준선(Kijun): (26일 최고 + 26일 최저) / 2
+    - 선행스팬A: (전환선 + 기준선) / 2, 26일 앞으로 표시
+    - 선행스팬B: (52일 최고 + 52일 최저) / 2, 26일 앞으로 표시
+    """
+    n = len(closes)
+    if n < senkou_b + kijun:
+        return {}
+
+    i = n - 1  # 현재 봉
+
+    # 전환선 (tenkan-sen)
+    tenkan_val = (max(highs[max(0, i-tenkan+1):i+1]) + min(lows[max(0, i-tenkan+1):i+1])) / 2
+
+    # 기준선 (kijun-sen)
+    kijun_val = (max(highs[max(0, i-kijun+1):i+1]) + min(lows[max(0, i-kijun+1):i+1])) / 2
+
+    # 선행스팬 A, B (26봉 전 기준)
+    j = i - kijun
+    if j >= max(tenkan, kijun):
+        t_prev = (max(highs[max(0, j-tenkan+1):j+1]) + min(lows[max(0, j-tenkan+1):j+1])) / 2
+        k_prev = (max(highs[max(0, j-kijun+1):j+1]) + min(lows[max(0, j-kijun+1):j+1])) / 2
+        senkou_a = (t_prev + k_prev) / 2
+    else:
+        senkou_a = (tenkan_val + kijun_val) / 2
+
+    if j >= senkou_b:
+        senkou_b_val = (max(highs[max(0, j-senkou_b+1):j+1]) + min(lows[max(0, j-senkou_b+1):j+1])) / 2
+    else:
+        senkou_b_val = (max(highs[max(0, i-senkou_b+1):i+1]) + min(lows[max(0, i-senkou_b+1):i+1])) / 2
+
+    # 구름 위치 판단
+    cloud_top = max(senkou_a, senkou_b_val)
+    cloud_bottom = min(senkou_a, senkou_b_val)
+    current_price = closes[-1]
+
+    if current_price > cloud_top:
+        cloud_pos = 'above_cloud'
+    elif current_price < cloud_bottom:
+        cloud_pos = 'below_cloud'
+    else:
+        cloud_pos = 'in_cloud'
+
+    # 전환선/기준선 관계
+    if tenkan_val > kijun_val:
+        tk_cross = 'tenkan_above_kijun'
+    elif tenkan_val < kijun_val:
+        tk_cross = 'tenkan_below_kijun'
+    else:
+        tk_cross = 'equal'
+
+    return {
+        'ichimoku_tenkan': round(tenkan_val, 2),
+        'ichimoku_kijun': round(kijun_val, 2),
+        'ichimoku_senkou_a': round(senkou_a, 2),
+        'ichimoku_senkou_b': round(senkou_b_val, 2),
+        'ichimoku_cloud': cloud_pos,
+        'ichimoku_tk_cross': tk_cross,
+    }
+
+
+def calc_stoch_rsi(closes, rsi_period=14, stoch_period=14, k_period=3, d_period=3) -> Dict[str, Any]:
+    """Stochastic RSI 계산"""
+    if len(closes) < rsi_period + stoch_period:
+        return {'stoch_rsi': None}
+
+    # RSI 계산
+    rsi_values = []
+    for i in range(rsi_period, len(closes)):
+        deltas = np.diff(closes[i-rsi_period:i+1])
+        gains = np.where(deltas > 0, deltas, 0)
+        losses = np.where(deltas < 0, -deltas, 0)
+        avg_gain = np.mean(gains)
+        avg_loss = np.mean(losses)
+        if avg_loss == 0:
+            rsi_values.append(100)
+        else:
+            rs = avg_gain / avg_loss
+            rsi_values.append(100 - (100 / (1 + rs)))
+
+    if len(rsi_values) < stoch_period:
+        return {'stoch_rsi': None}
+
+    # Stochastic 적용
+    recent_rsi = rsi_values[-stoch_period:]
+    rsi_high = max(recent_rsi)
+    rsi_low = min(recent_rsi)
+
+    if rsi_high == rsi_low:
+        stoch_rsi = 50
+    else:
+        stoch_rsi = ((rsi_values[-1] - rsi_low) / (rsi_high - rsi_low)) * 100
+
+    return {'stoch_rsi': round(stoch_rsi, 2)}
+
+
+def calc_adx(highs, lows, closes, period=14) -> Dict[str, Any]:
+    """ADX (Average Directional Index) 계산"""
+    n = len(closes)
+    if n < period * 2:
+        return {'adx': None}
+
+    plus_dm = []
+    minus_dm = []
+    tr_list = []
+
+    for i in range(1, n):
+        h_diff = highs[i] - highs[i-1]
+        l_diff = lows[i-1] - lows[i]
+
+        plus_dm.append(h_diff if h_diff > l_diff and h_diff > 0 else 0)
+        minus_dm.append(l_diff if l_diff > h_diff and l_diff > 0 else 0)
+        tr_list.append(max(highs[i]-lows[i], abs(highs[i]-closes[i-1]), abs(lows[i]-closes[i-1])))
+
+    if len(tr_list) < period:
+        return {'adx': None}
+
+    # Smoothed averages
+    atr = sum(tr_list[:period]) / period
+    plus_di_sum = sum(plus_dm[:period]) / period
+    minus_di_sum = sum(minus_dm[:period]) / period
+
+    dx_list = []
+    for i in range(period, len(tr_list)):
+        atr = (atr * (period-1) + tr_list[i]) / period
+        plus_di_sum = (plus_di_sum * (period-1) + plus_dm[i]) / period
+        minus_di_sum = (minus_di_sum * (period-1) + minus_dm[i]) / period
+
+        if atr == 0:
+            continue
+        pdi = (plus_di_sum / atr) * 100
+        mdi = (minus_di_sum / atr) * 100
+
+        if pdi + mdi == 0:
+            dx_list.append(0)
+        else:
+            dx_list.append(abs(pdi - mdi) / (pdi + mdi) * 100)
+
+    if len(dx_list) < period:
+        return {'adx': None}
+
+    adx = sum(dx_list[-period:]) / period
+    return {'adx': round(adx, 2)}
+
+
+def calc_cci(highs, lows, closes, period=20) -> Dict[str, Any]:
+    """CCI (Commodity Channel Index) 계산"""
+    n = len(closes)
+    if n < period:
+        return {'cci': None}
+
+    tp_list = [(highs[i]+lows[i]+closes[i])/3 for i in range(n)]
+    tp_recent = tp_list[-period:]
+    tp_sma = sum(tp_recent) / period
+    mean_dev = sum(abs(tp - tp_sma) for tp in tp_recent) / period
+
+    if mean_dev == 0:
+        return {'cci': 0}
+
+    cci = (tp_list[-1] - tp_sma) / (0.015 * mean_dev)
+    return {'cci': round(cci, 2)}
+
+
+def calc_williams_r(highs, lows, closes, period=14) -> Dict[str, Any]:
+    """Williams %R 계산"""
+    n = len(closes)
+    if n < period:
+        return {'williams_r': None}
+
+    highest = max(highs[-period:])
+    lowest = min(lows[-period:])
+
+    if highest == lowest:
+        return {'williams_r': -50}
+
+    wr = ((highest - closes[-1]) / (highest - lowest)) * -100
+    return {'williams_r': round(wr, 2)}

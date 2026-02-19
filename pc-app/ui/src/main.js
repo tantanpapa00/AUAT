@@ -12732,8 +12732,35 @@ const FILTER_DEFINITIONS = {
     }
 };
 
-// 기술적 지표 — 국내/해외 공통 (일봉 데이터로 계산)
+// 재무 지표 — 국내/해외 공통 (17개)
+const COMMON_FINANCIAL_FILTERS = {
+    // 가치 평가
+    per: { ...FILTER_DEFINITIONS.per, category: 'financial' },
+    pbr: { ...FILTER_DEFINITIONS.pbr, category: 'financial' },
+    psr: { ...FILTER_DEFINITIONS.psr, category: 'financial' },
+    eps: { ...FILTER_DEFINITIONS.eps, category: 'financial' },
+    bps: { ...FILTER_DEFINITIONS.bps, category: 'financial' },
+    // 수익성
+    roe: { ...FILTER_DEFINITIONS.roe, category: 'financial' },
+    roa: { ...FILTER_DEFINITIONS.roa, category: 'financial' },
+    operating_margin: { ...FILTER_DEFINITIONS.operating_margin, category: 'financial' },
+    net_margin: { ...FILTER_DEFINITIONS.net_margin, category: 'financial' },
+    // 재무 건전성
+    debt_ratio: { ...FILTER_DEFINITIONS.debt_ratio, category: 'financial' },
+    current_ratio: { ...FILTER_DEFINITIONS.current_ratio, category: 'financial' },
+    quick_ratio: { ...FILTER_DEFINITIONS.quick_ratio, category: 'financial' },
+    reserve_ratio: { ...FILTER_DEFINITIONS.reserve_ratio, category: 'financial' },
+    // 성장성
+    sales_growth: { ...FILTER_DEFINITIONS.sales_growth, category: 'financial' },
+    op_growth: { ...FILTER_DEFINITIONS.op_growth, category: 'financial' },
+    // 배당
+    dividend_yield: { ...FILTER_DEFINITIONS.dividend_yield, category: 'financial' },
+    payout_ratio: { ...FILTER_DEFINITIONS.payout_ratio, category: 'financial' },
+};
+
+// 기술적 지표 — 국내/해외 공통 (16개: 기존 11 + 신규 5)
 const COMMON_TECHNICAL_FILTERS = {
+    // 기존 11개
     rsi: { ...FILTER_DEFINITIONS.rsi, category: 'technical' },
     sma: { ...FILTER_DEFINITIONS.sma, category: 'technical' },
     sma_cross: { ...FILTER_DEFINITIONS.sma_cross, category: 'technical' },
@@ -12745,6 +12772,78 @@ const COMMON_TECHNICAL_FILTERS = {
     w52_low: { ...FILTER_DEFINITIONS.w52_low, category: 'technical' },
     atr: { ...FILTER_DEFINITIONS.atr, category: 'technical' },
     period_return: { ...FILTER_DEFINITIONS.period_return, category: 'technical' },
+    // 신규 5개
+    ichimoku: {
+        label: '일목균형표',
+        category: 'technical',
+        type: 'indicator',
+        params: [
+            { key: 'tenkan', label: '전환선', default: 9, unit: '일' },
+            { key: 'kijun', label: '기준선', default: 26, unit: '일' },
+            { key: 'senkou_b', label: '선행스팬B', default: 52, unit: '일' }
+        ],
+        presets: [
+            { value: 'above_cloud', label: '구름 위 (상승)' },
+            { value: 'below_cloud', label: '구름 아래 (하락)' },
+            { value: 'in_cloud', label: '구름 내 (횡보)' },
+            { value: 'tenkan_above_kijun', label: '전환선 > 기준선' },
+            { value: 'tenkan_below_kijun', label: '전환선 < 기준선' }
+        ]
+    },
+    stoch_rsi: {
+        label: 'Stoch RSI',
+        category: 'technical',
+        type: 'indicator',
+        params: [
+            { key: 'rsi_period', label: 'RSI기간', default: 14, unit: '일' },
+            { key: 'stoch_period', label: 'Stoch기간', default: 14, unit: '일' },
+            { key: 'k_period', label: '%K', default: 3, unit: '일' },
+            { key: 'd_period', label: '%D', default: 3, unit: '일' }
+        ],
+        presets: [
+            { min: null, max: 20, label: '과매도 (<20)' },
+            { min: 80, max: null, label: '과매수 (>80)' }
+        ]
+    },
+    adx: {
+        label: 'ADX',
+        category: 'technical',
+        type: 'indicator',
+        params: [
+            { key: 'period', label: '기간', default: 14, unit: '일' }
+        ],
+        presets: [
+            { min: 25, max: null, label: '강한 추세 (25+)' },
+            { min: 40, max: null, label: '매우 강한 추세 (40+)' },
+            { min: null, max: 20, label: '약한 추세 (<20)' }
+        ]
+    },
+    cci: {
+        label: 'CCI',
+        category: 'technical',
+        type: 'indicator',
+        params: [
+            { key: 'period', label: '기간', default: 20, unit: '일' }
+        ],
+        presets: [
+            { min: 100, max: null, label: '과매수 (100+)' },
+            { min: null, max: -100, label: '과매도 (-100↓)' },
+            { min: -100, max: 100, label: '중립 (-100~100)' }
+        ]
+    },
+    williams_r: {
+        label: 'Williams %R',
+        category: 'technical',
+        type: 'indicator',
+        params: [
+            { key: 'period', label: '기간', default: 14, unit: '일' }
+        ],
+        presets: [
+            { min: -20, max: 0, label: '과매수 (-20↑)' },
+            { min: -100, max: -80, label: '과매도 (-80↓)' },
+            { min: -80, max: -20, label: '중립' }
+        ]
+    }
 };
 
 // US (해외) 필터 정의
@@ -12836,7 +12935,9 @@ const US_FILTER_DEFINITIONS = {
             { min: 1, max: null, label: '1%+' }
         ]
     },
-    // 기술적 지표 (11개 — 국내와 동일)
+    // 재무 지표 (17개 — 국내와 동일)
+    ...COMMON_FINANCIAL_FILTERS,
+    // 기술적 지표 (16개 — 국내와 동일)
     ...COMMON_TECHNICAL_FILTERS
 };
 
@@ -12919,7 +13020,7 @@ const ETF_FILTER_DEFINITIONS = {
             { min: 100000, max: null, label: '10만+' }
         ]
     },
-    // 기술적 지표 (11개 — 국내와 동일)
+    // 기술적 지표 (16개 — 국내와 동일)
     ...COMMON_TECHNICAL_FILTERS
 };
 
