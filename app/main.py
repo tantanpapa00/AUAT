@@ -1098,8 +1098,10 @@ async def api_debug_signal_log(request: Request):
         # HVI, QQE, SPO 계산
         hvi_result = calc_hvi(highs, lows, closes, volumes, config.hvi_length, config.hvi_divisor)
         qqe_result = calc_qqe_mod(closes, config.qqe_rsi_length, config.qqe_rsi_smoothing, config.qqe_factor)
-        spo_result = calc_spo(closes, config.exit_spo_smooth_len, config.exit_spo_threshold,
+        # calc_spo returns tuple: (normalized_osc, upper_band, lower_band, basis, line_short, line_long)
+        spo_tuple = calc_spo(closes, config.exit_spo_smooth_len, config.exit_spo_threshold,
                               config.exit_spo_std_len, config.exit_spo_hma_len)
+        spo_normalized_osc = spo_tuple[0]  # normalized_osc
 
         # 시그널 수집
         signals = []
@@ -1129,7 +1131,7 @@ async def api_debug_signal_log(request: Request):
                 htf_vwma=htf_filter[slice_start:slice_end],
                 exit_close=closes[slice_start:slice_end],
                 exit_st_dir=st_dirs[slice_start:slice_end],
-                exit_spo_norm=spo_result["normalized_osc"][slice_start:slice_end],
+                exit_spo_norm=spo_normalized_osc[slice_start:slice_end],
                 config=config,
                 state=state,
                 current_ts=candle.ts,
