@@ -1962,6 +1962,141 @@ pub async fn get_stock_statement_kr(
     }
 }
 
+// =============================================================================
+// Phase 9: 해외 종목 상세 (Finviz + Yahoo Finance)
+// =============================================================================
+
+/// 해외 종목 요약 정보 (Phase 9)
+#[tauri::command]
+pub async fn get_stock_summary_us(
+    access_token: String,
+    ticker: String,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/stock/us/{}/summary", VPS_SERVER_URL, ticker);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("종목 정보를 가져올 수 없습니다".to_string())
+    }
+}
+
+/// 해외 종목 차트 데이터 (Phase 9)
+#[tauri::command]
+pub async fn get_stock_chart_us(
+    access_token: String,
+    ticker: String,
+    period: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let p = period.unwrap_or_else(|| "3m".to_string());
+    let url = format!("{}/api/stock/us/{}/chart?period={}", VPS_SERVER_URL, ticker, p);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("차트 데이터를 가져올 수 없습니다".to_string())
+    }
+}
+
+/// 해외 종목 뉴스 (Phase 9)
+#[tauri::command]
+pub async fn get_stock_news_us(
+    access_token: String,
+    ticker: String,
+    limit: Option<i32>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let limit_val = limit.unwrap_or(20);
+    let url = format!("{}/api/stock/us/{}/news?limit={}", VPS_SERVER_URL, ticker, limit_val);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("뉴스를 가져올 수 없습니다".to_string())
+    }
+}
+
+/// 해외 종목 기업 정보 (Phase 9)
+#[tauri::command]
+pub async fn get_stock_company_us(
+    access_token: String,
+    ticker: String,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/stock/us/{}/company", VPS_SERVER_URL, ticker);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("기업 정보를 가져올 수 없습니다".to_string())
+    }
+}
+
+/// 해외 종목 재무 정보 (Phase 9)
+#[tauri::command]
+pub async fn get_stock_financials_us(
+    access_token: String,
+    ticker: String,
+    fin_type: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let ft = fin_type.unwrap_or_else(|| "annual".to_string());
+    let url = format!("{}/api/stock/us/{}/financials?fin_type={}", VPS_SERVER_URL, ticker, ft);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("재무 정보를 가져올 수 없습니다".to_string())
+    }
+}
+
 /// 각 거래소별 인기 종목 목록
 #[derive(Serialize, Deserialize, Default)]
 pub struct PopularSymbols {

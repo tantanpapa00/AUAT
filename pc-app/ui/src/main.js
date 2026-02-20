@@ -8329,10 +8329,14 @@ async function openStockDetail(symbol, exchange) {
     // 첫 번째 탭(요약) 활성화
     activateStockTab('summary');
 
-    // 국내 종목 여부 확인
+    // 시장 유형 확인
     const isKoreanStock = exchange?.toLowerCase() === 'kis_kr' ||
                           exchange?.toLowerCase() === 'kospi' ||
                           exchange?.toLowerCase() === 'kosdaq';
+    const isUsStock = exchange?.toLowerCase() === 'kis_us' ||
+                      exchange?.toLowerCase() === 'us' ||
+                      exchange?.toLowerCase() === 'nasdaq' ||
+                      exchange?.toLowerCase() === 'nyse';
 
     try {
         let detail = null;
@@ -8351,6 +8355,7 @@ async function openStockDetail(symbol, exchange) {
                     symbol: data.code,
                     market: data.market,
                     exchange: 'kis_kr',
+                    currency: 'KRW',
                     price: data.price || 0,
                     change: data.change || 0,
                     change_percent: data.change_pct || 0,
@@ -8367,8 +8372,47 @@ async function openStockDetail(symbol, exchange) {
                     foreign_ratio: data.foreign_ratio || 0,
                 };
             }
+        } else if (isUsStock) {
+            // 해외 종목: Phase 9 API 사용 (Finviz)
+            const response = await invokeWithTimeout('get_stock_summary_us', {
+                accessToken: auth.accessToken || '',
+                ticker: symbol
+            }, 15000);
+
+            if (response && response.data) {
+                const data = response.data;
+                detail = {
+                    name: data.name,
+                    symbol: data.ticker,
+                    market: 'US',
+                    exchange: 'kis_us',
+                    currency: 'USD',
+                    sector: data.sector,
+                    industry: data.industry,
+                    price: data.price || 0,
+                    change: data.change || 0,
+                    change_percent: data.change_pct || 0,
+                    volume: data.volume || 0,
+                    avg_volume: data.avg_volume || 0,
+                    market_cap: data.market_cap || '',
+                    market_cap_raw: data.market_cap_raw || 0,
+                    per: data.per || 0,
+                    forward_per: data.forward_per || 0,
+                    pbr: data.pbr || 0,
+                    roe: data.roe || 0,
+                    roa: data.roa || 0,
+                    eps: data.eps || 0,
+                    high_52w: data.high_52w || 0,
+                    low_52w: data.low_52w || 0,
+                    dividend_yield: data.dividend_yield || 0,
+                    operating_margin: data.operating_margin || 0,
+                    profit_margin: data.profit_margin || 0,
+                    target_price: data.target_price || 0,
+                    recommendation: data.recommendation || '',
+                };
+            }
         } else {
-            // 기존 로직 (해외/ETF/코인)
+            // 기존 로직 (ETF/코인)
             const response = await invokeWithTimeout('get_symbol_detail', {
                 accessToken: auth.accessToken || '',
                 symbol: symbol,
@@ -8404,8 +8448,8 @@ async function openStockDetail(symbol, exchange) {
 
         if (detail && detail.name) {
             updateStockDetailUI(detail);
-            // 국내 종목은 3M 기본, 나머지는 1D
-            initCandleChart(symbol, exchange, isKoreanStock ? '3M' : '1D');
+            // 국내/해외 종목은 3M 기본, 나머지는 1D
+            initCandleChart(symbol, exchange, (isKoreanStock || isUsStock) ? '3M' : '1D');
         } else {
             if (nameEl) nameEl.textContent = symbol || '-';
         }
@@ -8413,6 +8457,8 @@ async function openStockDetail(symbol, exchange) {
         // 2. 재무 요약 데이터 로드 (병렬)
         if (isKoreanStock) {
             loadFinancialSummaryKr(symbol);
+        } else if (isUsStock) {
+            loadFinancialSummaryUs(symbol);
         } else {
             loadFinancialSummary(symbol);
         }
@@ -8622,6 +8668,99 @@ async function loadFinancialSummaryKr(code) {
     } catch (error) {
         console.error('Failed to load KR financial summary:', error);
         summaryContent.innerHTML = '<div class="sd-empty-state">재무 정보를 불러올 수 없습니다</div>';
+    }
+}
+
+// 해외 종목 재무 요약 로드 (Phase 9)
+async function loadFinancialSummaryUs(ticker) {
+    const summaryContent = document.getElementById('info-summary');
+    if (!summaryContent) return;
+
+    summaryContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>Loading...</span></div>';
+
+    try {
+        const response = await invokeWithTimeout('get_stock_summary_us', {
+            accessToken: auth.accessToken || '',
+            ticker: ticker
+        }, 15000);
+
+        const data = response?.data || {};
+
+        // 요약 재무 카드 (USD 단위)
+        const summaryCardHtml = `
+            <div class="sd-card">
+                <div class="sd-card-title">Key Metrics</div>
+                <div class="sd-financial-grid">
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">Market Cap</span>
+                        <span class="sd-financial-value">${data.market_cap || '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">P/E</span>
+                        <span class="sd-financial-value">${data.per > 0 ? data.per.toFixed(2) : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">Forward P/E</span>
+                        <span class="sd-financial-value">${data.forward_per > 0 ? data.forward_per.toFixed(2) : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">P/B</span>
+                        <span class="sd-financial-value">${data.pbr > 0 ? data.pbr.toFixed(2) : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">EPS (TTM)</span>
+                        <span class="sd-financial-value">$${data.eps > 0 ? data.eps.toFixed(2) : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">ROE</span>
+                        <span class="sd-financial-value">${data.roe > 0 ? data.roe.toFixed(1) + '%' : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">ROA</span>
+                        <span class="sd-financial-value">${data.roa > 0 ? data.roa.toFixed(1) + '%' : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">Dividend</span>
+                        <span class="sd-financial-value">${data.dividend_yield > 0 ? data.dividend_yield.toFixed(2) + '%' : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">52W High</span>
+                        <span class="sd-financial-value positive">$${data.high_52w > 0 ? data.high_52w.toFixed(2) : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">52W Low</span>
+                        <span class="sd-financial-value negative">$${data.low_52w > 0 ? data.low_52w.toFixed(2) : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">Op. Margin</span>
+                        <span class="sd-financial-value">${data.operating_margin > 0 ? data.operating_margin.toFixed(1) + '%' : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">Profit Margin</span>
+                        <span class="sd-financial-value">${data.profit_margin > 0 ? data.profit_margin.toFixed(1) + '%' : '-'}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="sd-card">
+                <div class="sd-card-title">Analyst Ratings</div>
+                <div class="sd-consensus-grid">
+                    <div class="sd-consensus-item">
+                        <span class="sd-consensus-label">Target Price</span>
+                        <span class="sd-consensus-value">$${data.target_price > 0 ? data.target_price.toFixed(2) : '-'}</span>
+                    </div>
+                    <div class="sd-consensus-item">
+                        <span class="sd-consensus-label">Recommendation</span>
+                        <span class="sd-consensus-value">${data.recommendation || '-'}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        summaryContent.innerHTML = summaryCardHtml;
+
+    } catch (error) {
+        console.error('Failed to load US financial summary:', error);
+        summaryContent.innerHTML = '<div class="sd-empty-state">Failed to load financial information</div>';
     }
 }
 
@@ -9016,6 +9155,241 @@ function formatResearchDate(dateStr) {
     return dateStr;
 }
 
+// =============================================================================
+// Phase 9: 해외 종목 상세 (US Stocks)
+// =============================================================================
+
+// 해외 종목 뉴스 로드 (Phase 9)
+async function loadStockNewsUs(ticker) {
+    const newsContent = document.getElementById('info-news');
+    if (!newsContent) return;
+
+    newsContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>Loading news...</span></div>';
+
+    try {
+        const response = await invokeWithTimeout('get_stock_news_us', {
+            accessToken: auth.accessToken || '',
+            ticker: ticker,
+            limit: 20
+        }, 15000);
+
+        const items = response?.data?.items || [];
+
+        if (items.length === 0) {
+            newsContent.innerHTML = '<div class="sd-empty-state">No recent news available</div>';
+            return;
+        }
+
+        let html = '<div class="sd-news-list">';
+        for (const item of items) {
+            html += `
+                <a href="${item.url}" target="_blank" class="sd-news-item">
+                    <div class="sd-news-title">${item.title}</div>
+                    <div class="sd-news-meta">
+                        <span class="sd-news-source">${item.source}</span>
+                        <span class="sd-news-date">${item.date} ${item.time || ''}</span>
+                    </div>
+                </a>
+            `;
+        }
+        html += '</div>';
+
+        newsContent.innerHTML = html;
+
+    } catch (error) {
+        console.error('Failed to load US news:', error);
+        newsContent.innerHTML = '<div class="sd-empty-state">Failed to load news</div>';
+    }
+}
+
+// 해외 종목 기업 정보 로드 (Phase 9)
+async function loadCompanyInfoUs(ticker) {
+    const companyContent = document.getElementById('info-company');
+    if (!companyContent) return;
+
+    companyContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>Loading company info...</span></div>';
+
+    try {
+        const response = await invokeWithTimeout('get_stock_company_us', {
+            accessToken: auth.accessToken || '',
+            ticker: ticker
+        }, 15000);
+
+        if (response && response.data) {
+            const data = response.data;
+
+            // 기업 개요
+            const overviewHtml = `
+                <div class="sd-card">
+                    <div class="sd-card-title">Company Overview</div>
+                    <div class="sd-company-grid">
+                        <div class="sd-company-item">
+                            <span class="sd-company-label">Name</span>
+                            <span class="sd-company-value">${data.name || '-'}</span>
+                        </div>
+                        <div class="sd-company-item">
+                            <span class="sd-company-label">Sector</span>
+                            <span class="sd-company-value">${data.sector || '-'}</span>
+                        </div>
+                        <div class="sd-company-item">
+                            <span class="sd-company-label">Industry</span>
+                            <span class="sd-company-value">${data.industry || '-'}</span>
+                        </div>
+                        <div class="sd-company-item">
+                            <span class="sd-company-label">Country</span>
+                            <span class="sd-company-value">${data.country || '-'}</span>
+                        </div>
+                        <div class="sd-company-item">
+                            <span class="sd-company-label">Employees</span>
+                            <span class="sd-company-value">${data.employees || '-'}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // 기업 설명
+            let descriptionHtml = '';
+            if (data.description) {
+                descriptionHtml = `
+                    <div class="sd-card">
+                        <div class="sd-card-title">Description</div>
+                        <p class="sd-description">${data.description}</p>
+                    </div>
+                `;
+            }
+
+            // 애널리스트 정보
+            let analystHtml = '';
+            if (data.target_price > 0 || data.recommendation) {
+                analystHtml = `
+                    <div class="sd-card">
+                        <div class="sd-card-title">Analyst Ratings</div>
+                        <div class="sd-consensus-grid">
+                            <div class="sd-consensus-item">
+                                <span class="sd-consensus-label">Target Price</span>
+                                <span class="sd-consensus-value">$${data.target_price > 0 ? data.target_price.toFixed(2) : '-'}</span>
+                            </div>
+                            <div class="sd-consensus-item">
+                                <span class="sd-consensus-label">Recommendation</span>
+                                <span class="sd-consensus-value">${data.recommendation || '-'}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            companyContent.innerHTML = overviewHtml + descriptionHtml + analystHtml ||
+                '<div class="sd-card"><div class="sd-empty-state">No company information available</div></div>';
+        } else {
+            companyContent.innerHTML = '<div class="sd-card"><div class="sd-empty-state">Failed to load company info</div></div>';
+        }
+    } catch (error) {
+        console.error('Failed to load company info (US):', error);
+        companyContent.innerHTML = '<div class="sd-card"><div class="sd-empty-state">Failed to load company info</div></div>';
+    }
+}
+
+// 해외 종목 재무 탭 로드 (Phase 9)
+async function loadFinancialTabUs(ticker) {
+    const financialContent = document.getElementById('info-financial');
+    if (!financialContent) return;
+
+    financialContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>Loading financial data...</span></div>';
+
+    try {
+        const response = await invokeWithTimeout('get_stock_summary_us', {
+            accessToken: auth.accessToken || '',
+            ticker: ticker
+        }, 15000);
+
+        const data = response?.data || {};
+
+        // 재무 지표 그리드
+        const financialHtml = `
+            <div class="sd-card">
+                <div class="sd-card-title">Financial Metrics</div>
+                <div class="sd-financial-grid">
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">P/E</span>
+                        <span class="sd-financial-value">${data.per > 0 ? data.per.toFixed(2) : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">Forward P/E</span>
+                        <span class="sd-financial-value">${data.forward_per > 0 ? data.forward_per.toFixed(2) : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">P/B</span>
+                        <span class="sd-financial-value">${data.pbr > 0 ? data.pbr.toFixed(2) : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">EPS (TTM)</span>
+                        <span class="sd-financial-value">$${data.eps > 0 ? data.eps.toFixed(2) : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">ROE</span>
+                        <span class="sd-financial-value">${data.roe > 0 ? data.roe.toFixed(1) + '%' : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">ROA</span>
+                        <span class="sd-financial-value">${data.roa > 0 ? data.roa.toFixed(1) + '%' : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">Oper. Margin</span>
+                        <span class="sd-financial-value">${data.operating_margin > 0 ? data.operating_margin.toFixed(1) + '%' : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">Profit Margin</span>
+                        <span class="sd-financial-value">${data.profit_margin > 0 ? data.profit_margin.toFixed(1) + '%' : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">Dividend Yield</span>
+                        <span class="sd-financial-value">${data.dividend_yield > 0 ? data.dividend_yield.toFixed(2) + '%' : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">Debt/Equity</span>
+                        <span class="sd-financial-value">${data.debt_equity > 0 ? data.debt_equity.toFixed(2) : '-'}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="sd-card">
+                <div class="sd-card-title">Trading Info</div>
+                <div class="sd-financial-grid">
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">Volume</span>
+                        <span class="sd-financial-value">${data.volume > 0 ? formatVolumeUs(data.volume) : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">Avg Volume</span>
+                        <span class="sd-financial-value">${data.avg_volume > 0 ? formatVolumeUs(data.avg_volume) : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">52W High</span>
+                        <span class="sd-financial-value positive">$${data.high_52w > 0 ? data.high_52w.toFixed(2) : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">52W Low</span>
+                        <span class="sd-financial-value negative">$${data.low_52w > 0 ? data.low_52w.toFixed(2) : '-'}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        financialContent.innerHTML = financialHtml;
+
+    } catch (error) {
+        console.error('Failed to load financial tab (US):', error);
+        financialContent.innerHTML = '<div class="sd-card"><div class="sd-empty-state">Failed to load financial data</div></div>';
+    }
+}
+
+// 거래량 포맷 (US)
+function formatVolumeUs(volume) {
+    if (volume >= 1e9) return (volume / 1e9).toFixed(2) + 'B';
+    if (volume >= 1e6) return (volume / 1e6).toFixed(2) + 'M';
+    if (volume >= 1e3) return (volume / 1e3).toFixed(1) + 'K';
+    return volume.toLocaleString();
+}
+
 // 재무 탭 로드 (StockEasy 스타일)
 async function loadFinancialTab(code) {
     const financialContent = document.getElementById('info-financial');
@@ -9286,11 +9660,17 @@ function activateStockTab(tabName) {
         const isKorean = exchange.toLowerCase() === 'kis_kr' ||
                          exchange.toLowerCase() === 'kospi' ||
                          exchange.toLowerCase() === 'kosdaq';
+        const isUs = exchange.toLowerCase() === 'kis_us' ||
+                     exchange.toLowerCase() === 'us' ||
+                     exchange.toLowerCase() === 'nasdaq' ||
+                     exchange.toLowerCase() === 'nyse';
 
         switch (tabName) {
             case 'news':
                 if (isKorean) {
                     loadStockNewsKr(code);
+                } else if (isUs) {
+                    loadStockNewsUs(code);
                 } else {
                     loadStockNews(code);
                 }
@@ -9298,6 +9678,8 @@ function activateStockTab(tabName) {
             case 'company':
                 if (isKorean) {
                     loadCompanyInfoKr(code);
+                } else if (isUs) {
+                    loadCompanyInfoUs(code);
                 } else {
                     loadCompanyInfo(code);
                 }
@@ -9305,6 +9687,8 @@ function activateStockTab(tabName) {
             case 'financial':
                 if (isKorean) {
                     loadFinancialTabKr(code);
+                } else if (isUs) {
+                    loadFinancialTabUs(code);
                 } else {
                     loadFinancialTab(code);
                 }
@@ -9500,21 +9884,46 @@ async function initCandleChart(symbol, exchange, period = '1D') {
         const periodMap = { '1D': '1d', '1W': '1w', '1M': '1m', '3M': '3m', '6M': '6m', '1Y': '1y' };
         const apiPeriod = periodMap[period] || '3m';
 
+        // 해외 종목 여부 확인
+        const ex = (exchange || '').toUpperCase();
+        const isUsStock = ex === 'KIS_US' || ex === 'US' || ex === 'NASDAQ' || ex === 'NYSE';
+
         try {
-            const chartResponse = await invokeWithTimeout('get_stock_chart_kr', {
-                accessToken: auth.accessToken || '',
-                code: symbol,
-                period: apiPeriod
-            }, 15000);
+            let chartResponse;
+            if (isUsStock) {
+                // 해외 종목 차트 API
+                chartResponse = await invokeWithTimeout('get_stock_chart_us', {
+                    accessToken: auth.accessToken || '',
+                    ticker: symbol,
+                    period: apiPeriod
+                }, 15000);
+            } else {
+                // 국내 종목 차트 API
+                chartResponse = await invokeWithTimeout('get_stock_chart_kr', {
+                    accessToken: auth.accessToken || '',
+                    code: symbol,
+                    period: apiPeriod
+                }, 15000);
+            }
 
             if (chartResponse && chartResponse.candles && chartResponse.candles.length > 0) {
                 // API 데이터를 TradingView 형식으로 변환
                 const candleData = chartResponse.candles.map(c => {
-                    // date 형식: "20250218" → Unix timestamp
+                    // US: "YYYY-MM-DD", KR: "YYYYMMDD"
                     const dateStr = c.date || '';
-                    const y = parseInt(dateStr.substring(0, 4), 10);
-                    const m = parseInt(dateStr.substring(4, 6), 10) - 1;
-                    const d = parseInt(dateStr.substring(6, 8), 10);
+                    let y, m, d;
+                    if (dateStr.includes('-')) {
+                        // US format: "2025-02-18"
+                        const parts = dateStr.split('-');
+                        y = parseInt(parts[0], 10);
+                        m = parseInt(parts[1], 10) - 1;
+                        d = parseInt(parts[2], 10);
+                    } else {
+                        // KR format: "20250218"
+                        y = parseInt(dateStr.substring(0, 4), 10);
+                        m = parseInt(dateStr.substring(4, 6), 10) - 1;
+                        d = parseInt(dateStr.substring(6, 8), 10);
+                    }
                     const timestamp = Math.floor(new Date(y, m, d).getTime() / 1000);
 
                     return {
@@ -9528,9 +9937,17 @@ async function initCandleChart(symbol, exchange, period = '1D') {
 
                 const volumeData = chartResponse.candles.map(c => {
                     const dateStr = c.date || '';
-                    const y = parseInt(dateStr.substring(0, 4), 10);
-                    const m = parseInt(dateStr.substring(4, 6), 10) - 1;
-                    const d = parseInt(dateStr.substring(6, 8), 10);
+                    let y, m, d;
+                    if (dateStr.includes('-')) {
+                        const parts = dateStr.split('-');
+                        y = parseInt(parts[0], 10);
+                        m = parseInt(parts[1], 10) - 1;
+                        d = parseInt(parts[2], 10);
+                    } else {
+                        y = parseInt(dateStr.substring(0, 4), 10);
+                        m = parseInt(dateStr.substring(4, 6), 10) - 1;
+                        d = parseInt(dateStr.substring(6, 8), 10);
+                    }
                     const timestamp = Math.floor(new Date(y, m, d).getTime() / 1000);
 
                     return {

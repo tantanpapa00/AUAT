@@ -179,6 +179,12 @@ fn main() {
             commands::get_stock_news_kr,
             commands::get_stock_company_kr,
             commands::get_stock_statement_kr,
+            // Phase 9: 해외 종목 상세
+            commands::get_stock_summary_us,
+            commands::get_stock_chart_us,
+            commands::get_stock_news_us,
+            commands::get_stock_company_us,
+            commands::get_stock_financials_us,
             // TV Connect - 전략/종목 저장
             commands::create_strategy_with_params,
             commands::save_signal_params,

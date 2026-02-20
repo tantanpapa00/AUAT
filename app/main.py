@@ -247,6 +247,9 @@ from app.data_provider import (
     get_stock_summary_kr, get_stock_financials_kr, get_stock_news_kr,
     # Phase 8-3: 기업 탭 + 재무제표
     get_stock_company_kr, get_stock_statement_kr,
+    # Phase 9: 해외 종목 상세 (Finviz + Yahoo Finance)
+    get_stock_summary_us, get_stock_chart_us, get_stock_news_us,
+    get_stock_company_us, get_stock_financials_us,
     # Day14: 환율 + 거래소별 잔고 조회
     get_usd_krw_rate, fetch_upbit_balances, fetch_binance_balances,
     fetch_okx_balances, fetch_bybit_balances, fetch_kis_kr_balances, fetch_kis_us_balances,
@@ -10521,6 +10524,83 @@ async def api_stock_statement_kr(
     - 누구나 접근 가능
     """
     data = await get_stock_statement_kr(code, period_type)
+    return {"data": data}
+
+
+# =============================================================================
+# Phase 9: 해외 종목 상세 API (Finviz + Yahoo Finance)
+# =============================================================================
+
+@app.get("/api/stock/us/{ticker}/summary")
+async def api_stock_summary_us(
+    ticker: str,
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    해외 종목 요약 정보
+    - 데이터 소스: Finviz snapshot
+    - 누구나 접근 가능
+    """
+    data = await get_stock_summary_us(ticker)
+    return {"data": data}
+
+
+@app.get("/api/stock/us/{ticker}/chart")
+async def api_stock_chart_us(
+    ticker: str,
+    period: str = Query("3m", regex="^(1d|5d|1w|1m|3m|6m|1y|2y|5y)$"),
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    해외 종목 차트 데이터
+    - 데이터 소스: Yahoo Finance Chart API
+    - 누구나 접근 가능
+    """
+    data = await get_stock_chart_us(ticker, period)
+    return {"data": data}
+
+
+@app.get("/api/stock/us/{ticker}/news")
+async def api_stock_news_us(
+    ticker: str,
+    limit: int = Query(20, ge=1, le=50),
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    해외 종목 뉴스
+    - 데이터 소스: Finviz news-table
+    - 누구나 접근 가능
+    """
+    data = await get_stock_news_us(ticker, limit)
+    return {"data": data}
+
+
+@app.get("/api/stock/us/{ticker}/company")
+async def api_stock_company_us(
+    ticker: str,
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    해외 종목 기업 정보
+    - 데이터 소스: Finviz
+    - 누구나 접근 가능
+    """
+    data = await get_stock_company_us(ticker)
+    return {"data": data}
+
+
+@app.get("/api/stock/us/{ticker}/financials")
+async def api_stock_financials_us(
+    ticker: str,
+    fin_type: str = Query("annual", regex="^(annual|quarter)$"),
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    해외 종목 재무 정보
+    - 데이터 소스: Finviz snapshot (Yahoo Finance 차단으로 추이 데이터 제한)
+    - 누구나 접근 가능
+    """
+    data = await get_stock_financials_us(ticker, fin_type)
     return {"data": data}
 
 
