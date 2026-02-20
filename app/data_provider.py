@@ -2741,3 +2741,253 @@ async def get_or_calculate_cost_basis(
         await save_cost_basis_to_db(db_session, user_id, account_id, cost_basis)
 
     return cost_basis
+
+
+# =============================================================================
+# Phase 8-2: 국내 종목 상세 API
+# =============================================================================
+
+async def get_stock_summary_kr(code: str) -> dict:
+    """
+    국내 종목 요약 정보 (기본정보 + 재무지표)
+    데이터 소스: 네이버 basic + integration API
+    """
+    cache_key = f"stock_summary_kr_{code}"
+    cached = _cached(cache_key, 300)  # 5분 캐싱
+    if cached:
+        return cached
+
+    result = {
+        "code": code,
+        "name": "",
+        "market": "",
+        "price": 0,
+        "change": 0,
+        "change_pct": 0,
+        "market_cap": "",
+        "market_cap_raw": 0,
+        "per": 0,
+        "pbr": 0,
+        "roe": 0,
+        "eps": 0,
+        "bps": 0,
+        "dividend_yield": 0,
+        "debt_ratio": 0,
+        "operating_margin": 0,
+        "high_52w": 0,
+        "low_52w": 0,
+        "volume": 0,
+        "sector": "",
+        "foreign_ratio": 0,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
+            # 1. Basic API
+            basic_url = f"https://m.stock.naver.com/api/stock/{code}/basic"
+            r1 = await client.get(basic_url)
+            if r1.status_code == 200:
+                basic = r1.json()
+                result["name"] = basic.get("stockName", "")
+                result["market"] = basic.get("stockExchangeType", {}).get("nameKor", "")
+                result["price"] = _parse_price(basic.get("closePrice", "0"))
+                result["change"] = _parse_price(basic.get("compareToPreviousClosePrice", "0"))
+                result["change_pct"] = _parse_float(basic.get("fluctuationsRatio", "0"))
+
+            # 2. Integration API
+            int_url = f"https://m.stock.naver.com/api/stock/{code}/integration"
+            r2 = await client.get(int_url)
+            if r2.status_code == 200:
+                data = r2.json()
+                total_infos = data.get("totalInfos", [])
+
+                for info in total_infos:
+                    key = info.get("code", "")
+                    val = info.get("value", "")
+
+                    if key == "marketValue":
+                        result["market_cap"] = val
+                        result["market_cap_raw"] = _parse_korean_market_cap(val)
+                    elif key == "per":
+                        result["per"] = _parse_float(val.replace("배", "").strip())
+                    elif key == "pbr":
+                        result["pbr"] = _parse_float(val.replace("배", "").strip())
+                    elif key == "eps":
+                        result["eps"] = _parse_price(val.replace("원", "").strip())
+                    elif key == "bps":
+                        result["bps"] = _parse_price(val.replace("원", "").strip())
+                    elif key == "dividendYieldRatio":
+                        result["dividend_yield"] = _parse_float(val.replace("%", "").strip())
+                    elif key == "roe":
+                        result["roe"] = _parse_float(val.replace("%", "").strip())
+                    elif key == "highPriceOf52Weeks":
+                        result["high_52w"] = _parse_price(val)
+                    elif key == "lowPriceOf52Weeks":
+                        result["low_52w"] = _parse_price(val)
+                    elif key == "accumulatedTradingVolume":
+                        result["volume"] = _parse_price(val)
+                    elif key == "foreignRate":
+                        result["foreign_ratio"] = _parse_float(val.replace("%", "").strip())
+                    elif key == "debtRatio":
+                        result["debt_ratio"] = _parse_float(val.replace("%", "").strip())
+                    elif key == "operatingMargin":
+                        result["operating_margin"] = _parse_float(val.replace("%", "").strip())
+
+        _set_cache(cache_key, result)
+    except Exception as e:
+        print(f"[DataProvider] get_stock_summary_kr error for {code}: {e}")
+        traceback.print_exc()
+
+    return result
+
+
+async def get_stock_financials_kr(code: str, fin_type: str = "annual") -> dict:
+    """
+    국내 종목 재무 추이 (연간/분기)
+    데이터 소스: 네이버 finance/summary API
+    """
+    cache_key = f"stock_financials_kr_{code}_{fin_type}"
+    cached = _cached(cache_key, 3600)  # 1시간 캐싱
+    if cached:
+        return cached
+
+    result = {
+        "code": code,
+        "type": fin_type,
+        "periods": [],
+        "revenue": [],
+        "operating_profit": [],
+        "net_income": [],
+        "eps": [],
+        "eps_estimate": [],
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
+            url = f"https://m.stock.naver.com/api/stock/{code}/finance/summary"
+            r = await client.get(url)
+
+            if r.status_code == 200:
+                data = r.json()
+
+                # EPS 차트 데이터
+                chart_eps = data.get("chartEps", {})
+                eps_columns = chart_eps.get("columns", [])
+                if len(eps_columns) >= 2:
+                    # eps_columns[0] = ["x", "2024.12.", "2025.03.", ...]
+                    # eps_columns[1] = ["EPS", "1115", "1186", ...]
+                    periods_raw = eps_columns[0][1:] if eps_columns[0] else []
+                    eps_values = eps_columns[1][1:] if len(eps_columns) > 1 else []
+
+                # Income Statement 차트 데이터
+                chart_income = data.get("chartIncomeStatement", {})
+                income_data = chart_income.get(fin_type, chart_income.get("annual", {}))
+
+                columns = income_data.get("columns", [])
+                # columns[0] = ["x", "2022.12.", "2023.12.", ...]
+                # columns[1] = ["매출액", "3022314", ...]
+                # columns[2] = ["영업이익", "433766", ...]
+
+                if columns:
+                    result["periods"] = columns[0][1:] if columns[0] else []
+
+                    for col in columns[1:]:
+                        if not col:
+                            continue
+                        label = col[0]
+                        values = [_parse_int(v) for v in col[1:]]
+
+                        if "매출" in label:
+                            result["revenue"] = values
+                        elif "영업이익" in label:
+                            result["operating_profit"] = values
+
+                # EPS from annual finance data
+                annual_url = f"https://m.stock.naver.com/api/stock/{code}/finance/annual"
+                r2 = await client.get(annual_url)
+                if r2.status_code == 200:
+                    fin_data = r2.json()
+                    fin_info = fin_data.get("financeInfo", {})
+                    title_list = fin_info.get("trTitleList", [])
+                    row_list = fin_info.get("rowList", [])
+
+                    # 기간 목록
+                    periods = [t.get("title", "") for t in title_list]
+                    keys = [t.get("key", "") for t in title_list]
+                    result["periods"] = periods
+
+                    for row in row_list:
+                        title = row.get("title", "")
+                        columns = row.get("columns", {})
+                        values = []
+                        for k in keys:
+                            v = columns.get(k, {}).get("value", "0")
+                            values.append(_parse_int(v.replace(",", "").replace("-", "0")))
+
+                        if title == "매출액":
+                            result["revenue"] = values
+                        elif title == "영업이익":
+                            result["operating_profit"] = values
+                        elif title == "당기순이익":
+                            result["net_income"] = values
+
+                    # EPS는 별도 계산 필요 (순이익 / 발행주식수)
+                    # 여기서는 간단히 순이익 기반 추정
+
+        _set_cache(cache_key, result)
+    except Exception as e:
+        print(f"[DataProvider] get_stock_financials_kr error for {code}: {e}")
+        traceback.print_exc()
+
+    return result
+
+
+async def get_stock_news_kr(code: str, limit: int = 20) -> dict:
+    """
+    국내 종목 뉴스
+    데이터 소스: 네이버 news/stock API
+    """
+    cache_key = f"stock_news_kr_{code}"
+    cached = _cached(cache_key, 600)  # 10분 캐싱
+    if cached:
+        return cached
+
+    result = {"items": []}
+
+    try:
+        async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
+            url = f"https://m.stock.naver.com/api/news/stock/{code}?page=1&size={limit}"
+            r = await client.get(url)
+
+            if r.status_code == 200:
+                data = r.json()
+                # data is array of groups, each with "items"
+                if isinstance(data, list):
+                    for group in data:
+                        items = group.get("items", [])
+                        for item in items:
+                            news = {
+                                "title": item.get("title", ""),
+                                "source": item.get("officeName", ""),
+                                "date": _format_news_date(item.get("datetime", "")),
+                                "url": f"https://n.news.naver.com/mnews/article/{item.get('officeId', '')}/{item.get('articleId', '')}"
+                            }
+                            result["items"].append(news)
+                            if len(result["items"]) >= limit:
+                                break
+                        if len(result["items"]) >= limit:
+                            break
+
+        _set_cache(cache_key, result)
+    except Exception as e:
+        print(f"[DataProvider] get_stock_news_kr error for {code}: {e}")
+        traceback.print_exc()
+
+    return result
+
+
+def _format_news_date(dt_str: str) -> str:
+    """뉴스 날짜 포맷: '202602201922' → '2026.02.20'"""
+    if len(dt_str) >= 8:
+        return f"{dt_str[:4]}.{dt_str[4:6]}.{dt_str[6:8]}"
+    return dt_str
