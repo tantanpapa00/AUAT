@@ -193,6 +193,7 @@ async def screener_kr(filters: dict, sort: str, order: str, page: int, per_page:
 
     # 페이지 결과에 대해 재무 + 기술 데이터 보강 (항상)
     items = await enrich_financial_data(list(items))
+    items = await enrich_with_yfinance(items)  # yfinance로 ROE/ROA 등 보강
     items = await enrich_with_technicals(items, technical_params)
 
     # 시총 문자열 추가
@@ -438,33 +439,44 @@ async def enrich_financial_data(stocks: List[Dict]) -> List[Dict]:
             result.append(r)
 
     print(f"[Screener] Enriched {len(result)} stocks with financial data (Naver)")
-
-    # yfinance로 누락된 재무 데이터 보강 (ROE, ROA, gross_margin 등)
-    if YFINANCE_AVAILABLE:
-        yfinance_fields = ["roe", "roa", "operating_margin", "gross_margin", "profit_margin",
-                          "debt_ratio", "current_ratio", "revenue_growth", "earnings_growth"]
-        # 누락된 필드가 있는 종목들 추출
-        symbols_to_enrich = []
-        for stock in result:
-            if any(stock.get(f) is None for f in yfinance_fields[:3]):  # ROE, ROA, operating_margin 중 하나라도 없으면
-                symbols_to_enrich.append(stock.get("code"))
-
-        if symbols_to_enrich:
-            try:
-                # yfinance 일괄 조회 (동시 5개 제한, 한국 주식은 느림)
-                yf_data = await fetch_financial_data_batch(symbols_to_enrich[:50], market="KR", max_concurrent=5)
-                for stock in result:
-                    code = stock.get("code")
-                    if code in yf_data:
-                        # 누락된 필드만 채우기 (네이버 데이터 우선)
-                        for field in yfinance_fields:
-                            if stock.get(field) is None and field in yf_data[code]:
-                                stock[field] = yf_data[code][field]
-                print(f"[Screener] yfinance 보강: {len(yf_data)}/{len(symbols_to_enrich)}개")
-            except Exception as e:
-                print(f"[Screener] yfinance 오류: {e}")
-
+    # yfinance 보강은 페이지 결과에서만 수행 (rate limit 방지)
     return result
+
+
+async def enrich_with_yfinance(stocks: List[Dict]) -> List[Dict]:
+    """
+    yfinance로 재무 데이터 보강 (페이지 결과에 대해서만 호출)
+    ROE, ROA, gross_margin 등 네이버 미제공 필드
+    """
+    if not YFINANCE_AVAILABLE or not stocks:
+        return stocks
+
+    yfinance_fields = ["roe", "roa", "operating_margin", "gross_margin", "profit_margin",
+                      "debt_ratio", "current_ratio", "revenue_growth", "earnings_growth"]
+
+    # 누락된 필드가 있는 종목들만 추출
+    symbols_to_enrich = []
+    for stock in stocks:
+        if any(stock.get(f) is None for f in yfinance_fields[:3]):  # ROE, ROA, operating_margin 중 하나
+            symbols_to_enrich.append(stock.get("code"))
+
+    if not symbols_to_enrich:
+        return stocks
+
+    try:
+        # yfinance 일괄 조회 (동시 2개, 최대 20개)
+        yf_data = await fetch_financial_data_batch(symbols_to_enrich[:20], market="KR", max_concurrent=2)
+        for stock in stocks:
+            code = stock.get("code")
+            if code in yf_data:
+                for field in yfinance_fields:
+                    if stock.get(field) is None and field in yf_data[code]:
+                        stock[field] = yf_data[code][field]
+        print(f"[Screener] yfinance 보강: {len(yf_data)}/{len(symbols_to_enrich)}개")
+    except Exception as e:
+        print(f"[Screener] yfinance 오류: {e}")
+
+    return stocks
 
 
 async def enrich_with_technicals(stocks: List[Dict], params: Dict = None) -> List[Dict]:
