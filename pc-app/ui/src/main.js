@@ -9345,7 +9345,6 @@ async function loadFinancialSummaryKr(code) {
                         <div class="sd-trend-card-header">
                             <span class="sd-trend-dot blue"></span>
                             <span class="sd-trend-title">매출액</span>
-                            <span class="sd-trend-legend-line">── GPM</span>
                         </div>
                         <div class="sd-trend-sub-label">연간 (4Q)</div>
                         <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-revenue-annual"></canvas></div>
@@ -9596,9 +9595,12 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
         order: 2,
     });
 
-    // OPM 라인 (영업이익 차트에서만)
-    const hasOpmLine = opm && opm.length > 0 && opm.some(v => v !== null && v !== undefined);
-    if (hasOpmLine && chartType === 'operating') {
+    // OPM 라인 (영업이익 연간 차트에서만 - 분기는 제외)
+    const isAnnualChart = canvasId.includes('annual');
+    const hasOpmData = opm && opm.length > 0 && opm.some(v => v !== null && v !== undefined && v > 0);
+    const showOpmLine = hasOpmData && chartType === 'operating' && isAnnualChart;
+
+    if (showOpmLine) {
         datasets.push({
             type: 'line',
             label: 'OPM',
@@ -9657,11 +9659,26 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
                         const v = ctx.dataset.data[ctx.dataIndex];
                         return (v !== null && v >= 0) ? 'top' : 'bottom';
                     },
-                    offset: 4,  // 막대와 라벨 사이 간격
+                    offset: 4,
                     clamp: false,
                     color: '#d0d8e4',
-                    font: { size: 10, weight: 'bold' },
-                    formatter: (v) => formatLabel(v),
+                    font: { size: isAnnualChart ? 10 : 8, weight: 'bold' },  // 분기는 작게
+                    formatter: (v) => {
+                        if (v === null || v === undefined || v === 0) return '';
+                        // 분기 차트에서는 단위 축약
+                        if (!isAnnualChart) {
+                            if (chartType === 'eps') {
+                                // EPS 분기: "원" 생략
+                                return Math.round(v).toLocaleString();
+                            }
+                            // 매출/영업이익 분기: "억" 생략
+                            const abs = Math.abs(v);
+                            const sign = v < 0 ? '-' : '';
+                            if (abs >= 10000) return sign + (abs / 10000).toFixed(1) + '조';
+                            return sign + Math.round(abs).toLocaleString();
+                        }
+                        return formatLabel(v);
+                    },
                 },
             },
             scales: {
@@ -9691,18 +9708,20 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
                     },
                     grid: { color: 'rgba(255,255,255,0.04)' },
                 },
-                // OPM 라인용 우측 Y축 (%)
-                y1: {
-                    position: 'right',
-                    display: hasOpmLine,
-                    ticks: {
-                        color: '#f59e0b',
-                        font: { size: 8 },
-                        callback: (v) => v.toFixed(0) + '%',
-                    },
-                    grid: { display: false },
-                    min: 0,
-                },
+                // OPM 라인용 우측 Y축 - showOpmLine이 true일 때만 포함
+                ...(showOpmLine ? {
+                    y1: {
+                        position: 'right',
+                        display: true,
+                        ticks: {
+                            color: '#f59e0b',
+                            font: { size: 8 },
+                            callback: (v) => v.toFixed(0) + '%',
+                        },
+                        grid: { display: false },
+                        min: 0,
+                    }
+                } : {}),
             },
         },
     });
