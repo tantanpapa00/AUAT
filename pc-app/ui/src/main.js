@@ -9316,74 +9316,58 @@ async function loadFinancialSummaryKr(code) {
             </div>
         `;
 
-        // StockEasy 스타일 3개 재무차트 (매출액, 영업이익, EPS) + 연결/별도 토글
+        // StockEasy 완전 복제: 2열 레이아웃 + 연간/분기 동시 표시
         const financialChartsHtml = `
-            <!-- 재무추이 헤더 (연결/별도 토글) -->
-            <div class="sd-card sd-financial-trends-header">
-                <div class="sd-trends-title-row">
-                    <span class="sd-card-title" style="margin-bottom:0;padding-bottom:0;border:none;">재무추이</span>
-                    <div class="sd-consolidation-toggle" id="consolidation-toggle">
-                        <button class="sd-toggle-btn active" data-type="consolidated">연결</button>
-                        <button class="sd-toggle-btn" data-type="separate">별도</button>
-                    </div>
-                </div>
-            </div>
+            <div class="sd-trend-section">
+                <div class="sd-trend-note">연간은 4Q 기준이며, (E)는 전망치를 포함합니다.</div>
 
-            <!-- 매출액 차트 -->
-            <div class="sd-card sd-financial-chart-card">
-                <div class="sd-chart-header">
-                    <span class="sd-chart-title">매출액</span>
-                    <div class="sd-period-toggle" data-chart="revenue">
-                        <button class="sd-period-btn active" data-period="annual">연간</button>
-                        <button class="sd-period-btn" data-period="quarter">분기</button>
+                <!-- 매출액 + 영업이익: 2열 나란히 -->
+                <div class="sd-trend-row">
+                    <!-- 매출액 -->
+                    <div class="sd-trend-card">
+                        <div class="sd-trend-card-header">
+                            <span class="sd-trend-dot blue"></span>
+                            <span class="sd-trend-title">매출액</span>
+                            <span class="sd-trend-legend-line">── GPM</span>
+                        </div>
+                        <div class="sd-trend-sub-label">연간 (4Q)</div>
+                        <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-revenue-annual"></canvas></div>
+                        <div class="sd-trend-sub-label">분기별</div>
+                        <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-revenue-quarter"></canvas></div>
                     </div>
-                </div>
-                <div class="sd-chart-wrapper" style="height:180px;">
-                    <canvas id="chart-revenue"></canvas>
-                </div>
-            </div>
 
-            <!-- 영업이익 차트 -->
-            <div class="sd-card sd-financial-chart-card">
-                <div class="sd-chart-header">
-                    <span class="sd-chart-title">영업이익</span>
-                    <div class="sd-period-toggle" data-chart="operating_profit">
-                        <button class="sd-period-btn active" data-period="annual">연간</button>
-                        <button class="sd-period-btn" data-period="quarter">분기</button>
+                    <!-- 영업이익 -->
+                    <div class="sd-trend-card">
+                        <div class="sd-trend-card-header">
+                            <span class="sd-trend-dot green"></span>
+                            <span class="sd-trend-title">영업이익</span>
+                            <span class="sd-trend-legend-line">── OPM</span>
+                        </div>
+                        <div class="sd-trend-sub-label">연간 (4Q)</div>
+                        <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-op-annual"></canvas></div>
+                        <div class="sd-trend-sub-label">분기별</div>
+                        <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-op-quarter"></canvas></div>
                     </div>
                 </div>
-                <div class="sd-chart-wrapper" style="height:180px;">
-                    <canvas id="chart-operating-profit"></canvas>
-                </div>
-            </div>
 
-            <!-- EPS 차트 -->
-            <div class="sd-card sd-financial-chart-card">
-                <div class="sd-chart-header">
-                    <span class="sd-chart-title">EPS (주당순이익)</span>
-                    <div class="sd-period-toggle" data-chart="eps">
-                        <button class="sd-period-btn active" data-period="annual">연간</button>
-                        <button class="sd-period-btn" data-period="quarter">분기</button>
+                <!-- EPS: 전체 폭 -->
+                <div class="sd-trend-card sd-trend-card-full">
+                    <div class="sd-trend-card-header">
+                        <span class="sd-trend-dot orange"></span>
+                        <span class="sd-trend-title">EPS</span>
                     </div>
-                </div>
-                <div class="sd-chart-wrapper" style="height:180px;">
-                    <canvas id="chart-eps"></canvas>
+                    <div class="sd-trend-sub-label">연간 (4Q)</div>
+                    <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-eps-annual"></canvas></div>
+                    <div class="sd-trend-sub-label">분기별</div>
+                    <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-eps-quarter"></canvas></div>
                 </div>
             </div>
         `;
 
         summaryContent.innerHTML = summaryCardHtml + financialChartsHtml;
 
-        // 재무 차트 렌더링
-        renderFinancialChartKr('revenue', financials);
-        renderFinancialChartKr('operating_profit', financials);
-        renderFinancialChartKr('eps', financials);
-
-        // 연간/분기 토글 이벤트
-        initFinancialPeriodToggles(code);
-
-        // 연결/별도 토글 이벤트 (현재는 UI만 - 실제 데이터 분리는 추후 구현)
-        initConsolidationToggle();
+        // 연간 + 분기 데이터 동시 로드 후 모든 차트 렌더링
+        loadAndRenderAllFinancialCharts(code, financials);
 
     } catch (error) {
         console.error('Failed to load KR financial summary:', error);
@@ -9391,171 +9375,187 @@ async function loadFinancialSummaryKr(code) {
     }
 }
 
-// 연간/분기 토글 이벤트 초기화
-function initFinancialPeriodToggles(code) {
-    document.querySelectorAll('.sd-period-toggle').forEach(toggle => {
-        const chartType = toggle.dataset.chart;
-        toggle.querySelectorAll('.sd-period-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                // 활성 버튼 변경
-                toggle.querySelectorAll('.sd-period-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
+// =====================================================
+// StockEasy 완전 복제 — 재무추이 차트 시스템
+// =====================================================
 
-                const period = btn.dataset.period;
+// 색상 정의 (stockeasy 정확 복제)
+const FINANCIAL_CHART_COLORS = {
+    revenue: {
+        positive: '#3b82f6',          // 파란색
+        positive_est: 'rgba(59, 130, 246, 0.15)',
+        negative: '#ef4444',          // 빨간색
+        negative_est: 'rgba(239, 68, 68, 0.15)',
+        border: '#3b82f6',
+    },
+    operating: {
+        positive: '#22c55e',          // 초록색
+        positive_est: 'rgba(34, 197, 94, 0.15)',
+        negative: '#ef4444',
+        negative_est: 'rgba(239, 68, 68, 0.15)',
+        border: '#22c55e',
+    },
+    eps: {
+        positive: '#f97316',          // 주황색
+        positive_est: 'rgba(249, 115, 22, 0.15)',
+        negative: '#ef4444',
+        negative_est: 'rgba(239, 68, 68, 0.15)',
+        border: '#f97316',
+    },
+};
 
-                // 분기 데이터가 없으면 로드
-                if (period === 'quarter' && !currentFinancialDataKr.quarter) {
-                    try {
-                        const resp = await invokeWithTimeout('get_stock_financials_kr', {
-                            accessToken: auth.accessToken || '',
-                            code: code,
-                            finType: 'quarter'
-                        }, 10000);
-                        currentFinancialDataKr.quarter = resp?.data || {};
-                    } catch (e) {
-                        console.error('Failed to load quarterly data:', e);
-                    }
-                }
+// 연간 + 분기 데이터 동시 로드 후 모든 차트 렌더링
+async function loadAndRenderAllFinancialCharts(code, annualData) {
+    currentFinancialDataKr.annual = annualData;
 
-                const data = period === 'annual' ? currentFinancialDataKr.annual : currentFinancialDataKr.quarter;
-                if (data) {
-                    renderFinancialChartKr(chartType, data);
-                }
-            });
-        });
-    });
+    // 분기 데이터 로드
+    try {
+        const quarterResp = await invokeWithTimeout('get_stock_financials_kr', {
+            accessToken: auth.accessToken || '',
+            code: code,
+            finType: 'quarter'
+        }, 10000);
+        currentFinancialDataKr.quarter = quarterResp?.data || {};
+    } catch (e) {
+        console.error('Failed to load quarterly data:', e);
+        currentFinancialDataKr.quarter = {};
+    }
+
+    const annual = currentFinancialDataKr.annual || {};
+    const quarter = currentFinancialDataKr.quarter || {};
+
+    // 매출액 — 연간
+    renderStockEasyChart('sd-fc-revenue-annual', {
+        periods: annual.periods || [],
+        values: (annual.revenue || []).map(v => Math.round(v / 100)),
+        isEstimate: annual.isConsensus || [],
+    }, FINANCIAL_CHART_COLORS.revenue, 'revenue');
+
+    // 매출액 — 분기
+    renderStockEasyChart('sd-fc-revenue-quarter', {
+        periods: quarter.periods || [],
+        values: (quarter.revenue || []).map(v => Math.round(v / 100)),
+        isEstimate: quarter.isConsensus || [],
+    }, FINANCIAL_CHART_COLORS.revenue, 'revenue');
+
+    // 영업이익 — 연간
+    renderStockEasyChart('sd-fc-op-annual', {
+        periods: annual.periods || [],
+        values: (annual.operating_profit || []).map(v => Math.round(v / 100)),
+        isEstimate: annual.isConsensus || [],
+    }, FINANCIAL_CHART_COLORS.operating, 'operating');
+
+    // 영업이익 — 분기
+    renderStockEasyChart('sd-fc-op-quarter', {
+        periods: quarter.periods || [],
+        values: (quarter.operating_profit || []).map(v => Math.round(v / 100)),
+        isEstimate: quarter.isConsensus || [],
+    }, FINANCIAL_CHART_COLORS.operating, 'operating');
+
+    // EPS — 연간
+    renderStockEasyChart('sd-fc-eps-annual', {
+        periods: annual.periods || [],
+        values: annual.eps || [],
+        isEstimate: annual.isConsensus || [],
+    }, FINANCIAL_CHART_COLORS.eps, 'eps');
+
+    // EPS — 분기
+    renderStockEasyChart('sd-fc-eps-quarter', {
+        periods: quarter.periods || [],
+        values: quarter.eps || [],
+        isEstimate: quarter.isConsensus || [],
+    }, FINANCIAL_CHART_COLORS.eps, 'eps');
 }
 
-// 연결/별도 토글 이벤트 초기화
-function initConsolidationToggle() {
-    const toggle = document.getElementById('consolidation-toggle');
-    if (!toggle) return;
-
-    toggle.querySelectorAll('.sd-toggle-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            // 활성 버튼 변경
-            toggle.querySelectorAll('.sd-toggle-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-
-            const type = btn.dataset.type;
-            // TODO: 실제 연결/별도 데이터 분리 API 연동 시 여기서 처리
-            console.log(`[Financial] Consolidation type changed to: ${type}`);
-
-            // 현재는 UI 토글만 - 실제 별도 재무제표 데이터는 네이버 API에서
-            // 별도로 제공되지 않아 추후 다른 데이터 소스 필요
-        });
-    });
-}
-
-// StockEasy 스타일 개별 재무 차트 렌더링 (chartjs-plugin-datalabels 사용)
-function renderFinancialChartKr(chartType, financials) {
-    const canvasIdMap = {
-        'revenue': 'chart-revenue',
-        'operating_profit': 'chart-operating-profit',
-        'eps': 'chart-eps'
-    };
-
-    const canvas = document.getElementById(canvasIdMap[chartType]);
+// StockEasy 스타일 차트 렌더링 (실적/전망치 분리 + 점선 테두리)
+function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
+    const canvas = document.getElementById(canvasId);
     if (!canvas) return;
 
-    const periods = financials.periods || [];
-    const isConsensus = financials.isConsensus || [];
-    let values = [];
-    let unit = '억원';
-    let label = '';
-
-    switch(chartType) {
-        case 'revenue':
-            values = (financials.revenue || []).map(v => Math.round(v / 100)); // 억원 변환
-            label = '매출액';
-            break;
-        case 'operating_profit':
-            values = (financials.operating_profit || []).map(v => Math.round(v / 100)); // 억원 변환
-            label = '영업이익';
-            break;
-        case 'eps':
-            values = financials.eps || [];
-            unit = '원';
-            label = 'EPS';
-            break;
-    }
-
     // 기존 차트 제거
-    const chartKey = `financialChart_${chartType}`;
-    if (window[chartKey]) {
-        window[chartKey].destroy();
+    if (canvas._chartInstance) {
+        canvas._chartInstance.destroy();
     }
 
-    if (typeof Chart === 'undefined' || values.length === 0) {
-        canvas.parentElement.innerHTML = '<div style="padding:20px;text-align:center;color:#9CA3AF;">데이터 없음</div>';
+    const { periods, values, isEstimate } = chartData;
+    if (!values || values.length === 0) {
+        canvas.parentElement.innerHTML = '<div class="sd-trend-empty">데이터 없음</div>';
         return;
     }
 
-    // StockEasy 스타일 색상: 양수=파란색, 음수=빨간색, 전망치=점선 테두리
-    const backgroundColors = values.map((v, i) => {
-        const isEst = isConsensus[i];
-        if (v >= 0) {
-            return isEst ? 'rgba(59, 130, 246, 0.5)' : 'rgba(59, 130, 246, 0.85)';
-        } else {
-            return isEst ? 'rgba(239, 68, 68, 0.5)' : 'rgba(239, 68, 68, 0.85)';
-        }
-    });
+    if (typeof Chart === 'undefined') return;
 
-    const borderColors = values.map((v, i) => {
-        const isEst = isConsensus[i];
-        if (v >= 0) {
-            return isEst ? '#93C5FD' : '#3B82F6';
-        } else {
-            return isEst ? '#FCA5A5' : '#EF4444';
-        }
-    });
+    // 실적 데이터 (전망치 자리는 null)
+    const actualData = values.map((v, i) => isEstimate[i] ? null : v);
+    // 전망치 데이터 (실적 자리는 null)
+    const estimateData = values.map((v, i) => isEstimate[i] ? v : null);
 
-    // 전망치 표시용 라벨 (X축에 E 표시)
+    // X축 라벨 (전망치에 E 추가)
     const xLabels = periods.map((p, i) => {
-        if (isConsensus[i] && !p.includes('(E)')) {
+        if (isEstimate[i] && !p.includes('(E)') && !p.includes('E')) {
             return p + '(E)';
         }
         return p;
     });
 
-    // 숫자 포맷 함수 (StockEasy 스타일)
-    const formatValue = (value) => {
-        if (value === 0) return '0';
+    // 숫자 포맷 함수
+    const formatLabel = (v) => {
+        if (v === null || v === undefined || v === 0) return '';
         if (chartType === 'eps') {
-            // EPS는 원 단위
-            if (Math.abs(value) >= 10000) {
-                return (value / 10000).toFixed(1) + '만';
-            }
-            return value.toLocaleString();
+            return Math.round(v).toLocaleString('ko-KR') + '원';
         }
-        // 매출/영업이익은 억원 단위
-        if (Math.abs(value) >= 10000) {
-            return (value / 10000).toFixed(1) + '조';
-        } else if (Math.abs(value) >= 1000) {
-            return Math.round(value / 100) / 10 + '천';
-        }
-        return value.toLocaleString();
+        const abs = Math.abs(v);
+        const sign = v < 0 ? '-' : '';
+        if (abs >= 10000) return sign + (abs / 10000).toFixed(1) + '조';
+        if (abs >= 100) return sign + Math.round(abs) + '억';
+        return sign + v;
     };
 
-    window[chartKey] = new Chart(canvas, {
+    // 데이터셋 구성
+    const datasets = [];
+
+    // 실적 막대 (채운 색상)
+    datasets.push({
         type: 'bar',
-        data: {
-            labels: xLabels,
-            datasets: [{
-                label: `${label} (${unit})`,
-                data: values,
-                backgroundColor: backgroundColors,
-                borderColor: borderColors,
-                borderWidth: 2,
-                borderRadius: 4,
-                borderSkipped: false,
-            }]
-        },
+        label: '실적',
+        data: actualData,
+        backgroundColor: actualData.map(v =>
+            v === null ? 'transparent' : (v >= 0 ? colorSet.positive : colorSet.negative)
+        ),
+        borderColor: 'transparent',
+        borderWidth: 0,
+        borderRadius: 3,
+        barPercentage: 0.6,
+        categoryPercentage: 0.8,
+        order: 2,
+    });
+
+    // 전망치 막대 (투명 배경 + 점선 테두리)
+    datasets.push({
+        type: 'bar',
+        label: '전망',
+        data: estimateData,
+        backgroundColor: estimateData.map(v =>
+            v === null ? 'transparent' : (v >= 0 ? colorSet.positive_est : colorSet.negative_est)
+        ),
+        borderColor: estimateData.map(v =>
+            v === null ? 'transparent' : (v >= 0 ? colorSet.border : '#ef4444')
+        ),
+        borderWidth: 2,
+        borderRadius: 3,
+        barPercentage: 0.6,
+        categoryPercentage: 0.8,
+        order: 2,
+    });
+
+    canvas._chartInstance = new Chart(canvas, {
+        data: { labels: xLabels, datasets },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
             layout: {
-                padding: { top: 25, bottom: 5 }  // 상단 라벨 공간 확보
+                padding: { top: 22, bottom: 2, left: 4, right: 4 }
             },
             plugins: {
                 legend: { display: false },
@@ -9565,65 +9565,63 @@ function renderFinancialChartKr(chartType, financials) {
                     bodyColor: '#E5E7EB',
                     borderColor: '#22304A',
                     borderWidth: 1,
-                    padding: 10,
+                    padding: 8,
+                    filter: (item) => item.raw !== null,
                     callbacks: {
-                        label: function(context) {
-                            const val = context.raw;
-                            const idx = context.dataIndex;
-                            const estLabel = isConsensus[idx] ? ' (전망치)' : '';
-                            return `${label}: ${val.toLocaleString()}${unit}${estLabel}`;
-                        }
-                    }
+                        label: (ctx) => {
+                            const v = ctx.raw;
+                            if (v === null) return null;
+                            const isEst = isEstimate[ctx.dataIndex];
+                            const estLabel = isEst ? ' (전망)' : '';
+                            return formatLabel(v) + estLabel;
+                        },
+                    },
                 },
-                // chartjs-plugin-datalabels 설정
                 datalabels: {
-                    anchor: (context) => context.dataset.data[context.dataIndex] >= 0 ? 'end' : 'start',
-                    align: (context) => context.dataset.data[context.dataIndex] >= 0 ? 'top' : 'bottom',
-                    offset: 2,
-                    color: (context) => {
-                        const value = context.dataset.data[context.dataIndex];
-                        return value >= 0 ? '#60A5FA' : '#F87171';
+                    display: (ctx) => ctx.dataset.data[ctx.dataIndex] !== null,
+                    anchor: (ctx) => {
+                        const v = ctx.dataset.data[ctx.dataIndex];
+                        return v >= 0 ? 'end' : 'start';
                     },
-                    font: {
-                        size: 10,
-                        weight: 'bold'
+                    align: (ctx) => {
+                        const v = ctx.dataset.data[ctx.dataIndex];
+                        return v >= 0 ? 'top' : 'bottom';
                     },
-                    formatter: (value) => {
-                        if (value === 0) return '';
-                        return formatValue(value);
-                    },
-                    display: true
-                }
+                    offset: 1,
+                    color: '#b0b8c4',
+                    font: { size: 9, weight: 'bold' },
+                    formatter: (v) => formatLabel(v),
+                },
             },
             scales: {
                 x: {
+                    stacked: true,
                     ticks: {
-                        color: '#9CA3AF',
-                        font: { size: 10 },
-                        // 전망치 연도는 다른 색상
-                        callback: function(value, index) {
-                            return this.getLabelForValue(value);
-                        }
+                        color: (ctx) => isEstimate[ctx.index] ? '#22c55e' : '#888',
+                        font: { size: 9 },
                     },
-                    grid: { display: false }
+                    grid: { display: false },
                 },
                 y: {
-                    beginAtZero: false,
+                    stacked: true,
                     ticks: {
-                        color: '#6B7280',
-                        font: { size: 9 },
-                        maxTicksLimit: 5,
-                        callback: function(value) {
-                            return formatValue(value);
-                        }
+                        color: '#666',
+                        font: { size: 8 },
+                        maxTicksLimit: 4,
+                        callback: (v) => {
+                            if (chartType === 'eps') {
+                                return v.toLocaleString();
+                            }
+                            const abs = Math.abs(v);
+                            if (abs >= 10000) return (v / 10000).toFixed(0) + '조';
+                            if (abs >= 100) return Math.round(v) + '억';
+                            return v;
+                        },
                     },
-                    grid: {
-                        color: 'rgba(156, 163, 175, 0.08)',
-                        drawBorder: false
-                    }
-                }
-            }
-        }
+                    grid: { color: 'rgba(255,255,255,0.04)' },
+                },
+            },
+        },
     });
 }
 

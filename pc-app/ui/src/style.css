@@ -5829,99 +5829,101 @@ body {
     border-radius: 4px;
 }
 
-/* 재무추이 헤더 (연결/별도 토글) */
-.sd-financial-trends-header {
-    padding: 12px 20px;
+/* =====================================================
+   StockEasy 완전 복제 — 재무추이 스타일
+   ===================================================== */
+
+/* 재무추이 섹션 */
+.sd-trend-section {
+    padding: 0;
+}
+
+.sd-trend-note {
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 12px;
+    padding: 0 4px;
+}
+
+/* 2열 그리드 (매출액 + 영업이익 나란히) */
+.sd-trend-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+@media (max-width: 768px) {
+    .sd-trend-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* 재무추이 카드 */
+.sd-trend-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    padding: 14px;
+}
+
+.sd-trend-card-full {
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+/* 카드 헤더 */
+.sd-trend-card-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     margin-bottom: 8px;
 }
 
-.sd-trends-title-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+.sd-trend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
 }
 
-/* 연결/별도 토글 버튼 */
-.sd-consolidation-toggle {
-    display: flex;
-    gap: 0;
-    background: var(--bg-light);
-    border-radius: 6px;
-    padding: 2px;
-}
+.sd-trend-dot.blue { background: #3b82f6; }
+.sd-trend-dot.green { background: #22c55e; }
+.sd-trend-dot.orange { background: #f97316; }
 
-.sd-toggle-btn {
-    padding: 6px 14px;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--text-muted);
-    background: transparent;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.sd-toggle-btn:hover {
-    color: var(--text-secondary);
-}
-
-.sd-toggle-btn.active {
-    background: var(--primary);
-    color: white;
-}
-
-/* 재무 차트 카드 개선 */
-.sd-financial-chart-card {
-    margin-bottom: 12px;
-    padding: 16px;
-}
-
-.sd-chart-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-}
-
-.sd-chart-title {
+.sd-trend-title {
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 700;
     color: var(--text-primary);
 }
 
-.sd-period-toggle {
-    display: flex;
-    gap: 0;
-    background: var(--bg-light);
-    border-radius: 4px;
-    padding: 2px;
+.sd-trend-legend-line {
+    margin-left: auto;
+    font-size: 10px;
+    color: #666;
 }
 
-.sd-period-btn {
-    padding: 4px 10px;
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--text-muted);
-    background: transparent;
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-    transition: all 0.2s;
+/* 서브 라벨 (연간/분기) */
+.sd-trend-sub-label {
+    font-size: 10px;
+    color: #666;
+    margin: 10px 0 4px;
+    padding-left: 2px;
 }
 
-.sd-period-btn:hover {
-    color: var(--text-secondary);
-}
-
-.sd-period-btn.active {
-    background: var(--primary);
-    color: white;
-}
-
-.sd-chart-wrapper {
+/* 차트 래퍼 */
+.sd-trend-chart-wrapper {
     position: relative;
-    min-height: 160px;
+    height: 120px;
+    margin-bottom: 4px;
+}
+
+.sd-trend-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #666;
+    font-size: 11px;
 }
 
 /* 실적 추이 DIV 차트 */
