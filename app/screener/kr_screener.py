@@ -121,12 +121,35 @@ def _parse_price(val) -> int:
         return 0
 
 
+import time as _time
+
+# 모듈 레벨 메모리 캐시 (서버 시작 시 워밍업)
+_kr_stock_cache = None
+_kr_cache_ts = 0
+_KR_CACHE_TTL = 300  # 5분
+
+
+async def load_kr_stocks():
+    """KR 종목 목록 — 메모리 캐시 우선 (서버 워밍업용)"""
+    global _kr_stock_cache, _kr_cache_ts
+    now = _time.time()
+
+    if _kr_stock_cache and now - _kr_cache_ts < _KR_CACHE_TTL:
+        return [s.copy() for s in _kr_stock_cache]  # 복사본 반환
+
+    # 캐시 만료 → 네이버에서 새로 로드
+    stocks = await fetch_all_kr_stocks()
+    _kr_stock_cache = stocks
+    _kr_cache_ts = now
+    return [s.copy() for s in stocks]
+
+
 async def screener_kr(filters: dict, sort: str, order: str, page: int, per_page: int) -> dict:
     """
     국내 주식 스크리너 — 네이버 금융 기반 + 기술적 지표
 
     [흐름]
-    1. 전종목 기본 시세 (네이버 — 캐시 5분)
+    1. 전종목 기본 시세 (메모리 캐시 — 5분)
     2. 기본정보 필터 적용 (거래소, 업종, 시총, 현재가, 거래량)
     3. 재무 데이터 보강 (PER, PBR, 배당수익률, 52주고가)
     4. 재무 필터 적용
@@ -134,12 +157,12 @@ async def screener_kr(filters: dict, sort: str, order: str, page: int, per_page:
     6. 기술적 필터 적용
     7. 정렬 + 페이지네이션
     """
-    # 캐시에서 전종목 데이터 가져오기
-    all_stocks = await screener_cache.get_or_fetch(
-        key="kr_all_stocks",
-        ttl_seconds=CACHE_TTL["kr_all_stocks"],
-        fetch_fn=fetch_all_kr_stocks
-    )
+    t0 = _time.time()
+
+    # 메모리 캐시에서 전종목 데이터 가져오기 (서버 워밍업 후 즉시 반환)
+    all_stocks = await load_kr_stocks()
+    t1 = _time.time()
+    print(f"[PERF] KR 종목로드: {t1-t0:.2f}초, {len(all_stocks)}개")
 
     if not all_stocks:
         return {"items": [], "total": 0, "page": page, "per_page": per_page}
@@ -148,6 +171,8 @@ async def screener_kr(filters: dict, sort: str, order: str, page: int, per_page:
     basic_filter_keys = ["exchange", "sector", "market_cap", "price_min", "price_max", "volume_min"]
     basic_filters = {k: v for k, v in filters.items() if k in basic_filter_keys}
     filtered = apply_screener_filters(all_stocks, basic_filters)
+    t2 = _time.time()
+    print(f"[PERF] KR 기본필터: {t2-t1:.2f}초, {len(filtered)}개")
 
     # === 2단계: 재무 데이터 보강 + 필터 ===
     has_financial_filters = any(filters.get(k) for k in FINANCIAL_FILTER_KEYS)
@@ -162,6 +187,8 @@ async def screener_kr(filters: dict, sort: str, order: str, page: int, per_page:
     financial_filters = {k: v for k, v in filters.items() if k in FINANCIAL_FILTER_KEYS}
     if financial_filters:
         filtered = apply_screener_filters(filtered, financial_filters)
+    t3 = _time.time()
+    print(f"[PERF] KR 재무보강: {t3-t2:.2f}초")
 
     # === 3단계: 기술적 지표 보강 + 필터 (상위 200건) ===
     has_technical_filters = any(filters.get(k) for k in TECHNICAL_FILTER_KEYS)
@@ -192,11 +219,16 @@ async def screener_kr(filters: dict, sort: str, order: str, page: int, per_page:
     start = (page - 1) * per_page
     end = start + per_page
     items = filtered[start:end]
+    t4 = _time.time()
+    print(f"[PERF] KR 기술+정렬: {t4-t3:.2f}초")
 
     # 페이지 결과에 대해 재무 + 기술 데이터 보강 (항상)
     items = await enrich_financial_data(list(items))
     items = await enrich_from_yfinance_cache(items)  # 캐시에서만 ROE/ROA 등 보강 (API 호출 없음)
     items = await enrich_with_technicals(items, technical_params)
+    t5 = _time.time()
+    print(f"[PERF] KR 페이지보강: {t5-t4:.2f}초")
+    print(f"[PERF] KR 전체: {t5-t0:.2f}초")
 
     # 시총 문자열 추가
     for item in items:

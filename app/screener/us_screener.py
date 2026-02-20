@@ -5,12 +5,33 @@ Finviz + Yahoo Finance 기반
 
 import asyncio
 import httpx
+import time as _time
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
 from .cache import screener_cache, CACHE_TTL
 from .filters import apply_screener_filters, sort_screener_results
 from .financial_data import fetch_financial_data_batch, YFINANCE_AVAILABLE
+
+# 모듈 레벨 메모리 캐시 (서버 시작 시 워밍업)
+_us_stock_cache = None
+_us_cache_ts = 0
+_US_CACHE_TTL = 600  # 10분
+
+
+async def load_us_stocks():
+    """US 종목 목록 — 메모리 캐시 우선 (서버 워밍업용)"""
+    global _us_stock_cache, _us_cache_ts
+    now = _time.time()
+
+    if _us_stock_cache and now - _us_cache_ts < _US_CACHE_TTL:
+        return [s.copy() for s in _us_stock_cache]  # 복사본 반환
+
+    # 캐시 만료 → Finviz에서 새로 로드
+    stocks = await fetch_all_us_stocks()
+    _us_stock_cache = stocks
+    _us_cache_ts = now
+    return [s.copy() for s in stocks]
 
 # Yahoo Finance 헤더
 YAHOO_HEADERS = {
@@ -42,23 +63,24 @@ async def screener_us(filters: dict, sort: str, order: str, page: int, per_page:
     미국 주식 스크리너 - Finviz + Yahoo Finance 기반
 
     [흐름]
-    1. S&P 500 종목 목록 가져오기 (Finviz Screener 스크래핑, 1시간 캐시)
-    2. 실시간 등락률 (Finviz 히트맵 API, 5분 캐시)
-    3. 필터 적용 (섹터, 시총, 등락률)
-    4. 정렬 + 페이지네이션
+    1. S&P 500 종목 목록 가져오기 (메모리 캐시 — 10분)
+    2. 필터 적용 (섹터, 시총, 등락률)
+    3. 정렬 + 페이지네이션
     """
-    # 캐시에서 S&P 500 전종목 데이터 가져오기
-    all_stocks = await screener_cache.get_or_fetch(
-        key="us_all_stocks",
-        ttl_seconds=CACHE_TTL.get("us_all_stocks", 3600),  # 1시간
-        fetch_fn=fetch_all_us_stocks
-    )
+    t0 = _time.time()
+
+    # 메모리 캐시에서 S&P 500 전종목 데이터 가져오기 (서버 워밍업 후 즉시 반환)
+    all_stocks = await load_us_stocks()
+    t1 = _time.time()
+    print(f"[PERF] US 종목로드: {t1-t0:.2f}초, {len(all_stocks)}개")
 
     if not all_stocks:
         return {"items": [], "total": 0, "page": page, "per_page": per_page, "message": "데이터를 불러올 수 없습니다"}
 
     # 필터 적용
     filtered = apply_us_filters(all_stocks, filters)
+    t2 = _time.time()
+    print(f"[PERF] US 필터: {t2-t1:.2f}초, {len(filtered)}개")
 
     # 정렬
     filtered = sort_screener_results(filtered, sort, order)
@@ -70,9 +92,12 @@ async def screener_us(filters: dict, sort: str, order: str, page: int, per_page:
     end = start + per_page
     items = filtered[start:end]
 
-    # yfinance 재무 데이터 보강 (페이지 결과에 대해서만)
-    if YFINANCE_AVAILABLE and items:
+    # yfinance 캐시에서 재무 데이터 보강 (API 호출 없음)
+    if items:
         items = await enrich_us_financial_data(list(items))
+    t3 = _time.time()
+    print(f"[PERF] US 재무보강: {t3-t2:.2f}초")
+    print(f"[PERF] US 전체: {t3-t0:.2f}초")
 
     # 시총 문자열 추가 (달러 기준)
     for item in items:

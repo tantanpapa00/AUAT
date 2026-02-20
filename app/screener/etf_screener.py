@@ -5,11 +5,32 @@ ETF 스크리너 (국내 상장 ETF)
 
 import asyncio
 import httpx
+import time as _time
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
 from .cache import screener_cache, CACHE_TTL
 from .filters import sort_screener_results
+
+# 모듈 레벨 메모리 캐시 (서버 시작 시 워밍업)
+_etf_stock_cache = None
+_etf_cache_ts = 0
+_ETF_CACHE_TTL = 600  # 10분
+
+
+async def load_etf_stocks():
+    """ETF 종목 목록 — 메모리 캐시 우선 (서버 워밍업용)"""
+    global _etf_stock_cache, _etf_cache_ts
+    now = _time.time()
+
+    if _etf_stock_cache and now - _etf_cache_ts < _ETF_CACHE_TTL:
+        return [s.copy() for s in _etf_stock_cache]  # 복사본 반환
+
+    # 캐시 만료 → 네이버에서 새로 로드
+    stocks = await fetch_all_etfs()
+    _etf_stock_cache = stocks
+    _etf_cache_ts = now
+    return [s.copy() for s in stocks]
 
 
 async def screener_etf(filters: dict, sort: str, order: str, page: int, per_page: int) -> dict:
@@ -17,22 +38,24 @@ async def screener_etf(filters: dict, sort: str, order: str, page: int, per_page
     국내 ETF 스크리너
 
     [흐름]
-    1. 네이버 금융에서 ETF 전체 목록 (캐시 10분)
+    1. 네이버 금융에서 ETF 전체 목록 (메모리 캐시 — 10분)
     2. 필터 적용 (운용사, 카테고리, 순자산, 등락률)
     3. 정렬 + 페이지네이션
     """
-    # 캐시에서 ETF 전종목 데이터 가져오기
-    all_etfs = await screener_cache.get_or_fetch(
-        key="etf_all_stocks",
-        ttl_seconds=CACHE_TTL.get("etf_all_stocks", 600),  # 10분
-        fetch_fn=fetch_all_etfs
-    )
+    t0 = _time.time()
+
+    # 메모리 캐시에서 ETF 전종목 데이터 가져오기 (서버 워밍업 후 즉시 반환)
+    all_etfs = await load_etf_stocks()
+    t1 = _time.time()
+    print(f"[PERF] ETF 종목로드: {t1-t0:.2f}초, {len(all_etfs)}개")
 
     if not all_etfs:
         return {"items": [], "total": 0, "page": page, "per_page": per_page, "message": "데이터를 불러올 수 없습니다"}
 
     # 필터 적용
     filtered = apply_etf_filters(all_etfs, filters)
+    t2 = _time.time()
+    print(f"[PERF] ETF 필터: {t2-t1:.2f}초, {len(filtered)}개")
 
     # 정렬
     filtered = sort_etf_results(filtered, sort, order)
@@ -53,6 +76,9 @@ async def screener_etf(filters: dict, sort: str, order: str, page: int, per_page
             item["nav_str"] = f"{int(nav)}억"
         else:
             item["nav_str"] = "-"
+
+    t3 = _time.time()
+    print(f"[PERF] ETF 전체: {t3-t0:.2f}초")
 
     return {
         "items": items,

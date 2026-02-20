@@ -237,6 +237,23 @@ async def lifespan(app):
     cache_task = asyncio.create_task(background_yfinance_cache_loop())
     print("[yfinance cache] 백그라운드 캐싱 시작")
 
+    # 스크리너 메모리 캐시 워밍업 (첫 요청 3초 이내 응답 위해)
+    try:
+        from app.screener.kr_screener import load_kr_stocks
+        from app.screener.us_screener import load_us_stocks
+        from app.screener.etf_screener import load_etf_stocks
+
+        print("[Screener Warmup] 시작...")
+        await load_kr_stocks()
+        print("[Screener Warmup] KR 완료")
+        await load_us_stocks()
+        print("[Screener Warmup] US 완료")
+        await load_etf_stocks()
+        print("[Screener Warmup] ETF 완료")
+        print("[Screener Warmup] 전체 완료 - 첫 요청 3초 이내 응답 가능")
+    except Exception as e:
+        print(f"[Screener Warmup] 경고: {e}")
+
     yield
 
     # 서버 종료 시 태스크 취소
