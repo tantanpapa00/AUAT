@@ -1076,9 +1076,12 @@ async def get_chart_data(code, period="3m"):
             "Referer": "https://finance.naver.com"
         }
         async with httpx.AsyncClient(timeout=15, headers=headers) as client:
-            # 기간별 캔들 수
-            period_map = {"1d": 5, "1w": 7, "1m": 25, "3m": 70, "6m": 130, "1y": 260}
-            count = period_map.get(period, 70)
+            # 기간별 캔들 수 (SMA 200 계산을 위해 충분한 데이터)
+            period_map = {
+                "1d": 5, "1w": 7, "1m": 25, "3m": 70,
+                "6m": 130, "1y": 260, "2y": 520, "3y": 780
+            }
+            count = period_map.get(period, 260)
 
             url = f"https://fchart.stock.naver.com/sise.nhn?symbol={code}&timeframe=day&count={count}&requestType=0"
             r = await client.get(url)

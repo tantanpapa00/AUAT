@@ -2,6 +2,12 @@ import { invoke } from '@tauri-apps/api/tauri';
 import { open } from '@tauri-apps/api/shell';
 import { createChart, ColorType, CrosshairMode } from 'lightweight-charts';
 import { API_BASE_URL, CONNECTION_TIMEOUT, MAX_RETRIES } from './config.js';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
+
+// ChartDataLabels 전역 등록 (Chart.js CDN 로드 후)
+if (typeof Chart !== 'undefined') {
+    Chart.register(ChartDataLabels);
+}
 
 // 디버깅용 전역 노출
 window.invokeCmd = invoke;
@@ -9310,8 +9316,19 @@ async function loadFinancialSummaryKr(code) {
             </div>
         `;
 
-        // StockEasy 스타일 3개 재무차트 (매출액, 영업이익, EPS)
+        // StockEasy 스타일 3개 재무차트 (매출액, 영업이익, EPS) + 연결/별도 토글
         const financialChartsHtml = `
+            <!-- 재무추이 헤더 (연결/별도 토글) -->
+            <div class="sd-card sd-financial-trends-header">
+                <div class="sd-trends-title-row">
+                    <span class="sd-card-title" style="margin-bottom:0;padding-bottom:0;border:none;">재무추이</span>
+                    <div class="sd-consolidation-toggle" id="consolidation-toggle">
+                        <button class="sd-toggle-btn active" data-type="consolidated">연결</button>
+                        <button class="sd-toggle-btn" data-type="separate">별도</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- 매출액 차트 -->
             <div class="sd-card sd-financial-chart-card">
                 <div class="sd-chart-header">
@@ -9321,8 +9338,8 @@ async function loadFinancialSummaryKr(code) {
                         <button class="sd-period-btn" data-period="quarter">분기</button>
                     </div>
                 </div>
-                <div class="sd-chart-wrapper">
-                    <canvas id="chart-revenue" height="160"></canvas>
+                <div class="sd-chart-wrapper" style="height:180px;">
+                    <canvas id="chart-revenue"></canvas>
                 </div>
             </div>
 
@@ -9335,8 +9352,8 @@ async function loadFinancialSummaryKr(code) {
                         <button class="sd-period-btn" data-period="quarter">분기</button>
                     </div>
                 </div>
-                <div class="sd-chart-wrapper">
-                    <canvas id="chart-operating-profit" height="160"></canvas>
+                <div class="sd-chart-wrapper" style="height:180px;">
+                    <canvas id="chart-operating-profit"></canvas>
                 </div>
             </div>
 
@@ -9349,8 +9366,8 @@ async function loadFinancialSummaryKr(code) {
                         <button class="sd-period-btn" data-period="quarter">분기</button>
                     </div>
                 </div>
-                <div class="sd-chart-wrapper">
-                    <canvas id="chart-eps" height="160"></canvas>
+                <div class="sd-chart-wrapper" style="height:180px;">
+                    <canvas id="chart-eps"></canvas>
                 </div>
             </div>
         `;
@@ -9364,6 +9381,9 @@ async function loadFinancialSummaryKr(code) {
 
         // 연간/분기 토글 이벤트
         initFinancialPeriodToggles(code);
+
+        // 연결/별도 토글 이벤트 (현재는 UI만 - 실제 데이터 분리는 추후 구현)
+        initConsolidationToggle();
 
     } catch (error) {
         console.error('Failed to load KR financial summary:', error);
@@ -9406,7 +9426,28 @@ function initFinancialPeriodToggles(code) {
     });
 }
 
-// StockEasy 스타일 개별 재무 차트 렌더링
+// 연결/별도 토글 이벤트 초기화
+function initConsolidationToggle() {
+    const toggle = document.getElementById('consolidation-toggle');
+    if (!toggle) return;
+
+    toggle.querySelectorAll('.sd-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            // 활성 버튼 변경
+            toggle.querySelectorAll('.sd-toggle-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            const type = btn.dataset.type;
+            // TODO: 실제 연결/별도 데이터 분리 API 연동 시 여기서 처리
+            console.log(`[Financial] Consolidation type changed to: ${type}`);
+
+            // 현재는 UI 토글만 - 실제 별도 재무제표 데이터는 네이버 API에서
+            // 별도로 제공되지 않아 추후 다른 데이터 소스 필요
+        });
+    });
+}
+
+// StockEasy 스타일 개별 재무 차트 렌더링 (chartjs-plugin-datalabels 사용)
 function renderFinancialChartKr(chartType, financials) {
     const canvasIdMap = {
         'revenue': 'chart-revenue',
@@ -9450,116 +9491,139 @@ function renderFinancialChartKr(chartType, financials) {
         return;
     }
 
-    // 색상: 양수=파란색, 음수=빨간색, 전망치=투명도 낮춤
+    // StockEasy 스타일 색상: 양수=파란색, 음수=빨간색, 전망치=점선 테두리
     const backgroundColors = values.map((v, i) => {
         const isEst = isConsensus[i];
         if (v >= 0) {
-            return isEst ? 'rgba(59, 130, 246, 0.4)' : 'rgba(59, 130, 246, 0.8)';
+            return isEst ? 'rgba(59, 130, 246, 0.5)' : 'rgba(59, 130, 246, 0.85)';
         } else {
-            return isEst ? 'rgba(239, 68, 68, 0.4)' : 'rgba(239, 68, 68, 0.8)';
+            return isEst ? 'rgba(239, 68, 68, 0.5)' : 'rgba(239, 68, 68, 0.85)';
         }
     });
 
     const borderColors = values.map((v, i) => {
         const isEst = isConsensus[i];
         if (v >= 0) {
-            return isEst ? 'rgba(59, 130, 246, 0.6)' : 'rgba(59, 130, 246, 1)';
+            return isEst ? '#93C5FD' : '#3B82F6';
         } else {
-            return isEst ? 'rgba(239, 68, 68, 0.6)' : 'rgba(239, 68, 68, 1)';
+            return isEst ? '#FCA5A5' : '#EF4444';
         }
     });
 
-    // 전망치 데이터 분리 (점선 처리용)
-    const borderDash = isConsensus.map(est => est ? [5, 5] : []);
-
-    // 데이터 라벨 표시용 커스텀 플러그인
-    const dataLabelsPlugin = {
-        id: 'dataLabels',
-        afterDatasetsDraw: function(chart) {
-            const ctx = chart.ctx;
-            chart.data.datasets.forEach((dataset, i) => {
-                const meta = chart.getDatasetMeta(i);
-                meta.data.forEach((bar, index) => {
-                    const value = dataset.data[index];
-                    if (value === 0) return;
-
-                    let displayValue;
-                    if (Math.abs(value) >= 10000) {
-                        displayValue = (value / 10000).toFixed(1) + '조';
-                    } else if (Math.abs(value) >= 1000) {
-                        displayValue = (value / 1000).toFixed(0) + '천';
-                    } else {
-                        displayValue = value.toLocaleString();
-                    }
-
-                    ctx.save();
-                    ctx.font = 'bold 10px sans-serif';
-                    ctx.fillStyle = value >= 0 ? '#60A5FA' : '#F87171';
-                    ctx.textAlign = 'center';
-
-                    const y = value >= 0 ? bar.y - 5 : bar.y + 12;
-                    ctx.fillText(displayValue, bar.x, y);
-                    ctx.restore();
-                });
-            });
+    // 전망치 표시용 라벨 (X축에 E 표시)
+    const xLabels = periods.map((p, i) => {
+        if (isConsensus[i] && !p.includes('(E)')) {
+            return p + '(E)';
         }
+        return p;
+    });
+
+    // 숫자 포맷 함수 (StockEasy 스타일)
+    const formatValue = (value) => {
+        if (value === 0) return '0';
+        if (chartType === 'eps') {
+            // EPS는 원 단위
+            if (Math.abs(value) >= 10000) {
+                return (value / 10000).toFixed(1) + '만';
+            }
+            return value.toLocaleString();
+        }
+        // 매출/영업이익은 억원 단위
+        if (Math.abs(value) >= 10000) {
+            return (value / 10000).toFixed(1) + '조';
+        } else if (Math.abs(value) >= 1000) {
+            return Math.round(value / 100) / 10 + '천';
+        }
+        return value.toLocaleString();
     };
 
     window[chartKey] = new Chart(canvas, {
         type: 'bar',
         data: {
-            labels: periods,
+            labels: xLabels,
             datasets: [{
                 label: `${label} (${unit})`,
                 data: values,
                 backgroundColor: backgroundColors,
                 borderColor: borderColors,
-                borderWidth: 1,
+                borderWidth: 2,
+                borderRadius: 4,
+                borderSkipped: false,
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             layout: {
-                padding: { top: 20 }  // 상단 라벨 공간 확보
+                padding: { top: 25, bottom: 5 }  // 상단 라벨 공간 확보
             },
             plugins: {
                 legend: { display: false },
                 tooltip: {
+                    backgroundColor: 'rgba(17, 26, 46, 0.95)',
+                    titleColor: '#E5E7EB',
+                    bodyColor: '#E5E7EB',
+                    borderColor: '#22304A',
+                    borderWidth: 1,
+                    padding: 10,
                     callbacks: {
                         label: function(context) {
                             const val = context.raw;
                             const idx = context.dataIndex;
-                            const estLabel = isConsensus[idx] ? ' (전망)' : '';
-                            return `${val.toLocaleString()}${unit}${estLabel}`;
+                            const estLabel = isConsensus[idx] ? ' (전망치)' : '';
+                            return `${label}: ${val.toLocaleString()}${unit}${estLabel}`;
                         }
                     }
+                },
+                // chartjs-plugin-datalabels 설정
+                datalabels: {
+                    anchor: (context) => context.dataset.data[context.dataIndex] >= 0 ? 'end' : 'start',
+                    align: (context) => context.dataset.data[context.dataIndex] >= 0 ? 'top' : 'bottom',
+                    offset: 2,
+                    color: (context) => {
+                        const value = context.dataset.data[context.dataIndex];
+                        return value >= 0 ? '#60A5FA' : '#F87171';
+                    },
+                    font: {
+                        size: 10,
+                        weight: 'bold'
+                    },
+                    formatter: (value) => {
+                        if (value === 0) return '';
+                        return formatValue(value);
+                    },
+                    display: true
                 }
             },
             scales: {
                 x: {
                     ticks: {
                         color: '#9CA3AF',
-                        font: { size: 10 }
+                        font: { size: 10 },
+                        // 전망치 연도는 다른 색상
+                        callback: function(value, index) {
+                            return this.getLabelForValue(value);
+                        }
                     },
                     grid: { display: false }
                 },
                 y: {
+                    beginAtZero: false,
                     ticks: {
-                        color: '#9CA3AF',
-                        font: { size: 10 },
+                        color: '#6B7280',
+                        font: { size: 9 },
+                        maxTicksLimit: 5,
                         callback: function(value) {
-                            if (Math.abs(value) >= 10000) {
-                                return (value / 10000).toFixed(0) + '조';
-                            }
-                            return value.toLocaleString();
+                            return formatValue(value);
                         }
                     },
-                    grid: { color: 'rgba(156, 163, 175, 0.1)' }
+                    grid: {
+                        color: 'rgba(156, 163, 175, 0.08)',
+                        drawBorder: false
+                    }
                 }
             }
-        },
-        plugins: [dataLabelsPlugin]
+        }
     });
 }
 
@@ -10796,8 +10860,17 @@ async function initCandleChart(symbol, exchange, period = '1D') {
         });
 
         // 실제 API에서 차트 데이터 가져오기
-        const periodMap = { '1D': '1d', '1W': '1w', '1M': '1m', '3M': '3m', '6M': '6m', '1Y': '1y' };
-        const apiPeriod = periodMap[period] || '3m';
+        // 기간별 충분한 데이터 로드 (SMA 200 계산 위해 여유있게)
+        // UI 표시 기간 → API 요청 기간 (더 넉넉하게)
+        const periodMap = {
+            '1D': '1w',   // 1일 표시 → 1주 데이터 (분봉)
+            '1W': '1m',   // 1주 표시 → 1개월 데이터
+            '1M': '3m',   // 1개월 표시 → 3개월 데이터
+            '3M': '1y',   // 3개월 표시 → 1년 데이터
+            '6M': '2y',   // 6개월 표시 → 2년 데이터
+            '1Y': '3y'    // 1년 표시 → 3년 데이터 (SMA 200 확보)
+        };
+        const apiPeriod = periodMap[period] || '1y';
 
         // 종목 유형 확인
         const ex = (exchange || '').toUpperCase();
