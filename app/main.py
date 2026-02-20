@@ -180,52 +180,16 @@ from .pine_parser import parse_pine_inputs
 # 백그라운드 yfinance 캐시 루프
 # =====================================================
 async def background_yfinance_cache_loop():
-    """6시간마다 주요 종목 재무 데이터 사전 캐싱"""
+    """
+    [비활성화됨] VPS IP가 Yahoo Finance에서 429 차단됨
+    디스크 캐시(/tmp/yfinance_cache.json)만 사용
+    """
     import asyncio
 
-    # 서버 시작 후 30초 대기 (다른 초기화 완료 대기)
-    await asyncio.sleep(30)
-
+    # 비활성화 - VPS에서 429 Too Many Requests 발생
+    print("[yfinance cache] 비활성화됨 (VPS IP 차단 - 디스크 캐시만 사용)")
     while True:
-        try:
-            from app.screener.financial_data import prefetch_all, YFINANCE_AVAILABLE
-
-            if not YFINANCE_AVAILABLE:
-                print("[yfinance cache] yfinance 미설치, 캐싱 스킵")
-                await asyncio.sleep(6 * 3600)
-                continue
-
-            symbols_to_cache = []
-
-            # KR: 시총 상위 200개
-            try:
-                from app.screener.kr_screener import fetch_all_kr_stocks
-                kr_stocks = await fetch_all_kr_stocks()
-                # 시총 순 정렬
-                kr_stocks_sorted = sorted(kr_stocks, key=lambda x: x.get('market_cap', 0), reverse=True)
-                symbols_to_cache.extend([(s.get('code', ''), 'kr') for s in kr_stocks_sorted[:200]])
-            except Exception as e:
-                print(f"[yfinance cache] KR 종목 로드 실패: {e}")
-
-            # US: S&P 500 상위 200개
-            try:
-                from app.screener.us_screener import fetch_all_us_stocks
-                us_stocks = await fetch_all_us_stocks()
-                # 시총 순 정렬
-                us_stocks_sorted = sorted(us_stocks, key=lambda x: x.get('market_cap', 0), reverse=True)
-                symbols_to_cache.extend([(s.get('code', ''), 'us') for s in us_stocks_sorted[:200]])
-            except Exception as e:
-                print(f"[yfinance cache] US 종목 로드 실패: {e}")
-
-            if symbols_to_cache:
-                count = await prefetch_all(symbols_to_cache, delay=2.0)  # 2초 간격 = 시간당 1800건
-                print(f"[yfinance cache] 캐싱 완료: {count}개")
-
-        except Exception as e:
-            print(f"[yfinance cache] 에러: {e}")
-
-        # 6시간 후 반복
-        await asyncio.sleep(6 * 3600)
+        await asyncio.sleep(86400)  # 24시간 대기 (실제로 아무것도 안 함)
 
 
 @asynccontextmanager
