@@ -1,6 +1,6 @@
 """
 해외(미국) 주식 스크리너
-Finviz 기반 (v=111 Overview + v=141 Financial)
+Finviz 기반 (v=111 Overview + v=161 Financial)
 """
 
 import asyncio
@@ -166,13 +166,13 @@ async def fetch_all_us_stocks() -> List[Dict]:
     S&P 500 종목 + 실시간 등락률 + 재무 데이터 결합
 
     1. Finviz v=111 (Overview): 섹터, 시총, 종목명
-    2. Finviz v=141 (Financial): ROE, ROA, Debt/Eq, Margins 등
+    2. Finviz v=161 (Financial): ROE, ROA, Debt/Eq, Margins 등
     3. Finviz 히트맵 API: 실시간 등락률
     """
     # 1. 메타데이터 가져오기 (v=111)
     metadata = await fetch_sp500_metadata()
 
-    # 2. 재무 데이터 가져오기 (v=141)
+    # 2. 재무 데이터 가져오기 (v=161)
     financials = await fetch_sp500_financials()
 
     # 3. 실시간 등락률 가져오기
@@ -322,10 +322,10 @@ def _parse_finviz_float(val: str) -> Optional[float]:
 
 async def fetch_sp500_financials() -> Dict[str, Dict]:
     """
-    Finviz Financial 뷰(v=141)에서 재무 데이터 수집
+    Finviz Financial 뷰(v=161)에서 재무 데이터 수집
     Returns: {"AAPL": {"roe": 152.02, "roa": 32.56, "debt_ratio": 1.03, ...}, ...}
 
-    v=141 컬럼 순서:
+    v=161 컬럼 순서:
     No., Ticker, Market Cap, Dividend, ROA, ROE, ROI,
     Curr R, Quick R, LTDebt/Eq, Debt/Eq, Gross M, Oper M, Profit M,
     Earnings, Price, Change, Volume
@@ -340,11 +340,11 @@ async def fetch_sp500_financials() -> Dict[str, Dict]:
 
             while True:
                 offset = (page - 1) * 20 + 1
-                url = f"https://finviz.com/screener.ashx?v=141&f=idx_sp500&o=-marketcap&r={offset}"
+                url = f"https://finviz.com/screener.ashx?v=161&f=idx_sp500&o=-marketcap&r={offset}"
 
                 r = await client.get(url, headers=FINVIZ_HEADERS)
                 if r.status_code != 200:
-                    print(f"[Finviz Financial] 페이지 {page} 실패: {r.status_code}")
+                    print(f"[Finviz v=161 Financial] 페이지 {page} 실패: {r.status_code}")
                     break
 
                 soup = BeautifulSoup(r.text, 'lxml')
@@ -364,7 +364,7 @@ async def fetch_sp500_financials() -> Dict[str, Dict]:
                         ticker = ticker_link.text.strip() if ticker_link else ""
 
                         if ticker:
-                            # v=141 컬럼: No, Ticker, MktCap, Div, ROA, ROE, ROI, CurrR, QuickR, LTD/Eq, D/Eq, GrossM, OperM, ProfitM, Earn, Price, Chg, Vol
+                            # v=161 컬럼: No, Ticker, MktCap, Div, ROA, ROE, ROI, CurrR, QuickR, LTD/Eq, D/Eq, GrossM, OperM, ProfitM, Earn, Price, Chg, Vol
                             result[ticker] = {
                                 "dividend_yield": _parse_finviz_pct(cols[3].text.strip()),
                                 "roa": _parse_finviz_pct(cols[4].text.strip()),
@@ -386,10 +386,10 @@ async def fetch_sp500_financials() -> Dict[str, Dict]:
                 page += 1
                 await asyncio.sleep(0.3)  # 요청 간격
 
-            print(f"[Finviz Financial] S&P 500 재무데이터: {len(result)}개 종목 ({page}페이지)")
+            print(f"[Finviz v=161 Financial] S&P 500 재무데이터: {len(result)}개 종목 ({page}페이지)")
 
     except Exception as e:
-        print(f"[Finviz Financial] 오류: {e}")
+        print(f"[Finviz v=161 Financial] 오류: {e}")
         import traceback
         traceback.print_exc()
 
@@ -432,7 +432,7 @@ async def fetch_finviz_changes() -> Dict[str, float]:
     return result
 
 
-# 필터 키 정의 (US 전용) - Finviz v=141 기반 재무 필터
+# 필터 키 정의 (US 전용) - Finviz v=161 기반 재무 필터
 US_FILTER_KEYS = [
     "sector", "market_cap", "change_pct",
     # 재무 필터 (Finviz v=141 기반)
