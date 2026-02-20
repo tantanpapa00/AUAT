@@ -1804,6 +1804,33 @@ pub async fn get_stock_consensus(
     }
 }
 
+/// 국내 종목 차트 데이터 (일봉)
+#[tauri::command]
+pub async fn get_stock_chart_kr(
+    access_token: String,
+    code: String,
+    period: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let period_val = period.unwrap_or_else(|| "3m".to_string());
+    let url = format!("{}/api/stock/kr/{}/chart?period={}", VPS_SERVER_URL, code, period_val);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("차트 데이터를 가져올 수 없습니다".to_string())
+    }
+}
+
 /// 각 거래소별 인기 종목 목록
 #[derive(Serialize, Deserialize, Default)]
 pub struct PopularSymbols {

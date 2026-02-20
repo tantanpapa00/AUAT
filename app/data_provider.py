@@ -1068,34 +1068,46 @@ async def get_stock_detail(code):
 
 
 async def get_chart_data(code, period="3m"):
-    """차트 데이터 - 네이버 API"""
+    """차트 데이터 - 네이버 fchart API (일봉)"""
+    import re
     try:
-        async with httpx.AsyncClient(timeout=10, headers=NAVER_HEADERS) as client:
-            period_map = {"1d": 1, "1w": 7, "1m": 30, "3m": 90, "6m": 180, "1y": 365}
-            days = period_map.get(period, 90)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Referer": "https://finance.naver.com"
+        }
+        async with httpx.AsyncClient(timeout=15, headers=headers) as client:
+            # 기간별 캔들 수
+            period_map = {"1d": 5, "1w": 7, "1m": 25, "3m": 70, "6m": 130, "1y": 260}
+            count = period_map.get(period, 70)
 
-            today = datetime.now()
-            start_date = (today - timedelta(days=days)).strftime("%Y%m%d")
-            end_date = today.strftime("%Y%m%d")
-
-            url = f"https://api.stock.naver.com/chart/domestic/item/{code}?periodType=day&startDateTime={start_date}&endDateTime={end_date}"
+            url = f"https://fchart.stock.naver.com/sise.nhn?symbol={code}&timeframe=day&count={count}&requestType=0"
             r = await client.get(url)
 
             if r.status_code == 200:
-                data = r.json()
+                # XML 파싱: <item data="20250919|81100|81200|79600|79700|20898386" />
+                text = r.text
+                items = re.findall(r'<item data="([^"]+)"', text)
+
                 result = []
-                for d in data:
-                    result.append({
-                        "date": d.get("localDate", ""),
-                        "open": int(_parse_price(d.get("openPrice", "0"))),
-                        "high": int(_parse_price(d.get("highPrice", "0"))),
-                        "low": int(_parse_price(d.get("lowPrice", "0"))),
-                        "close": int(_parse_price(d.get("closePrice", "0"))),
-                        "volume": _parse_int(d.get("accumulatedTradingVolume", "0"))
-                    })
+                for item in items:
+                    parts = item.split("|")
+                    if len(parts) >= 6:
+                        result.append({
+                            "date": parts[0],           # 20250919
+                            "open": int(parts[1]),      # 시가
+                            "high": int(parts[2]),      # 고가
+                            "low": int(parts[3]),       # 저가
+                            "close": int(parts[4]),     # 종가
+                            "volume": int(parts[5])     # 거래량
+                        })
+
+                # 날짜순 정렬 (오래된 것 → 최신)
+                result.sort(key=lambda x: x.get("date", ""))
                 return result
     except Exception as e:
         print(f"[DataProvider] Chart error for {code}: {e}")
+        import traceback
+        traceback.print_exc()
 
     # 빈 배열 반환
     return []

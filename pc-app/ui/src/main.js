@@ -9022,10 +9022,6 @@ async function initCandleChart(symbol, exchange, period = '1D') {
             wickDownColor: '#EF4444'
         });
 
-        // 샘플 데이터 (실제로는 API에서 가져와야 함)
-        const sampleData = generateSampleCandleData(period);
-        candleSeries.setData(sampleData);
-
         // 거래량 시리즈
         const volumeSeries = detailChart.addHistogramSeries({
             color: '#3B82F6',
@@ -9034,12 +9030,121 @@ async function initCandleChart(symbol, exchange, period = '1D') {
             scaleMargins: { top: 0.8, bottom: 0 }
         });
 
-        const volumeData = sampleData.map(d => ({
-            time: d.time,
-            value: Math.random() * 1e6,
-            color: d.close >= d.open ? '#22C55E44' : '#EF444444'
-        }));
-        volumeSeries.setData(volumeData);
+        // 실제 API에서 차트 데이터 가져오기
+        const periodMap = { '1D': '1d', '1W': '1w', '1M': '1m', '3M': '3m', '6M': '6m', '1Y': '1y' };
+        const apiPeriod = periodMap[period] || '3m';
+
+        try {
+            const chartResponse = await invokeWithTimeout('get_stock_chart_kr', {
+                accessToken: auth.accessToken || '',
+                code: symbol,
+                period: apiPeriod
+            }, 15000);
+
+            if (chartResponse && chartResponse.candles && chartResponse.candles.length > 0) {
+                // API 데이터를 TradingView 형식으로 변환
+                const candleData = chartResponse.candles.map(c => {
+                    // date 형식: "20250218" → Unix timestamp
+                    const dateStr = c.date || '';
+                    const y = parseInt(dateStr.substring(0, 4), 10);
+                    const m = parseInt(dateStr.substring(4, 6), 10) - 1;
+                    const d = parseInt(dateStr.substring(6, 8), 10);
+                    const timestamp = Math.floor(new Date(y, m, d).getTime() / 1000);
+
+                    return {
+                        time: timestamp,
+                        open: c.open || 0,
+                        high: c.high || 0,
+                        low: c.low || 0,
+                        close: c.close || 0
+                    };
+                }).filter(c => c.time > 0).sort((a, b) => a.time - b.time);
+
+                const volumeData = chartResponse.candles.map(c => {
+                    const dateStr = c.date || '';
+                    const y = parseInt(dateStr.substring(0, 4), 10);
+                    const m = parseInt(dateStr.substring(4, 6), 10) - 1;
+                    const d = parseInt(dateStr.substring(6, 8), 10);
+                    const timestamp = Math.floor(new Date(y, m, d).getTime() / 1000);
+
+                    return {
+                        time: timestamp,
+                        value: c.volume || 0,
+                        color: (c.close || 0) >= (c.open || 0) ? '#22C55E44' : '#EF444444'
+                    };
+                }).filter(v => v.time > 0).sort((a, b) => a.time - b.time);
+
+                candleSeries.setData(candleData);
+                volumeSeries.setData(volumeData);
+
+                // SMA 이동평균선 추가 (20, 50, 200일)
+                const calculateSMA = (data, period) => {
+                    const result = [];
+                    for (let i = period - 1; i < data.length; i++) {
+                        let sum = 0;
+                        for (let j = 0; j < period; j++) {
+                            sum += data[i - j].close;
+                        }
+                        result.push({ time: data[i].time, value: sum / period });
+                    }
+                    return result;
+                };
+
+                // SMA 20 (노란색)
+                if (candleData.length >= 20) {
+                    const sma20Series = detailChart.addLineSeries({
+                        color: '#FBBF24',
+                        lineWidth: 1,
+                        priceLineVisible: false,
+                        lastValueVisible: false,
+                    });
+                    sma20Series.setData(calculateSMA(candleData, 20));
+                }
+
+                // SMA 50 (주황색)
+                if (candleData.length >= 50) {
+                    const sma50Series = detailChart.addLineSeries({
+                        color: '#F97316',
+                        lineWidth: 1,
+                        priceLineVisible: false,
+                        lastValueVisible: false,
+                    });
+                    sma50Series.setData(calculateSMA(candleData, 50));
+                }
+
+                // SMA 200 (보라색)
+                if (candleData.length >= 200) {
+                    const sma200Series = detailChart.addLineSeries({
+                        color: '#A855F7',
+                        lineWidth: 1,
+                        priceLineVisible: false,
+                        lastValueVisible: false,
+                    });
+                    sma200Series.setData(calculateSMA(candleData, 200));
+                }
+            } else {
+                // API 실패 시 샘플 데이터 사용
+                const sampleData = generateSampleCandleData(period);
+                candleSeries.setData(sampleData);
+                const sampleVolume = sampleData.map(d => ({
+                    time: d.time,
+                    value: Math.random() * 1e6,
+                    color: d.close >= d.open ? '#22C55E44' : '#EF444444'
+                }));
+                volumeSeries.setData(sampleVolume);
+            }
+        } catch (chartError) {
+            console.warn('Chart API failed, using sample data:', chartError);
+            // API 실패 시 샘플 데이터로 폴백
+            const sampleData = generateSampleCandleData(period);
+            candleSeries.setData(sampleData);
+            const sampleVolume = sampleData.map(d => ({
+                time: d.time,
+                value: Math.random() * 1e6,
+                color: d.close >= d.open ? '#22C55E44' : '#EF444444'
+            }));
+            volumeSeries.setData(sampleVolume);
+        }
 
         detailChart.timeScale().fitContent();
 

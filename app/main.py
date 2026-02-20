@@ -10432,6 +10432,24 @@ async def api_stock_consensus(
     }
 
 
+@app.get("/api/stock/kr/{code}/chart")
+async def api_stock_chart_kr(
+    code: str,
+    period: str = Query("3m", description="기간: 1d, 1w, 1m, 3m, 6m, 1y"),
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    국내 종목 차트 데이터 (일봉)
+    - 누구나 접근 가능
+    """
+    candles = await get_chart_data(code, period)
+    return {
+        "code": code,
+        "period": period,
+        "candles": candles
+    }
+
+
 # =============================================================================
 # [STEP 2] 시장분석 API (Pro 이상)
 # =============================================================================
