@@ -2865,6 +2865,7 @@ async def get_stock_financials_kr(code: str, fin_type: str = "annual") -> dict:
         "operating_profit": [],  # 영업이익 (억원)
         "net_income": [],   # 당기순이익 (억원)
         "eps": [],          # EPS (원)
+        "opm": [],          # 영업이익률 (%)
     }
 
     try:
@@ -2929,8 +2930,10 @@ async def get_stock_financials_kr(code: str, fin_type: str = "annual") -> dict:
                         result["operating_profit"] = values
                     elif title == "당기순이익":
                         result["net_income"] = values
-                    elif title == "EPS(원)":
+                    elif title == "EPS" or title == "EPS(원)":
                         result["eps"] = values
+                    elif title == "영업이익률":
+                        result["opm"] = values  # OPM (%)
 
                 # EPS가 없으면 별도 API에서 가져오기
                 if not result["eps"]:

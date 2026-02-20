@@ -4,9 +4,16 @@ import { createChart, ColorType, CrosshairMode } from 'lightweight-charts';
 import { API_BASE_URL, CONNECTION_TIMEOUT, MAX_RETRIES } from './config.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 
-// ChartDataLabels 전역 등록 (Chart.js CDN 로드 후)
-if (typeof Chart !== 'undefined') {
-    Chart.register(ChartDataLabels);
+// ChartDataLabels 등록 플래그
+let chartDataLabelsRegistered = false;
+
+// ChartDataLabels 지연 등록 (차트 생성 시점에 호출)
+function ensureChartDataLabels() {
+    if (!chartDataLabelsRegistered && typeof Chart !== 'undefined' && ChartDataLabels) {
+        Chart.register(ChartDataLabels);
+        chartDataLabelsRegistered = true;
+        console.log('[Chart] ChartDataLabels 등록 완료');
+    }
 }
 
 // 디버깅용 전역 노출
@@ -7982,6 +7989,16 @@ function formatBillions(value) {
     return value.toLocaleString();
 }
 
+// 재무제표 값 포맷 (입력: 억원 단위)
+// 185828억 → "18.6조", 5848억 → "5,848억"
+function formatFinancialValue(valueInBillion) {
+    if (valueInBillion == null || valueInBillion === 0) return '-';
+    const abs = Math.abs(valueInBillion);
+    const sign = valueInBillion < 0 ? '-' : '';
+    if (abs >= 10000) return sign + (abs / 10000).toFixed(1) + '조';
+    return sign + Math.round(abs).toLocaleString() + '억';
+}
+
 // =====================================================
 // STEP B: 캔들차트 + 검색 자동완성
 // =====================================================
@@ -9294,11 +9311,11 @@ async function loadFinancialSummaryKr(code) {
                     </div>
                     <div class="sd-financial-item">
                         <span class="sd-financial-label">매출액</span>
-                        <span class="sd-financial-value">${latestRevenue > 0 ? formatBillions(latestRevenue * 100) : '-'}</span>
+                        <span class="sd-financial-value">${latestRevenue > 0 ? formatFinancialValue(latestRevenue) : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
                         <span class="sd-financial-label">영업이익</span>
-                        <span class="sd-financial-value ${latestOpProfit < 0 ? 'negative' : ''}">${latestOpProfit !== 0 ? formatBillions(latestOpProfit * 100) : '-'}</span>
+                        <span class="sd-financial-value ${latestOpProfit < 0 ? 'negative' : ''}">${latestOpProfit !== 0 ? formatFinancialValue(latestOpProfit) : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
                         <span class="sd-financial-label">OPM</span>
@@ -9310,7 +9327,7 @@ async function loadFinancialSummaryKr(code) {
                     </div>
                     <div class="sd-financial-item">
                         <span class="sd-financial-label">당기순이익</span>
-                        <span class="sd-financial-value ${latestNetIncome < 0 ? 'negative' : ''}">${latestNetIncome !== 0 ? formatBillions(latestNetIncome * 100) : '-'}</span>
+                        <span class="sd-financial-value ${latestNetIncome < 0 ? 'negative' : ''}">${latestNetIncome !== 0 ? formatFinancialValue(latestNetIncome) : '-'}</span>
                     </div>
                 </div>
             </div>
@@ -9406,6 +9423,7 @@ const FINANCIAL_CHART_COLORS = {
 
 // 연간 + 분기 데이터 동시 로드 후 모든 차트 렌더링
 async function loadAndRenderAllFinancialCharts(code, annualData) {
+    console.log('[loadAndRenderAllFinancialCharts] 시작 code:', code, 'annualData:', annualData);
     currentFinancialDataKr.annual = annualData;
 
     // 분기 데이터 로드
@@ -9423,32 +9441,34 @@ async function loadAndRenderAllFinancialCharts(code, annualData) {
 
     const annual = currentFinancialDataKr.annual || {};
     const quarter = currentFinancialDataKr.quarter || {};
+    console.log('[loadAndRenderAllFinancialCharts] annual:', annual);
+    console.log('[loadAndRenderAllFinancialCharts] quarter:', quarter);
 
-    // 매출액 — 연간
+    // 매출액 — 연간 (API가 억원 단위로 반환)
     renderStockEasyChart('sd-fc-revenue-annual', {
         periods: annual.periods || [],
-        values: (annual.revenue || []).map(v => Math.round(v / 100)),
+        values: annual.revenue || [],
         isEstimate: annual.isConsensus || [],
     }, FINANCIAL_CHART_COLORS.revenue, 'revenue');
 
     // 매출액 — 분기
     renderStockEasyChart('sd-fc-revenue-quarter', {
         periods: quarter.periods || [],
-        values: (quarter.revenue || []).map(v => Math.round(v / 100)),
+        values: quarter.revenue || [],
         isEstimate: quarter.isConsensus || [],
     }, FINANCIAL_CHART_COLORS.revenue, 'revenue');
 
     // 영업이익 — 연간
     renderStockEasyChart('sd-fc-op-annual', {
         periods: annual.periods || [],
-        values: (annual.operating_profit || []).map(v => Math.round(v / 100)),
+        values: annual.operating_profit || [],
         isEstimate: annual.isConsensus || [],
     }, FINANCIAL_CHART_COLORS.operating, 'operating');
 
     // 영업이익 — 분기
     renderStockEasyChart('sd-fc-op-quarter', {
         periods: quarter.periods || [],
-        values: (quarter.operating_profit || []).map(v => Math.round(v / 100)),
+        values: quarter.operating_profit || [],
         isEstimate: quarter.isConsensus || [],
     }, FINANCIAL_CHART_COLORS.operating, 'operating');
 
@@ -9469,8 +9489,16 @@ async function loadAndRenderAllFinancialCharts(code, annualData) {
 
 // StockEasy 스타일 차트 렌더링 (실적/전망치 분리 + 점선 테두리)
 function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
+    console.log('[renderStockEasyChart] 시작:', canvasId, chartData);
+
+    // ChartDataLabels 등록 확인 (lazy registration)
+    ensureChartDataLabels();
+
     const canvas = document.getElementById(canvasId);
-    if (!canvas) return;
+    if (!canvas) {
+        console.warn('[renderStockEasyChart] canvas 없음:', canvasId);
+        return;
+    }
 
     // 기존 차트 제거
     if (canvas._chartInstance) {
@@ -9478,12 +9506,18 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
     }
 
     const { periods, values, isEstimate } = chartData;
+    console.log('[renderStockEasyChart] 데이터:', { periods, values, isEstimate });
+
     if (!values || values.length === 0) {
+        console.warn('[renderStockEasyChart] 값 없음:', canvasId);
         canvas.parentElement.innerHTML = '<div class="sd-trend-empty">데이터 없음</div>';
         return;
     }
 
-    if (typeof Chart === 'undefined') return;
+    if (typeof Chart === 'undefined') {
+        console.error('[renderStockEasyChart] Chart.js 미로드');
+        return;
+    }
 
     // 실적 데이터 (전망치 자리는 null)
     const actualData = values.map((v, i) => isEstimate[i] ? null : v);
@@ -9530,33 +9564,34 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
         order: 2,
     });
 
-    // 전망치 막대 (투명 배경 + 점선 테두리)
+    // 전망치 막대 (투명 배경 + 강조 테두리)
     datasets.push({
         type: 'bar',
         label: '전망',
         data: estimateData,
-        backgroundColor: estimateData.map(v =>
-            v === null ? 'transparent' : (v >= 0 ? colorSet.positive_est : colorSet.negative_est)
-        ),
+        backgroundColor: 'transparent',  // 완전 투명
         borderColor: estimateData.map(v =>
             v === null ? 'transparent' : (v >= 0 ? colorSet.border : '#ef4444')
         ),
-        borderWidth: 2,
+        borderWidth: 2.5,
         borderRadius: 3,
         barPercentage: 0.6,
         categoryPercentage: 0.8,
         order: 2,
     });
 
-    canvas._chartInstance = new Chart(canvas, {
-        data: { labels: xLabels, datasets },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { mode: 'index', intersect: false },
-            layout: {
-                padding: { top: 22, bottom: 2, left: 4, right: 4 }
-            },
+    try {
+        console.log('[renderStockEasyChart] Chart 생성 시작:', canvasId, 'labels:', xLabels, 'datasets:', datasets);
+        canvas._chartInstance = new Chart(canvas, {
+            data: { labels: xLabels, datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                clip: false,  // 차트 영역 밖으로 라벨 표시 허용
+                interaction: { mode: 'index', intersect: false },
+                layout: {
+                    padding: { top: 30, bottom: 2, left: 4, right: 4 }  // 상단 라벨 공간
+                },
             plugins: {
                 legend: { display: false },
                 tooltip: {
@@ -9581,15 +9616,16 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
                     display: (ctx) => ctx.dataset.data[ctx.dataIndex] !== null,
                     anchor: (ctx) => {
                         const v = ctx.dataset.data[ctx.dataIndex];
-                        return v >= 0 ? 'end' : 'start';
+                        return (v !== null && v >= 0) ? 'end' : 'start';
                     },
                     align: (ctx) => {
                         const v = ctx.dataset.data[ctx.dataIndex];
-                        return v >= 0 ? 'top' : 'bottom';
+                        return (v !== null && v >= 0) ? 'top' : 'bottom';
                     },
-                    offset: 1,
-                    color: '#b0b8c4',
-                    font: { size: 9, weight: 'bold' },
+                    offset: 4,  // 막대와 라벨 사이 간격
+                    clamp: false,
+                    color: '#d0d8e4',
+                    font: { size: 10, weight: 'bold' },
                     formatter: (v) => formatLabel(v),
                 },
             },
@@ -9623,6 +9659,10 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
             },
         },
     });
+        console.log('[renderStockEasyChart] Chart 생성 완료:', canvasId);
+    } catch (error) {
+        console.error('[renderStockEasyChart] Chart 생성 오류:', canvasId, error);
+    }
 }
 
 // 해외 종목 재무 요약 로드 (Phase 9)
@@ -9738,9 +9778,9 @@ function renderFinancialTrendChart(financials) {
         return;
     }
 
-    // 단위 변환 (억원)
-    const revenueInBillion = revenue.map(v => Math.round(v / 100));  // 억원
-    const opProfitInBillion = opProfit.map(v => Math.round(v / 100));
+    // API가 이미 억원 단위로 반환
+    const revenueInBillion = revenue;
+    const opProfitInBillion = opProfit;
 
     window.financialTrendChartInstance = new Chart(canvas, {
         type: 'bar',
