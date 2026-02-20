@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from .cache import screener_cache, CACHE_TTL
 from .filters import apply_screener_filters, sort_screener_results
 from .technicals import compute_all_technicals
+from .financial_data import fetch_financial_data_batch, YFINANCE_AVAILABLE
 
 # 기술적 지표 필터 키 목록
 TECHNICAL_FILTER_KEYS = [
@@ -436,7 +437,33 @@ async def enrich_financial_data(stocks: List[Dict]) -> List[Dict]:
         else:
             result.append(r)
 
-    print(f"[Screener] Enriched {len(result)} stocks with financial data")
+    print(f"[Screener] Enriched {len(result)} stocks with financial data (Naver)")
+
+    # yfinance로 누락된 재무 데이터 보강 (ROE, ROA, gross_margin 등)
+    if YFINANCE_AVAILABLE:
+        yfinance_fields = ["roe", "roa", "operating_margin", "gross_margin", "profit_margin",
+                          "debt_ratio", "current_ratio", "revenue_growth", "earnings_growth"]
+        # 누락된 필드가 있는 종목들 추출
+        symbols_to_enrich = []
+        for stock in result:
+            if any(stock.get(f) is None for f in yfinance_fields[:3]):  # ROE, ROA, operating_margin 중 하나라도 없으면
+                symbols_to_enrich.append(stock.get("code"))
+
+        if symbols_to_enrich:
+            try:
+                # yfinance 일괄 조회 (동시 5개 제한, 한국 주식은 느림)
+                yf_data = await fetch_financial_data_batch(symbols_to_enrich[:50], market="KR", max_concurrent=5)
+                for stock in result:
+                    code = stock.get("code")
+                    if code in yf_data:
+                        # 누락된 필드만 채우기 (네이버 데이터 우선)
+                        for field in yfinance_fields:
+                            if stock.get(field) is None and field in yf_data[code]:
+                                stock[field] = yf_data[code][field]
+                print(f"[Screener] yfinance 보강: {len(yf_data)}/{len(symbols_to_enrich)}개")
+            except Exception as e:
+                print(f"[Screener] yfinance 오류: {e}")
+
     return result
 
 
