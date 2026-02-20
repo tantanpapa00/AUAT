@@ -175,7 +175,14 @@ async def fetch_all_etfs() -> List[Dict]:
                 print(f"[ETF Screener] API 오류: {resp.status_code}")
                 return all_etfs
 
-            data = resp.json()
+            # 인코딩 처리 (네이버 API가 EUC-KR 반환하는 경우 대응)
+            import json
+            content = resp.content
+            try:
+                text = content.decode('utf-8')
+            except UnicodeDecodeError:
+                text = content.decode('euc-kr', errors='ignore')
+            data = json.loads(text)
             result = data.get("result", {})
             stocks = result.get("etfItemList", [])
 
