@@ -11754,3 +11754,112 @@ body {
     padding: 24px !important;
     color: var(--text-secondary);
 }
+
+/* =============================================================================
+   StockEasy 스타일 재무 트렌드 차트 (리팩토링)
+   ============================================================================= */
+
+/* 재무 차트 카드 */
+.sd-financial-chart-card {
+    margin-bottom: 12px;
+}
+
+.sd-financial-chart-card:last-child {
+    margin-bottom: 0;
+}
+
+/* 차트 헤더 (제목 + 연간/분기 토글) */
+.sd-chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+.sd-chart-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* 연간/분기 토글 버튼 */
+.sd-period-toggle {
+    display: flex;
+    gap: 4px;
+    background: var(--bg-light);
+    border-radius: 6px;
+    padding: 2px;
+}
+
+.sd-period-btn {
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.sd-period-btn:hover {
+    color: var(--text-primary);
+}
+
+.sd-period-btn.active {
+    background: var(--primary);
+    color: white;
+}
+
+/* 차트 래퍼 */
+.sd-chart-wrapper {
+    height: 160px;
+    position: relative;
+}
+
+.sd-chart-wrapper canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* 전망치 라벨 스타일 */
+.sd-estimate-label {
+    font-size: 10px;
+    color: var(--text-secondary);
+    opacity: 0.7;
+}
+
+/* 음수 값 스타일 */
+.sd-value-negative {
+    color: var(--fall) !important;
+}
+
+/* 양수 값 스타일 */
+.sd-value-positive {
+    color: var(--primary) !important;
+}
+
+/* 연결/별도 재무제표 토글 (상단) */
+.sd-statement-toggle {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+}
+
+.sd-statement-select {
+    padding: 6px 12px;
+    font-size: 12px;
+    background: var(--bg-light);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.sd-statement-select:focus {
+    outline: none;
+    border-color: var(--primary);
+}

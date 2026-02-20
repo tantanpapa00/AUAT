@@ -9233,15 +9233,22 @@ async function loadFinancialSummary(code) {
     }
 }
 
-// 국내 종목 재무 요약 로드 (Phase 8-2)
+// 국내 종목 재무 요약 로드 (Phase 8-2) - StockEasy 스타일 리팩토링
+// 현재 재무 데이터 저장 (연간/분기 토글용)
+let currentFinancialDataKr = { annual: null, quarter: null };
+let currentFinancialCode = '';
+
 async function loadFinancialSummaryKr(code) {
     const summaryContent = document.getElementById('info-summary');
     if (!summaryContent) return;
 
     summaryContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>정보를 불러오는 중...</span></div>';
 
+    currentFinancialCode = code;
+    currentFinancialDataKr = { annual: null, quarter: null };
+
     try {
-        // 요약 정보와 재무추이 병렬 로드
+        // 요약 정보와 연간 재무추이 병렬 로드
         const [summaryResp, financialsResp] = await Promise.all([
             invokeWithTimeout('get_stock_summary_kr', {
                 accessToken: auth.accessToken || '',
@@ -9256,6 +9263,7 @@ async function loadFinancialSummaryKr(code) {
 
         const summary = summaryResp?.data || {};
         const financials = financialsResp?.data || {};
+        currentFinancialDataKr.annual = financials;
 
         // 요약 재무 카드
         const summaryCardHtml = `
@@ -9298,25 +9306,257 @@ async function loadFinancialSummaryKr(code) {
             </div>
         `;
 
-        // 재무추이 차트 영역
-        const financialChartHtml = `
-            <div class="sd-card">
-                <div class="sd-card-title">재무 추이 (연간)</div>
-                <div class="sd-financial-chart-container">
-                    <canvas id="financial-trend-chart" height="200"></canvas>
+        // StockEasy 스타일 3개 재무차트 (매출액, 영업이익, EPS)
+        const financialChartsHtml = `
+            <!-- 매출액 차트 -->
+            <div class="sd-card sd-financial-chart-card">
+                <div class="sd-chart-header">
+                    <span class="sd-chart-title">매출액</span>
+                    <div class="sd-period-toggle" data-chart="revenue">
+                        <button class="sd-period-btn active" data-period="annual">연간</button>
+                        <button class="sd-period-btn" data-period="quarter">분기</button>
+                    </div>
+                </div>
+                <div class="sd-chart-wrapper">
+                    <canvas id="chart-revenue" height="160"></canvas>
+                </div>
+            </div>
+
+            <!-- 영업이익 차트 -->
+            <div class="sd-card sd-financial-chart-card">
+                <div class="sd-chart-header">
+                    <span class="sd-chart-title">영업이익</span>
+                    <div class="sd-period-toggle" data-chart="operating_profit">
+                        <button class="sd-period-btn active" data-period="annual">연간</button>
+                        <button class="sd-period-btn" data-period="quarter">분기</button>
+                    </div>
+                </div>
+                <div class="sd-chart-wrapper">
+                    <canvas id="chart-operating-profit" height="160"></canvas>
+                </div>
+            </div>
+
+            <!-- EPS 차트 -->
+            <div class="sd-card sd-financial-chart-card">
+                <div class="sd-chart-header">
+                    <span class="sd-chart-title">EPS (주당순이익)</span>
+                    <div class="sd-period-toggle" data-chart="eps">
+                        <button class="sd-period-btn active" data-period="annual">연간</button>
+                        <button class="sd-period-btn" data-period="quarter">분기</button>
+                    </div>
+                </div>
+                <div class="sd-chart-wrapper">
+                    <canvas id="chart-eps" height="160"></canvas>
                 </div>
             </div>
         `;
 
-        summaryContent.innerHTML = summaryCardHtml + financialChartHtml;
+        summaryContent.innerHTML = summaryCardHtml + financialChartsHtml;
 
-        // 재무추이 차트 렌더링
-        renderFinancialTrendChart(financials);
+        // 재무 차트 렌더링
+        renderFinancialChartKr('revenue', financials);
+        renderFinancialChartKr('operating_profit', financials);
+        renderFinancialChartKr('eps', financials);
+
+        // 연간/분기 토글 이벤트
+        initFinancialPeriodToggles(code);
 
     } catch (error) {
         console.error('Failed to load KR financial summary:', error);
         summaryContent.innerHTML = '<div class="sd-empty-state">재무 정보를 불러올 수 없습니다</div>';
     }
+}
+
+// 연간/분기 토글 이벤트 초기화
+function initFinancialPeriodToggles(code) {
+    document.querySelectorAll('.sd-period-toggle').forEach(toggle => {
+        const chartType = toggle.dataset.chart;
+        toggle.querySelectorAll('.sd-period-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                // 활성 버튼 변경
+                toggle.querySelectorAll('.sd-period-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                const period = btn.dataset.period;
+
+                // 분기 데이터가 없으면 로드
+                if (period === 'quarter' && !currentFinancialDataKr.quarter) {
+                    try {
+                        const resp = await invokeWithTimeout('get_stock_financials_kr', {
+                            accessToken: auth.accessToken || '',
+                            code: code,
+                            finType: 'quarter'
+                        }, 10000);
+                        currentFinancialDataKr.quarter = resp?.data || {};
+                    } catch (e) {
+                        console.error('Failed to load quarterly data:', e);
+                    }
+                }
+
+                const data = period === 'annual' ? currentFinancialDataKr.annual : currentFinancialDataKr.quarter;
+                if (data) {
+                    renderFinancialChartKr(chartType, data);
+                }
+            });
+        });
+    });
+}
+
+// StockEasy 스타일 개별 재무 차트 렌더링
+function renderFinancialChartKr(chartType, financials) {
+    const canvasIdMap = {
+        'revenue': 'chart-revenue',
+        'operating_profit': 'chart-operating-profit',
+        'eps': 'chart-eps'
+    };
+
+    const canvas = document.getElementById(canvasIdMap[chartType]);
+    if (!canvas) return;
+
+    const periods = financials.periods || [];
+    const isConsensus = financials.isConsensus || [];
+    let values = [];
+    let unit = '억원';
+    let label = '';
+
+    switch(chartType) {
+        case 'revenue':
+            values = (financials.revenue || []).map(v => Math.round(v / 100)); // 억원 변환
+            label = '매출액';
+            break;
+        case 'operating_profit':
+            values = (financials.operating_profit || []).map(v => Math.round(v / 100)); // 억원 변환
+            label = '영업이익';
+            break;
+        case 'eps':
+            values = financials.eps || [];
+            unit = '원';
+            label = 'EPS';
+            break;
+    }
+
+    // 기존 차트 제거
+    const chartKey = `financialChart_${chartType}`;
+    if (window[chartKey]) {
+        window[chartKey].destroy();
+    }
+
+    if (typeof Chart === 'undefined' || values.length === 0) {
+        canvas.parentElement.innerHTML = '<div style="padding:20px;text-align:center;color:#9CA3AF;">데이터 없음</div>';
+        return;
+    }
+
+    // 색상: 양수=파란색, 음수=빨간색, 전망치=투명도 낮춤
+    const backgroundColors = values.map((v, i) => {
+        const isEst = isConsensus[i];
+        if (v >= 0) {
+            return isEst ? 'rgba(59, 130, 246, 0.4)' : 'rgba(59, 130, 246, 0.8)';
+        } else {
+            return isEst ? 'rgba(239, 68, 68, 0.4)' : 'rgba(239, 68, 68, 0.8)';
+        }
+    });
+
+    const borderColors = values.map((v, i) => {
+        const isEst = isConsensus[i];
+        if (v >= 0) {
+            return isEst ? 'rgba(59, 130, 246, 0.6)' : 'rgba(59, 130, 246, 1)';
+        } else {
+            return isEst ? 'rgba(239, 68, 68, 0.6)' : 'rgba(239, 68, 68, 1)';
+        }
+    });
+
+    // 전망치 데이터 분리 (점선 처리용)
+    const borderDash = isConsensus.map(est => est ? [5, 5] : []);
+
+    // 데이터 라벨 표시용 커스텀 플러그인
+    const dataLabelsPlugin = {
+        id: 'dataLabels',
+        afterDatasetsDraw: function(chart) {
+            const ctx = chart.ctx;
+            chart.data.datasets.forEach((dataset, i) => {
+                const meta = chart.getDatasetMeta(i);
+                meta.data.forEach((bar, index) => {
+                    const value = dataset.data[index];
+                    if (value === 0) return;
+
+                    let displayValue;
+                    if (Math.abs(value) >= 10000) {
+                        displayValue = (value / 10000).toFixed(1) + '조';
+                    } else if (Math.abs(value) >= 1000) {
+                        displayValue = (value / 1000).toFixed(0) + '천';
+                    } else {
+                        displayValue = value.toLocaleString();
+                    }
+
+                    ctx.save();
+                    ctx.font = 'bold 10px sans-serif';
+                    ctx.fillStyle = value >= 0 ? '#60A5FA' : '#F87171';
+                    ctx.textAlign = 'center';
+
+                    const y = value >= 0 ? bar.y - 5 : bar.y + 12;
+                    ctx.fillText(displayValue, bar.x, y);
+                    ctx.restore();
+                });
+            });
+        }
+    };
+
+    window[chartKey] = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: periods,
+            datasets: [{
+                label: `${label} (${unit})`,
+                data: values,
+                backgroundColor: backgroundColors,
+                borderColor: borderColors,
+                borderWidth: 1,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: {
+                padding: { top: 20 }  // 상단 라벨 공간 확보
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const val = context.raw;
+                            const idx = context.dataIndex;
+                            const estLabel = isConsensus[idx] ? ' (전망)' : '';
+                            return `${val.toLocaleString()}${unit}${estLabel}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: {
+                        color: '#9CA3AF',
+                        font: { size: 10 }
+                    },
+                    grid: { display: false }
+                },
+                y: {
+                    ticks: {
+                        color: '#9CA3AF',
+                        font: { size: 10 },
+                        callback: function(value) {
+                            if (Math.abs(value) >= 10000) {
+                                return (value / 10000).toFixed(0) + '조';
+                            }
+                            return value.toLocaleString();
+                        }
+                    },
+                    grid: { color: 'rgba(156, 163, 175, 0.1)' }
+                }
+            }
+        },
+        plugins: [dataLabelsPlugin]
+    });
 }
 
 // 해외 종목 재무 요약 로드 (Phase 9)

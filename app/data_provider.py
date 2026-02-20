@@ -2843,8 +2843,10 @@ async def get_stock_summary_kr(code: str) -> dict:
 
 async def get_stock_financials_kr(code: str, fin_type: str = "annual") -> dict:
     """
-    국내 종목 재무 추이 (연간/분기)
-    데이터 소스: 네이버 finance/summary API
+    국내 종목 재무 추이 (연간/분기) - StockEasy 스타일
+    데이터 소스: 네이버 finance/annual, finance/quarter API
+    - isConsensus 플래그로 전망치(E) 여부 표시
+    - 매출액, 영업이익, EPS 별도 제공
     """
     cache_key = f"stock_financials_kr_{code}_{fin_type}"
     cached = _cached(cache_key, 3600)  # 1시간 캐싱
@@ -2853,86 +2855,91 @@ async def get_stock_financials_kr(code: str, fin_type: str = "annual") -> dict:
 
     result = {
         "code": code,
-        "type": fin_type,
-        "periods": [],
-        "revenue": [],
-        "operating_profit": [],
-        "net_income": [],
-        "eps": [],
-        "eps_estimate": [],
+        "type": fin_type,  # annual 또는 quarter
+        "periods": [],      # ["2022.12", "2023.12", "2024.12", "2025.12(E)"]
+        "isConsensus": [],  # [false, false, false, true] - 전망치 여부
+        "revenue": [],      # 매출액 (억원)
+        "operating_profit": [],  # 영업이익 (억원)
+        "net_income": [],   # 당기순이익 (억원)
+        "eps": [],          # EPS (원)
     }
 
     try:
         async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
-            url = f"https://m.stock.naver.com/api/stock/{code}/finance/summary"
+            # 연간 또는 분기 재무 API
+            endpoint = "annual" if fin_type == "annual" else "quarter"
+            url = f"https://m.stock.naver.com/api/stock/{code}/finance/{endpoint}"
             r = await client.get(url)
 
             if r.status_code == 200:
-                data = r.json()
+                fin_data = r.json()
+                fin_info = fin_data.get("financeInfo", {})
+                title_list = fin_info.get("trTitleList", [])
+                row_list = fin_info.get("rowList", [])
 
-                # EPS 차트 데이터
-                chart_eps = data.get("chartEps", {})
-                eps_columns = chart_eps.get("columns", [])
-                if len(eps_columns) >= 2:
-                    # eps_columns[0] = ["x", "2024.12.", "2025.03.", ...]
-                    # eps_columns[1] = ["EPS", "1115", "1186", ...]
-                    periods_raw = eps_columns[0][1:] if eps_columns[0] else []
-                    eps_values = eps_columns[1][1:] if len(eps_columns) > 1 else []
+                # 기간 목록 및 전망치 여부 추출
+                periods = []
+                is_consensus = []
+                keys = []
 
-                # Income Statement 차트 데이터
-                chart_income = data.get("chartIncomeStatement", {})
-                income_data = chart_income.get(fin_type, chart_income.get("annual", {}))
+                for t in title_list:
+                    period_title = t.get("title", "")
+                    is_est = t.get("isConsensus", "") == "Y"
 
-                columns = income_data.get("columns", [])
-                # columns[0] = ["x", "2022.12.", "2023.12.", ...]
-                # columns[1] = ["매출액", "3022314", ...]
-                # columns[2] = ["영업이익", "433766", ...]
+                    # 전망치는 (E) 표시 추가
+                    if is_est and not period_title.endswith("(E)"):
+                        period_title = period_title + "(E)"
 
-                if columns:
-                    result["periods"] = columns[0][1:] if columns[0] else []
+                    periods.append(period_title)
+                    is_consensus.append(is_est)
+                    keys.append(t.get("key", ""))
 
-                    for col in columns[1:]:
-                        if not col:
-                            continue
-                        label = col[0]
-                        values = [_parse_int(v) for v in col[1:]]
+                result["periods"] = periods
+                result["isConsensus"] = is_consensus
 
-                        if "매출" in label:
-                            result["revenue"] = values
-                        elif "영업이익" in label:
-                            result["operating_profit"] = values
+                # 재무 데이터 매핑
+                for row in row_list:
+                    title = row.get("title", "")
+                    columns_data = row.get("columns", {})
+                    values = []
 
-                # EPS from annual finance data
-                annual_url = f"https://m.stock.naver.com/api/stock/{code}/finance/annual"
-                r2 = await client.get(annual_url)
-                if r2.status_code == 200:
-                    fin_data = r2.json()
-                    fin_info = fin_data.get("financeInfo", {})
-                    title_list = fin_info.get("trTitleList", [])
-                    row_list = fin_info.get("rowList", [])
+                    for k in keys:
+                        col = columns_data.get(k, {})
+                        v = col.get("value", "0")
+                        # 숫자 파싱 (콤마 제거, 하이픈은 0 처리)
+                        cleaned = v.replace(",", "").replace("-", "").strip()
+                        if not cleaned:
+                            cleaned = "0"
+                        # 음수 처리 (괄호 또는 하이픈)
+                        is_negative = v.startswith("-") or (v.startswith("(") and v.endswith(")"))
+                        try:
+                            val = int(float(cleaned))
+                            if is_negative and val > 0:
+                                val = -val
+                            values.append(val)
+                        except:
+                            values.append(0)
 
-                    # 기간 목록
-                    periods = [t.get("title", "") for t in title_list]
-                    keys = [t.get("key", "") for t in title_list]
-                    result["periods"] = periods
+                    if title == "매출액":
+                        result["revenue"] = values
+                    elif title == "영업이익":
+                        result["operating_profit"] = values
+                    elif title == "당기순이익":
+                        result["net_income"] = values
+                    elif title == "EPS(원)":
+                        result["eps"] = values
 
-                    for row in row_list:
-                        title = row.get("title", "")
-                        columns = row.get("columns", {})
-                        values = []
-                        for k in keys:
-                            v = columns.get(k, {}).get("value", "0")
-                            values.append(_parse_int(v.replace(",", "").replace("-", "0")))
-
-                        if title == "매출액":
-                            result["revenue"] = values
-                        elif title == "영업이익":
-                            result["operating_profit"] = values
-                        elif title == "당기순이익":
-                            result["net_income"] = values
-
-                    # EPS는 별도 계산 필요 (순이익 / 발행주식수)
-                    # 여기서는 간단히 순이익 기반 추정
+                # EPS가 없으면 별도 API에서 가져오기
+                if not result["eps"]:
+                    summary_url = f"https://m.stock.naver.com/api/stock/{code}/finance/summary"
+                    r2 = await client.get(summary_url)
+                    if r2.status_code == 200:
+                        summary_data = r2.json()
+                        chart_eps = summary_data.get("chartEps", {})
+                        eps_columns = chart_eps.get("columns", [])
+                        if len(eps_columns) >= 2:
+                            eps_values_raw = eps_columns[1][1:] if len(eps_columns) > 1 else []
+                            result["eps"] = [_parse_int(v) for v in eps_values_raw]
 
         _set_cache(cache_key, result)
     except Exception as e:
