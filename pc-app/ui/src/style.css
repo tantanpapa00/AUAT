@@ -5164,6 +5164,26 @@ body {
     color: var(--text-primary);
 }
 
+/* 뒤로가기 버튼 */
+.stock-back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: var(--bg-light);
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    margin-right: 12px;
+    transition: all 0.15s;
+}
+.stock-back-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
 /* 종목 헤더 */
 .stock-header-info {
     display: flex;
@@ -11112,4 +11132,225 @@ body {
         right: 10px !important;
         width: auto !important;
     }
+}
+
+/* ============================================= */
+/* Phase 8-3: 기업 탭 + 재무제표 스타일 */
+/* ============================================= */
+
+/* 투자의견 그리드 */
+.sd-consensus-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+.sd-consensus-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    background: var(--bg-light);
+    border-radius: 8px;
+    text-align: center;
+}
+
+.sd-consensus-label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.sd-consensus-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.sd-consensus-value.positive {
+    color: #EF4444;
+}
+
+.sd-consensus-value.negative {
+    color: #3B82F6;
+}
+
+/* 동종업계/비교 종목 리스트 */
+.sd-comparables-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sd-comparable-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: var(--bg-light);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.sd-comparable-item:hover {
+    background: var(--bg-hover);
+}
+
+.sd-comp-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    flex: 1;
+}
+
+.sd-comp-price {
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-right: 16px;
+}
+
+.sd-comp-change {
+    font-weight: 600;
+    min-width: 70px;
+    text-align: right;
+}
+
+.sd-comp-change.positive {
+    color: #EF4444;
+}
+
+.sd-comp-change.negative {
+    color: #3B82F6;
+}
+
+/* 리서치 리포트 리스트 */
+.sd-research-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.sd-research-item {
+    padding: 12px 16px;
+    background: var(--bg-light);
+    border-radius: 8px;
+}
+
+.sd-research-title {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    line-height: 1.4;
+}
+
+.sd-research-meta {
+    display: flex;
+    gap: 12px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.sd-research-broker {
+    font-weight: 500;
+}
+
+/* 재무제표 탭 */
+.sd-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.sd-card-header .sd-card-title {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.sd-period-toggle {
+    display: flex;
+    gap: 4px;
+    background: var(--bg-light);
+    border-radius: 8px;
+    padding: 4px;
+}
+
+.sd-period-btn {
+    padding: 6px 16px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.sd-period-btn:hover {
+    color: var(--text-primary);
+}
+
+.sd-period-btn.active {
+    background: var(--accent);
+    color: white;
+}
+
+/* 재무제표 테이블 */
+.sd-statement-wrapper {
+    overflow-x: auto;
+    margin: 0 -20px;
+    padding: 0 20px;
+}
+
+.sd-statement-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.sd-statement-table th,
+.sd-statement-table td {
+    padding: 12px 16px;
+    text-align: right;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+.sd-statement-table th {
+    font-weight: 600;
+    color: var(--text-muted);
+    background: var(--bg-light);
+    font-size: 0.8rem;
+}
+
+.sd-statement-table th:first-child,
+.sd-statement-table td:first-child {
+    text-align: left;
+    position: sticky;
+    left: 0;
+    background: var(--bg-card);
+}
+
+.sd-statement-table td.row-label {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.sd-statement-table td.positive {
+    color: #EF4444;
+}
+
+.sd-statement-table td.negative {
+    color: #3B82F6;
+}
+
+.sd-statement-table tbody tr:hover {
+    background: var(--bg-light);
+}
+
+.sd-statement-table tbody tr:hover td:first-child {
+    background: var(--bg-light);
 }

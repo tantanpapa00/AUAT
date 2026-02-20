@@ -8914,6 +8914,108 @@ async function loadCompanyInfo(code) {
     }
 }
 
+// 기업 정보 로드 - 한국 종목 (Phase 8-3)
+async function loadCompanyInfoKr(code) {
+    const companyContent = document.getElementById('info-company');
+    if (!companyContent) return;
+
+    companyContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>기업 정보를 불러오는 중...</span></div>';
+
+    try {
+        const response = await invokeWithTimeout('get_stock_company_kr', {
+            accessToken: auth.accessToken || '',
+            code: code
+        }, 10000);
+
+        if (response && response.data) {
+            const data = response.data;
+
+            // 투자의견/목표가 섹션
+            let consensusHtml = '';
+            if (data.consensus) {
+                const rating = data.consensus.rating || 0;
+                const targetPrice = data.consensus.target_price || 0;
+                const ratingText = rating >= 4 ? '매수' : rating >= 3 ? '중립' : rating >= 2 ? '매도' : '-';
+                consensusHtml = `
+                    <div class="sd-card">
+                        <div class="sd-card-title">투자의견</div>
+                        <div class="sd-consensus-grid">
+                            <div class="sd-consensus-item">
+                                <span class="sd-consensus-label">투자의견</span>
+                                <span class="sd-consensus-value ${rating >= 4 ? 'positive' : rating <= 2 ? 'negative' : ''}">${ratingText}</span>
+                            </div>
+                            <div class="sd-consensus-item">
+                                <span class="sd-consensus-label">목표주가</span>
+                                <span class="sd-consensus-value">${targetPrice > 0 ? targetPrice.toLocaleString() + '원' : '-'}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 동종업계 비교 섹션
+            let peersHtml = '';
+            if (data.peers && data.peers.length > 0) {
+                peersHtml = `
+                    <div class="sd-card">
+                        <div class="sd-card-title">동종업계 종목</div>
+                        <div class="sd-comparables-list">
+                            ${data.peers.map(peer => `
+                                <div class="sd-comparable-item" onclick="openStockDetail('${peer.code}', 'kis_kr')">
+                                    <span class="sd-comp-name">${peer.name}</span>
+                                    <span class="sd-comp-price">${peer.price?.toLocaleString() || '-'}원</span>
+                                    <span class="sd-comp-change ${(peer.change_percent || 0) >= 0 ? 'positive' : 'negative'}">
+                                        ${(peer.change_percent || 0) >= 0 ? '+' : ''}${(peer.change_percent || 0).toFixed(2)}%
+                                    </span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 리서치 리포트 섹션
+            let researchHtml = '';
+            if (data.researches && data.researches.length > 0) {
+                researchHtml = `
+                    <div class="sd-card">
+                        <div class="sd-card-title">리서치 리포트</div>
+                        <div class="sd-research-list">
+                            ${data.researches.map(r => `
+                                <div class="sd-research-item">
+                                    <div class="sd-research-title">${r.title}</div>
+                                    <div class="sd-research-meta">
+                                        <span class="sd-research-broker">${r.broker}</span>
+                                        <span class="sd-research-date">${formatResearchDate(r.date)}</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            companyContent.innerHTML = consensusHtml + peersHtml + researchHtml ||
+                '<div class="sd-card"><div class="sd-empty-state">기업 정보가 없습니다</div></div>';
+        } else {
+            companyContent.innerHTML = '<div class="sd-card"><div class="sd-empty-state">기업 정보를 불러올 수 없습니다</div></div>';
+        }
+    } catch (error) {
+        console.error('Failed to load company info (KR):', error);
+        companyContent.innerHTML = '<div class="sd-card"><div class="sd-empty-state">기업 정보를 불러올 수 없습니다</div></div>';
+    }
+}
+
+// 리서치 날짜 포맷
+function formatResearchDate(dateStr) {
+    if (!dateStr) return '';
+    // 20260210 → 2026.02.10
+    if (dateStr.length === 8) {
+        return `${dateStr.slice(0, 4)}.${dateStr.slice(4, 6)}.${dateStr.slice(6, 8)}`;
+    }
+    return dateStr;
+}
+
 // 재무 탭 로드 (StockEasy 스타일)
 async function loadFinancialTab(code) {
     const financialContent = document.getElementById('info-financial');
@@ -9065,6 +9167,104 @@ async function loadFinancialTab(code) {
     }
 }
 
+// 재무 탭 로드 - 한국 종목 상세 재무제표 (Phase 8-3)
+async function loadFinancialTabKr(code) {
+    const financialContent = document.getElementById('info-financial');
+    if (!financialContent) return;
+
+    financialContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>재무 정보를 불러오는 중...</span></div>';
+
+    // 현재 기간 타입 (연간/분기)
+    let periodType = 'annual';
+
+    try {
+        const loadData = async (period) => {
+            const response = await invokeWithTimeout('get_stock_statement_kr', {
+                accessToken: auth.accessToken || '',
+                code: code,
+                periodType: period
+            }, 10000);
+            return response?.data || null;
+        };
+
+        const renderTable = (data) => {
+            if (!data || !data.periods || data.periods.length === 0) {
+                return '<div class="sd-empty-state">재무제표 데이터가 없습니다</div>';
+            }
+
+            const periods = data.periods;
+            const rows = data.rows || [];
+
+            let tableHtml = `
+                <table class="sd-statement-table">
+                    <thead>
+                        <tr>
+                            <th>항목</th>
+                            ${periods.map(p => `<th>${p}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows.map(row => {
+                            const unit = row.unit || '';
+                            return `
+                                <tr>
+                                    <td class="row-label">${row.label}</td>
+                                    ${row.values.map(v => {
+                                        if (unit === '%') {
+                                            return `<td class="${v > 0 ? 'positive' : v < 0 ? 'negative' : ''}">${v !== 0 ? v.toFixed(1) + '%' : '-'}</td>`;
+                                        } else {
+                                            return `<td class="${v > 0 ? '' : v < 0 ? 'negative' : ''}">${v !== 0 ? v.toLocaleString() : '-'}</td>`;
+                                        }
+                                    }).join('')}
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+            return tableHtml;
+        };
+
+        const updateContent = async () => {
+            const data = await loadData(periodType);
+            const tableHtml = renderTable(data);
+
+            financialContent.innerHTML = `
+                <div class="sd-card">
+                    <div class="sd-card-header">
+                        <div class="sd-card-title">손익계산서</div>
+                        <div class="sd-period-toggle">
+                            <button class="sd-period-btn ${periodType === 'annual' ? 'active' : ''}" data-period="annual">연간</button>
+                            <button class="sd-period-btn ${periodType === 'quarter' ? 'active' : ''}" data-period="quarter">분기</button>
+                        </div>
+                    </div>
+                    <div class="sd-statement-wrapper">
+                        ${tableHtml}
+                    </div>
+                </div>
+            `;
+
+            // 기간 토글 이벤트 바인딩
+            financialContent.querySelectorAll('.sd-period-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const newPeriod = e.target.dataset.period;
+                    if (newPeriod !== periodType) {
+                        periodType = newPeriod;
+                        financialContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>재무 정보를 불러오는 중...</span></div>';
+                        await updateContent();
+                    }
+                });
+            });
+        };
+
+        await updateContent();
+
+    } catch (error) {
+        console.error('Failed to load financial tab (KR):', error);
+        financialContent.innerHTML = '<div class="sd-card"><div class="sd-empty-state">재무 정보를 불러올 수 없습니다</div></div>';
+    }
+}
+
 // 탭 활성화
 function activateStockTab(tabName) {
     // 탭 버튼 활성화
@@ -9096,10 +9296,18 @@ function activateStockTab(tabName) {
                 }
                 break;
             case 'company':
-                loadCompanyInfo(code);
+                if (isKorean) {
+                    loadCompanyInfoKr(code);
+                } else {
+                    loadCompanyInfo(code);
+                }
                 break;
             case 'financial':
-                loadFinancialTab(code);
+                if (isKorean) {
+                    loadFinancialTabKr(code);
+                } else {
+                    loadFinancialTab(code);
+                }
                 break;
         }
     }
@@ -9467,23 +9675,59 @@ function generateSampleCandleData(period) {
     return data;
 }
 
-// 종목 상세 모달 닫기
-document.getElementById('stock-detail-modal-close')?.addEventListener('click', () => {
+// 종목 상세 모달 닫기 (공통 함수)
+function closeStockDetailModal() {
     document.getElementById('stock-detail-modal').style.display = 'none';
     if (detailChart) {
         detailChart.remove();
         detailChart = null;
+    }
+    // 뒤로가기 버튼 숨기기
+    const backBtn = document.getElementById('stock-detail-back');
+    if (backBtn) backBtn.style.display = 'none';
+}
+
+// 종목 상세 모달 닫기 (X 버튼)
+document.getElementById('stock-detail-modal-close')?.addEventListener('click', () => {
+    closeStockDetailModal();
+    // 상태 초기화
+    window._screenerState = null;
+});
+
+// 뒤로가기 버튼 이벤트 (Phase 8-3)
+document.getElementById('stock-detail-back')?.addEventListener('click', () => {
+    closeStockDetailModal();
+
+    // 스크리너 상태 복원
+    if (window._screenerState && window._screenerState.fromScreener) {
+        const savedState = window._screenerState;
+
+        // screenerState 복원
+        screenerState.market = savedState.market || 'kr';
+        screenerState.sort = savedState.sort || 'market_cap';
+        screenerState.order = savedState.order || 'desc';
+        screenerState.page = savedState.page || 1;
+        screenerState.activeFilters = savedState.activeFilters || {};
+        screenerState.hasSearched = savedState.hasSearched || false;
+
+        // 스크롤 위치 복원
+        const screenerSection = document.querySelector('.page[data-page="screener"]');
+        if (screenerSection && savedState.scrollTop) {
+            setTimeout(() => {
+                screenerSection.scrollTop = savedState.scrollTop;
+            }, 100);
+        }
+
+        // 상태 초기화
+        window._screenerState = null;
     }
 });
 
 // 모달 외부 클릭 닫기
 document.getElementById('stock-detail-modal')?.addEventListener('click', (e) => {
     if (e.target.id === 'stock-detail-modal') {
-        document.getElementById('stock-detail-modal').style.display = 'none';
-        if (detailChart) {
-            detailChart.remove();
-            detailChart = null;
-        }
+        closeStockDetailModal();
+        window._screenerState = null;
     }
 });
 
@@ -14435,12 +14679,35 @@ function renderScreenerTable(items) {
     }).join('');
 }
 
-// 테이블 행 클릭 핸들러
+// 테이블 행 클릭 핸들러 - 상세 모달 열기 (Phase 8-3)
 function onScreenerRowClick(idx) {
     const items = window._screenerItems;
-    if (items && items[idx]) {
-        showStockDetailPanel(items[idx]);
+    if (!items || !items[idx]) return;
+
+    const stock = items[idx];
+
+    // 스크리너 상태 저장 (뒤로가기용)
+    const screenerSection = document.querySelector('.page[data-page="screener"]');
+    window._screenerState = {
+        ...screenerState,
+        scrollTop: screenerSection ? screenerSection.scrollTop : 0,
+        fromScreener: true
+    };
+
+    // 마켓에 따른 exchange 결정
+    let exchange = 'kis_kr';
+    if (screenerState.market === 'us') {
+        exchange = 'kis_us';
+    } else if (screenerState.market === 'etf') {
+        exchange = 'kis_kr';  // ETF도 국내 거래소
     }
+
+    // 종목 상세 모달 열기
+    openStockDetail(stock.code, exchange);
+
+    // 뒤로가기 버튼 표시
+    const backBtn = document.getElementById('stock-detail-back');
+    if (backBtn) backBtn.style.display = 'flex';
 }
 
 function formatMarketCap(cap) {

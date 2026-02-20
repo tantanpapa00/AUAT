@@ -2991,3 +2991,181 @@ def _format_news_date(dt_str: str) -> str:
     if len(dt_str) >= 8:
         return f"{dt_str[:4]}.{dt_str[4:6]}.{dt_str[6:8]}"
     return dt_str
+
+
+async def get_stock_company_kr(code: str) -> dict:
+    """
+    국내 종목 기업 정보 탭
+    - 동종업계 종목
+    - 리서치 리포트
+    - 투자의견/목표가
+    데이터 소스: 네이버 integration API
+    """
+    cache_key = f"stock_company_kr_{code}"
+    cached = _cached(cache_key, 1800)  # 30분 캐싱
+    if cached:
+        return cached
+
+    result = {
+        "code": code,
+        "industry_code": None,
+        "peers": [],  # 동종업계 종목
+        "researches": [],  # 리서치 리포트
+        "consensus": None,  # 투자의견/목표가
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
+            url = f"https://m.stock.naver.com/api/stock/{code}/integration"
+            r = await client.get(url)
+
+            if r.status_code == 200:
+                data = r.json()
+
+                # 업종 코드
+                result["industry_code"] = data.get("industryCode")
+
+                # 동종업계 종목
+                peers = data.get("industryCompareInfo", [])
+                for p in peers:
+                    peer_code = p.get("itemCode", "")
+                    if peer_code == code:
+                        continue  # 자기 자신 제외
+                    close_price = p.get("closePrice", "0")
+                    change = p.get("compareToPreviousClosePrice", "0")
+                    change_pct = p.get("fluctuationsRatio", "0")
+                    result["peers"].append({
+                        "code": peer_code,
+                        "name": p.get("stockName", ""),
+                        "price": _parse_price(close_price),
+                        "change": _parse_price(change),
+                        "change_percent": _parse_float(change_pct),
+                        "market_cap": _parse_int(p.get("marketValue", "0")),
+                    })
+
+                # 리서치 리포트
+                researches = data.get("researches", [])
+                for r_item in researches[:5]:  # 최근 5개
+                    result["researches"].append({
+                        "id": r_item.get("id"),
+                        "title": r_item.get("tit", ""),
+                        "broker": r_item.get("bnm", ""),
+                        "date": r_item.get("wdt", ""),
+                    })
+
+                # 투자의견/목표가
+                consensus = data.get("consensusInfo")
+                if consensus:
+                    result["consensus"] = {
+                        "rating": _parse_float(consensus.get("recommMean", "0")),
+                        "target_price": _parse_int(consensus.get("priceTargetMean", "0")),
+                        "date": consensus.get("createDate", ""),
+                    }
+
+        _set_cache(cache_key, result)
+    except Exception as e:
+        print(f"[DataProvider] get_stock_company_kr error for {code}: {e}")
+        traceback.print_exc()
+
+    return result
+
+
+async def get_stock_statement_kr(code: str, period_type: str = "annual") -> dict:
+    """
+    국내 종목 상세 재무제표 (손익계산서)
+    period_type: annual(연간), quarter(분기)
+    데이터 소스: 네이버 finance/annual, finance/quarter API
+    """
+    cache_key = f"stock_statement_kr_{code}_{period_type}"
+    cached = _cached(cache_key, 3600)  # 1시간 캐싱
+    if cached:
+        return cached
+
+    result = {
+        "code": code,
+        "period_type": period_type,
+        "periods": [],  # 기간 목록 ["2022.12", "2023.12", ...]
+        "rows": [
+            {"label": "매출액", "values": []},
+            {"label": "영업이익", "values": []},
+            {"label": "당기순이익", "values": []},
+            {"label": "EPS", "values": []},
+            {"label": "영업이익률", "values": []},
+            {"label": "순이익률", "values": []},
+        ],
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
+            # 연간 또는 분기 재무 API
+            endpoint = "annual" if period_type == "annual" else "quarter"
+            url = f"https://m.stock.naver.com/api/stock/{code}/finance/{endpoint}"
+            r = await client.get(url)
+
+            if r.status_code == 200:
+                data = r.json()
+                fin_info = data.get("financeInfo", {})
+                title_list = fin_info.get("trTitleList", [])
+                row_list = fin_info.get("rowList", [])
+
+                # 기간 목록
+                periods = [t.get("title", "") for t in title_list]
+                keys = [t.get("key", "") for t in title_list]
+                result["periods"] = periods
+
+                # 재무 데이터 매핑
+                revenue = []
+                op_profit = []
+                net_income = []
+
+                for row in row_list:
+                    title = row.get("title", "")
+                    columns = row.get("columns", {})
+                    values = []
+                    for k in keys:
+                        v = columns.get(k, {}).get("value", "0")
+                        # 숫자 파싱 (콤마, 하이픈 처리)
+                        cleaned = v.replace(",", "").replace("-", "0").strip()
+                        try:
+                            values.append(int(float(cleaned)) if cleaned else 0)
+                        except:
+                            values.append(0)
+
+                    if title == "매출액":
+                        revenue = values
+                    elif title == "영업이익":
+                        op_profit = values
+                    elif title == "당기순이익":
+                        net_income = values
+
+                # 결과 데이터 구성
+                result["rows"] = [
+                    {"label": "매출액", "values": revenue, "unit": "억원"},
+                    {"label": "영업이익", "values": op_profit, "unit": "억원"},
+                    {"label": "당기순이익", "values": net_income, "unit": "억원"},
+                ]
+
+                # 영업이익률, 순이익률 계산
+                op_margin = []
+                net_margin = []
+                for i in range(len(revenue)):
+                    rev = revenue[i] if i < len(revenue) else 0
+                    op = op_profit[i] if i < len(op_profit) else 0
+                    net = net_income[i] if i < len(net_income) else 0
+
+                    if rev and rev > 0:
+                        op_margin.append(round(op / rev * 100, 1))
+                        net_margin.append(round(net / rev * 100, 1))
+                    else:
+                        op_margin.append(0)
+                        net_margin.append(0)
+
+                result["rows"].append({"label": "영업이익률", "values": op_margin, "unit": "%"})
+                result["rows"].append({"label": "순이익률", "values": net_margin, "unit": "%"})
+
+        _set_cache(cache_key, result)
+    except Exception as e:
+        print(f"[DataProvider] get_stock_statement_kr error for {code}: {e}")
+        traceback.print_exc()
+
+    return result

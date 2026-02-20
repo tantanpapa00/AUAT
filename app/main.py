@@ -245,6 +245,8 @@ from app.data_provider import (
     get_stock_consensus,
     # Phase 8-2: 종목 상세 API
     get_stock_summary_kr, get_stock_financials_kr, get_stock_news_kr,
+    # Phase 8-3: 기업 탭 + 재무제표
+    get_stock_company_kr, get_stock_statement_kr,
     # Day14: 환율 + 거래소별 잔고 조회
     get_usd_krw_rate, fetch_upbit_balances, fetch_binance_balances,
     fetch_okx_balances, fetch_bybit_balances, fetch_kis_kr_balances, fetch_kis_us_balances,
@@ -10490,6 +10492,35 @@ async def api_stock_news_kr(
     - 누구나 접근 가능
     """
     data = await get_stock_news_kr(code, limit)
+    return {"data": data}
+
+
+@app.get("/api/stock/kr/{code}/company")
+async def api_stock_company_kr(
+    code: str,
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    국내 종목 기업 정보 탭
+    - 동종업계 종목, 리서치 리포트, 투자의견/목표가
+    - 누구나 접근 가능
+    """
+    data = await get_stock_company_kr(code)
+    return {"data": data}
+
+
+@app.get("/api/stock/kr/{code}/statement")
+async def api_stock_statement_kr(
+    code: str,
+    period_type: str = Query("annual", regex="^(annual|quarter)$"),
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    국내 종목 상세 재무제표 (손익계산서)
+    - period_type: annual(연간), quarter(분기)
+    - 누구나 접근 가능
+    """
+    data = await get_stock_statement_kr(code, period_type)
     return {"data": data}
 
 

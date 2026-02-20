@@ -177,6 +177,8 @@ fn main() {
             commands::get_stock_summary_kr,
             commands::get_stock_financials_kr,
             commands::get_stock_news_kr,
+            commands::get_stock_company_kr,
+            commands::get_stock_statement_kr,
             // TV Connect - 전략/종목 저장
             commands::create_strategy_with_params,
             commands::save_signal_params,
