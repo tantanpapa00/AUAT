@@ -15203,7 +15203,7 @@ function initScreenerEvents() {
     });
 
     // 상세패널 닫기
-    document.getElementById('detail-close-btn')?.addEventListener('click', () => {
+    document.getElementById('panel-close-btn')?.addEventListener('click', () => {
         hideStockDetailPanel();
     });
 
@@ -15862,7 +15862,7 @@ function rebindFilterChipEvents() {
     });
 }
 
-// 종목 상세 패널 표시
+// 종목 상세 패널 표시 (panel- 접두사 ID 사용)
 function showStockDetailPanel(stock) {
     const panel = document.getElementById('stock-detail-panel');
     if (!panel || !stock) return;
@@ -15870,44 +15870,44 @@ function showStockDetailPanel(stock) {
     screenerState.selectedStock = stock;
 
     // 기본 정보
-    document.getElementById('detail-stock-name').textContent = stock.name || '-';
-    document.getElementById('detail-stock-code').textContent = stock.code || '-';
+    document.getElementById('panel-stock-name').textContent = stock.name || '-';
+    document.getElementById('panel-stock-code').textContent = stock.code || '-';
 
     // 현재가
     const price = (stock.price || 0).toLocaleString();
-    document.getElementById('detail-current-price').textContent = `${price}원`;
+    document.getElementById('panel-current-price').textContent = `${price}원`;
 
     // 등락률
     const changePct = stock.change_pct || 0;
-    const changeEl = document.getElementById('detail-price-change');
+    const changeEl = document.getElementById('panel-price-change');
     const changeStr = changePct > 0 ? `+${changePct.toFixed(2)}%` : `${changePct.toFixed(2)}%`;
     changeEl.textContent = changeStr;
     changeEl.className = 'detail-price-change ' + (changePct > 0 ? 'profit' : changePct < 0 ? 'loss' : '');
 
     // 기본 정보 그리드
-    document.getElementById('detail-market-cap').textContent = stock.market_cap_str || formatMarketCap(stock.market_cap);
-    document.getElementById('detail-volume').textContent = formatVolume(stock.volume || 0);
-    document.getElementById('detail-w52-high').textContent = stock.high_52w ? stock.high_52w.toLocaleString() + '원' : '-';
-    document.getElementById('detail-w52-low').textContent = stock.low_52w ? stock.low_52w.toLocaleString() + '원' : '-';
+    document.getElementById('panel-market-cap').textContent = stock.market_cap_str || formatMarketCap(stock.market_cap);
+    document.getElementById('panel-volume').textContent = formatVolume(stock.volume || 0);
+    document.getElementById('panel-w52-high').textContent = stock.high_52w ? stock.high_52w.toLocaleString() + '원' : '-';
+    document.getElementById('panel-w52-low').textContent = stock.low_52w ? stock.low_52w.toLocaleString() + '원' : '-';
 
     // 재무 지표
-    document.getElementById('detail-per').textContent = stock.per ? stock.per.toFixed(1) : '-';
-    document.getElementById('detail-pbr').textContent = stock.pbr ? stock.pbr.toFixed(2) : '-';
-    document.getElementById('detail-roe').textContent = stock.roe ? stock.roe.toFixed(1) + '%' : '-';
-    document.getElementById('detail-dividend').textContent = stock.dividend_yield ? stock.dividend_yield.toFixed(2) + '%' : '-';
+    document.getElementById('panel-per').textContent = stock.per ? stock.per.toFixed(1) : '-';
+    document.getElementById('panel-pbr').textContent = stock.pbr ? stock.pbr.toFixed(2) : '-';
+    document.getElementById('panel-roe').textContent = stock.roe ? stock.roe.toFixed(1) + '%' : '-';
+    document.getElementById('panel-dividend').textContent = stock.dividend_yield ? stock.dividend_yield.toFixed(2) + '%' : '-';
 
     // 기술적 지표
-    document.getElementById('detail-rsi').textContent = stock.rsi ? stock.rsi.toFixed(0) : '-';
-    document.getElementById('detail-macd').textContent = stock.macd_cross === 'buy' ? '매수' : stock.macd_cross === 'sell' ? '매도' : '-';
-    document.getElementById('detail-bb').textContent = stock.bb_position === 'upper' ? '상단' : stock.bb_position === 'lower' ? '하단' : stock.bb_position === 'middle' ? '중심' : '-';
-    document.getElementById('detail-vol-surge').textContent = stock.volume_surge ? stock.volume_surge.toFixed(1) + '배' : '-';
+    document.getElementById('panel-rsi').textContent = stock.rsi ? stock.rsi.toFixed(0) : '-';
+    document.getElementById('panel-macd').textContent = stock.macd_cross === 'buy' ? '매수' : stock.macd_cross === 'sell' ? '매도' : '-';
+    document.getElementById('panel-bb').textContent = stock.bb_position === 'upper' ? '상단' : stock.bb_position === 'lower' ? '하단' : stock.bb_position === 'middle' ? '중심' : '-';
+    document.getElementById('panel-vol-surge').textContent = stock.volume_surge ? stock.volume_surge.toFixed(1) + '배' : '-';
 
     // 이평선
     const smaFormat = (pos) => pos === 'above' ? '위' : pos === 'below' ? '아래' : pos === 'near' ? '근접' : '-';
-    document.getElementById('detail-sma20').textContent = smaFormat(stock.sma20_position);
-    document.getElementById('detail-sma50').textContent = smaFormat(stock.sma50_position);
-    document.getElementById('detail-sma200').textContent = smaFormat(stock.sma200_position);
-    document.getElementById('detail-sma-cross').textContent = stock.sma_cross === 'golden' ? '골든' : stock.sma_cross === 'dead' ? '데드' : '-';
+    document.getElementById('panel-sma20').textContent = smaFormat(stock.sma20_position);
+    document.getElementById('panel-sma50').textContent = smaFormat(stock.sma50_position);
+    document.getElementById('panel-sma200').textContent = smaFormat(stock.sma200_position);
+    document.getElementById('panel-sma-cross').textContent = stock.sma_cross === 'golden' ? '골든' : stock.sma_cross === 'dead' ? '데드' : '-';
 
     // 패널 표시
     panel.style.display = 'block';

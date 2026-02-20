@@ -3283,30 +3283,30 @@
                                 </div>
                             </section>
 
-                            <!-- 종목 상세 패널 (우측) -->
+                            <!-- 종목 상세 패널 (우측) - ID는 panel- 접두사로 구분 -->
                             <aside class="stock-detail-panel" id="stock-detail-panel" style="display:none;">
                                 <div class="detail-panel-header">
                                     <div class="detail-stock-info">
-                                        <span class="detail-stock-name" id="detail-stock-name">-</span>
-                                        <span class="detail-stock-code" id="detail-stock-code">-</span>
+                                        <span class="detail-stock-name" id="panel-stock-name">-</span>
+                                        <span class="detail-stock-code" id="panel-stock-code">-</span>
                                     </div>
-                                    <button class="detail-close-btn" id="detail-close-btn">&times;</button>
+                                    <button class="detail-close-btn" id="panel-close-btn">&times;</button>
                                 </div>
                                 <div class="detail-panel-body">
                                     <!-- 현재가 정보 -->
                                     <div class="detail-price-section">
-                                        <div class="detail-current-price" id="detail-current-price">-</div>
-                                        <div class="detail-price-change" id="detail-price-change">-</div>
+                                        <div class="detail-current-price" id="panel-current-price">-</div>
+                                        <div class="detail-price-change" id="panel-price-change">-</div>
                                     </div>
 
                                     <!-- 기본 정보 -->
                                     <div class="detail-section">
                                         <h4>기본 정보</h4>
                                         <div class="detail-grid">
-                                            <div class="detail-item"><span class="label">시가총액</span><span class="value" id="detail-market-cap">-</span></div>
-                                            <div class="detail-item"><span class="label">거래량</span><span class="value" id="detail-volume">-</span></div>
-                                            <div class="detail-item"><span class="label">52주고가</span><span class="value" id="detail-w52-high">-</span></div>
-                                            <div class="detail-item"><span class="label">52주저가</span><span class="value" id="detail-w52-low">-</span></div>
+                                            <div class="detail-item"><span class="label">시가총액</span><span class="value" id="panel-market-cap">-</span></div>
+                                            <div class="detail-item"><span class="label">거래량</span><span class="value" id="panel-volume">-</span></div>
+                                            <div class="detail-item"><span class="label">52주고가</span><span class="value" id="panel-w52-high">-</span></div>
+                                            <div class="detail-item"><span class="label">52주저가</span><span class="value" id="panel-w52-low">-</span></div>
                                         </div>
                                     </div>
 
@@ -3314,10 +3314,10 @@
                                     <div class="detail-section">
                                         <h4>재무 지표</h4>
                                         <div class="detail-grid">
-                                            <div class="detail-item"><span class="label">PER</span><span class="value" id="detail-per">-</span></div>
-                                            <div class="detail-item"><span class="label">PBR</span><span class="value" id="detail-pbr">-</span></div>
-                                            <div class="detail-item"><span class="label">ROE</span><span class="value" id="detail-roe">-</span></div>
-                                            <div class="detail-item"><span class="label">배당수익률</span><span class="value" id="detail-dividend">-</span></div>
+                                            <div class="detail-item"><span class="label">PER</span><span class="value" id="panel-per">-</span></div>
+                                            <div class="detail-item"><span class="label">PBR</span><span class="value" id="panel-pbr">-</span></div>
+                                            <div class="detail-item"><span class="label">ROE</span><span class="value" id="panel-roe">-</span></div>
+                                            <div class="detail-item"><span class="label">배당수익률</span><span class="value" id="panel-dividend">-</span></div>
                                         </div>
                                     </div>
 
@@ -3325,10 +3325,10 @@
                                     <div class="detail-section">
                                         <h4>기술적 지표</h4>
                                         <div class="detail-grid">
-                                            <div class="detail-item"><span class="label">RSI(14)</span><span class="value" id="detail-rsi">-</span></div>
-                                            <div class="detail-item"><span class="label">MACD</span><span class="value" id="detail-macd">-</span></div>
-                                            <div class="detail-item"><span class="label">볼린저</span><span class="value" id="detail-bb">-</span></div>
-                                            <div class="detail-item"><span class="label">거래량급증</span><span class="value" id="detail-vol-surge">-</span></div>
+                                            <div class="detail-item"><span class="label">RSI(14)</span><span class="value" id="panel-rsi">-</span></div>
+                                            <div class="detail-item"><span class="label">MACD</span><span class="value" id="panel-macd">-</span></div>
+                                            <div class="detail-item"><span class="label">볼린저</span><span class="value" id="panel-bb">-</span></div>
+                                            <div class="detail-item"><span class="label">거래량급증</span><span class="value" id="panel-vol-surge">-</span></div>
                                         </div>
                                     </div>
 
@@ -3336,19 +3336,19 @@
                                     <div class="detail-section">
                                         <h4>이동평균선</h4>
                                         <div class="detail-grid">
-                                            <div class="detail-item"><span class="label">20일선</span><span class="value" id="detail-sma20">-</span></div>
-                                            <div class="detail-item"><span class="label">50일선</span><span class="value" id="detail-sma50">-</span></div>
-                                            <div class="detail-item"><span class="label">200일선</span><span class="value" id="detail-sma200">-</span></div>
-                                            <div class="detail-item"><span class="label">이평교차</span><span class="value" id="detail-sma-cross">-</span></div>
+                                            <div class="detail-item"><span class="label">20일선</span><span class="value" id="panel-sma20">-</span></div>
+                                            <div class="detail-item"><span class="label">50일선</span><span class="value" id="panel-sma50">-</span></div>
+                                            <div class="detail-item"><span class="label">200일선</span><span class="value" id="panel-sma200">-</span></div>
+                                            <div class="detail-item"><span class="label">이평교차</span><span class="value" id="panel-sma-cross">-</span></div>
                                         </div>
                                     </div>
 
                                     <!-- 전략 연계 버튼 -->
                                     <div class="detail-actions">
-                                        <button class="btn btn-sm btn-primary" id="btn-run-backtest" title="이 종목으로 백테스트 실행">
+                                        <button class="btn btn-sm btn-primary" id="panel-btn-backtest" title="이 종목으로 백테스트 실행">
                                             백테스트 실행
                                         </button>
-                                        <button class="btn btn-sm btn-secondary" id="btn-add-to-watchlist" title="관심종목에 추가">
+                                        <button class="btn btn-sm btn-secondary" id="panel-btn-watchlist" title="관심종목에 추가">
                                             관심종목 추가
                                         </button>
                                     </div>
