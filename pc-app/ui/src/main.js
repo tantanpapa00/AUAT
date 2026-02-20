@@ -16038,6 +16038,9 @@ function onScreenerRowClick(idx) {
     if (backBtn) backBtn.style.display = 'flex';
 }
 
+// window에 onScreenerRowClick 노출 (인라인 onclick에서 사용)
+window.onScreenerRowClick = onScreenerRowClick;
+
 function formatMarketCap(cap) {
     if (!cap || cap <= 0) return '-';
     if (cap >= 1000000000000) return (cap / 1000000000000).toFixed(1) + '조';
