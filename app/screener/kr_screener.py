@@ -154,6 +154,8 @@ async def screener_kr(filters: dict, sort: str, order: str, page: int, per_page:
     if has_financial_filters:
         stocks_to_enrich = filtered[:500]
         enriched = await enrich_financial_data(stocks_to_enrich)
+        # yfinance 캐시에서 ROE/ROA 등 보강 (필터 적용 전)
+        enriched = await enrich_from_yfinance_cache(enriched)
         filtered = enriched + filtered[500:]
 
     # 재무 필터 적용
@@ -441,6 +443,65 @@ async def enrich_financial_data(stocks: List[Dict]) -> List[Dict]:
     print(f"[Screener] Enriched {len(result)} stocks with financial data (Naver)")
     # yfinance 보강은 페이지 결과에서만 수행 (rate limit 방지)
     return result
+
+
+async def enrich_from_yfinance_cache(stocks: List[Dict]) -> List[Dict]:
+    """
+    yfinance 디스크 캐시에서 재무 데이터 보강 (API 호출 없음)
+    필터 적용 전에 호출하여 ROE/ROA 등 필터링 가능하게 함
+    """
+    import json
+    import os
+    import time
+
+    CACHE_FILE = '/tmp/yfinance_cache.json'
+    CACHE_TTL = 24 * 3600  # 24시간
+
+    if not stocks:
+        return stocks
+
+    # 디스크 캐시 로드
+    disk_cache = {}
+    if os.path.exists(CACHE_FILE):
+        try:
+            with open(CACHE_FILE, 'r', encoding='utf-8') as f:
+                disk_cache = json.load(f)
+        except Exception:
+            pass
+
+    if not disk_cache:
+        return stocks
+
+    now = time.time()
+    yfinance_fields = ["roe", "roa", "operating_margin", "gross_margin", "profit_margin",
+                       "debt_ratio", "current_ratio", "revenue_growth", "earnings_growth",
+                       "per", "pbr", "dividend_yield"]
+    enriched_count = 0
+
+    for stock in stocks:
+        code = stock.get("code")
+        if not code:
+            continue
+
+        # 종목코드 → yfinance 심볼 변환 (6자리.KS)
+        yf_symbol = f"{str(code).zfill(6)}.KS"
+
+        if yf_symbol in disk_cache:
+            cached_entry = disk_cache[yf_symbol]
+            cached_time = cached_entry.get('_ts', 0)
+
+            # 캐시 유효성 확인
+            if now - cached_time < CACHE_TTL:
+                # 누락된 필드만 보강
+                for field in yfinance_fields:
+                    if stock.get(field) is None and field in cached_entry:
+                        stock[field] = cached_entry[field]
+                enriched_count += 1
+
+    if enriched_count > 0:
+        print(f"[Screener] yfinance 캐시에서 {enriched_count}/{len(stocks)}개 보강 (API 미호출)")
+
+    return stocks
 
 
 async def enrich_with_yfinance(stocks: List[Dict]) -> List[Dict]:
