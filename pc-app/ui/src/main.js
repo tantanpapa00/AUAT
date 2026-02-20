@@ -13877,59 +13877,27 @@ function updateScreenerFiltersUI(market) {
     filtersEl.style.display = 'block';
     if (actionsEl) actionsEl.style.display = 'flex';
 
-    if (market === 'kr') {
-        // 국내: 기존 HTML 필터칩 표시
-        if (chipGroups) {
-            chipGroups.innerHTML = `
-                <div class="filter-chip-group">
-                    <span class="chip-group-label">기본</span>
-                    <div class="chip-row">
-                        <button class="filter-chip" data-filter="exchange">거래소</button>
-                        <button class="filter-chip" data-filter="sector">업종</button>
-                        <button class="filter-chip" data-filter="market_cap">시가총액</button>
-                        <button class="filter-chip" data-filter="price">현재가</button>
-                        <button class="filter-chip" data-filter="volume">거래량</button>
-                        <button class="filter-chip" data-filter="change_pct">등락률</button>
-                    </div>
-                </div>
-                <div class="filter-chip-group">
-                    <span class="chip-group-label">재무</span>
-                    <div class="chip-row">
-                        <button class="filter-chip" data-filter="per">PER</button>
-                        <button class="filter-chip" data-filter="pbr">PBR</button>
-                        <button class="filter-chip" data-filter="eps_growth">EPS성장률</button>
-                        <button class="filter-chip" data-filter="dividend_yield">배당수익률</button>
-                    </div>
-                </div>
-                <div class="filter-chip-group">
-                    <span class="chip-group-label">기술</span>
-                    <div class="chip-row">
-                        <button class="filter-chip" data-filter="rsi">RSI</button>
-                        <button class="filter-chip" data-filter="sma">이평선</button>
-                        <button class="filter-chip" data-filter="volume_surge">거래량급증</button>
-                        <button class="filter-chip" data-filter="w52_high">52주고가</button>
-                    </div>
-                </div>
-            `;
-        }
-    } else if (market === 'us' || market === 'etf') {
-        // US/ETF: 동적 필터칩 생성
-        if (chipGroups) {
-            const filterDefs = getFilterDefinitions(market);
-            const categories = {};
+    // 모든 시장: 동적 필터칩 생성 (KR/US/ETF 공통)
+    if (chipGroups) {
+        const filterDefs = getFilterDefinitions(market);
+        const categories = {};
 
-            // 카테고리별 필터 분류
-            Object.entries(filterDefs).forEach(([key, def]) => {
-                const cat = def.category || 'basic';
-                if (!categories[cat]) categories[cat] = [];
-                categories[cat].push({ key, label: def.label });
-            });
+        // 카테고리별 필터 분류
+        Object.entries(filterDefs).forEach(([key, def]) => {
+            const cat = def.category || 'basic';
+            if (!categories[cat]) categories[cat] = [];
+            categories[cat].push({ key, label: def.label });
+        });
 
-            // 카테고리 라벨 매핑
-            const catLabels = { basic: '기본', financial: '재무', technical: '기술' };
+        // 카테고리 라벨 매핑
+        const catLabels = { basic: '기본', financial: '재무', technical: '기술' };
 
-            let html = '';
-            Object.entries(categories).forEach(([cat, filters]) => {
+        // 카테고리 순서 고정: basic → financial → technical
+        const catOrder = ['basic', 'financial', 'technical'];
+        let html = '';
+        catOrder.forEach(cat => {
+            const filters = categories[cat];
+            if (filters && filters.length > 0) {
                 html += `
                     <div class="filter-chip-group">
                         <span class="chip-group-label">${catLabels[cat] || cat}</span>
@@ -13938,10 +13906,10 @@ function updateScreenerFiltersUI(market) {
                         </div>
                     </div>
                 `;
-            });
+            }
+        });
 
-            chipGroups.innerHTML = html;
-        }
+        chipGroups.innerHTML = html;
     }
 
     // 필터 칩 이벤트 재바인딩
