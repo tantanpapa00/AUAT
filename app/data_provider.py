@@ -1,10 +1,9 @@
 """
 BBooster 데이터 제공 모듈
-네이버 모바일 API + yfinance + 코인거래소 API
+네이버 모바일 API + 코인거래소 API
 """
 import asyncio
 from datetime import datetime, timedelta
-import yfinance as yf
 import httpx
 import traceback
 import json

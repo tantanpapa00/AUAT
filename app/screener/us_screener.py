@@ -1,6 +1,6 @@
 """
 해외(미국) 주식 스크리너
-Finviz + Yahoo Finance 기반
+Finviz 기반 (v=111 Overview + v=141 Financial)
 """
 
 import asyncio
@@ -11,7 +11,6 @@ from datetime import datetime
 
 from .cache import screener_cache, CACHE_TTL
 from .filters import apply_screener_filters, sort_screener_results
-from .financial_data import fetch_financial_data_batch, YFINANCE_AVAILABLE
 
 # 모듈 레벨 메모리 캐시 (서버 시작 시 워밍업)
 _us_stock_cache = None
@@ -33,10 +32,10 @@ async def load_us_stocks():
     _us_cache_ts = now
     return [s.copy() for s in stocks]
 
-# Yahoo Finance 헤더
-YAHOO_HEADERS = {
+# Finviz 헤더
+FINVIZ_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-    "Accept": "application/json",
+    "Accept": "text/html,application/xhtml+xml",
 }
 
 # Finviz 섹터 한글 변환
@@ -92,11 +91,7 @@ async def screener_us(filters: dict, sort: str, order: str, page: int, per_page:
     end = start + per_page
     items = filtered[start:end]
 
-    # yfinance 캐시에서 재무 데이터 보강 (API 호출 없음)
-    if items:
-        items = await enrich_us_financial_data(list(items))
     t3 = _time.time()
-    print(f"[PERF] US 재무보강: {t3-t2:.2f}초")
     print(f"[PERF] US 전체: {t3-t0:.2f}초")
 
     # 시총 문자열 추가 (달러 기준)
@@ -168,31 +163,40 @@ def apply_us_filters(stocks: List[Dict], filters: dict) -> List[Dict]:
 
 async def fetch_all_us_stocks() -> List[Dict]:
     """
-    S&P 500 종목 + 실시간 등락률 결합
+    S&P 500 종목 + 실시간 등락률 + 재무 데이터 결합
 
-    1. Finviz Screener에서 S&P 500 메타데이터 (섹터, 시총)
-    2. Finviz 히트맵 API에서 실시간 등락률
+    1. Finviz v=111 (Overview): 섹터, 시총, 종목명
+    2. Finviz v=141 (Financial): ROE, ROA, Debt/Eq, Margins 등
+    3. Finviz 히트맵 API: 실시간 등락률
     """
-    # 1. 메타데이터 가져오기
+    # 1. 메타데이터 가져오기 (v=111)
     metadata = await fetch_sp500_metadata()
 
-    # 2. 실시간 등락률 가져오기
+    # 2. 재무 데이터 가져오기 (v=141)
+    financials = await fetch_sp500_financials()
+
+    # 3. 실시간 등락률 가져오기
     changes = await fetch_finviz_changes()
 
-    # 3. 결합
+    # 4. 결합
     stocks = []
     for symbol, meta in metadata.items():
         change_pct = changes.get(symbol, 0)
-        stocks.append({
+        fin = financials.get(symbol, {})
+
+        stock = {
             "code": symbol,
             "name": meta.get("name", symbol),
             "sector": meta.get("sector", "기타"),
             "market_cap": meta.get("market_cap", 0),  # 조 달러 단위
             "change_pct": change_pct,
-            "price": 0,  # 가격은 별도 조회 필요
+            "price": meta.get("price", 0),
             "volume": 0,
             "exchange": "NYSE/NASDAQ",
-        })
+        }
+        # 재무 데이터 병합
+        stock.update(fin)
+        stocks.append(stock)
 
     print(f"[US Screener] {len(stocks)}개 종목 로드 완료")
     return stocks
@@ -296,6 +300,102 @@ def _parse_market_cap(mcap_str: str) -> float:
         return 0.01
 
 
+def _parse_finviz_pct(val: str) -> Optional[float]:
+    """Finviz % 값 파싱. '10.50%' → 10.50, '-' → None"""
+    if not val or val == '-' or val == '':
+        return None
+    try:
+        return float(val.replace('%', '').strip())
+    except:
+        return None
+
+
+def _parse_finviz_float(val: str) -> Optional[float]:
+    """Finviz 숫자 파싱. '1.50' → 1.50, '-' → None"""
+    if not val or val == '-' or val == '':
+        return None
+    try:
+        return float(val.strip())
+    except:
+        return None
+
+
+async def fetch_sp500_financials() -> Dict[str, Dict]:
+    """
+    Finviz Financial 뷰(v=141)에서 재무 데이터 수집
+    Returns: {"AAPL": {"roe": 152.02, "roa": 32.56, "debt_ratio": 1.03, ...}, ...}
+
+    v=141 컬럼 순서:
+    No., Ticker, Market Cap, Dividend, ROA, ROE, ROI,
+    Curr R, Quick R, LTDebt/Eq, Debt/Eq, Gross M, Oper M, Profit M,
+    Earnings, Price, Change, Volume
+    """
+    from bs4 import BeautifulSoup
+
+    result = {}
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            page = 1
+
+            while True:
+                offset = (page - 1) * 20 + 1
+                url = f"https://finviz.com/screener.ashx?v=141&f=idx_sp500&o=-marketcap&r={offset}"
+
+                r = await client.get(url, headers=FINVIZ_HEADERS)
+                if r.status_code != 200:
+                    print(f"[Finviz Financial] 페이지 {page} 실패: {r.status_code}")
+                    break
+
+                soup = BeautifulSoup(r.text, 'lxml')
+                rows = soup.select('table.screener-body-table-nw tr[valign="top"]')
+                if not rows:
+                    rows = soup.select('tr.styled-row')
+                if not rows:
+                    break
+
+                for row in rows:
+                    cols = row.find_all('td')
+                    if len(cols) < 17:
+                        continue
+
+                    try:
+                        ticker_link = cols[1].find('a')
+                        ticker = ticker_link.text.strip() if ticker_link else ""
+
+                        if ticker:
+                            # v=141 컬럼: No, Ticker, MktCap, Div, ROA, ROE, ROI, CurrR, QuickR, LTD/Eq, D/Eq, GrossM, OperM, ProfitM, Earn, Price, Chg, Vol
+                            result[ticker] = {
+                                "dividend_yield": _parse_finviz_pct(cols[3].text.strip()),
+                                "roa": _parse_finviz_pct(cols[4].text.strip()),
+                                "roe": _parse_finviz_pct(cols[5].text.strip()),
+                                "roi": _parse_finviz_pct(cols[6].text.strip()),
+                                "current_ratio": _parse_finviz_float(cols[7].text.strip()),
+                                "quick_ratio": _parse_finviz_float(cols[8].text.strip()),
+                                "lt_debt_ratio": _parse_finviz_float(cols[9].text.strip()),
+                                "debt_ratio": _parse_finviz_float(cols[10].text.strip()),
+                                "gross_margin": _parse_finviz_pct(cols[11].text.strip()),
+                                "operating_margin": _parse_finviz_pct(cols[12].text.strip()),
+                                "profit_margin": _parse_finviz_pct(cols[13].text.strip()),
+                            }
+                    except Exception:
+                        continue
+
+                if len(rows) < 20 or page >= 30:
+                    break
+                page += 1
+                await asyncio.sleep(0.3)  # 요청 간격
+
+            print(f"[Finviz Financial] S&P 500 재무데이터: {len(result)}개 종목 ({page}페이지)")
+
+    except Exception as e:
+        print(f"[Finviz Financial] 오류: {e}")
+        import traceback
+        traceback.print_exc()
+
+    return result
+
+
 async def fetch_finviz_changes() -> Dict[str, float]:
     """
     Finviz 히트맵 API에서 실시간 등락률 수집
@@ -332,72 +432,11 @@ async def fetch_finviz_changes() -> Dict[str, float]:
     return result
 
 
-async def enrich_us_financial_data(stocks: List[Dict]) -> List[Dict]:
-    """
-    yfinance 캐시에서 재무 데이터 보강 (API 호출 없음)
-
-    13개 재무지표: per, pbr, roe, roa, operating_margin, gross_margin,
-                  profit_margin, debt_ratio, current_ratio, dividend_yield,
-                  revenue_growth, earnings_growth, eps_growth
-    """
-    import json
-    import os
-    import time as _time
-
-    CACHE_FILE = '/tmp/yfinance_cache.json'
-    CACHE_TTL = 24 * 3600  # 24시간
-
-    if not stocks:
-        return stocks
-
-    # 디스크 캐시 로드
-    disk_cache = {}
-    if os.path.exists(CACHE_FILE):
-        try:
-            with open(CACHE_FILE, 'r', encoding='utf-8') as f:
-                disk_cache = json.load(f)
-        except Exception:
-            pass
-
-    if not disk_cache:
-        return stocks
-
-    now = _time.time()
-    yfinance_fields = ["roe", "roa", "operating_margin", "gross_margin", "profit_margin",
-                       "debt_ratio", "current_ratio", "revenue_growth", "earnings_growth",
-                       "per", "pbr", "dividend_yield"]
-    enriched_count = 0
-
-    for stock in stocks:
-        code = stock.get("code")
-        if not code:
-            continue
-
-        # US 심볼은 그대로 사용 (예: AAPL, MSFT)
-        if code in disk_cache:
-            cached_entry = disk_cache[code]
-            cached_time = cached_entry.get('_ts', 0)
-
-            # 캐시 유효성 확인
-            if now - cached_time < CACHE_TTL:
-                # 누락된 필드만 보강
-                for field in yfinance_fields:
-                    if stock.get(field) is None and field in cached_entry:
-                        stock[field] = cached_entry[field]
-                enriched_count += 1
-
-    if enriched_count > 0:
-        print(f"[US Screener] yfinance 캐시에서 {enriched_count}/{len(stocks)}개 보강 (API 미호출)")
-
-    return stocks
-
-
-# 필터 키 정의 (US 전용) - 재무 필터 포함
+# 필터 키 정의 (US 전용) - Finviz v=141 기반 재무 필터
 US_FILTER_KEYS = [
     "sector", "market_cap", "change_pct",
-    # 재무 필터 (yfinance 기반 13개)
-    "per", "pbr", "roe", "roa",
+    # 재무 필터 (Finviz v=141 기반)
+    "roe", "roa", "roi",
     "operating_margin", "gross_margin", "profit_margin",
     "debt_ratio", "current_ratio", "dividend_yield",
-    "revenue_growth", "earnings_growth", "eps_growth"
 ]

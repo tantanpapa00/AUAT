@@ -11,7 +11,6 @@ from datetime import datetime, timedelta
 from .cache import screener_cache, CACHE_TTL
 from .filters import apply_screener_filters, sort_screener_results
 from .technicals import compute_all_technicals
-from .financial_data import fetch_financial_data_batch, YFINANCE_AVAILABLE
 
 # 기술적 지표 필터 키 목록
 TECHNICAL_FILTER_KEYS = [
@@ -21,14 +20,12 @@ TECHNICAL_FILTER_KEYS = [
     "period_return"
 ]
 
-# 재무 지표 필터 키 목록 (13개 + 기타)
+# 재무 지표 필터 키 목록 (네이버 integration API 기반)
 FINANCIAL_FILTER_KEYS = [
-    # 공통 13개 (yfinance 기반)
     "per", "pbr", "roe", "roa",
-    "operating_margin", "gross_margin", "profit_margin",
+    "operating_margin", "profit_margin",
     "debt_ratio", "current_ratio", "dividend_yield",
     "revenue_growth", "earnings_growth", "eps_growth",
-    # 추가 (네이버 API)
     "foreign_ratio", "change_filter", "change"
 ]
 
@@ -179,8 +176,6 @@ async def screener_kr(filters: dict, sort: str, order: str, page: int, per_page:
     if has_financial_filters:
         stocks_to_enrich = filtered[:500]
         enriched = await enrich_financial_data(stocks_to_enrich)
-        # yfinance 캐시에서 ROE/ROA 등 보강 (필터 적용 전)
-        enriched = await enrich_from_yfinance_cache(enriched)
         filtered = enriched + filtered[500:]
 
     # 재무 필터 적용
@@ -224,7 +219,6 @@ async def screener_kr(filters: dict, sort: str, order: str, page: int, per_page:
 
     # 페이지 결과에 대해 재무 + 기술 데이터 보강 (항상)
     items = await enrich_financial_data(list(items))
-    items = await enrich_from_yfinance_cache(items)  # 캐시에서만 ROE/ROA 등 보강 (API 호출 없음)
     items = await enrich_with_technicals(items, technical_params)
     t5 = _time.time()
     print(f"[PERF] KR 페이지보강: {t5-t4:.2f}초")
@@ -473,103 +467,7 @@ async def enrich_financial_data(stocks: List[Dict]) -> List[Dict]:
             result.append(r)
 
     print(f"[Screener] Enriched {len(result)} stocks with financial data (Naver)")
-    # yfinance 보강은 페이지 결과에서만 수행 (rate limit 방지)
     return result
-
-
-async def enrich_from_yfinance_cache(stocks: List[Dict]) -> List[Dict]:
-    """
-    yfinance 디스크 캐시에서 재무 데이터 보강 (API 호출 없음)
-    필터 적용 전에 호출하여 ROE/ROA 등 필터링 가능하게 함
-    """
-    import json
-    import os
-    import time
-
-    CACHE_FILE = '/tmp/yfinance_cache.json'
-    CACHE_TTL = 24 * 3600  # 24시간
-
-    if not stocks:
-        return stocks
-
-    # 디스크 캐시 로드
-    disk_cache = {}
-    if os.path.exists(CACHE_FILE):
-        try:
-            with open(CACHE_FILE, 'r', encoding='utf-8') as f:
-                disk_cache = json.load(f)
-        except Exception:
-            pass
-
-    if not disk_cache:
-        return stocks
-
-    now = time.time()
-    yfinance_fields = ["roe", "roa", "operating_margin", "gross_margin", "profit_margin",
-                       "debt_ratio", "current_ratio", "revenue_growth", "earnings_growth",
-                       "per", "pbr", "dividend_yield"]
-    enriched_count = 0
-
-    for stock in stocks:
-        code = stock.get("code")
-        if not code:
-            continue
-
-        # 종목코드 → yfinance 심볼 변환 (6자리.KS)
-        yf_symbol = f"{str(code).zfill(6)}.KS"
-
-        if yf_symbol in disk_cache:
-            cached_entry = disk_cache[yf_symbol]
-            cached_time = cached_entry.get('_ts', 0)
-
-            # 캐시 유효성 확인
-            if now - cached_time < CACHE_TTL:
-                # 누락된 필드만 보강
-                for field in yfinance_fields:
-                    if stock.get(field) is None and field in cached_entry:
-                        stock[field] = cached_entry[field]
-                enriched_count += 1
-
-    if enriched_count > 0:
-        print(f"[Screener] yfinance 캐시에서 {enriched_count}/{len(stocks)}개 보강 (API 미호출)")
-
-    return stocks
-
-
-async def enrich_with_yfinance(stocks: List[Dict]) -> List[Dict]:
-    """
-    yfinance로 재무 데이터 보강 (페이지 결과에 대해서만 호출)
-    ROE, ROA, gross_margin 등 네이버 미제공 필드
-    """
-    if not YFINANCE_AVAILABLE or not stocks:
-        return stocks
-
-    yfinance_fields = ["roe", "roa", "operating_margin", "gross_margin", "profit_margin",
-                      "debt_ratio", "current_ratio", "revenue_growth", "earnings_growth"]
-
-    # 누락된 필드가 있는 종목들만 추출
-    symbols_to_enrich = []
-    for stock in stocks:
-        if any(stock.get(f) is None for f in yfinance_fields[:3]):  # ROE, ROA, operating_margin 중 하나
-            symbols_to_enrich.append(stock.get("code"))
-
-    if not symbols_to_enrich:
-        return stocks
-
-    try:
-        # yfinance 일괄 조회 (동시 2개, 최대 20개)
-        yf_data = await fetch_financial_data_batch(symbols_to_enrich[:20], market="KR", max_concurrent=2)
-        for stock in stocks:
-            code = stock.get("code")
-            if code in yf_data:
-                for field in yfinance_fields:
-                    if stock.get(field) is None and field in yf_data[code]:
-                        stock[field] = yf_data[code][field]
-        print(f"[Screener] yfinance 보강: {len(yf_data)}/{len(symbols_to_enrich)}개")
-    except Exception as e:
-        print(f"[Screener] yfinance 오류: {e}")
-
-    return stocks
 
 
 async def enrich_with_technicals(stocks: List[Dict], params: Dict = None) -> List[Dict]:

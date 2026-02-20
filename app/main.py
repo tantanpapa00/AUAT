@@ -176,31 +176,9 @@ from .crud_accounts import (
 from .pine_parser import parse_pine_inputs
 
 
-# =====================================================
-# 백그라운드 yfinance 캐시 루프
-# =====================================================
-async def background_yfinance_cache_loop():
-    """
-    [비활성화됨] VPS IP가 Yahoo Finance에서 429 차단됨
-    디스크 캐시(/tmp/yfinance_cache.json)만 사용
-    """
-    import asyncio
-
-    # 비활성화 - VPS에서 429 Too Many Requests 발생
-    print("[yfinance cache] 비활성화됨 (VPS IP 차단 - 디스크 캐시만 사용)")
-    while True:
-        await asyncio.sleep(86400)  # 24시간 대기 (실제로 아무것도 안 함)
-
-
 @asynccontextmanager
 async def lifespan(app):
     """FastAPI lifespan - 시작/종료 이벤트"""
-    import asyncio
-
-    # 서버 시작 시 백그라운드 캐싱 태스크 시작
-    cache_task = asyncio.create_task(background_yfinance_cache_loop())
-    print("[yfinance cache] 백그라운드 캐싱 시작")
-
     # 스크리너 메모리 캐시 워밍업 (첫 요청 3초 이내 응답 위해)
     try:
         from app.screener.kr_screener import load_kr_stocks
@@ -219,14 +197,6 @@ async def lifespan(app):
         print(f"[Screener Warmup] 경고: {e}")
 
     yield
-
-    # 서버 종료 시 태스크 취소
-    cache_task.cancel()
-    try:
-        await cache_task
-    except asyncio.CancelledError:
-        pass
-    print("[yfinance cache] 백그라운드 캐싱 종료")
 
 
 app = FastAPI(title="BBooster API v1.0", lifespan=lifespan)
