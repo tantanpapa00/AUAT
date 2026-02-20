@@ -9265,42 +9265,46 @@ async function loadFinancialSummaryKr(code) {
         const financials = financialsResp?.data || {};
         currentFinancialDataKr.annual = financials;
 
-        // 요약 재무 카드
+        // 최신 재무 데이터에서 값 추출 (연간 기준)
+        const latestRevenue = financials.revenue?.length > 0 ? financials.revenue[financials.revenue.length - 1] : 0;
+        const latestOpProfit = financials.operating_profit?.length > 0 ? financials.operating_profit[financials.operating_profit.length - 1] : 0;
+        const latestNetIncome = financials.net_income?.length > 0 ? financials.net_income[financials.net_income.length - 1] : 0;
+        const latestEps = financials.eps?.length > 0 ? financials.eps[financials.eps.length - 1] : 0;
+        const opm = latestRevenue > 0 ? ((latestOpProfit / latestRevenue) * 100).toFixed(1) : '-';
+        const latestPeriod = financials.periods?.length > 0 ? financials.periods[financials.periods.length - 1] : '';
+        const isLatestEstimate = financials.isConsensus?.length > 0 ? financials.isConsensus[financials.isConsensus.length - 1] : false;
+
+        // 요약 재무 카드 - StockEasy 스타일 6개 항목
         const summaryCardHtml = `
             <div class="sd-card">
-                <div class="sd-card-title">주요 지표</div>
-                <div class="sd-financial-grid">
+                <div class="sd-card-title">
+                    주요 재무지표
+                    <span class="sd-basis-label">${latestPeriod ? `기준: ${latestPeriod}${isLatestEstimate ? '' : ' (연간)'}` : ''}</span>
+                </div>
+                <div class="sd-financial-grid sd-grid-6">
                     <div class="sd-financial-item">
                         <span class="sd-financial-label">시가총액</span>
                         <span class="sd-financial-value">${summary.market_cap || '-'}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">PER</span>
-                        <span class="sd-financial-value">${summary.per > 0 ? summary.per.toFixed(2) + '배' : '-'}</span>
+                        <span class="sd-financial-label">매출액</span>
+                        <span class="sd-financial-value">${latestRevenue > 0 ? formatBillions(latestRevenue * 100) : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">PBR</span>
-                        <span class="sd-financial-value">${summary.pbr > 0 ? summary.pbr.toFixed(2) + '배' : '-'}</span>
+                        <span class="sd-financial-label">영업이익</span>
+                        <span class="sd-financial-value ${latestOpProfit < 0 ? 'negative' : ''}">${latestOpProfit !== 0 ? formatBillions(latestOpProfit * 100) : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">ROE</span>
-                        <span class="sd-financial-value">${summary.roe > 0 ? summary.roe.toFixed(1) + '%' : '-'}</span>
+                        <span class="sd-financial-label">OPM</span>
+                        <span class="sd-financial-value ${parseFloat(opm) < 0 ? 'negative' : ''}">${opm !== '-' ? opm + '%' : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
                         <span class="sd-financial-label">EPS</span>
-                        <span class="sd-financial-value">${summary.eps > 0 ? summary.eps.toLocaleString() + '원' : '-'}</span>
+                        <span class="sd-financial-value">${latestEps !== 0 ? latestEps.toLocaleString() + '원' : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">배당수익률</span>
-                        <span class="sd-financial-value">${summary.dividend_yield > 0 ? summary.dividend_yield.toFixed(2) + '%' : '-'}</span>
-                    </div>
-                    <div class="sd-financial-item">
-                        <span class="sd-financial-label">52주 최고</span>
-                        <span class="sd-financial-value positive">${summary.high_52w > 0 ? summary.high_52w.toLocaleString() : '-'}</span>
-                    </div>
-                    <div class="sd-financial-item">
-                        <span class="sd-financial-label">52주 최저</span>
-                        <span class="sd-financial-value negative">${summary.low_52w > 0 ? summary.low_52w.toLocaleString() : '-'}</span>
+                        <span class="sd-financial-label">당기순이익</span>
+                        <span class="sd-financial-value ${latestNetIncome < 0 ? 'negative' : ''}">${latestNetIncome !== 0 ? formatBillions(latestNetIncome * 100) : '-'}</span>
                     </div>
                 </div>
             </div>
@@ -10725,6 +10729,11 @@ async function initCandleChart(symbol, exchange, period = '1D') {
     // 기존 차트 제거
     container.innerHTML = '';
 
+    // KRW 여부 판별 (국내 종목, ETF, 업비트)
+    const ex = (exchange || '').toUpperCase();
+    const isKrw = ex === 'KIS_KR' || ex === 'UPBIT' || ex === 'ETF' || ex === '';
+    const isUsd = ex === 'KIS_US' || ex === 'US' || ex === 'NASDAQ' || ex === 'NYSE';
+
     try {
         // 차트 생성 (ES 모듈 import 사용)
         detailChart = createChart(container, {
@@ -10759,6 +10768,12 @@ async function initCandleChart(symbol, exchange, period = '1D') {
                     const d = String(date.getDate()).padStart(2, '0');
                     return `${y}-${m}-${d}`;
                 },
+                // KRW: 소수점 없음 / USD: 소수점 2자리
+                priceFormatter: isKrw
+                    ? (price) => price.toLocaleString('ko-KR', { maximumFractionDigits: 0 })
+                    : isUsd
+                        ? (price) => '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        : (price) => price.toLocaleString()
             }
         });
 
@@ -10913,6 +10928,9 @@ async function initCandleChart(symbol, exchange, period = '1D') {
                     });
                     sma200Series.setData(calculateSMA(candleData, 200));
                 }
+
+                // SMA 레전드 표시
+                addSmaLegend(container, candleData.length);
             } else {
                 // API 실패 시 샘플 데이터 사용
                 const sampleData = generateSampleCandleData(period);
@@ -10949,6 +10967,41 @@ async function initCandleChart(symbol, exchange, period = '1D') {
         console.error('Chart init error:', error);
         container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);">차트를 불러올 수 없습니다</div>';
     }
+}
+
+// SMA 레전드 추가 함수
+function addSmaLegend(container, dataLength) {
+    // 기존 레전드 제거
+    const existingLegend = container.querySelector('.sma-legend');
+    if (existingLegend) existingLegend.remove();
+
+    // 활성화된 SMA만 표시
+    const smaItems = [];
+    if (dataLength >= 20) {
+        smaItems.push({ name: 'SMA 20', color: '#FBBF24' });
+    }
+    if (dataLength >= 50) {
+        smaItems.push({ name: 'SMA 50', color: '#F97316' });
+    }
+    if (dataLength >= 200) {
+        smaItems.push({ name: 'SMA 200', color: '#A855F7' });
+    }
+
+    if (smaItems.length === 0) return;
+
+    const legend = document.createElement('div');
+    legend.className = 'sma-legend';
+    legend.style.cssText = 'position:absolute;top:8px;left:8px;display:flex;gap:12px;z-index:10;font-size:11px;';
+
+    smaItems.forEach(item => {
+        const span = document.createElement('span');
+        span.style.cssText = `display:flex;align-items:center;gap:4px;color:${item.color};`;
+        span.innerHTML = `<span style="width:12px;height:2px;background:${item.color};"></span>${item.name}`;
+        legend.appendChild(span);
+    });
+
+    container.style.position = 'relative';
+    container.appendChild(legend);
 }
 
 // 샘플 캔들 데이터 생성 (실제 API 연동 전 테스트용)
