@@ -309,31 +309,60 @@ async def fetch_finviz_changes() -> Dict[str, float]:
 
 async def enrich_us_financial_data(stocks: List[Dict]) -> List[Dict]:
     """
-    yfinance로 재무 데이터 보강
+    yfinance 캐시에서 재무 데이터 보강 (API 호출 없음)
 
     13개 재무지표: per, pbr, roe, roa, operating_margin, gross_margin,
                   profit_margin, debt_ratio, current_ratio, dividend_yield,
                   revenue_growth, earnings_growth, eps_growth
     """
-    if not stocks or not YFINANCE_AVAILABLE:
+    import json
+    import os
+    import time as _time
+
+    CACHE_FILE = '/tmp/yfinance_cache.json'
+    CACHE_TTL = 24 * 3600  # 24시간
+
+    if not stocks:
         return stocks
 
-    symbols = [s.get("code") for s in stocks if s.get("code")]
+    # 디스크 캐시 로드
+    disk_cache = {}
+    if os.path.exists(CACHE_FILE):
+        try:
+            with open(CACHE_FILE, 'r', encoding='utf-8') as f:
+                disk_cache = json.load(f)
+        except Exception:
+            pass
 
-    try:
-        # yfinance 일괄 조회 (동시 10개 제한)
-        financial_data = await fetch_financial_data_batch(symbols, market="US", max_concurrent=10)
+    if not disk_cache:
+        return stocks
 
-        # 데이터 병합
-        for stock in stocks:
-            code = stock.get("code")
-            if code and code in financial_data:
-                stock.update(financial_data[code])
+    now = _time.time()
+    yfinance_fields = ["roe", "roa", "operating_margin", "gross_margin", "profit_margin",
+                       "debt_ratio", "current_ratio", "revenue_growth", "earnings_growth",
+                       "per", "pbr", "dividend_yield"]
+    enriched_count = 0
 
-        print(f"[US Screener] yfinance 보강: {len(financial_data)}/{len(symbols)}개")
+    for stock in stocks:
+        code = stock.get("code")
+        if not code:
+            continue
 
-    except Exception as e:
-        print(f"[US Screener] yfinance 오류: {e}")
+        # US 심볼은 그대로 사용 (예: AAPL, MSFT)
+        if code in disk_cache:
+            cached_entry = disk_cache[code]
+            cached_time = cached_entry.get('_ts', 0)
+
+            # 캐시 유효성 확인
+            if now - cached_time < CACHE_TTL:
+                # 누락된 필드만 보강
+                for field in yfinance_fields:
+                    if stock.get(field) is None and field in cached_entry:
+                        stock[field] = cached_entry[field]
+                enriched_count += 1
+
+    if enriched_count > 0:
+        print(f"[US Screener] yfinance 캐시에서 {enriched_count}/{len(stocks)}개 보강 (API 미호출)")
 
     return stocks
 

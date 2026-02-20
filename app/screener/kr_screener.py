@@ -195,7 +195,7 @@ async def screener_kr(filters: dict, sort: str, order: str, page: int, per_page:
 
     # 페이지 결과에 대해 재무 + 기술 데이터 보강 (항상)
     items = await enrich_financial_data(list(items))
-    items = await enrich_with_yfinance(items)  # yfinance로 ROE/ROA 등 보강
+    items = await enrich_from_yfinance_cache(items)  # 캐시에서만 ROE/ROA 등 보강 (API 호출 없음)
     items = await enrich_with_technicals(items, technical_params)
 
     # 시총 문자열 추가
