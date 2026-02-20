@@ -2844,15 +2844,128 @@ async def get_stock_summary_kr(code: str) -> dict:
     return result
 
 
+async def _fetch_fnguide_consensus(code: str) -> dict:
+    """
+    FnGuide에서 컨센서스 데이터 가져오기 (6년: 2022-2027E)
+    SVD_Main 페이지의 Table 11에서 추출
+    """
+    result = {
+        "periods": [],
+        "isConsensus": [],
+        "revenue": [],
+        "operating_profit": [],
+        "net_income": [],
+        "eps": [],
+        "opm": [],
+    }
+
+    try:
+        url = f"http://comp.fnguide.com/SVO2/ASP/SVD_Main.asp?pGB=1&gicode=A{code}"
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.get(url, headers=headers)
+            r.encoding = "utf-8"
+
+            if r.status_code != 200:
+                return result
+
+            soup = BeautifulSoup(r.text, "html.parser")
+            tables = soup.find_all("table")
+
+            # Table 11 찾기 (IFRS 연결 Annual - 6년 데이터)
+            for table in tables:
+                rows = table.find_all("tr")
+                if len(rows) < 8:
+                    continue
+
+                header_row = rows[1] if len(rows) > 1 else None
+                if not header_row:
+                    continue
+
+                header_cells = header_row.find_all(["th", "td"])
+                header_texts = [c.get_text(strip=True) for c in header_cells]
+
+                if not any("2024" in h for h in header_texts):
+                    continue
+                if not any("(E)" in h or "Estimate" in h for h in header_texts):
+                    continue
+
+                # 연도 컬럼 위치 파싱
+                year_cols = []
+                estimate_count = 0
+                for i, h in enumerate(header_texts):
+                    if any(y in h for y in ["2022", "2023", "2024"]):
+                        year_cols.append((i, h.replace("/12", ""), False))
+                    elif "(P)" in h or "Provisional" in h:
+                        year_cols.append((i, "2025(E)", True))
+                    elif "(E)" in h or "Estimate" in h:
+                        year_num = 2026 + estimate_count
+                        year_cols.append((i, f"{year_num}(E)", True))
+                        estimate_count += 1
+
+                if len(year_cols) < 4:
+                    continue
+
+                year_cols = year_cols[-6:] if len(year_cols) > 6 else year_cols
+
+                result["periods"] = [y for _, y, _ in year_cols]
+                result["isConsensus"] = [is_est for _, _, is_est in year_cols]
+
+                for row in rows[2:]:
+                    cells = row.find_all(["th", "td"])
+                    if len(cells) < 2:
+                        continue
+
+                    row_label = cells[0].get_text(strip=True)
+                    row_values = []
+
+                    for col_idx, _, _ in year_cols:
+                        if col_idx < len(cells):
+                            val_text = cells[col_idx].get_text(strip=True)
+                            val_text = val_text.replace(",", "").replace("-", "").strip()
+                            try:
+                                row_values.append(int(float(val_text)) if val_text else 0)
+                            except:
+                                row_values.append(0)
+                        else:
+                            row_values.append(0)
+
+                    if "매출액" in row_label and "증가" not in row_label:
+                        result["revenue"] = row_values
+                    elif "영업이익" in row_label and "발표" not in row_label and "증가" not in row_label and "률" not in row_label:
+                        result["operating_profit"] = row_values
+                    elif "지배주주순이익" in row_label:
+                        result["net_income"] = row_values
+
+                if result["revenue"] and result["operating_profit"]:
+                    break
+
+            # OPM 계산
+            if result["revenue"] and result["operating_profit"]:
+                result["opm"] = []
+                for rev, op in zip(result["revenue"], result["operating_profit"]):
+                    if rev and rev > 0:
+                        result["opm"].append(round(op / rev * 100, 1))
+                    else:
+                        result["opm"].append(0)
+
+    except Exception as e:
+        print(f"[FnGuide] Error fetching consensus for {code}: {e}")
+        traceback.print_exc()
+
+    return result
+
+
 async def get_stock_financials_kr(code: str, fin_type: str = "annual") -> dict:
     """
     국내 종목 재무 추이 (연간/분기) - StockEasy 스타일
-    데이터 소스: 네이버 finance/annual, finance/quarter API
-    - isConsensus 플래그로 전망치(E) 여부 표시
-    - 매출액, 영업이익, EPS 별도 제공
+    데이터 소스:
+    - 연간: FnGuide (6년, 2022-2027E 컨센서스)
+    - 분기: 네이버 finance/quarter API
     """
     cache_key = f"stock_financials_kr_{code}_{fin_type}"
-    cached = _cached(cache_key, 3600)  # 1시간 캐싱
+    cached = _cached(cache_key, 3600)
     if cached:
         return cached
 
@@ -2869,73 +2982,111 @@ async def get_stock_financials_kr(code: str, fin_type: str = "annual") -> dict:
     }
 
     try:
-        async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
-            # 연간 또는 분기 재무 API
-            endpoint = "annual" if fin_type == "annual" else "quarter"
-            url = f"https://m.stock.naver.com/api/stock/{code}/finance/{endpoint}"
-            r = await client.get(url)
+        # 연간 데이터: FnGuide 먼저 시도 (6년 컨센서스 포함)
+        if fin_type == "annual":
+            fnguide_data = await _fetch_fnguide_consensus(code)
+            if fnguide_data.get("revenue") and len(fnguide_data["revenue"]) >= 4:
+                result["periods"] = fnguide_data["periods"]
+                result["isConsensus"] = fnguide_data["isConsensus"]
+                result["revenue"] = fnguide_data["revenue"]
+                result["operating_profit"] = fnguide_data["operating_profit"]
+                result["net_income"] = fnguide_data["net_income"]
+                result["opm"] = fnguide_data["opm"]
+                print(f"[DataProvider] FnGuide 성공 {code}: {len(result['periods'])}년")
 
-            if r.status_code == 200:
-                fin_data = r.json()
-                fin_info = fin_data.get("financeInfo", {})
-                title_list = fin_info.get("trTitleList", [])
-                row_list = fin_info.get("rowList", [])
+        # FnGuide 실패 또는 분기: 네이버 API
+        if not result["periods"]:
+            async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
+                endpoint = "annual" if fin_type == "annual" else "quarter"
+                url = f"https://m.stock.naver.com/api/stock/{code}/finance/{endpoint}"
+                r = await client.get(url)
 
-                # 기간 목록 및 전망치 여부 추출
-                periods = []
-                is_consensus = []
-                keys = []
+                if r.status_code == 200:
+                    fin_data = r.json()
+                    fin_info = fin_data.get("financeInfo", {})
+                    title_list = fin_info.get("trTitleList", [])
+                    row_list = fin_info.get("rowList", [])
 
-                for t in title_list:
-                    period_title = t.get("title", "")
-                    is_est = t.get("isConsensus", "") == "Y"
+                    periods = []
+                    is_consensus = []
+                    keys = []
 
-                    # 전망치는 (E) 표시 추가
-                    if is_est and not period_title.endswith("(E)"):
-                        period_title = period_title + "(E)"
+                    for t in title_list:
+                        period_title = t.get("title", "")
+                        is_est = t.get("isConsensus", "") == "Y"
+                        if is_est and not period_title.endswith("(E)"):
+                            period_title = period_title + "(E)"
+                        periods.append(period_title)
+                        is_consensus.append(is_est)
+                        keys.append(t.get("key", ""))
 
-                    periods.append(period_title)
-                    is_consensus.append(is_est)
-                    keys.append(t.get("key", ""))
+                    result["periods"] = periods
+                    result["isConsensus"] = is_consensus
 
-                result["periods"] = periods
-                result["isConsensus"] = is_consensus
+                    for row in row_list:
+                        title = row.get("title", "")
+                        columns_data = row.get("columns", {})
+                        values = []
 
-                # 재무 데이터 매핑
-                for row in row_list:
-                    title = row.get("title", "")
-                    columns_data = row.get("columns", {})
-                    values = []
+                        for k in keys:
+                            col = columns_data.get(k, {})
+                            v = col.get("value", "0")
+                            cleaned = v.replace(",", "").replace("-", "").strip()
+                            if not cleaned:
+                                cleaned = "0"
+                            is_negative = v.startswith("-") or (v.startswith("(") and v.endswith(")"))
+                            try:
+                                val = int(float(cleaned))
+                                if is_negative and val > 0:
+                                    val = -val
+                                values.append(val)
+                            except:
+                                values.append(0)
 
-                    for k in keys:
-                        col = columns_data.get(k, {})
-                        v = col.get("value", "0")
-                        # 숫자 파싱 (콤마 제거, 하이픈은 0 처리)
-                        cleaned = v.replace(",", "").replace("-", "").strip()
-                        if not cleaned:
-                            cleaned = "0"
-                        # 음수 처리 (괄호 또는 하이픈)
-                        is_negative = v.startswith("-") or (v.startswith("(") and v.endswith(")"))
-                        try:
-                            val = int(float(cleaned))
-                            if is_negative and val > 0:
-                                val = -val
-                            values.append(val)
-                        except:
-                            values.append(0)
+                        if title == "매출액":
+                            result["revenue"] = values
+                        elif title == "영업이익":
+                            result["operating_profit"] = values
+                        elif title == "당기순이익":
+                            result["net_income"] = values
+                        elif title == "EPS" or title == "EPS(원)":
+                            result["eps"] = values
+                        elif title == "영업이익률":
+                            result["opm"] = values
 
-                    if title == "매출액":
-                        result["revenue"] = values
-                    elif title == "영업이익":
-                        result["operating_profit"] = values
-                    elif title == "당기순이익":
-                        result["net_income"] = values
-                    elif title == "EPS" or title == "EPS(원)":
-                        result["eps"] = values
-                    elif title == "영업이익률":
-                        result["opm"] = values  # OPM (%)
+        # EPS: 네이버 API에서 조회 (더 정확)
+        if not result["eps"] or len(result["eps"]) < len(result["periods"]):
+            async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
+                url = f"https://m.stock.naver.com/api/stock/{code}/finance/annual"
+                r = await client.get(url)
+                if r.status_code == 200:
+                    fin_data = r.json()
+                    fin_info = fin_data.get("financeInfo", {})
+                    row_list = fin_info.get("rowList", [])
+                    title_list = fin_info.get("trTitleList", [])
+                    keys = [t.get("key", "") for t in title_list]
 
-                # EPS가 없으면 별도 API에서 가져오기
+                    for row in row_list:
+                        title = row.get("title", "")
+                        if title == "EPS" or title == "EPS(원)":
+                            columns_data = row.get("columns", {})
+                            eps_values = []
+                            for k in keys:
+                                col = columns_data.get(k, {})
+                                v = col.get("value", "0")
+                                cleaned = v.replace(",", "").replace("-", "").strip()
+                                try:
+                                    eps_values.append(int(float(cleaned)) if cleaned else 0)
+                                except:
+                                    eps_values.append(0)
+                            if eps_values:
+                                # FnGuide 기간에 맞춰 확장 (부족분 0으로)
+                                if len(result["periods"]) > len(eps_values):
+                                    diff = len(result["periods"]) - len(eps_values)
+                                    eps_values = eps_values + [0] * diff
+                                result["eps"] = eps_values[-len(result["periods"]):]
+                            break
+
                 if not result["eps"]:
                     summary_url = f"https://m.stock.naver.com/api/stock/{code}/finance/summary"
                     r2 = await client.get(summary_url)

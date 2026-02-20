@@ -9627,7 +9627,7 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
                 clip: false,  // 차트 영역 밖으로 라벨 표시 허용
                 interaction: { mode: 'index', intersect: false },
                 layout: {
-                    padding: { top: 30, bottom: 2, left: 4, right: 4 }  // 상단 라벨 공간
+                    padding: { top: 35, bottom: 2, left: 4, right: 4 }  // 상단 라벨 공간 확대
                 },
             plugins: {
                 legend: { display: false },
@@ -9659,8 +9659,9 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
                         const v = ctx.dataset.data[ctx.dataIndex];
                         return (v !== null && v >= 0) ? 'top' : 'bottom';
                     },
-                    offset: 4,
+                    offset: 6,  // 막대와 간격 확대
                     clamp: false,
+                    clip: false,  // 라벨 잘림 방지
                     color: '#d0d8e4',
                     font: { size: isAnnualChart ? 10 : 8, weight: 'bold' },  // 분기는 작게
                     formatter: (v) => {
@@ -9692,6 +9693,7 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
                 },
                 y: {
                     stacked: true,
+                    grace: '10%',  // 라벨 공간을 위해 Y축 상단 여유
                     ticks: {
                         color: '#666',
                         font: { size: 8 },
