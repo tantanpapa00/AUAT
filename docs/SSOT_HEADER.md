@@ -20,7 +20,7 @@
 | Phase 6 | 시장분석 — ETF | ✅ DONE | Day 24~25 |
 | Phase 7 | 종목검색기 — Finviz 스타일 스크리너 | ✅ DONE | Day 25 |
 | Phase 7.5 | 스크리너 최적화 (캐싱, yfinance→Finviz) | ✅ DONE | Day 26 |
-| **Phase 8** | **종목 상세 페이지 — 국내** | 🔄 진행중 | Day 26 |
+| Phase 8 | 종목 상세 페이지 — 국내 | ✅ DONE | Day 26 |
 | Phase 9 | 종목 상세 페이지 — 해외 | 대기 | - |
 | Phase 10 | ETF 상세 페이지 | 대기 | - |
 | Phase 11 | BBooster AI + 종목검색 통합 | 대기 | - |
@@ -437,7 +437,7 @@
 - Day 23: DONE (시장분석 Phase 5 - 해외시장 완성)
 - Day 24: DONE (Phase 5 히트맵 개선 + Phase 6 ETF 시장분석)
 - Day 25: DONE (ETF 대시보드 개선 — ETFCheck 스타일 매칭)
-- Day 26: 🔄 진행중 (Phase 7.5 스크리너 최적화 + Phase 8 종목상세)
+- Day 26: ✅ 완료 (Phase 7.5 스크리너 최적화 + Phase 8 종목상세)
 
 ## Day 26 진행사항 (2026-02-20)
 
@@ -499,11 +499,32 @@
 |------|--------|
 | 6402718 | feat: Phase 8-2 국내 종목상세 탭(요약/뉴스) + 재무추이차트 |
 
-### Phase 8-3: 남은 작업 (대기)
+### Phase 8-3: 기업 탭 + 재무제표 + 스크리너 연동 ✅ DONE
 
-- 기업 탭 (기업개요, 업종, CEO 등)
-- 재무 탭 (상세 재무제표 테이블)
-- 스크리너 → 상세 연결 + 뒤로가기 검증
+**구현 내용:**
+
+1. **기업 탭 (`/api/stock/kr/{code}/company`)**
+   - 투자의견/목표가 (consensusInfo)
+   - 동종업계 종목 리스트 (industryCompareInfo)
+   - 리서치 리포트 (researches)
+
+2. **재무 탭 (`/api/stock/kr/{code}/statement`)**
+   - 손익계산서 테이블 (매출액, 영업이익, 당기순이익, 영업이익률, 순이익률)
+   - 연간/분기 토글 (`period_type=annual|quarter`)
+
+3. **스크리너 → 종목 상세 연동**
+   - 테이블 행 클릭 시 종목 상세 모달 오픈
+   - 스크리너 상태 보존 (`window._screenerState`)
+   - 뒤로가기 버튼으로 필터/페이지/스크롤 복원
+
+**API 테스트 결과 (삼성전자 005930):**
+- Company: 동종업계 5개 종목 (SK하이닉스, 한미반도체 등)
+- Statement(annual): 2022~2025 매출/영업이익/순이익 ✓
+- Statement(quarter): 2024.09~2025.12 분기별 데이터 ✓
+
+| 커밋 | 메시지 |
+|------|--------|
+| 3f42378 | feat: Phase 8-3 - 기업 탭 + 재무제표 + 스크리너 연동 |
 
 ---
 
