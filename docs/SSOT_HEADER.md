@@ -18,10 +18,14 @@
 | Phase 4 | 시장분석 — 국내 | ✅ DONE | Day 22 |
 | Phase 5 | 시장분석 — 해외 | ✅ DONE | Day 23 |
 | Phase 6 | 시장분석 — ETF | ✅ DONE | Day 24~25 |
-| **Phase 7** | **종목검색기 — Finviz 스타일 스크리너** | 대기 | - |
-| Phase 8 | 종목분석 상세 | 대기 | - |
-| Phase 9 | 모바일 앱 완성 | 대기 | - |
-| Phase 10 | 호환 점검 | 대기 | - |
+| Phase 7 | 종목검색기 — Finviz 스타일 스크리너 | ✅ DONE | Day 25 |
+| Phase 7.5 | 스크리너 최적화 (캐싱, yfinance→Finviz) | ✅ DONE | Day 26 |
+| **Phase 8** | **종목 상세 페이지 — 국내** | 🔄 진행중 | Day 26 |
+| Phase 9 | 종목 상세 페이지 — 해외 | 대기 | - |
+| Phase 10 | ETF 상세 페이지 | 대기 | - |
+| Phase 11 | BBooster AI + 종목검색 통합 | 대기 | - |
+| Phase 12 | 모바일 앱 | 대기 | - |
+| Phase 13 | 성능 + 출시 준비 | 대기 | - |
 
 > **Note**: 코인 시장분석/종목분석 탭은 "추후 업데이트 예정"으로 표기. 앱에서 코인 관련 탭 숨김 처리 필요.
 
@@ -433,6 +437,55 @@
 - Day 23: DONE (시장분석 Phase 5 - 해외시장 완성)
 - Day 24: DONE (Phase 5 히트맵 개선 + Phase 6 ETF 시장분석)
 - Day 25: DONE (ETF 대시보드 개선 — ETFCheck 스타일 매칭)
+- Day 26: 🔄 진행중 (Phase 7.5 스크리너 최적화 + Phase 8 종목상세)
+
+## Day 26 진행사항 (2026-02-20)
+
+### Phase 7.5: 스크리너 최적화 ✅ DONE
+
+**yfinance 완전 제거 (VPS IP 차단 문제)**:
+- yfinance → Finviz v=161 (Financial 뷰)로 US 재무 데이터 전환
+- 네이버 API로 KR 재무 데이터 통합
+- requirements.txt에서 yfinance 삭제
+
+**Finviz 뷰 번호 수정**:
+- v=141 (Ownership) → v=161 (Financial) 변경
+- 컬럼 인덱스 재매핑: ROE, ROA, Margin 등 올바른 값 반환
+
+| 커밋 | 메시지 |
+|------|--------|
+| b3f438f | fix: US screener Finviz 뷰 번호 수정 (v=141→v=161) |
+
+### Phase 8-1: 국내 종목 상세 페이지 — 차트 연동 ✅ DONE
+
+**Backend API 추가**:
+- `GET /api/stock/kr/{code}/chart?period=3m` — 일봉 차트 데이터
+- 네이버 fchart API 사용 (XML 파싱)
+
+**Tauri 커맨드 추가**:
+- `get_stock_chart_kr` — 차트 API 호출
+
+**Frontend 차트 연동**:
+- `initCandleChart()` — 실제 API 데이터 연동
+- SMA 20/50/200 이동평균선 추가
+- 샘플 데이터 폴백 유지
+
+**테스트 결과**:
+- 삼성전자 1개월: 25개 캔들 ✓
+- 삼성전자 3개월: 70개 캔들 ✓
+- 삼성전자 1년: 260개 캔들 ✓
+
+| 커밋 | 메시지 |
+|------|--------|
+| 8736f1a | feat: Phase 8-1 국내 종목 상세 페이지 - 실제 차트 데이터 연동 |
+
+### Phase 8-2: 남은 작업 (대기)
+
+- 상단 탭 (요약/소식/기업/재무) 동적 데이터 로딩 검증
+- 재무추이 차트 (매출, 영업이익, EPS 막대차트)
+- 시장분석/종목검색에서 클릭→상세 연결 검증
+
+---
 
 ## Day 25 완료사항 (2026-02-18)
 
