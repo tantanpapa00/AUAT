@@ -479,11 +479,31 @@
 |------|--------|
 | 8736f1a | feat: Phase 8-1 국내 종목 상세 페이지 - 실제 차트 데이터 연동 |
 
-### Phase 8-2: 남은 작업 (대기)
+### Phase 8-2: 탭(요약/뉴스) + 재무추이 차트 ✅ DONE
 
-- 상단 탭 (요약/소식/기업/재무) 동적 데이터 로딩 검증
-- 재무추이 차트 (매출, 영업이익, EPS 막대차트)
-- 시장분석/종목검색에서 클릭→상세 연결 검증
+**Backend API 추가**:
+- `GET /api/stock/kr/{code}/summary` — 기본정보 + 재무지표
+- `GET /api/stock/kr/{code}/financials` — 연간/분기 재무추이
+- `GET /api/stock/kr/{code}/news` — 뉴스 목록
+
+**Tauri 커맨드 추가**:
+- `get_stock_summary_kr`, `get_stock_financials_kr`, `get_stock_news_kr`
+
+**Frontend 구현**:
+- `loadFinancialSummaryKr()` — 요약재무 카드 + 재무추이 차트
+- `loadStockNewsKr()` — 뉴스 목록
+- Chart.js 재무추이 막대차트 (매출/영업이익)
+- 국내 종목 자동 감지 (kis_kr/kospi/kosdaq)
+
+| 커밋 | 메시지 |
+|------|--------|
+| 6402718 | feat: Phase 8-2 국내 종목상세 탭(요약/뉴스) + 재무추이차트 |
+
+### Phase 8-3: 남은 작업 (대기)
+
+- 기업 탭 (기업개요, 업종, CEO 등)
+- 재무 탭 (상세 재무제표 테이블)
+- 스크리너 → 상세 연결 + 뒤로가기 검증
 
 ---
 
