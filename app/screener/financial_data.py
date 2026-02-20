@@ -1,6 +1,6 @@
 """
 yfinance 기반 재무 데이터 모듈
-KR/US 공통 사용
+KR/US 공통 사용 + 백그라운드 캐시
 
 13개 재무지표:
 1. per (PER)
@@ -19,7 +19,10 @@ KR/US 공통 사용
 """
 
 import asyncio
-from typing import Dict, Any, Optional
+import json
+import os
+import time
+from typing import Dict, Any, Optional, List, Tuple
 from concurrent.futures import ThreadPoolExecutor
 
 # yfinance import (thread-safe 사용)
@@ -30,7 +33,19 @@ except ImportError:
     YFINANCE_AVAILABLE = False
 
 
+# =====================================================
+# 캐시 설정
+# =====================================================
+CACHE_FILE = '/tmp/yfinance_cache.json'
+CACHE_TTL = 24 * 3600  # 24시간
+
+# 메모리 캐시: {symbol: (data, timestamp)}
+_memory_cache: Dict[str, Tuple[Dict, float]] = {}
+
+
+# =====================================================
 # yfinance → 내부 필드 매핑
+# =====================================================
 YFINANCE_FIELD_MAP = {
     "returnOnEquity": "roe",
     "returnOnAssets": "roa",
@@ -86,9 +101,42 @@ FIELD_CONVERTERS = {
 }
 
 
+# =====================================================
+# 디스크 캐시 함수
+# =====================================================
+def load_disk_cache() -> Dict[str, Any]:
+    """디스크 캐시 로드"""
+    if os.path.exists(CACHE_FILE):
+        try:
+            with open(CACHE_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+
+def save_disk_cache(cache_data: Dict[str, Any]):
+    """디스크 캐시 저장"""
+    try:
+        with open(CACHE_FILE, 'w', encoding='utf-8') as f:
+            json.dump(cache_data, f, ensure_ascii=False)
+    except Exception as e:
+        print(f"[yfinance cache] 저장 실패: {e}")
+
+
+def _get_yf_symbol(code: str, market: str) -> str:
+    """종목코드를 yfinance 심볼로 변환"""
+    if market.upper() == "KR":
+        return f"{str(code).zfill(6)}.KS"
+    return code
+
+
+# =====================================================
+# 메인 조회 함수 (캐시 우선)
+# =====================================================
 def fetch_financial_data_sync(symbol: str, market: str = "US") -> Dict[str, Any]:
     """
-    yfinance로 재무 데이터 조회 (동기)
+    yfinance로 재무 데이터 조회 (동기, 캐시 우선)
 
     Args:
         symbol: 종목코드 (예: "AAPL", "005930")
@@ -100,17 +148,44 @@ def fetch_financial_data_sync(symbol: str, market: str = "US") -> Dict[str, Any]
     if not YFINANCE_AVAILABLE:
         return {}
 
+    yf_symbol = _get_yf_symbol(symbol, market)
+    now = time.time()
+
+    # 1순위: 메모리 캐시
+    if yf_symbol in _memory_cache:
+        data, ts = _memory_cache[yf_symbol]
+        if now - ts < CACHE_TTL:
+            return data
+
+    # 2순위: 디스크 캐시
+    disk_cache = load_disk_cache()
+    if yf_symbol in disk_cache:
+        cached_entry = disk_cache[yf_symbol]
+        cached_time = cached_entry.get('_ts', 0)
+        if now - cached_time < CACHE_TTL:
+            # _ts 제외한 데이터 반환
+            data = {k: v for k, v in cached_entry.items() if k != '_ts'}
+            _memory_cache[yf_symbol] = (data, now)
+            return data
+
+    # 3순위: yfinance API 호출 (캐시 없을 때만)
+    result = _fetch_from_yfinance(yf_symbol)
+
+    if result:
+        # 메모리 캐시 업데이트
+        _memory_cache[yf_symbol] = (result, now)
+        # 디스크 캐시 업데이트
+        disk_cache[yf_symbol] = {**result, '_ts': now}
+        save_disk_cache(disk_cache)
+
+    return result
+
+
+def _fetch_from_yfinance(yf_symbol: str) -> Dict[str, Any]:
+    """yfinance API에서 직접 조회"""
     result = {}
 
     try:
-        # 심볼 변환 (한국 주식은 .KS 접미사)
-        if market == "KR":
-            # 6자리 코드로 패딩
-            code = str(symbol).zfill(6)
-            yf_symbol = f"{code}.KS"
-        else:
-            yf_symbol = symbol
-
         ticker = yf.Ticker(yf_symbol)
         info = ticker.info
 
@@ -131,21 +206,14 @@ def fetch_financial_data_sync(symbol: str, market: str = "US") -> Dict[str, Any]
             result["per"] = result["forward_per"]
 
     except Exception as e:
-        print(f"[FinancialData] {symbol} 조회 실패: {e}")
+        print(f"[FinancialData] {yf_symbol} 조회 실패: {e}")
 
     return result
 
 
 async def fetch_financial_data(symbol: str, market: str = "US") -> Dict[str, Any]:
     """
-    yfinance로 재무 데이터 조회 (비동기)
-
-    Args:
-        symbol: 종목코드
-        market: "US" 또는 "KR"
-
-    Returns:
-        재무 데이터 딕셔너리
+    yfinance로 재무 데이터 조회 (비동기, 캐시 우선)
     """
     loop = asyncio.get_event_loop()
     with ThreadPoolExecutor() as executor:
@@ -164,15 +232,7 @@ async def fetch_financial_data_batch(
     max_concurrent: int = 10
 ) -> Dict[str, Dict[str, Any]]:
     """
-    여러 종목의 재무 데이터 일괄 조회
-
-    Args:
-        symbols: 종목코드 리스트
-        market: "US" 또는 "KR"
-        max_concurrent: 동시 요청 수
-
-    Returns:
-        {symbol: financial_data} 딕셔너리
+    여러 종목의 재무 데이터 일괄 조회 (캐시 우선)
     """
     results = {}
 
@@ -189,6 +249,75 @@ async def fetch_financial_data_batch(
     await asyncio.gather(*tasks, return_exceptions=True)
 
     return results
+
+
+# =====================================================
+# 백그라운드 사전 캐싱
+# =====================================================
+async def prefetch_all(
+    symbols_with_market: List[Tuple[str, str]],
+    delay: float = 1.0
+) -> int:
+    """
+    백그라운드 사전 캐싱. 천천히(delay초 간격) 호출하여 rate limit 방지.
+
+    Args:
+        symbols_with_market: [(종목코드, 마켓), ...] 예: [('005930','kr'), ('AAPL','us')]
+        delay: 요청 간 대기 시간 (초)
+
+    Returns:
+        캐시된 종목 수
+    """
+    if not YFINANCE_AVAILABLE:
+        return 0
+
+    disk_cache = load_disk_cache()
+    now = time.time()
+    cached_count = 0
+    new_count = 0
+
+    for code, market in symbols_with_market:
+        yf_symbol = _get_yf_symbol(code, market)
+
+        # 이미 24시간 내 캐시 있으면 스킵
+        if yf_symbol in disk_cache:
+            cached_time = disk_cache[yf_symbol].get('_ts', 0)
+            if now - cached_time < CACHE_TTL:
+                cached_count += 1
+                continue
+
+        # yfinance 호출
+        try:
+            data = _fetch_from_yfinance(yf_symbol)
+            if data:
+                data['_ts'] = now
+                disk_cache[yf_symbol] = data
+                _memory_cache[yf_symbol] = ({k: v for k, v in data.items() if k != '_ts'}, now)
+                new_count += 1
+        except Exception as e:
+            print(f"[prefetch] {yf_symbol} 실패: {e}")
+
+        # rate limit 방지를 위한 대기
+        await asyncio.sleep(delay)
+
+    # 디스크에 저장
+    save_disk_cache(disk_cache)
+    print(f"[yfinance prefetch] 신규 {new_count}개 + 기존캐시 {cached_count}개 = 총 {len(disk_cache)}개")
+
+    return len(disk_cache)
+
+
+def get_cache_stats() -> Dict[str, Any]:
+    """캐시 통계"""
+    disk_cache = load_disk_cache()
+    now = time.time()
+    valid_count = sum(1 for v in disk_cache.values() if now - v.get('_ts', 0) < CACHE_TTL)
+    return {
+        "total": len(disk_cache),
+        "valid": valid_count,
+        "memory": len(_memory_cache),
+        "ttl_hours": CACHE_TTL / 3600
+    }
 
 
 def get_available_financial_fields() -> list:
