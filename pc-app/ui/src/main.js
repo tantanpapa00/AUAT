@@ -12800,6 +12800,103 @@ const COMMON_TECHNICAL_FILTERS = {
     }
 };
 
+// KR (국내) 필터 정의 — 재무 13개 + 기술 16개 전체 적용
+const KR_FILTER_DEFINITIONS = {
+    // ===== 기본정보 (7개) =====
+    exchange: {
+        label: '거래소',
+        category: 'basic',
+        type: 'select',
+        options: [
+            { value: 'KOSPI', label: 'KOSPI' },
+            { value: 'KOSDAQ', label: 'KOSDAQ' }
+        ]
+    },
+    sector: {
+        label: '업종',
+        category: 'basic',
+        type: 'select',
+        options: [
+            { value: '반도체', label: '반도체' }, { value: '자동차', label: '자동차' },
+            { value: '은행', label: '은행' }, { value: '제약', label: '제약' },
+            { value: '바이오', label: '바이오' }, { value: '화학', label: '화학' },
+            { value: '철강', label: '철강' }, { value: '건설', label: '건설' },
+            { value: '유통', label: '유통' }, { value: '통신', label: '통신' },
+            { value: '미디어', label: '미디어' }, { value: '식품', label: '식품' },
+            { value: '전기전자', label: '전기전자' }, { value: '기계', label: '기계' },
+            { value: 'IT서비스', label: 'IT서비스' }, { value: '게임', label: '게임' }
+        ]
+    },
+    market_cap: {
+        label: '시가총액',
+        category: 'basic',
+        type: 'range',
+        unit: '억원',
+        presets: [
+            { min: 100000, max: null, label: '초대형 (10조+)' },
+            { min: 10000, max: 100000, label: '대형 (1조~10조)' },
+            { min: 5000, max: 10000, label: '중형 (5천억~1조)' },
+            { min: 1000, max: 5000, label: '소형 (1천억~5천억)' },
+            { min: null, max: 1000, label: '초소형 (1천억 미만)' }
+        ]
+    },
+    price: {
+        label: '현재가',
+        category: 'basic',
+        type: 'range',
+        unit: '원',
+        presets: [
+            { min: null, max: 5000, label: '5천원 이하' },
+            { min: 5000, max: 10000, label: '5천~1만원' },
+            { min: 10000, max: 50000, label: '1만~5만원' },
+            { min: 50000, max: 100000, label: '5만~10만원' },
+            { min: 100000, max: null, label: '10만원 이상' }
+        ]
+    },
+    volume: {
+        label: '거래량',
+        category: 'basic',
+        type: 'range',
+        unit: '주',
+        presets: [
+            { min: 100000, max: null, label: '10만 이상' },
+            { min: 500000, max: null, label: '50만 이상' },
+            { min: 1000000, max: null, label: '100만 이상' },
+            { min: 5000000, max: null, label: '500만 이상' }
+        ]
+    },
+    foreign_ratio: {
+        label: '외국인비율',
+        category: 'basic',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 30, max: null, label: '30% 이상' },
+            { min: 20, max: 30, label: '20~30%' },
+            { min: 10, max: 20, label: '10~20%' },
+            { min: null, max: 10, label: '10% 미만' }
+        ]
+    },
+    change_pct: {
+        label: '등락률',
+        category: 'basic',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 10, max: null, label: '+10% 이상' },
+            { min: 5, max: null, label: '+5% 이상' },
+            { min: 3, max: null, label: '+3% 이상' },
+            { min: null, max: -3, label: '-3% 이하' },
+            { min: null, max: -5, label: '-5% 이하' },
+            { min: null, max: -10, label: '-10% 이하' }
+        ]
+    },
+    // ===== 재무 지표 (13개) =====
+    ...KR_FINANCIAL_FILTERS,
+    // ===== 기술적 지표 (16개) =====
+    ...COMMON_TECHNICAL_FILTERS
+};
+
 // US (해외) 필터 정의
 const US_FILTER_DEFINITIONS = {
     sector: {
@@ -12982,7 +13079,7 @@ const ETF_FILTER_DEFINITIONS = {
 function getFilterDefinitions(market) {
     if (market === 'us') return US_FILTER_DEFINITIONS;
     if (market === 'etf') return ETF_FILTER_DEFINITIONS;
-    return FILTER_DEFINITIONS;
+    return KR_FILTER_DEFINITIONS;  // 국내: 재무 13개 + 기술 16개
 }
 
 let screenerState = {
