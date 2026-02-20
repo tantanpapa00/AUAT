@@ -5916,6 +5916,33 @@ body {
     padding: 20px 0;
 }
 
+/* EPS 전망추이 요약 */
+.sd-forecast-summary {
+    padding: 8px 0 12px;
+}
+
+.sd-forecast-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.sd-forecast-label {
+    font-size: 10px;
+    color: #666;
+}
+
+.sd-forecast-value {
+    font-size: 18px;
+    font-weight: 600;
+    color: #a855f7;
+}
+
+.sd-forecast-period {
+    font-size: 10px;
+    color: #22c55e;
+}
+
 /* 서브 라벨 (연간/분기) */
 .sd-trend-sub-label {
     font-size: 10px;

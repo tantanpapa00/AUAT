@@ -9500,6 +9500,106 @@ async function loadAndRenderAllFinancialCharts(code, annualData) {
         values: quarter.eps || [],
         isEstimate: quarter.isConsensus || [],
     }, FINANCIAL_CHART_COLORS.eps, 'eps');
+
+    // EPS 전망추이 — 전망치 EPS를 라인차트로 표시
+    renderEpsForecastChart(annual);
+}
+
+// EPS 전망추이 차트 렌더링
+function renderEpsForecastChart(annualData) {
+    const container = document.getElementById('sd-eps-forecast-content');
+    if (!container) return;
+
+    const periods = annualData.periods || [];
+    const eps = annualData.eps || [];
+    const isConsensus = annualData.isConsensus || [];
+
+    // 전망치 EPS만 필터링 (E가 붙은 것들)
+    const forecastData = [];
+    for (let i = 0; i < periods.length; i++) {
+        if (isConsensus[i] && eps[i] && eps[i] > 0) {
+            forecastData.push({
+                period: periods[i],
+                eps: eps[i]
+            });
+        }
+    }
+
+    if (forecastData.length === 0) {
+        container.innerHTML = '<div class="sd-empty-card">전망치 데이터 없음</div>';
+        return;
+    }
+
+    // 차트 HTML 생성
+    container.innerHTML = `
+        <div class="sd-forecast-summary">
+            <div class="sd-forecast-item">
+                <span class="sd-forecast-label">최신 전망</span>
+                <span class="sd-forecast-value">${forecastData[0].eps.toLocaleString()}원</span>
+                <span class="sd-forecast-period">${forecastData[0].period}</span>
+            </div>
+        </div>
+        <div class="sd-trend-chart-wrapper" style="height:100px;">
+            <canvas id="sd-fc-eps-forecast"></canvas>
+        </div>
+    `;
+
+    // 라인 차트 렌더링
+    ensureChartDataLabels();
+    const canvas = document.getElementById('sd-fc-eps-forecast');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    if (canvas._chartInstance) {
+        canvas._chartInstance.destroy();
+    }
+
+    canvas._chartInstance = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: forecastData.map(d => d.period),
+            datasets: [{
+                label: 'EPS 전망',
+                data: forecastData.map(d => d.eps),
+                borderColor: '#a855f7',
+                backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                borderWidth: 2,
+                pointRadius: 4,
+                pointBackgroundColor: '#a855f7',
+                fill: true,
+                tension: 0.3,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                datalabels: {
+                    display: true,
+                    anchor: 'top',
+                    align: 'top',
+                    offset: 4,
+                    color: '#a855f7',
+                    font: { size: 10, weight: 'bold' },
+                    formatter: (v) => v ? v.toLocaleString() + '원' : '',
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#22c55e', font: { size: 9 } },
+                    grid: { display: false }
+                },
+                y: {
+                    ticks: {
+                        color: '#666',
+                        font: { size: 8 },
+                        callback: (v) => v.toLocaleString()
+                    },
+                    grid: { color: 'rgba(255,255,255,0.04)' }
+                }
+            }
+        }
+    });
 }
 
 // StockEasy 스타일 차트 렌더링 (실적/전망치 분리 + 점선 테두리)

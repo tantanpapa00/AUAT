@@ -2920,9 +2920,11 @@ async def _fetch_fnguide_consensus(code: str) -> dict:
                     row_label = cells[0].get_text(strip=True)
                     row_values = []
 
+                    # 데이터 행은 첫 열이 row label이므로 +1 offset
                     for col_idx, _, _ in year_cols:
-                        if col_idx < len(cells):
-                            val_text = cells[col_idx].get_text(strip=True)
+                        data_idx = col_idx + 1  # header vs data offset
+                        if data_idx < len(cells):
+                            val_text = cells[data_idx].get_text(strip=True)
                             val_text = val_text.replace(",", "").replace("-", "").strip()
                             try:
                                 row_values.append(int(float(val_text)) if val_text else 0)
