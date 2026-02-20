@@ -185,6 +185,10 @@ fn main() {
             commands::get_stock_news_us,
             commands::get_stock_company_us,
             commands::get_stock_financials_us,
+            // Phase 10: ETF 상세
+            commands::get_etf_summary,
+            commands::get_etf_chart,
+            commands::get_etf_performance,
             // TV Connect - 전략/종목 저장
             commands::create_strategy_with_params,
             commands::save_signal_params,

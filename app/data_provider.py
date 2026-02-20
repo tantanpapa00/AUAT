@@ -3618,3 +3618,179 @@ async def get_stock_financials_us(ticker: str, fin_type: str = "annual") -> dict
         traceback.print_exc()
 
     return result
+
+
+# =============================================================================
+# Phase 10: ETF 상세 페이지
+# =============================================================================
+
+async def get_etf_summary(code: str) -> dict:
+    """
+    ETF 개요 정보
+    데이터 소스: 네이버 integration + basic API
+    """
+    cache_key = f"etf_summary_{code}"
+    cached = _cached(cache_key, 300)  # 5분 캐싱
+    if cached:
+        return cached
+
+    result = {
+        "code": code,
+        "name": "",
+        "price": 0,
+        "change": 0,
+        "change_pct": 0,
+        "nav": 0,
+        "premium_discount": 0,
+        "market_cap": "",
+        "total_expense_ratio": 0,
+        "fund_company": "",
+        "dividend_yield": 0,
+        "volume": 0,
+        "aum": "",
+        "return_1m": 0,
+        "return_3m": 0,
+        "return_1y": 0
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            headers = {"User-Agent": "Mozilla/5.0"}
+
+            # integration API
+            url_int = f"https://m.stock.naver.com/api/stock/{code}/integration"
+            r_int = await client.get(url_int, headers=headers)
+
+            if r_int.status_code == 200:
+                data = r_int.json()
+
+                result["name"] = data.get("stockName", "")
+
+                # etfKeyIndicator
+                etf_ind = data.get("etfKeyIndicator", {})
+                if etf_ind:
+                    result["fund_company"] = etf_ind.get("issuerName", "")
+                    result["market_cap"] = etf_ind.get("marketValue", "")
+                    result["aum"] = etf_ind.get("totalNav", "")
+                    result["dividend_yield"] = etf_ind.get("dividendYieldTtm", 0) or 0
+                    result["total_expense_ratio"] = etf_ind.get("totalFee", 0) or 0
+                    result["return_1m"] = etf_ind.get("returnRate1m", 0) or 0
+                    result["return_3m"] = etf_ind.get("returnRate3m", 0) or 0
+                    result["return_1y"] = etf_ind.get("returnRate1y", 0) or 0
+
+                    # NAV 파싱
+                    nav_str = etf_ind.get("nav", "0")
+                    if isinstance(nav_str, str):
+                        nav_str = nav_str.replace(",", "")
+                    try:
+                        result["nav"] = float(nav_str)
+                    except:
+                        result["nav"] = 0
+
+                    # 괴리율
+                    dev_sign = etf_ind.get("deviationSign", "")
+                    dev_rate = etf_ind.get("deviationRate", 0) or 0
+                    if dev_sign == "-":
+                        result["premium_discount"] = -dev_rate
+                    else:
+                        result["premium_discount"] = dev_rate
+
+            # basic API로 가격 정보
+            url_basic = f"https://m.stock.naver.com/api/stock/{code}/basic"
+            r_basic = await client.get(url_basic, headers=headers)
+
+            if r_basic.status_code == 200:
+                basic = r_basic.json()
+
+                # 현재가
+                price_str = basic.get("closePrice", "0")
+                if isinstance(price_str, str):
+                    price_str = price_str.replace(",", "")
+                try:
+                    result["price"] = int(float(price_str))
+                except:
+                    pass
+
+                # 변동
+                change_str = basic.get("compareToPreviousClosePrice", "0")
+                if isinstance(change_str, str):
+                    change_str = change_str.replace(",", "")
+                try:
+                    result["change"] = int(float(change_str))
+                except:
+                    pass
+
+                # 변동률
+                rate_str = basic.get("fluctuationsRatio", "0")
+                try:
+                    result["change_pct"] = float(rate_str)
+                except:
+                    pass
+
+                # 이름 (없으면 basic에서)
+                if not result["name"]:
+                    result["name"] = basic.get("stockName", code)
+
+        _set_cache(cache_key, result)
+    except Exception as e:
+        print(f"[DataProvider] get_etf_summary error for {code}: {e}")
+        traceback.print_exc()
+
+    return result
+
+
+async def get_etf_chart(code: str, period: str = "3m") -> dict:
+    """
+    ETF 차트 데이터
+    데이터 소스: 네이버 fchart (국내 주식과 동일)
+    """
+    # 국내 주식 차트 API 재활용
+    return await get_stock_chart_kr(code, period)
+
+
+async def get_etf_performance(code: str) -> dict:
+    """
+    ETF 수익률 및 분배금 정보
+    데이터 소스: 네이버 integration API
+    """
+    cache_key = f"etf_performance_{code}"
+    cached = _cached(cache_key, 300)
+    if cached:
+        return cached
+
+    result = {
+        "code": code,
+        "returns": {
+            "1m": 0,
+            "3m": 0,
+            "6m": 0,
+            "1y": 0,
+            "ytd": 0
+        },
+        "dividend_yield": 0,
+        "dividends": []
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            headers = {"User-Agent": "Mozilla/5.0"}
+
+            url = f"https://m.stock.naver.com/api/stock/{code}/integration"
+            r = await client.get(url, headers=headers)
+
+            if r.status_code == 200:
+                data = r.json()
+
+                etf_ind = data.get("etfKeyIndicator", {})
+                if etf_ind:
+                    result["returns"]["1m"] = etf_ind.get("returnRate1m", 0) or 0
+                    result["returns"]["3m"] = etf_ind.get("returnRate3m", 0) or 0
+                    result["returns"]["1y"] = etf_ind.get("returnRate1y", 0) or 0
+                    result["dividend_yield"] = etf_ind.get("dividendYieldTtm", 0) or 0
+
+        _set_cache(cache_key, result)
+    except Exception as e:
+        print(f"[DataProvider] get_etf_performance error for {code}: {e}")
+        traceback.print_exc()
+
+    return result

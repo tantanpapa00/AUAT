@@ -2097,6 +2097,84 @@ pub async fn get_stock_financials_us(
     }
 }
 
+// =============================================================================
+// Phase 10: ETF 상세 페이지
+// =============================================================================
+
+#[tauri::command]
+pub async fn get_etf_summary(
+    access_token: String,
+    code: String,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/etf/{}/summary", VPS_SERVER_URL, code);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("ETF 정보를 가져올 수 없습니다".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn get_etf_chart(
+    access_token: String,
+    code: String,
+    period: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let p = period.unwrap_or_else(|| "3m".to_string());
+    let url = format!("{}/api/etf/{}/chart?period={}", VPS_SERVER_URL, code, p);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("ETF 차트 데이터를 가져올 수 없습니다".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn get_etf_performance(
+    access_token: String,
+    code: String,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/etf/{}/performance", VPS_SERVER_URL, code);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("ETF 수익률 정보를 가져올 수 없습니다".to_string())
+    }
+}
+
 /// 각 거래소별 인기 종목 목록
 #[derive(Serialize, Deserialize, Default)]
 pub struct PopularSymbols {

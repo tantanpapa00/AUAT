@@ -8330,13 +8330,20 @@ async function openStockDetail(symbol, exchange) {
     activateStockTab('summary');
 
     // 시장 유형 확인
-    const isKoreanStock = exchange?.toLowerCase() === 'kis_kr' ||
+    const isEtf = exchange?.toLowerCase() === 'etf';
+    const isKoreanStock = !isEtf && (exchange?.toLowerCase() === 'kis_kr' ||
                           exchange?.toLowerCase() === 'kospi' ||
-                          exchange?.toLowerCase() === 'kosdaq';
+                          exchange?.toLowerCase() === 'kosdaq');
     const isUsStock = exchange?.toLowerCase() === 'kis_us' ||
                       exchange?.toLowerCase() === 'us' ||
                       exchange?.toLowerCase() === 'nasdaq' ||
                       exchange?.toLowerCase() === 'nyse';
+
+    // ETF는 별도 처리
+    if (isEtf) {
+        openEtfDetail(symbol);
+        return;
+    }
 
     try {
         let detail = null;
@@ -8469,6 +8476,337 @@ async function openStockDetail(symbol, exchange) {
         showToast('종목 정보를 불러올 수 없습니다', 'error');
     }
 }
+
+// =============================================================================
+// Phase 10: ETF 상세 페이지
+// =============================================================================
+
+async function openEtfDetail(code) {
+    const modal = document.getElementById('stock-detail-modal');
+    if (!modal) return;
+
+    modal.style.display = 'flex';
+    currentStockData = { symbol: code, exchange: 'etf', isEtf: true };
+
+    // 로딩 상태
+    const nameEl = document.getElementById('detail-stock-name');
+    const codeEl = document.getElementById('detail-stock-code');
+    const marketEl = document.getElementById('detail-stock-market');
+
+    if (nameEl) nameEl.textContent = '로딩 중...';
+    if (codeEl) codeEl.textContent = code || '';
+    if (marketEl) marketEl.textContent = 'ETF';
+
+    // ETF 전용 탭 설정 (개요, 수익률, 분배금)
+    setupEtfTabs();
+    activateStockTab('summary');
+
+    try {
+        const response = await invokeWithTimeout('get_etf_summary', {
+            accessToken: auth.accessToken || '',
+            code: code
+        }, 15000);
+
+        if (response && response.data) {
+            const data = response.data;
+            updateEtfDetailUI(data);
+            loadEtfSummaryTab(data);
+            initCandleChart(code, 'etf', '3M');
+        } else {
+            if (nameEl) nameEl.textContent = code || '-';
+        }
+    } catch (error) {
+        console.error('Failed to load ETF detail:', error);
+        if (nameEl) nameEl.textContent = code || '-';
+        showToast('ETF 정보를 불러올 수 없습니다', 'error');
+    }
+}
+
+function setupEtfTabs() {
+    // ETF는 3탭: 개요, 수익률, 분배금
+    const tabContainer = document.querySelector('.stock-tabs');
+    if (!tabContainer) return;
+
+    tabContainer.innerHTML = `
+        <button class="info-tab active" data-tab="summary">개요</button>
+        <button class="info-tab" data-tab="returns">수익률</button>
+        <button class="info-tab" data-tab="dividend">분배금</button>
+    `;
+
+    // 이벤트 리스너 재설정
+    tabContainer.querySelectorAll('.info-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            activateStockTab(tab.dataset.tab);
+        });
+    });
+}
+
+function updateEtfDetailUI(data) {
+    const nameEl = document.getElementById('detail-stock-name');
+    const codeEl = document.getElementById('detail-stock-code');
+    const priceEl = document.getElementById('detail-stock-price');
+    const changeEl = document.getElementById('detail-stock-change');
+
+    if (nameEl) nameEl.textContent = data.name || '-';
+    if (codeEl) codeEl.textContent = data.code || '';
+
+    // 가격 (KRW)
+    if (priceEl) {
+        priceEl.textContent = (data.price || 0).toLocaleString() + '원';
+    }
+
+    // 등락
+    if (changeEl) {
+        const change = data.change || 0;
+        const changePct = data.change_pct || 0;
+        const sign = change >= 0 ? '+' : '';
+        const colorClass = change > 0 ? 'rise' : change < 0 ? 'fall' : '';
+        changeEl.innerHTML = `<span class="${colorClass}">${sign}${change.toLocaleString()} (${sign}${changePct.toFixed(2)}%)</span>`;
+    }
+}
+
+function loadEtfSummaryTab(data) {
+    // 개요 탭 콘텐츠
+    const summaryContent = document.getElementById('info-summary');
+    if (!summaryContent) return;
+
+    const formatRate = (v) => {
+        if (!v && v !== 0) return '-';
+        const sign = v >= 0 ? '+' : '';
+        return `${sign}${v.toFixed(2)}%`;
+    };
+
+    const formatRateColor = (v) => {
+        if (!v && v !== 0) return '';
+        return v >= 0 ? 'rise' : 'fall';
+    };
+
+    summaryContent.innerHTML = `
+        <div class="sd-card">
+            <div class="sd-card-title">기본정보</div>
+            <div class="sd-financial-grid">
+                <div class="sd-financial-item">
+                    <span class="sd-financial-label">순자산(NAV)</span>
+                    <span class="sd-financial-value">${(data.nav || 0).toLocaleString()}원</span>
+                </div>
+                <div class="sd-financial-item">
+                    <span class="sd-financial-label">괴리율</span>
+                    <span class="sd-financial-value ${formatRateColor(data.premium_discount)}">${formatRate(data.premium_discount)}</span>
+                </div>
+                <div class="sd-financial-item">
+                    <span class="sd-financial-label">총보수</span>
+                    <span class="sd-financial-value">${(data.total_expense_ratio || 0).toFixed(2)}%</span>
+                </div>
+                <div class="sd-financial-item">
+                    <span class="sd-financial-label">운용사</span>
+                    <span class="sd-financial-value">${data.fund_company || '-'}</span>
+                </div>
+                <div class="sd-financial-item">
+                    <span class="sd-financial-label">순자산총액</span>
+                    <span class="sd-financial-value">${data.aum || '-'}</span>
+                </div>
+                <div class="sd-financial-item">
+                    <span class="sd-financial-label">시가총액</span>
+                    <span class="sd-financial-value">${data.market_cap || '-'}</span>
+                </div>
+                <div class="sd-financial-item">
+                    <span class="sd-financial-label">배당수익률</span>
+                    <span class="sd-financial-value">${(data.dividend_yield || 0).toFixed(2)}%</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="sd-card" style="margin-top: 16px;">
+            <div class="sd-card-title">수익률 요약</div>
+            <div class="etf-return-grid">
+                <div class="etf-return-item">
+                    <span class="etf-return-label">1개월</span>
+                    <span class="etf-return-value ${formatRateColor(data.return_1m)}">${formatRate(data.return_1m)}</span>
+                </div>
+                <div class="etf-return-item">
+                    <span class="etf-return-label">3개월</span>
+                    <span class="etf-return-value ${formatRateColor(data.return_3m)}">${formatRate(data.return_3m)}</span>
+                </div>
+                <div class="etf-return-item">
+                    <span class="etf-return-label">1년</span>
+                    <span class="etf-return-value ${formatRateColor(data.return_1y)}">${formatRate(data.return_1y)}</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+async function loadEtfReturnsTab(code) {
+    // 수익률 탭 로드
+    let container = document.getElementById('info-returns');
+    if (!container) {
+        // 동적으로 생성
+        const contentArea = document.querySelector('.stock-detail-content') || document.querySelector('.stock-tabs')?.parentElement;
+        if (contentArea) {
+            container = document.createElement('div');
+            container.id = 'info-returns';
+            container.className = 'info-content';
+            container.style.display = 'none';
+            contentArea.appendChild(container);
+        }
+    }
+    if (!container) return;
+
+    container.innerHTML = '<div class="loading-indicator">로딩 중...</div>';
+
+    try {
+        const response = await invokeWithTimeout('get_etf_performance', {
+            accessToken: auth.accessToken || '',
+            code: code
+        }, 15000);
+
+        if (response && response.data) {
+            const data = response.data;
+            const returns = data.returns || {};
+
+            const formatBar = (val) => {
+                const width = Math.min(Math.abs(val) * 2, 100);
+                const color = val >= 0 ? '#22C55E' : '#EF4444';
+                return `
+                    <div class="etf-bar-container">
+                        <div class="etf-bar" style="width: ${width}%; background: ${color};"></div>
+                    </div>
+                `;
+            };
+
+            const formatRate = (v) => {
+                if (!v && v !== 0) return '-';
+                const sign = v >= 0 ? '+' : '';
+                return `${sign}${v.toFixed(2)}%`;
+            };
+
+            container.innerHTML = `
+                <div class="sd-card">
+                    <div class="sd-card-title">기간별 수익률</div>
+                    <div class="etf-returns-chart">
+                        <div class="etf-return-row">
+                            <span class="etf-period">1개월</span>
+                            ${formatBar(returns['1m'] || 0)}
+                            <span class="etf-rate ${(returns['1m'] || 0) >= 0 ? 'rise' : 'fall'}">${formatRate(returns['1m'])}</span>
+                        </div>
+                        <div class="etf-return-row">
+                            <span class="etf-period">3개월</span>
+                            ${formatBar(returns['3m'] || 0)}
+                            <span class="etf-rate ${(returns['3m'] || 0) >= 0 ? 'rise' : 'fall'}">${formatRate(returns['3m'])}</span>
+                        </div>
+                        <div class="etf-return-row">
+                            <span class="etf-period">6개월</span>
+                            ${formatBar(returns['6m'] || 0)}
+                            <span class="etf-rate ${(returns['6m'] || 0) >= 0 ? 'rise' : 'fall'}">${formatRate(returns['6m'])}</span>
+                        </div>
+                        <div class="etf-return-row">
+                            <span class="etf-period">1년</span>
+                            ${formatBar(returns['1y'] || 0)}
+                            <span class="etf-rate ${(returns['1y'] || 0) >= 0 ? 'rise' : 'fall'}">${formatRate(returns['1y'])}</span>
+                        </div>
+                        <div class="etf-return-row">
+                            <span class="etf-period">YTD</span>
+                            ${formatBar(returns['ytd'] || 0)}
+                            <span class="etf-rate ${(returns['ytd'] || 0) >= 0 ? 'rise' : 'fall'}">${formatRate(returns['ytd'])}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            container.innerHTML = '<div class="empty-state">수익률 정보를 불러올 수 없습니다</div>';
+        }
+    } catch (error) {
+        console.error('Failed to load ETF returns:', error);
+        container.innerHTML = '<div class="empty-state">수익률 정보를 불러올 수 없습니다</div>';
+    }
+}
+
+async function loadEtfDividendTab(code) {
+    // 분배금 탭 로드
+    let container = document.getElementById('info-dividend');
+    if (!container) {
+        const contentArea = document.querySelector('.stock-detail-content') || document.querySelector('.stock-tabs')?.parentElement;
+        if (contentArea) {
+            container = document.createElement('div');
+            container.id = 'info-dividend';
+            container.className = 'info-content';
+            container.style.display = 'none';
+            contentArea.appendChild(container);
+        }
+    }
+    if (!container) return;
+
+    container.innerHTML = '<div class="loading-indicator">로딩 중...</div>';
+
+    try {
+        const response = await invokeWithTimeout('get_etf_performance', {
+            accessToken: auth.accessToken || '',
+            code: code
+        }, 15000);
+
+        if (response && response.data) {
+            const data = response.data;
+            const dividends = data.dividends || [];
+            const divYield = data.dividend_yield || 0;
+
+            let dividendHtml = '';
+            if (dividends.length > 0) {
+                dividendHtml = `
+                    <table class="sd-table">
+                        <thead>
+                            <tr>
+                                <th>지급일</th>
+                                <th>금액</th>
+                                <th>유형</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${dividends.map(d => `
+                                <tr>
+                                    <td>${d.date || '-'}</td>
+                                    <td>${(d.amount || 0).toLocaleString()}원</td>
+                                    <td>${d.type || '현금분배'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } else {
+                dividendHtml = `
+                    <div class="empty-state">
+                        <p>분배금 이력이 없거나 데이터를 불러올 수 없습니다.</p>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = `
+                <div class="sd-card">
+                    <div class="sd-card-title">분배금 정보</div>
+                    <div class="etf-dividend-summary">
+                        <div class="etf-dividend-item">
+                            <span class="label">배당수익률 (TTM)</span>
+                            <span class="value">${divYield.toFixed(2)}%</span>
+                        </div>
+                    </div>
+                    ${dividendHtml}
+                </div>
+            `;
+        } else {
+            container.innerHTML = `
+                <div class="sd-card">
+                    <div class="sd-card-title">분배금 정보</div>
+                    <div class="empty-state">분배금 정보를 불러올 수 없습니다</div>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Failed to load ETF dividend:', error);
+        container.innerHTML = '<div class="empty-state">분배금 정보를 불러올 수 없습니다</div>';
+    }
+}
+
+// window에 openEtfDetail 노출
+window.openEtfDetail = openEtfDetail;
 
 // 재무 요약 로드 (StockEasy 스타일)
 async function loadFinancialSummary(code) {
@@ -9657,9 +9995,10 @@ function activateStockTab(tabName) {
     if (currentStockData && currentStockData.symbol) {
         const code = currentStockData.symbol;
         const exchange = currentStockData.exchange || '';
-        const isKorean = exchange.toLowerCase() === 'kis_kr' ||
+        const isEtf = exchange.toLowerCase() === 'etf' || currentStockData.isEtf;
+        const isKorean = !isEtf && (exchange.toLowerCase() === 'kis_kr' ||
                          exchange.toLowerCase() === 'kospi' ||
-                         exchange.toLowerCase() === 'kosdaq';
+                         exchange.toLowerCase() === 'kosdaq');
         const isUs = exchange.toLowerCase() === 'kis_us' ||
                      exchange.toLowerCase() === 'us' ||
                      exchange.toLowerCase() === 'nasdaq' ||
@@ -9691,6 +10030,17 @@ function activateStockTab(tabName) {
                     loadFinancialTabUs(code);
                 } else {
                     loadFinancialTab(code);
+                }
+                break;
+            // ETF 전용 탭
+            case 'returns':
+                if (isEtf) {
+                    loadEtfReturnsTab(code);
+                }
+                break;
+            case 'dividend':
+                if (isEtf) {
+                    loadEtfDividendTab(code);
                 }
                 break;
         }
@@ -9884,13 +10234,21 @@ async function initCandleChart(symbol, exchange, period = '1D') {
         const periodMap = { '1D': '1d', '1W': '1w', '1M': '1m', '3M': '3m', '6M': '6m', '1Y': '1y' };
         const apiPeriod = periodMap[period] || '3m';
 
-        // 해외 종목 여부 확인
+        // 종목 유형 확인
         const ex = (exchange || '').toUpperCase();
+        const isEtf = ex === 'ETF';
         const isUsStock = ex === 'KIS_US' || ex === 'US' || ex === 'NASDAQ' || ex === 'NYSE';
 
         try {
             let chartResponse;
-            if (isUsStock) {
+            if (isEtf) {
+                // ETF 차트 API
+                chartResponse = await invokeWithTimeout('get_etf_chart', {
+                    accessToken: auth.accessToken || '',
+                    code: symbol,
+                    period: apiPeriod
+                }, 15000);
+            } else if (isUsStock) {
                 // 해외 종목 차트 API
                 chartResponse = await invokeWithTimeout('get_stock_chart_us', {
                     accessToken: auth.accessToken || '',
@@ -15116,7 +15474,7 @@ function onScreenerRowClick(idx) {
     if (screenerState.market === 'us') {
         exchange = 'kis_us';
     } else if (screenerState.market === 'etf') {
-        exchange = 'kis_kr';  // ETF도 국내 거래소
+        exchange = 'etf';  // ETF 전용 exchange
     }
 
     // 종목 상세 모달 열기

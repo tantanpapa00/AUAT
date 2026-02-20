@@ -250,6 +250,8 @@ from app.data_provider import (
     # Phase 9: 해외 종목 상세 (Finviz + Yahoo Finance)
     get_stock_summary_us, get_stock_chart_us, get_stock_news_us,
     get_stock_company_us, get_stock_financials_us,
+    # Phase 10: ETF 상세
+    get_etf_summary, get_etf_chart, get_etf_performance,
     # Day14: 환율 + 거래소별 잔고 조회
     get_usd_krw_rate, fetch_upbit_balances, fetch_binance_balances,
     fetch_okx_balances, fetch_bybit_balances, fetch_kis_kr_balances, fetch_kis_us_balances,
@@ -10601,6 +10603,53 @@ async def api_stock_financials_us(
     - 누구나 접근 가능
     """
     data = await get_stock_financials_us(ticker, fin_type)
+    return {"data": data}
+
+
+# =============================================================================
+# Phase 10: ETF 상세 페이지 API
+# =============================================================================
+
+@app.get("/api/etf/{code}/summary")
+async def api_etf_summary(
+    code: str,
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    ETF 개요 정보
+    - 데이터 소스: 네이버 integration + basic API
+    - 누구나 접근 가능
+    """
+    data = await get_etf_summary(code)
+    return {"data": data}
+
+
+@app.get("/api/etf/{code}/chart")
+async def api_etf_chart(
+    code: str,
+    period: str = "3m",
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    ETF 차트 데이터
+    - 데이터 소스: 네이버 fchart (국내 주식과 동일)
+    - 누구나 접근 가능
+    """
+    data = await get_etf_chart(code, period)
+    return {"data": data}
+
+
+@app.get("/api/etf/{code}/performance")
+async def api_etf_performance(
+    code: str,
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    ETF 수익률 및 분배금 정보
+    - 데이터 소스: 네이버 integration API
+    - 누구나 접근 가능
+    """
+    data = await get_etf_performance(code)
     return {"data": data}
 
 

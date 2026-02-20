@@ -11354,3 +11354,118 @@ body {
 .sd-statement-table tbody tr:hover td:first-child {
     background: var(--bg-light);
 }
+
+/* =============================================================================
+   Phase 10: ETF 상세 페이지 스타일
+   ============================================================================= */
+
+/* ETF 수익률 그리드 (개요 탭) */
+.etf-return-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    padding: 12px 0;
+}
+
+.etf-return-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.etf-return-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.etf-return-value {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.etf-return-value.rise {
+    color: var(--rise);
+}
+
+.etf-return-value.fall {
+    color: var(--fall);
+}
+
+/* ETF 수익률 막대차트 (수익률 탭) */
+.etf-returns-chart {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 0;
+}
+
+.etf-return-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.etf-period {
+    width: 50px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+
+.etf-bar-container {
+    flex: 1;
+    height: 20px;
+    background: var(--bg-light);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.etf-bar {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.etf-rate {
+    width: 60px;
+    text-align: right;
+    font-size: 13px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.etf-rate.rise {
+    color: var(--rise);
+}
+
+.etf-rate.fall {
+    color: var(--fall);
+}
+
+/* ETF 분배금 스타일 */
+.etf-dividend-summary {
+    display: flex;
+    gap: 24px;
+    padding: 16px;
+    background: var(--bg-light);
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+
+.etf-dividend-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.etf-dividend-item .label {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.etf-dividend-item .value {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--primary);
+}
