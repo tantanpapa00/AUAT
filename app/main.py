@@ -10654,6 +10654,315 @@ async def api_etf_performance(
 
 
 # =============================================================================
+# Phase 11-1: 통합 종목검색 (자동완성)
+# =============================================================================
+
+@app.get("/api/search")
+async def api_search_stocks(
+    q: str,
+    limit: int = 10,
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    통합 종목검색 - 국내/해외/ETF 동시 검색
+    캐시된 스크리너 데이터에서 검색하여 즉시 응답
+    """
+    if not q or len(q) < 1:
+        return {"results": []}
+
+    q_lower = q.lower()
+    q_upper = q.upper()
+    results = []
+
+    # 관련도 점수 계산 함수
+    def relevance_score(item):
+        name = (item.get("name") or "").lower()
+        code = (item.get("code") or item.get("symbol") or "").upper()
+        q_check = q_lower
+
+        # 정확 매치
+        if name == q_check or code == q_upper:
+            return 0
+        # 시작 매치
+        if name.startswith(q_check) or code.startswith(q_upper):
+            return 1
+        # 포함 매치
+        return 2
+
+    try:
+        # 국내 주식 검색
+        from app.screener.kr_screener import load_kr_stocks
+        kr_stocks = await load_kr_stocks()
+        for stock in kr_stocks:
+            name = (stock.get("name") or "").lower()
+            code = (stock.get("code") or "").upper()
+            if q_lower in name or q_upper in code:
+                results.append({
+                    "code": stock.get("code"),
+                    "name": stock.get("name"),
+                    "market": stock.get("exchange", "KOSPI"),
+                    "type": "stock_kr",
+                    "price": stock.get("price", 0),
+                    "change_pct": stock.get("change_pct", 0)
+                })
+    except Exception as e:
+        print(f"[Search] KR error: {e}")
+
+    try:
+        # 해외 주식 검색
+        from app.screener.us_screener import load_us_stocks
+        us_stocks = await load_us_stocks()
+        for stock in us_stocks:
+            name = (stock.get("name") or "").lower()
+            symbol = (stock.get("symbol") or "").upper()
+            if q_lower in name or q_upper in symbol:
+                results.append({
+                    "code": stock.get("symbol"),
+                    "symbol": stock.get("symbol"),
+                    "name": stock.get("name"),
+                    "market": stock.get("sector", "US"),
+                    "type": "stock_us",
+                    "price": stock.get("price", 0),
+                    "change_pct": stock.get("change_pct", 0)
+                })
+    except Exception as e:
+        print(f"[Search] US error: {e}")
+
+    try:
+        # ETF 검색
+        from app.screener.etf_screener import load_etf_stocks
+        etf_stocks = await load_etf_stocks()
+        for etf in etf_stocks:
+            name = (etf.get("name") or "").lower()
+            code = (etf.get("code") or "").upper()
+            if q_lower in name or q_upper in code:
+                results.append({
+                    "code": etf.get("code"),
+                    "name": etf.get("name"),
+                    "market": "ETF",
+                    "type": "etf",
+                    "price": etf.get("price", 0),
+                    "change_pct": etf.get("change_pct", 0)
+                })
+    except Exception as e:
+        print(f"[Search] ETF error: {e}")
+
+    # 관련도 정렬
+    results.sort(key=relevance_score)
+
+    return {"results": results[:limit]}
+
+
+# =============================================================================
+# Phase 11-2: BBooster AI 추천
+# =============================================================================
+
+# 프리셋 전략 정의
+PRESET_STRATEGIES = {
+    "kr": {
+        "momentum": {
+            "title": "🔥 모멘텀 상승세",
+            "description": "거래량 급증 + 상승 추세 종목",
+            "sort": "change_pct",
+            "order": "desc",
+            "filters": {"change_filter": {"min": 2}},
+            "limit": 10
+        },
+        "value": {
+            "title": "💰 저평가 가치주",
+            "description": "PER 10 이하 + ROE 10% 이상",
+            "sort": "roe",
+            "order": "desc",
+            "filters": {"per": {"min": 1, "max": 10}, "roe": {"min": 10}},
+            "limit": 10
+        },
+        "dividend": {
+            "title": "🎯 고배당 안정주",
+            "description": "배당수익률 3% 이상",
+            "sort": "dividend_yield",
+            "order": "desc",
+            "filters": {"dividend_yield": {"min": 3}},
+            "limit": 10
+        },
+        "large_cap": {
+            "title": "🏢 대형 우량주",
+            "description": "시가총액 상위 대형주",
+            "sort": "market_cap",
+            "order": "desc",
+            "filters": {},
+            "limit": 10
+        }
+    },
+    "us": {
+        "momentum": {
+            "title": "🔥 강세 모멘텀",
+            "description": "상승률 상위 종목",
+            "sort": "change_pct",
+            "order": "desc",
+            "filters": {"change_filter": {"min": 2}},
+            "limit": 10
+        },
+        "value": {
+            "title": "💰 저평가 가치주",
+            "description": "P/E 15 이하 우량주",
+            "sort": "per",
+            "order": "asc",
+            "filters": {"per": {"min": 1, "max": 15}},
+            "limit": 10
+        },
+        "large_cap": {
+            "title": "🏢 대형 기술주",
+            "description": "시가총액 상위 종목",
+            "sort": "market_cap",
+            "order": "desc",
+            "filters": {},
+            "limit": 10
+        },
+        "growth": {
+            "title": "📈 성장주",
+            "description": "높은 성장률 기대 종목",
+            "sort": "eps_growth",
+            "order": "desc",
+            "filters": {},
+            "limit": 10
+        }
+    },
+    "etf": {
+        "top_return": {
+            "title": "🏆 수익률 TOP",
+            "description": "최근 수익률 상위 ETF",
+            "sort": "change_1m",
+            "order": "desc",
+            "filters": {},
+            "limit": 10
+        },
+        "high_volume": {
+            "title": "📊 거래 활발",
+            "description": "거래량 상위 ETF",
+            "sort": "volume",
+            "order": "desc",
+            "filters": {},
+            "limit": 10
+        },
+        "low_fee": {
+            "title": "💵 저비용",
+            "description": "총보수 낮은 ETF",
+            "sort": "expense_ratio",
+            "order": "asc",
+            "filters": {},
+            "limit": 10
+        },
+        "high_aum": {
+            "title": "🏦 순자산 대형",
+            "description": "순자산총액 상위 ETF",
+            "sort": "nav",
+            "order": "desc",
+            "filters": {},
+            "limit": 10
+        }
+    }
+}
+
+
+@app.get("/api/ai/recommendations")
+async def api_ai_recommendations(
+    market: str = "kr",
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    BBooster AI 추천 - 프리셋 전략 기반 종목 추천
+    """
+    from datetime import datetime
+
+    strategies = PRESET_STRATEGIES.get(market, {})
+    if not strategies:
+        return {"market": market, "categories": [], "updated_at": datetime.now().isoformat()}
+
+    categories = []
+
+    for strategy_id, config in strategies.items():
+        try:
+            items = []
+
+            if market == "kr":
+                from app.screener.kr_screener import load_kr_stocks
+                from app.screener.filters import apply_screener_filters, sort_screener_results
+                stocks = await load_kr_stocks()
+                if config.get("filters"):
+                    stocks = apply_screener_filters(stocks, config["filters"])
+                stocks = sort_screener_results(stocks, config.get("sort", "market_cap"), config.get("order", "desc"))
+                items = stocks[:config.get("limit", 10)]
+
+            elif market == "us":
+                from app.screener.us_screener import load_us_stocks
+                from app.screener.filters import apply_screener_filters, sort_screener_results
+                stocks = await load_us_stocks()
+                if config.get("filters"):
+                    stocks = apply_screener_filters(stocks, config["filters"])
+                stocks = sort_screener_results(stocks, config.get("sort", "market_cap"), config.get("order", "desc"))
+                items = stocks[:config.get("limit", 10)]
+
+            elif market == "etf":
+                from app.screener.etf_screener import load_etf_stocks
+                from app.screener.filters import apply_screener_filters, sort_screener_results
+                stocks = await load_etf_stocks()
+                if config.get("filters"):
+                    stocks = apply_screener_filters(stocks, config["filters"])
+                stocks = sort_screener_results(stocks, config.get("sort", "nav"), config.get("order", "desc"))
+                items = stocks[:config.get("limit", 10)]
+
+            # 필드 정리
+            cleaned_items = []
+            for item in items:
+                cleaned = {
+                    "code": item.get("code") or item.get("symbol"),
+                    "name": item.get("name", ""),
+                    "price": item.get("price", 0),
+                    "change_pct": item.get("change_pct", 0),
+                }
+                # 시그널 생성 (간단한 설명)
+                if config.get("sort") == "change_pct":
+                    cleaned["signal"] = f"+{item.get('change_pct', 0):.1f}% 상승"
+                elif config.get("sort") == "dividend_yield":
+                    cleaned["signal"] = f"배당 {item.get('dividend_yield', 0):.1f}%"
+                elif config.get("sort") == "roe":
+                    cleaned["signal"] = f"ROE {item.get('roe', 0):.1f}%"
+                elif config.get("sort") == "per":
+                    cleaned["signal"] = f"PER {item.get('per', 0):.1f}"
+                elif config.get("sort") == "market_cap":
+                    mc = item.get("market_cap", 0)
+                    if mc >= 1_000_000_000_000:
+                        cleaned["signal"] = f"시총 {mc/1_000_000_000_000:.1f}조"
+                    else:
+                        cleaned["signal"] = f"시총 {mc/100_000_000:.0f}억"
+                else:
+                    cleaned["signal"] = ""
+                cleaned_items.append(cleaned)
+
+            categories.append({
+                "id": strategy_id,
+                "title": config["title"],
+                "description": config["description"],
+                "items": cleaned_items
+            })
+
+        except Exception as e:
+            print(f"[AI] Error in {market}/{strategy_id}: {e}")
+            categories.append({
+                "id": strategy_id,
+                "title": config["title"],
+                "description": config["description"],
+                "items": []
+            })
+
+    return {
+        "market": market,
+        "updated_at": datetime.now().isoformat(),
+        "categories": categories
+    }
+
+
+# =============================================================================
 # [STEP 2] 시장분석 API (Pro 이상)
 # =============================================================================
 

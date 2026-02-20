@@ -152,33 +152,11 @@
                     </div>
                 </div>
 
-                <!-- 종목분석 (아코디언) -->
-                <div class="nav-group">
-                    <a href="#" class="nav-item nav-parent" data-group="stock">
-                        <span class="nav-icon">🔍</span>
-                        <span class="nav-text">종목분석</span>
-                        <span class="nav-arrow">▼</span>
-                    </a>
-                    <div class="nav-submenu" id="submenu-stock">
-                        <a href="#" class="nav-item nav-child" data-page="stock-kr">
-                            <span class="nav-icon">🇰🇷</span>
-                            <span class="nav-text">국내주식</span>
-                        </a>
-                        <a href="#" class="nav-item nav-child" data-page="stock-us">
-                            <span class="nav-icon">🇺🇸</span>
-                            <span class="nav-text">해외주식</span>
-                        </a>
-                        <a href="#" class="nav-item nav-child" data-page="stock-etf">
-                            <span class="nav-icon">📊</span>
-                            <span class="nav-text">ETF</span>
-                        </a>
-                        <!-- HIDDEN: 추후 업데이트 예정 -->
-                        <a href="#" class="nav-item nav-child" data-page="stock-crypto" style="display:none;">
-                            <span class="nav-icon">₿</span>
-                            <span class="nav-text">코인</span>
-                        </a>
-                    </div>
-                </div>
+                <!-- BBooster AI (Phase 11) -->
+                <a href="#" class="nav-item pro-only" data-page="bbooster-ai">
+                    <span class="nav-icon">🤖</span>
+                    <span class="nav-text">BBooster AI</span>
+                </a>
 
                 <!-- 관심종목 -->
                 <a href="#" class="nav-item" data-page="watchlist">
@@ -3144,6 +3122,20 @@
                     </div>
 
                     <div id="screener-content">
+                        <!-- 통합 검색창 (Phase 11-1) -->
+                        <div class="unified-search-container">
+                            <div class="unified-search-wrapper">
+                                <span class="unified-search-icon">🔍</span>
+                                <input type="text" id="unified-search-input" class="unified-search-input"
+                                       placeholder="종목명, 코드, 티커로 검색 (예: 삼성전자, AAPL, KODEX)"
+                                       autocomplete="off">
+                                <button class="unified-search-clear" id="unified-search-clear" style="display:none;">✕</button>
+                            </div>
+                            <div class="unified-search-dropdown" id="unified-search-dropdown" style="display:none;">
+                                <div id="unified-search-results"></div>
+                            </div>
+                        </div>
+
                         <!-- 시장 선택 탭 -->
                         <div class="screener-market-tabs">
                             <button class="screener-tab active" data-market="kr">국내</button>
@@ -3362,6 +3354,42 @@
                                     </div>
                                 </div>
                             </aside>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <!-- ========== BBooster AI 페이지 (Phase 11-2) ========== -->
+            <main class="main page-content" id="page-bbooster-ai" style="display: none;">
+                <div class="bbooster-ai-container">
+                    <div class="access-restriction" id="bbooster-ai-restriction" style="display: none;">
+                        <div class="restriction-content">
+                            <span class="restriction-icon">🔒</span>
+                            <h3>BBooster AI는 Pro 이상 요금제에서 이용 가능합니다</h3>
+                            <button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 업그레이드</button>
+                        </div>
+                    </div>
+
+                    <div id="bbooster-ai-content">
+                        <div class="ai-header">
+                            <h2>🤖 BBooster AI</h2>
+                            <p class="ai-subtitle">AI가 선별한 투자 전략별 추천 종목</p>
+                            <span class="ai-updated" id="ai-updated-time">마지막 업데이트: -</span>
+                        </div>
+
+                        <!-- 시장 선택 탭 -->
+                        <div class="ai-market-tabs">
+                            <button class="ai-tab active" data-market="kr">🇰🇷 국내주식</button>
+                            <button class="ai-tab" data-market="us">🇺🇸 해외주식</button>
+                            <button class="ai-tab" data-market="etf">📦 ETF</button>
+                        </div>
+
+                        <!-- 추천 카테고리 목록 -->
+                        <div class="ai-categories" id="ai-categories">
+                            <div class="ai-loading">
+                                <div class="loading-spinner"></div>
+                                <span>AI 추천 종목을 불러오는 중...</span>
+                            </div>
                         </div>
                     </div>
                 </div>

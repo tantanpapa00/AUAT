@@ -2175,6 +2175,61 @@ pub async fn get_etf_performance(
     }
 }
 
+// =============================================================================
+// Phase 11: 통합 검색 + BBooster AI
+// =============================================================================
+
+#[tauri::command]
+pub async fn search_stocks(
+    access_token: String,
+    query: String,
+    limit: Option<u32>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let lim = limit.unwrap_or(10);
+    let url = format!("{}/api/search?q={}&limit={}", VPS_SERVER_URL, urlencoding::encode(&query), lim);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("검색 결과를 가져올 수 없습니다".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn get_ai_recommendations(
+    access_token: String,
+    market: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let m = market.unwrap_or_else(|| "kr".to_string());
+    let url = format!("{}/api/ai/recommendations?market={}", VPS_SERVER_URL, m);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("AI 추천을 가져올 수 없습니다".to_string())
+    }
+}
+
 /// 각 거래소별 인기 종목 목록
 #[derive(Serialize, Deserialize, Default)]
 pub struct PopularSymbols {

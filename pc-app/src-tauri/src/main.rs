@@ -189,6 +189,9 @@ fn main() {
             commands::get_etf_summary,
             commands::get_etf_chart,
             commands::get_etf_performance,
+            // Phase 11: 통합 검색 + AI 추천
+            commands::search_stocks,
+            commands::get_ai_recommendations,
             // TV Connect - 전략/종목 저장
             commands::create_strategy_with_params,
             commands::save_signal_params,

@@ -760,6 +760,8 @@ const pageTitles = {
     'premium-strategy': '프리미엄 전략',
     // 종목검색
     screener: '종목검색',
+    // BBooster AI
+    'bbooster-ai': 'BBooster AI',
     // 시장분석
     'market-kr': '국내시장',
     'market-us': '해외시장',
@@ -859,6 +861,8 @@ window.navigateTo = function(page) {
     else if (page === 'premium-strategy') loadPremiumStrategyPage();
     // 종목검색 (Phase 7)
     else if (page === 'screener') loadScreener();
+    // BBooster AI (Phase 11)
+    else if (page === 'bbooster-ai') loadBBoosterAI();
     // 시장분석 (신규)
     else if (page === 'market-kr') loadMarketKr();
     else if (page === 'market-us') loadMarketUs();
@@ -8808,6 +8812,312 @@ async function loadEtfDividendTab(code) {
 // window에 openEtfDetail 노출
 window.openEtfDetail = openEtfDetail;
 
+// =============================================================================
+// Phase 11-1: 통합 종목검색 (자동완성)
+// =============================================================================
+
+let unifiedSearchTimer = null;
+let unifiedSearchInitialized = false;
+
+function initUnifiedSearch() {
+    if (unifiedSearchInitialized) return;
+    unifiedSearchInitialized = true;
+
+    const input = document.getElementById('unified-search-input');
+    const dropdown = document.getElementById('unified-search-dropdown');
+    const clearBtn = document.getElementById('unified-search-clear');
+    const resultsContainer = document.getElementById('unified-search-results');
+
+    if (!input) return;
+
+    // 입력 이벤트 (디바운스 300ms)
+    input.addEventListener('input', (e) => {
+        const query = e.target.value.trim();
+        clearBtn.style.display = query ? 'block' : 'none';
+
+        clearTimeout(unifiedSearchTimer);
+        if (query.length < 1) {
+            dropdown.style.display = 'none';
+            return;
+        }
+
+        unifiedSearchTimer = setTimeout(() => searchUnified(query), 300);
+    });
+
+    // 클리어 버튼
+    clearBtn?.addEventListener('click', () => {
+        input.value = '';
+        dropdown.style.display = 'none';
+        clearBtn.style.display = 'none';
+        input.focus();
+    });
+
+    // ESC로 드롭다운 닫기
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            dropdown.style.display = 'none';
+        }
+        // 화살표 네비게이션
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            navigateSearchResults(e.key === 'ArrowDown' ? 1 : -1);
+        }
+        if (e.key === 'Enter') {
+            const selected = resultsContainer?.querySelector('.search-result-item.selected');
+            if (selected) {
+                selected.click();
+            }
+        }
+    });
+
+    // 외부 클릭으로 닫기
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.unified-search-container')) {
+            dropdown.style.display = 'none';
+        }
+    });
+}
+
+function navigateSearchResults(direction) {
+    const items = document.querySelectorAll('.search-result-item');
+    if (!items.length) return;
+
+    let currentIdx = -1;
+    items.forEach((item, idx) => {
+        if (item.classList.contains('selected')) currentIdx = idx;
+    });
+
+    items.forEach(item => item.classList.remove('selected'));
+
+    let newIdx = currentIdx + direction;
+    if (newIdx < 0) newIdx = items.length - 1;
+    if (newIdx >= items.length) newIdx = 0;
+
+    items[newIdx]?.classList.add('selected');
+    items[newIdx]?.scrollIntoView({ block: 'nearest' });
+}
+
+async function searchUnified(query) {
+    const dropdown = document.getElementById('unified-search-dropdown');
+    const resultsContainer = document.getElementById('unified-search-results');
+
+    if (!dropdown || !resultsContainer) return;
+
+    try {
+        const response = await invokeWithTimeout('search_stocks', {
+            accessToken: auth.accessToken || '',
+            query: query,
+            limit: 15
+        }, 5000);
+
+        if (!response || !response.results) {
+            dropdown.style.display = 'none';
+            return;
+        }
+
+        const results = response.results;
+        if (results.length === 0) {
+            resultsContainer.innerHTML = '<div class="search-no-results">검색 결과가 없습니다</div>';
+            dropdown.style.display = 'block';
+            return;
+        }
+
+        // 결과 렌더링
+        resultsContainer.innerHTML = results.map((item, idx) => {
+            const icon = item.type === 'stock_kr' ? '🇰🇷' :
+                        item.type === 'stock_us' ? '🇺🇸' : '📦';
+            const code = item.code || item.symbol || '';
+            const changePct = item.change_pct || 0;
+            const changeClass = changePct > 0 ? 'rise' : changePct < 0 ? 'fall' : '';
+            const changeSign = changePct > 0 ? '+' : '';
+
+            return `
+                <div class="search-result-item ${idx === 0 ? 'selected' : ''}"
+                     data-code="${code}"
+                     data-type="${item.type}"
+                     data-name="${item.name || ''}">
+                    <span class="search-item-icon">${icon}</span>
+                    <div class="search-item-info">
+                        <span class="search-item-name">${item.name || code}</span>
+                        <span class="search-item-code">${code} · ${item.market || ''}</span>
+                    </div>
+                    <span class="search-item-change ${changeClass}">${changeSign}${changePct.toFixed(2)}%</span>
+                </div>
+            `;
+        }).join('');
+
+        // 클릭 이벤트
+        resultsContainer.querySelectorAll('.search-result-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const code = item.dataset.code;
+                const type = item.dataset.type;
+
+                dropdown.style.display = 'none';
+                document.getElementById('unified-search-input').value = '';
+                document.getElementById('unified-search-clear').style.display = 'none';
+
+                // 타입에 따라 상세 페이지 열기
+                if (type === 'stock_kr') {
+                    openStockDetail(code, 'kis_kr');
+                } else if (type === 'stock_us') {
+                    openStockDetail(code, 'kis_us');
+                } else if (type === 'etf') {
+                    openEtfDetail(code);
+                }
+            });
+        });
+
+        dropdown.style.display = 'block';
+
+    } catch (error) {
+        console.error('Search error:', error);
+        dropdown.style.display = 'none';
+    }
+}
+
+// =============================================================================
+// Phase 11-2: BBooster AI 추천
+// =============================================================================
+
+let currentAiMarket = 'kr';
+
+async function loadBBoosterAI() {
+    const restrictionEl = document.getElementById('bbooster-ai-restriction');
+    const contentEl = document.getElementById('bbooster-ai-content');
+
+    // Pro 이상 또는 admin 체크
+    const plan = auth.user?.plan || 'free';
+    const role = auth.user?.role || 'user';
+    const isPro = ['pro', 'premium'].includes(plan) || role === 'admin';
+
+    if (!isPro) {
+        if (restrictionEl) restrictionEl.style.display = 'flex';
+        if (contentEl) contentEl.style.display = 'none';
+        return;
+    }
+    if (restrictionEl) restrictionEl.style.display = 'none';
+    if (contentEl) contentEl.style.display = 'block';
+
+    // 탭 이벤트 바인딩
+    initAiTabEvents();
+
+    // 초기 로드
+    loadAiRecommendations(currentAiMarket);
+}
+
+let aiTabEventsInitialized = false;
+function initAiTabEvents() {
+    if (aiTabEventsInitialized) return;
+    aiTabEventsInitialized = true;
+
+    document.querySelectorAll('.ai-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.ai-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            currentAiMarket = tab.dataset.market;
+            loadAiRecommendations(currentAiMarket);
+        });
+    });
+}
+
+async function loadAiRecommendations(market) {
+    const container = document.getElementById('ai-categories');
+    const updatedEl = document.getElementById('ai-updated-time');
+
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="ai-loading">
+            <div class="loading-spinner"></div>
+            <span>AI 추천 종목을 불러오는 중...</span>
+        </div>
+    `;
+
+    try {
+        const response = await invokeWithTimeout('get_ai_recommendations', {
+            accessToken: auth.accessToken || '',
+            market: market
+        }, 15000);
+
+        if (!response || !response.categories) {
+            container.innerHTML = '<div class="ai-empty">추천 데이터를 불러올 수 없습니다</div>';
+            return;
+        }
+
+        // 업데이트 시간
+        if (updatedEl && response.updated_at) {
+            const date = new Date(response.updated_at);
+            updatedEl.textContent = `마지막 업데이트: ${date.toLocaleString('ko-KR')}`;
+        }
+
+        // 카테고리 렌더링
+        if (response.categories.length === 0) {
+            container.innerHTML = '<div class="ai-empty">현재 추천 종목이 없습니다</div>';
+            return;
+        }
+
+        container.innerHTML = response.categories.map(cat => {
+            const itemsHtml = cat.items && cat.items.length > 0
+                ? cat.items.map(item => {
+                    const changePct = item.change_pct || 0;
+                    const changeClass = changePct > 0 ? 'rise' : changePct < 0 ? 'fall' : '';
+                    const changeSign = changePct > 0 ? '+' : '';
+                    return `
+                        <tr class="ai-stock-row" data-code="${item.code}" data-market="${market}">
+                            <td class="ai-stock-name">${item.name || item.code}</td>
+                            <td class="ai-stock-price">${(item.price || 0).toLocaleString()}</td>
+                            <td class="ai-stock-change ${changeClass}">${changeSign}${changePct.toFixed(2)}%</td>
+                            <td class="ai-stock-signal">${item.signal || ''}</td>
+                        </tr>
+                    `;
+                }).join('')
+                : '<tr><td colspan="4" class="ai-empty-cell">종목 없음</td></tr>';
+
+            return `
+                <div class="ai-category-card">
+                    <div class="ai-category-header">
+                        <h3 class="ai-category-title">${cat.title}</h3>
+                        <p class="ai-category-desc">${cat.description}</p>
+                    </div>
+                    <table class="ai-stock-table">
+                        <thead>
+                            <tr>
+                                <th>종목명</th>
+                                <th>현재가</th>
+                                <th>등락률</th>
+                                <th>시그널</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${itemsHtml}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }).join('');
+
+        // 종목 클릭 이벤트
+        container.querySelectorAll('.ai-stock-row').forEach(row => {
+            row.addEventListener('click', () => {
+                const code = row.dataset.code;
+                const market = row.dataset.market;
+
+                if (market === 'kr') {
+                    openStockDetail(code, 'kis_kr');
+                } else if (market === 'us') {
+                    openStockDetail(code, 'kis_us');
+                } else if (market === 'etf') {
+                    openEtfDetail(code);
+                }
+            });
+        });
+
+    } catch (error) {
+        console.error('AI recommendations error:', error);
+        container.innerHTML = '<div class="ai-empty">추천 데이터를 불러올 수 없습니다</div>';
+    }
+}
+
 // 재무 요약 로드 (StockEasy 스타일)
 async function loadFinancialSummary(code) {
     const summaryContent = document.getElementById('info-summary');
@@ -14495,6 +14805,9 @@ async function loadScreener() {
 
     // 이벤트 바인딩 (최초 1회)
     initScreenerEvents();
+
+    // 통합 검색 초기화 (Phase 11)
+    initUnifiedSearch();
 
     // 초기 상태: 빈 화면 표시 (자동 검색 제거)
     screenerState.hasSearched = false;
