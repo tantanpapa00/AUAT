@@ -20,7 +20,7 @@
 | Phase 6 | 시장분석 — ETF | ✅ DONE | Day 24~25 |
 | Phase 7 | 종목검색기 — Finviz 스타일 스크리너 | ✅ DONE | Day 25 |
 | Phase 7.5 | 스크리너 최적화 (캐싱, yfinance→Finviz) | ✅ DONE | Day 26 |
-| Phase 8 | 종목 상세 페이지 — 국내 | ✅ DONE | Day 26 |
+| Phase 8 | 종목 상세 페이지 — 국내 | ✅ DONE | Day 26~27 |
 | Phase 9 | 종목 상세 페이지 — 해외 | 대기 | - |
 | Phase 10 | ETF 상세 페이지 | 대기 | - |
 | Phase 11 | BBooster AI + 종목검색 통합 | 대기 | - |
@@ -438,6 +438,26 @@
 - Day 24: DONE (Phase 5 히트맵 개선 + Phase 6 ETF 시장분석)
 - Day 25: DONE (ETF 대시보드 개선 — ETFCheck 스타일 매칭)
 - Day 26: ✅ 완료 (Phase 7.5 스크리너 최적화 + Phase 8 종목상세)
+- Day 27: ✅ 완료 (Phase 8-2 FnGuide 6년 컨센서스 + stockeasy 복제)
+
+## Day 27 진행사항 (2026-02-21)
+
+### Phase 8-2 확장: FnGuide 6년 데이터 ✅ DONE
+
+stockeasy.intellio.kr 재무추이 차트 완전 복제 완료:
+- 네이버 API (4년) → FnGuide (6년: 2022~2027E) 전환
+- 연도 offset 버그 수정 (헤더/데이터 행 구조 차이)
+- EPS 전망추이 차트 신규 구현
+- Chart.js 라벨 위치 개선 (막대 상단)
+- 영업이익 Y축 조건부 표시
+
+| 커밋 | 메시지 |
+|------|--------|
+| 47e00f0 | fix: y1축 조건부 포함 + EPS분기 라벨 축약 |
+| 1ea15a2 | feat: FnGuide 6년 컨센서스 + 라벨 위치 개선 |
+| 0ce3ae8 | fix: 연도offset+EPS전망추이차트+라벨개선 |
+
+---
 
 ## Day 26 진행사항 (2026-02-20)
 
@@ -498,6 +518,79 @@
 | 커밋 | 메시지 |
 |------|--------|
 | 6402718 | feat: Phase 8-2 국내 종목상세 탭(요약/뉴스) + 재무추이차트 |
+
+### Phase 8-2 확장: 재무추이 FnGuide 6년 데이터 (stockeasy 복제) ✅ DONE
+
+**목표**: stockeasy.intellio.kr 재무추이 차트 완전 복제 (2022~2027E 6년 데이터)
+
+**1. 데이터 소스 전환**
+
+| 소스 | 연도 범위 | 문제점 |
+|------|----------|--------|
+| 네이버 API | 최근 4년 | 2026E/2027E 예측치 없음 |
+| FnGuide CompanyGuide | 6년 (2022~2027E) | ✅ 컨센서스 포함 |
+
+**FnGuide 스크래핑 구현**:
+- URL: `https://comp.fnguide.com/SVO2/ASP/SVD_Main.asp?gicode=A{code}`
+- Table 11 (연간 재무) 파싱
+- 실적(2022~2024) + 전망치(2025E~2027E) 구분
+
+**2. Backend 수정 (data_provider.py)**
+
+```python
+async def _fetch_fnguide_consensus(code: str) -> dict:
+    """FnGuide에서 6년 컨센서스 데이터 가져오기"""
+    # SVD_Main 페이지 Table 11 파싱
+    # periods, isConsensus[], revenue[], operating_profit[],
+    # net_income[], eps[], opm[] 반환
+```
+
+**Year Offset 버그 수정**:
+- 문제: 2022 데이터가 2021 데이터로 표시됨
+- 원인: FnGuide 헤더행은 row label 없음, 데이터행은 첫 열이 row label
+- 수정: `cells[col_idx]` → `cells[col_idx + 1]` (데이터 추출 시 offset 적용)
+
+**3. Frontend 수정 (main.js)**
+
+**EPS 분기 차트 복원**:
+- 분기 데이터에서 eps 배열 올바르게 참조
+- 라벨: 전체 금액 표시 (억/조 축약)
+
+**EPS 전망추이 차트 신규**:
+- FnGuide 전망치(E가 붙은 연도)만 필터링
+- 보라색 막대 차트, 상단 라벨
+
+**라벨 위치 개선**:
+- 막대 내부 → 막대 상단으로 이동
+- Chart.js datalabels: `anchor: 'end', align: 'top', offset: 6`
+- Y축 `grace: '10%'`로 상단 여유 공간 확보
+- `layout.padding.top: 35`로 라벨 잘림 방지
+
+**4. 영업이익 Y축 조건부**
+
+```javascript
+// 영업이익 연간만 우측 Y축 표시
+...(chartType === 'operating-profit' && periodType === 'annual' ? {
+    y1: { position: 'right', ... }
+} : {})
+```
+
+**5. 검증 결과 (삼성전자 005930)**
+
+| 연도 | 매출액 | 영업이익 | 순이익 | isConsensus |
+|------|--------|----------|--------|-------------|
+| 2022 | 302.2조 | 43.4조 | 55.6조 | false |
+| 2023 | 258.9조 | 6.6조 | 15.5조 | false |
+| 2024 | 300.9조 | 32.7조 | 32.7조 | false |
+| 2025E | 322.9조 | 41.9조 | 33.5조 | true |
+| 2026E | 352.4조 | 55.0조 | 42.7조 | true |
+| 2027E | 373.3조 | 60.6조 | 46.9조 | true |
+
+| 커밋 | 메시지 |
+|------|--------|
+| 47e00f0 | fix: y1축 조건부 포함 + EPS분기 라벨 축약 |
+| 1ea15a2 | feat: FnGuide 6년 컨센서스 + 라벨 위치 개선 |
+| 0ce3ae8 | fix: 연도offset+EPS전망추이차트+라벨개선 |
 
 ### Phase 8-3: 기업 탭 + 재무제표 + 스크리너 연동 ✅ DONE
 
