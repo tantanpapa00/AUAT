@@ -20,15 +20,15 @@ TECHNICAL_FILTER_KEYS = [
     "period_return"
 ]
 
-# 재무 지표 필터 키 목록
+# 재무 지표 필터 키 목록 (13개 + 기타)
 FINANCIAL_FILTER_KEYS = [
-    "per", "pbr", "roe", "dividend_yield",
-    "change_filter", "change",
-    # V2 추가 재무지표
-    "psr", "roa", "net_margin", "operating_margin", "debt_ratio",
-    "current_ratio", "quick_ratio", "reserve_ratio",
-    "eps_growth", "bps", "sales_growth", "op_growth",
-    "payout_ratio", "foreign_ratio"
+    # 공통 13개 (yfinance 기반)
+    "per", "pbr", "roe", "roa",
+    "operating_margin", "gross_margin", "profit_margin",
+    "debt_ratio", "current_ratio", "dividend_yield",
+    "revenue_growth", "earnings_growth", "eps_growth",
+    # 추가 (네이버 API)
+    "foreign_ratio", "change_filter", "change"
 ]
 
 
@@ -392,11 +392,11 @@ async def enrich_financial_data(stocks: List[Dict]) -> List[Dict]:
                     elif key == "operatingMargin":
                         stock["operating_margin"] = _parse_float(value.replace("%", ""))
                     elif key == "netMargin":
-                        stock["net_margin"] = _parse_float(value.replace("%", ""))
+                        stock["profit_margin"] = _parse_float(value.replace("%", ""))
                     elif key == "salesGrowth":
-                        stock["sales_growth"] = _parse_float(value.replace("%", ""))
+                        stock["revenue_growth"] = _parse_float(value.replace("%", ""))
                     elif key == "operatingProfitGrowth":
-                        stock["op_growth"] = _parse_float(value.replace("%", ""))
+                        stock["earnings_growth"] = _parse_float(value.replace("%", ""))
                     elif key == "highPriceOf52Weeks":
                         high_52w = _parse_price(value)
                         stock["high_52w"] = high_52w

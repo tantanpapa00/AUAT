@@ -12400,7 +12400,7 @@ const FILTER_DEFINITIONS = {
         ]
     },
 
-    // ===== 재무지표 (16개) =====
+    // ===== 재무지표 (13개) - yfinance 기반 =====
     per: {
         label: 'PER',
         type: 'range',
@@ -12425,7 +12425,82 @@ const FILTER_DEFINITIONS = {
             { min: 5, max: null, label: '5 이상' }
         ]
     },
-    // PSR, ROE, ROA, 영업이익률, 순이익률, 부채비율, 유동비율, 당좌비율, 유보율 제거 (네이버 API 미제공)
+    roe: {
+        label: 'ROE',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 20, max: null, label: '우량 (20%+)' },
+            { min: 15, max: 20, label: '양호 (15~20%)' },
+            { min: 10, max: 15, label: '보통 (10~15%)' },
+            { min: null, max: 10, label: '10% 미만' }
+        ]
+    },
+    roa: {
+        label: 'ROA',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 10, max: null, label: '우량 (10%+)' },
+            { min: 5, max: 10, label: '양호 (5~10%)' },
+            { min: null, max: 5, label: '5% 미만' }
+        ]
+    },
+    operating_margin: {
+        label: '영업이익률',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 20, max: null, label: '고수익 (20%+)' },
+            { min: 10, max: 20, label: '양호 (10~20%)' },
+            { min: 5, max: 10, label: '보통 (5~10%)' },
+            { min: null, max: 5, label: '저수익 (5% 미만)' }
+        ]
+    },
+    gross_margin: {
+        label: '매출총이익률',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 50, max: null, label: '고마진 (50%+)' },
+            { min: 30, max: 50, label: '양호 (30~50%)' },
+            { min: 15, max: 30, label: '보통 (15~30%)' },
+            { min: null, max: 15, label: '저마진 (15% 미만)' }
+        ]
+    },
+    profit_margin: {
+        label: '순이익률',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 15, max: null, label: '고수익 (15%+)' },
+            { min: 10, max: 15, label: '양호 (10~15%)' },
+            { min: 5, max: 10, label: '보통 (5~10%)' },
+            { min: null, max: 5, label: '5% 미만' }
+        ]
+    },
+    debt_ratio: {
+        label: '부채비율',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: null, max: 50, label: '안정 (50% 미만)' },
+            { min: 50, max: 100, label: '보통 (50~100%)' },
+            { min: 100, max: 200, label: '주의 (100~200%)' },
+            { min: 200, max: null, label: '위험 (200%+)' }
+        ]
+    },
+    current_ratio: {
+        label: '유동비율',
+        type: 'range',
+        unit: '배',
+        presets: [
+            { min: 2, max: null, label: '안정 (2배+)' },
+            { min: 1.5, max: 2, label: '양호 (1.5~2배)' },
+            { min: 1, max: 1.5, label: '보통 (1~1.5배)' },
+            { min: null, max: 1, label: '주의 (1배 미만)' }
+        ]
+    },
     dividend_yield: {
         label: '배당수익률',
         type: 'range',
@@ -12435,6 +12510,28 @@ const FILTER_DEFINITIONS = {
             { min: 3, max: 5, label: '3~5%' },
             { min: 2, max: 3, label: '2~3%' },
             { min: 1, max: 2, label: '1~2%' }
+        ]
+    },
+    revenue_growth: {
+        label: '매출성장률',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 50, max: null, label: '고성장 (50%+)' },
+            { min: 20, max: 50, label: '성장 (20~50%)' },
+            { min: 0, max: 20, label: '안정 (0~20%)' },
+            { min: null, max: 0, label: '역성장' }
+        ]
+    },
+    earnings_growth: {
+        label: '이익성장률',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 50, max: null, label: '고성장 (50%+)' },
+            { min: 20, max: 50, label: '성장 (20~50%)' },
+            { min: 0, max: 20, label: '안정 (0~20%)' },
+            { min: null, max: 0, label: '역성장' }
         ]
     },
     eps_growth: {
@@ -12448,8 +12545,6 @@ const FILTER_DEFINITIONS = {
             { min: null, max: 0, label: '역성장' }
         ]
     },
-    // 매출성장률, 영업이익성장률, 배당성향 제거 (네이버 API 미제공)
-    // BPS는 네이버 API 제공하지만 필터 용도로 부적합 (절대값) - 제거
 
     // ===== 기술적지표 (12개) =====
     rsi: {
@@ -12594,19 +12689,28 @@ const FILTER_DEFINITIONS = {
     }
 };
 
-// 재무 지표 — 국내(KR) 전용 (네이버 API 제공 데이터만)
-const KR_FINANCIAL_FILTERS = {
+// 재무 지표 — KR/US/ETF 공통 (13개) - yfinance 기반
+const COMMON_FINANCIAL_FILTERS = {
     per: { ...FILTER_DEFINITIONS.per, category: 'financial' },
     pbr: { ...FILTER_DEFINITIONS.pbr, category: 'financial' },
-    eps_growth: { ...FILTER_DEFINITIONS.eps_growth, category: 'financial' },
+    roe: { ...FILTER_DEFINITIONS.roe, category: 'financial' },
+    roa: { ...FILTER_DEFINITIONS.roa, category: 'financial' },
+    operating_margin: { ...FILTER_DEFINITIONS.operating_margin, category: 'financial' },
+    gross_margin: { ...FILTER_DEFINITIONS.gross_margin, category: 'financial' },
+    profit_margin: { ...FILTER_DEFINITIONS.profit_margin, category: 'financial' },
+    debt_ratio: { ...FILTER_DEFINITIONS.debt_ratio, category: 'financial' },
+    current_ratio: { ...FILTER_DEFINITIONS.current_ratio, category: 'financial' },
     dividend_yield: { ...FILTER_DEFINITIONS.dividend_yield, category: 'financial' },
+    revenue_growth: { ...FILTER_DEFINITIONS.revenue_growth, category: 'financial' },
+    earnings_growth: { ...FILTER_DEFINITIONS.earnings_growth, category: 'financial' },
+    eps_growth: { ...FILTER_DEFINITIONS.eps_growth, category: 'financial' },
 };
 
-// 재무 지표 — 해외(US) 전용 (Finviz 스크리너 제공 데이터만)
-// 현재 Finviz 스크리너에서 섹터/시총/등락률만 제공
-const US_FINANCIAL_FILTERS = {
-    // 상세 재무 데이터 없음 (개별 종목 페이지 스크래핑 필요)
-};
+// 재무 지표 — 국내(KR) = 공통
+const KR_FINANCIAL_FILTERS = { ...COMMON_FINANCIAL_FILTERS };
+
+// 재무 지표 — 해외(US) = 공통
+const US_FINANCIAL_FILTERS = { ...COMMON_FINANCIAL_FILTERS };
 
 // 기술적 지표 — 국내/해외 공통 (16개: 기존 11 + 신규 5)
 const COMMON_TECHNICAL_FILTERS = {

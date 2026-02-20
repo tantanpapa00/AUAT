@@ -177,8 +177,13 @@ def apply_screener_filters(stocks: List[Dict], filters: Dict) -> List[Dict]:
         else:
             result = _filter_by_range(result, "dividend_yield", filters["dividend_yield"])
 
-    # 추가 재무지표 (V2) - 네이버 API 제공 필드만
-    for field in ["eps_growth", "foreign_ratio"]:
+    # 추가 재무지표 (V2) - yfinance 기반 13개 필터
+    financial_fields = [
+        "roe", "roa", "operating_margin", "gross_margin", "profit_margin",
+        "debt_ratio", "current_ratio", "revenue_growth", "earnings_growth",
+        "eps_growth", "foreign_ratio"
+    ]
+    for field in financial_fields:
         if filters.get(field):
             min_val, max_val, _ = _parse_filter_v2(filters[field])
             if min_val is not None or max_val is not None:
@@ -559,10 +564,19 @@ def sort_screener_results(stocks: List[Dict], sort: str, order: str) -> List[Dic
         "sector": lambda x: x.get("sector") or "",  # US 섹터
         "issuer": lambda x: x.get("issuer") or "",  # ETF 운용사
         "category": lambda x: x.get("category") or "",  # ETF 카테고리
-        # 재무 (네이버 API 제공 필드만)
+        # 재무 (yfinance 기반 13개)
         "per": lambda x: x.get("per") or 9999,
         "pbr": lambda x: x.get("pbr") or 9999,
+        "roe": lambda x: x.get("roe") or 0,
+        "roa": lambda x: x.get("roa") or 0,
+        "operating_margin": lambda x: x.get("operating_margin") or 0,
+        "gross_margin": lambda x: x.get("gross_margin") or 0,
+        "profit_margin": lambda x: x.get("profit_margin") or 0,
+        "debt_ratio": lambda x: x.get("debt_ratio") or 9999,
+        "current_ratio": lambda x: x.get("current_ratio") or 0,
         "dividend_yield": lambda x: x.get("dividend_yield") or 0,
+        "revenue_growth": lambda x: x.get("revenue_growth") or 0,
+        "earnings_growth": lambda x: x.get("earnings_growth") or 0,
         "eps_growth": lambda x: x.get("eps_growth") or 0,
         "foreign_ratio": lambda x: x.get("foreign_ratio") or 0,
         # 52주

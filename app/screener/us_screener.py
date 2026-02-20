@@ -10,6 +10,7 @@ from datetime import datetime
 
 from .cache import screener_cache, CACHE_TTL
 from .filters import apply_screener_filters, sort_screener_results
+from .financial_data import fetch_financial_data_batch, YFINANCE_AVAILABLE
 
 # Yahoo Finance 헤더
 YAHOO_HEADERS = {
@@ -69,6 +70,10 @@ async def screener_us(filters: dict, sort: str, order: str, page: int, per_page:
     end = start + per_page
     items = filtered[start:end]
 
+    # yfinance 재무 데이터 보강 (페이지 결과에 대해서만)
+    if YFINANCE_AVAILABLE and items:
+        items = await enrich_us_financial_data(list(items))
+
     # 시총 문자열 추가 (달러 기준)
     for item in items:
         cap = item.get("market_cap", 0)  # 조 달러 단위
@@ -123,6 +128,15 @@ def apply_us_filters(stocks: List[Dict], filters: dict) -> List[Dict]:
                 result = [s for s in result if (s.get("change_pct") or 0) >= min_val]
             if max_val is not None:
                 result = [s for s in result if (s.get("change_pct") or 0) <= max_val]
+
+    # 재무 필터 (공통 로직 사용)
+    financial_filters = {k: v for k, v in filters.items() if k in [
+        "per", "pbr", "roe", "roa", "operating_margin", "gross_margin",
+        "profit_margin", "debt_ratio", "current_ratio", "dividend_yield",
+        "revenue_growth", "earnings_growth", "eps_growth"
+    ]}
+    if financial_filters:
+        result = apply_screener_filters(result, financial_filters)
 
     return result
 
@@ -293,7 +307,43 @@ async def fetch_finviz_changes() -> Dict[str, float]:
     return result
 
 
-# 필터 키 정의 (US 전용)
+async def enrich_us_financial_data(stocks: List[Dict]) -> List[Dict]:
+    """
+    yfinance로 재무 데이터 보강
+
+    13개 재무지표: per, pbr, roe, roa, operating_margin, gross_margin,
+                  profit_margin, debt_ratio, current_ratio, dividend_yield,
+                  revenue_growth, earnings_growth, eps_growth
+    """
+    if not stocks or not YFINANCE_AVAILABLE:
+        return stocks
+
+    symbols = [s.get("code") for s in stocks if s.get("code")]
+
+    try:
+        # yfinance 일괄 조회 (동시 10개 제한)
+        financial_data = await fetch_financial_data_batch(symbols, market="US", max_concurrent=10)
+
+        # 데이터 병합
+        for stock in stocks:
+            code = stock.get("code")
+            if code and code in financial_data:
+                stock.update(financial_data[code])
+
+        print(f"[US Screener] yfinance 보강: {len(financial_data)}/{len(symbols)}개")
+
+    except Exception as e:
+        print(f"[US Screener] yfinance 오류: {e}")
+
+    return stocks
+
+
+# 필터 키 정의 (US 전용) - 재무 필터 포함
 US_FILTER_KEYS = [
-    "sector", "market_cap", "change_pct"
+    "sector", "market_cap", "change_pct",
+    # 재무 필터 (yfinance 기반 13개)
+    "per", "pbr", "roe", "roa",
+    "operating_margin", "gross_margin", "profit_margin",
+    "debt_ratio", "current_ratio", "dividend_yield",
+    "revenue_growth", "earnings_growth", "eps_growth"
 ]
