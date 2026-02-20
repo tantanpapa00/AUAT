@@ -9367,16 +9367,30 @@ async function loadFinancialSummaryKr(code) {
                     </div>
                 </div>
 
-                <!-- EPS: 전체 폭 -->
-                <div class="sd-trend-card sd-trend-card-full">
-                    <div class="sd-trend-card-header">
-                        <span class="sd-trend-dot orange"></span>
-                        <span class="sd-trend-title">EPS</span>
+                <!-- EPS + EPS 전망추이: 2열 나란히 -->
+                <div class="sd-trend-row">
+                    <!-- EPS -->
+                    <div class="sd-trend-card">
+                        <div class="sd-trend-card-header">
+                            <span class="sd-trend-dot orange"></span>
+                            <span class="sd-trend-title">EPS</span>
+                        </div>
+                        <div class="sd-trend-sub-label">연간 (4Q)</div>
+                        <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-eps-annual"></canvas></div>
+                        <div class="sd-trend-sub-label">분기별</div>
+                        <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-eps-quarter"></canvas></div>
                     </div>
-                    <div class="sd-trend-sub-label">연간 (4Q)</div>
-                    <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-eps-annual"></canvas></div>
-                    <div class="sd-trend-sub-label">분기별</div>
-                    <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-eps-quarter"></canvas></div>
+
+                    <!-- EPS 전망추이 -->
+                    <div class="sd-trend-card">
+                        <div class="sd-trend-card-header">
+                            <span class="sd-trend-dot" style="background:#a855f7"></span>
+                            <span class="sd-trend-title">EPS 전망 추이</span>
+                        </div>
+                        <div id="sd-eps-forecast-content" class="sd-eps-forecast-empty">
+                            <div class="sd-empty-card">데이터 없음</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
@@ -9458,18 +9472,20 @@ async function loadAndRenderAllFinancialCharts(code, annualData) {
         isEstimate: quarter.isConsensus || [],
     }, FINANCIAL_CHART_COLORS.revenue, 'revenue');
 
-    // 영업이익 — 연간
+    // 영업이익 — 연간 (OPM 라인 포함)
     renderStockEasyChart('sd-fc-op-annual', {
         periods: annual.periods || [],
         values: annual.operating_profit || [],
         isEstimate: annual.isConsensus || [],
+        opm: annual.opm || [],  // 영업이익률 (%)
     }, FINANCIAL_CHART_COLORS.operating, 'operating');
 
-    // 영업이익 — 분기
+    // 영업이익 — 분기 (OPM 라인 포함)
     renderStockEasyChart('sd-fc-op-quarter', {
         periods: quarter.periods || [],
         values: quarter.operating_profit || [],
         isEstimate: quarter.isConsensus || [],
+        opm: quarter.opm || [],
     }, FINANCIAL_CHART_COLORS.operating, 'operating');
 
     // EPS — 연간
@@ -9505,8 +9521,8 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
         canvas._chartInstance.destroy();
     }
 
-    const { periods, values, isEstimate } = chartData;
-    console.log('[renderStockEasyChart] 데이터:', { periods, values, isEstimate });
+    const { periods, values, isEstimate, opm } = chartData;
+    console.log('[renderStockEasyChart] 데이터:', { periods, values, isEstimate, opm });
 
     if (!values || values.length === 0) {
         console.warn('[renderStockEasyChart] 값 없음:', canvasId);
@@ -9579,6 +9595,25 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
         categoryPercentage: 0.8,
         order: 2,
     });
+
+    // OPM 라인 (영업이익 차트에서만)
+    const hasOpmLine = opm && opm.length > 0 && opm.some(v => v !== null && v !== undefined);
+    if (hasOpmLine && chartType === 'operating') {
+        datasets.push({
+            type: 'line',
+            label: 'OPM',
+            data: opm,
+            borderColor: '#f59e0b',  // 주황색
+            borderWidth: 2,
+            borderDash: [6, 3],
+            pointRadius: 4,
+            pointBackgroundColor: '#f59e0b',
+            fill: false,
+            yAxisID: 'y1',
+            order: 1,
+            datalabels: { display: false },
+        });
+    }
 
     try {
         console.log('[renderStockEasyChart] Chart 생성 시작:', canvasId, 'labels:', xLabels, 'datasets:', datasets);
@@ -9655,6 +9690,18 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
                         },
                     },
                     grid: { color: 'rgba(255,255,255,0.04)' },
+                },
+                // OPM 라인용 우측 Y축 (%)
+                y1: {
+                    position: 'right',
+                    display: hasOpmLine,
+                    ticks: {
+                        color: '#f59e0b',
+                        font: { size: 8 },
+                        callback: (v) => v.toFixed(0) + '%',
+                    },
+                    grid: { display: false },
+                    min: 0,
                 },
             },
         },

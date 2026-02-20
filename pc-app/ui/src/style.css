@@ -5902,6 +5902,20 @@ body {
     color: #666;
 }
 
+/* EPS 전망추이 빈 카드 */
+.sd-empty-card {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 280px;
+    color: #555;
+    font-size: 13px;
+}
+
+.sd-eps-forecast-empty {
+    padding: 20px 0;
+}
+
 /* 서브 라벨 (연간/분기) */
 .sd-trend-sub-label {
     font-size: 10px;
