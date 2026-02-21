@@ -2847,7 +2847,8 @@ async def get_stock_summary_kr(code: str) -> dict:
 async def _fetch_fnguide_consensus(code: str) -> dict:
     """
     FnGuide에서 컨센서스 데이터 가져오기 (6년: 2022-2027E)
-    SVD_Main 페이지의 Table 11에서 추출
+    SVD_Main 페이지의 Table 10/11에서 추출
+    EPS는 지배주주순이익 기준 (stockeasy 동일)
     """
     result = {
         "periods": [],
@@ -2857,6 +2858,8 @@ async def _fetch_fnguide_consensus(code: str) -> dict:
         "net_income": [],
         "eps": [],
         "opm": [],
+        "gross_profit": [],  # 매출총이익 (GPM 계산용)
+        "gpm": [],  # 매출총이익률
     }
 
     try:
@@ -2937,10 +2940,15 @@ async def _fetch_fnguide_consensus(code: str) -> dict:
                         result["revenue"] = row_values
                     elif "영업이익" in row_label and "발표" not in row_label and "증가" not in row_label and "률" not in row_label:
                         result["operating_profit"] = row_values
-                    elif "지배주주순이익" in row_label:
+                    elif "지배주주순이익" in row_label and "EPS" not in row_label and "률" not in row_label:
                         result["net_income"] = row_values
+                    elif "EPS(원)" in row_label or ("EPS" in row_label and "지배" in row_label):
+                        # EPS(원)지배주주순이익 / 발행주식수 - stockeasy와 동일 기준
+                        result["eps"] = row_values
+                    elif "매출총이익" in row_label:
+                        result["gross_profit"] = row_values
 
-                if result["revenue"] and result["operating_profit"]:
+                if result["revenue"] and result["operating_profit"] and result["eps"]:
                     break
 
             # OPM 계산
@@ -2951,6 +2959,17 @@ async def _fetch_fnguide_consensus(code: str) -> dict:
                         result["opm"].append(round(op / rev * 100, 1))
                     else:
                         result["opm"].append(0)
+
+            # GPM 계산 (매출총이익률)
+            if result["revenue"] and result["gross_profit"]:
+                result["gpm"] = []
+                for rev, gp in zip(result["revenue"], result["gross_profit"]):
+                    if rev and rev > 0 and gp:
+                        result["gpm"].append(round(gp / rev * 100, 1))
+                    else:
+                        result["gpm"].append(None)
+
+            print(f"[FnGuide] {code} parsed: periods={result['periods']}, eps={result['eps'][:3] if result['eps'] else []}")
 
     except Exception as e:
         print(f"[FnGuide] Error fetching consensus for {code}: {e}")
@@ -2978,9 +2997,11 @@ async def get_stock_financials_kr(code: str, fin_type: str = "annual") -> dict:
         "isConsensus": [],  # [false, false, false, true] - 전망치 여부
         "revenue": [],      # 매출액 (억원)
         "operating_profit": [],  # 영업이익 (억원)
-        "net_income": [],   # 당기순이익 (억원)
-        "eps": [],          # EPS (원)
+        "net_income": [],   # 당기순이익 (억원) - 지배주주 귀속
+        "eps": [],          # EPS (원) - 지배주주순이익 기준
         "opm": [],          # 영업이익률 (%)
+        "gross_profit": [],  # 매출총이익 (억원)
+        "gpm": [],          # 매출총이익률 (%)
     }
 
     try:
@@ -2994,7 +3015,15 @@ async def get_stock_financials_kr(code: str, fin_type: str = "annual") -> dict:
                 result["operating_profit"] = fnguide_data["operating_profit"]
                 result["net_income"] = fnguide_data["net_income"]
                 result["opm"] = fnguide_data["opm"]
-                print(f"[DataProvider] FnGuide 성공 {code}: {len(result['periods'])}년")
+                # FnGuide EPS 사용 (지배주주 기준)
+                if fnguide_data.get("eps"):
+                    result["eps"] = fnguide_data["eps"]
+                # GPM 데이터
+                if fnguide_data.get("gross_profit"):
+                    result["gross_profit"] = fnguide_data["gross_profit"]
+                if fnguide_data.get("gpm"):
+                    result["gpm"] = fnguide_data["gpm"]
+                print(f"[DataProvider] FnGuide 성공 {code}: {len(result['periods'])}년, EPS={result['eps'][:3] if result['eps'] else 'N/A'}")
 
         # FnGuide 실패 또는 분기: 네이버 API
         if not result["periods"]:
@@ -3056,8 +3085,9 @@ async def get_stock_financials_kr(code: str, fin_type: str = "annual") -> dict:
                         elif title == "영업이익률":
                             result["opm"] = values
 
-        # EPS: 네이버 API에서 조회 (더 정확)
-        if not result["eps"] or len(result["eps"]) < len(result["periods"]):
+        # EPS: FnGuide EPS가 없으면 네이버 API 폴백 (분기 데이터용)
+        # 연간은 FnGuide EPS (지배주주 기준) 사용, 분기는 네이버
+        if fin_type == "quarter" and (not result["eps"] or len(result["eps"]) < len(result["periods"])):
             async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
                 url = f"https://m.stock.naver.com/api/stock/{code}/finance/annual"
                 r = await client.get(url)
