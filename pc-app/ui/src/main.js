@@ -192,6 +192,7 @@ function createSymbolAutocomplete(inputElement, onSelect, options = {}) {
     let dropdownVisible = false;
     let highlightedIndex = -1;
     let debounceTimer = null;
+    let searchRequestId = 0;  // Race condition 방지용
 
     // 드롭다운 생성
     const wrapper = document.createElement('div');
@@ -210,12 +211,15 @@ function createSymbolAutocomplete(inputElement, onSelect, options = {}) {
     badge.style.display = 'none';
     wrapper.appendChild(badge);
 
-    // 검색 함수
+    // 검색 함수 (race condition 방지)
     async function search(query) {
         if (!query || query.length < 1) {
             hideDropdown();
             return;
         }
+
+        // 현재 요청 ID 저장 (이후 응답에서 최신 요청인지 확인)
+        const thisRequestId = ++searchRequestId;
 
         try {
             const result = await invokeWithTimeout('search_symbols', {
@@ -223,6 +227,12 @@ function createSymbolAutocomplete(inputElement, onSelect, options = {}) {
                 query: query,
                 exchange: currentExchange !== 'all' ? currentExchange : null
             }, 5000);
+
+            // 이 요청이 최신 요청이 아니면 무시 (race condition 방지)
+            if (thisRequestId !== searchRequestId) {
+                console.log('[Search] 오래된 요청 무시:', query);
+                return;
+            }
 
             const symbols = result?.symbols || result || [];
 
@@ -233,6 +243,8 @@ function createSymbolAutocomplete(inputElement, onSelect, options = {}) {
 
             renderDropdown(symbols.slice(0, maxResults));
         } catch (error) {
+            // 최신 요청이 아니면 에러도 무시
+            if (thisRequestId !== searchRequestId) return;
             console.error('Symbol search error:', error);
             showNoResults();
         }
@@ -2691,11 +2703,16 @@ async function loadPopularSymbols() {
     }
 }
 
+let searchSymbolsRequestId = 0;  // Race condition 방지용
+
 async function searchSymbols(query) {
     const tbody = document.getElementById('symbols-tbody');
     if (!tbody) return;
 
     showSymbolsLoading();
+
+    // 현재 요청 ID 저장
+    const thisRequestId = ++searchSymbolsRequestId;
 
     try {
         const exchange = currentSymbolExchange === 'all' ? null : currentSymbolExchange;
@@ -2705,15 +2722,24 @@ async function searchSymbols(query) {
             exchange: exchange
         });
 
+        // 이 요청이 최신 요청이 아니면 무시
+        if (thisRequestId !== searchSymbolsRequestId) {
+            console.log('[SearchSymbols] 오래된 요청 무시:', query);
+            return;
+        }
+
         // result.symbols 또는 result 자체가 배열인 경우 처리
         const symbols = result.symbols || result || [];
         symbolsData = symbols;
         renderSymbolsTable(symbols);
     } catch (error) {
+        if (thisRequestId !== searchSymbolsRequestId) return;
         console.error('Failed to search symbols:', error);
         tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">검색 실패</td></tr>';
     } finally {
-        isSymbolsLoading = false;
+        if (thisRequestId === searchSymbolsRequestId) {
+            isSymbolsLoading = false;
+        }
     }
 }
 
