@@ -24,7 +24,7 @@ import numpy as np
 from .models import Candle, SignalResult, MRConfig, StrategyState, HTFIndicators, OscillatorData
 from .indicators import calc_spo, calc_vwma, calc_hma, calc_ichimoku, calc_supertrend
 from .regime_detector import detect_regime, calc_htf_indicators
-from .signal_generator import generate_mr_signal, calc_osc_data
+from .signal_generator import generate_mr_signal, calc_osc_data, update_state_after_execution
 from .presets import OSC_PRESETS, HTF_DEFAULTS
 
 
@@ -438,7 +438,7 @@ def run_mr_backtest(
     htf_candles: Optional[List[Candle]] = None,
     config: Optional[MRConfig] = None,
     initial_capital: float = 10000000.0,
-    fee_rate: float = 0.001,  # 0.1% 수수료
+    fee_rate: float = 0.0,  # PineScript 동일: 0% 수수료 (트레이딩뷰 기본값)
 ) -> BacktestResult:
     """
     MR 프리미엄 전략 백테스트 실행 (벡터화 최적화 버전)
@@ -644,6 +644,9 @@ def run_mr_backtest(
                         commission=fee,  # 이 거래의 수수료
                     ))
 
+                    # 매수 후 state 업데이트 (last_buy_exec_price, buy_stage 등)
+                    state = update_state_after_execution(state, signal, config, executed=True)
+
             elif signal.action == "sell" and position.quantity > 0:
                 # 매도: 포지션의 tranche_pct만큼 청산
                 sell_pct = signal.tranche_pct / 100.0
@@ -673,6 +676,9 @@ def run_mr_backtest(
                         pnl_pct=pnl_pct,
                         commission=fee,  # 이 거래의 수수료
                     ))
+
+                    # 매도 후 state 업데이트 (sell_stage, buy_stage 리셋 등)
+                    state = update_state_after_execution(state, signal, config, executed=True)
 
     # 미실현 손익 계산 (포지션 강제 청산 전)
     unrealized_pnl = 0.0

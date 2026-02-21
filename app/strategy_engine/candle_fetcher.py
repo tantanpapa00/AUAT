@@ -1313,9 +1313,7 @@ async def _fetch_kis_kr_paginated(
 ) -> List[Candle]:
     """KIS 국내주식 페이지네이션 조회 (최대 100일씩, 구간 분할)"""
     import os
-    import urllib.request
-    import ssl
-    import asyncio
+    import httpx
 
     # KIS API 설정
     app_key = os.getenv("KIS_APP_KEY", "").strip()
@@ -1342,79 +1340,74 @@ async def _fetch_kis_kr_paginated(
     end_date = datetime.now()
     days_per_request = 100
 
-    while len(all_candles) < needed:
-        if time.time() - start_time > timeout:
-            raise ValueError(f"시세 조회 시간 초과 ({timeout}초)")
+    async with httpx.AsyncClient(timeout=30, verify=True) as client:
+        while len(all_candles) < needed:
+            if time.time() - start_time > timeout:
+                raise ValueError(f"시세 조회 시간 초과 ({timeout}초)")
 
-        start_date = end_date - timedelta(days=days_per_request)
+            start_date = end_date - timedelta(days=days_per_request)
 
-        headers = {
-            "Content-Type": "application/json; charset=utf-8",
-            "authorization": f"Bearer {access_token}",
-            "appkey": app_key,
-            "appsecret": app_secret,
-            "tr_id": "FHKST03010100",
-            "custtype": "P",
-        }
+            headers = {
+                "Content-Type": "application/json; charset=utf-8",
+                "authorization": f"Bearer {access_token}",
+                "appkey": app_key,
+                "appsecret": app_secret,
+                "tr_id": "FHKST03010100",
+                "custtype": "P",
+            }
 
-        params = {
-            "FID_COND_MRKT_DIV_CODE": "J",
-            "FID_INPUT_ISCD": symbol,
-            "FID_INPUT_DATE_1": start_date.strftime("%Y%m%d"),
-            "FID_INPUT_DATE_2": end_date.strftime("%Y%m%d"),
-            "FID_PERIOD_DIV_CODE": period_code,
-            "FID_ORG_ADJ_PRC": "0",
-        }
+            params = {
+                "FID_COND_MRKT_DIV_CODE": "J",
+                "FID_INPUT_ISCD": symbol,
+                "FID_INPUT_DATE_1": start_date.strftime("%Y%m%d"),
+                "FID_INPUT_DATE_2": end_date.strftime("%Y%m%d"),
+                "FID_PERIOD_DIV_CODE": period_code,
+                "FID_ORG_ADJ_PRC": "0",
+            }
 
-        query_string = "&".join([f"{k}={v}" for k, v in params.items()])
-        full_url = f"{url}?{query_string}"
-
-        ctx = ssl.create_default_context()
-        req = urllib.request.Request(full_url, headers=headers)
-
-        try:
-            with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-        except Exception as e:
-            logger.warning(f"KIS_KR 페이지네이션 에러: {e}")
-            break
-
-        if data.get("rt_cd") != "0":
-            logger.warning(f"KIS_KR API 에러: {data.get('msg1', '')}")
-            break
-
-        candles_raw = data.get("output2", [])
-        if not candles_raw:
-            break
-
-        for c in candles_raw:
-            date_str = c.get("stck_bsop_date", "")
-            if not date_str:
-                continue
             try:
-                dt = datetime.strptime(date_str, "%Y%m%d")
-                ts = int(dt.timestamp() * 1000)
-            except:
-                continue
+                resp = await client.get(url, headers=headers, params=params)
+                data = resp.json()
+            except Exception as e:
+                logger.warning(f"KIS_KR 페이지네이션 에러: {e}")
+                break
 
-            all_candles.append(Candle(
-                ts=ts,
-                o=float(c.get("stck_oprc", 0) or 0),
-                h=float(c.get("stck_hgpr", 0) or 0),
-                l=float(c.get("stck_lwpr", 0) or 0),
-                c=float(c.get("stck_clpr", 0) or 0),
-                v=float(c.get("acml_vol", 0) or 0),
-            ))
+            if data.get("rt_cd") != "0":
+                logger.warning(f"KIS_KR API 에러: {data.get('msg1', '')}")
+                break
 
-        # 다음 구간으로
-        end_date = start_date - timedelta(days=1)
+            candles_raw = data.get("output2", [])
+            if not candles_raw:
+                break
 
-        # Rate limit 방지
-        await asyncio.sleep(0.5)
+            for c in candles_raw:
+                date_str = c.get("stck_bsop_date", "")
+                if not date_str:
+                    continue
+                try:
+                    dt = datetime.strptime(date_str, "%Y%m%d")
+                    ts = int(dt.timestamp() * 1000)
+                except:
+                    continue
 
-        # 더 이상 과거 데이터가 없으면 중단
-        if len(candles_raw) < 10:
-            break
+                all_candles.append(Candle(
+                    ts=ts,
+                    o=float(c.get("stck_oprc", 0) or 0),
+                    h=float(c.get("stck_hgpr", 0) or 0),
+                    l=float(c.get("stck_lwpr", 0) or 0),
+                    c=float(c.get("stck_clpr", 0) or 0),
+                    v=float(c.get("acml_vol", 0) or 0),
+                ))
+
+            # 다음 구간으로
+            end_date = start_date - timedelta(days=1)
+
+            # Rate limit 방지
+            await asyncio.sleep(0.5)
+
+            # 더 이상 과거 데이터가 없으면 중단
+            if len(candles_raw) < 10:
+                break
 
     # 시간순 정렬 (과거 → 최신)
     all_candles.sort(key=lambda c: c.ts)
@@ -1430,9 +1423,7 @@ async def _fetch_kis_us_paginated(
 ) -> List[Candle]:
     """KIS 해외주식 페이지네이션 조회 (BYMD로 과거 이동)"""
     import os
-    import urllib.request
-    import ssl
-    import asyncio
+    import httpx
 
     # KIS API 설정
     app_key = os.getenv("KIS_APP_KEY", "").strip()
@@ -1458,87 +1449,82 @@ async def _fetch_kis_us_paginated(
     all_candles = []
     start_time = time.time()
 
-    for excd in exchanges_to_try:
-        all_candles = []
-        bymd = ""  # 처음에는 빈값 (최신부터)
+    async with httpx.AsyncClient(timeout=30, verify=True) as client:
+        for excd in exchanges_to_try:
+            all_candles = []
+            bymd = ""  # 처음에는 빈값 (최신부터)
 
-        while len(all_candles) < needed:
-            if time.time() - start_time > timeout:
-                raise ValueError(f"시세 조회 시간 초과 ({timeout}초)")
+            while len(all_candles) < needed:
+                if time.time() - start_time > timeout:
+                    raise ValueError(f"시세 조회 시간 초과 ({timeout}초)")
 
-            headers = {
-                "Content-Type": "application/json; charset=utf-8",
-                "authorization": f"Bearer {access_token}",
-                "appkey": app_key,
-                "appsecret": app_secret,
-                "tr_id": "HHDFS76240000",
-                "custtype": "P",
-            }
+                headers = {
+                    "Content-Type": "application/json; charset=utf-8",
+                    "authorization": f"Bearer {access_token}",
+                    "appkey": app_key,
+                    "appsecret": app_secret,
+                    "tr_id": "HHDFS76240000",
+                    "custtype": "P",
+                }
 
-            params = {
-                "AUTH": "",
-                "EXCD": excd,
-                "SYMB": symbol.upper(),
-                "GUBN": gubn,
-                "BYMD": bymd,
-                "MODP": "1",
-            }
+                params = {
+                    "AUTH": "",
+                    "EXCD": excd,
+                    "SYMB": symbol.upper(),
+                    "GUBN": gubn,
+                    "BYMD": bymd,
+                    "MODP": "1",
+                }
 
-            query_string = "&".join([f"{k}={v}" for k, v in params.items()])
-            full_url = f"{url}?{query_string}"
-
-            ctx = ssl.create_default_context()
-            req = urllib.request.Request(full_url, headers=headers)
-
-            try:
-                with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
-            except Exception as e:
-                logger.warning(f"KIS_US 페이지네이션 에러 ({excd}): {e}")
-                break
-
-            if data.get("rt_cd") != "0":
-                break
-
-            candles_raw = data.get("output2", [])
-            if not candles_raw:
-                break
-
-            for c in candles_raw:
-                date_str = c.get("xymd", "")
-                if not date_str:
-                    continue
                 try:
-                    dt = datetime.strptime(date_str, "%Y%m%d")
-                    ts = int(dt.timestamp() * 1000)
-                except:
-                    continue
+                    resp = await client.get(url, headers=headers, params=params)
+                    data = resp.json()
+                except Exception as e:
+                    logger.warning(f"KIS_US 페이지네이션 에러 ({excd}): {e}")
+                    break
 
-                all_candles.append(Candle(
-                    ts=ts,
-                    o=float(c.get("open", 0) or 0),
-                    h=float(c.get("high", 0) or 0),
-                    l=float(c.get("low", 0) or 0),
-                    c=float(c.get("clos", 0) or 0),
-                    v=float(c.get("tvol", 0) or 0),
-                ))
+                if data.get("rt_cd") != "0":
+                    break
 
-            # 다음 페이지로 (가장 오래된 날짜 이전으로)
-            if candles_raw:
-                oldest_date = candles_raw[-1].get("xymd", "")
-                if oldest_date and oldest_date != bymd:
-                    bymd = oldest_date
+                candles_raw = data.get("output2", [])
+                if not candles_raw:
+                    break
+
+                for c in candles_raw:
+                    date_str = c.get("xymd", "")
+                    if not date_str:
+                        continue
+                    try:
+                        dt = datetime.strptime(date_str, "%Y%m%d")
+                        ts = int(dt.timestamp() * 1000)
+                    except:
+                        continue
+
+                    all_candles.append(Candle(
+                        ts=ts,
+                        o=float(c.get("open", 0) or 0),
+                        h=float(c.get("high", 0) or 0),
+                        l=float(c.get("low", 0) or 0),
+                        c=float(c.get("clos", 0) or 0),
+                        v=float(c.get("tvol", 0) or 0),
+                    ))
+
+                # 다음 페이지로 (가장 오래된 날짜 이전으로)
+                if candles_raw:
+                    oldest_date = candles_raw[-1].get("xymd", "")
+                    if oldest_date and oldest_date != bymd:
+                        bymd = oldest_date
+                    else:
+                        break
                 else:
                     break
-            else:
+
+                # Rate limit 방지
+                await asyncio.sleep(0.5)
+
+            # 데이터를 찾았으면 루프 종료
+            if all_candles:
                 break
-
-            # Rate limit 방지
-            await asyncio.sleep(0.5)
-
-        # 데이터를 찾았으면 루프 종료
-        if all_candles:
-            break
 
     # 시간순 정렬 (과거 → 최신)
     all_candles.sort(key=lambda c: c.ts)
