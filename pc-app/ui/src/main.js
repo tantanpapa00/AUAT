@@ -2,19 +2,12 @@ import { invoke } from '@tauri-apps/api/tauri';
 import { open } from '@tauri-apps/api/shell';
 import { createChart, ColorType, CrosshairMode } from 'lightweight-charts';
 import { API_BASE_URL, CONNECTION_TIMEOUT, MAX_RETRIES } from './config.js';
+import { Chart, registerables } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 
-// ChartDataLabels 등록 플래그
-let chartDataLabelsRegistered = false;
-
-// ChartDataLabels 지연 등록 (차트 생성 시점에 호출)
-function ensureChartDataLabels() {
-    if (!chartDataLabelsRegistered && typeof Chart !== 'undefined' && ChartDataLabels) {
-        Chart.register(ChartDataLabels);
-        chartDataLabelsRegistered = true;
-        console.log('[Chart] ChartDataLabels 등록 완료');
-    }
-}
+// Chart.js + ChartDataLabels 즉시 등록 (ESM 통합)
+Chart.register(...registerables, ChartDataLabels);
+console.log('[Chart] Chart.js + ChartDataLabels 등록 완료');
 
 // 디버깅용 전역 노출
 window.invokeCmd = invoke;
@@ -9561,9 +9554,6 @@ function renderEpsForecastChart(annualData) {
 // StockEasy 스타일 차트 렌더링 (실적/전망치 분리 + 점선 테두리)
 function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
     console.log('[renderStockEasyChart] 시작:', canvasId, chartData);
-
-    // ChartDataLabels 등록 확인 (lazy registration)
-    ensureChartDataLabels();
 
     const canvas = document.getElementById(canvasId);
     if (!canvas) {
