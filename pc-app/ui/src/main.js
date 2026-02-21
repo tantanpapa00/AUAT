@@ -9457,11 +9457,12 @@ async function loadAndRenderAllFinancialCharts(code, annualData) {
     console.log('[loadAndRenderAllFinancialCharts] annual:', annual);
     console.log('[loadAndRenderAllFinancialCharts] quarter:', quarter);
 
-    // 매출액 — 연간 (API가 억원 단위로 반환)
+    // 매출액 — 연간 (API가 억원 단위로 반환) + GPM 라인
     renderStockEasyChart('sd-fc-revenue-annual', {
         periods: annual.periods || [],
         values: annual.revenue || [],
         isEstimate: annual.isConsensus || [],
+        gpm: annual.gpm || [],  // 매출총이익률 (%)
     }, FINANCIAL_CHART_COLORS.revenue, 'revenue');
 
     // 매출액 — 분기
@@ -9469,6 +9470,7 @@ async function loadAndRenderAllFinancialCharts(code, annualData) {
         periods: quarter.periods || [],
         values: quarter.revenue || [],
         isEstimate: quarter.isConsensus || [],
+        gpm: quarter.gpm || [],
     }, FINANCIAL_CHART_COLORS.revenue, 'revenue');
 
     // 영업이익 — 연간 (OPM 라인 포함)
@@ -9530,13 +9532,26 @@ function renderEpsForecastChart(annualData) {
         return;
     }
 
+    // stockeasy 스타일 헤더: 시작/현재/변화율
+    const firstEps = forecastData[0].eps;
+    const lastEps = forecastData[forecastData.length - 1].eps;
+    const changePct = firstEps > 0 ? ((lastEps - firstEps) / firstEps * 100).toFixed(1) : 0;
+    const pctColor = changePct >= 0 ? '#22c55e' : '#ef4444';
+    const pctSign = changePct >= 0 ? '+' : '';
+
     // 차트 HTML 생성
     container.innerHTML = `
-        <div class="sd-forecast-summary">
-            <div class="sd-forecast-item">
-                <span class="sd-forecast-label">최신 전망</span>
-                <span class="sd-forecast-value">${forecastData[0].eps.toLocaleString()}원</span>
-                <span class="sd-forecast-period">${forecastData[0].period}</span>
+        <div class="sd-forecast-summary" style="margin-bottom:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <span style="font-size:11px;color:#888;">${forecastData[0].period}~${forecastData[forecastData.length-1].period} 전망</span>
+                <span style="font-size:10px;color:#666;">${forecastData.length}개 추정치</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;">
+                <span style="color:#aaa;">시작: ${firstEps.toLocaleString()}원</span>
+                <span>
+                    현재: <b style="color:#a855f7;">${lastEps.toLocaleString()}원</b>
+                    <span style="color:${pctColor};margin-left:4px;">(${pctSign}${changePct}%)</span>
+                </span>
             </div>
         </div>
         <div class="sd-trend-chart-wrapper" style="height:100px;">
@@ -9620,7 +9635,7 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
         canvas._chartInstance.destroy();
     }
 
-    const { periods, values, isEstimate, opm } = chartData;
+    const { periods, values, isEstimate, opm, gpm } = chartData;
     console.log('[renderStockEasyChart] 데이터:', { periods, values, isEstimate, opm });
 
     if (!values || values.length === 0) {
@@ -9710,6 +9725,27 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
             borderDash: [6, 3],
             pointRadius: 4,
             pointBackgroundColor: '#f59e0b',
+            fill: false,
+            yAxisID: 'y1',
+            order: 1,
+            datalabels: { display: false },
+        });
+    }
+
+    // GPM 라인 (매출액 연간 차트에서만)
+    const hasGpmData = gpm && gpm.length > 0 && gpm.some(v => v !== null && v !== undefined && v > 0);
+    const showGpmLine = hasGpmData && chartType === 'revenue' && isAnnualChart;
+
+    if (showGpmLine) {
+        datasets.push({
+            type: 'line',
+            label: 'GPM',
+            data: gpm,
+            borderColor: '#3b82f6',  // 파란색
+            borderWidth: 2,
+            borderDash: [6, 3],
+            pointRadius: 4,
+            pointBackgroundColor: '#3b82f6',
             fill: false,
             yAxisID: 'y1',
             order: 1,
@@ -9810,13 +9846,13 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
                     },
                     grid: { color: 'rgba(255,255,255,0.04)' },
                 },
-                // OPM 라인용 우측 Y축 - showOpmLine이 true일 때만 포함
-                ...(showOpmLine ? {
+                // OPM/GPM 라인용 우측 Y축 (% 단위)
+                ...((showOpmLine || showGpmLine) ? {
                     y1: {
                         position: 'right',
                         display: true,
                         ticks: {
-                            color: '#f59e0b',
+                            color: showOpmLine ? '#f59e0b' : '#3b82f6',  // OPM=주황, GPM=파랑
                             font: { size: 8 },
                             callback: (v) => v.toFixed(0) + '%',
                         },

@@ -2994,6 +2994,58 @@ async def _fetch_fnguide_consensus(code: str) -> dict:
 
             print(f"[FnGuide] {code} parsed: periods={result['periods']}, eps={result['eps'][:3] if result['eps'] else []}")
 
+            # SVD_Finance에서 매출총이익 추가 파싱 (SVD_Main에는 없음)
+            if result["periods"] and not result["gross_profit"]:
+                try:
+                    finance_url = f"http://comp.fnguide.com/SVO2/ASP/SVD_Finance.asp?pGB=1&gicode=A{code}&cID=&MenuYn=Y&ReportGB=D&NewMenuID=103&stkGb=701"
+                    r2 = await client.get(finance_url, headers=headers)
+                    r2.encoding = "utf-8"
+                    if r2.status_code == 200:
+                        soup2 = BeautifulSoup(r2.text, "html.parser")
+                        tables2 = soup2.find_all("table")
+                        for t2 in tables2[:2]:  # 첫 2개 테이블만 (연간/분기 손익계산서)
+                            rows2 = t2.find_all("tr")
+                            if len(rows2) < 4:
+                                continue
+                            header2 = rows2[0].find_all(["th", "td"])
+                            header_texts2 = [c.get_text(strip=True) for c in header2]
+                            # 연간 테이블 확인 (2022, 2023, 2024 포함)
+                            if not any("2022" in h or "2023" in h for h in header_texts2):
+                                continue
+                            for row2 in rows2[1:10]:
+                                cells2 = row2.find_all(["th", "td"])
+                                if len(cells2) < 4:
+                                    continue
+                                label2 = cells2[0].get_text(strip=True)
+                                if "매출총이익" in label2:
+                                    gp_values = []
+                                    for idx, p in enumerate(result["periods"]):
+                                        # 연도 매칭: 2022 → cells2[1], 2023 → cells2[2], etc.
+                                        cell_idx = idx + 1
+                                        if cell_idx < len(cells2):
+                                            val = cells2[cell_idx].get_text(strip=True).replace(",", "").replace("-", "").strip()
+                                            try:
+                                                gp_values.append(int(float(val)) if val else None)
+                                            except:
+                                                gp_values.append(None)
+                                        else:
+                                            gp_values.append(None)
+                                    if gp_values:
+                                        result["gross_profit"] = gp_values
+                                        # GPM 계산
+                                        result["gpm"] = []
+                                        for rev, gp in zip(result["revenue"], gp_values):
+                                            if rev and rev > 0 and gp:
+                                                result["gpm"].append(round(gp / rev * 100, 1))
+                                            else:
+                                                result["gpm"].append(None)
+                                        print(f"[FnGuide] {code} GPM: {result['gpm'][:3]}")
+                                    break
+                            if result["gross_profit"]:
+                                break
+                except Exception as e2:
+                    print(f"[FnGuide] GPM fetch error for {code}: {e2}")
+
     except Exception as e:
         print(f"[FnGuide] Error fetching consensus for {code}: {e}")
         traceback.print_exc()
