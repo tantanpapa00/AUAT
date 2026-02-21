@@ -1251,39 +1251,50 @@ async def get_daily_prices(
 # =====================================================
 
 async def get_naver_stock_price(stock_code: str) -> Optional[Dict[str, Any]]:
-    """네이버 금융에서 국내주식 시세 조회 (공개 API)"""
-    # 네이버 금융 시세 API
-    url = f"https://m.stock.naver.com/api/stock/{stock_code}/basic"
+    """네이버 금융에서 국내주식 시세 조회 (공개 API + fchart)"""
+    import re
+
+    result = {
+        "current": 0,
+        "change": 0.0,
+        "change_amount": 0,
+        "high": 0,
+        "low": 0,
+        "open": 0,
+        "volume": 0,
+        "market_cap": 0,
+        "source": "naver"
+    }
 
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
+            # 1. 기본 정보 (종가, 변동률, 시가총액)
+            url = f"https://m.stock.naver.com/api/stock/{stock_code}/basic"
             resp = await client.get(url, headers={
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
             })
             if resp.status_code == 200:
                 data = resp.json()
+                result["current"] = int(data.get("closePrice", "0").replace(",", ""))
+                result["change_amount"] = int(data.get("compareToPreviousClosePrice", "0").replace(",", ""))
+                result["change"] = float(data.get("fluctuationsRatio", "0"))
+                result["market_cap"] = int(data.get("marketValue", "0").replace(",", ""))
 
-                # 현재가 정보 추출
-                current = int(data.get("closePrice", "0").replace(",", ""))
-                change_amount = int(data.get("compareToPreviousClosePrice", "0").replace(",", ""))
-                change_rate = float(data.get("fluctuationsRatio", "0"))
-                high = int(data.get("highPrice", "0").replace(",", ""))
-                low = int(data.get("lowPrice", "0").replace(",", ""))
-                open_price = int(data.get("openPrice", "0").replace(",", ""))
-                volume = int(data.get("accumulatedTradingVolume", "0").replace(",", ""))
-                market_cap = int(data.get("marketValue", "0").replace(",", ""))
+            # 2. fchart에서 시가/고가/저가/거래량 (basic API에 없음)
+            fchart_url = f"https://fchart.stock.naver.com/sise.nhn?symbol={stock_code}&timeframe=day&count=1&requestType=0"
+            fchart_resp = await client.get(fchart_url)
+            if fchart_resp.status_code == 200:
+                items = re.findall(r'<item data="([^"]+)"', fchart_resp.text)
+                if items:
+                    parts = items[-1].split("|")
+                    if len(parts) >= 6:
+                        result["open"] = int(parts[1])
+                        result["high"] = int(parts[2])
+                        result["low"] = int(parts[3])
+                        result["volume"] = int(parts[5])
 
-                return {
-                    "current": current,
-                    "change": change_rate,
-                    "change_amount": change_amount,
-                    "high": high,
-                    "low": low,
-                    "open": open_price,
-                    "volume": volume,
-                    "market_cap": market_cap,
-                    "source": "naver"
-                }
+            if result["current"] > 0:
+                return result
     except Exception as e:
         print(f"[Naver] Price error for {stock_code}: {e}")
 
