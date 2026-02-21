@@ -2891,23 +2891,46 @@ async def _fetch_fnguide_consensus(code: str) -> dict:
 
                 if not any("2024" in h for h in header_texts):
                     continue
-                if not any("(E)" in h or "Estimate" in h for h in header_texts):
+                # (E) = Estimate, (P) = Provisional (잠정실적)
+                if not any("(E)" in h or "(P)" in h or "Estimate" in h or "Provisional" in h for h in header_texts):
                     continue
 
-                # 연도 컬럼 위치 파싱
+                # 연도 컬럼 위치 파싱 (연간 데이터만 - 분기 제외)
                 year_cols = []
                 estimate_count = 0
                 for i, h in enumerate(header_texts):
-                    if any(y in h for y in ["2022", "2023", "2024"]):
-                        year_cols.append((i, h.replace("/12", ""), False))
-                    elif "(P)" in h or "Provisional" in h:
-                        year_cols.append((i, "2025(E)", True))
-                    elif "(E)" in h or "Estimate" in h:
-                        year_num = 2026 + estimate_count
-                        year_cols.append((i, f"{year_num}(E)", True))
-                        estimate_count += 1
+                    # 분기 데이터 제외 (2025/03, 2025/06, 2025/09 등)
+                    if any(q in h for q in ["/03", "/06", "/09"]):
+                        continue
+                    # 연간 데이터만 처리 (2022/12, 2023/12, etc.)
+                    if any(y in h for y in ["2020", "2021", "2022", "2023", "2024"]):
+                        year_str = h.replace("/12", "")
+                        year_cols.append((i, year_str, False))
+                    elif "2025" in h or ((("(P)" in h or "Provisional" in h) and "2025" not in "".join(header_texts[:i]))):
+                        # 2025년 또는 (P) Provisional
+                        if not any(y == "2025(E)" for _, y, _ in year_cols):
+                            year_cols.append((i, "2025(E)", True))
+                    elif "2026" in h or ((("(E)" in h or "Estimate" in h) and estimate_count == 0)):
+                        if not any(y == "2026(E)" for _, y, _ in year_cols):
+                            year_cols.append((i, "2026(E)", True))
+                            estimate_count = 1
+                    elif "2027" in h or ((("(E)" in h or "Estimate" in h) and estimate_count == 1)):
+                        if not any(y == "2027(E)" for _, y, _ in year_cols):
+                            year_cols.append((i, "2027(E)", True))
+                            estimate_count = 2
 
-                if len(year_cols) < 4:
+                # 최소 6개 연도 필요 (Table 10은 4개, Table 11은 8개)
+                if len(year_cols) < 6:
+                    continue
+
+                # 중복 연도 제외 시 최소 6개 필요
+                unique_years = set(y for _, y, _ in year_cols)
+                if len(unique_years) < 6:
+                    continue
+
+                # 2026(E) 또는 2027(E) 전망치 포함 필수
+                has_future_estimate = any("2026" in y or "2027" in y for y in unique_years)
+                if not has_future_estimate:
                     continue
 
                 year_cols = year_cols[-6:] if len(year_cols) > 6 else year_cols
