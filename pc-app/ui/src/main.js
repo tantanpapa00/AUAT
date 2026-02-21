@@ -9705,99 +9705,96 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                clip: false,  // 차트 영역 밖으로 라벨 표시 허용
+                clip: false,
                 interaction: { mode: 'index', intersect: false },
                 layout: {
-                    padding: { top: 35, bottom: 2, left: 4, right: 4 }  // 상단 라벨 공간 확대
+                    padding: { top: 35, bottom: 2, left: 4, right: 4 }
                 },
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    backgroundColor: 'rgba(17, 26, 46, 0.95)',
-                    titleColor: '#E5E7EB',
-                    bodyColor: '#E5E7EB',
-                    borderColor: '#22304A',
-                    borderWidth: 1,
-                    padding: 8,
-                    filter: (item) => item.raw !== null,
-                    callbacks: {
-                        label: (ctx) => {
-                            const v = ctx.raw;
-                            if (v === null) return null;
-                            const isEst = isEstimate[ctx.dataIndex];
-                            const estLabel = isEst ? ' (전망)' : '';
-                            return formatLabel(v) + estLabel;
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(17, 26, 46, 0.95)',
+                        titleColor: '#E5E7EB',
+                        bodyColor: '#E5E7EB',
+                        borderColor: '#22304A',
+                        borderWidth: 1,
+                        padding: 8,
+                        filter: (item) => item.raw !== null,
+                        callbacks: {
+                            label: (ctx) => {
+                                const v = ctx.raw;
+                                if (v === null) return null;
+                                const isEst = isEstimate[ctx.dataIndex];
+                                const estLabel = isEst ? ' (전망)' : '';
+                                return formatLabel(v) + estLabel;
+                            },
                         },
                     },
-                },
-                datalabels: {
-                    display: (ctx) => ctx.dataset.data[ctx.dataIndex] !== null,
-                    anchor: 'end',      // ★ 고정값: 막대 끝(상단)
-                    align: 'top',       // ★ 고정값: 끝점 위쪽
-                    offset: 4,          // ★ 막대와 라벨 간격
-                    clip: false,
-                    color: '#ccc',
-                    font: { size: 11, weight: 'bold' },
-                    formatter: (v) => {
-                        if (v === null || v === undefined || v === 0) return '';
-                        if (chartType === 'eps') {
-                            return Math.round(v).toLocaleString() + '원';
-                        }
-                        const abs = Math.abs(v);
-                        const sign = v < 0 ? '-' : '';
-                        if (abs >= 10000) return sign + (abs / 10000).toFixed(1) + '조';
-                        if (abs >= 100) return sign + Math.round(abs) + '억';
-                        return sign + v;
-                    },
-                },
-            },
-            scales: {
-                x: {
-                    stacked: true,
-                    ticks: {
-                        color: (ctx) => isEstimate[ctx.index] ? '#22c55e' : '#888',
-                        font: { size: 9 },
-                    },
-                    grid: { display: false },
-                },
-                y: {
-                    stacked: true,
-                    grace: '10%',  // 라벨 공간을 위해 Y축 상단 여유
-                    ticks: {
-                        color: '#666',
-                        font: { size: 8 },
-                        maxTicksLimit: 4,
-                        callback: (v) => {
+                    datalabels: {
+                        display: (ctx) => ctx.dataset.data[ctx.dataIndex] !== null,
+                        anchor: 'end',
+                        align: 'top',
+                        offset: 4,
+                        clip: false,
+                        color: '#ccc',
+                        font: { size: 11, weight: 'bold' },
+                        formatter: (v) => {
+                            if (v === null || v === undefined || v === 0) return '';
                             if (chartType === 'eps') {
-                                return v.toLocaleString();
+                                return Math.round(v).toLocaleString() + '원';
                             }
                             const abs = Math.abs(v);
-                            if (abs >= 10000) return (v / 10000).toFixed(0) + '조';
-                            if (abs >= 100) return Math.round(v) + '억';
-                            return v;
+                            const sign = v < 0 ? '-' : '';
+                            if (abs >= 10000) return sign + (abs / 10000).toFixed(1) + '조';
+                            if (abs >= 100) return sign + Math.round(abs) + '억';
+                            return sign + v;
                         },
                     },
-                    grid: { color: 'rgba(255,255,255,0.04)' },
                 },
-                // OPM/GPM 라인용 우측 Y축 (% 단위)
-                // GPM은 연하게, OPM은 기존 스타일 유지
-                ...((showOpmLine || showGpmLine) ? {
-                    y1: {
-                        position: 'right',
-                        display: true,
+                scales: {
+                    x: {
+                        stacked: true,
                         ticks: {
-                            color: 'rgba(136,136,136,0.3)',  // ★ 매우 연하게
-                            font: { size: 8 },
-                            callback: (v) => v.toFixed(0) + '%',
-                            maxTicksLimit: 3,
+                            color: (ctx) => isEstimate[ctx.index] ? '#22c55e' : '#888',
+                            font: { size: 9 },
                         },
                         grid: { display: false },
-                        // ★ min 제거 - 데이터 범위에 맞게 자동
-                    }
-                } : {}),
+                    },
+                    y: {
+                        stacked: true,
+                        grace: '10%',
+                        ticks: {
+                            color: '#666',
+                            font: { size: 8 },
+                            maxTicksLimit: 4,
+                            callback: (v) => {
+                                if (chartType === 'eps') {
+                                    return v.toLocaleString();
+                                }
+                                const abs = Math.abs(v);
+                                if (abs >= 10000) return (v / 10000).toFixed(0) + '조';
+                                if (abs >= 100) return Math.round(v) + '억';
+                                return v;
+                            },
+                        },
+                        grid: { color: 'rgba(255,255,255,0.04)' },
+                    },
+                    ...((showOpmLine || showGpmLine) ? {
+                        y1: {
+                            position: 'right',
+                            display: true,
+                            ticks: {
+                                color: 'rgba(136,136,136,0.3)',
+                                font: { size: 8 },
+                                callback: (v) => v.toFixed(0) + '%',
+                                maxTicksLimit: 3,
+                            },
+                            grid: { display: false },
+                        }
+                    } : {}),
+                },
             },
-        },
-    });
+        });
         console.log('[renderStockEasyChart] Chart 생성 완료:', canvasId);
     } catch (error) {
         console.error('[renderStockEasyChart] Chart 생성 오류:', canvasId, error);
