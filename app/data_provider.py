@@ -2782,6 +2782,9 @@ async def get_stock_summary_kr(code: str) -> dict:
         "price": 0,
         "change": 0,
         "change_pct": 0,
+        "open": 0,
+        "high": 0,
+        "low": 0,
         "market_cap": "",
         "market_cap_raw": 0,
         "per": 0,
@@ -2850,6 +2853,25 @@ async def get_stock_summary_kr(code: str) -> dict:
                         result["debt_ratio"] = _parse_float(val.replace("%", "").strip())
                     elif key == "operatingMargin":
                         result["operating_margin"] = _parse_float(val.replace("%", "").strip())
+
+            # 3. fchart에서 시가/고가/저가 (count=2: 비거래일 대응)
+            fchart_url = f"https://fchart.stock.naver.com/sise.nhn?symbol={code}&timeframe=day&count=2&requestType=0"
+            fchart_r = await client.get(fchart_url)
+            if fchart_r.status_code == 200:
+                import re
+                items = re.findall(r'<item data="([^"]+)"', fchart_r.text)
+                if items:
+                    parts = items[-1].split("|")
+                    if len(parts) >= 6:
+                        o, h, l = int(parts[1]), int(parts[2]), int(parts[3])
+                        # 비거래일이면 전일 데이터 사용
+                        if o == 0 and len(items) >= 2:
+                            prev = items[-2].split("|")
+                            if len(prev) >= 6:
+                                o, h, l = int(prev[1]), int(prev[2]), int(prev[3])
+                        result["open"] = o
+                        result["high"] = h
+                        result["low"] = l
 
         _set_cache(cache_key, result)
     except Exception as e:

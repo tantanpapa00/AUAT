@@ -1280,18 +1280,24 @@ async def get_naver_stock_price(stock_code: str) -> Optional[Dict[str, Any]]:
                 result["change"] = float(data.get("fluctuationsRatio", "0"))
                 result["market_cap"] = int(data.get("marketValue", "0").replace(",", ""))
 
-            # 2. fchart에서 시가/고가/저가/거래량 (basic API에 없음)
-            fchart_url = f"https://fchart.stock.naver.com/sise.nhn?symbol={stock_code}&timeframe=day&count=1&requestType=0"
+            # 2. fchart에서 시가/고가/저가/거래량 (count=2: 비거래일 대응)
+            fchart_url = f"https://fchart.stock.naver.com/sise.nhn?symbol={stock_code}&timeframe=day&count=2&requestType=0"
             fchart_resp = await client.get(fchart_url)
             if fchart_resp.status_code == 200:
                 items = re.findall(r'<item data="([^"]+)"', fchart_resp.text)
                 if items:
                     parts = items[-1].split("|")
                     if len(parts) >= 6:
-                        result["open"] = int(parts[1])
-                        result["high"] = int(parts[2])
-                        result["low"] = int(parts[3])
-                        result["volume"] = int(parts[5])
+                        o, h, l, v = int(parts[1]), int(parts[2]), int(parts[3]), int(parts[5])
+                        # 비거래일(토/일/공휴일)이면 시가=0 → 전일 데이터 사용
+                        if o == 0 and len(items) >= 2:
+                            prev = items[-2].split("|")
+                            if len(prev) >= 6:
+                                o, h, l, v = int(prev[1]), int(prev[2]), int(prev[3]), int(prev[5])
+                        result["open"] = o
+                        result["high"] = h
+                        result["low"] = l
+                        result["volume"] = v
 
             if result["current"] > 0:
                 return result
