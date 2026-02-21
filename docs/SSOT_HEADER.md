@@ -439,6 +439,35 @@
 - Day 25: DONE (ETF 대시보드 개선 — ETFCheck 스타일 매칭)
 - Day 26: ✅ 완료 (Phase 7.5 스크리너 최적화 + Phase 8 종목상세)
 - Day 27: ✅ 완료 (Phase 8-2 FnGuide 6년 컨센서스 + stockeasy 복제)
+- Day 28: ✅ 완료 (백테스트 숨은 필터 제거 + warmup 최적화)
+
+## Day 28 진행사항 (2026-02-22)
+
+### 백테스트 신호 누락 버그 수정 ✅ DONE
+
+**문제**: PineScript에서는 많은 BUY 신호 발생 → Python 백테스트는 3건만 발생 (삼성전자 1000일)
+
+**원인 분석**:
+1. `use_lower_band_buy=True` 숨은 필터가 신호 차단
+2. warmup 기간 250봉 과다 (실제 필요: 200봉)
+
+**수정 내역**:
+- `models.py`: `use_lower_band_buy`, `lower_band_buffer` 필드 완전 삭제
+- `signal_generator.py`: 하단밴드 필터 조건 삭제
+- `backtest_engine.py`: warmup 250→200봉 최적화, debug 모드 추가
+
+**결과 검증** (삼성전자 005930, 2022-01-01 ~ 2025-02-22):
+| 항목 | 수정 전 | 수정 후 |
+|------|---------|---------|
+| BUY 거래 | 7건 | **14건** |
+| 총 수익률 | 22.81% | **52.59%** |
+| 승률 | 71.4% | **85.7%** |
+
+| 커밋 | 메시지 |
+|------|--------|
+| 8e6ec09 | fix: use_lower_band_buy 숨은 필터 제거 및 warmup 최적화 |
+
+---
 
 ## Day 27 진행사항 (2026-02-21)
 
