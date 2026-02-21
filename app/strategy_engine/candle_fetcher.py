@@ -1314,6 +1314,7 @@ async def _fetch_kis_kr_paginated(
     """KIS 국내주식 페이지네이션 조회 (최대 100일씩, 구간 분할)"""
     import os
     import httpx
+    import asyncio
 
     # KIS API 설정
     app_key = os.getenv("KIS_APP_KEY", "").strip()
@@ -1424,6 +1425,7 @@ async def _fetch_kis_us_paginated(
     """KIS 해외주식 페이지네이션 조회 (BYMD로 과거 이동)"""
     import os
     import httpx
+    import asyncio
 
     # KIS API 설정
     app_key = os.getenv("KIS_APP_KEY", "").strip()
