@@ -231,8 +231,6 @@ class MRConfig:
     r4_filt_prev_signal: bool = True
     r4_filt_prev_exec: bool = False
 
-    # Filters
-    use_lower_band_buy: bool = True
-    lower_band_buffer: float = 0.0
+    # Filters (use_lower_band_buy 제거됨 - 불필요한 숨은 필터였음)
     use_add_buy_gap: bool = False
     add_buy_gap_pct: float = 2.0

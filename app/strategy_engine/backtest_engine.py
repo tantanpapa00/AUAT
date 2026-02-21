@@ -439,6 +439,7 @@ def run_mr_backtest(
     config: Optional[MRConfig] = None,
     initial_capital: float = 10000000.0,
     fee_rate: float = 0.0,  # PineScript 동일: 0% 수수료 (트레이딩뷰 기본값)
+    debug: bool = False,  # 디버그 로깅 활성화
 ) -> BacktestResult:
     """
     MR 프리미엄 전략 백테스트 실행 (벡터화 최적화 버전)
@@ -457,21 +458,22 @@ def run_mr_backtest(
     if config is None:
         config = MRConfig()
 
-    # 지표별 최소 필요 봉 수 동적 계산
-    # OSC preset1: bb_len=250, preset2: bb_len=200
-    osc_preset = config.osc_preset
-    if osc_preset == "preset1":
-        bb_len_required = 250
-    elif osc_preset == "preset2":
-        bb_len_required = 200
-    else:  # custom
-        bb_len_required = 100  # custom은 보통 더 작은 값 사용
+    # 지표별 최소 필요 봉 수 계산
+    # 핵심 신호(sig_up_raw)에 필요한 지표:
+    # - smoother_F(close, smooth_len*2): EMA warmup ~40봉 (smooth=20) 또는 ~8봉 (smooth=4)
+    # - ta.stdev(oscillator, 50): 50봉
+    # - ta.highest(stdev_osc, 50): 50봉
+    # - ta.hma(osc, 30): 30봉
+    # - HTF VWMA200: 200봉 (가장 긴 지표)
 
-    required_bars = max(
-        bb_len_required + 50,  # OSC Bollinger Band
-        200 + 50,              # HTF VWMA200
-        100                    # 최소 안전선
-    )
+    osc_preset = config.osc_preset
+    smooth_len = config.osc_smooth_len if osc_preset == "custom" else (20 if osc_preset == "preset1" else 14)
+
+    # 신호 생성에 필요한 봉 수: OSC(~60봉) vs HTF VWMA(200봉)
+    osc_warmup = max(smooth_len * 2, 50, 30) + 10  # OSC 지표 + 여유
+    htf_warmup = 200  # HTF VWMA200이 가장 긴 지표
+
+    required_bars = max(osc_warmup, htf_warmup, 100)  # = 200봉
 
     if len(candles) < required_bars:
         return BacktestResult(
@@ -521,6 +523,22 @@ def run_mr_backtest(
         spo_arrays["normalized_osc"],
         spo_arrays["threshold"]
     )
+
+    # 디버그: sig_up_raw 통계
+    if debug:
+        sig_up_count = np.sum(sig_arrays["sig_up_raw"])
+        sig_dn_count = np.sum(sig_arrays["sig_dn_raw"])
+        print(f"[DEBUG] 전체 봉 수: {len(candles)}")
+        print(f"[DEBUG] sig_up_raw=True 봉: {sig_up_count}개")
+        print(f"[DEBUG] sig_dn_raw=True 봉: {sig_dn_count}개")
+        print(f"[DEBUG] threshold: {spo_arrays['threshold']}")
+
+        # warmup 기간의 신호 확인
+        lookback_val = min(required_bars, len(candles) - 1)
+        warmup_sig_up = np.sum(sig_arrays["sig_up_raw"][:lookback_val])
+        active_sig_up = np.sum(sig_arrays["sig_up_raw"][lookback_val:])
+        print(f"[DEBUG] warmup 기간(0~{lookback_val-1}) sig_up: {warmup_sig_up}개 (스킵됨)")
+        print(f"[DEBUG] 활성 기간({lookback_val}~{len(candles)-1}) sig_up: {active_sig_up}개")
 
     # 3. HTF 지표 사전 계산 (전체 HTF 시리즈에서 한 번만)
     htf_arrays = precompute_htf_arrays(htf_closes, htf_highs, htf_lows, htf_volumes)
@@ -578,6 +596,12 @@ def run_mr_backtest(
         # 벡터화: 사전 계산된 배열에서 인덱스로 접근
         osc_data = get_osc_data_at_index(spo_arrays, sig_arrays, closes, i)
 
+        # 디버그: sig_up_raw=True인 봉에서 lower_band 필터 체크
+        if debug and osc_data.sig_up_raw:
+            from datetime import datetime as dt
+            ts_str = dt.fromtimestamp(candle.ts / 1000).strftime("%Y-%m-%d")
+            print(f"[DEBUG] {ts_str} | sig_up=True | osc={osc_data.normalized_osc:.3f} | price={price:.0f}")
+
         # HTF 지표 (타임스탬프 기반 매핑, request.security 모방)
         htf_idx = htf_idx_map[i]
         htf_ind = get_htf_indicators_at_index(htf_arrays, htf_idx)
@@ -607,6 +631,11 @@ def run_mr_backtest(
             current_ts=candle.ts,
         )
 
+        if debug and osc_data.sig_up_raw and signal.action == "none":
+            from datetime import datetime as dt
+            ts_str = dt.fromtimestamp(candle.ts / 1000).strftime("%Y-%m-%d")
+            print(f"[DEBUG] {ts_str} | sig_up=True BUT action=none | reason={signal.reason_code} | regime={regime}")
+
         if signal.action != "none":
             signals.append({
                 "bar_index": i,
@@ -616,6 +645,10 @@ def run_mr_backtest(
                 "regime": signal.regime,
                 "tranche_pct": signal.tranche_pct,
             })
+            if debug:
+                from datetime import datetime as dt
+                ts_str = dt.fromtimestamp(candle.ts / 1000).strftime("%Y-%m-%d")
+                print(f"[DEBUG] {ts_str} | ACTION={signal.action.upper()} | reason={signal.reason_code} | regime={regime} | price={price:.0f}")
 
             # 거래 실행
             if signal.action == "buy" and capital > 0:

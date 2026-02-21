@@ -146,12 +146,6 @@ def check_buy_filters(
     # Get regime-specific config
     prefix = f"r{regime}_" if regime > 0 else "r1_"
 
-    # Lower band filter
-    if config.use_lower_band_buy:
-        lower_with_buffer = osc_data.lower_band + config.lower_band_buffer
-        if osc_data.normalized_osc > lower_with_buffer:
-            return False, "하단밴드 조건X"
-
     # Below average price filter
     filt_below_avg = getattr(config, f"{prefix}filt_below_avg", False)
     if has_position and filt_below_avg and avg_price is not None:
