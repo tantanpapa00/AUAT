@@ -9732,34 +9732,22 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
                 },
                 datalabels: {
                     display: (ctx) => ctx.dataset.data[ctx.dataIndex] !== null,
-                    anchor: (ctx) => {
-                        const v = ctx.dataset.data[ctx.dataIndex];
-                        return (v !== null && v >= 0) ? 'end' : 'start';
-                    },
-                    align: (ctx) => {
-                        const v = ctx.dataset.data[ctx.dataIndex];
-                        return (v !== null && v >= 0) ? 'top' : 'bottom';
-                    },
-                    offset: 6,  // 막대와 간격 확대
-                    clamp: false,
-                    clip: false,  // 라벨 잘림 방지
-                    color: '#d0d8e4',
-                    font: { size: isAnnualChart ? 10 : 8, weight: 'bold' },  // 분기는 작게
+                    anchor: 'end',      // ★ 고정값: 막대 끝(상단)
+                    align: 'top',       // ★ 고정값: 끝점 위쪽
+                    offset: 4,          // ★ 막대와 라벨 간격
+                    clip: false,
+                    color: '#ccc',
+                    font: { size: 11, weight: 'bold' },
                     formatter: (v) => {
                         if (v === null || v === undefined || v === 0) return '';
-                        // 분기 차트에서는 단위 축약
-                        if (!isAnnualChart) {
-                            if (chartType === 'eps') {
-                                // EPS 분기: "원" 생략
-                                return Math.round(v).toLocaleString();
-                            }
-                            // 매출/영업이익 분기: "억" 생략
-                            const abs = Math.abs(v);
-                            const sign = v < 0 ? '-' : '';
-                            if (abs >= 10000) return sign + (abs / 10000).toFixed(1) + '조';
-                            return sign + Math.round(abs).toLocaleString();
+                        if (chartType === 'eps') {
+                            return Math.round(v).toLocaleString() + '원';
                         }
-                        return formatLabel(v);
+                        const abs = Math.abs(v);
+                        const sign = v < 0 ? '-' : '';
+                        if (abs >= 10000) return sign + (abs / 10000).toFixed(1) + '조';
+                        if (abs >= 100) return sign + Math.round(abs) + '억';
+                        return sign + v;
                     },
                 },
             },
@@ -9798,13 +9786,13 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
                         position: 'right',
                         display: true,
                         ticks: {
-                            color: showGpmLine ? 'rgba(136,136,136,0.5)' : '#f59e0b',  // GPM=연한 회색, OPM=주황
-                            font: { size: showGpmLine ? 9 : 8 },
+                            color: 'rgba(136,136,136,0.3)',  // ★ 매우 연하게
+                            font: { size: 8 },
                             callback: (v) => v.toFixed(0) + '%',
-                            maxTicksLimit: showGpmLine ? 3 : 5,  // GPM은 눈금 적게
+                            maxTicksLimit: 3,
                         },
                         grid: { display: false },
-                        min: 0,
+                        // ★ min 제거 - 데이터 범위에 맞게 자동
                     }
                 } : {}),
             },
