@@ -45,6 +45,27 @@ def osc_preset_to_int(preset) -> int:
     return 1
 
 
+def after_max_to_int(value) -> int:
+    """Convert buy_after_max/sell_after_max string to integer for DB storage.
+
+    'extend' → 0, 'cycle' → 1, 'stop' → 2
+    """
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        mapping = {"extend": 0, "cycle": 1, "stop": 2}
+        return mapping.get(value.lower(), 0)
+    return 0
+
+
+def int_to_after_max(value) -> str:
+    """Convert integer back to string for API response."""
+    if isinstance(value, str):
+        return value
+    mapping = {0: "extend", 1: "cycle", 2: "stop"}
+    return mapping.get(value, "extend")
+
+
 # Create router
 router = APIRouter(prefix="/api/premium", tags=["premium"])
 
@@ -206,8 +227,8 @@ async def list_premium_configs(
             min_profit_pct=row[7],
             buy_tranches=row[8] if row[8] else [25, 50, 75, 100],
             sell_tranches=row[9] if row[9] else [50, 100],
-            buy_after_max=row[10] or "extend",
-            sell_after_max=row[11] or "extend",
+            buy_after_max=int_to_after_max(row[10]),
+            sell_after_max=int_to_after_max(row[11]),
             buy_stage_1_only=bool(row[12]),
             sell_stage_1_only=bool(row[13]),
             use_lower_band_filter=bool(row[14]),
@@ -264,8 +285,8 @@ async def get_premium_config(
         min_profit_pct=row[7],
         buy_tranches=row[8] if row[8] else [25, 50, 75, 100],
         sell_tranches=row[9] if row[9] else [50, 100],
-        buy_after_max=row[10] or "extend",
-        sell_after_max=row[11] or "extend",
+        buy_after_max=int_to_after_max(row[10]),
+        sell_after_max=int_to_after_max(row[11]),
         buy_stage_1_only=bool(row[12]),
         sell_stage_1_only=bool(row[13]),
         use_lower_band_filter=bool(row[14]),
@@ -419,8 +440,8 @@ async def create_premium_config(
                 "min_profit_pct": config.min_profit_pct,
                 "buy_tranches": json.dumps(config.buy_tranches),
                 "sell_tranches": json.dumps(config.sell_tranches),
-                "buy_after_max": config.buy_after_max,
-                "sell_after_max": config.sell_after_max,
+                "buy_after_max": after_max_to_int(config.buy_after_max),
+                "sell_after_max": after_max_to_int(config.sell_after_max),
                 "buy_stage_1_only": config.buy_stage_1_only,
                 "sell_stage_1_only": config.sell_stage_1_only,
                 "use_lower_band_filter": config.use_lower_band_filter,
@@ -458,7 +479,7 @@ async def create_premium_config(
             cash_use_pct=row[5], hard_cap_pct=row[6], min_profit_pct=row[7],
             buy_tranches=row[8] if row[8] else [25, 50, 75, 100],
             sell_tranches=row[9] if row[9] else [50, 100],
-            buy_after_max=row[10] or "extend", sell_after_max=row[11] or "extend",
+            buy_after_max=int_to_after_max(row[10]), sell_after_max=int_to_after_max(row[11]),
             buy_stage_1_only=bool(row[12]), sell_stage_1_only=bool(row[13]),
             use_lower_band_filter=bool(row[14]), use_below_avg_filter=bool(row[15]),
             use_prev_signal_filter=bool(row[16]), use_prev_exec_filter=bool(row[17]),
@@ -501,8 +522,8 @@ async def create_premium_config(
             "min_profit_pct": config.min_profit_pct,
             "buy_tranches": json.dumps(config.buy_tranches),
             "sell_tranches": json.dumps(config.sell_tranches),
-            "buy_after_max": config.buy_after_max,
-            "sell_after_max": config.sell_after_max,
+            "buy_after_max": after_max_to_int(config.buy_after_max),
+            "sell_after_max": after_max_to_int(config.sell_after_max),
             "buy_stage_1_only": config.buy_stage_1_only,
             "sell_stage_1_only": config.sell_stage_1_only,
             "use_lower_band_filter": config.use_lower_band_filter,
@@ -584,8 +605,8 @@ async def update_premium_config(
             "min_profit_pct": config.min_profit_pct,
             "buy_tranches": json.dumps(config.buy_tranches),
             "sell_tranches": json.dumps(config.sell_tranches),
-            "buy_after_max": config.buy_after_max,
-            "sell_after_max": config.sell_after_max,
+            "buy_after_max": after_max_to_int(config.buy_after_max),
+            "sell_after_max": after_max_to_int(config.sell_after_max),
             "buy_stage_1_only": config.buy_stage_1_only,
             "sell_stage_1_only": config.sell_stage_1_only,
             "use_lower_band_filter": config.use_lower_band_filter,
