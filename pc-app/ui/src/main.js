@@ -9619,6 +9619,28 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
     // 데이터셋 구성
     const datasets = [];
 
+    // datalabels 공통 설정 (막대용)
+    const barDatalabels = {
+        display: (ctx) => ctx.dataset.data[ctx.dataIndex] !== null,
+        anchor: 'end',
+        align: 'top',
+        offset: 4,
+        clip: false,
+        color: '#ccc',
+        font: { size: 11, weight: 'bold' },
+        formatter: (v) => {
+            if (v === null || v === undefined || v === 0) return '';
+            if (chartType === 'eps') {
+                return Math.round(v).toLocaleString() + '원';
+            }
+            const abs = Math.abs(v);
+            const sign = v < 0 ? '-' : '';
+            if (abs >= 10000) return sign + (abs / 10000).toFixed(1) + '조';
+            if (abs >= 100) return sign + Math.round(abs) + '억';
+            return sign + v;
+        },
+    };
+
     // 실적 막대 (채운 색상)
     datasets.push({
         type: 'bar',
@@ -9633,6 +9655,7 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
         barPercentage: 0.6,
         categoryPercentage: 0.8,
         order: 2,
+        datalabels: barDatalabels,  // ★ 명시적 추가
     });
 
     // 전망치 막대 (투명 배경 + 강조 테두리)
@@ -9640,7 +9663,7 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
         type: 'bar',
         label: '전망',
         data: estimateData,
-        backgroundColor: 'transparent',  // 완전 투명
+        backgroundColor: 'transparent',
         borderColor: estimateData.map(v =>
             v === null ? 'transparent' : (v >= 0 ? colorSet.border : '#ef4444')
         ),
@@ -9649,6 +9672,7 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
         barPercentage: 0.6,
         categoryPercentage: 0.8,
         order: 2,
+        datalabels: barDatalabels,  // ★ 명시적 추가
     });
 
     // OPM 라인 (영업이익 연간 차트에서만 - 분기는 제외)
