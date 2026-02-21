@@ -12520,19 +12520,31 @@ document.getElementById('btn-mr-run-backtest')?.addEventListener('click', async 
             r1SellMult: config.r1_sell_mult,
             r1AllowOscBuy: config.r1_allow_osc_buy,
             r1PullbackOn: config.r1_pullback_on,
+            r1FiltBelowAvg: config.r1_filt_below_avg,
+            r1FiltPrevSignal: config.r1_filt_prev_signal,
+            r1FiltPrevExec: config.r1_filt_prev_exec,
             // R2 국면 (역배열+ST하락)
             r2BuyMult: config.r2_buy_mult,
             r2SellMult: config.r2_sell_mult,
             r2AllowOscBuy: config.r2_allow_osc_buy,
+            r2FiltBelowAvg: config.r2_filt_below_avg,
+            r2FiltPrevSignal: config.r2_filt_prev_signal,
+            r2FiltPrevExec: config.r2_filt_prev_exec,
             // R3 국면 (정배열+ST상승)
             r3BuyMult: config.r3_buy_mult,
             r3SellMult: config.r3_sell_mult,
             r3AllowOscBuy: config.r3_allow_osc_buy,
             r3BreakoutOn: config.r3_breakout_on,
+            r3FiltBelowAvg: config.r3_filt_below_avg,
+            r3FiltPrevSignal: config.r3_filt_prev_signal,
+            r3FiltPrevExec: config.r3_filt_prev_exec,
             // R4 국면 (정배열+ST하락)
             r4BuyMult: config.r4_buy_mult,
             r4SellMult: config.r4_sell_mult,
             r4AllowOscBuy: config.r4_allow_osc_buy,
+            r4FiltBelowAvg: config.r4_filt_below_avg,
+            r4FiltPrevSignal: config.r4_filt_prev_signal,
+            r4FiltPrevExec: config.r4_filt_prev_exec,
         });
 
         console.log('[MR 백테스트] 결과:', JSON.stringify(result).substring(0, 300));

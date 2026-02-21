@@ -3986,19 +3986,31 @@ pub async fn run_mr_backtest(
     r1_sell_mult: Option<f64>,
     r1_allow_osc_buy: Option<bool>,
     r1_pullback_on: Option<bool>,
+    r1_filt_below_avg: Option<bool>,
+    r1_filt_prev_signal: Option<bool>,
+    r1_filt_prev_exec: Option<bool>,
     // R2 국면 (역배열+ST하락)
     r2_buy_mult: Option<f64>,
     r2_sell_mult: Option<f64>,
     r2_allow_osc_buy: Option<bool>,
+    r2_filt_below_avg: Option<bool>,
+    r2_filt_prev_signal: Option<bool>,
+    r2_filt_prev_exec: Option<bool>,
     // R3 국면 (정배열+ST상승)
     r3_buy_mult: Option<f64>,
     r3_sell_mult: Option<f64>,
     r3_allow_osc_buy: Option<bool>,
     r3_breakout_on: Option<bool>,
+    r3_filt_below_avg: Option<bool>,
+    r3_filt_prev_signal: Option<bool>,
+    r3_filt_prev_exec: Option<bool>,
     // R4 국면 (정배열+ST하락)
     r4_buy_mult: Option<f64>,
     r4_sell_mult: Option<f64>,
     r4_allow_osc_buy: Option<bool>,
+    r4_filt_below_avg: Option<bool>,
+    r4_filt_prev_signal: Option<bool>,
+    r4_filt_prev_exec: Option<bool>,
 ) -> Result<serde_json::Value, String> {
     let client = reqwest::Client::builder()
         .danger_accept_invalid_certs(true)
@@ -4028,19 +4040,31 @@ pub async fn run_mr_backtest(
         "r1_sell_mult": r1_sell_mult.unwrap_or(1.0),
         "r1_allow_osc_buy": r1_allow_osc_buy.unwrap_or(true),
         "r1_pullback_on": r1_pullback_on.unwrap_or(true),
+        "r1_filt_below_avg": r1_filt_below_avg.unwrap_or(false),
+        "r1_filt_prev_signal": r1_filt_prev_signal.unwrap_or(false),
+        "r1_filt_prev_exec": r1_filt_prev_exec.unwrap_or(false),
         // R2 국면
         "r2_buy_mult": r2_buy_mult.unwrap_or(1.0),
         "r2_sell_mult": r2_sell_mult.unwrap_or(1.0),
         "r2_allow_osc_buy": r2_allow_osc_buy.unwrap_or(true),
+        "r2_filt_below_avg": r2_filt_below_avg.unwrap_or(false),
+        "r2_filt_prev_signal": r2_filt_prev_signal.unwrap_or(false),
+        "r2_filt_prev_exec": r2_filt_prev_exec.unwrap_or(false),
         // R3 국면
         "r3_buy_mult": r3_buy_mult.unwrap_or(0.5),
         "r3_sell_mult": r3_sell_mult.unwrap_or(1.0),
         "r3_allow_osc_buy": r3_allow_osc_buy.unwrap_or(true),
         "r3_breakout_on": r3_breakout_on.unwrap_or(false),
+        "r3_filt_below_avg": r3_filt_below_avg.unwrap_or(false),
+        "r3_filt_prev_signal": r3_filt_prev_signal.unwrap_or(false),
+        "r3_filt_prev_exec": r3_filt_prev_exec.unwrap_or(false),
         // R4 국면
         "r4_buy_mult": r4_buy_mult.unwrap_or(0.5),
         "r4_sell_mult": r4_sell_mult.unwrap_or(1.0),
         "r4_allow_osc_buy": r4_allow_osc_buy.unwrap_or(true),
+        "r4_filt_below_avg": r4_filt_below_avg.unwrap_or(false),
+        "r4_filt_prev_signal": r4_filt_prev_signal.unwrap_or(false),
+        "r4_filt_prev_exec": r4_filt_prev_exec.unwrap_or(false),
     });
 
     let resp = client
