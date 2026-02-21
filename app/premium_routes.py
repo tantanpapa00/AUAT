@@ -25,6 +25,26 @@ from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
 
+
+def osc_preset_to_int(preset) -> int:
+    """Convert osc_preset string ('preset1') to integer (1) for DB storage."""
+    if isinstance(preset, int):
+        return preset
+    if isinstance(preset, str):
+        # 'preset1' → 1, 'preset2' → 2, etc.
+        if preset.startswith('preset'):
+            try:
+                return int(preset.replace('preset', ''))
+            except ValueError:
+                return 1
+        # 숫자 문자열 '1', '2' 등
+        try:
+            return int(preset)
+        except ValueError:
+            return 1
+    return 1
+
+
 # Create router
 router = APIRouter(prefix="/api/premium", tags=["premium"])
 
@@ -393,7 +413,7 @@ async def create_premium_config(
                 "asset_id": asset_id,
                 "signal_tf": config.signal_tf,
                 "htf_tf": config.htf_tf,
-                "osc_preset": config.osc_preset,
+                "osc_preset": osc_preset_to_int(config.osc_preset),
                 "cash_use_pct": config.cash_use_pct,
                 "hard_cap_pct": config.hard_cap_pct,
                 "min_profit_pct": config.min_profit_pct,
@@ -475,7 +495,7 @@ async def create_premium_config(
             "asset_id": asset_id,
             "signal_tf": config.signal_tf,
             "htf_tf": config.htf_tf,
-            "osc_preset": config.osc_preset,
+            "osc_preset": osc_preset_to_int(config.osc_preset),
             "cash_use_pct": config.cash_use_pct,
             "hard_cap_pct": config.hard_cap_pct,
             "min_profit_pct": config.min_profit_pct,
@@ -558,7 +578,7 @@ async def update_premium_config(
             "asset_id": asset_id,
             "signal_tf": config.signal_tf,
             "htf_tf": config.htf_tf,
-            "osc_preset": config.osc_preset,
+            "osc_preset": osc_preset_to_int(config.osc_preset),
             "cash_use_pct": config.cash_use_pct,
             "hard_cap_pct": config.hard_cap_pct,
             "min_profit_pct": config.min_profit_pct,
