@@ -4102,3 +4102,90 @@ async def get_etf_performance(code: str) -> dict:
         traceback.print_exc()
 
     return result
+
+
+# =============================================================================
+# EPS 추정추이 (FnGuide Consensus Revision History)
+# =============================================================================
+
+async def get_eps_revision_history(code: str) -> dict:
+    """
+    FnGuide 컨센서스 EPS 추정 변화 이력 가져오기
+    데이터 소스: comp.fnguide.com 02_ JSON
+
+    반환:
+    {
+        "fy1": {"year": "2026", "eps": [1832, 1178, 1171, 1255, 1220], "labels": ["1년전", "6개월전", "3개월전", "1개월전", "현재"]},
+        "fy2": {"year": "2027", "eps": [...], "labels": [...]},
+        "fy3": {"year": "2028", "eps": [...], "labels": [...]}
+    }
+    """
+    cache_key = f"eps_revision_{code}"
+    cached = _cached(cache_key, 3600)  # 1시간 캐싱
+    if cached:
+        return cached
+
+    result = {}
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Referer": "http://comp.fnguide.com/"
+            }
+
+            # FY1, FY2, FY3 순회
+            for fy in ["FY1", "FY2", "FY3"]:
+                url = f"http://comp.fnguide.com/SVO2/json/data/01_06/02_A{code}_A_D_{fy}.json"
+
+                try:
+                    r = await client.get(url, headers=headers)
+                    if r.status_code == 200:
+                        data = r.json()
+                        comp = data.get("comp", [])
+
+                        # 헤더 행에서 연도 추출
+                        header_row = comp[0] if comp else {}
+                        current_date = header_row.get("D_1", "")
+
+                        # 연도 추출 (예: 2026/02/20 -> 2026)
+                        year = ""
+                        if "/" in current_date:
+                            year = current_date.split("/")[0]
+
+                        # EPS 행 찾기
+                        eps_data = []
+                        for row in comp:
+                            if row.get("D_0", "").startswith("EPS"):
+                                # D_5(1년전), D_4(6개월전), D_3(3개월전), D_2(1개월전), D_1(현재)
+                                for col in ["D_5", "D_4", "D_3", "D_2", "D_1"]:
+                                    val = row.get(col, "")
+                                    if val:
+                                        # 숫자만 추출
+                                        val_clean = val.replace(",", "").replace("원", "").strip()
+                                        try:
+                                            eps_data.append(int(float(val_clean)))
+                                        except:
+                                            eps_data.append(None)
+                                    else:
+                                        eps_data.append(None)
+                                break
+
+                        if eps_data and any(v is not None for v in eps_data):
+                            result[fy.lower()] = {
+                                "year": year,
+                                "eps": eps_data,
+                                "labels": ["1년전", "6개월전", "3개월전", "1개월전", "현재"]
+                            }
+                except Exception as e:
+                    print(f"[EPS Revision] {fy} fetch error: {e}")
+                    continue
+
+        if result:
+            _set_cache(cache_key, result)
+
+    except Exception as e:
+        print(f"[DataProvider] get_eps_revision_history error for {code}: {e}")
+        traceback.print_exc()
+
+    return result

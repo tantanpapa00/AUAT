@@ -177,6 +177,7 @@ fn main() {
             commands::get_stock_summary_kr,
             commands::get_stock_financials_kr,
             commands::get_stock_news_kr,
+            commands::get_eps_revision_history,
             commands::get_stock_company_kr,
             commands::get_stock_statement_kr,
             // Phase 9: 해외 종목 상세

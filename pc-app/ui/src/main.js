@@ -9499,30 +9499,152 @@ async function loadAndRenderAllFinancialCharts(code, annualData) {
         isEstimate: quarter.isConsensus || [],
     }, FINANCIAL_CHART_COLORS.eps, 'eps');
 
-    // EPS 전망추이 — 전망치 EPS를 라인차트로 표시
-    renderEpsForecastChart(annual);
+    // EPS 전망추이 — FnGuide 컨센서스 수정 이력
+    renderEpsForecastChart(code, annual);
 }
 
-// EPS 전망 차트 렌더링 (Chart.js 막대 그래프)
-// stockeasy는 애널리스트 컨센서스 변동 이력(날짜별)을 보여주지만
-// FnGuide/Naver API는 해당 데이터를 제공하지 않음
-// → 연도별 전망치를 막대 그래프로 표시 (추세가 아닌 개별 전망)
-function renderEpsForecastChart(annualData) {
+// EPS 추정추이 차트 렌더링 (FnGuide 컨센서스 revision history)
+// stockeasy처럼 EPS 추정치가 시간에 따라 어떻게 변했는지 라인차트로 표시
+async function renderEpsForecastChart(code, annualData) {
     const container = document.getElementById('sd-eps-forecast-content');
     if (!container) return;
 
+    // 로딩 표시
+    container.innerHTML = '<div class="sd-empty-card">EPS 추정추이 로딩중...</div>';
+
+    try {
+        // FnGuide EPS revision history 가져오기
+        const resp = await invokeWithTimeout('get_eps_revision_history', {
+            accessToken: auth.accessToken || '',
+            code: code
+        }, 10000);
+
+        const revisionData = resp?.data || {};
+        console.log('[EPS Revision] data:', revisionData);
+
+        // FY1 (가장 가까운 미래 연도) 데이터 사용
+        const fy1 = revisionData.fy1;
+
+        if (!fy1 || !fy1.eps || fy1.eps.filter(v => v !== null).length < 2) {
+            // revision data가 없으면 기존 연도별 막대 그래프로 폴백
+            renderEpsForecastChartFallback(container, annualData);
+            return;
+        }
+
+        // 라인 차트용 데이터 준비 (null 제외)
+        const labels = [];
+        const data = [];
+        for (let i = 0; i < fy1.eps.length; i++) {
+            if (fy1.eps[i] !== null) {
+                labels.push(fy1.labels[i]);
+                data.push(fy1.eps[i]);
+            }
+        }
+
+        if (data.length < 2) {
+            renderEpsForecastChartFallback(container, annualData);
+            return;
+        }
+
+        const canvasId = 'eps-revision-chart-' + Date.now();
+
+        container.innerHTML = `
+            <div style="padding:4px 0;">
+                <div style="font-size:11px;color:#888;margin-bottom:6px;text-align:center;">${fy1.year}년 EPS 추정 변화</div>
+                <div style="position:relative;height:100px;">
+                    <canvas id="${canvasId}"></canvas>
+                </div>
+                <div style="font-size:9px;color:#666;margin-top:4px;text-align:center;">
+                    컨센서스 추정치 변동 추이 (FnGuide)
+                </div>
+            </div>
+        `;
+
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+
+        if (canvas._chartInstance) {
+            canvas._chartInstance.destroy();
+        }
+
+        // 첫 값과 마지막 값 비교해서 색상 결정
+        const firstVal = data[0];
+        const lastVal = data[data.length - 1];
+        const isUp = lastVal >= firstVal;
+        const lineColor = isUp ? '#22c55e' : '#ef4444';  // 상승=초록, 하락=빨강
+        const bgColor = isUp ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+
+        canvas._chartInstance = new Chart(canvas, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    borderColor: lineColor,
+                    backgroundColor: bgColor,
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    pointBackgroundColor: lineColor,
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 1,
+                    datalabels: {
+                        display: (ctx) => ctx.dataIndex === 0 || ctx.dataIndex === ctx.dataset.data.length - 1,
+                        anchor: (ctx) => ctx.dataIndex === 0 ? 'start' : 'end',
+                        align: 'top',
+                        offset: 4,
+                        color: lineColor,
+                        font: { size: 10, weight: 'bold' },
+                        formatter: (v) => v ? v.toLocaleString() + '원' : ''
+                    }
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: {
+                    padding: { top: 25, right: 15, bottom: 5, left: 15 }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => `EPS 추정: ${ctx.raw?.toLocaleString() || 0}원`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#888', font: { size: 8 } }
+                    },
+                    y: {
+                        display: false,
+                        beginAtZero: false
+                    }
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('[EPS Revision] error:', error);
+        // 에러 시 기존 연도별 막대 그래프로 폴백
+        renderEpsForecastChartFallback(container, annualData);
+    }
+}
+
+// EPS 전망 폴백: revision data 없을 때 연도별 막대 그래프
+function renderEpsForecastChartFallback(container, annualData) {
     const periods = annualData.periods || [];
     const eps = annualData.eps || [];
     const isConsensus = annualData.isConsensus || [];
 
-    // 전망치 EPS만 필터링 (E가 붙은 것들)
+    // 전망치 EPS만 필터링
     const forecastData = [];
     for (let i = 0; i < periods.length; i++) {
         if (isConsensus[i] && eps[i] && eps[i] > 0) {
-            forecastData.push({
-                period: periods[i],
-                eps: eps[i]
-            });
+            forecastData.push({ period: periods[i], eps: eps[i] });
         }
     }
 
@@ -9531,7 +9653,6 @@ function renderEpsForecastChart(annualData) {
         return;
     }
 
-    // 캔버스 ID 생성
     const canvasId = 'eps-forecast-chart-' + Date.now();
 
     container.innerHTML = `
@@ -9540,30 +9661,20 @@ function renderEpsForecastChart(annualData) {
             <div style="position:relative;height:100px;">
                 <canvas id="${canvasId}"></canvas>
             </div>
-            <div style="font-size:9px;color:#666;margin-top:4px;text-align:center;">
-                ※ 일별 컨센서스 변동 이력은 데이터 미제공
-            </div>
         </div>
     `;
 
-    // Chart.js 막대 그래프 렌더링 (연도별 독립 전망치)
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
 
-    const labels = forecastData.map(d => d.period);
-    const data = forecastData.map(d => d.eps);
-
-    // 기존 차트 제거
-    if (canvas._chartInstance) {
-        canvas._chartInstance.destroy();
-    }
+    if (canvas._chartInstance) canvas._chartInstance.destroy();
 
     canvas._chartInstance = new Chart(canvas, {
         type: 'bar',
         data: {
-            labels: labels,
+            labels: forecastData.map(d => d.period),
             datasets: [{
-                data: data,
+                data: forecastData.map(d => d.eps),
                 backgroundColor: 'rgba(168, 85, 247, 0.7)',
                 borderColor: '#a855f7',
                 borderWidth: 1,
@@ -9582,35 +9693,14 @@ function renderEpsForecastChart(annualData) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            layout: {
-                padding: { top: 25, right: 10, bottom: 5, left: 10 }
-            },
+            layout: { padding: { top: 25, right: 10, bottom: 5, left: 10 } },
             plugins: {
                 legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: (ctx) => `EPS 전망: ${ctx.raw?.toLocaleString() || 0}원`
-                    }
-                },
-                datalabels: {
-                    display: true,
-                    anchor: 'end',
-                    align: 'top',
-                    offset: 2,
-                    color: '#a855f7',
-                    font: { size: 10, weight: 'bold' },
-                    formatter: (v) => v ? v.toLocaleString() + '원' : ''
-                }
+                tooltip: { callbacks: { label: (ctx) => `EPS: ${ctx.raw?.toLocaleString() || 0}원` } }
             },
             scales: {
-                x: {
-                    grid: { display: false },
-                    ticks: { color: '#888', font: { size: 9 } }
-                },
-                y: {
-                    display: false,
-                    beginAtZero: false
-                }
+                x: { grid: { display: false }, ticks: { color: '#888', font: { size: 9 } } },
+                y: { display: false, beginAtZero: false }
             }
         }
     });

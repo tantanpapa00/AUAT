@@ -244,7 +244,7 @@ from app.data_provider import (
     get_stock_financial_statement, get_stock_news, get_stock_disclosures,
     get_stock_consensus,
     # Phase 8-2: 종목 상세 API
-    get_stock_summary_kr, get_stock_financials_kr, get_stock_news_kr,
+    get_stock_summary_kr, get_stock_financials_kr, get_stock_news_kr, get_eps_revision_history,
     # Phase 8-3: 기업 탭 + 재무제표
     get_stock_company_kr, get_stock_statement_kr,
     # Phase 9: 해외 종목 상세 (Finviz + Yahoo Finance)
@@ -10497,6 +10497,20 @@ async def api_stock_news_kr(
     - 누구나 접근 가능
     """
     data = await get_stock_news_kr(code, limit)
+    return {"data": data}
+
+
+@app.get("/api/stock/kr/{code}/eps-revision")
+async def api_eps_revision_history(
+    code: str,
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    국내 종목 EPS 추정 변화 이력 (FnGuide 컨센서스)
+    - FY1/FY2/FY3 각각 5개 시점 데이터
+    - 누구나 접근 가능
+    """
+    data = await get_eps_revision_history(code)
     return {"data": data}
 
 
