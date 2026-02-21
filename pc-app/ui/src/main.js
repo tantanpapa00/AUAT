@@ -9507,8 +9507,10 @@ async function loadAndRenderAllFinancialCharts(code, annualData) {
     renderEpsForecastChart(annual);
 }
 
-// EPS 전망추이 라인차트 렌더링
-// ★ 연도별 EPS 전망을 라인차트로 표시 (보라색 3포인트)
+// EPS 전망추이 차트 렌더링
+// stockeasy는 애널리스트 컨센서스 변동 이력(날짜별)을 보여주지만
+// FnGuide/Naver API는 해당 데이터를 제공하지 않음
+// → 전망치 테이블 형식으로 표시
 function renderEpsForecastChart(annualData) {
     const container = document.getElementById('sd-eps-forecast-content');
     if (!container) return;
@@ -9529,74 +9531,31 @@ function renderEpsForecastChart(annualData) {
     }
 
     if (forecastData.length === 0) {
-        container.innerHTML = '<div class="sd-empty-card" style="text-align:center;padding:30px;color:#666;">전망치 데이터 없음</div>';
+        container.innerHTML = '<div class="sd-empty-card">전망치 데이터 없음</div>';
         return;
     }
 
-    // ★ 라인차트로 표시
+    // 전망치 테이블 형식으로 표시 (연도별 EPS 전망)
+    let tableRows = forecastData.map(d => `
+        <tr>
+            <td style="color:#22c55e;padding:4px 8px;text-align:left;">${d.period}</td>
+            <td style="color:#a855f7;padding:4px 8px;text-align:right;font-weight:bold;">${d.eps.toLocaleString()}원</td>
+        </tr>
+    `).join('');
+
     container.innerHTML = `
-        <div style="font-size:11px;color:#888;margin-bottom:8px;">연도별 EPS 전망 (컨센서스)</div>
-        <div style="height:120px;position:relative;">
-            <canvas id="sd-fc-eps-trend"></canvas>
+        <div style="padding:8px 0;">
+            <div style="font-size:11px;color:#888;margin-bottom:8px;">연도별 EPS 전망치 (컨센서스)</div>
+            <table style="width:100%;border-collapse:collapse;">
+                <tbody>
+                    ${tableRows}
+                </tbody>
+            </table>
+            <div style="font-size:9px;color:#666;margin-top:8px;text-align:center;">
+                ※ 컨센서스 변동 이력은 데이터 미제공
+            </div>
         </div>
-        <div style="font-size:9px;color:#555;margin-top:4px;text-align:center;">※ 컨센서스 변동 이력은 데이터 미제공</div>
     `;
-
-    ensureChartDataLabels();
-    const canvas = document.getElementById('sd-fc-eps-trend');
-    if (!canvas || typeof Chart === 'undefined') return;
-
-    if (canvas._chartInstance) {
-        canvas._chartInstance.destroy();
-    }
-
-    const labels = forecastData.map(f => f.period);
-    const values = forecastData.map(f => f.eps);
-
-    canvas._chartInstance = new Chart(canvas, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                data: values,
-                borderColor: '#a855f7',      // 보라색
-                borderWidth: 2,
-                pointRadius: 6,
-                pointBackgroundColor: '#a855f7',
-                pointBorderColor: '#fff',
-                pointBorderWidth: 2,
-                fill: false,
-                tension: 0,
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            layout: { padding: { top: 25, bottom: 5 } },
-            plugins: {
-                legend: { display: false },
-                datalabels: {
-                    anchor: 'end',
-                    align: 'top',
-                    offset: 4,
-                    color: '#a855f7',
-                    font: { size: 11, weight: 'bold' },
-                    formatter: (v) => v ? v.toLocaleString() + '원' : '',
-                }
-            },
-            scales: {
-                x: {
-                    ticks: { color: '#22c55e', font: { size: 10 } },  // 전망치=초록
-                    grid: { display: false }
-                },
-                y: {
-                    ticks: { color: '#666', font: { size: 9 }, callback: (v) => v.toLocaleString() },
-                    grid: { color: 'rgba(255,255,255,0.04)' },
-                    grace: '15%',
-                }
-            },
-        }
-    });
 }
 
 // StockEasy 스타일 차트 렌더링 (실적/전망치 분리 + 점선 테두리)
@@ -9660,33 +9619,7 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
     // 데이터셋 구성
     const datasets = [];
 
-    // 숫자 포맷 함수 (datalabels용)
-    const formatDatalabel = (v) => {
-        if (v === null || v === undefined || v === 0) return '';
-        if (chartType === 'eps') {
-            return Math.round(v).toLocaleString('ko-KR') + '원';
-        }
-        const abs = Math.abs(v);
-        const sign = v < 0 ? '-' : '';
-        if (abs >= 10000) return sign + (abs / 10000).toFixed(1) + '조';
-        if (abs >= 100) return sign + Math.round(abs) + '억';
-        return sign + v;
-    };
-
-    // ★ datalabels 공통 설정 (막대 위에 표시)
-    const barDatalabelsConfig = {
-        display: (ctx) => ctx.dataset.data[ctx.dataIndex] !== null,
-        anchor: 'end',   // ★ 막대 끝점 (상단)
-        align: 'top',    // ★ 끝점 위쪽에 배치
-        offset: 4,       // ★ 막대와 라벨 간격
-        clip: false,
-        clamp: false,
-        color: '#e0e4ea',
-        font: { size: isAnnualChart ? 11 : 9, weight: 'bold' },
-        formatter: formatDatalabel,
-    };
-
-    // 실적 막대 (채운 색상) + ★ 개별 datalabels
+    // 실적 막대 (채운 색상)
     datasets.push({
         type: 'bar',
         label: '실적',
@@ -9700,10 +9633,9 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
         barPercentage: 0.6,
         categoryPercentage: 0.8,
         order: 2,
-        datalabels: barDatalabelsConfig,  // ★ 개별 적용
     });
 
-    // 전망치 막대 (투명 배경 + 강조 테두리) + ★ 개별 datalabels
+    // 전망치 막대 (투명 배경 + 강조 테두리)
     datasets.push({
         type: 'bar',
         label: '전망',
@@ -9717,7 +9649,6 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
         barPercentage: 0.6,
         categoryPercentage: 0.8,
         order: 2,
-        datalabels: barDatalabelsConfig,  // ★ 개별 적용
     });
 
     // OPM 라인 (영업이익 연간 차트에서만 - 분기는 제외)
@@ -9777,7 +9708,7 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
                 clip: false,  // 차트 영역 밖으로 라벨 표시 허용
                 interaction: { mode: 'index', intersect: false },
                 layout: {
-                    padding: { top: 40, bottom: 2, left: 4, right: 4 }  // ★ 상단 여백 40px로 확대
+                    padding: { top: 35, bottom: 2, left: 4, right: 4 }  // 상단 라벨 공간 확대
                 },
             plugins: {
                 legend: { display: false },
@@ -9799,7 +9730,38 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
                         },
                     },
                 },
-                // ★ 전역 datalabels 제거 - 각 dataset에 개별 적용됨
+                datalabels: {
+                    display: (ctx) => ctx.dataset.data[ctx.dataIndex] !== null,
+                    anchor: (ctx) => {
+                        const v = ctx.dataset.data[ctx.dataIndex];
+                        return (v !== null && v >= 0) ? 'end' : 'start';
+                    },
+                    align: (ctx) => {
+                        const v = ctx.dataset.data[ctx.dataIndex];
+                        return (v !== null && v >= 0) ? 'top' : 'bottom';
+                    },
+                    offset: 6,  // 막대와 간격 확대
+                    clamp: false,
+                    clip: false,  // 라벨 잘림 방지
+                    color: '#d0d8e4',
+                    font: { size: isAnnualChart ? 10 : 8, weight: 'bold' },  // 분기는 작게
+                    formatter: (v) => {
+                        if (v === null || v === undefined || v === 0) return '';
+                        // 분기 차트에서는 단위 축약
+                        if (!isAnnualChart) {
+                            if (chartType === 'eps') {
+                                // EPS 분기: "원" 생략
+                                return Math.round(v).toLocaleString();
+                            }
+                            // 매출/영업이익 분기: "억" 생략
+                            const abs = Math.abs(v);
+                            const sign = v < 0 ? '-' : '';
+                            if (abs >= 10000) return sign + (abs / 10000).toFixed(1) + '조';
+                            return sign + Math.round(abs).toLocaleString();
+                        }
+                        return formatLabel(v);
+                    },
+                },
             },
             scales: {
                 x: {
@@ -9830,19 +9792,19 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
                     grid: { color: 'rgba(255,255,255,0.04)' },
                 },
                 // OPM/GPM 라인용 우측 Y축 (% 단위)
-                // ★ GPM: 매우 연하게 + 데이터 범위 자동
+                // GPM은 연하게, OPM은 기존 스타일 유지
                 ...((showOpmLine || showGpmLine) ? {
                     y1: {
                         position: 'right',
                         display: true,
                         ticks: {
-                            color: showGpmLine ? 'rgba(136,136,136,0.3)' : '#f59e0b',  // ★ GPM=매우연한회색(0.3)
-                            font: { size: 8 },
+                            color: showGpmLine ? 'rgba(136,136,136,0.5)' : '#f59e0b',  // GPM=연한 회색, OPM=주황
+                            font: { size: showGpmLine ? 9 : 8 },
                             callback: (v) => v.toFixed(0) + '%',
-                            maxTicksLimit: 3,  // ★ 눈금 3개로 고정
+                            maxTicksLimit: showGpmLine ? 3 : 5,  // GPM은 눈금 적게
                         },
                         grid: { display: false },
-                        // ★ min/max 제거 - 데이터 범위에 맞게 자동 조절
+                        min: 0,
                     }
                 } : {}),
             },
