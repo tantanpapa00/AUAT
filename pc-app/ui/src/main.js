@@ -2412,8 +2412,10 @@ function initCustomSymbolAutocomplete() {
 // 3. Premium Strategy: 역추세 전략 종목 선택
 function initReversalSymbolAutocomplete() {
     const input = document.getElementById('reversal-symbol');
+    const exchangeSelect = document.getElementById('reversal-exchange');
     if (!input || reversalSymbolAutocomplete) return;
 
+    const initialExchange = exchangeSelect?.value || 'all';
     reversalSymbolAutocomplete = createSymbolAutocomplete(input, (symbol) => {
         if (symbol) {
             input.dataset.selectedCode = symbol.code;
@@ -2422,7 +2424,14 @@ function initReversalSymbolAutocomplete() {
             delete input.dataset.selectedCode;
             delete input.dataset.selectedExchange;
         }
-    }, { exchange: 'all', showBadge: true });
+    }, { exchange: initialExchange, showBadge: true });
+
+    // 거래소 변경 시 자동완성 필터 업데이트
+    exchangeSelect?.addEventListener('change', () => {
+        if (reversalSymbolAutocomplete) {
+            reversalSymbolAutocomplete.setExchange(exchangeSelect.value);
+        }
+    });
 }
 
 // 4. Premium Strategy: 추세 전략 종목 선택

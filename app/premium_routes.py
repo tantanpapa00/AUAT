@@ -942,12 +942,16 @@ async def run_mr_backtest_endpoint(
 
     실제 거래소 OHLCV 데이터로 백테스트를 실행합니다.
     """
+    import time as _time
+    _t0 = _time.time()
+
     from .strategy_engine.backtest_engine import run_mr_backtest
     from .strategy_engine.candle_fetcher import fetch_candles_for_backtest
     from .strategy_engine.models import MRConfig
 
     try:
         # ① 실제 거래소 캔들 조회 (시그널 TF)
+        _t1 = _time.time()
         candles = await fetch_candles_for_backtest(
             exchange=request.exchange,
             symbol=request.symbol,
@@ -955,11 +959,13 @@ async def run_mr_backtest_endpoint(
             days=request.days,
             timeout=60,
         )
+        print(f"[MR Backtest] 캔들 조회: {_time.time() - _t1:.2f}초, {len(candles)}개")
 
         # ② HTF 캔들 조회 (국면 판별용)
         htf_candles = None
         if request.use_4regime and request.htf_tf and request.htf_tf != request.timeframe:
             try:
+                _t_htf = _time.time()
                 htf_candles = await fetch_candles_for_backtest(
                     exchange=request.exchange,
                     symbol=request.symbol,
@@ -967,6 +973,7 @@ async def run_mr_backtest_endpoint(
                     days=request.days,
                     timeout=30,
                 )
+                print(f"[MR Backtest] HTF 캔들 조회: {_time.time() - _t_htf:.2f}초, {len(htf_candles)}개")
             except ValueError:
                 pass  # HTF 조회 실패 시 단일 국면으로 진행
 
@@ -1004,12 +1011,15 @@ async def run_mr_backtest_endpoint(
         )
 
         # ④ 백테스트 실행
+        _t2 = _time.time()
         result = run_mr_backtest(
             candles=candles,
             htf_candles=htf_candles,
             config=config,
             initial_capital=request.initial_capital,
         )
+        print(f"[MR Backtest] 백테스트 계산: {_time.time() - _t2:.2f}초")
+        print(f"[MR Backtest] 총 소요시간: {_time.time() - _t0:.2f}초")
 
         # 백테스트 실패 시
         if not result.success:
