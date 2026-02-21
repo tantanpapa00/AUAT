@@ -335,8 +335,10 @@ function createSymbolAutocomplete(inputElement, onSelect, options = {}) {
     }
 
     // 이벤트 바인딩
+    console.log('[createSymbolAutocomplete] input 이벤트 바인딩:', inputElement.id);
     inputElement.addEventListener('input', (e) => {
         const query = e.target.value.trim();
+        console.log('[createSymbolAutocomplete] INPUT EVENT:', query);
 
         // 선택 해제
         if (selectedSymbol && query !== selectedSymbol.name) {
@@ -346,7 +348,7 @@ function createSymbolAutocomplete(inputElement, onSelect, options = {}) {
 
         // 디바운스 (200ms)
         if (debounceTimer) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => search(query), 200);
+        debounceTimer = setTimeout(() => search(query), 300);
     });
 
     inputElement.addEventListener('keydown', (e) => {
@@ -2451,14 +2453,21 @@ function initTrendSymbolAutocomplete() {
 // 5. Stock KR: 종목 검색 자동완성
 function initStockKrAutocomplete() {
     const input = document.getElementById('stock-kr-search');
-    if (!input || stockKrAutocomplete) return;
+    console.log('[initStockKrAutocomplete] input:', input, 'stockKrAutocomplete:', stockKrAutocomplete);
+    if (!input || stockKrAutocomplete) {
+        console.log('[initStockKrAutocomplete] 종료 - input없음 또는 이미 초기화됨');
+        return;
+    }
 
+    console.log('[initStockKrAutocomplete] createSymbolAutocomplete 호출');
     stockKrAutocomplete = createSymbolAutocomplete(input, (symbol) => {
+        console.log('[initStockKrAutocomplete] onSelect:', symbol);
         if (symbol) {
             // 종목 상세 열기
             openStockDetail(symbol.code, symbol.exchange || 'KIS_KR');
         }
     }, { exchange: 'kis_kr', showBadge: false });
+    console.log('[initStockKrAutocomplete] 완료:', stockKrAutocomplete);
 }
 
 // Stock KR 프리뷰 표시
@@ -7493,8 +7502,11 @@ function renderCryptoTable(coins) {
 
 // 국내주식 분석 로드
 async function loadStockKr() {
+    console.log('[loadStockKr] 함수 시작');
     // 검색 자동완성 초기화 (DOM이 준비된 시점에 호출)
+    console.log('[loadStockKr] initStockKrAutocomplete 호출 전');
     initStockKrAutocomplete();
+    console.log('[loadStockKr] initStockKrAutocomplete 호출 후');
     renderRecentSearches();
 
     // 하위 탭 이벤트
