@@ -439,7 +439,7 @@
 - Day 25: DONE (ETF 대시보드 개선 — ETFCheck 스타일 매칭)
 - Day 26: ✅ 완료 (Phase 7.5 스크리너 최적화 + Phase 8 종목상세)
 - Day 27: ✅ 완료 (Phase 8-2 FnGuide 6년 컨센서스 + stockeasy 복제)
-- Day 28: ✅ 완료 (백테스트 숨은 필터 제거 + warmup 최적화)
+- Day 28: ✅ 완료 (백테스트 숨은 필터 제거 + warmup 최적화 + 필터 파라미터 전송 수정)
 
 ## Day 28 진행사항 (2026-02-22)
 
@@ -466,6 +466,38 @@
 | 커밋 | 메시지 |
 |------|--------|
 | 8e6ec09 | fix: use_lower_band_buy 숨은 필터 제거 및 warmup 최적화 |
+
+### 백테스트 필터 파라미터 누락 수정 ✅ DONE
+
+**문제**: UI에서 필터 OFF 설정해도 BUY 4건만 발생 (서버 직접 테스트: 10건)
+
+**원인 분석**:
+- `invoke('run_mr_backtest', {...})` 호출에서 **필터 파라미터 12개 누락**
+- UI에서 체크박스 값 수집(collectMrConfig)했지만 API로 전송하지 않음
+- 결과: API 기본값(필터 ON)이 적용되어 매수 신호 차단
+
+**누락된 파라미터** (12개):
+```
+r1_filt_below_avg, r1_filt_prev_signal, r1_filt_prev_exec
+r2_filt_below_avg, r2_filt_prev_signal, r2_filt_prev_exec
+r3_filt_below_avg, r3_filt_prev_signal, r3_filt_prev_exec
+r4_filt_below_avg, r4_filt_prev_signal, r4_filt_prev_exec
+```
+
+**수정 내역**:
+| 파일 | 변경 |
+|------|------|
+| `commands.rs` | 함수 파라미터 12개 추가 + body에 추가 (기본값 false) |
+| `main.js` | invoke 호출에 필터 12개 전달 추가 |
+
+**결과 검증** (삼성전자 005930, 1000봉, 필터 OFF + 배수 1.0):
+| 항목 | 수정 전 | 수정 후 |
+|------|---------|---------|
+| BUY 신호 | 4건 | **10건** |
+
+| 커밋 | 메시지 |
+|------|--------|
+| 321dff2 | fix: 백테스트 필터 파라미터 누락 수정 |
 
 ---
 
