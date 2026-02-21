@@ -2455,8 +2455,6 @@ function initStockKrAutocomplete() {
 
     stockKrAutocomplete = createSymbolAutocomplete(input, (symbol) => {
         if (symbol) {
-            // 최근 검색 저장
-            addRecentSearch(symbol.code, symbol.name);
             // 종목 상세 열기
             openStockDetail(symbol.code, symbol.exchange || 'KIS_KR');
         }
@@ -2594,7 +2592,7 @@ document.getElementById('btn-add-watchlist-item')?.addEventListener('click', sho
 // 페이지 로드 시 자동완성 초기화
 function initAllAutocompletes() {
     initTVAssetAutocomplete();
-    initStockKrAutocomplete();
+    // initStockKrAutocomplete는 loadStockKr()에서 호출 (DOM 준비 후)
 }
 
 // TV Connect 페이지 로드 시 자동완성 초기화
@@ -7495,8 +7493,8 @@ function renderCryptoTable(coins) {
 
 // 국내주식 분석 로드
 async function loadStockKr() {
-    // 검색 자동완성은 initAllAutocompletes()에서 initStockKrAutocomplete()로 이미 초기화됨
-    // initSearchAutocomplete 중복 호출 제거 (충돌 방지)
+    // 검색 자동완성 초기화 (DOM이 준비된 시점에 호출)
+    initStockKrAutocomplete();
     renderRecentSearches();
 
     // 하위 탭 이벤트
