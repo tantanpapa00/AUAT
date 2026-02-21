@@ -10675,14 +10675,23 @@ async def api_etf_performance(
 async def api_search_stocks(
     q: str,
     limit: int = 10,
+    exchange: Optional[str] = None,
     current_user: User = Depends(get_current_user_optional)
 ):
     """
     통합 종목검색 - 국내/해외/ETF 동시 검색
     캐시된 스크리너 데이터에서 검색하여 즉시 응답
+
+    Args:
+        q: 검색어
+        limit: 최대 결과 수 (기본 10)
+        exchange: 거래소 필터 (KIS_KR, KIS_US, OKX, BINANCE 등)
     """
     if not q or len(q) < 1:
         return {"results": []}
+
+    # 거래소 필터 정규화
+    ex_filter = exchange.upper() if exchange else None
 
     q_lower = q.lower()
     q_upper = q.upper()
@@ -10703,63 +10712,103 @@ async def api_search_stocks(
         # 포함 매치
         return 2
 
-    try:
-        # 국내 주식 검색
-        from app.screener.kr_screener import load_kr_stocks
-        kr_stocks = await load_kr_stocks()
-        for stock in kr_stocks:
-            name = (stock.get("name") or "").lower()
-            code = (stock.get("code") or "").upper()
-            if q_lower in name or q_upper in code:
-                results.append({
-                    "code": stock.get("code"),
-                    "name": stock.get("name"),
-                    "market": stock.get("exchange", "KOSPI"),
-                    "type": "stock_kr",
-                    "price": stock.get("price", 0),
-                    "change_pct": stock.get("change_pct", 0)
-                })
-    except Exception as e:
-        print(f"[Search] KR error: {e}")
+    # 거래소별로 검색할지 결정
+    search_kr = not ex_filter or ex_filter in ("KIS_KR", "UPBIT")
+    search_us = not ex_filter or ex_filter == "KIS_US"
+    search_etf = not ex_filter or ex_filter == "ETF"
+    search_crypto = not ex_filter or ex_filter in ("OKX", "BINANCE", "BYBIT")
 
-    try:
-        # 해외 주식 검색
-        from app.screener.us_screener import load_us_stocks
-        us_stocks = await load_us_stocks()
-        for stock in us_stocks:
-            name = (stock.get("name") or "").lower()
-            symbol = (stock.get("symbol") or "").upper()
-            if q_lower in name or q_upper in symbol:
-                results.append({
-                    "code": stock.get("symbol"),
-                    "symbol": stock.get("symbol"),
-                    "name": stock.get("name"),
-                    "market": stock.get("sector", "US"),
-                    "type": "stock_us",
-                    "price": stock.get("price", 0),
-                    "change_pct": stock.get("change_pct", 0)
-                })
-    except Exception as e:
-        print(f"[Search] US error: {e}")
+    if search_kr:
+        try:
+            # 국내 주식 검색
+            from app.screener.kr_screener import load_kr_stocks
+            kr_stocks = await load_kr_stocks()
+            for stock in kr_stocks:
+                name = (stock.get("name") or "").lower()
+                code = (stock.get("code") or "").upper()
+                if q_lower in name or q_upper in code:
+                    results.append({
+                        "code": stock.get("code"),
+                        "name": stock.get("name"),
+                        "market": stock.get("exchange", "KOSPI"),
+                        "type": "stock_kr",
+                        "price": stock.get("price", 0),
+                        "change_pct": stock.get("change_pct", 0)
+                    })
+        except Exception as e:
+            print(f"[Search] KR error: {e}")
 
-    try:
-        # ETF 검색
-        from app.screener.etf_screener import load_etf_stocks
-        etf_stocks = await load_etf_stocks()
-        for etf in etf_stocks:
-            name = (etf.get("name") or "").lower()
-            code = (etf.get("code") or "").upper()
-            if q_lower in name or q_upper in code:
-                results.append({
-                    "code": etf.get("code"),
-                    "name": etf.get("name"),
-                    "market": "ETF",
-                    "type": "etf",
-                    "price": etf.get("price", 0),
-                    "change_pct": etf.get("change_pct", 0)
-                })
-    except Exception as e:
-        print(f"[Search] ETF error: {e}")
+    if search_us:
+        try:
+            # 해외 주식 검색
+            from app.screener.us_screener import load_us_stocks
+            us_stocks = await load_us_stocks()
+            for stock in us_stocks:
+                name = (stock.get("name") or "").lower()
+                symbol = (stock.get("symbol") or "").upper()
+                if q_lower in name or q_upper in symbol:
+                    results.append({
+                        "code": stock.get("symbol"),
+                        "symbol": stock.get("symbol"),
+                        "name": stock.get("name"),
+                        "market": stock.get("sector", "US"),
+                        "type": "stock_us",
+                        "price": stock.get("price", 0),
+                        "change_pct": stock.get("change_pct", 0)
+                    })
+        except Exception as e:
+            print(f"[Search] US error: {e}")
+
+    if search_etf:
+        try:
+            # ETF 검색
+            from app.screener.etf_screener import load_etf_stocks
+            etf_stocks = await load_etf_stocks()
+            for etf in etf_stocks:
+                name = (etf.get("name") or "").lower()
+                code = (etf.get("code") or "").upper()
+                if q_lower in name or q_upper in code:
+                    results.append({
+                        "code": etf.get("code"),
+                        "name": etf.get("name"),
+                        "market": "ETF",
+                        "type": "etf",
+                        "price": etf.get("price", 0),
+                        "change_pct": etf.get("change_pct", 0)
+                    })
+        except Exception as e:
+            print(f"[Search] ETF error: {e}")
+
+    if search_crypto:
+        try:
+            # 암호화폐 검색 (OKX, Binance, Bybit 등)
+            # 일반적인 암호화폐 심볼 목록에서 검색
+            crypto_pairs = [
+                "BTC-USDT", "ETH-USDT", "XRP-USDT", "SOL-USDT", "ADA-USDT",
+                "DOGE-USDT", "DOT-USDT", "LINK-USDT", "AVAX-USDT", "MATIC-USDT",
+                "BNB-USDT", "ATOM-USDT", "UNI-USDT", "LTC-USDT", "ETC-USDT"
+            ]
+            crypto_names = {
+                "BTC": "Bitcoin", "ETH": "Ethereum", "XRP": "Ripple", "SOL": "Solana",
+                "ADA": "Cardano", "DOGE": "Dogecoin", "DOT": "Polkadot", "LINK": "Chainlink",
+                "AVAX": "Avalanche", "MATIC": "Polygon", "BNB": "BNB", "ATOM": "Cosmos",
+                "UNI": "Uniswap", "LTC": "Litecoin", "ETC": "Ethereum Classic"
+            }
+            for pair in crypto_pairs:
+                base = pair.split("-")[0]
+                name = crypto_names.get(base, base).lower()
+                if q_lower in name or q_upper in pair or q_upper in base:
+                    results.append({
+                        "code": pair,
+                        "symbol": pair,
+                        "name": crypto_names.get(base, base),
+                        "market": ex_filter or "OKX",
+                        "type": "crypto",
+                        "price": 0,
+                        "change_pct": 0
+                    })
+        except Exception as e:
+            print(f"[Search] Crypto error: {e}")
 
     # 관련도 정렬
     results.sort(key=relevance_score)

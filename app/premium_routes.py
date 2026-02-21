@@ -69,7 +69,10 @@ class PremiumConfigBase(BaseModel):
 
 class PremiumConfigCreate(PremiumConfigBase):
     """Model for creating premium config."""
-    asset_id: int
+    # asset_id 또는 exchange+symbol 둘 중 하나 필수
+    asset_id: Optional[int] = None
+    exchange: Optional[str] = None
+    symbol: Optional[str] = None
 
 
 class PremiumConfigUpdate(PremiumConfigBase):
@@ -263,24 +266,185 @@ async def create_premium_config(
     config: PremiumConfigCreate,
     db: Session = Depends(get_db),
 ):
-    """Create premium config for an asset."""
+    """Create premium config for an asset.
+
+    asset_id 또는 exchange+symbol 둘 중 하나 필수.
+    exchange+symbol이 제공되면 자동으로 asset을 찾거나 생성함.
+    """
     import json
+
+    asset_id = config.asset_id
+
+    # exchange+symbol로 asset 찾기/생성
+    if not asset_id and config.exchange and config.symbol:
+        exchange = config.exchange.upper()
+        symbol = config.symbol
+
+        # 1. 해당 거래소의 계정 찾기
+        account_row = db.execute(
+            text("SELECT id FROM accounts WHERE UPPER(exchange) = :exchange LIMIT 1"),
+            {"exchange": exchange}
+        ).fetchone()
+
+        if not account_row:
+            # 계정이 없으면 기본 계정 생성 (user_id=1 사용)
+            db.execute(
+                text("""
+                    INSERT INTO accounts (user_id, exchange, name, is_active)
+                    VALUES (1, :exchange, :name, true)
+                """),
+                {"exchange": exchange, "name": f"{exchange} Account"}
+            )
+            db.commit()
+            account_row = db.execute(
+                text("SELECT id FROM accounts WHERE UPPER(exchange) = :exchange LIMIT 1"),
+                {"exchange": exchange}
+            ).fetchone()
+
+        account_id = account_row[0]
+
+        # 2. 기본 전략 찾기 (MR 전략)
+        strategy_row = db.execute(
+            text("SELECT id FROM strategies WHERE name LIKE '%MR%' OR name LIKE '%역추세%' LIMIT 1")
+        ).fetchone()
+
+        if not strategy_row:
+            # MR 전략 생성
+            db.execute(
+                text("""
+                    INSERT INTO strategies (user_id, name, description, source, entry_webhook, is_active)
+                    VALUES (1, 'MR 역추세매매', '프리미엄 역추세 전략', 'premium', '', true)
+                """)
+            )
+            db.commit()
+            strategy_row = db.execute(
+                text("SELECT id FROM strategies WHERE name LIKE '%MR%' OR name LIKE '%역추세%' LIMIT 1")
+            ).fetchone()
+
+        strategy_id = strategy_row[0]
+
+        # 3. asset 찾거나 생성
+        asset_row = db.execute(
+            text("""
+                SELECT a.id FROM assets a
+                JOIN accounts acc ON acc.id = a.account_id
+                WHERE a.symbol = :symbol AND UPPER(acc.exchange) = :exchange
+                LIMIT 1
+            """),
+            {"symbol": symbol, "exchange": exchange}
+        ).fetchone()
+
+        if not asset_row:
+            # asset 생성
+            db.execute(
+                text("""
+                    INSERT INTO assets (account_id, strategy_id, symbol, market, is_active)
+                    VALUES (:account_id, :strategy_id, :symbol, 'spot', true)
+                """),
+                {"account_id": account_id, "strategy_id": strategy_id, "symbol": symbol}
+            )
+            db.commit()
+            asset_row = db.execute(
+                text("""
+                    SELECT a.id FROM assets a
+                    JOIN accounts acc ON acc.id = a.account_id
+                    WHERE a.symbol = :symbol AND UPPER(acc.exchange) = :exchange
+                    LIMIT 1
+                """),
+                {"symbol": symbol, "exchange": exchange}
+            ).fetchone()
+
+        asset_id = asset_row[0]
+
+    # asset_id 확인
+    if not asset_id:
+        raise HTTPException(status_code=400, detail="asset_id 또는 exchange+symbol이 필요합니다")
 
     # Check if asset exists
     asset_result = db.execute(
         text("SELECT id FROM assets WHERE id = :asset_id"),
-        {"asset_id": config.asset_id},
+        {"asset_id": asset_id},
     )
     if not asset_result.fetchone():
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    # Check if config already exists
+    # Check if config already exists - 있으면 업데이트
     existing = db.execute(
         text("SELECT id FROM premium_configs WHERE asset_id = :asset_id"),
-        {"asset_id": config.asset_id},
+        {"asset_id": asset_id},
     )
     if existing.fetchone():
-        raise HTTPException(status_code=400, detail="Config already exists for this asset")
+        # 기존 설정이 있으면 업데이트
+        db.execute(
+            text("""
+                UPDATE premium_configs SET
+                    signal_tf = :signal_tf, htf_tf = :htf_tf, osc_preset = :osc_preset,
+                    cash_use_pct = :cash_use_pct, hard_cap_pct = :hard_cap_pct, min_profit_pct = :min_profit_pct,
+                    buy_tranches = :buy_tranches, sell_tranches = :sell_tranches,
+                    buy_after_max = :buy_after_max, sell_after_max = :sell_after_max,
+                    buy_stage_1_only = :buy_stage_1_only, sell_stage_1_only = :sell_stage_1_only,
+                    use_lower_band_filter = :use_lower_band_filter, use_below_avg_filter = :use_below_avg_filter,
+                    use_prev_signal_filter = :use_prev_signal_filter, use_prev_exec_filter = :use_prev_exec_filter,
+                    use_4regime = :use_4regime, r1_pullback_enabled = :r1_pullback_enabled, r3_breakout_enabled = :r3_breakout_enabled,
+                    one_trade_per_bar = :one_trade_per_bar, updated_at = now()
+                WHERE asset_id = :asset_id
+            """),
+            {
+                "asset_id": asset_id,
+                "signal_tf": config.signal_tf,
+                "htf_tf": config.htf_tf,
+                "osc_preset": config.osc_preset,
+                "cash_use_pct": config.cash_use_pct,
+                "hard_cap_pct": config.hard_cap_pct,
+                "min_profit_pct": config.min_profit_pct,
+                "buy_tranches": json.dumps(config.buy_tranches),
+                "sell_tranches": json.dumps(config.sell_tranches),
+                "buy_after_max": config.buy_after_max,
+                "sell_after_max": config.sell_after_max,
+                "buy_stage_1_only": config.buy_stage_1_only,
+                "sell_stage_1_only": config.sell_stage_1_only,
+                "use_lower_band_filter": config.use_lower_band_filter,
+                "use_below_avg_filter": config.use_below_avg_filter,
+                "use_prev_signal_filter": config.use_prev_signal_filter,
+                "use_prev_exec_filter": config.use_prev_exec_filter,
+                "use_4regime": config.use_4regime,
+                "r1_pullback_enabled": config.r1_pullback_enabled,
+                "r3_breakout_enabled": config.r3_breakout_enabled,
+                "one_trade_per_bar": config.one_trade_per_bar,
+            }
+        )
+        db.commit()
+
+        # 업데이트된 설정 조회
+        row = db.execute(
+            text("""
+                SELECT id, asset_id, signal_tf, htf_tf, osc_preset,
+                       cash_use_pct, hard_cap_pct, min_profit_pct,
+                       buy_tranches, sell_tranches,
+                       buy_after_max, sell_after_max,
+                       buy_stage_1_only, sell_stage_1_only,
+                       use_lower_band_filter, use_below_avg_filter,
+                       use_prev_signal_filter, use_prev_exec_filter,
+                       use_4regime, r1_pullback_enabled, r3_breakout_enabled,
+                       one_trade_per_bar, created_at, updated_at
+                FROM premium_configs WHERE asset_id = :asset_id
+            """),
+            {"asset_id": asset_id}
+        ).fetchone()
+
+        return PremiumConfigResponse(
+            id=row[0], asset_id=row[1], signal_tf=row[2], htf_tf=row[3],
+            osc_preset=f"preset{row[4]}" if isinstance(row[4], int) else (row[4] or "preset1"),
+            cash_use_pct=row[5], hard_cap_pct=row[6], min_profit_pct=row[7],
+            buy_tranches=row[8] if row[8] else [25, 50, 75, 100],
+            sell_tranches=row[9] if row[9] else [50, 100],
+            buy_after_max=row[10] or "extend", sell_after_max=row[11] or "extend",
+            buy_stage_1_only=bool(row[12]), sell_stage_1_only=bool(row[13]),
+            use_lower_band_filter=bool(row[14]), use_below_avg_filter=bool(row[15]),
+            use_prev_signal_filter=bool(row[16]), use_prev_exec_filter=bool(row[17]),
+            use_4regime=bool(row[18]), r1_pullback_enabled=bool(row[19]), r3_breakout_enabled=bool(row[20]),
+            one_trade_per_bar=bool(row[21]), created_at=row[22], updated_at=row[23],
+        )
 
     # Insert config
     result = db.execute(
@@ -308,7 +472,7 @@ async def create_premium_config(
             )
         """),
         {
-            "asset_id": config.asset_id,
+            "asset_id": asset_id,
             "signal_tf": config.signal_tf,
             "htf_tf": config.htf_tf,
             "osc_preset": config.osc_preset,
@@ -339,11 +503,11 @@ async def create_premium_config(
             INSERT OR IGNORE INTO strategy_states (asset_id)
             VALUES (:asset_id)
         """),
-        {"asset_id": config.asset_id},
+        {"asset_id": asset_id},
     )
     db.commit()
 
-    return await get_premium_config(config.asset_id, db)
+    return await get_premium_config(asset_id, db)
 
 
 @router.put("/configs/{asset_id}", response_model=PremiumConfigResponse)
