@@ -9546,16 +9546,33 @@ async function renderEpsForecastChart(code, annualData) {
             return;
         }
 
+        // 첫 값과 마지막 값 비교해서 색상 및 변동률 결정
+        const firstVal = data[0];
+        const lastVal = data[data.length - 1];
+        const changePercent = firstVal > 0 ? ((lastVal - firstVal) / firstVal * 100).toFixed(1) : 0;
+        const isUp = lastVal >= firstVal;
+        const lineColor = isUp ? '#22c55e' : '#ef4444';  // 상승=초록, 하락=빨강
+        const bgColor = isUp ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+        const changeCount = data.length - 1;  // 변경 횟수
+
         const canvasId = 'eps-revision-chart-' + Date.now();
 
+        // stockeasy 스타일 헤더
         container.innerHTML = `
             <div style="padding:4px 0;">
-                <div style="font-size:11px;color:#888;margin-bottom:6px;text-align:center;">${fy1.year}년 EPS 추정 변화</div>
-                <div style="position:relative;height:100px;">
-                    <canvas id="${canvasId}"></canvas>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <span style="font-size:11px;color:#888;">${fy1.year}년 전망치</span>
+                    <span style="font-size:10px;color:${lineColor};font-weight:bold;">
+                        ${isUp ? '▲' : '▼'} ${Math.abs(changePercent)}%
+                        <span style="color:#666;font-weight:normal;margin-left:4px;">${changeCount}회 변경</span>
+                    </span>
                 </div>
-                <div style="font-size:9px;color:#666;margin-top:4px;text-align:center;">
-                    컨센서스 추정치 변동 추이 (FnGuide)
+                <div style="display:flex;justify-content:space-between;font-size:10px;color:#aaa;margin-bottom:4px;">
+                    <span>시작: <b style="color:#ddd;">${firstVal.toLocaleString()}원</b></span>
+                    <span>현재: <b style="color:${lineColor};">${lastVal.toLocaleString()}원</b></span>
+                </div>
+                <div style="position:relative;height:70px;">
+                    <canvas id="${canvasId}"></canvas>
                 </div>
             </div>
         `;
@@ -9566,13 +9583,6 @@ async function renderEpsForecastChart(code, annualData) {
         if (canvas._chartInstance) {
             canvas._chartInstance.destroy();
         }
-
-        // 첫 값과 마지막 값 비교해서 색상 결정
-        const firstVal = data[0];
-        const lastVal = data[data.length - 1];
-        const isUp = lastVal >= firstVal;
-        const lineColor = isUp ? '#22c55e' : '#ef4444';  // 상승=초록, 하락=빨강
-        const bgColor = isUp ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)';
 
         canvas._chartInstance = new Chart(canvas, {
             type: 'line',
@@ -9585,26 +9595,18 @@ async function renderEpsForecastChart(code, annualData) {
                     borderWidth: 2,
                     fill: true,
                     tension: 0.3,
-                    pointRadius: 4,
+                    pointRadius: 3,
                     pointBackgroundColor: lineColor,
                     pointBorderColor: '#fff',
                     pointBorderWidth: 1,
-                    datalabels: {
-                        display: (ctx) => ctx.dataIndex === 0 || ctx.dataIndex === ctx.dataset.data.length - 1,
-                        anchor: (ctx) => ctx.dataIndex === 0 ? 'start' : 'end',
-                        align: 'top',
-                        offset: 4,
-                        color: lineColor,
-                        font: { size: 10, weight: 'bold' },
-                        formatter: (v) => v ? v.toLocaleString() + '원' : ''
-                    }
+                    datalabels: { display: false }  // 헤더에 시작/현재 표시하므로 라벨 제거
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 layout: {
-                    padding: { top: 25, right: 15, bottom: 5, left: 15 }
+                    padding: { top: 5, right: 10, bottom: 0, left: 10 }
                 },
                 plugins: {
                     legend: { display: false },
@@ -9617,7 +9619,7 @@ async function renderEpsForecastChart(code, annualData) {
                 scales: {
                     x: {
                         grid: { display: false },
-                        ticks: { color: '#888', font: { size: 8 } }
+                        ticks: { color: lineColor, font: { size: 8 } }  // X축 색상 = 라인 색상
                     },
                     y: {
                         display: false,
@@ -9765,14 +9767,17 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
     const datasets = [];
 
     // datalabels 공통 설정 (막대용)
+    const dataCount = periods.length;
+    const labelFontSize = dataCount >= 7 ? 9 : 11;  // 분기 7개 이상일 때 작게
+
     const barDatalabels = {
         display: (ctx) => ctx.dataset.data[ctx.dataIndex] !== null,
         anchor: 'end',
         align: 'top',
-        offset: 4,
+        offset: 3,
         clip: false,
         color: '#ccc',
-        font: { size: 11, weight: 'bold' },
+        font: { size: labelFontSize, weight: 'bold' },
         formatter: (v) => {
             if (v === null || v === undefined || v === 0) return '';
             if (chartType === 'eps') {
