@@ -9503,10 +9503,10 @@ async function loadAndRenderAllFinancialCharts(code, annualData) {
     renderEpsForecastChart(annual);
 }
 
-// EPS 전망추이 차트 렌더링 (Chart.js 라인차트)
+// EPS 전망 차트 렌더링 (Chart.js 막대 그래프)
 // stockeasy는 애널리스트 컨센서스 변동 이력(날짜별)을 보여주지만
 // FnGuide/Naver API는 해당 데이터를 제공하지 않음
-// → 연도별 전망치 라인차트로 표시
+// → 연도별 전망치를 막대 그래프로 표시 (추세가 아닌 개별 전망)
 function renderEpsForecastChart(annualData) {
     const container = document.getElementById('sd-eps-forecast-content');
     if (!container) return;
@@ -9536,17 +9536,17 @@ function renderEpsForecastChart(annualData) {
 
     container.innerHTML = `
         <div style="padding:4px 0;">
-            <div style="font-size:11px;color:#888;margin-bottom:6px;text-align:center;">연도별 EPS 전망 (컨센서스)</div>
+            <div style="font-size:11px;color:#888;margin-bottom:6px;text-align:center;">연도별 EPS 전망</div>
             <div style="position:relative;height:100px;">
                 <canvas id="${canvasId}"></canvas>
             </div>
             <div style="font-size:9px;color:#666;margin-top:4px;text-align:center;">
-                ※ 컨센서스 변동 이력은 데이터 미제공
+                ※ 일별 컨센서스 변동 이력은 데이터 미제공
             </div>
         </div>
     `;
 
-    // Chart.js 라인차트 렌더링
+    // Chart.js 막대 그래프 렌더링 (연도별 독립 전망치)
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
 
@@ -9559,26 +9559,20 @@ function renderEpsForecastChart(annualData) {
     }
 
     canvas._chartInstance = new Chart(canvas, {
-        type: 'line',
+        type: 'bar',
         data: {
             labels: labels,
             datasets: [{
                 data: data,
+                backgroundColor: 'rgba(168, 85, 247, 0.7)',
                 borderColor: '#a855f7',
-                backgroundColor: 'rgba(168, 85, 247, 0.1)',
-                borderWidth: 2,
-                pointBackgroundColor: '#a855f7',
-                pointBorderColor: '#fff',
-                pointBorderWidth: 1,
-                pointRadius: 5,
-                pointHoverRadius: 7,
-                fill: true,
-                tension: 0.3,
+                borderWidth: 1,
+                borderRadius: 4,
                 datalabels: {
                     display: true,
-                    anchor: 'top',
+                    anchor: 'end',
                     align: 'top',
-                    offset: 4,
+                    offset: 2,
                     color: '#a855f7',
                     font: { size: 10, weight: 'bold' },
                     formatter: (v) => v ? v.toLocaleString() + '원' : ''
@@ -9595,14 +9589,14 @@ function renderEpsForecastChart(annualData) {
                 legend: { display: false },
                 tooltip: {
                     callbacks: {
-                        label: (ctx) => `EPS: ${ctx.raw?.toLocaleString() || 0}원`
+                        label: (ctx) => `EPS 전망: ${ctx.raw?.toLocaleString() || 0}원`
                     }
                 },
                 datalabels: {
                     display: true,
                     anchor: 'end',
                     align: 'top',
-                    offset: 4,
+                    offset: 2,
                     color: '#a855f7',
                     font: { size: 10, weight: 'bold' },
                     formatter: (v) => v ? v.toLocaleString() + '원' : ''
