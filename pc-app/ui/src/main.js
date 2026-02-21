@@ -9508,6 +9508,9 @@ async function loadAndRenderAllFinancialCharts(code, annualData) {
 }
 
 // EPS 전망추이 차트 렌더링
+// stockeasy는 애널리스트 컨센서스 변동 이력(날짜별)을 보여주지만
+// FnGuide/Naver API는 해당 데이터를 제공하지 않음
+// → 전망치 테이블 형식으로 표시
 function renderEpsForecastChart(annualData) {
     const container = document.getElementById('sd-eps-forecast-content');
     if (!container) return;
@@ -9532,89 +9535,27 @@ function renderEpsForecastChart(annualData) {
         return;
     }
 
-    // stockeasy 스타일 헤더: 시작/현재/변화율
-    const firstEps = forecastData[0].eps;
-    const lastEps = forecastData[forecastData.length - 1].eps;
-    const changePct = firstEps > 0 ? ((lastEps - firstEps) / firstEps * 100).toFixed(1) : 0;
-    const pctColor = changePct >= 0 ? '#22c55e' : '#ef4444';
-    const pctSign = changePct >= 0 ? '+' : '';
+    // 전망치 테이블 형식으로 표시 (연도별 EPS 전망)
+    let tableRows = forecastData.map(d => `
+        <tr>
+            <td style="color:#22c55e;padding:4px 8px;text-align:left;">${d.period}</td>
+            <td style="color:#a855f7;padding:4px 8px;text-align:right;font-weight:bold;">${d.eps.toLocaleString()}원</td>
+        </tr>
+    `).join('');
 
-    // 차트 HTML 생성
     container.innerHTML = `
-        <div class="sd-forecast-summary" style="margin-bottom:8px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                <span style="font-size:11px;color:#888;">${forecastData[0].period}~${forecastData[forecastData.length-1].period} 전망</span>
-                <span style="font-size:10px;color:#666;">${forecastData.length}개 추정치</span>
+        <div style="padding:8px 0;">
+            <div style="font-size:11px;color:#888;margin-bottom:8px;">연도별 EPS 전망치 (컨센서스)</div>
+            <table style="width:100%;border-collapse:collapse;">
+                <tbody>
+                    ${tableRows}
+                </tbody>
+            </table>
+            <div style="font-size:9px;color:#666;margin-top:8px;text-align:center;">
+                ※ 컨센서스 변동 이력은 데이터 미제공
             </div>
-            <div style="display:flex;justify-content:space-between;font-size:12px;">
-                <span style="color:#aaa;">시작: ${firstEps.toLocaleString()}원</span>
-                <span>
-                    현재: <b style="color:#a855f7;">${lastEps.toLocaleString()}원</b>
-                    <span style="color:${pctColor};margin-left:4px;">(${pctSign}${changePct}%)</span>
-                </span>
-            </div>
-        </div>
-        <div class="sd-trend-chart-wrapper" style="height:100px;">
-            <canvas id="sd-fc-eps-forecast"></canvas>
         </div>
     `;
-
-    // 라인 차트 렌더링
-    ensureChartDataLabels();
-    const canvas = document.getElementById('sd-fc-eps-forecast');
-    if (!canvas || typeof Chart === 'undefined') return;
-
-    if (canvas._chartInstance) {
-        canvas._chartInstance.destroy();
-    }
-
-    canvas._chartInstance = new Chart(canvas, {
-        type: 'line',
-        data: {
-            labels: forecastData.map(d => d.period),
-            datasets: [{
-                label: 'EPS 전망',
-                data: forecastData.map(d => d.eps),
-                borderColor: '#a855f7',
-                backgroundColor: 'rgba(168, 85, 247, 0.1)',
-                borderWidth: 2,
-                pointRadius: 4,
-                pointBackgroundColor: '#a855f7',
-                fill: true,
-                tension: 0.3,
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                datalabels: {
-                    display: true,
-                    anchor: 'top',
-                    align: 'top',
-                    offset: 4,
-                    color: '#a855f7',
-                    font: { size: 10, weight: 'bold' },
-                    formatter: (v) => v ? v.toLocaleString() + '원' : '',
-                }
-            },
-            scales: {
-                x: {
-                    ticks: { color: '#22c55e', font: { size: 9 } },
-                    grid: { display: false }
-                },
-                y: {
-                    ticks: {
-                        color: '#666',
-                        font: { size: 8 },
-                        callback: (v) => v.toLocaleString()
-                    },
-                    grid: { color: 'rgba(255,255,255,0.04)' }
-                }
-            }
-        }
-    });
 }
 
 // StockEasy 스타일 차트 렌더링 (실적/전망치 분리 + 점선 테두리)
@@ -9732,23 +9673,27 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
         });
     }
 
-    // GPM 라인 (매출액 연간 차트에서만)
+    // GPM 라인 (매출액 연간 차트에서만 + 실적 구간만 표시)
+    // stockeasy 규칙: GPM은 실적만, 전망치(estimate) 구간은 라인 끊기
     const hasGpmData = gpm && gpm.length > 0 && gpm.some(v => v !== null && v !== undefined && v > 0);
     const showGpmLine = hasGpmData && chartType === 'revenue' && isAnnualChart;
 
     if (showGpmLine) {
+        // 전망치 구간은 null로 설정하여 라인 끊기
+        const gpmActualOnly = gpm.map((v, i) => isEstimate[i] ? null : v);
         datasets.push({
             type: 'line',
             label: 'GPM',
-            data: gpm,
+            data: gpmActualOnly,
             borderColor: '#3b82f6',  // 파란색
             borderWidth: 2,
             borderDash: [6, 3],
-            pointRadius: 4,
+            pointRadius: 3,
             pointBackgroundColor: '#3b82f6',
             fill: false,
             yAxisID: 'y1',
             order: 1,
+            spanGaps: false,  // null 구간 끊기
             datalabels: { display: false },
         });
     }
@@ -9847,14 +9792,16 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
                     grid: { color: 'rgba(255,255,255,0.04)' },
                 },
                 // OPM/GPM 라인용 우측 Y축 (% 단위)
+                // GPM은 연하게, OPM은 기존 스타일 유지
                 ...((showOpmLine || showGpmLine) ? {
                     y1: {
                         position: 'right',
                         display: true,
                         ticks: {
-                            color: showOpmLine ? '#f59e0b' : '#3b82f6',  // OPM=주황, GPM=파랑
-                            font: { size: 8 },
+                            color: showGpmLine ? 'rgba(136,136,136,0.5)' : '#f59e0b',  // GPM=연한 회색, OPM=주황
+                            font: { size: showGpmLine ? 9 : 8 },
                             callback: (v) => v.toFixed(0) + '%',
+                            maxTicksLimit: showGpmLine ? 3 : 5,  // GPM은 눈금 적게
                         },
                         grid: { display: false },
                         min: 0,
