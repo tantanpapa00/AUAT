@@ -541,8 +541,9 @@ async def create_premium_config(
     # Also create strategy state
     db.execute(
         text("""
-            INSERT OR IGNORE INTO strategy_states (asset_id)
+            INSERT INTO strategy_states (asset_id)
             VALUES (:asset_id)
+            ON CONFLICT (asset_id) DO NOTHING
         """),
         {"asset_id": asset_id},
     )
