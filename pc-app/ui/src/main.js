@@ -2455,10 +2455,10 @@ function initStockKrAutocomplete() {
 
     stockKrAutocomplete = createSymbolAutocomplete(input, (symbol) => {
         if (symbol) {
-            // 미니 차트 프리뷰 표시
-            showStockKrPreview(symbol);
-        } else {
-            hideStockKrPreview();
+            // 최근 검색 저장
+            addRecentSearch(symbol.code, symbol.name);
+            // 종목 상세 열기
+            openStockDetail(symbol.code, symbol.exchange || 'KIS_KR');
         }
     }, { exchange: 'kis_kr', showBadge: false });
 }
@@ -7495,8 +7495,8 @@ function renderCryptoTable(coins) {
 
 // 국내주식 분석 로드
 async function loadStockKr() {
-    // 검색 자동완성 초기화
-    initSearchAutocomplete('stock-kr-search', 'stock-kr-autocomplete', 'kr');
+    // 검색 자동완성은 initAllAutocompletes()에서 initStockKrAutocomplete()로 이미 초기화됨
+    // initSearchAutocomplete 중복 호출 제거 (충돌 방지)
     renderRecentSearches();
 
     // 하위 탭 이벤트
