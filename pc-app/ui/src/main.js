@@ -9503,10 +9503,10 @@ async function loadAndRenderAllFinancialCharts(code, annualData) {
     renderEpsForecastChart(annual);
 }
 
-// EPS 전망추이 차트 렌더링
+// EPS 전망추이 차트 렌더링 (Chart.js 라인차트)
 // stockeasy는 애널리스트 컨센서스 변동 이력(날짜별)을 보여주지만
 // FnGuide/Naver API는 해당 데이터를 제공하지 않음
-// → 전망치 테이블 형식으로 표시
+// → 연도별 전망치 라인차트로 표시
 function renderEpsForecastChart(annualData) {
     const container = document.getElementById('sd-eps-forecast-content');
     if (!container) return;
@@ -9531,27 +9531,95 @@ function renderEpsForecastChart(annualData) {
         return;
     }
 
-    // 전망치 테이블 형식으로 표시 (연도별 EPS 전망)
-    let tableRows = forecastData.map(d => `
-        <tr>
-            <td style="color:#22c55e;padding:4px 8px;text-align:left;">${d.period}</td>
-            <td style="color:#a855f7;padding:4px 8px;text-align:right;font-weight:bold;">${d.eps.toLocaleString()}원</td>
-        </tr>
-    `).join('');
+    // 캔버스 ID 생성
+    const canvasId = 'eps-forecast-chart-' + Date.now();
 
     container.innerHTML = `
-        <div style="padding:8px 0;">
-            <div style="font-size:11px;color:#888;margin-bottom:8px;">연도별 EPS 전망치 (컨센서스)</div>
-            <table style="width:100%;border-collapse:collapse;">
-                <tbody>
-                    ${tableRows}
-                </tbody>
-            </table>
-            <div style="font-size:9px;color:#666;margin-top:8px;text-align:center;">
+        <div style="padding:4px 0;">
+            <div style="font-size:11px;color:#888;margin-bottom:6px;text-align:center;">연도별 EPS 전망 (컨센서스)</div>
+            <div style="position:relative;height:100px;">
+                <canvas id="${canvasId}"></canvas>
+            </div>
+            <div style="font-size:9px;color:#666;margin-top:4px;text-align:center;">
                 ※ 컨센서스 변동 이력은 데이터 미제공
             </div>
         </div>
     `;
+
+    // Chart.js 라인차트 렌더링
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+
+    const labels = forecastData.map(d => d.period);
+    const data = forecastData.map(d => d.eps);
+
+    // 기존 차트 제거
+    if (canvas._chartInstance) {
+        canvas._chartInstance.destroy();
+    }
+
+    canvas._chartInstance = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                borderColor: '#a855f7',
+                backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                borderWidth: 2,
+                pointBackgroundColor: '#a855f7',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 1,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                fill: true,
+                tension: 0.3,
+                datalabels: {
+                    display: true,
+                    anchor: 'top',
+                    align: 'top',
+                    offset: 4,
+                    color: '#a855f7',
+                    font: { size: 10, weight: 'bold' },
+                    formatter: (v) => v ? v.toLocaleString() + '원' : ''
+                }
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: {
+                padding: { top: 25, right: 10, bottom: 5, left: 10 }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => `EPS: ${ctx.raw?.toLocaleString() || 0}원`
+                    }
+                },
+                datalabels: {
+                    display: true,
+                    anchor: 'end',
+                    align: 'top',
+                    offset: 4,
+                    color: '#a855f7',
+                    font: { size: 10, weight: 'bold' },
+                    formatter: (v) => v ? v.toLocaleString() + '원' : ''
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#888', font: { size: 9 } }
+                },
+                y: {
+                    display: false,
+                    beginAtZero: false
+                }
+            }
+        }
+    });
 }
 
 // StockEasy 스타일 차트 렌더링 (실적/전망치 분리 + 점선 테두리)
