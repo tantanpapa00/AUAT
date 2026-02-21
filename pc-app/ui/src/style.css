@@ -5954,8 +5954,9 @@ body {
 /* 차트 래퍼 */
 .sd-trend-chart-wrapper {
     position: relative;
-    height: 120px;
+    height: 140px;  /* 120px → 140px: 라벨 공간 확보 */
     margin-bottom: 4px;
+    overflow: visible;  /* 라벨이 잘리지 않도록 */
 }
 
 .sd-trend-empty {
