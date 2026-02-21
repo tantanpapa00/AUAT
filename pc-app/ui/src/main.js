@@ -11760,8 +11760,8 @@ async function loadMrExchangeDropdown() {
     const select = document.getElementById('mr-exchange');
     if (!select) return;
 
-    // 기본 거래소 목록 (항상 포함) - KIS 추가
-    const defaultExchanges = ['OKX', 'BINANCE', 'BYBIT', 'UPBIT', 'KIS_KR', 'KIS_US'];
+    // 기본 거래소 목록 (항상 포함) - KIS + ETF 추가
+    const defaultExchanges = ['OKX', 'BINANCE', 'BYBIT', 'UPBIT', 'KIS_KR', 'KIS_US', 'ETF'];
 
     try {
         let accounts = [];
@@ -12677,6 +12677,7 @@ const EXCHANGE_DISPLAY = {
     'UPBIT': '업비트',
     'KIS_KR': '한투증권(국내)',
     'KIS_US': '한투증권(해외)',
+    'ETF': 'ETF (국내)',
 };
 function getExchangeDisplay(exchange) {
     return EXCHANGE_DISPLAY[(exchange || '').toUpperCase()] || exchange;
@@ -13213,8 +13214,8 @@ async function loadTrendExchangeDropdown() {
     const select = document.getElementById('trend-exchange');
     if (!select) return;
 
-    // 기본 거래소 목록 (항상 포함) - MR과 동일
-    const defaultExchanges = ['OKX', 'BINANCE', 'BYBIT', 'UPBIT', 'KIS_KR', 'KIS_US'];
+    // 기본 거래소 목록 (항상 포함) - MR과 동일 + ETF
+    const defaultExchanges = ['OKX', 'BINANCE', 'BYBIT', 'UPBIT', 'KIS_KR', 'KIS_US', 'ETF'];
 
     try {
         let accounts = [];
@@ -13271,7 +13272,7 @@ async function loadCustomExchangeDropdown() {
     const select = document.getElementById('custom-exchange');
     if (!select) return;
 
-    const defaultExchanges = ['OKX', 'BINANCE', 'BYBIT', 'UPBIT', 'KIS_KR', 'KIS_US'];
+    const defaultExchanges = ['OKX', 'BINANCE', 'BYBIT', 'UPBIT', 'KIS_KR', 'KIS_US', 'ETF'];
 
     try {
         let accounts = [];
