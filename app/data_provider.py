@@ -1023,34 +1023,9 @@ async def get_crypto_overview():
 # ===== 개별 종목 =====
 
 async def get_stock_detail(code):
-    """개별 종목 상세 - 네이버 API"""
-    try:
-        async with httpx.AsyncClient(timeout=10, headers=NAVER_HEADERS) as client:
-            url = f"https://m.stock.naver.com/api/stock/{code}/basic"
-            r = await client.get(url)
-
-            if r.status_code == 200:
-                data = r.json()
-                return {
-                    "code": code,
-                    "name": data.get("stockName", f"종목{code}"),
-                    "close": _parse_price(data.get("closePrice", "0")),
-                    "open": _parse_price(data.get("openPrice", "0")),
-                    "high": _parse_price(data.get("highPrice", "0")),
-                    "low": _parse_price(data.get("lowPrice", "0")),
-                    "volume": _parse_int(data.get("accumulatedTradingVolume", "0")),
-                    "change": _parse_price(data.get("compareToPreviousClosePrice", "0")),
-                    "change_percent": _parse_float(data.get("fluctuationsRatio", "0")),
-                    "per": _parse_float(data.get("per", "0")),
-                    "pbr": _parse_float(data.get("pbr", "0")),
-                    "market_cap": _parse_int(data.get("marketValue", "0")),
-                    "sector": data.get("industryName", "")
-                }
-    except Exception as e:
-        print(f"[DataProvider] Stock detail error for {code}: {e}")
-
-    # 기본값 반환
-    return {
+    """개별 종목 상세 - 네이버 API + fchart(시가/고가/저가/거래량)"""
+    import re
+    result = {
         "code": code,
         "name": f"종목{code}",
         "close": 0,
@@ -1065,6 +1040,39 @@ async def get_stock_detail(code):
         "market_cap": 0,
         "sector": ""
     }
+    try:
+        async with httpx.AsyncClient(timeout=10, headers=NAVER_HEADERS) as client:
+            # 1. 기본 정보 (종목명, 종가, 변동, PER, PBR 등)
+            url = f"https://m.stock.naver.com/api/stock/{code}/basic"
+            r = await client.get(url)
+            if r.status_code == 200:
+                data = r.json()
+                result["name"] = data.get("stockName", f"종목{code}")
+                result["close"] = _parse_price(data.get("closePrice", "0"))
+                result["change"] = _parse_price(data.get("compareToPreviousClosePrice", "0"))
+                result["change_percent"] = _parse_float(data.get("fluctuationsRatio", "0"))
+                result["per"] = _parse_float(data.get("per", "0"))
+                result["pbr"] = _parse_float(data.get("pbr", "0"))
+                result["market_cap"] = _parse_int(data.get("marketValue", "0"))
+                result["sector"] = data.get("industryName", "")
+
+            # 2. fchart에서 시가/고가/저가/거래량 (basic API에 없음)
+            fchart_url = f"https://fchart.stock.naver.com/sise.nhn?symbol={code}&timeframe=day&count=1&requestType=0"
+            fchart_r = await client.get(fchart_url)
+            if fchart_r.status_code == 200:
+                items = re.findall(r'<item data="([^"]+)"', fchart_r.text)
+                if items:
+                    parts = items[-1].split("|")  # 가장 최근 캔들
+                    if len(parts) >= 6:
+                        result["open"] = int(parts[1])
+                        result["high"] = int(parts[2])
+                        result["low"] = int(parts[3])
+                        result["volume"] = int(parts[5])
+
+            return result
+    except Exception as e:
+        print(f"[DataProvider] Stock detail error for {code}: {e}")
+    return result
 
 
 async def get_chart_data(code, period="3m"):
