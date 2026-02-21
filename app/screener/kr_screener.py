@@ -123,7 +123,7 @@ import time as _time
 # 모듈 레벨 메모리 캐시 (서버 시작 시 워밍업)
 _kr_stock_cache = None
 _kr_cache_ts = 0
-_KR_CACHE_TTL = 300  # 5분
+_KR_CACHE_TTL = 3600  # 1시간
 
 
 async def load_kr_stocks():

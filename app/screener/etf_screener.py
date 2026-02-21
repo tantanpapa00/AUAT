@@ -15,7 +15,7 @@ from .filters import sort_screener_results
 # 모듈 레벨 메모리 캐시 (서버 시작 시 워밍업)
 _etf_stock_cache = None
 _etf_cache_ts = 0
-_ETF_CACHE_TTL = 600  # 10분
+_ETF_CACHE_TTL = 3600  # 1시간
 
 
 async def load_etf_stocks():

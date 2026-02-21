@@ -1550,40 +1550,57 @@ pub async fn search_symbols(
     query: String,
     exchange: Option<String>,
 ) -> Result<Vec<SymbolInfo>, String> {
+    // 빠른 /api/search 엔드포인트 사용 (스크리너 캐시, 0.02초)
     let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
-    let mut url = format!("{}/api/symbols/search?q={}", VPS_SERVER_URL, query);
-    if let Some(ex) = exchange {
+    let mut url = format!("{}/api/search?q={}&limit=20", VPS_SERVER_URL, query);
+    if let Some(ex) = &exchange {
         url = format!("{}&exchange={}", url, ex);
     }
 
     let resp = client
         .get(&url)
         .header("Authorization", format!("Bearer {}", access_token))
-        .timeout(std::time::Duration::from_secs(15))
+        .timeout(std::time::Duration::from_secs(10))
         .send()
         .await;
 
     match resp {
         Ok(r) if r.status().is_success() => {
             let data: serde_json::Value = r.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
-            let symbols = data.get("symbols").and_then(|s| s.as_array());
+            // /api/search는 "results" 배열 반환
+            let results = data.get("results").and_then(|s| s.as_array());
 
-            if let Some(arr) = symbols {
+            if let Some(arr) = results {
                 let result: Vec<SymbolInfo> = arr.iter().filter_map(|s| {
-                    // symbol은 필수, 나머지는 기본값 사용
-                    let symbol = s.get("symbol")?.as_str()?.to_string();
+                    // code 필드 사용 (symbol 대신)
+                    let code = s.get("code")?.as_str()?.to_string();
+                    let name = s.get("name").and_then(|n| n.as_str()).unwrap_or(&code).to_string();
+                    let market = s.get("market").and_then(|m| m.as_str()).unwrap_or("").to_string();
+                    let stock_type = s.get("type").and_then(|t| t.as_str()).unwrap_or("stock_kr");
+
+                    // type에 따라 exchange 결정
+                    let exchange_name = match stock_type {
+                        "stock_kr" => "KIS_KR",
+                        "stock_us" => "KIS_US",
+                        "etf" => "ETF",
+                        _ => &market,
+                    };
+
+                    let price = s.get("price").and_then(|p| p.as_f64()).unwrap_or(0.0);
+                    let change_pct = s.get("change_pct").and_then(|c| c.as_f64()).unwrap_or(0.0);
+
                     Some(SymbolInfo {
-                        symbol: symbol.clone(),
-                        name: s.get("name").and_then(|n| n.as_str()).unwrap_or(&symbol).to_string(),
-                        exchange: s.get("exchange").and_then(|e| e.as_str()).unwrap_or("").to_string(),
-                        price: s.get("price").and_then(|p| p.as_f64()).unwrap_or(0.0),
-                        price_formatted: s.get("price_formatted").and_then(|p| p.as_str()).unwrap_or("N/A").to_string(),
-                        change: s.get("change").and_then(|c| c.as_f64()).unwrap_or(0.0),
-                        change_formatted: s.get("change_formatted").and_then(|c| c.as_str()).unwrap_or("0.00%").to_string(),
-                        volume: s.get("volume").and_then(|v| v.as_f64()).map(|v| v as i64).unwrap_or(0),
-                        volume_formatted: s.get("volume_formatted").and_then(|v| v.as_str()).unwrap_or("0").to_string(),
-                        high_24h: s.get("high_24h").and_then(|h| h.as_f64()),
-                        low_24h: s.get("low_24h").and_then(|l| l.as_f64()),
+                        symbol: code.clone(),
+                        name,
+                        exchange: exchange_name.to_string(),
+                        price,
+                        price_formatted: if price > 0.0 { format!("{:.0}", price) } else { "N/A".to_string() },
+                        change: change_pct,
+                        change_formatted: format!("{:+.2}%", change_pct),
+                        volume: 0,
+                        volume_formatted: "0".to_string(),
+                        high_24h: None,
+                        low_24h: None,
                     })
                 }).collect();
                 Ok(result)

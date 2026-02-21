@@ -15,7 +15,7 @@ from .filters import apply_screener_filters, sort_screener_results
 # 모듈 레벨 메모리 캐시 (서버 시작 시 워밍업)
 _us_stock_cache = None
 _us_cache_ts = 0
-_US_CACHE_TTL = 600  # 10분
+_US_CACHE_TTL = 3600  # 1시간
 
 
 async def load_us_stocks():
