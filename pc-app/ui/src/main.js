@@ -10932,11 +10932,12 @@ function updateStockDetailUI(detail) {
         }
     }
 
-    // 시가/고가/저가/거래량
-    const openEl = document.getElementById('detail-open');
-    const highEl = document.getElementById('detail-high');
-    const lowEl = document.getElementById('detail-low');
-    const volumeEl = document.getElementById('detail-volume');
+    // 시가/고가/저가/거래량 (stock-detail-modal 내 엘리먼트 우선 선택 - 중복 ID 대응)
+    const modal = document.getElementById('stock-detail-modal');
+    const openEl = modal?.querySelector('#detail-open') || document.getElementById('detail-open');
+    const highEl = modal?.querySelector('#detail-high') || document.getElementById('detail-high');
+    const lowEl = modal?.querySelector('#detail-low') || document.getElementById('detail-low');
+    const volumeEl = modal?.querySelector('#detail-volume') || document.getElementById('detail-volume');
 
     if (openEl) openEl.textContent = formatPrice(detail.open);
     if (highEl) highEl.textContent = formatPrice(detail.high);
