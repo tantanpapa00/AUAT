@@ -287,10 +287,10 @@ async def create_premium_config(
         ).fetchone()
 
         if not account_row:
-            # 계정이 없으면 기본 계정 생성 (user_id=1 사용)
+            # 계정이 없으면 기본 계정 생성 (owner_id=1 사용)
             db.execute(
                 text("""
-                    INSERT INTO accounts (user_id, exchange, name, is_active)
+                    INSERT INTO accounts (owner_id, exchange, name, is_active)
                     VALUES (1, :exchange, :name, true)
                 """),
                 {"exchange": exchange, "name": f"{exchange} Account"}
@@ -309,11 +309,11 @@ async def create_premium_config(
         ).fetchone()
 
         if not strategy_row:
-            # MR 전략 생성
+            # MR 전략 생성 (strategies 테이블: name, is_active만 필수)
             db.execute(
                 text("""
-                    INSERT INTO strategies (user_id, name, description, source, entry_webhook, is_active)
-                    VALUES (1, 'MR 역추세매매', '프리미엄 역추세 전략', 'premium', '', true)
+                    INSERT INTO strategies (name, is_active)
+                    VALUES ('MR 역추세매매', true)
                 """)
             )
             db.commit()

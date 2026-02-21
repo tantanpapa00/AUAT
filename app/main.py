@@ -10745,11 +10745,11 @@ async def api_search_stocks(
             us_stocks = await load_us_stocks()
             for stock in us_stocks:
                 name = (stock.get("name") or "").lower()
-                symbol = (stock.get("symbol") or "").upper()
-                if q_lower in name or q_upper in symbol:
+                code = (stock.get("code") or "").upper()
+                if q_lower in name or q_upper in code:
                     results.append({
-                        "code": stock.get("symbol"),
-                        "symbol": stock.get("symbol"),
+                        "code": stock.get("code"),
+                        "symbol": stock.get("code"),
                         "name": stock.get("name"),
                         "market": stock.get("sector", "US"),
                         "type": "stock_us",
