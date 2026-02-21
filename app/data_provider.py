@@ -4134,7 +4134,14 @@ async def get_eps_revision_history(code: str) -> dict:
                 "Referer": "http://comp.fnguide.com/"
             }
 
-            # FY1, FY2, FY3 순회
+            # FY1, FY2, FY3 → 올해+1, 올해+2, 올해+3 (FnGuide 기준)
+            current_year = datetime.now().year
+            fy_year_map = {
+                "FY1": str(current_year),      # 2026
+                "FY2": str(current_year + 1),  # 2027
+                "FY3": str(current_year + 2),  # 2028
+            }
+
             for fy in ["FY1", "FY2", "FY3"]:
                 url = f"http://comp.fnguide.com/SVO2/json/data/01_06/02_A{code}_A_D_{fy}.json"
 
@@ -4143,15 +4150,6 @@ async def get_eps_revision_history(code: str) -> dict:
                     if r.status_code == 200:
                         data = r.json()
                         comp = data.get("comp", [])
-
-                        # 헤더 행에서 연도 추출
-                        header_row = comp[0] if comp else {}
-                        current_date = header_row.get("D_1", "")
-
-                        # 연도 추출 (예: 2026/02/20 -> 2026)
-                        year = ""
-                        if "/" in current_date:
-                            year = current_date.split("/")[0]
 
                         # EPS 행 찾기
                         eps_data = []
@@ -4173,7 +4171,7 @@ async def get_eps_revision_history(code: str) -> dict:
 
                         if eps_data and any(v is not None for v in eps_data):
                             result[fy.lower()] = {
-                                "year": year,
+                                "year": fy_year_map[fy],
                                 "eps": eps_data,
                                 "labels": ["1년전", "6개월전", "3개월전", "1개월전", "현재"]
                             }
