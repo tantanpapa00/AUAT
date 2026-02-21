@@ -901,22 +901,34 @@ class MRBacktestRequest(BaseModel):
     r1_sell_mult: float = Field(default=1.3, ge=0, le=5)
     r1_allow_osc_buy: bool = Field(default=True)
     r1_pullback_on: bool = Field(default=True)
+    r1_filt_below_avg: bool = Field(default=True)
+    r1_filt_prev_signal: bool = Field(default=True)
+    r1_filt_prev_exec: bool = Field(default=True)
 
     # R2 조정장
     r2_buy_mult: float = Field(default=0.0, ge=0, le=5)
     r2_sell_mult: float = Field(default=1.6, ge=0, le=5)
     r2_allow_osc_buy: bool = Field(default=False)
+    r2_filt_below_avg: bool = Field(default=False)
+    r2_filt_prev_signal: bool = Field(default=False)
+    r2_filt_prev_exec: bool = Field(default=False)
 
     # R3 반등장
     r3_buy_mult: float = Field(default=1.0, ge=0, le=5)
     r3_sell_mult: float = Field(default=1.3, ge=0, le=5)
     r3_allow_osc_buy: bool = Field(default=True)
     r3_breakout_on: bool = Field(default=True)
+    r3_filt_below_avg: bool = Field(default=False)
+    r3_filt_prev_signal: bool = Field(default=True)
+    r3_filt_prev_exec: bool = Field(default=True)
 
     # R4 하락장
     r4_buy_mult: float = Field(default=1.2, ge=0, le=5)
     r4_sell_mult: float = Field(default=0.7, ge=0, le=5)
     r4_allow_osc_buy: bool = Field(default=True)
+    r4_filt_below_avg: bool = Field(default=True)
+    r4_filt_prev_signal: bool = Field(default=True)
+    r4_filt_prev_exec: bool = Field(default=False)
 
 
 class MRBacktestResponse(BaseModel):
@@ -995,19 +1007,31 @@ async def run_mr_backtest_endpoint(
             r1_sell_mult=request.r1_sell_mult,
             r1_allow_osc_buy=request.r1_allow_osc_buy,
             r1_pullback_on=request.r1_pullback_on,
+            r1_filt_below_avg=request.r1_filt_below_avg,
+            r1_filt_prev_signal=request.r1_filt_prev_signal,
+            r1_filt_prev_exec=request.r1_filt_prev_exec,
             # R2
             r2_buy_mult=request.r2_buy_mult,
             r2_sell_mult=request.r2_sell_mult,
             r2_allow_osc_buy=request.r2_allow_osc_buy,
+            r2_filt_below_avg=request.r2_filt_below_avg,
+            r2_filt_prev_signal=request.r2_filt_prev_signal,
+            r2_filt_prev_exec=request.r2_filt_prev_exec,
             # R3
             r3_buy_mult=request.r3_buy_mult,
             r3_sell_mult=request.r3_sell_mult,
             r3_allow_osc_buy=request.r3_allow_osc_buy,
             r3_breakout_on=request.r3_breakout_on,
+            r3_filt_below_avg=request.r3_filt_below_avg,
+            r3_filt_prev_signal=request.r3_filt_prev_signal,
+            r3_filt_prev_exec=request.r3_filt_prev_exec,
             # R4
             r4_buy_mult=request.r4_buy_mult,
             r4_sell_mult=request.r4_sell_mult,
             r4_allow_osc_buy=request.r4_allow_osc_buy,
+            r4_filt_below_avg=request.r4_filt_below_avg,
+            r4_filt_prev_signal=request.r4_filt_prev_signal,
+            r4_filt_prev_exec=request.r4_filt_prev_exec,
         )
 
         # ④ 백테스트 실행
