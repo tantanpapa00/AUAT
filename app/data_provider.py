@@ -3629,11 +3629,11 @@ def _parse_finviz_snapshot(html: str) -> dict:
             data["profit_margin"] = _parse_float(snapshot.get("Profit Margin", "0%").replace("%", ""))
 
             # 52주 고저 (값이 "212.19-10.54%" 또는 "86.62119.14%" 형식)
-            # 첫 번째 유효한 소수만 추출 (소수점 한 번만 포함)
+            # 주가는 소수점 2자리까지이므로 \d+\.\d{1,2} 패턴 사용
             high_52w_str = snapshot.get("52W High", "0")
             low_52w_str = snapshot.get("52W Low", "0")
-            high_match = re.match(r'(\d+(?:\.\d+)?)', high_52w_str)
-            low_match = re.match(r'(\d+(?:\.\d+)?)', low_52w_str)
+            high_match = re.match(r'(\d+(?:\.\d{1,2})?)', high_52w_str)
+            low_match = re.match(r'(\d+(?:\.\d{1,2})?)', low_52w_str)
             data["high_52w"] = _parse_float(high_match.group(1)) if high_match else 0
             data["low_52w"] = _parse_float(low_match.group(1)) if low_match else 0
 
