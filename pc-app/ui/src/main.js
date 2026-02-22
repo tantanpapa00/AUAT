@@ -2273,6 +2273,10 @@ document.getElementById('btn-tv-next-3')?.addEventListener('click', async () => 
 
         showToast('전략 및 종목이 저장되었습니다', 'success');
 
+        // 전략 목록 갱신
+        await loadStrategies();
+        await loadActiveStrategies();
+
         // 템플릿 생성
         const templateCode = document.getElementById('template-code');
         if (templateCode) templateCode.textContent = generateTemplate();
@@ -12401,6 +12405,10 @@ document.getElementById('btn-mr-save')?.addEventListener('click', async () => {
         });
 
         showToast('설정이 저장되었습니다', 'success');
+
+        // 전략 목록 갱신
+        await loadStrategies();
+        await loadActiveStrategies();
     } catch (error) {
         showToast('설정 저장 실패: ' + error, 'error');
     }
@@ -12436,6 +12444,10 @@ document.getElementById('btn-mr-start-strategy')?.addEventListener('click', asyn
         await invoke('start_scheduler', { accessToken: auth.accessToken || '' });
 
         showToast('전략이 시작되었습니다', 'success');
+
+        // 전략 목록 갱신
+        await loadStrategies();
+        await loadActiveStrategies();
     } catch (error) {
         showToast('전략 시작 실패: ' + error, 'error');
     }
