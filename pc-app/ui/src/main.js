@@ -11760,8 +11760,9 @@ async function loadMrExchangeDropdown() {
     const select = document.getElementById('mr-exchange');
     if (!select) return;
 
-    // 기본 거래소 목록 (항상 포함) - KIS + ETF 추가
-    const defaultExchanges = ['OKX', 'BINANCE', 'BYBIT', 'UPBIT', 'KIS_KR', 'KIS_US', 'ETF'];
+    // 기본 거래소 목록 (v4 명령서 순서: KIS_KR → KIS_US → UPBIT → Binance → BYBIT → OKX)
+    // ETF는 KIS_KR/KIS_US에 통합되므로 별도 옵션 없음
+    const defaultExchanges = ['KIS_KR', 'KIS_US', 'UPBIT', 'BINANCE', 'BYBIT', 'OKX'];
 
     try {
         let accounts = [];
@@ -12669,15 +12670,14 @@ function formatProfitFactor(value) {
     return num.toFixed(3);
 }
 
-// ===== 거래소 표시명 =====
+// ===== 거래소 표시명 (v4 명령서) =====
 const EXCHANGE_DISPLAY = {
+    'KIS_KR': 'KIS_KR(한국투자증권)',
+    'KIS_US': 'KIS_US(한국투자증권)',
+    'UPBIT': 'UPBIT',
+    'BINANCE': 'Binance',
+    'BYBIT': 'BYBIT',
     'OKX': 'OKX',
-    'BINANCE': '바이낸스',
-    'BYBIT': '바이비트',
-    'UPBIT': '업비트',
-    'KIS_KR': '한투증권(국내)',
-    'KIS_US': '한투증권(해외)',
-    'ETF': 'ETF (국내)',
 };
 function getExchangeDisplay(exchange) {
     return EXCHANGE_DISPLAY[(exchange || '').toUpperCase()] || exchange;
@@ -13214,8 +13214,8 @@ async function loadTrendExchangeDropdown() {
     const select = document.getElementById('trend-exchange');
     if (!select) return;
 
-    // 기본 거래소 목록 (항상 포함) - MR과 동일 + ETF
-    const defaultExchanges = ['OKX', 'BINANCE', 'BYBIT', 'UPBIT', 'KIS_KR', 'KIS_US', 'ETF'];
+    // 기본 거래소 목록 (v4 명령서 순서: KIS_KR → KIS_US → UPBIT → Binance → BYBIT → OKX)
+    const defaultExchanges = ['KIS_KR', 'KIS_US', 'UPBIT', 'BINANCE', 'BYBIT', 'OKX'];
 
     try {
         let accounts = [];
@@ -13272,7 +13272,8 @@ async function loadCustomExchangeDropdown() {
     const select = document.getElementById('custom-exchange');
     if (!select) return;
 
-    const defaultExchanges = ['OKX', 'BINANCE', 'BYBIT', 'UPBIT', 'KIS_KR', 'KIS_US', 'ETF'];
+    // 기본 거래소 목록 (v4 명령서 순서: KIS_KR → KIS_US → UPBIT → Binance → BYBIT → OKX)
+    const defaultExchanges = ['KIS_KR', 'KIS_US', 'UPBIT', 'BINANCE', 'BYBIT', 'OKX'];
 
     try {
         let accounts = [];

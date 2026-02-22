@@ -10712,10 +10712,13 @@ async def api_search_stocks(
         # 포함 매치
         return 2
 
-    # 거래소별로 검색할지 결정
-    search_kr = not ex_filter or ex_filter in ("KIS_KR", "UPBIT")
+    # 거래소별로 검색할지 결정 (v4 명령서)
+    # KIS_KR: 국내주식 + 국내상장 ETF
+    # KIS_US: 해외주식 + 해외상장 ETF (QQQ, SPY 등)
+    # UPBIT/OKX/BINANCE/BYBIT: 각 거래소 코인만
+    search_kr = not ex_filter or ex_filter == "KIS_KR"
     search_us = not ex_filter or ex_filter == "KIS_US"
-    search_etf = not ex_filter or ex_filter == "ETF"
+    search_upbit = not ex_filter or ex_filter == "UPBIT"
     search_crypto = not ex_filter or ex_filter in ("OKX", "BINANCE", "BYBIT")
 
     if search_kr:
@@ -10738,9 +10741,28 @@ async def api_search_stocks(
         except Exception as e:
             print(f"[Search] KR error: {e}")
 
+        try:
+            # KIS_KR에 국내상장 ETF 포함 (TIGER, KODEX, ARIRANG 등)
+            from app.screener.etf_screener import load_etf_stocks
+            etf_stocks = await load_etf_stocks()
+            for etf in etf_stocks:
+                name = (etf.get("name") or "").lower()
+                code = (etf.get("code") or "").upper()
+                if q_lower in name or q_upper in code:
+                    results.append({
+                        "code": etf.get("code"),
+                        "name": etf.get("name"),
+                        "market": "ETF",
+                        "type": "etf_kr",
+                        "price": etf.get("price", 0),
+                        "change_pct": etf.get("change_pct", 0)
+                    })
+        except Exception as e:
+            print(f"[Search] KR ETF error: {e}")
+
     if search_us:
         try:
-            # 해외 주식 검색
+            # 해외 주식 검색 (S&P 500)
             from app.screener.us_screener import load_us_stocks
             us_stocks = await load_us_stocks()
             for stock in us_stocks:
@@ -10759,30 +10781,79 @@ async def api_search_stocks(
         except Exception as e:
             print(f"[Search] US error: {e}")
 
-    if search_etf:
+        # KIS_US에 해외상장 ETF 포함 (주요 미국 ETF)
+        us_etfs = [
+            {"code": "QQQ", "name": "Invesco QQQ Trust (NASDAQ 100)", "market": "US ETF"},
+            {"code": "SPY", "name": "SPDR S&P 500 ETF Trust", "market": "US ETF"},
+            {"code": "SCHD", "name": "Schwab U.S. Dividend Equity ETF", "market": "US ETF"},
+            {"code": "VOO", "name": "Vanguard S&P 500 ETF", "market": "US ETF"},
+            {"code": "VTI", "name": "Vanguard Total Stock Market ETF", "market": "US ETF"},
+            {"code": "IVV", "name": "iShares Core S&P 500 ETF", "market": "US ETF"},
+            {"code": "VGT", "name": "Vanguard Information Technology ETF", "market": "US ETF"},
+            {"code": "VUG", "name": "Vanguard Growth ETF", "market": "US ETF"},
+            {"code": "VTV", "name": "Vanguard Value ETF", "market": "US ETF"},
+            {"code": "ARKK", "name": "ARK Innovation ETF", "market": "US ETF"},
+            {"code": "XLK", "name": "Technology Select Sector SPDR Fund", "market": "US ETF"},
+            {"code": "XLF", "name": "Financial Select Sector SPDR Fund", "market": "US ETF"},
+            {"code": "XLE", "name": "Energy Select Sector SPDR Fund", "market": "US ETF"},
+            {"code": "XLV", "name": "Health Care Select Sector SPDR Fund", "market": "US ETF"},
+            {"code": "GLD", "name": "SPDR Gold Shares", "market": "US ETF"},
+            {"code": "SLV", "name": "iShares Silver Trust", "market": "US ETF"},
+            {"code": "TLT", "name": "iShares 20+ Year Treasury Bond ETF", "market": "US ETF"},
+            {"code": "TQQQ", "name": "ProShares UltraPro QQQ (3x)", "market": "US ETF"},
+            {"code": "SQQQ", "name": "ProShares UltraPro Short QQQ (-3x)", "market": "US ETF"},
+            {"code": "SOXL", "name": "Direxion Daily Semiconductor Bull 3X", "market": "US ETF"},
+        ]
+        for etf in us_etfs:
+            code = etf["code"].upper()
+            name = etf["name"].lower()
+            if q_upper in code or q_lower in name:
+                results.append({
+                    "code": etf["code"],
+                    "symbol": etf["code"],
+                    "name": etf["name"],
+                    "market": etf["market"],
+                    "type": "etf_us",
+                    "price": 0,
+                    "change_pct": 0
+                })
+
+    if search_upbit:
         try:
-            # ETF 검색
-            from app.screener.etf_screener import load_etf_stocks
-            etf_stocks = await load_etf_stocks()
-            for etf in etf_stocks:
-                name = (etf.get("name") or "").lower()
-                code = (etf.get("code") or "").upper()
-                if q_lower in name or q_upper in code:
+            # UPBIT 코인 검색 (KRW 마켓)
+            upbit_pairs = [
+                "KRW-BTC", "KRW-ETH", "KRW-XRP", "KRW-SOL", "KRW-ADA",
+                "KRW-DOGE", "KRW-DOT", "KRW-LINK", "KRW-AVAX", "KRW-MATIC",
+                "KRW-ATOM", "KRW-UNI", "KRW-LTC", "KRW-ETC", "KRW-BCH",
+                "KRW-EOS", "KRW-TRX", "KRW-XLM", "KRW-ALGO", "KRW-SAND"
+            ]
+            crypto_names = {
+                "BTC": "Bitcoin", "ETH": "Ethereum", "XRP": "Ripple", "SOL": "Solana",
+                "ADA": "Cardano", "DOGE": "Dogecoin", "DOT": "Polkadot", "LINK": "Chainlink",
+                "AVAX": "Avalanche", "MATIC": "Polygon", "ATOM": "Cosmos",
+                "UNI": "Uniswap", "LTC": "Litecoin", "ETC": "Ethereum Classic", "BCH": "Bitcoin Cash",
+                "EOS": "EOS", "TRX": "TRON", "XLM": "Stellar", "ALGO": "Algorand", "SAND": "The Sandbox"
+            }
+            for pair in upbit_pairs:
+                base = pair.split("-")[1]  # KRW-BTC → BTC
+                name = crypto_names.get(base, base).lower()
+                if q_lower in name or q_upper in pair or q_upper in base:
                     results.append({
-                        "code": etf.get("code"),
-                        "name": etf.get("name"),
-                        "market": "ETF",
-                        "type": "etf",
-                        "price": etf.get("price", 0),
-                        "change_pct": etf.get("change_pct", 0)
+                        "code": pair,
+                        "symbol": pair,
+                        "name": crypto_names.get(base, base),
+                        "market": "UPBIT",
+                        "type": "crypto",
+                        "price": 0,
+                        "change_pct": 0
                     })
         except Exception as e:
-            print(f"[Search] ETF error: {e}")
+            print(f"[Search] UPBIT error: {e}")
 
     if search_crypto:
         try:
-            # 암호화폐 검색 (OKX, Binance, Bybit 등)
-            # 일반적인 암호화폐 심볼 목록에서 검색
+            # 암호화폐 검색 (OKX, Binance, Bybit)
+            # USDT 마켓 사용
             crypto_pairs = [
                 "BTC-USDT", "ETH-USDT", "XRP-USDT", "SOL-USDT", "ADA-USDT",
                 "DOGE-USDT", "DOT-USDT", "LINK-USDT", "AVAX-USDT", "MATIC-USDT",
