@@ -3551,27 +3551,46 @@ async def get_stock_summary_us(ticker: str) -> dict:
 
 
 def _parse_finviz_snapshot(html: str) -> dict:
-    """Finviz snapshot 테이블 파싱"""
+    """Finviz snapshot 테이블 파싱 (BeautifulSoup 사용)"""
     data = {}
 
     try:
+        soup = BeautifulSoup(html, 'lxml')
+
         # 종목명 추출 (title 태그에서)
-        title_match = re.search(r'<title>([^|]+)\|', html)
-        if title_match:
-            data["name"] = title_match.group(1).strip()
+        title_tag = soup.find('title')
+        if title_tag:
+            title_text = title_tag.get_text()
+            # "NVDA - NVIDIA Corp Stock Price and Quote" → "NVIDIA Corp"
+            if ' - ' in title_text:
+                name_part = title_text.split(' - ', 1)[1]
+                # "NVIDIA Corp Stock Price..." → "NVIDIA Corp"
+                name_part = name_part.replace('Stock Price and Quote', '').strip()
+                data["name"] = name_part
+
+        # 현재가 추출 (quote-price_wrapper_price 클래스)
+        price_el = soup.find(class_='quote-price_wrapper_price')
+        if price_el:
+            data["price"] = _parse_float(price_el.get_text(strip=True))
+
+        # 섹터/인더스트리 추출 (링크에서)
+        sector_link = soup.find('a', href=lambda x: x and 'sec_' in x)
+        if sector_link:
+            data["sector"] = sector_link.get_text(strip=True)
+        industry_link = soup.find('a', href=lambda x: x and 'ind_' in x)
+        if industry_link:
+            data["industry"] = industry_link.get_text(strip=True)
 
         # snapshot-table2 파싱
-        table_match = re.search(r'class="snapshot-table2"[^>]*>(.*?)</table>', html, re.DOTALL)
-        if table_match:
-            table_html = table_match.group(1)
-            # key-value 쌍 추출 (td 태그에서)
-            cells = re.findall(r'<td[^>]*class="snapshot-td2[^"]*"[^>]*>([^<]*)</td>', table_html)
+        table = soup.find('table', class_='snapshot-table2')
+        if table:
+            cells = table.find_all('td', class_='snapshot-td2')
 
-            # 셀은 key, value 쌍으로 나옴
+            # 셀은 key, value 쌍으로 나옴 (BeautifulSoup get_text 사용)
             snapshot = {}
             for i in range(0, len(cells) - 1, 2):
-                key = cells[i].strip()
-                value = cells[i + 1].strip() if i + 1 < len(cells) else ""
+                key = cells[i].get_text(strip=True)
+                value = cells[i + 1].get_text(strip=True) if i + 1 < len(cells) else ""
                 snapshot[key] = value
 
             # 값 매핑
@@ -3579,15 +3598,16 @@ def _parse_finviz_snapshot(html: str) -> dict:
             data["industry"] = snapshot.get("Industry", "")
             data["country"] = snapshot.get("Country", "")
 
-            # 가격
-            price_str = snapshot.get("Price", "0")
-            data["price"] = _parse_float(price_str)
-
-            # 변동
-            change_str = snapshot.get("Change", "0%")
-            change_pct = _parse_float(change_str.replace("%", ""))
-            data["change_pct"] = change_pct
-            data["change"] = round(data["price"] * change_pct / 100, 2)
+            # 변동률 (Perf Week 등에서 추출하거나 Prev Close로 계산)
+            prev_close = _parse_float(snapshot.get("Prev Close", "0"))
+            if prev_close > 0 and data.get("price", 0) > 0:
+                change = data["price"] - prev_close
+                change_pct = (change / prev_close) * 100
+                data["change"] = round(change, 2)
+                data["change_pct"] = round(change_pct, 2)
+            else:
+                data["change"] = 0
+                data["change_pct"] = 0
 
             # 시가총액
             mcap = snapshot.get("Market Cap", "")
@@ -3601,14 +3621,16 @@ def _parse_finviz_snapshot(html: str) -> dict:
             data["eps"] = _parse_float(snapshot.get("EPS (ttm)", "0"))
             data["roe"] = _parse_float(snapshot.get("ROE", "0%").replace("%", ""))
             data["roa"] = _parse_float(snapshot.get("ROA", "0%").replace("%", ""))
-            data["dividend_yield"] = _parse_float(snapshot.get("Dividend %", "0%").replace("%", ""))
+            data["dividend_yield"] = _parse_float(snapshot.get("Dividend TTM", "0%").split("(")[-1].replace("%)", ""))
             data["debt_equity"] = _parse_float(snapshot.get("Debt/Eq", "0"))
             data["operating_margin"] = _parse_float(snapshot.get("Oper. Margin", "0%").replace("%", ""))
             data["profit_margin"] = _parse_float(snapshot.get("Profit Margin", "0%").replace("%", ""))
 
-            # 52주 고저
-            data["high_52w"] = _parse_float(snapshot.get("52W High", "0"))
-            data["low_52w"] = _parse_float(snapshot.get("52W Low", "0"))
+            # 52주 고저 (값이 "212.19 -10.54%" 형식이므로 첫 번째 숫자만 추출)
+            high_52w_str = snapshot.get("52W High", "0")
+            low_52w_str = snapshot.get("52W Low", "0")
+            data["high_52w"] = _parse_float(high_52w_str.split()[0] if high_52w_str else "0")
+            data["low_52w"] = _parse_float(low_52w_str.split()[0] if low_52w_str else "0")
 
             # 거래량
             data["volume"] = _parse_volume_us(snapshot.get("Volume", "0"))
@@ -3620,6 +3642,7 @@ def _parse_finviz_snapshot(html: str) -> dict:
 
     except Exception as e:
         print(f"[Finviz] Parse error: {e}")
+        traceback.print_exc()
 
     return data
 
