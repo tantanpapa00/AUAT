@@ -3593,9 +3593,11 @@ def _parse_finviz_snapshot(html: str) -> dict:
                 value = cells[i + 1].get_text(strip=True) if i + 1 < len(cells) else ""
                 snapshot[key] = value
 
-            # 값 매핑
-            data["sector"] = snapshot.get("Sector", "")
-            data["industry"] = snapshot.get("Industry", "")
+            # 값 매핑 (링크에서 이미 추출된 sector/industry 유지)
+            if not data.get("sector"):
+                data["sector"] = snapshot.get("Sector", "")
+            if not data.get("industry"):
+                data["industry"] = snapshot.get("Industry", "")
             data["country"] = snapshot.get("Country", "")
 
             # 변동률 (Perf Week 등에서 추출하거나 Prev Close로 계산)
@@ -3626,11 +3628,14 @@ def _parse_finviz_snapshot(html: str) -> dict:
             data["operating_margin"] = _parse_float(snapshot.get("Oper. Margin", "0%").replace("%", ""))
             data["profit_margin"] = _parse_float(snapshot.get("Profit Margin", "0%").replace("%", ""))
 
-            # 52주 고저 (값이 "212.19 -10.54%" 형식이므로 첫 번째 숫자만 추출)
+            # 52주 고저 (값이 "212.19-10.54%" 형식이므로 첫 번째 숫자만 추출)
             high_52w_str = snapshot.get("52W High", "0")
             low_52w_str = snapshot.get("52W Low", "0")
-            data["high_52w"] = _parse_float(high_52w_str.split()[0] if high_52w_str else "0")
-            data["low_52w"] = _parse_float(low_52w_str.split()[0] if low_52w_str else "0")
+            # 정규식으로 첫 번째 숫자 추출 (212.19-10.54% → 212.19)
+            high_match = re.match(r'([\d.]+)', high_52w_str)
+            low_match = re.match(r'([\d.]+)', low_52w_str)
+            data["high_52w"] = _parse_float(high_match.group(1)) if high_match else 0
+            data["low_52w"] = _parse_float(low_match.group(1)) if low_match else 0
 
             # 거래량
             data["volume"] = _parse_volume_us(snapshot.get("Volume", "0"))
