@@ -3253,7 +3253,9 @@ async function loadStrategies() {
     try {
         let strategies = [];
         if (auth.accessToken) {
-            strategies = await invoke('get_strategies', { accessToken: auth.accessToken });
+            // 홈 활성전략과 동일한 API 사용 (실제 DB 스키마와 호환)
+            const response = await invoke('get_active_strategies', { accessToken: auth.accessToken });
+            strategies = response.strategies || response || [];
         }
 
         if (!strategies || strategies.length === 0) {
@@ -3266,39 +3268,45 @@ async function loadStrategies() {
             return;
         }
 
-        list.innerHTML = strategies.map(s => `
+        list.innerHTML = strategies.map(s => {
+            const isRunning = s.status === 'running' || s.is_active;
+            const strategyType = s.name?.includes('MR') || s.name?.includes('역추세') ? 'mr' :
+                                 s.name?.includes('Trend') || s.name?.includes('추세') ? 'trend' : 'custom';
+            return `
             <div class="strategy-card" data-id="${s.id}">
                 <div class="strategy-card-header">
-                    <h4>${s.name}</h4>
-                    <span class="strategy-type-badge ${s.strategy_type}">${s.strategy_type}</span>
+                    <h4>${s.name || '전략'}</h4>
+                    <span class="strategy-type-badge ${strategyType}">${strategyType}</span>
                 </div>
                 <div class="strategy-card-body">
                     <div class="strategy-info">
                         <span>종목:</span>
-                        <strong>${s.symbol}</strong>
+                        <strong>${s.symbol || 'N/A'}</strong>
                     </div>
                     <div class="strategy-info">
                         <span>거래소:</span>
-                        <strong>${s.exchange}</strong>
+                        <strong>${s.exchange || 'N/A'}</strong>
                     </div>
                 </div>
                 <div class="strategy-card-actions">
-                    <button class="btn btn-sm ${s.is_active ? 'btn-success' : 'btn-secondary'} btn-toggle-strategy" data-id="${s.id}">
-                        ${s.is_active ? '실행중' : '비활성'}
+                    <button class="btn btn-sm ${isRunning ? 'btn-success' : 'btn-secondary'} btn-toggle-strategy" data-id="${s.id}">
+                        ${isRunning ? '실행중' : '비활성'}
                     </button>
                     <button class="btn btn-sm btn-danger btn-delete-strategy" data-id="${s.id}">삭제</button>
                 </div>
             </div>
-        `).join('');
+            `;
+        }).join('');
 
-        // 이벤트 바인딩
+        // 이벤트 바인딩 - asset 기반 API 사용 (toggle_asset, delete_asset)
         list.querySelectorAll('.btn-toggle-strategy').forEach(btn => {
             btn.addEventListener('click', async () => {
                 const id = parseInt(btn.dataset.id);
                 try {
-                    const result = await invoke('toggle_strategy', { accessToken: auth.accessToken, strategyId: id });
+                    const result = await invoke('toggle_asset', { accessToken: auth.accessToken, assetId: id });
                     showToast(result.is_active ? '전략 활성화됨' : '전략 비활성화됨', 'success');
                     loadStrategies();
+                    loadActiveStrategies(); // 홈 페이지도 갱신
                 } catch (e) {
                     showToast('전략 토글 실패', 'error');
                 }
@@ -3310,9 +3318,10 @@ async function loadStrategies() {
                 if (!confirm('이 전략을 삭제하시겠습니까?')) return;
                 const id = parseInt(btn.dataset.id);
                 try {
-                    await invoke('delete_strategy', { accessToken: auth.accessToken, strategyId: id });
+                    await invoke('delete_asset', { accessToken: auth.accessToken, assetId: id });
                     showToast('전략이 삭제되었습니다', 'success');
                     loadStrategies();
+                    loadActiveStrategies(); // 홈 페이지도 갱신
                 } catch (e) {
                     showToast('전략 삭제 실패', 'error');
                 }

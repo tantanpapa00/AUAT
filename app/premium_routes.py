@@ -367,7 +367,7 @@ async def create_premium_config(
         # 3. asset 찾거나 생성
         asset_row = db.execute(
             text("""
-                SELECT a.id FROM assets a
+                SELECT a.id, a.soft_deleted FROM assets a
                 JOIN accounts acc ON acc.id = a.account_id
                 WHERE a.symbol = :symbol AND UPPER(acc.exchange) = :exchange
                 LIMIT 1
@@ -387,13 +387,23 @@ async def create_premium_config(
             db.commit()
             asset_row = db.execute(
                 text("""
-                    SELECT a.id FROM assets a
+                    SELECT a.id, a.soft_deleted FROM assets a
                     JOIN accounts acc ON acc.id = a.account_id
                     WHERE a.symbol = :symbol AND UPPER(acc.exchange) = :exchange
                     LIMIT 1
                 """),
                 {"symbol": symbol, "exchange": exchange}
             ).fetchone()
+        else:
+            # 기존 asset이 있으면 soft_deleted=0, is_active=true로 복구
+            db.execute(
+                text("""
+                    UPDATE assets SET soft_deleted = 0, is_active = true, updated_at = NOW()
+                    WHERE id = :asset_id
+                """),
+                {"asset_id": asset_row[0]}
+            )
+            db.commit()
 
         asset_id = asset_row[0]
 
