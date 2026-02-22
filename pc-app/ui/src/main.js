@@ -10048,72 +10048,93 @@ async function loadFinancialSummaryUs(ticker) {
 
         const data = response?.data || {};
 
-        // 요약 재무 카드 (USD 단위)
+        // 시가총액을 달러 표시로 포맷 (예: $3.88T, $130.5B)
+        const formatMarketCapUsd = (mcStr) => {
+            if (!mcStr) return '-';
+            // 이미 "3884.34B" 형식이면 앞에 $ 붙임
+            if (mcStr.match(/^[\d.]+[BMT]$/i)) {
+                return '$' + mcStr;
+            }
+            return mcStr;
+        };
+
+        // 주요 재무지표 (국내주식과 동일한 6개 카드 + 한글 라벨)
         const summaryCardHtml = `
             <div class="sd-card">
-                <div class="sd-card-title">Key Metrics</div>
-                <div class="sd-financial-grid">
+                <div class="sd-card-title">주요 재무지표</div>
+                <div class="sd-financial-grid sd-grid-6">
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">Market Cap</span>
-                        <span class="sd-financial-value">${data.market_cap || '-'}</span>
+                        <span class="sd-financial-label">시가총액</span>
+                        <span class="sd-financial-value">${formatMarketCapUsd(data.market_cap)}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">P/E</span>
+                        <span class="sd-financial-label">PER</span>
                         <span class="sd-financial-value">${data.per > 0 ? data.per.toFixed(2) : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">Forward P/E</span>
+                        <span class="sd-financial-label">선행PER</span>
                         <span class="sd-financial-value">${data.forward_per > 0 ? data.forward_per.toFixed(2) : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">P/B</span>
+                        <span class="sd-financial-label">PBR</span>
                         <span class="sd-financial-value">${data.pbr > 0 ? data.pbr.toFixed(2) : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">EPS (TTM)</span>
-                        <span class="sd-financial-value">$${data.eps > 0 ? data.eps.toFixed(2) : '-'}</span>
+                        <span class="sd-financial-label">EPS</span>
+                        <span class="sd-financial-value">${data.eps > 0 ? '$' + data.eps.toFixed(2) : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
                         <span class="sd-financial-label">ROE</span>
                         <span class="sd-financial-value">${data.roe > 0 ? data.roe.toFixed(1) + '%' : '-'}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="sd-card">
+                <div class="sd-card-title">밸류에이션</div>
+                <div class="sd-financial-grid sd-grid-6">
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">52주 최고</span>
+                        <span class="sd-financial-value positive">${data.high_52w > 0 ? '$' + data.high_52w.toFixed(2) : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">52주 최저</span>
+                        <span class="sd-financial-value negative">${data.low_52w > 0 ? '$' + data.low_52w.toFixed(2) : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
                         <span class="sd-financial-label">ROA</span>
                         <span class="sd-financial-value">${data.roa > 0 ? data.roa.toFixed(1) + '%' : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">Dividend</span>
-                        <span class="sd-financial-value">${data.dividend_yield > 0 ? data.dividend_yield.toFixed(2) + '%' : '-'}</span>
-                    </div>
-                    <div class="sd-financial-item">
-                        <span class="sd-financial-label">52W High</span>
-                        <span class="sd-financial-value positive">$${data.high_52w > 0 ? data.high_52w.toFixed(2) : '-'}</span>
-                    </div>
-                    <div class="sd-financial-item">
-                        <span class="sd-financial-label">52W Low</span>
-                        <span class="sd-financial-value negative">$${data.low_52w > 0 ? data.low_52w.toFixed(2) : '-'}</span>
-                    </div>
-                    <div class="sd-financial-item">
-                        <span class="sd-financial-label">Op. Margin</span>
+                        <span class="sd-financial-label">영업이익률</span>
                         <span class="sd-financial-value">${data.operating_margin > 0 ? data.operating_margin.toFixed(1) + '%' : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">Profit Margin</span>
+                        <span class="sd-financial-label">순이익률</span>
                         <span class="sd-financial-value">${data.profit_margin > 0 ? data.profit_margin.toFixed(1) + '%' : '-'}</span>
+                    </div>
+                    <div class="sd-financial-item">
+                        <span class="sd-financial-label">배당률</span>
+                        <span class="sd-financial-value">${data.dividend_yield > 0 ? data.dividend_yield.toFixed(2) + '%' : '-'}</span>
                     </div>
                 </div>
             </div>
             <div class="sd-card">
-                <div class="sd-card-title">Analyst Ratings</div>
+                <div class="sd-card-title">애널리스트 평가</div>
                 <div class="sd-consensus-grid">
                     <div class="sd-consensus-item">
-                        <span class="sd-consensus-label">Target Price</span>
-                        <span class="sd-consensus-value">$${data.target_price > 0 ? data.target_price.toFixed(2) : '-'}</span>
+                        <span class="sd-consensus-label">목표주가</span>
+                        <span class="sd-consensus-value">${data.target_price > 0 ? '$' + data.target_price.toFixed(2) : '-'}</span>
                     </div>
                     <div class="sd-consensus-item">
-                        <span class="sd-consensus-label">Recommendation</span>
+                        <span class="sd-consensus-label">투자의견</span>
                         <span class="sd-consensus-value">${data.recommendation || '-'}</span>
                     </div>
+                </div>
+            </div>
+            <div class="sd-card">
+                <div class="sd-card-title">재무추이</div>
+                <div class="sd-empty-state" style="padding: 40px; text-align: center; color: #9CA3AF;">
+                    데이터 준비 중
                 </div>
             </div>
         `;
@@ -10122,7 +10143,7 @@ async function loadFinancialSummaryUs(ticker) {
 
     } catch (error) {
         console.error('Failed to load US financial summary:', error);
-        summaryContent.innerHTML = '<div class="sd-empty-state">Failed to load financial information</div>';
+        summaryContent.innerHTML = '<div class="sd-empty-state">재무 정보를 불러올 수 없습니다</div>';
     }
 }
 
@@ -11362,6 +11383,20 @@ async function initCandleChart(symbol, exchange, period = '1D') {
 
                 candleSeries.setData(candleData);
                 volumeSeries.setData(volumeData);
+
+                // US 종목: 최신 캔들에서 시가/고가/저가/거래량 업데이트
+                if (isUsStock && chartResponse.candles.length > 0) {
+                    const latestCandle = chartResponse.candles[chartResponse.candles.length - 1];
+                    const openEl = document.getElementById('detail-open');
+                    const highEl = document.getElementById('detail-high');
+                    const lowEl = document.getElementById('detail-low');
+                    const volumeEl = document.getElementById('detail-volume');
+
+                    if (openEl) openEl.textContent = latestCandle.open ? '$' + latestCandle.open.toFixed(2) : '-';
+                    if (highEl) highEl.textContent = latestCandle.high ? '$' + latestCandle.high.toFixed(2) : '-';
+                    if (lowEl) lowEl.textContent = latestCandle.low ? '$' + latestCandle.low.toFixed(2) : '-';
+                    if (volumeEl) volumeEl.textContent = formatVolumeUs(latestCandle.volume);
+                }
 
                 // SMA 이동평균선 추가 (20, 50, 200일)
                 const calculateSMA = (data, period) => {
