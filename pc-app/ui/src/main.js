@@ -11795,19 +11795,25 @@ async function loadMrExchangeDropdown() {
         // 기본 + 등록된 거래소 합치기 (중복 제거)
         const allExchanges = [...new Set([...defaultExchanges, ...registeredExchanges])];
 
-        select.innerHTML = '<option value="">선택하세요</option>';
-        allExchanges.forEach(ex => {
+        // 첫 번째 옵션이 기본 선택 ("선택하세요" 제거)
+        select.innerHTML = '';
+        allExchanges.forEach((ex, idx) => {
             const displayName = EXCHANGE_DISPLAY[ex] || ex;
-            select.innerHTML += `<option value="${ex}">${displayName}</option>`;
+            select.innerHTML += `<option value="${ex}"${idx === 0 ? ' selected' : ''}>${displayName}</option>`;
         });
     } catch (error) {
         console.error('거래소 드롭다운 로드 실패:', error);
         // 에러 시에도 기본 거래소 표시
-        select.innerHTML = '<option value="">선택하세요</option>';
-        defaultExchanges.forEach(ex => {
+        select.innerHTML = '';
+        defaultExchanges.forEach((ex, idx) => {
             const displayName = EXCHANGE_DISPLAY[ex] || ex;
-            select.innerHTML += `<option value="${ex}">${displayName}</option>`;
+            select.innerHTML += `<option value="${ex}"${idx === 0 ? ' selected' : ''}>${displayName}</option>`;
         });
+    }
+
+    // 첫 번째 거래소로 타임프레임 옵션 초기화
+    if (select.value) {
+        updateMrTimeframeOptions(select.value);
     }
 
     // KIS 거래소 선택 시 타임프레임 제한 + 설정 모달
@@ -13248,18 +13254,19 @@ async function loadTrendExchangeDropdown() {
         // 기본 + 등록된 거래소 합치기 (중복 제거)
         const allExchanges = [...new Set([...defaultExchanges, ...registeredExchanges])];
 
-        select.innerHTML = '<option value="">선택하세요</option>';
-        allExchanges.forEach(ex => {
+        // 첫 번째 옵션이 기본 선택 ("선택하세요" 제거)
+        select.innerHTML = '';
+        allExchanges.forEach((ex, idx) => {
             const displayName = EXCHANGE_DISPLAY[ex] || ex;
-            select.innerHTML += `<option value="${ex}">${displayName}</option>`;
+            select.innerHTML += `<option value="${ex}"${idx === 0 ? ' selected' : ''}>${displayName}</option>`;
         });
     } catch (error) {
         console.error('거래소 드롭다운 로드 실패:', error);
         // 에러 시에도 기본 거래소 표시
-        select.innerHTML = '<option value="">선택하세요</option>';
-        defaultExchanges.forEach(ex => {
+        select.innerHTML = '';
+        defaultExchanges.forEach((ex, idx) => {
             const displayName = EXCHANGE_DISPLAY[ex] || ex;
-            select.innerHTML += `<option value="${ex}">${displayName}</option>`;
+            select.innerHTML += `<option value="${ex}"${idx === 0 ? ' selected' : ''}>${displayName}</option>`;
         });
     }
 
@@ -13304,18 +13311,27 @@ async function loadCustomExchangeDropdown() {
 
         const allExchanges = [...new Set([...defaultExchanges, ...registeredExchanges])];
 
-        select.innerHTML = '<option value="">선택하세요</option>';
-        allExchanges.forEach(ex => {
+        // 첫 번째 옵션이 기본 선택 ("선택하세요" 제거)
+        select.innerHTML = '';
+        allExchanges.forEach((ex, idx) => {
             const displayName = EXCHANGE_DISPLAY[ex] || ex;
-            select.innerHTML += `<option value="${ex}">${displayName}</option>`;
+            select.innerHTML += `<option value="${ex}"${idx === 0 ? ' selected' : ''}>${displayName}</option>`;
         });
     } catch (error) {
         console.error('커스텀 거래소 드롭다운 로드 실패:', error);
-        select.innerHTML = '<option value="">선택하세요</option>';
-        defaultExchanges.forEach(ex => {
+        select.innerHTML = '';
+        defaultExchanges.forEach((ex, idx) => {
             const displayName = EXCHANGE_DISPLAY[ex] || ex;
-            select.innerHTML += `<option value="${ex}">${displayName}</option>`;
+            select.innerHTML += `<option value="${ex}"${idx === 0 ? ' selected' : ''}>${displayName}</option>`;
         });
+    }
+
+    // 첫 번째 거래소로 초기화
+    if (select.value && customSymbolAutocomplete) {
+        customSymbolAutocomplete.setExchange(select.value);
+    }
+    if (select.value) {
+        updateCustomTimeframeOptions(select.value);
     }
 
     // 거래소 변경 시 종목 필터 업데이트 + KIS 설정 모달
