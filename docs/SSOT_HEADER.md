@@ -482,6 +482,29 @@
 |------|--------|
 | e967056 | fix: 프리미엄전략 거래소드롭다운+종목매칭 전면수정 (v4 명령서) |
 
+### 전략현황 미표시 버그 수정 ✅ DONE
+
+**문제**: 전략 저장 후 전략현황/홈 페이지에 전략이 표시되지 않음
+
+**원인 분석**:
+- `/api/strategies/active` 쿼리에 `AND a.soft_deleted = 0` 조건 존재
+- assets 테이블 INSERT 시 `soft_deleted` 컬럼을 명시하지 않음
+- DB 기본값이 설정되지 않아 기존 레코드가 모두 `soft_deleted = 1`로 저장됨
+
+**수정 내역**:
+| 파일 | 변경 |
+|------|------|
+| `app/premium_routes.py` | INSERT INTO assets 쿼리에 `soft_deleted = 0` 명시 추가 |
+
+**DB 데이터 수정**:
+```sql
+UPDATE assets SET soft_deleted = 0 WHERE soft_deleted = 1;  -- 7 rows affected
+```
+
+| 커밋 | 메시지 |
+|------|--------|
+| 27a558a | fix: assets INSERT 시 soft_deleted=0 명시 추가 |
+
 ---
 
 ## Day 28 진행사항 (2026-02-22)
