@@ -535,6 +535,47 @@ VALUES (:user_id, :name, 'mr', :exchange, :symbol, true)
 |------|--------|
 | 5a034d0 | fix: strategies INSERT 시 user_id 추가 - 전략현황 페이지 표시 수정 |
 
+### 거래소 드롭다운 개선 ✅ DONE
+
+**문제**: 거래소 선택 시 "선택하세요" 옵션이 기본 선택되어 있어 사용자가 반드시 클릭해야 함
+
+**수정 내역**:
+| 파일 | 변경 |
+|------|------|
+| `pc-app/ui/index.html` | 3개 드롭다운(MR/Trend/Custom)에서 "선택하세요" 옵션 제거 |
+| `pc-app/ui/src/main.js` | loadMrExchangeDropdown, loadTrendExchangeDropdown, loadCustomExchangeDropdown 수정 |
+
+**변경 사항**:
+- "선택하세요" 옵션 제거
+- 첫 번째 옵션(KIS_KR) 기본 선택
+- 순서: KIS_KR → KIS_US → UPBIT → Binance → BYBIT → OKX
+
+| 커밋 | 메시지 |
+|------|--------|
+| 00b1158 | fix: 프리미엄 전략 거래소 드롭다운 수정 |
+
+### 저장/전략시작 후 자동 갱신 ✅ DONE
+
+**문제**: 저장 또는 전략시작 성공 후 전략현황/홈 활성전략에 바로 반영되지 않음 (F5 필요)
+
+**원인**: 저장/전략시작 API 성공 후 전략 목록을 다시 불러오는 코드 없음
+
+**수정 내역**:
+| 파일 | 변경 |
+|------|------|
+| `pc-app/ui/src/main.js` | 3곳에 `loadStrategies()` + `loadActiveStrategies()` 호출 추가 |
+
+**수정 위치**:
+1. TV Connect 저장 성공 후 (line 2274)
+2. MR 설정 저장 성공 후 (line 12403)
+3. MR 전략 시작 성공 후 (line 12438)
+
+**효과**: 저장/시작 성공 시 전략현황 + 홈 활성전략 모두 자동 갱신 (F5 불필요)
+
+| 커밋 | 메시지 |
+|------|--------|
+| c2fad7d | fix: 저장/전략시작 후 전략 목록 자동 갱신 |
+
 ---
 
 ## Day 28 진행사항 (2026-02-22)
