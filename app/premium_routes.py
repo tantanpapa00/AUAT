@@ -376,11 +376,11 @@ async def create_premium_config(
         ).fetchone()
 
         if not asset_row:
-            # asset 생성
+            # asset 생성 (soft_deleted=0 명시)
             db.execute(
                 text("""
-                    INSERT INTO assets (account_id, strategy_id, symbol, market, is_active)
-                    VALUES (:account_id, :strategy_id, :symbol, 'spot', true)
+                    INSERT INTO assets (account_id, strategy_id, symbol, market, is_active, soft_deleted)
+                    VALUES (:account_id, :strategy_id, :symbol, 'spot', true, 0)
                 """),
                 {"account_id": account_id, "strategy_id": strategy_id, "symbol": symbol}
             )
