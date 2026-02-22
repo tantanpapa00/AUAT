@@ -505,6 +505,36 @@ UPDATE assets SET soft_deleted = 0 WHERE soft_deleted = 1;  -- 7 rows affected
 |------|--------|
 | 27a558a | fix: assets INSERT 시 soft_deleted=0 명시 추가 |
 
+### 전략현황 미표시 버그 수정 #2 ✅ DONE
+
+**문제**: 홈 활성전략에는 표시되지만, 전략현황 페이지에는 표시되지 않음
+
+**진단 결과**:
+- 홈 활성전략: `/api/strategies/active` → `assets` JOIN 방식 (owner_id로 필터)
+- 전략현황: `/api/strategies` → `strategies` 직접 조회 (`WHERE user_id = :user_id`)
+- premium_routes.py가 strategies 생성 시 **user_id 누락**
+
+**수정 내역**:
+| 파일 | 변경 |
+|------|------|
+| `app/premium_routes.py` | strategies INSERT에 user_id, strategy_type, exchange, symbol 추가 |
+
+**수정 전**:
+```python
+INSERT INTO strategies (name, is_active)
+VALUES ('MR 역추세매매', true)
+```
+
+**수정 후**:
+```python
+INSERT INTO strategies (user_id, name, strategy_type, exchange, symbol, is_active)
+VALUES (:user_id, :name, 'mr', :exchange, :symbol, true)
+```
+
+| 커밋 | 메시지 |
+|------|--------|
+| 5a034d0 | fix: strategies INSERT 시 user_id 추가 - 전략현황 페이지 표시 수정 |
+
 ---
 
 ## Day 28 진행사항 (2026-02-22)
