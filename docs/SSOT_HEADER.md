@@ -440,6 +440,49 @@
 - Day 26: ✅ 완료 (Phase 7.5 스크리너 최적화 + Phase 8 종목상세)
 - Day 27: ✅ 완료 (Phase 8-2 FnGuide 6년 컨센서스 + stockeasy 복제)
 - Day 28: ✅ 완료 (백테스트 숨은 필터 제거 + warmup 최적화 + 필터 파라미터 전송 수정)
+- Day 29: ✅ 완료 (프리미엄전략 거래소드롭다운+종목매칭+저장API 전면수정)
+
+## Day 29 진행사항 (2026-02-22)
+
+### 프리미엄 전략 전면 수정 (v4 명령서) ✅ DONE
+
+**문제 (Bug #1)**: 해외종목(US)과 ETF가 프리미엄 전략 종목 선택에서 표시되지 않음
+**문제 (Bug #2)**: 저장/전략시작 버튼 클릭 시 오류 발생 (raw JSON 화면 노출)
+
+**수정 내역**:
+
+| 파일 | 변경 |
+|------|------|
+| `app/main.py` | /api/search 핸들러 전면 수정 - 거래소별 종목 매칭 로직 |
+| `app/premium_routes.py` | DB 타입 변환 헬퍼 추가 (osc_preset, buy_after_max, sell_after_max) |
+| `app/premium_routes.py` | PostgreSQL 문법 수정 (INSERT OR IGNORE → ON CONFLICT DO NOTHING) |
+| `pc-app/ui/index.html` | 거래소 드롭다운 옵션/순서 변경 |
+| `pc-app/ui/src/main.js` | EXCHANGE_DISPLAY, defaultExchanges 수정 |
+
+**거래소 드롭다운 (v4 명령서 순서)**:
+| 순서 | 표시 텍스트 | 내부 value | 검색 대상 |
+|------|-------------|------------|-----------|
+| 1 | KIS_KR(한국투자증권) | KIS_KR | 국내주식 2,662 + 국내ETF 1,070 |
+| 2 | KIS_US(한국투자증권) | KIS_US | 해외주식 503 + 해외ETF 20 |
+| 3 | UPBIT | UPBIT | 원화코인 20종 (KRW-BTC 등) |
+| 4 | Binance | BINANCE | USDT 코인 15종 |
+| 5 | BYBIT | BYBIT | USDT 코인 15종 |
+| 6 | OKX | OKX | USDT 코인 15종 |
+
+**검증 결과**:
+- KIS_KR + 삼성전자: ✅
+- KIS_KR + TIGER/KODEX ETF: ✅
+- KIS_US + NVDA: ✅
+- KIS_US + QQQ/SPY/SCHD: ✅
+- UPBIT/OKX/BINANCE/BYBIT + 코인: ✅
+- 교차 오염 테스트 (KIS_KR에서 NVDA/BTC 미표시): ✅
+- 저장 API 정상 응답: ✅
+
+| 커밋 | 메시지 |
+|------|--------|
+| e967056 | fix: 프리미엄전략 거래소드롭다운+종목매칭 전면수정 (v4 명령서) |
+
+---
 
 ## Day 28 진행사항 (2026-02-22)
 
