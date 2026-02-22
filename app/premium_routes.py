@@ -321,9 +321,9 @@ async def create_premium_config(
         exchange = config.exchange.upper()
         symbol = config.symbol
 
-        # 1. 해당 거래소의 계정 찾기
+        # 1. 해당 거래소의 계정 찾기 (owner_id 포함)
         account_row = db.execute(
-            text("SELECT id FROM accounts WHERE UPPER(exchange) = :exchange LIMIT 1"),
+            text("SELECT id, owner_id FROM accounts WHERE UPPER(exchange) = :exchange LIMIT 1"),
             {"exchange": exchange}
         ).fetchone()
 
@@ -338,28 +338,46 @@ async def create_premium_config(
             )
             db.commit()
             account_row = db.execute(
-                text("SELECT id FROM accounts WHERE UPPER(exchange) = :exchange LIMIT 1"),
+                text("SELECT id, owner_id FROM accounts WHERE UPPER(exchange) = :exchange LIMIT 1"),
                 {"exchange": exchange}
             ).fetchone()
 
         account_id = account_row[0]
+        owner_id = account_row[1]  # user_id로 사용
 
-        # 2. 기본 전략 찾기 (MR 전략)
+        # 2. 사용자별 MR 전략 찾기/생성 (user_id, exchange, symbol로 구분)
         strategy_row = db.execute(
-            text("SELECT id FROM strategies WHERE name LIKE '%MR%' OR name LIKE '%역추세%' LIMIT 1")
+            text("""
+                SELECT id FROM strategies
+                WHERE user_id = :user_id
+                  AND strategy_type = 'mr'
+                  AND exchange = :exchange
+                  AND symbol = :symbol
+                LIMIT 1
+            """),
+            {"user_id": owner_id, "exchange": exchange, "symbol": symbol}
         ).fetchone()
 
         if not strategy_row:
-            # MR 전략 생성 (strategies 테이블: name, is_active만 필수)
+            # 사용자별 MR 전략 생성 (전략현황 API가 user_id로 필터하므로 필수)
             db.execute(
                 text("""
-                    INSERT INTO strategies (name, is_active)
-                    VALUES ('MR 역추세매매', true)
-                """)
+                    INSERT INTO strategies (user_id, name, strategy_type, exchange, symbol, is_active)
+                    VALUES (:user_id, :name, 'mr', :exchange, :symbol, true)
+                """),
+                {"user_id": owner_id, "name": f"MR 역추세매매 - {symbol}", "exchange": exchange, "symbol": symbol}
             )
             db.commit()
             strategy_row = db.execute(
-                text("SELECT id FROM strategies WHERE name LIKE '%MR%' OR name LIKE '%역추세%' LIMIT 1")
+                text("""
+                    SELECT id FROM strategies
+                    WHERE user_id = :user_id
+                      AND strategy_type = 'mr'
+                      AND exchange = :exchange
+                      AND symbol = :symbol
+                    LIMIT 1
+                """),
+                {"user_id": owner_id, "exchange": exchange, "symbol": symbol}
             ).fetchone()
 
         strategy_id = strategy_row[0]
