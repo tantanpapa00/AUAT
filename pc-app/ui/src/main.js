@@ -8536,8 +8536,8 @@ async function openStockDetail(symbol, exchange) {
 
         if (detail && detail.name) {
             updateStockDetailUI(detail);
-            // 국내/해외 종목은 3M 기본, 나머지는 1D
-            initCandleChart(symbol, exchange, (isKoreanStock || isUsStock) ? '3M' : '1D');
+            // 기본 일봉 차트 로드
+            initCandleChart(symbol, exchange, 'daily');
         } else {
             if (nameEl) nameEl.textContent = symbol || '-';
         }
@@ -8592,7 +8592,7 @@ async function openEtfDetail(code) {
             const data = response.data;
             updateEtfDetailUI(data);
             loadEtfSummaryTab(data);
-            initCandleChart(code, 'etf', '3M');
+            initCandleChart(code, 'etf', 'daily');
         } else {
             if (nameEl) nameEl.textContent = code || '-';
         }
@@ -11214,7 +11214,8 @@ function formatVolume(volume) {
 }
 
 // 캔들차트 초기화 (TradingView Lightweight Charts)
-async function initCandleChart(symbol, exchange, period = '1D') {
+// timeframe: 'daily'(일봉), 'weekly'(주봉), 'monthly'(월봉)
+async function initCandleChart(symbol, exchange, timeframe = 'daily') {
     const container = document.getElementById('candle-chart');
     if (!container) return;
 
@@ -11225,6 +11226,7 @@ async function initCandleChart(symbol, exchange, period = '1D') {
     const ex = (exchange || '').toUpperCase();
     const isKrw = ex === 'KIS_KR' || ex === 'UPBIT' || ex === 'ETF' || ex === '';
     const isUsd = ex === 'KIS_US' || ex === 'US' || ex === 'NASDAQ' || ex === 'NYSE';
+    const tf = (timeframe || 'daily').toLowerCase();
 
     try {
         // 차트 생성 (ES 모듈 import 사용)
@@ -11288,46 +11290,36 @@ async function initCandleChart(symbol, exchange, period = '1D') {
         });
 
         // 실제 API에서 차트 데이터 가져오기
-        // 기간별 충분한 데이터 로드 (SMA 200 계산 위해 여유있게)
-        // UI 표시 기간 → API 요청 기간 (더 넉넉하게)
-        const periodMap = {
-            '1D': '1w',   // 1일 표시 → 1주 데이터 (분봉)
-            '1W': '1m',   // 1주 표시 → 1개월 데이터
-            '1M': '3m',   // 1개월 표시 → 3개월 데이터
-            '3M': '1y',   // 3개월 표시 → 1년 데이터
-            '6M': '2y',   // 6개월 표시 → 2년 데이터
-            '1Y': '3y'    // 1년 표시 → 3년 데이터 (SMA 200 확보)
-        };
-        const apiPeriod = periodMap[period] || '1y';
+        // 타임프레임별 데이터 로드 (SMA 200 계산용 충분한 데이터)
+        // daily: 2년, weekly: 6년, monthly: 20년
 
         // 종목 유형 확인
-        const ex = (exchange || '').toUpperCase();
         const isEtf = ex === 'ETF';
         const isUsStock = ex === 'KIS_US' || ex === 'US' || ex === 'NASDAQ' || ex === 'NYSE';
 
         try {
             let chartResponse;
             if (isEtf) {
-                // ETF 차트 API
+                // ETF 차트 API (일봉만 지원, 레거시)
                 chartResponse = await invokeWithTimeout('get_etf_chart', {
                     accessToken: auth.accessToken || '',
                     code: symbol,
-                    period: apiPeriod
+                    period: '2y'
                 }, 15000);
             } else if (isUsStock) {
                 // 해외 종목 차트 API
                 chartResponse = await invokeWithTimeout('get_stock_chart_us', {
                     accessToken: auth.accessToken || '',
                     ticker: symbol,
-                    period: apiPeriod
-                }, 15000);
+                    timeframe: tf
+                }, 20000);
             } else {
                 // 국내 종목 차트 API
                 chartResponse = await invokeWithTimeout('get_stock_chart_kr', {
                     accessToken: auth.accessToken || '',
                     code: symbol,
-                    period: apiPeriod
-                }, 15000);
+                    timeframe: tf
+                }, 20000);
             }
 
             // API 응답에서 candles 추출 (data로 감싸진 경우 처리)
@@ -11451,7 +11443,7 @@ async function initCandleChart(symbol, exchange, period = '1D') {
                 addSmaLegend(container, candleData.length);
             } else {
                 // API 실패 시 샘플 데이터 사용
-                const sampleData = generateSampleCandleData(period, isUsStock);
+                const sampleData = generateSampleCandleData(tf, isUsStock);
                 candleSeries.setData(sampleData);
                 const sampleVolume = sampleData.map(d => ({
                     time: d.time,
@@ -11463,7 +11455,7 @@ async function initCandleChart(symbol, exchange, period = '1D') {
         } catch (chartError) {
             console.warn('Chart API failed, using sample data:', chartError);
             // API 실패 시 샘플 데이터로 폴백
-            const sampleData = generateSampleCandleData(period, isUsStock);
+            const sampleData = generateSampleCandleData(tf, isUsStock);
             candleSeries.setData(sampleData);
             const sampleVolume = sampleData.map(d => ({
                 time: d.time,
@@ -11473,7 +11465,19 @@ async function initCandleChart(symbol, exchange, period = '1D') {
             volumeSeries.setData(sampleVolume);
         }
 
-        detailChart.timeScale().fitContent();
+        // 타임프레임별 기본 표시 범위 설정
+        // daily: 6개월, weekly: 2년, monthly: 5년
+        const now = Math.floor(Date.now() / 1000);
+        const visibleRangeMap = {
+            'daily': 6 * 30 * 24 * 60 * 60,   // 6개월
+            'weekly': 2 * 365 * 24 * 60 * 60,  // 2년
+            'monthly': 5 * 365 * 24 * 60 * 60  // 5년
+        };
+        const visibleDuration = visibleRangeMap[tf] || visibleRangeMap['daily'];
+        detailChart.timeScale().setVisibleRange({
+            from: now - visibleDuration,
+            to: now
+        });
 
         // 리사이즈 핸들러
         const resizeObserver = new ResizeObserver(() => {
@@ -11523,27 +11527,23 @@ function addSmaLegend(container, dataLength) {
 }
 
 // 샘플 캔들 데이터 생성 (실제 API 연동 전 테스트용)
-function generateSampleCandleData(period, isUsd = false) {
+// timeframe: daily(일봉), weekly(주봉), monthly(월봉)
+function generateSampleCandleData(timeframe, isUsd = false) {
     const data = [];
     const now = new Date();
-    let numBars = 100;
+    let numBars = 500;
     let timeStep = 24 * 60 * 60; // 1 day in seconds
 
-    if (period === '1D') {
-        numBars = 78; // 9:00 ~ 15:30, 5분봉
-        timeStep = 5 * 60;
-    } else if (period === '1W') {
-        numBars = 5;
+    const tf = (timeframe || 'daily').toLowerCase();
+    if (tf === 'daily') {
+        numBars = 500;  // 약 2년
         timeStep = 24 * 60 * 60;
-    } else if (period === '1M') {
-        numBars = 22;
-        timeStep = 24 * 60 * 60;
-    } else if (period === '3M') {
-        numBars = 65;
-        timeStep = 24 * 60 * 60;
-    } else if (period === '1Y') {
-        numBars = 250;
-        timeStep = 24 * 60 * 60;
+    } else if (tf === 'weekly') {
+        numBars = 312;  // 약 6년
+        timeStep = 7 * 24 * 60 * 60;
+    } else if (tf === 'monthly') {
+        numBars = 240;  // 약 20년
+        timeStep = 30 * 24 * 60 * 60;
     }
 
     // USD: $100~$500 범위, KRW: ₩50,000~₩100,000 범위
@@ -11631,14 +11631,14 @@ document.getElementById('stock-detail-modal')?.addEventListener('click', (e) => 
     }
 });
 
-// 차트 기간 탭 이벤트
+// 차트 타임프레임 탭 이벤트 (일봉/주봉/월봉)
 document.querySelectorAll('.period-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        const period = btn.dataset.period;
+        const timeframe = btn.dataset.timeframe;
         if (currentStockData) {
-            initCandleChart(currentStockData.symbol, currentStockData.exchange, period);
+            initCandleChart(currentStockData.symbol, currentStockData.exchange, timeframe);
         }
     });
 });

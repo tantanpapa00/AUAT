@@ -10444,17 +10444,19 @@ async def api_stock_consensus(
 @app.get("/api/stock/kr/{code}/chart")
 async def api_stock_chart_kr(
     code: str,
+    timeframe: str = Query("daily", regex="^(daily|weekly|monthly)$"),
     period: str = Query("3m", description="기간: 1d, 1w, 1m, 3m, 6m, 1y"),
     current_user: User = Depends(get_current_user_optional)
 ):
     """
-    국내 종목 차트 데이터 (일봉)
+    국내 종목 차트 데이터
+    - timeframe: daily(일봉), weekly(주봉), monthly(월봉)
     - 누구나 접근 가능
     """
-    candles = await get_chart_data(code, period)
+    candles = await get_chart_data(code, period, timeframe)
     return {
         "code": code,
-        "period": period,
+        "timeframe": timeframe,
         "candles": candles
     }
 
@@ -10564,15 +10566,17 @@ async def api_stock_summary_us(
 @app.get("/api/stock/us/{ticker}/chart")
 async def api_stock_chart_us(
     ticker: str,
+    timeframe: str = Query("daily", regex="^(daily|weekly|monthly)$"),
     period: str = Query("3m", regex="^(1d|5d|1w|1m|3m|6m|1y|2y|5y)$"),
     current_user: User = Depends(get_current_user_optional)
 ):
     """
     해외 종목 차트 데이터
     - 데이터 소스: Yahoo Finance Chart API
+    - timeframe: daily(일봉), weekly(주봉), monthly(월봉)
     - 누구나 접근 가능
     """
-    data = await get_stock_chart_us(ticker, period)
+    data = await get_stock_chart_us(ticker, period, timeframe)
     return {"data": data}
 
 

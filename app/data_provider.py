@@ -1082,8 +1082,11 @@ async def get_stock_detail(code):
     return result
 
 
-async def get_chart_data(code, period="3m"):
-    """차트 데이터 - 네이버 fchart API (일봉)"""
+async def get_chart_data(code, period="3m", timeframe="daily"):
+    """
+    차트 데이터 - 네이버 fchart API
+    timeframe: daily(일봉), weekly(주봉), monthly(월봉)
+    """
     import re
     try:
         headers = {
@@ -1091,14 +1094,17 @@ async def get_chart_data(code, period="3m"):
             "Referer": "https://finance.naver.com"
         }
         async with httpx.AsyncClient(timeout=15, headers=headers) as client:
-            # 기간별 캔들 수 (SMA 200 계산을 위해 충분한 데이터)
-            period_map = {
-                "1d": 5, "1w": 7, "1m": 25, "3m": 70,
-                "6m": 130, "1y": 260, "2y": 520, "3y": 780
+            # 타임프레임별 설정 (SMA 200 계산용 충분한 데이터)
+            tf_config = {
+                "daily": {"naver_tf": "day", "count": 500},    # 일봉: 약 2년
+                "weekly": {"naver_tf": "week", "count": 312},  # 주봉: 약 6년
+                "monthly": {"naver_tf": "month", "count": 240} # 월봉: 약 20년
             }
-            count = period_map.get(period, 260)
+            config = tf_config.get(timeframe.lower(), tf_config["daily"])
+            naver_tf = config["naver_tf"]
+            count = config["count"]
 
-            url = f"https://fchart.stock.naver.com/sise.nhn?symbol={code}&timeframe=day&count={count}&requestType=0"
+            url = f"https://fchart.stock.naver.com/sise.nhn?symbol={code}&timeframe={naver_tf}&count={count}&requestType=0"
             r = await client.get(url)
 
             if r.status_code == 200:
@@ -3688,41 +3694,36 @@ def _parse_volume_us(vol_str: str) -> int:
         return 0
 
 
-async def get_stock_chart_us(ticker: str, period: str = "3m") -> dict:
+async def get_stock_chart_us(ticker: str, period: str = "3m", timeframe: str = "daily") -> dict:
     """
     해외 종목 차트 데이터
     데이터 소스: Yahoo Finance Chart API
+
+    timeframe: daily(일봉), weekly(주봉), monthly(월봉)
+    period: 레거시 호환용 (timeframe 우선)
     """
     ticker = ticker.upper()
-    cache_key = f"stock_chart_us_{ticker}_{period}"
+    tf = timeframe.lower()
+    cache_key = f"stock_chart_us_{ticker}_{tf}"
     cached = _cached(cache_key, 300)  # 5분 캐싱
     if cached:
         return cached
 
     result = {
         "ticker": ticker,
-        "period": period,
+        "timeframe": tf,
         "candles": []
     }
 
-    # Yahoo Finance 기간 매핑
-    range_map = {
-        "1d": "1d",
-        "5d": "5d",
-        "1w": "5d",
-        "1m": "1mo",
-        "3m": "3mo",
-        "6m": "6mo",
-        "1y": "1y",
-        "2y": "2y",
-        "5y": "5y"
+    # 타임프레임별 설정 (SMA 200 계산용 충분한 데이터)
+    tf_config = {
+        "daily": {"interval": "1d", "range": "2y"},    # 일봉: 2년 (약 500개)
+        "weekly": {"interval": "1wk", "range": "6y"},  # 주봉: 6년 (약 312개)
+        "monthly": {"interval": "1mo", "range": "max"} # 월봉: 최대 (약 240개)
     }
-    yf_range = range_map.get(period.lower(), "3mo")
-
-    # 인터벌 결정
-    interval = "1d"
-    if period.lower() in ["1d", "5d", "1w"]:
-        interval = "5m" if period.lower() == "1d" else "15m"
+    config = tf_config.get(tf, tf_config["daily"])
+    interval = config["interval"]
+    yf_range = config["range"]
 
     try:
         async with httpx.AsyncClient(timeout=15) as client:
@@ -3750,7 +3751,7 @@ async def get_stock_chart_us(ticker: str, period: str = "3m") -> dict:
                             dt = datetime.fromtimestamp(ts)
                             candles.append({
                                 "date": dt.strftime("%Y-%m-%d"),
-                                "time": dt.strftime("%H:%M") if interval != "1d" else None,
+                                "time": None,  # 일봉/주봉/월봉은 시간 불필요
                                 "open": round(opens[i], 2) if opens[i] else 0,
                                 "high": round(highs[i], 2) if i < len(highs) and highs[i] else 0,
                                 "low": round(lows[i], 2) if i < len(lows) and lows[i] else 0,

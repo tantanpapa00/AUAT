@@ -1821,16 +1821,16 @@ pub async fn get_stock_consensus(
     }
 }
 
-/// 국내 종목 차트 데이터 (일봉)
+/// 국내 종목 차트 데이터 (일봉/주봉/월봉)
 #[tauri::command]
 pub async fn get_stock_chart_kr(
     access_token: String,
     code: String,
-    period: Option<String>,
+    timeframe: Option<String>,
 ) -> Result<serde_json::Value, String> {
     let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
-    let period_val = period.unwrap_or_else(|| "3m".to_string());
-    let url = format!("{}/api/stock/kr/{}/chart?period={}", VPS_SERVER_URL, code, period_val);
+    let tf = timeframe.unwrap_or_else(|| "daily".to_string());
+    let url = format!("{}/api/stock/kr/{}/chart?timeframe={}", VPS_SERVER_URL, code, tf);
 
     let resp = client
         .get(&url)
@@ -2038,11 +2038,11 @@ pub async fn get_stock_summary_us(
 pub async fn get_stock_chart_us(
     access_token: String,
     ticker: String,
-    period: Option<String>,
+    timeframe: Option<String>,
 ) -> Result<serde_json::Value, String> {
     let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
-    let p = period.unwrap_or_else(|| "3m".to_string());
-    let url = format!("{}/api/stock/us/{}/chart?period={}", VPS_SERVER_URL, ticker, p);
+    let tf = timeframe.unwrap_or_else(|| "daily".to_string());
+    let url = format!("{}/api/stock/us/{}/chart?timeframe={}", VPS_SERVER_URL, ticker, tf);
 
     let resp = client
         .get(&url)
