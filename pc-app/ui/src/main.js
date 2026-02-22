@@ -11330,9 +11330,12 @@ async function initCandleChart(symbol, exchange, period = '1D') {
                 }, 15000);
             }
 
-            if (chartResponse && chartResponse.candles && chartResponse.candles.length > 0) {
+            // API 응답에서 candles 추출 (data로 감싸진 경우 처리)
+            const candles = chartResponse?.data?.candles || chartResponse?.candles || [];
+
+            if (candles.length > 0) {
                 // API 데이터를 TradingView 형식으로 변환
-                const candleData = chartResponse.candles.map(c => {
+                const candleData = candles.map(c => {
                     // US: "YYYY-MM-DD", KR: "YYYYMMDD"
                     const dateStr = c.date || '';
                     let y, m, d;
@@ -11359,7 +11362,7 @@ async function initCandleChart(symbol, exchange, period = '1D') {
                     };
                 }).filter(c => c.time > 0).sort((a, b) => a.time - b.time);
 
-                const volumeData = chartResponse.candles.map(c => {
+                const volumeData = candles.map(c => {
                     const dateStr = c.date || '';
                     let y, m, d;
                     if (dateStr.includes('-')) {
@@ -11385,8 +11388,8 @@ async function initCandleChart(symbol, exchange, period = '1D') {
                 volumeSeries.setData(volumeData);
 
                 // US 종목: 최신 캔들에서 시가/고가/저가/거래량 업데이트
-                if (isUsStock && chartResponse.candles.length > 0) {
-                    const latestCandle = chartResponse.candles[chartResponse.candles.length - 1];
+                if (isUsStock && candles.length > 0) {
+                    const latestCandle = candles[candles.length - 1];
                     const openEl = document.getElementById('detail-open');
                     const highEl = document.getElementById('detail-high');
                     const lowEl = document.getElementById('detail-low');
@@ -11448,7 +11451,7 @@ async function initCandleChart(symbol, exchange, period = '1D') {
                 addSmaLegend(container, candleData.length);
             } else {
                 // API 실패 시 샘플 데이터 사용
-                const sampleData = generateSampleCandleData(period);
+                const sampleData = generateSampleCandleData(period, isUsStock);
                 candleSeries.setData(sampleData);
                 const sampleVolume = sampleData.map(d => ({
                     time: d.time,
@@ -11460,7 +11463,7 @@ async function initCandleChart(symbol, exchange, period = '1D') {
         } catch (chartError) {
             console.warn('Chart API failed, using sample data:', chartError);
             // API 실패 시 샘플 데이터로 폴백
-            const sampleData = generateSampleCandleData(period);
+            const sampleData = generateSampleCandleData(period, isUsStock);
             candleSeries.setData(sampleData);
             const sampleVolume = sampleData.map(d => ({
                 time: d.time,
@@ -11520,7 +11523,7 @@ function addSmaLegend(container, dataLength) {
 }
 
 // 샘플 캔들 데이터 생성 (실제 API 연동 전 테스트용)
-function generateSampleCandleData(period) {
+function generateSampleCandleData(period, isUsd = false) {
     const data = [];
     const now = new Date();
     let numBars = 100;
@@ -11543,7 +11546,10 @@ function generateSampleCandleData(period) {
         timeStep = 24 * 60 * 60;
     }
 
-    let basePrice = 50000 + Math.random() * 50000;
+    // USD: $100~$500 범위, KRW: ₩50,000~₩100,000 범위
+    let basePrice = isUsd
+        ? 100 + Math.random() * 400
+        : 50000 + Math.random() * 50000;
     let startTime = Math.floor(now.getTime() / 1000) - (numBars * timeStep);
 
     for (let i = 0; i < numBars; i++) {
@@ -11554,12 +11560,13 @@ function generateSampleCandleData(period) {
         const high = Math.max(open, close) + Math.random() * volatility * 0.5;
         const low = Math.min(open, close) - Math.random() * volatility * 0.5;
 
+        // USD: 소수점 2자리, KRW: 정수
         data.push({
             time: time,
-            open: Math.round(open),
-            high: Math.round(high),
-            low: Math.round(low),
-            close: Math.round(close)
+            open: isUsd ? parseFloat(open.toFixed(2)) : Math.round(open),
+            high: isUsd ? parseFloat(high.toFixed(2)) : Math.round(high),
+            low: isUsd ? parseFloat(low.toFixed(2)) : Math.round(low),
+            close: isUsd ? parseFloat(close.toFixed(2)) : Math.round(close)
         });
 
         basePrice = close;
