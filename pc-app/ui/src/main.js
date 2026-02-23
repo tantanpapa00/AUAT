@@ -10488,47 +10488,242 @@ function renderFinancialTrendChart(financials) {
     });
 }
 
-// 국내 종목 뉴스 로드 (Phase 8-2)
+// 국내 종목 소식 탭 - 3개 서브탭 (공시/증권사리포트/뉴스)
+let newsSubTabCache = { disclosure: null, research: null, articles: null };
+let currentNewsCode = '';
+
 async function loadStockNewsKr(code) {
     const newsContent = document.getElementById('info-news');
     if (!newsContent) return;
 
-    newsContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>뉴스를 불러오는 중...</span></div>';
+    // 종목 변경 시 캐시 초기화
+    if (currentNewsCode !== code) {
+        newsSubTabCache = { disclosure: null, research: null, articles: null };
+        currentNewsCode = code;
+    }
+
+    // 서브탭 UI 렌더링
+    newsContent.innerHTML = `
+        <div class="news-sub-tabs">
+            <button class="news-tab-btn active" data-tab="disclosure">공시</button>
+            <button class="news-tab-btn" data-tab="research">증권사 리포트</button>
+            <button class="news-tab-btn" data-tab="articles">뉴스</button>
+        </div>
+        <div id="news-disclosure" class="news-content active"></div>
+        <div id="news-research" class="news-content" style="display:none;"></div>
+        <div id="news-articles" class="news-content" style="display:none;"></div>
+    `;
+
+    // 서브탭 클릭 이벤트
+    newsContent.querySelectorAll('.news-tab-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const tab = btn.dataset.tab;
+            // 활성 탭 변경
+            newsContent.querySelectorAll('.news-tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            newsContent.querySelectorAll('.news-content').forEach(c => c.style.display = 'none');
+            document.getElementById(`news-${tab}`).style.display = 'block';
+
+            // 데이터 로드 (캐시 없으면)
+            if (!newsSubTabCache[tab]) {
+                switch(tab) {
+                    case 'disclosure': await loadDisclosureKr(code); break;
+                    case 'research': await loadResearchKr(code); break;
+                    case 'articles': await loadArticlesKr(code); break;
+                }
+            }
+        });
+    });
+
+    // 기본 공시 탭 로드
+    await loadDisclosureKr(code);
+}
+
+// 공시 로드
+async function loadDisclosureKr(code) {
+    const container = document.getElementById('news-disclosure');
+    if (!container) return;
+
+    container.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>공시를 불러오는 중...</span></div>';
+
+    try {
+        const response = await invokeWithTimeout('get_stock_disclosures', {
+            accessToken: auth.accessToken || '',
+            code: code,
+            limit: 30
+        }, 10000);
+
+        const items = response?.data || [];
+        newsSubTabCache.disclosure = items;
+
+        if (items.length === 0) {
+            container.innerHTML = '<div class="sd-empty-state">공시 데이터가 없습니다</div>';
+            return;
+        }
+
+        // 날짜별 그룹핑
+        const grouped = groupByDate(items, 'date');
+        container.innerHTML = renderGroupedNewsItems(grouped, 'disclosure');
+
+    } catch (error) {
+        console.error('Failed to load disclosures:', error);
+        container.innerHTML = '<div class="sd-empty-state">공시를 불러올 수 없습니다</div>';
+    }
+}
+
+// 증권사 리포트 로드
+async function loadResearchKr(code) {
+    const container = document.getElementById('news-research');
+    if (!container) return;
+
+    container.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>리포트를 불러오는 중...</span></div>';
+
+    try {
+        const response = await invokeWithTimeout('get_stock_company_kr', {
+            accessToken: auth.accessToken || '',
+            code: code
+        }, 10000);
+
+        const items = response?.data?.researches || [];
+        newsSubTabCache.research = items;
+
+        if (items.length === 0) {
+            container.innerHTML = '<div class="sd-empty-state">증권사 리포트가 없습니다</div>';
+            return;
+        }
+
+        // 리포트 렌더링
+        let html = '<div class="sd-news-list">';
+        for (const item of items) {
+            const dateStr = formatResearchDate(item.date);
+            html += `
+                <div class="sd-news-item research-item">
+                    <div class="sd-news-title">${item.title}</div>
+                    <div class="sd-news-meta">
+                        <span class="sd-news-source">${item.broker || ''}</span>
+                        <span class="sd-news-date">${dateStr}</span>
+                    </div>
+                </div>
+            `;
+        }
+        html += '</div>';
+        container.innerHTML = html;
+
+    } catch (error) {
+        console.error('Failed to load research:', error);
+        container.innerHTML = '<div class="sd-empty-state">리포트를 불러올 수 없습니다</div>';
+    }
+}
+
+// 뉴스 로드
+async function loadArticlesKr(code) {
+    const container = document.getElementById('news-articles');
+    if (!container) return;
+
+    container.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>뉴스를 불러오는 중...</span></div>';
 
     try {
         const response = await invokeWithTimeout('get_stock_news_kr', {
             accessToken: auth.accessToken || '',
             code: code,
-            limit: 20
+            limit: 30
         }, 10000);
 
         const items = response?.data?.items || [];
+        newsSubTabCache.articles = items;
 
         if (items.length === 0) {
-            newsContent.innerHTML = '<div class="sd-empty-state">최신 뉴스가 없습니다</div>';
+            container.innerHTML = '<div class="sd-empty-state">최신 뉴스가 없습니다</div>';
             return;
         }
 
-        let html = '<div class="sd-news-list">';
-        for (const item of items) {
-            html += `
-                <a href="${item.url}" target="_blank" class="sd-news-item">
-                    <div class="sd-news-title">${item.title}</div>
-                    <div class="sd-news-meta">
-                        <span class="sd-news-source">${item.source}</span>
-                        <span class="sd-news-date">${item.date}</span>
-                    </div>
-                </a>
-            `;
-        }
-        html += '</div>';
-
-        newsContent.innerHTML = html;
+        // 날짜별 그룹핑
+        const grouped = groupByDate(items, 'date');
+        container.innerHTML = renderGroupedNewsItems(grouped, 'articles');
 
     } catch (error) {
-        console.error('Failed to load KR news:', error);
-        newsContent.innerHTML = '<div class="sd-empty-state">뉴스를 불러올 수 없습니다</div>';
+        console.error('Failed to load news:', error);
+        container.innerHTML = '<div class="sd-empty-state">뉴스를 불러올 수 없습니다</div>';
     }
+}
+
+// 날짜별 그룹핑
+function groupByDate(items, dateField) {
+    const groups = {};
+    for (const item of items) {
+        let dateStr = item[dateField] || '';
+        // ISO 형식 → YYYY-MM-DD
+        if (dateStr.includes('T')) {
+            dateStr = dateStr.split('T')[0];
+        }
+        // YYYYMMDD → YYYY-MM-DD
+        if (/^\d{8}$/.test(dateStr)) {
+            dateStr = `${dateStr.slice(0,4)}-${dateStr.slice(4,6)}-${dateStr.slice(6,8)}`;
+        }
+        // 날짜만 추출 (시간 제외)
+        const dateKey = dateStr.slice(0, 10);
+        if (!groups[dateKey]) groups[dateKey] = [];
+        groups[dateKey].push(item);
+    }
+    return groups;
+}
+
+// 그룹핑된 뉴스 아이템 렌더링
+function renderGroupedNewsItems(grouped, type) {
+    const sortedDates = Object.keys(grouped).sort().reverse();
+    let html = '';
+
+    for (const dateKey of sortedDates) {
+        const items = grouped[dateKey];
+        const displayDate = formatDisplayDate(dateKey);
+
+        html += `<div class="news-date-group">
+            <div class="news-date-header">${displayDate}</div>
+            <div class="news-date-items">`;
+
+        for (const item of items) {
+            const url = item.url || '';
+            const title = item.title || '';
+            const source = item.source || '';
+            const badge = type === 'disclosure' ? '<span class="news-badge disclosure">공시</span>' : '';
+
+            if (url) {
+                html += `
+                    <a href="${url}" target="_blank" class="sd-news-item">
+                        <div class="sd-news-title">${title}</div>
+                        <div class="sd-news-meta">
+                            ${source ? `<span class="sd-news-source">${source}</span>` : ''}
+                            ${badge}
+                        </div>
+                    </a>`;
+            } else {
+                html += `
+                    <div class="sd-news-item">
+                        <div class="sd-news-title">${title}</div>
+                        <div class="sd-news-meta">
+                            ${source ? `<span class="sd-news-source">${source}</span>` : ''}
+                            ${badge}
+                        </div>
+                    </div>`;
+            }
+        }
+
+        html += `</div></div>`;
+    }
+
+    return html || '<div class="sd-empty-state">데이터가 없습니다</div>';
+}
+
+// 날짜 표시 포맷 (1월 30일)
+function formatDisplayDate(dateStr) {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length >= 3) {
+        const month = parseInt(parts[1], 10);
+        const day = parseInt(parts[2], 10);
+        return `${month}월 ${day}일`;
+    }
+    return dateStr;
 }
 
 // 뉴스/공시 로드 (StockEasy 스타일)

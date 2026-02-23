@@ -5585,6 +5585,133 @@ body {
     flex-shrink: 0;
 }
 
+/* 소식 탭 서브탭 - 다크 테마 */
+.news-sub-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 0;
+}
+
+.news-tab-btn {
+    background: transparent;
+    color: #9ca3af;
+    border: none;
+    padding: 10px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.15s;
+}
+
+.news-tab-btn:hover {
+    color: #e5e7eb;
+}
+
+.news-tab-btn.active {
+    color: #ef4444;
+    border-bottom: 2px solid #ef4444;
+}
+
+.news-content {
+    min-height: 200px;
+}
+
+/* 날짜별 그룹핑 */
+.news-date-group {
+    margin-bottom: 20px;
+}
+
+.news-date-header {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #9ca3af;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.news-date-items {
+    display: flex;
+    flex-direction: column;
+}
+
+/* 소식 탭 뉴스 아이템 */
+.sd-news-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.sd-news-item {
+    display: block;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.15s;
+}
+
+.sd-news-item:hover {
+    background: rgba(255,255,255,0.03);
+    margin: 0 -12px;
+    padding-left: 12px;
+    padding-right: 12px;
+}
+
+.sd-news-item:last-child {
+    border-bottom: none;
+}
+
+.sd-news-title {
+    font-size: 0.9rem;
+    color: #e5e7eb;
+    line-height: 1.5;
+    margin-bottom: 6px;
+    font-weight: 400;
+}
+
+.sd-news-meta {
+    font-size: 0.8rem;
+    color: #6b7280;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.sd-news-source {
+    color: #9ca3af;
+}
+
+.sd-news-date {
+    color: #6b7280;
+}
+
+.news-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
+.news-badge.disclosure {
+    background: rgba(59, 130, 246, 0.2);
+    color: #60a5fa;
+}
+
+/* 증권사 리포트 아이템 */
+.research-item .sd-news-title {
+    font-weight: 500;
+}
+
+.research-item .sd-news-source {
+    color: #ef4444;
+}
+
 /* 기업 정보 - 다크 테마 */
 .company-info {
     display: grid;
