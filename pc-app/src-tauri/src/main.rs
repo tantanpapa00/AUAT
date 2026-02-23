@@ -180,6 +180,7 @@ fn main() {
             commands::get_eps_revision_history,
             commands::get_stock_company_kr,
             commands::get_stock_statement_kr,
+            commands::get_invest_indicators_kr,
             // Phase 9: 해외 종목 상세
             commands::get_stock_summary_us,
             commands::get_stock_chart_us,

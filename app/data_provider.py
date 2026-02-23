@@ -3450,11 +3450,381 @@ async def get_stock_company_kr(code: str) -> dict:
     return result
 
 
+# =============================================================================
+# FnGuide 재무비율 파싱 (ROE, 유동비율 등 - StockEasy 기준)
+# =============================================================================
+
+async def _fetch_fnguide_ratios(code: str) -> dict:
+    """
+    FnGuide 재무비율 페이지에서 안정성/성장성/수익성/활동성 지표 파싱
+    - 유동비율, 당좌비율, 부채비율, 유보율 (안정성)
+    - 매출액증가율, 영업이익증가율, EPS증가율 (성장성)
+    - 영업이익률, ROA, ROE (수익성)
+    """
+    result = {
+        "stability": {},    # 안정성
+        "growth": {},       # 성장성
+        "profitability": {},# 수익성
+        "activity": {},     # 활동성
+        "periods": [],
+    }
+
+    try:
+        url = f"http://comp.fnguide.com/SVO2/ASP/SVD_FinanceRatio.asp?pGB=1&gicode=A{code}&cID=&MenuYn=Y&ReportGB=D&NewMenuID=104&stkGb=701"
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.get(url, headers=headers)
+            if r.status_code != 200:
+                return result
+
+            soup = BeautifulSoup(r.text, 'lxml')
+            tables = soup.find_all('table', class_='us_table_ty1')
+
+            # 항목명 → 카테고리 매핑
+            ITEM_CATEGORY = {
+                # 안정성
+                "유동비율": ("stability", "유동비율"),
+                "당좌비율": ("stability", "당좌비율"),
+                "부채비율": ("stability", "부채비율"),
+                "유보율": ("stability", "유보율"),
+                "순차입금비율": ("stability", "순차입금비율"),
+                "이자보상배율": ("stability", "이자보상배율"),
+                "자기자본비율": ("stability", "자기자본비율"),
+                # 성장성
+                "매출액증가율": ("growth", "매출액증가율"),
+                "영업이익증가율": ("growth", "영업이익증가율"),
+                "EBITDA증가율": ("growth", "EBITDA증가율"),
+                "EPS증가율": ("growth", "EPS증가율"),
+                # 수익성
+                "매출총이익율": ("profitability", "매출총이익률"),
+                "세전계속사업이익률": ("profitability", "세전이익률"),
+                "영업이익률": ("profitability", "영업이익률"),
+                "EBITDA마진율": ("profitability", "EBITDA마진율"),
+                "ROA": ("profitability", "ROA"),
+                "ROE": ("profitability", "ROE"),
+                # 활동성
+                "총자산회전율": ("activity", "총자산회전율"),
+                "총부채회전율": ("activity", "총부채회전율"),
+                "총자본회전율": ("activity", "총자본회전율"),
+            }
+
+            for table in tables:
+                # 첫 번째 행에서 기간 정보 추출
+                header_tr = table.find('tr')
+                if header_tr:
+                    ths = header_tr.find_all('th')
+                    periods = [th.get_text(strip=True) for th in ths[1:6]]  # 첫 번째는 IFRS 타입
+                    if periods and not result["periods"]:
+                        result["periods"] = periods
+
+                # 데이터 행 파싱
+                for tr in table.find_all('tr')[1:]:
+                    th = tr.find('th')
+                    tds = tr.find_all('td')
+
+                    if not th or not tds:
+                        continue
+
+                    item_text = th.get_text(strip=True)
+
+                    # 항목명 매칭 (접두어로 매칭)
+                    for key, (category, label) in ITEM_CATEGORY.items():
+                        if item_text.startswith(key):
+                            # 최신 값 추출 (마지막 유효한 값)
+                            values = []
+                            for td in tds[:5]:
+                                val_text = td.get_text(strip=True).replace(",", "")
+                                try:
+                                    values.append(float(val_text))
+                                except:
+                                    values.append(None)
+
+                            # 최신 유효 값 찾기
+                            latest = None
+                            for v in reversed(values):
+                                if v is not None:
+                                    latest = v
+                                    break
+
+                            if latest is not None:
+                                result[category][label] = latest
+                            break
+
+    except Exception as e:
+        print(f"[FnGuide] 재무비율 파싱 오류 {code}: {e}")
+
+    return result
+
+
+async def _fetch_fnguide_quarterly_roe(code: str) -> float:
+    """
+    FnGuide Main 페이지에서 분기별 ROE 추출 (연율화 기준)
+    StockEasy와 동일한 ROE 값 (4.68% 등)
+    """
+    try:
+        url = f"http://comp.fnguide.com/SVO2/ASP/SVD_Main.asp?pGB=1&gicode=A{code}"
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.get(url, headers=headers)
+            if r.status_code != 200:
+                return None
+
+            soup = BeautifulSoup(r.text, 'lxml')
+
+            # "IFRS(연결) Net Quarter" 테이블에서 ROE 찾기 (Annual 제외)
+            for table in soup.find_all('table'):
+                header_tr = table.find('tr')
+                if not header_tr:
+                    continue
+
+                ths = header_tr.find_all('th')
+                header_text = ' '.join([th.get_text(strip=True) for th in ths])
+
+                # "IFRS(연결) Net Quarter" 정확히 매칭 (Annual 포함 제외)
+                if 'Net Quarter' in header_text and 'IFRS' in header_text and 'Annual' not in header_text:
+                    for tr in table.find_all('tr'):
+                        th = tr.find('th')
+                        if th and 'ROE' in th.get_text():
+                            tds = tr.find_all('td')
+                            # 최신 유효 값 찾기 (뒤에서부터, 8개까지 확인)
+                            for td in reversed(tds[:8]):
+                                val_text = td.get_text(strip=True)
+                                if val_text and val_text != '':
+                                    try:
+                                        return float(val_text)
+                                    except:
+                                        continue
+                    break
+    except Exception as e:
+        print(f"[FnGuide] ROE 파싱 오류 {code}: {e}")
+
+    return None
+
+
+async def get_invest_indicators_kr(code: str) -> dict:
+    """
+    국내 종목 투자지표 4카테고리 (성장성/수익성/안정성/밸류에이션)
+    FnGuide 재무비율 + 네이버 밸류에이션 데이터 결합
+    """
+    cache_key = f"invest_indicators_kr_{code}"
+    cached = _cached(cache_key, 3600)  # 1시간 캐싱
+    if cached:
+        return cached
+
+    result = {
+        "code": code,
+        "growth": {"grade": "C", "grade_label": "보통", "items": {}},
+        "profitability": {"grade": "C", "grade_label": "보통", "items": {}},
+        "stability": {"grade": "C", "grade_label": "보통", "items": {}},
+        "valuation": {"grade": "C", "grade_label": "보통", "items": {}},
+    }
+
+    try:
+        # FnGuide 재무비율 데이터
+        ratios = await _fetch_fnguide_ratios(code)
+
+        # 성장성
+        growth_items = ratios.get("growth", {})
+        result["growth"]["items"] = growth_items
+        result["growth"]["grade"], result["growth"]["grade_label"] = _calc_growth_grade(growth_items)
+
+        # 수익성
+        prof_items = ratios.get("profitability", {})
+        result["profitability"]["items"] = prof_items
+        result["profitability"]["grade"], result["profitability"]["grade_label"] = _calc_profitability_grade(prof_items)
+
+        # 안정성
+        stab_items = ratios.get("stability", {})
+        result["stability"]["items"] = stab_items
+        result["stability"]["grade"], result["stability"]["grade_label"] = _calc_stability_grade(stab_items)
+
+        # 밸류에이션 (네이버에서 PER, PBR 가져오기)
+        val_items = await _fetch_valuation_items(code)
+        result["valuation"]["items"] = val_items
+        result["valuation"]["grade"], result["valuation"]["grade_label"] = _calc_valuation_grade(val_items)
+
+        _set_cache(cache_key, result)
+    except Exception as e:
+        print(f"[DataProvider] get_invest_indicators_kr error for {code}: {e}")
+        traceback.print_exc()
+
+    return result
+
+
+async def _fetch_valuation_items(code: str) -> dict:
+    """네이버에서 밸류에이션 지표 가져오기"""
+    items = {}
+    try:
+        url = f"https://m.stock.naver.com/api/stock/{code}/integration"
+        async with httpx.AsyncClient(timeout=10, headers=NAVER_HEADERS) as client:
+            r = await client.get(url)
+            if r.status_code == 200:
+                data = r.json()
+
+                # PER
+                per = data.get("per")
+                if per:
+                    try:
+                        items["PER"] = float(per)
+                    except:
+                        pass
+
+                # PBR
+                pbr = data.get("pbr")
+                if pbr:
+                    try:
+                        items["PBR"] = float(pbr)
+                    except:
+                        pass
+
+                # 배당수익률
+                div_yield = data.get("dividendYield")
+                if div_yield:
+                    try:
+                        items["배당수익률"] = float(str(div_yield).replace("%", ""))
+                    except:
+                        pass
+    except Exception as e:
+        print(f"[DataProvider] _fetch_valuation_items error: {e}")
+
+    return items
+
+
+def _calc_growth_grade(items: dict) -> tuple:
+    """성장성 등급 계산"""
+    rev_growth = items.get("매출액증가율", 0)
+    op_growth = items.get("영업이익증가율", 0)
+
+    # 평균 성장률 기준
+    avg = (rev_growth + op_growth) / 2 if rev_growth and op_growth else rev_growth or op_growth or 0
+
+    if avg > 30:
+        return "A+", "매우우수"
+    elif avg > 15:
+        return "A", "우수"
+    elif avg > 5:
+        return "B", "양호"
+    elif avg > -5:
+        return "C", "보통"
+    elif avg > -15:
+        return "D", "주의"
+    else:
+        return "F", "위험"
+
+
+def _calc_profitability_grade(items: dict) -> tuple:
+    """수익성 등급 계산"""
+    roe = items.get("ROE", 0)
+    opm = items.get("영업이익률", 0)
+
+    score = 0
+    if roe:
+        if roe > 20: score += 50
+        elif roe > 15: score += 40
+        elif roe > 10: score += 30
+        elif roe > 5: score += 20
+        elif roe > 0: score += 10
+
+    if opm:
+        if opm > 20: score += 50
+        elif opm > 15: score += 40
+        elif opm > 10: score += 30
+        elif opm > 5: score += 20
+        elif opm > 0: score += 10
+
+    if score >= 90:
+        return "A+", "매우우수"
+    elif score >= 70:
+        return "A", "우수"
+    elif score >= 50:
+        return "B", "양호"
+    elif score >= 30:
+        return "C", "보통"
+    elif score >= 10:
+        return "D", "주의"
+    else:
+        return "F", "위험"
+
+
+def _calc_stability_grade(items: dict) -> tuple:
+    """안정성 등급 계산"""
+    debt = items.get("부채비율", 100)
+    current = items.get("유동비율", 100)
+
+    score = 0
+
+    # 부채비율 (낮을수록 좋음)
+    if debt < 30: score += 50
+    elif debt < 50: score += 40
+    elif debt < 100: score += 30
+    elif debt < 150: score += 20
+    elif debt < 200: score += 10
+
+    # 유동비율 (높을수록 좋음)
+    if current > 300: score += 50
+    elif current > 200: score += 40
+    elif current > 150: score += 30
+    elif current > 100: score += 20
+    elif current > 50: score += 10
+
+    if score >= 90:
+        return "A+", "매우우수"
+    elif score >= 70:
+        return "A", "우수"
+    elif score >= 50:
+        return "B", "양호"
+    elif score >= 30:
+        return "C", "보통"
+    elif score >= 10:
+        return "D", "주의"
+    else:
+        return "F", "위험"
+
+
+def _calc_valuation_grade(items: dict) -> tuple:
+    """밸류에이션 등급 계산"""
+    per = items.get("PER", 999)
+    pbr = items.get("PBR", 999)
+
+    score = 0
+
+    # PER (낮을수록 좋음, 단 음수는 제외)
+    if per and per > 0:
+        if per < 8: score += 50
+        elif per < 12: score += 40
+        elif per < 15: score += 30
+        elif per < 20: score += 20
+        elif per < 30: score += 10
+
+    # PBR (낮을수록 좋음)
+    if pbr and pbr > 0:
+        if pbr < 0.7: score += 50
+        elif pbr < 1.0: score += 40
+        elif pbr < 1.5: score += 30
+        elif pbr < 2.0: score += 20
+        elif pbr < 3.0: score += 10
+
+    if score >= 90:
+        return "A+", "매우우수"
+    elif score >= 70:
+        return "A", "우수"
+    elif score >= 50:
+        return "B", "양호"
+    elif score >= 30:
+        return "C", "보통"
+    elif score >= 10:
+        return "D", "주의"
+    else:
+        return "F", "위험"
+
+
 async def get_stock_statement_kr(code: str, period_type: str = "annual") -> dict:
     """
     국내 종목 상세 재무제표 (StockEasy 스타일)
     period_type: annual(연간), quarter(분기)
-    데이터 소스: 네이버 finance/annual, finance/quarter API (16항목)
+    데이터 소스: 네이버 finance API (16항목) + FnGuide (ROE, 유동비율)
     + 재무 건전성 스코어 계산
     """
     cache_key = f"stock_statement_kr_{code}_{period_type}"
@@ -3548,7 +3918,8 @@ async def get_stock_statement_kr(code: str, period_type: str = "annual") -> dict
                             "unit": unit
                         })
 
-                # 재무 건전성 계산 (최신 값 기준)
+                # 재무 건전성: FnGuide 데이터 사용 (ROE, 유동비율)
+                # 네이버 데이터는 ROE가 다르고 유동비율이 없음
                 def get_latest(item_name):
                     vals = all_data.get(item_name, [])
                     for v in reversed(vals):
@@ -3556,69 +3927,86 @@ async def get_stock_statement_kr(code: str, period_type: str = "annual") -> dict
                             return v
                     return None
 
-                debt_ratio = get_latest("부채비율")
-                roe = get_latest("ROE")
+                # 기본값: 네이버 데이터
                 op_margin = get_latest("영업이익률")
-                current_ratio = get_latest("당좌비율")  # 당좌비율을 유동비율 대체
-
-                result["health"]["debt_ratio"] = debt_ratio
-                result["health"]["roe"] = roe
                 result["health"]["operating_margin"] = op_margin
-                result["health"]["current_ratio"] = current_ratio
 
-                # 건전성 점수 계산 (각 25점 만점)
-                score = 0
+        # FnGuide에서 ROE, 유동비율, 부채비율 가져오기 (StockEasy 기준)
+        try:
+            fnguide_ratios = await _fetch_fnguide_ratios(code)
+            stab = fnguide_ratios.get("stability", {})
+            prof = fnguide_ratios.get("profitability", {})
 
-                # 부채비율 (낮을수록 좋음)
-                if debt_ratio is not None:
-                    if debt_ratio < 50: score += 25
-                    elif debt_ratio < 100: score += 20
-                    elif debt_ratio < 150: score += 15
-                    elif debt_ratio < 200: score += 10
-                    else: score += 5
+            # FnGuide 유동비율 (당좌비율 아님!)
+            current_ratio = stab.get("유동비율")
+            debt_ratio = stab.get("부채비율")
 
-                # ROE (높을수록 좋음)
-                if roe is not None:
-                    if roe > 15: score += 25
-                    elif roe > 10: score += 20
-                    elif roe > 5: score += 15
-                    elif roe > 0: score += 10
-                    else: score += 5
+            # FnGuide ROE (분기별, 연율화 기준)
+            roe = await _fetch_fnguide_quarterly_roe(code)
+            if roe is None:
+                roe = prof.get("ROE")
 
-                # 영업이익률 (높을수록 좋음)
-                if op_margin is not None:
-                    if op_margin > 20: score += 25
-                    elif op_margin > 10: score += 20
-                    elif op_margin > 5: score += 15
-                    elif op_margin > 0: score += 10
-                    else: score += 5
+            result["health"]["debt_ratio"] = debt_ratio
+            result["health"]["roe"] = roe
+            result["health"]["current_ratio"] = current_ratio
 
-                # 당좌비율 (높을수록 좋음)
-                if current_ratio is not None:
-                    if current_ratio > 150: score += 25
-                    elif current_ratio > 100: score += 20
-                    elif current_ratio > 70: score += 15
-                    elif current_ratio > 50: score += 10
-                    else: score += 5
+            # 건전성 점수 계산 (각 25점 만점)
+            score = 0
+            op_margin = result["health"].get("operating_margin")
 
-                result["health"]["score"] = score
+            # 부채비율 (낮을수록 좋음)
+            if debt_ratio is not None:
+                if debt_ratio < 50: score += 25
+                elif debt_ratio < 100: score += 20
+                elif debt_ratio < 150: score += 15
+                elif debt_ratio < 200: score += 10
+                else: score += 5
 
-                # 등급 결정
-                if score >= 85:
-                    result["health"]["grade"] = "A"
-                    result["health"]["grade_label"] = "우수"
-                elif score >= 70:
-                    result["health"]["grade"] = "B"
-                    result["health"]["grade_label"] = "양호"
-                elif score >= 55:
-                    result["health"]["grade"] = "C"
-                    result["health"]["grade_label"] = "보통"
-                elif score >= 40:
-                    result["health"]["grade"] = "D"
-                    result["health"]["grade_label"] = "주의"
-                else:
-                    result["health"]["grade"] = "F"
-                    result["health"]["grade_label"] = "위험"
+            # ROE (높을수록 좋음)
+            if roe is not None:
+                if roe > 15: score += 25
+                elif roe > 10: score += 20
+                elif roe > 5: score += 15
+                elif roe > 0: score += 10
+                else: score += 5
+
+            # 영업이익률 (높을수록 좋음)
+            if op_margin is not None:
+                if op_margin > 20: score += 25
+                elif op_margin > 10: score += 20
+                elif op_margin > 5: score += 15
+                elif op_margin > 0: score += 10
+                else: score += 5
+
+            # 유동비율 (높을수록 좋음)
+            if current_ratio is not None:
+                if current_ratio > 200: score += 25
+                elif current_ratio > 150: score += 20
+                elif current_ratio > 100: score += 15
+                elif current_ratio > 70: score += 10
+                else: score += 5
+
+            result["health"]["score"] = score
+
+            # 등급 결정
+            if score >= 85:
+                result["health"]["grade"] = "A"
+                result["health"]["grade_label"] = "우수"
+            elif score >= 70:
+                result["health"]["grade"] = "B"
+                result["health"]["grade_label"] = "양호"
+            elif score >= 55:
+                result["health"]["grade"] = "C"
+                result["health"]["grade_label"] = "보통"
+            elif score >= 40:
+                result["health"]["grade"] = "D"
+                result["health"]["grade_label"] = "주의"
+            else:
+                result["health"]["grade"] = "F"
+                result["health"]["grade_label"] = "위험"
+
+        except Exception as fn_err:
+            print(f"[DataProvider] FnGuide health fetch error for {code}: {fn_err}")
 
         _set_cache(cache_key, result)
     except Exception as e:

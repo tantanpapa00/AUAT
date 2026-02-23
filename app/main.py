@@ -245,8 +245,8 @@ from app.data_provider import (
     get_stock_consensus,
     # Phase 8-2: 종목 상세 API
     get_stock_summary_kr, get_stock_financials_kr, get_stock_news_kr, get_eps_revision_history,
-    # Phase 8-3: 기업 탭 + 재무제표
-    get_stock_company_kr, get_stock_statement_kr,
+    # Phase 8-3: 기업 탭 + 재무제표 + 투자지표
+    get_stock_company_kr, get_stock_statement_kr, get_invest_indicators_kr,
     # Phase 9: 해외 종목 상세 (Finviz + Yahoo Finance)
     get_stock_summary_us, get_stock_chart_us, get_stock_news_us,
     get_stock_company_us, get_stock_financials_us,
@@ -10543,6 +10543,20 @@ async def api_stock_statement_kr(
     - 누구나 접근 가능
     """
     data = await get_stock_statement_kr(code, period_type)
+    return {"data": data}
+
+
+@app.get("/api/stock/kr/{code}/invest-indicators")
+async def api_stock_invest_indicators_kr(
+    code: str,
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    국내 종목 투자지표 4카테고리 (성장성/수익성/안정성/밸류에이션)
+    - 데이터 소스: FnGuide 재무비율 + 네이버
+    - 누구나 접근 가능
+    """
+    data = await get_invest_indicators_kr(code)
     return {"data": data}
 
 

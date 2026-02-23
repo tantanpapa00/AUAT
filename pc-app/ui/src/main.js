@@ -11681,6 +11681,20 @@ async function loadFinancialTabKr(code) {
             return response?.data || null;
         };
 
+        // 투자지표 데이터 로드
+        const loadInvestIndicators = async () => {
+            try {
+                const response = await invokeWithTimeout('get_invest_indicators_kr', {
+                    accessToken: auth.accessToken || '',
+                    code: code
+                }, 10000);
+                return response?.data || null;
+            } catch (e) {
+                console.error('Failed to load invest indicators:', e);
+                return null;
+            }
+        };
+
         // 금액 포맷 함수
         const formatValue = (val, unit) => {
             if (val === null || val === undefined) return '-';
@@ -11721,13 +11735,76 @@ async function loadFinancialTabKr(code) {
             `;
         };
 
-        const renderContent = (data) => {
+        // 등급별 색상
+        const getGradeColor = (grade) => {
+            const colors = {'A+': '#059669', 'A': '#22c55e', 'B': '#3b82f6', 'C': '#f59e0b', 'D': '#f97316', 'F': '#ef4444'};
+            return colors[grade] || '#6b7280';
+        };
+
+        // 투자지표 섹션 렌더링
+        const renderInvestIndicators = (indicators) => {
+            if (!indicators) return '';
+
+            const categories = [
+                { key: 'growth', icon: '📈', label: '성장성' },
+                { key: 'profitability', icon: '💰', label: '수익성' },
+                { key: 'stability', icon: '🛡', label: '안정성' },
+                { key: 'valuation', icon: '📊', label: '밸류에이션' }
+            ];
+
+            const cardsHtml = categories.map(cat => {
+                const catData = indicators[cat.key] || {};
+                const grade = catData.grade || 'C';
+                const gradeLabel = catData.grade_label || '보통';
+                const items = catData.items || {};
+                const gradeColor = getGradeColor(grade);
+
+                // 세부 항목 HTML
+                const detailItems = Object.entries(items).map(([k, v]) => {
+                    const formatted = typeof v === 'number' ? (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(1)) : v;
+                    const suffix = ['PER', 'PBR'].includes(k) ? '배' : (k.includes('율') || k === 'ROE' || k === 'ROA' ? '%' : '');
+                    return `<div style="display:flex;justify-content:space-between;padding:6px 0;color:#9ca3af;font-size:12px;"><span>${k}</span><span style="color:#d1d5db;">${formatted}${suffix}</span></div>`;
+                }).join('');
+
+                return `
+                    <div class="invest-indicator-card" data-cat="${cat.key}" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:14px 16px;cursor:pointer;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="font-size:16px;">${cat.icon}</span>
+                            <span style="flex:1;color:#d1d5db;font-size:14px;">${cat.label}</span>
+                            <span style="padding:2px 8px;border-radius:4px;background:${gradeColor};color:#fff;font-size:12px;font-weight:700;">${grade}</span>
+                            <span class="expand-arrow" style="color:#6b7280;font-size:10px;">▼</span>
+                        </div>
+                        <div class="indicator-detail" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.05);">
+                            ${detailItems || '<div style="color:#6b7280;font-size:12px;">데이터 없음</div>'}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="invest-indicators-section" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:20px;margin-bottom:16px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                        <h3 style="margin:0;font-size:1rem;color:#e5e7eb;">투자 지표</h3>
+                        <div style="display:flex;gap:6px;font-size:10px;color:#6b7280;">
+                            <span style="padding:2px 6px;border-radius:3px;background:#059669;color:#fff;">A+</span>매우우수
+                            <span style="padding:2px 6px;border-radius:3px;background:#3b82f6;color:#fff;">B</span>양호
+                            <span style="padding:2px 6px;border-radius:3px;background:#f59e0b;color:#fff;">C</span>보통
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                        ${cardsHtml}
+                    </div>
+                </div>
+            `;
+        };
+
+        const renderContent = (data, indicators) => {
             if (!data || !data.periods || data.periods.length === 0) {
                 return '<div class="sd-empty-state">재무제표 데이터가 없습니다</div>';
             }
 
             const health = data.health || {};
-            const gradeColor = {A: '#22c55e', B: '#3b82f6', C: '#f59e0b', D: '#f97316', F: '#ef4444'}[health.grade] || '#6b7280';
+            const gradeColor = getGradeColor(health.grade);
 
             // 건전성 카드
             const healthCardHtml = `
@@ -11754,7 +11831,7 @@ async function loadFinancialTabKr(code) {
                                     <div style="font-size:14px;font-weight:600;color:#e5e7eb;">${health.operating_margin != null ? health.operating_margin.toFixed(1) + '%' : '-'}</div>
                                 </div>
                                 <div style="text-align:center;">
-                                    <div style="font-size:11px;color:#6b7280;">당좌비율</div>
+                                    <div style="font-size:11px;color:#6b7280;">유동비율</div>
                                     <div style="font-size:14px;font-weight:600;color:#e5e7eb;">${health.current_ratio != null ? health.current_ratio.toFixed(1) + '%' : '-'}</div>
                                 </div>
                             </div>
@@ -11796,7 +11873,10 @@ async function loadFinancialTabKr(code) {
                 </div>
             `;
 
-            return healthCardHtml + `
+            // 투자지표 섹션
+            const indicatorsHtml = renderInvestIndicators(indicators);
+
+            return healthCardHtml + indicatorsHtml + `
                 <div class="sd-card" style="background:transparent;padding:0;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
                         <div style="font-size:1rem;font-weight:600;color:#e5e7eb;">재무제표</div>
@@ -11810,9 +11890,17 @@ async function loadFinancialTabKr(code) {
             `;
         };
 
+        // 투자지표 데이터 캐시 (한번만 로드)
+        let cachedIndicators = null;
+
         const updateContent = async () => {
-            const data = await loadData(periodType);
-            financialContent.innerHTML = renderContent(data);
+            const [data, indicators] = await Promise.all([
+                loadData(periodType),
+                cachedIndicators ? Promise.resolve(cachedIndicators) : loadInvestIndicators()
+            ]);
+            if (indicators) cachedIndicators = indicators;
+
+            financialContent.innerHTML = renderContent(data, cachedIndicators);
 
             // 기간 토글 이벤트 바인딩
             financialContent.querySelectorAll('.sd-period-btn').forEach(btn => {
@@ -11822,6 +11910,19 @@ async function loadFinancialTabKr(code) {
                         periodType = newPeriod;
                         financialContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>재무 정보를 불러오는 중...</span></div>';
                         await updateContent();
+                    }
+                });
+            });
+
+            // 투자지표 카드 확장/축소 이벤트
+            financialContent.querySelectorAll('.invest-indicator-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const detail = card.querySelector('.indicator-detail');
+                    const arrow = card.querySelector('.expand-arrow');
+                    if (detail) {
+                        const isOpen = detail.style.display !== 'none';
+                        detail.style.display = isOpen ? 'none' : 'block';
+                        arrow.textContent = isOpen ? '▼' : '▲';
                     }
                 });
             });
