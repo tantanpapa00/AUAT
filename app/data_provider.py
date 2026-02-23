@@ -3452,9 +3452,10 @@ async def get_stock_company_kr(code: str) -> dict:
 
 async def get_stock_statement_kr(code: str, period_type: str = "annual") -> dict:
     """
-    국내 종목 상세 재무제표 (손익계산서)
+    국내 종목 상세 재무제표 (StockEasy 스타일)
     period_type: annual(연간), quarter(분기)
-    데이터 소스: 네이버 finance/annual, finance/quarter API
+    데이터 소스: 네이버 finance/annual, finance/quarter API (16항목)
+    + 재무 건전성 스코어 계산
     """
     cache_key = f"stock_statement_kr_{code}_{period_type}"
     cached = _cached(cache_key, 3600)  # 1시간 캐싱
@@ -3464,20 +3465,39 @@ async def get_stock_statement_kr(code: str, period_type: str = "annual") -> dict
     result = {
         "code": code,
         "period_type": period_type,
-        "periods": [],  # 기간 목록 ["2022.12", "2023.12", ...]
-        "rows": [
-            {"label": "매출액", "values": []},
-            {"label": "영업이익", "values": []},
-            {"label": "당기순이익", "values": []},
-            {"label": "EPS", "values": []},
-            {"label": "영업이익률", "values": []},
-            {"label": "순이익률", "values": []},
-        ],
+        "periods": [],
+        "rows": [],
+        # 재무 건전성 (최신 기준)
+        "health": {
+            "score": 0,
+            "grade": "C",
+            "grade_label": "보통",
+            "debt_ratio": None,
+            "roe": None,
+            "operating_margin": None,
+            "current_ratio": None,  # 당좌비율 대체
+        }
+    }
+
+    # 항목 순서 정의 (StockEasy 스타일)
+    ITEM_ORDER = [
+        "매출액", "영업이익", "당기순이익", "지배주주순이익", "비지배주주순이익",
+        "영업이익률", "순이익률", "ROE", "부채비율", "당좌비율",
+        "유보율", "EPS", "PER", "BPS", "PBR", "주당배당금"
+    ]
+
+    # 단위 매핑
+    UNIT_MAP = {
+        "매출액": "억원", "영업이익": "억원", "당기순이익": "억원",
+        "지배주주순이익": "억원", "비지배주주순이익": "억원",
+        "영업이익률": "%", "순이익률": "%", "ROE": "%",
+        "부채비율": "%", "당좌비율": "%", "유보율": "%",
+        "EPS": "원", "BPS": "원", "주당배당금": "원",
+        "PER": "배", "PBR": "배"
     }
 
     try:
         async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
-            # 연간 또는 분기 재무 API
             endpoint = "annual" if period_type == "annual" else "quarter"
             url = f"https://m.stock.naver.com/api/stock/{code}/finance/{endpoint}"
             r = await client.get(url)
@@ -3489,59 +3509,116 @@ async def get_stock_statement_kr(code: str, period_type: str = "annual") -> dict
                 row_list = fin_info.get("rowList", [])
 
                 # 기간 목록
-                periods = [t.get("title", "") for t in title_list]
+                periods = [t.get("title", "").rstrip(".") for t in title_list]
                 keys = [t.get("key", "") for t in title_list]
+                is_consensus = [t.get("isConsensus", "N") == "Y" for t in title_list]
                 result["periods"] = periods
 
-                # 재무 데이터 매핑
-                revenue = []
-                op_profit = []
-                net_income = []
-
+                # 모든 항목 파싱
+                all_data = {}
                 for row in row_list:
                     title = row.get("title", "")
                     columns = row.get("columns", {})
                     values = []
                     for k in keys:
-                        v = columns.get(k, {}).get("value", "0")
-                        # 숫자 파싱 (콤마, 하이픈 처리)
-                        cleaned = v.replace(",", "").replace("-", "0").strip()
-                        try:
-                            values.append(int(float(cleaned)) if cleaned else 0)
-                        except:
-                            values.append(0)
+                        v = columns.get(k, {}).get("value", "")
+                        # 숫자 파싱 (콤마 제거, 음수 처리)
+                        cleaned = v.replace(",", "").strip()
+                        if cleaned == "-" or cleaned == "":
+                            values.append(None)
+                        else:
+                            is_negative = cleaned.startswith("-") or (cleaned.startswith("(") and cleaned.endswith(")"))
+                            cleaned = cleaned.replace("-", "").replace("(", "").replace(")", "")
+                            try:
+                                val = float(cleaned)
+                                if is_negative:
+                                    val = -val
+                                values.append(val)
+                            except:
+                                values.append(None)
+                    all_data[title] = values
 
-                    if title == "매출액":
-                        revenue = values
-                    elif title == "영업이익":
-                        op_profit = values
-                    elif title == "당기순이익":
-                        net_income = values
+                # 결과 rows 구성 (순서대로)
+                for item in ITEM_ORDER:
+                    if item in all_data:
+                        unit = UNIT_MAP.get(item, "")
+                        result["rows"].append({
+                            "label": item,
+                            "values": all_data[item],
+                            "unit": unit
+                        })
 
-                # 결과 데이터 구성
-                result["rows"] = [
-                    {"label": "매출액", "values": revenue, "unit": "억원"},
-                    {"label": "영업이익", "values": op_profit, "unit": "억원"},
-                    {"label": "당기순이익", "values": net_income, "unit": "억원"},
-                ]
+                # 재무 건전성 계산 (최신 값 기준)
+                def get_latest(item_name):
+                    vals = all_data.get(item_name, [])
+                    for v in reversed(vals):
+                        if v is not None:
+                            return v
+                    return None
 
-                # 영업이익률, 순이익률 계산
-                op_margin = []
-                net_margin = []
-                for i in range(len(revenue)):
-                    rev = revenue[i] if i < len(revenue) else 0
-                    op = op_profit[i] if i < len(op_profit) else 0
-                    net = net_income[i] if i < len(net_income) else 0
+                debt_ratio = get_latest("부채비율")
+                roe = get_latest("ROE")
+                op_margin = get_latest("영업이익률")
+                current_ratio = get_latest("당좌비율")  # 당좌비율을 유동비율 대체
 
-                    if rev and rev > 0:
-                        op_margin.append(round(op / rev * 100, 1))
-                        net_margin.append(round(net / rev * 100, 1))
-                    else:
-                        op_margin.append(0)
-                        net_margin.append(0)
+                result["health"]["debt_ratio"] = debt_ratio
+                result["health"]["roe"] = roe
+                result["health"]["operating_margin"] = op_margin
+                result["health"]["current_ratio"] = current_ratio
 
-                result["rows"].append({"label": "영업이익률", "values": op_margin, "unit": "%"})
-                result["rows"].append({"label": "순이익률", "values": net_margin, "unit": "%"})
+                # 건전성 점수 계산 (각 25점 만점)
+                score = 0
+
+                # 부채비율 (낮을수록 좋음)
+                if debt_ratio is not None:
+                    if debt_ratio < 50: score += 25
+                    elif debt_ratio < 100: score += 20
+                    elif debt_ratio < 150: score += 15
+                    elif debt_ratio < 200: score += 10
+                    else: score += 5
+
+                # ROE (높을수록 좋음)
+                if roe is not None:
+                    if roe > 15: score += 25
+                    elif roe > 10: score += 20
+                    elif roe > 5: score += 15
+                    elif roe > 0: score += 10
+                    else: score += 5
+
+                # 영업이익률 (높을수록 좋음)
+                if op_margin is not None:
+                    if op_margin > 20: score += 25
+                    elif op_margin > 10: score += 20
+                    elif op_margin > 5: score += 15
+                    elif op_margin > 0: score += 10
+                    else: score += 5
+
+                # 당좌비율 (높을수록 좋음)
+                if current_ratio is not None:
+                    if current_ratio > 150: score += 25
+                    elif current_ratio > 100: score += 20
+                    elif current_ratio > 70: score += 15
+                    elif current_ratio > 50: score += 10
+                    else: score += 5
+
+                result["health"]["score"] = score
+
+                # 등급 결정
+                if score >= 85:
+                    result["health"]["grade"] = "A"
+                    result["health"]["grade_label"] = "우수"
+                elif score >= 70:
+                    result["health"]["grade"] = "B"
+                    result["health"]["grade_label"] = "양호"
+                elif score >= 55:
+                    result["health"]["grade"] = "C"
+                    result["health"]["grade_label"] = "보통"
+                elif score >= 40:
+                    result["health"]["grade"] = "D"
+                    result["health"]["grade_label"] = "주의"
+                else:
+                    result["health"]["grade"] = "F"
+                    result["health"]["grade_label"] = "위험"
 
         _set_cache(cache_key, result)
     except Exception as e:

@@ -11662,15 +11662,14 @@ async function loadFinancialTab(code) {
     }
 }
 
-// 재무 탭 로드 - 한국 종목 상세 재무제표 (Phase 8-3)
+// 재무 탭 로드 - 한국 종목 상세 재무제표 (StockEasy 스타일)
 async function loadFinancialTabKr(code) {
     const financialContent = document.getElementById('info-financial');
     if (!financialContent) return;
 
     financialContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>재무 정보를 불러오는 중...</span></div>';
 
-    // 현재 기간 타입 (연간/분기)
-    let periodType = 'annual';
+    let periodType = 'quarter';  // 기본 분기
 
     try {
         const loadData = async (period) => {
@@ -11678,66 +11677,142 @@ async function loadFinancialTabKr(code) {
                 accessToken: auth.accessToken || '',
                 code: code,
                 periodType: period
-            }, 10000);
+            }, 15000);
             return response?.data || null;
         };
 
-        const renderTable = (data) => {
+        // 금액 포맷 함수
+        const formatValue = (val, unit) => {
+            if (val === null || val === undefined) return '-';
+            if (unit === '%') {
+                return `${val >= 0 ? '' : ''}${val.toFixed(1)}%`;
+            } else if (unit === '배') {
+                return val.toFixed(2);
+            } else if (unit === '억원') {
+                // 조/억 단위 변환
+                const absVal = Math.abs(val);
+                const sign = val < 0 ? '-' : '';
+                if (absVal >= 10000) {
+                    return `${sign}${(absVal / 10000).toFixed(1)}조`;
+                } else if (absVal >= 1) {
+                    return `${sign}${Math.round(absVal).toLocaleString()}억`;
+                } else {
+                    return '-';
+                }
+            } else if (unit === '원') {
+                return val.toLocaleString();
+            }
+            return val.toLocaleString();
+        };
+
+        // 건전성 게이지 SVG
+        const renderHealthGauge = (score) => {
+            const circumference = 2 * Math.PI * 40;
+            const offset = circumference - (score / 100) * circumference;
+            const color = score >= 70 ? '#22c55e' : score >= 50 ? '#f59e0b' : '#ef4444';
+            return `
+                <svg viewBox="0 0 100 100" width="80" height="80">
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="8"/>
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="${color}" stroke-width="8"
+                        stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"
+                        stroke-linecap="round" transform="rotate(-90 50 50)"/>
+                    <text x="50" y="50" text-anchor="middle" dy=".3em" fill="#fff" font-size="20" font-weight="700">${score}</text>
+                </svg>
+            `;
+        };
+
+        const renderContent = (data) => {
             if (!data || !data.periods || data.periods.length === 0) {
                 return '<div class="sd-empty-state">재무제표 데이터가 없습니다</div>';
             }
 
+            const health = data.health || {};
+            const gradeColor = {A: '#22c55e', B: '#3b82f6', C: '#f59e0b', D: '#f97316', F: '#ef4444'}[health.grade] || '#6b7280';
+
+            // 건전성 카드
+            const healthCardHtml = `
+                <div class="financial-health-card" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:20px;margin-bottom:16px;">
+                    <h3 style="margin:0 0 16px;font-size:1rem;color:#e5e7eb;">재무 건전성</h3>
+                    <div style="display:flex;align-items:center;gap:24px;">
+                        <div>${renderHealthGauge(health.score || 0)}</div>
+                        <div style="flex:1;">
+                            <div style="margin-bottom:12px;">
+                                <span style="display:inline-block;padding:4px 12px;border-radius:4px;background:${gradeColor};color:#fff;font-weight:700;">${health.grade}등급</span>
+                                <span style="margin-left:8px;color:#9ca3af;">${health.grade_label}</span>
+                            </div>
+                            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+                                <div style="text-align:center;">
+                                    <div style="font-size:11px;color:#6b7280;">부채비율</div>
+                                    <div style="font-size:14px;font-weight:600;color:#e5e7eb;">${health.debt_ratio != null ? health.debt_ratio.toFixed(1) + '%' : '-'}</div>
+                                </div>
+                                <div style="text-align:center;">
+                                    <div style="font-size:11px;color:#6b7280;">ROE</div>
+                                    <div style="font-size:14px;font-weight:600;color:#e5e7eb;">${health.roe != null ? health.roe.toFixed(1) + '%' : '-'}</div>
+                                </div>
+                                <div style="text-align:center;">
+                                    <div style="font-size:11px;color:#6b7280;">영업이익률</div>
+                                    <div style="font-size:14px;font-weight:600;color:#e5e7eb;">${health.operating_margin != null ? health.operating_margin.toFixed(1) + '%' : '-'}</div>
+                                </div>
+                                <div style="text-align:center;">
+                                    <div style="font-size:11px;color:#6b7280;">당좌비율</div>
+                                    <div style="font-size:14px;font-weight:600;color:#e5e7eb;">${health.current_ratio != null ? health.current_ratio.toFixed(1) + '%' : '-'}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // 테이블
             const periods = data.periods;
             const rows = data.rows || [];
 
-            let tableHtml = `
-                <table class="sd-statement-table">
-                    <thead>
-                        <tr>
-                            <th>항목</th>
-                            ${periods.map(p => `<th>${p}</th>`).join('')}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${rows.map(row => {
-                            const unit = row.unit || '';
-                            return `
-                                <tr>
-                                    <td class="row-label">${row.label}</td>
-                                    ${row.values.map(v => {
-                                        if (unit === '%') {
-                                            return `<td class="${v > 0 ? 'positive' : v < 0 ? 'negative' : ''}">${v !== 0 ? v.toFixed(1) + '%' : '-'}</td>`;
-                                        } else {
-                                            return `<td class="${v > 0 ? '' : v < 0 ? 'negative' : ''}">${v !== 0 ? v.toLocaleString() : '-'}</td>`;
-                                        }
-                                    }).join('')}
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
+            const tableHtml = `
+                <div style="overflow-x:auto;border:1px solid rgba(255,255,255,0.1);border-radius:8px;">
+                    <table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
+                        <thead>
+                            <tr style="background:rgba(255,255,255,0.05);">
+                                <th style="padding:10px 12px;text-align:left;color:#9ca3af;font-weight:500;position:sticky;left:0;background:#1a1a2e;z-index:1;min-width:110px;">항목</th>
+                                ${periods.map(p => `<th style="padding:10px 12px;text-align:right;color:#9ca3af;font-weight:500;">${p}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows.map(row => {
+                                const unit = row.unit || '';
+                                const isRatio = ['%', '배'].includes(unit);
+                                return `
+                                    <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                                        <td style="padding:10px 12px;font-weight:500;color:#e5e7eb;position:sticky;left:0;background:#1a1a2e;z-index:1;${isRatio ? 'padding-left:20px;color:#9ca3af;' : ''}">${row.label}</td>
+                                        ${row.values.map(v => {
+                                            const formatted = formatValue(v, unit);
+                                            const isNeg = v !== null && v < 0;
+                                            return `<td style="padding:10px 12px;text-align:right;color:${isNeg ? '#ef4444' : '#d1d5db'};">${formatted}</td>`;
+                                        }).join('')}
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
             `;
-            return tableHtml;
+
+            return healthCardHtml + `
+                <div class="sd-card" style="background:transparent;padding:0;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <div style="font-size:1rem;font-weight:600;color:#e5e7eb;">재무제표</div>
+                        <div style="display:flex;gap:4px;">
+                            <button class="sd-period-btn ${periodType === 'quarter' ? 'active' : ''}" data-period="quarter" style="padding:6px 14px;border:1px solid rgba(255,255,255,0.15);border-radius:6px;background:${periodType === 'quarter' ? 'rgba(239,68,68,0.15)' : 'transparent'};color:${periodType === 'quarter' ? '#ef4444' : '#9ca3af'};font-size:13px;cursor:pointer;">분기</button>
+                            <button class="sd-period-btn ${periodType === 'annual' ? 'active' : ''}" data-period="annual" style="padding:6px 14px;border:1px solid rgba(255,255,255,0.15);border-radius:6px;background:${periodType === 'annual' ? 'rgba(239,68,68,0.15)' : 'transparent'};color:${periodType === 'annual' ? '#ef4444' : '#9ca3af'};font-size:13px;cursor:pointer;">연간</button>
+                        </div>
+                    </div>
+                    ${tableHtml}
+                </div>
+            `;
         };
 
         const updateContent = async () => {
             const data = await loadData(periodType);
-            const tableHtml = renderTable(data);
-
-            financialContent.innerHTML = `
-                <div class="sd-card">
-                    <div class="sd-card-header">
-                        <div class="sd-card-title">손익계산서</div>
-                        <div class="sd-period-toggle">
-                            <button class="sd-period-btn ${periodType === 'annual' ? 'active' : ''}" data-period="annual">연간</button>
-                            <button class="sd-period-btn ${periodType === 'quarter' ? 'active' : ''}" data-period="quarter">분기</button>
-                        </div>
-                    </div>
-                    <div class="sd-statement-wrapper">
-                        ${tableHtml}
-                    </div>
-                </div>
-            `;
+            financialContent.innerHTML = renderContent(data);
 
             // 기간 토글 이벤트 바인딩
             financialContent.querySelectorAll('.sd-period-btn').forEach(btn => {
