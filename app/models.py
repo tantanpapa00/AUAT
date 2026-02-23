@@ -360,3 +360,30 @@ class ScreenerPreset(Base):
         Index('ix_screener_presets_user', 'user_id'),
         UniqueConstraint('user_id', 'name', 'market', name='uq_screener_preset_user_name_market'),
     )
+
+
+class CompanySummaryTranslation(Base):
+    """
+    해외 종목 기업개요 번역 캐시
+    - yfinance 영문 longBusinessSummary → Claude 한글 번역
+    - 90일마다 갱신, 이후 무료 ($0)
+    """
+    __tablename__ = "company_summary_translations"
+
+    id = Column(BigInteger, primary_key=True)
+    ticker = Column(Text, nullable=False, unique=True, index=True)  # NVDA, AAPL, ...
+
+    # 기업개요
+    description_en = Column(Text, nullable=True)   # 영문 원문
+    description_ko = Column(Text, nullable=True)   # 한글 번역
+
+    # 추가 정보
+    sector = Column(Text, nullable=True)           # Technology
+    industry = Column(Text, nullable=True)         # Semiconductors
+    headquarters = Column(Text, nullable=True)     # Santa Clara, CA, USA
+    employees = Column(BigInteger, nullable=True)  # 29600
+    website = Column(Text, nullable=True)          # https://www.nvidia.com
+
+    # 메타
+    translated_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

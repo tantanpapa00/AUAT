@@ -4266,15 +4266,155 @@ def _get_analyst_action_kr(action: str) -> str:
     return actions.get(action.lower(), action)
 
 
+# =============================================================================
+# 해외 기업개요 한글 번역 (DB 영구 저장)
+# =============================================================================
+import os
+import anthropic
+
+TRANSLATION_TTL_DAYS = 90  # 90일마다 갱신
+
+
+async def _get_cached_translation(ticker: str) -> dict | None:
+    """DB에서 번역 캐시 조회"""
+    try:
+        from sqlalchemy import text
+        from app.db import SessionLocal
+
+        db = SessionLocal()
+        try:
+            result = db.execute(
+                text("""
+                    SELECT description_en, description_ko, sector, industry,
+                           headquarters, employees, website, translated_at
+                    FROM company_summary_translations
+                    WHERE ticker = :ticker
+                """),
+                {"ticker": ticker.upper()}
+            )
+            row = result.fetchone()
+
+            if row and row[1]:  # description_ko 있으면
+                translated_at = row[7]
+                # 90일 이내면 캐시 유효
+                if datetime.now() - translated_at.replace(tzinfo=None) < timedelta(days=TRANSLATION_TTL_DAYS):
+                    return {
+                        "description_en": row[0],
+                        "description_ko": row[1],
+                        "sector": row[2],
+                        "industry": row[3],
+                        "headquarters": row[4],
+                        "employees": row[5],
+                        "website": row[6],
+                        "cached": True
+                    }
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"[Translation Cache] 조회 오류: {e}")
+
+    return None
+
+
+async def _save_translation(ticker: str, data: dict):
+    """번역 결과 DB 저장"""
+    try:
+        from sqlalchemy import text
+        from app.db import SessionLocal
+
+        db = SessionLocal()
+        try:
+            db.execute(
+                text("""
+                    INSERT INTO company_summary_translations
+                        (ticker, description_en, description_ko, sector, industry,
+                         headquarters, employees, website, translated_at, updated_at)
+                    VALUES (:ticker, :desc_en, :desc_ko, :sector, :industry,
+                            :hq, :employees, :website, NOW(), NOW())
+                    ON CONFLICT (ticker) DO UPDATE SET
+                        description_en = :desc_en,
+                        description_ko = :desc_ko,
+                        sector = :sector,
+                        industry = :industry,
+                        headquarters = :hq,
+                        employees = :employees,
+                        website = :website,
+                        translated_at = NOW(),
+                        updated_at = NOW()
+                """),
+                {
+                    "ticker": ticker.upper(),
+                    "desc_en": data.get("description_en"),
+                    "desc_ko": data.get("description_ko"),
+                    "sector": data.get("sector"),
+                    "industry": data.get("industry"),
+                    "hq": data.get("headquarters"),
+                    "employees": data.get("employees"),
+                    "website": data.get("website"),
+                }
+            )
+            db.commit()
+            print(f"[Translation] {ticker} 번역 저장 완료")
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"[Translation] 저장 오류: {e}")
+
+
+async def _translate_with_claude(english_text: str) -> str | None:
+    """Claude API로 영문 기업개요 번역"""
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        print("[Translation] ANTHROPIC_API_KEY 없음")
+        return None
+
+    if not english_text or len(english_text) < 50:
+        return None
+
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=1500,
+            messages=[{
+                "role": "user",
+                "content": f"""다음 영문 기업개요를 자연스러운 한국어로 번역해주세요.
+
+규칙:
+- 번호를 매겨서 정리 (1. 2. 3.)
+- 1번: 핵심 사업 및 제품/서비스
+- 2번: 사업 부문 및 구조
+- 3번: 최근 현황 또는 특이사항
+- 회사명, 제품명, 기술명 등 고유명사는 영어 그대로 유지
+- 금액은 달러($) 단위 유지
+- 간결하고 투자자가 읽기 좋은 문체
+- 번역문만 출력 (설명, 서문 없이)
+
+영문:
+{english_text[:3000]}"""
+            }]
+        )
+
+        return response.content[0].text
+
+    except Exception as e:
+        print(f"[Translation] Claude 번역 오류: {e}")
+        return None
+
+
 async def get_stock_company_us(ticker: str) -> dict:
     """
     해외 종목 기업 정보 (StockEasy 스타일)
-    데이터 소스: yfinance (기업개요, 주식수, 기관보유율 등)
+    - DB 캐시 번역 우선 (90일 유효)
+    - 미스 시 yfinance + Claude 번역 + DB 저장
     """
     import yfinance as yf
     ticker = ticker.upper()
+
+    # 메모리 캐시 확인 (1시간, 가격 정보 포함)
     cache_key = f"stock_company_us_{ticker}"
-    cached = _cached(cache_key, 3600)  # 1시간 캐싱
+    cached = _cached(cache_key, 3600)
     if cached:
         return cached
 
@@ -4286,6 +4426,9 @@ async def get_stock_company_us(ticker: str) -> dict:
         "country": "",
         "exchange": "",
         "description": "",
+        "description_en": "",
+        "description_lang": "en",
+        "headquarters": "",
         "employees": 0,
         "website": "",
         "target_price": 0,
@@ -4305,20 +4448,16 @@ async def get_stock_company_us(ticker: str) -> dict:
     }
 
     try:
-        # yfinance로 기업 정보 조회
+        # 1) DB 번역 캐시 확인
+        translation_cache = await _get_cached_translation(ticker)
+
+        # 2) yfinance로 기업 정보 조회 (실시간 가격)
         stock = yf.Ticker(ticker)
         info = stock.info
 
         result["name"] = info.get("shortName") or info.get("longName") or ""
-        result["sector"] = info.get("sector", "")
-        result["industry"] = info.get("industry", "")
         result["country"] = info.get("country", "")
         result["exchange"] = info.get("exchange", "")
-        result["website"] = info.get("website", "")
-        result["employees"] = info.get("fullTimeEmployees", 0) or 0
-
-        # 기업 개요 (longBusinessSummary)
-        result["description"] = info.get("longBusinessSummary", "")[:1500]
 
         # 시가총액, 현재가, 52주 고저
         result["market_cap"] = info.get("marketCap", 0) or 0
@@ -4349,6 +4488,59 @@ async def get_stock_company_us(ticker: str) -> dict:
         result["target_price"] = info.get("targetMeanPrice", 0) or 0
         rec = info.get("recommendationKey", "")
         result["recommendation"] = rec.upper() if rec else ""
+
+        # 3) DB 캐시 히트 → 번역 데이터 사용
+        if translation_cache:
+            result["description"] = translation_cache["description_ko"]
+            result["description_en"] = translation_cache["description_en"]
+            result["description_lang"] = "ko"
+            result["sector"] = translation_cache.get("sector") or info.get("sector", "")
+            result["industry"] = translation_cache.get("industry") or info.get("industry", "")
+            result["headquarters"] = translation_cache.get("headquarters") or ""
+            result["employees"] = translation_cache.get("employees") or info.get("fullTimeEmployees", 0) or 0
+            result["website"] = translation_cache.get("website") or info.get("website", "")
+            print(f"[Translation] {ticker} DB 캐시 히트")
+
+        else:
+            # 4) 캐시 미스 → 영문 + Claude 번역
+            english_summary = info.get("longBusinessSummary", "")
+            result["description_en"] = english_summary[:3000] if english_summary else ""
+            result["sector"] = info.get("sector", "")
+            result["industry"] = info.get("industry", "")
+            result["employees"] = info.get("fullTimeEmployees", 0) or 0
+            result["website"] = info.get("website", "")
+
+            # 본사 위치 조합
+            city = info.get("city", "")
+            state = info.get("state", "")
+            country = info.get("country", "")
+            hq_parts = [p for p in [city, state, country] if p]
+            result["headquarters"] = ", ".join(hq_parts)
+
+            # Claude 번역 시도
+            if english_summary and len(english_summary) > 50:
+                korean_summary = await _translate_with_claude(english_summary)
+                if korean_summary:
+                    result["description"] = korean_summary
+                    result["description_lang"] = "ko"
+
+                    # DB 저장 (비동기로 백그라운드 처리 가능하지만 여기선 await)
+                    await _save_translation(ticker, {
+                        "description_en": english_summary[:3000],
+                        "description_ko": korean_summary,
+                        "sector": result["sector"],
+                        "industry": result["industry"],
+                        "headquarters": result["headquarters"],
+                        "employees": result["employees"],
+                        "website": result["website"],
+                    })
+                else:
+                    # 번역 실패 → 영문 fallback
+                    result["description"] = english_summary[:1500]
+                    result["description_lang"] = "en"
+            else:
+                result["description"] = english_summary[:1500] if english_summary else ""
+                result["description_lang"] = "en"
 
         _set_cache(cache_key, result)
     except Exception as e:

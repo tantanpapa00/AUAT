@@ -11293,18 +11293,18 @@ function getActionClass(action) {
     return 'action-maintain';
 }
 
-// 해외 종목 기업 정보 로드 (StockEasy 스타일)
+// 해외 종목 기업 정보 로드 (StockEasy 스타일 + 한글 번역)
 async function loadCompanyInfoUs(ticker) {
     const companyContent = document.getElementById('info-company');
     if (!companyContent) return;
 
-    companyContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>Loading company info...</span></div>';
+    companyContent.innerHTML = '<div style="text-align:center;color:#6b7280;padding:40px;">기업 정보를 불러오는 중...</div>';
 
     try {
         const response = await invokeWithTimeout('get_stock_company_us', {
             accessToken: auth.accessToken || '',
             ticker: ticker
-        }, 20000);
+        }, 30000);  // 번역 시간 고려 30초
 
         if (response && response.data) {
             const data = response.data;
@@ -11318,58 +11318,55 @@ async function loadCompanyInfoUs(ticker) {
                 return num.toLocaleString();
             };
 
-            // 1. 상단 요약 카드 (시가총액, 현재가, 52주 고저, 기관보유율, 유통비율, 발행주식수)
+            // 기업 개요 포맷팅 (번호별 문단 분리)
+            const formatDescription = (text) => {
+                if (!text) return '<p style="color:#6b7280;">기업 개요 데이터가 없습니다.</p>';
+                // 번호로 시작하는 라인을 문단으로 분리
+                const paragraphs = text.split(/\n+/).filter(p => p.trim());
+                return paragraphs.map(p => `<p style="margin-bottom:12px;">${p}</p>`).join('');
+            };
+
+            // 1. 상단 요약 카드 (StockEasy 스타일 - 국내와 동일 구조)
             const summaryHtml = `
-                <div class="sd-card company-summary-card">
-                    <div class="sd-card-title">기업 요약</div>
-                    <div class="company-summary-grid">
-                        <div class="company-summary-item">
-                            <span class="company-summary-label">시가총액</span>
-                            <span class="company-summary-value">${data.market_cap_str || '-'}</span>
+                <div class="company-header-card">
+                    <div class="company-main-row">
+                        <div class="company-main-item">
+                            <div class="company-label">시가총액</div>
+                            <div class="company-value-lg">${data.market_cap_str || '-'}</div>
                         </div>
-                        <div class="company-summary-item">
-                            <span class="company-summary-label">현재가</span>
-                            <span class="company-summary-value">$${data.price > 0 ? data.price.toFixed(2) : '-'}</span>
+                        <div class="company-main-item">
+                            <div class="company-label">현재가</div>
+                            <div class="company-value-lg">$${data.price > 0 ? data.price.toFixed(2) : '-'}</div>
                         </div>
-                        <div class="company-summary-item">
-                            <span class="company-summary-label">52주 최고</span>
-                            <span class="company-summary-value positive">$${data.high_52w > 0 ? data.high_52w.toFixed(2) : '-'}</span>
-                        </div>
-                        <div class="company-summary-item">
-                            <span class="company-summary-label">52주 최저</span>
-                            <span class="company-summary-value negative">$${data.low_52w > 0 ? data.low_52w.toFixed(2) : '-'}</span>
-                        </div>
-                        <div class="company-summary-item">
-                            <span class="company-summary-label">기관보유율</span>
-                            <span class="company-summary-value">${data.institutional_ratio > 0 ? data.institutional_ratio.toFixed(1) + '%' : '-'}</span>
-                        </div>
-                        <div class="company-summary-item">
-                            <span class="company-summary-label">유통비율</span>
-                            <span class="company-summary-value">${data.float_ratio > 0 ? data.float_ratio.toFixed(1) + '%' : '-'}</span>
-                        </div>
-                        <div class="company-summary-item">
-                            <span class="company-summary-label">발행주식수</span>
-                            <span class="company-summary-value">${formatShares(data.shares_outstanding)}</span>
-                        </div>
-                        <div class="company-summary-item">
-                            <span class="company-summary-label">직원수</span>
-                            <span class="company-summary-value">${data.employees > 0 ? data.employees.toLocaleString() : '-'}</span>
-                        </div>
+                    </div>
+                    <div class="company-sub-row">
+                        <span>↗ 52주 고가 <strong class="text-red">$${data.high_52w > 0 ? data.high_52w.toFixed(2) : '-'}</strong></span>
+                        <span>↘ 52주 저가 <strong class="text-blue">$${data.low_52w > 0 ? data.low_52w.toFixed(2) : '-'}</strong></span>
+                        <span>🏛 기관 <strong>${data.institutional_ratio > 0 ? data.institutional_ratio.toFixed(1) + '%' : '-'}</strong></span>
+                        <span>📊 유통비율 <strong>${data.float_ratio > 0 ? data.float_ratio.toFixed(1) + '%' : '-'}</strong></span>
                     </div>
                 </div>
             `;
 
-            // 2. 기업 개요 (yfinance longBusinessSummary + 섹터/산업 정보)
-            let overviewHtml = `
-                <div class="sd-card">
-                    <div class="sd-card-title">기업 개요</div>
-                    <div class="company-overview-content">
-                        <p class="sd-description">${data.description || data.name || '-'}</p>
-                        <div class="company-overview-meta">
-                            ${data.sector ? `<span>섹터: ${data.sector}</span>` : ''}
-                            ${data.industry ? `<span>산업: ${data.industry}</span>` : ''}
-                            ${data.country ? `<span>국가: ${data.country}</span>` : ''}
-                        </div>
+            // 2. 기업 개요 (한글 번역 또는 영문)
+            const langBadge = data.description_lang === 'ko'
+                ? '<span style="background:#22c55e;color:#fff;font-size:11px;padding:2px 6px;border-radius:3px;margin-left:8px;">한글</span>'
+                : '<span style="background:#6b7280;color:#fff;font-size:11px;padding:2px 6px;border-radius:3px;margin-left:8px;">영문</span>';
+
+            const overviewHtml = `
+                <div class="company-overview-card">
+                    <div class="overview-header-row">
+                        <h3 class="overview-title">🏢 기업 개요${langBadge}</h3>
+                    </div>
+                    <div class="overview-body">
+                        ${formatDescription(data.description)}
+                    </div>
+                    <div class="company-meta-row" style="display:flex;flex-wrap:wrap;gap:16px;margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);font-size:0.85rem;color:#9CA3AF;">
+                        ${data.sector ? `<span>📂 섹터: <strong style="color:#E5E7EB;">${data.sector}</strong></span>` : ''}
+                        ${data.industry ? `<span>🏭 업종: <strong style="color:#E5E7EB;">${data.industry}</strong></span>` : ''}
+                        ${data.headquarters ? `<span>📍 본사: <strong style="color:#E5E7EB;">${data.headquarters}</strong></span>` : ''}
+                        ${data.employees > 0 ? `<span>👥 직원: <strong style="color:#E5E7EB;">${data.employees.toLocaleString()}명</strong></span>` : ''}
+                        ${data.website ? `<span>🌐 <a href="${data.website}" target="_blank" style="color:#3B82F6;">${data.website.replace('https://', '').replace('http://', '')}</a></span>` : ''}
                     </div>
                 </div>
             `;
@@ -11379,9 +11376,14 @@ async function loadCompanyInfoUs(ticker) {
             if (data.target_price > 0 || data.recommendation) {
                 const recClass = ['STRONG_BUY', 'BUY'].includes(data.recommendation) ? 'positive' :
                                  ['STRONG_SELL', 'SELL'].includes(data.recommendation) ? 'negative' : '';
+                const recText = {
+                    'STRONG_BUY': '강력매수', 'BUY': '매수', 'HOLD': '중립',
+                    'SELL': '매도', 'STRONG_SELL': '강력매도'
+                }[data.recommendation] || data.recommendation;
+
                 analystHtml = `
                     <div class="sd-card">
-                        <div class="sd-card-title">투자의견</div>
+                        <div class="sd-card-title">📊 투자의견</div>
                         <div class="sd-consensus-grid">
                             <div class="sd-consensus-item">
                                 <span class="sd-consensus-label">목표주가</span>
@@ -11389,14 +11391,14 @@ async function loadCompanyInfoUs(ticker) {
                             </div>
                             <div class="sd-consensus-item">
                                 <span class="sd-consensus-label">투자의견</span>
-                                <span class="sd-consensus-value ${recClass}">${data.recommendation || '-'}</span>
+                                <span class="sd-consensus-value ${recClass}">${recText}</span>
                             </div>
                         </div>
                     </div>
                 `;
             }
 
-            // 순서: 요약카드 → 기업개요 → 투자의견
+            // 순서: 상단카드 → 기업개요 → 투자의견
             companyContent.innerHTML = summaryHtml + overviewHtml + analystHtml ||
                 '<div class="sd-card"><div class="sd-empty-state">No company information available</div></div>';
         } else {
