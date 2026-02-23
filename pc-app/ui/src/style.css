@@ -6079,6 +6079,28 @@ body {
     word-break: break-word;
 }
 
+/* 기업 개요 영역 */
+.company-overview-content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.company-overview-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+
+.company-overview-meta span {
+    display: inline-flex;
+    align-items: center;
+}
+
 /* SMA 레전드 */
 .sma-legend {
     position: absolute;
