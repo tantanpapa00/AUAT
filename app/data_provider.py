@@ -3411,8 +3411,8 @@ async def get_stock_company_kr(code: str) -> dict:
                         "date": consensus.get("createDate", ""),
                     }
 
-            # 3. FnGuide 기업개요 파싱
-            fnguide_url = f"https://comp.fnguide.com/SVO2/ASP/SVD_Main.asp?pGB=1&giession=&MenuYn=Y&ReportGB=&NewMenuID=101&stkGb=701&giession=&strItemCode=A{code}"
+            # 3. FnGuide 기업개요 파싱 (gicode 파라미터 사용)
+            fnguide_url = f"http://comp.fnguide.com/SVO2/ASP/SVD_Main.asp?pGB=1&gicode=A{code}"
             fnguide_headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
             try:
                 r_fn = await client.get(fnguide_url, headers=fnguide_headers, timeout=10)
