@@ -12337,24 +12337,22 @@ async def request_ai_analysis(
         symbol_data["name"] = stock.name
         symbol_data["market"] = stock.market
 
-    # 시세 조회 (공개 API)
+    # 시장 구분
     is_domestic = request.exchange.lower() in ("kis_kr", "kis_kr_etf")
-    if is_domestic:
-        price_data = await get_naver_stock_price(request.symbol)
-    else:
-        price_data = await get_yahoo_stock_price(request.symbol)
+    market = "kr" if is_domestic else "us"
 
-    if price_data:
-        symbol_data.update({
-            "current_price": price_data.get("current", 0),
-            "change": price_data.get("change", 0),
-            "high": price_data.get("high", 0),
-            "low": price_data.get("low", 0),
-            "volume": price_data.get("volume", 0),
-        })
+    # Claude API로 AI 리포트 생성
+    ai_result = await _generate_claude_report(
+        name=symbol_data["name"],
+        code=request.symbol,
+        market=market
+    )
 
-    # AI 보고서 생성 (간단 템플릿 기반)
-    report = _generate_simple_report(symbol_data)
+    report = ai_result.get("report", "")
+    is_fallback = ai_result.get("fallback", False)
+
+    if is_fallback:
+        print(f"[AI Analysis] Using fallback template for {request.symbol}")
 
     # 사용량 증가 (일일 + 월간)
     try:
@@ -12458,6 +12456,356 @@ def _generate_simple_report(data: dict) -> str:
 _BBooster AI 분석 시스템에서 생성됨_
 """
     return report
+
+
+# ============================================================================
+# Claude API 기반 AI 종합 분석 (StockEasy 수준)
+# ============================================================================
+
+async def _collect_technical_data_for_ai(code: str, market: str = "kr") -> dict:
+    """AI 분석용 기술적 지표 수집"""
+    from .screener.technicals import (
+        _calc_rsi, _calc_macd, _calc_stochastic, calc_adx
+    )
+
+    data = {
+        "price": {
+            "current": None, "change_pct": None,
+            "high_52w": None, "low_52w": None,
+            "volume": None, "avg_volume_20d": None,
+        },
+        "trend_indicators": {
+            "adx": None, "plus_di": None, "minus_di": None,
+            "rs_score": None,
+        },
+        "momentum_indicators": {
+            "rsi": None, "macd_line": None, "macd_signal": None,
+            "macd_histogram": None, "stoch_k": None, "stoch_d": None,
+        },
+        "moving_averages": {
+            "sma_5": None, "sma_20": None, "sma_60": None,
+            "sma_120": None, "sma_200": None,
+        },
+    }
+
+    try:
+        # 캔들 데이터 가져오기 (최근 250일)
+        if market == "kr":
+            price_data = await get_naver_stock_price(code)
+            # 네이버에서 차트 데이터
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    f"https://api.stock.naver.com/chart/domestic/item/{code}/day?startDateTime=20240101&endDateTime=20261231",
+                    headers={"User-Agent": "Mozilla/5.0"}
+                )
+                if resp.status_code == 200:
+                    chart_data = resp.json()
+                    candles = chart_data if isinstance(chart_data, list) else []
+                    if len(candles) >= 20:
+                        closes = [float(c.get("closePrice", 0)) for c in candles]
+                        highs = [float(c.get("highPrice", 0)) for c in candles]
+                        lows = [float(c.get("lowPrice", 0)) for c in candles]
+                        volumes = [int(c.get("accumulatedTradingVolume", 0)) for c in candles]
+
+                        # 이동평균
+                        if len(closes) >= 5:
+                            data["moving_averages"]["sma_5"] = round(sum(closes[-5:]) / 5)
+                        if len(closes) >= 20:
+                            data["moving_averages"]["sma_20"] = round(sum(closes[-20:]) / 20)
+                            data["price"]["avg_volume_20d"] = int(sum(volumes[-20:]) / 20)
+                        if len(closes) >= 60:
+                            data["moving_averages"]["sma_60"] = round(sum(closes[-60:]) / 60)
+                        if len(closes) >= 120:
+                            data["moving_averages"]["sma_120"] = round(sum(closes[-120:]) / 120)
+                        if len(closes) >= 200:
+                            data["moving_averages"]["sma_200"] = round(sum(closes[-200:]) / 200)
+
+                        # 52주 고저
+                        recent_252 = closes[-252:] if len(closes) >= 252 else closes
+                        data["price"]["high_52w"] = max(recent_252)
+                        data["price"]["low_52w"] = min(recent_252)
+
+                        # RSI
+                        rsi = _calc_rsi(closes, 14)
+                        if rsi:
+                            data["momentum_indicators"]["rsi"] = rsi
+
+                        # MACD
+                        macd = _calc_macd(closes)
+                        if macd:
+                            data["momentum_indicators"]["macd_line"] = macd.get("macd")
+                            data["momentum_indicators"]["macd_signal"] = macd.get("signal")
+                            data["momentum_indicators"]["macd_histogram"] = macd.get("histogram")
+
+                        # 스토캐스틱
+                        stoch = _calc_stochastic(highs, lows, closes)
+                        if stoch:
+                            data["momentum_indicators"]["stoch_k"] = stoch.get("k")
+                            data["momentum_indicators"]["stoch_d"] = stoch.get("d")
+
+                        # ADX
+                        adx_result = calc_adx(highs, lows, closes, 14)
+                        if adx_result:
+                            data["trend_indicators"]["adx"] = adx_result.get("adx")
+
+        if price_data:
+            data["price"]["current"] = price_data.get("current", 0)
+            data["price"]["change_pct"] = price_data.get("change", 0)
+            data["price"]["volume"] = price_data.get("volume", 0)
+
+        # RS 스코어 (마스터 캐시에서)
+        master = get_master_cache()
+        stock = master.get_stock(code)
+        if stock and hasattr(stock, 'rs_score'):
+            data["trend_indicators"]["rs_score"] = stock.rs_score
+
+    except Exception as e:
+        print(f"[AI] Technical data collection error for {code}: {e}")
+
+    return data
+
+
+async def _collect_financial_data_for_ai(code: str, market: str = "kr") -> dict:
+    """AI 분석용 재무 데이터 수집"""
+    data = {
+        "annual": {"revenue": [], "operating_income": [], "net_income": []},
+        "quarter": {"revenue": [], "operating_income": [], "net_income": []},
+        "ratios": {
+            "roe": None, "debt_ratio": None, "operating_margin": None,
+            "per": None, "pbr": None, "eps": None,
+        },
+        "consensus": {"target_price": None, "recommendation": None},
+    }
+
+    try:
+        if market == "kr":
+            fin_data = await get_stock_financials_kr(code, "annual")
+            if fin_data and fin_data.get("success"):
+                annual = fin_data.get("annual", {})
+                data["annual"]["revenue"] = annual.get("revenue", [])[:3]
+                data["annual"]["operating_income"] = annual.get("operating_income", [])[:3]
+                data["annual"]["net_income"] = annual.get("net_income", [])[:3]
+
+                ratios = fin_data.get("ratios", {})
+                data["ratios"]["roe"] = ratios.get("roe")
+                data["ratios"]["per"] = ratios.get("per")
+                data["ratios"]["pbr"] = ratios.get("pbr")
+                data["ratios"]["eps"] = ratios.get("eps")
+                data["ratios"]["debt_ratio"] = ratios.get("debt_ratio")
+                data["ratios"]["operating_margin"] = ratios.get("operating_margin")
+
+            # 분기 실적
+            q_data = await get_stock_financials_kr(code, "quarter")
+            if q_data and q_data.get("success"):
+                quarter = q_data.get("quarter", {})
+                data["quarter"]["revenue"] = quarter.get("revenue", [])[:4]
+                data["quarter"]["operating_income"] = quarter.get("operating_income", [])[:4]
+                data["quarter"]["net_income"] = quarter.get("net_income", [])[:4]
+
+    except Exception as e:
+        print(f"[AI] Financial data collection error for {code}: {e}")
+
+    return data
+
+
+async def _collect_news_for_ai(code: str, name: str, market: str = "kr") -> list:
+    """AI 분석용 최근 뉴스 수집"""
+    news = []
+    try:
+        if market == "kr":
+            news_data = await get_stock_news_kr(code, 5)
+            if news_data and news_data.get("success"):
+                for item in news_data.get("news", [])[:5]:
+                    news.append({
+                        "title": item.get("title", ""),
+                        "date": item.get("date", ""),
+                    })
+    except Exception as e:
+        print(f"[AI] News collection error for {code}: {e}")
+
+    return news
+
+
+def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list) -> str:
+    """Claude에게 보낼 분석 프롬프트 구성"""
+
+    # 가격 정보
+    price = tech.get("price", {})
+    current = price.get("current", 0)
+    change = price.get("change_pct", 0)
+    high_52w = price.get("high_52w", 0)
+    low_52w = price.get("low_52w", 0)
+    volume = price.get("volume", 0)
+    avg_vol = price.get("avg_volume_20d", 0)
+
+    # 이동평균
+    ma = tech.get("moving_averages", {})
+    sma5 = ma.get("sma_5", "-")
+    sma20 = ma.get("sma_20", "-")
+    sma60 = ma.get("sma_60", "-")
+    sma120 = ma.get("sma_120", "-")
+    sma200 = ma.get("sma_200", "-")
+
+    # 추세 지표
+    trend = tech.get("trend_indicators", {})
+    adx = trend.get("adx", "-")
+    rs = trend.get("rs_score", "-")
+
+    # 모멘텀 지표
+    mom = tech.get("momentum_indicators", {})
+    rsi = mom.get("rsi", "-")
+    macd_line = mom.get("macd_line", "-")
+    macd_signal = mom.get("macd_signal", "-")
+    macd_hist = mom.get("macd_histogram", "-")
+    stoch_k = mom.get("stoch_k", "-")
+    stoch_d = mom.get("stoch_d", "-")
+
+    # 재무
+    ratios = fin.get("ratios", {})
+    roe = ratios.get("roe", "-")
+    per = ratios.get("per", "-")
+    pbr = ratios.get("pbr", "-")
+    debt = ratios.get("debt_ratio", "-")
+    opm = ratios.get("operating_margin", "-")
+
+    # 연간 실적
+    annual = fin.get("annual", {})
+    rev = annual.get("revenue", [])
+    op_inc = annual.get("operating_income", [])
+    net_inc = annual.get("net_income", [])
+
+    # 뉴스
+    news_text = "\n".join([f"- [{n['date']}] {n['title']}" for n in news[:5]]) if news else "최근 뉴스 없음"
+
+    prompt = f"""당신은 전문 주식 애널리스트입니다. 아래 데이터를 바탕으로 '{name}({code})' 종합 분석 보고서를 작성해주세요.
+
+## 기본 정보
+종목명: {name} ({code})
+현재가: {current:,}원
+등락률: {change}%
+52주 고가: {high_52w:,}원 / 저가: {low_52w:,}원
+거래량: {volume:,}주 (20일 평균: {avg_vol:,}주)
+
+## 이동평균선
+SMA5: {sma5} | SMA20: {sma20} | SMA60: {sma60} | SMA120: {sma120} | SMA200: {sma200}
+
+## 기술적 지표
+[추세]
+- ADX: {adx}
+- RS 상대강도: {rs}
+
+[모멘텀]
+- RSI(14): {rsi}
+- MACD: Line {macd_line}, Signal {macd_signal}, Histogram {macd_hist}
+- 스토캐스틱: %K {stoch_k}, %D {stoch_d}
+
+## 재무 지표
+- ROE: {roe}%
+- PER: {per}
+- PBR: {pbr}
+- 부채비율: {debt}%
+- 영업이익률: {opm}%
+
+## 연간 실적 (최근 3년, 억원)
+매출액: {rev}
+영업이익: {op_inc}
+순이익: {net_inc}
+
+## 최근 뉴스
+{news_text}
+
+---
+
+## 보고서 작성 규칙
+1. 마크다운 형식으로 작성
+2. 전문적이고 객관적인 톤 유지
+3. 각 지표 해석 시 수치 근거 명시
+4. 아래 구조를 따를 것:
+
+# {name}({code}) 종합 분석 보고서
+
+## 1. 핵심 요약
+(4~5개 핵심 불릿포인트 - 가장 중요한 정보만)
+
+## 2. 기술적 분석
+### 2.1 가격 및 추세
+(현재가 위치, 이동평균선 배열, 추세 판단)
+### 2.2 모멘텀 분석
+(RSI, MACD, 스토캐스틱 각각 해석)
+### 2.3 기술적 종합 판단
+(매수/매도/중립 + 근거)
+
+## 3. 재무 분석
+(핵심 재무지표 해석 + 실적 추이)
+
+## 4. 투자 포인트 및 리스크
+### 4.1 긍정적 요인
+### 4.2 리스크 요인
+
+## 5. 종합 의견
+(투자 관점 종합 + 시나리오별 전망)
+
+---
+*면책조항: 본 보고서는 투자 참고 자료로만 활용하시기 바라며, 특정 종목의 매수/매도를 권유하지 않습니다.*
+*BBooster AI 분석 시스템에서 생성됨*
+
+한국어로 작성하고, 1500~2500자 분량으로 작성해주세요.
+"""
+    return prompt
+
+
+async def _generate_claude_report(name: str, code: str, market: str = "kr") -> dict:
+    """Claude API로 종합 분석 리포트 생성"""
+    import anthropic
+
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        print("[AI Report] ANTHROPIC_API_KEY 없음, fallback 사용")
+        return {
+            "success": False,
+            "report": _generate_simple_report({"name": name, "symbol": code}),
+            "fallback": True
+        }
+
+    try:
+        # 데이터 수집
+        print(f"[AI Report] Collecting data for {name}({code})...")
+        tech = await _collect_technical_data_for_ai(code, market)
+        fin = await _collect_financial_data_for_ai(code, market)
+        news = await _collect_news_for_ai(code, name, market)
+
+        # 프롬프트 구성
+        prompt = _build_claude_prompt(name, code, tech, fin, news)
+
+        # Claude API 호출
+        print(f"[AI Report] Calling Claude API...")
+        client = anthropic.Anthropic(api_key=api_key)
+
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=4000,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        report_md = response.content[0].text
+        print(f"[AI Report] Generated report: {len(report_md)} chars")
+
+        return {
+            "success": True,
+            "report": report_md,
+            "technical": tech,
+            "financial": fin,
+            "fallback": False
+        }
+
+    except Exception as e:
+        print(f"[AI Report] Claude API error: {e}")
+        return {
+            "success": False,
+            "report": _generate_simple_report({"name": name, "symbol": code}),
+            "error": str(e),
+            "fallback": True
+        }
 
 
 @app.get("/api/market/timeline")
