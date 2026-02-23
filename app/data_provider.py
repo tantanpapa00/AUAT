@@ -3880,7 +3880,7 @@ async def get_stock_financials_us(ticker: str) -> dict:
         try:
             ed = stock.earnings_dates
             if ed is not None and not ed.empty:
-                # Event Type이 'Earnings'이고 Reported EPS가 있는 것만 (실적 발표된 분기)
+                # Reported EPS가 있는 것만 (실적 발표된 분기)
                 # 최근 8분기
                 import pandas as pd
                 now = pd.Timestamp.now(tz='America/New_York')
@@ -3889,13 +3889,14 @@ async def get_stock_financials_us(ticker: str) -> dict:
                     # 과거 실적만 (미래 예정 제외)
                     if idx > now:
                         continue
-                    # Earnings 이벤트만
-                    if row.get('Event Type') != 'Earnings':
-                        continue
 
                     eps_est = row.get('EPS Estimate')
                     eps_act = row.get('Reported EPS')
                     surprise = row.get('Surprise(%)')
+
+                    # Reported EPS가 없으면 스킵 (미발표)
+                    if eps_act is None or (isinstance(eps_act, float) and eps_act != eps_act):
+                        continue
 
                     # 분기 라벨 생성 (예: Q1'24)
                     q = (idx.month - 1) // 3 + 1
