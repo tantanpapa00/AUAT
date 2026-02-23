@@ -10895,7 +10895,7 @@ async function loadCompanyInfo(code) {
     }
 }
 
-// 기업 정보 로드 - 한국 종목 (Phase 8-3)
+// 기업 정보 로드 - 한국 종목 (StockEasy 스타일)
 async function loadCompanyInfoKr(code) {
     const companyContent = document.getElementById('info-company');
     if (!companyContent) return;
@@ -10906,10 +10906,46 @@ async function loadCompanyInfoKr(code) {
         const response = await invokeWithTimeout('get_stock_company_kr', {
             accessToken: auth.accessToken || '',
             code: code
-        }, 10000);
+        }, 15000);
 
         if (response && response.data) {
             const data = response.data;
+
+            // 상단 요약 카드 (StockEasy 스타일)
+            const summaryHtml = `
+                <div class="sd-card company-summary-card">
+                    <div class="sd-card-title">기업 개요</div>
+                    <div class="company-summary-grid">
+                        <div class="company-summary-item">
+                            <span class="company-summary-label">시가총액</span>
+                            <span class="company-summary-value">${data.market_cap || '-'}</span>
+                        </div>
+                        <div class="company-summary-item">
+                            <span class="company-summary-label">현재가</span>
+                            <span class="company-summary-value ${(data.change_pct || 0) >= 0 ? 'positive' : 'negative'}">
+                                ${data.price?.toLocaleString() || '-'}원
+                                <small>(${(data.change_pct || 0) >= 0 ? '+' : ''}${(data.change_pct || 0).toFixed(2)}%)</small>
+                            </span>
+                        </div>
+                        <div class="company-summary-item">
+                            <span class="company-summary-label">52주 최고</span>
+                            <span class="company-summary-value positive">${data.high_52w?.toLocaleString() || '-'}원</span>
+                        </div>
+                        <div class="company-summary-item">
+                            <span class="company-summary-label">52주 최저</span>
+                            <span class="company-summary-value negative">${data.low_52w?.toLocaleString() || '-'}원</span>
+                        </div>
+                        <div class="company-summary-item">
+                            <span class="company-summary-label">외인소진율</span>
+                            <span class="company-summary-value">${data.foreign_ratio > 0 ? data.foreign_ratio.toFixed(2) + '%' : '-'}</span>
+                        </div>
+                        <div class="company-summary-item">
+                            <span class="company-summary-label">거래량</span>
+                            <span class="company-summary-value">${data.volume?.toLocaleString() || '-'}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
 
             // 투자의견/목표가 섹션
             let consensusHtml = '';
@@ -10976,7 +11012,7 @@ async function loadCompanyInfoKr(code) {
                 `;
             }
 
-            companyContent.innerHTML = consensusHtml + peersHtml + researchHtml ||
+            companyContent.innerHTML = summaryHtml + consensusHtml + peersHtml + researchHtml ||
                 '<div class="sd-card"><div class="sd-empty-state">기업 정보가 없습니다</div></div>';
         } else {
             companyContent.innerHTML = '<div class="sd-card"><div class="sd-empty-state">기업 정보를 불러올 수 없습니다</div></div>';
@@ -11269,7 +11305,7 @@ function getActionClass(action) {
     return 'action-maintain';
 }
 
-// 해외 종목 기업 정보 로드 (Phase 9)
+// 해외 종목 기업 정보 로드 (StockEasy 스타일)
 async function loadCompanyInfoUs(ticker) {
     const companyContent = document.getElementById('info-company');
     if (!companyContent) return;
@@ -11280,15 +11316,64 @@ async function loadCompanyInfoUs(ticker) {
         const response = await invokeWithTimeout('get_stock_company_us', {
             accessToken: auth.accessToken || '',
             ticker: ticker
-        }, 15000);
+        }, 20000);
 
         if (response && response.data) {
             const data = response.data;
 
-            // 기업 개요
-            const overviewHtml = `
-                <div class="sd-card">
+            // 상단 요약 카드 (StockEasy 스타일)
+            const formatShares = (num) => {
+                if (!num || num <= 0) return '-';
+                if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+                if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+                if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K';
+                return num.toLocaleString();
+            };
+
+            const summaryHtml = `
+                <div class="sd-card company-summary-card">
                     <div class="sd-card-title">Company Overview</div>
+                    <div class="company-summary-grid">
+                        <div class="company-summary-item">
+                            <span class="company-summary-label">Market Cap</span>
+                            <span class="company-summary-value">${data.market_cap_str || '-'}</span>
+                        </div>
+                        <div class="company-summary-item">
+                            <span class="company-summary-label">Price</span>
+                            <span class="company-summary-value">$${data.price > 0 ? data.price.toFixed(2) : '-'}</span>
+                        </div>
+                        <div class="company-summary-item">
+                            <span class="company-summary-label">52W High</span>
+                            <span class="company-summary-value positive">$${data.high_52w > 0 ? data.high_52w.toFixed(2) : '-'}</span>
+                        </div>
+                        <div class="company-summary-item">
+                            <span class="company-summary-label">52W Low</span>
+                            <span class="company-summary-value negative">$${data.low_52w > 0 ? data.low_52w.toFixed(2) : '-'}</span>
+                        </div>
+                        <div class="company-summary-item">
+                            <span class="company-summary-label">Institutional</span>
+                            <span class="company-summary-value">${data.institutional_ratio > 0 ? data.institutional_ratio.toFixed(1) + '%' : '-'}</span>
+                        </div>
+                        <div class="company-summary-item">
+                            <span class="company-summary-label">Float Ratio</span>
+                            <span class="company-summary-value">${data.float_ratio > 0 ? data.float_ratio.toFixed(1) + '%' : '-'}</span>
+                        </div>
+                        <div class="company-summary-item">
+                            <span class="company-summary-label">Shares</span>
+                            <span class="company-summary-value">${formatShares(data.shares_outstanding)}</span>
+                        </div>
+                        <div class="company-summary-item">
+                            <span class="company-summary-label">Employees</span>
+                            <span class="company-summary-value">${data.employees > 0 ? data.employees.toLocaleString() : '-'}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // 기업 정보 (섹터, 산업, 국가)
+            const infoHtml = `
+                <div class="sd-card">
+                    <div class="sd-card-title">Company Info</div>
                     <div class="sd-company-grid">
                         <div class="sd-company-item">
                             <span class="sd-company-label">Name</span>
@@ -11306,20 +11391,22 @@ async function loadCompanyInfoUs(ticker) {
                             <span class="sd-company-label">Country</span>
                             <span class="sd-company-value">${data.country || '-'}</span>
                         </div>
-                        <div class="sd-company-item">
-                            <span class="sd-company-label">Employees</span>
-                            <span class="sd-company-value">${data.employees || '-'}</span>
+                        ${data.website ? `
+                        <div class="sd-company-item" style="grid-column: 1 / -1;">
+                            <span class="sd-company-label">Website</span>
+                            <a href="${data.website}" target="_blank" class="sd-company-value" style="color: var(--accent-color);">${data.website}</a>
                         </div>
+                        ` : ''}
                     </div>
                 </div>
             `;
 
-            // 기업 설명
+            // 기업 설명 (yfinance longBusinessSummary)
             let descriptionHtml = '';
             if (data.description) {
                 descriptionHtml = `
                     <div class="sd-card">
-                        <div class="sd-card-title">Description</div>
+                        <div class="sd-card-title">Business Summary</div>
                         <p class="sd-description">${data.description}</p>
                     </div>
                 `;
@@ -11328,6 +11415,8 @@ async function loadCompanyInfoUs(ticker) {
             // 애널리스트 정보
             let analystHtml = '';
             if (data.target_price > 0 || data.recommendation) {
+                const recClass = ['STRONG_BUY', 'BUY'].includes(data.recommendation) ? 'positive' :
+                                 ['STRONG_SELL', 'SELL'].includes(data.recommendation) ? 'negative' : '';
                 analystHtml = `
                     <div class="sd-card">
                         <div class="sd-card-title">Analyst Ratings</div>
@@ -11338,14 +11427,14 @@ async function loadCompanyInfoUs(ticker) {
                             </div>
                             <div class="sd-consensus-item">
                                 <span class="sd-consensus-label">Recommendation</span>
-                                <span class="sd-consensus-value">${data.recommendation || '-'}</span>
+                                <span class="sd-consensus-value ${recClass}">${data.recommendation || '-'}</span>
                             </div>
                         </div>
                     </div>
                 `;
             }
 
-            companyContent.innerHTML = overviewHtml + descriptionHtml + analystHtml ||
+            companyContent.innerHTML = summaryHtml + infoHtml + descriptionHtml + analystHtml ||
                 '<div class="sd-card"><div class="sd-empty-state">No company information available</div></div>';
         } else {
             companyContent.innerHTML = '<div class="sd-card"><div class="sd-empty-state">Failed to load company info</div></div>';

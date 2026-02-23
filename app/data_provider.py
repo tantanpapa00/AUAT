@@ -3309,7 +3309,8 @@ def _format_news_date(dt_str: str) -> str:
 
 async def get_stock_company_kr(code: str) -> dict:
     """
-    국내 종목 기업 정보 탭
+    국내 종목 기업 정보 탭 (StockEasy 스타일)
+    - 시가총액, 현재가, 52주 고저, 외인비율 등 요약카드
     - 동종업계 종목
     - 리서치 리포트
     - 투자의견/목표가
@@ -3322,14 +3323,37 @@ async def get_stock_company_kr(code: str) -> dict:
 
     result = {
         "code": code,
+        "name": "",
         "industry_code": None,
         "peers": [],  # 동종업계 종목
         "researches": [],  # 리서치 리포트
         "consensus": None,  # 투자의견/목표가
+        # StockEasy 스타일 추가 필드
+        "market_cap": "",
+        "market_cap_raw": 0,
+        "price": 0,
+        "change": 0,
+        "change_pct": 0,
+        "high_52w": 0,
+        "low_52w": 0,
+        "foreign_ratio": 0,
+        "volume": 0,
+        "sector": "",
     }
 
     try:
         async with httpx.AsyncClient(timeout=15, headers=NAVER_HEADERS) as client:
+            # 1. Basic API로 종목명 조회
+            basic_url = f"https://m.stock.naver.com/api/stock/{code}/basic"
+            r_basic = await client.get(basic_url)
+            if r_basic.status_code == 200:
+                basic = r_basic.json()
+                result["name"] = basic.get("stockName", "")
+                result["price"] = _parse_price(basic.get("closePrice", "0"))
+                result["change"] = _parse_price(basic.get("compareToPreviousClosePrice", "0"))
+                result["change_pct"] = _parse_float(basic.get("fluctuationsRatio", "0"))
+
+            # 2. Integration API
             url = f"https://m.stock.naver.com/api/stock/{code}/integration"
             r = await client.get(url)
 
@@ -3338,6 +3362,24 @@ async def get_stock_company_kr(code: str) -> dict:
 
                 # 업종 코드
                 result["industry_code"] = data.get("industryCode")
+
+                # totalInfos에서 요약 카드 데이터 추출
+                total_infos = data.get("totalInfos", [])
+                for info in total_infos:
+                    key = info.get("code", "")
+                    val = info.get("value", "")
+
+                    if key == "marketValue":
+                        result["market_cap"] = val
+                        result["market_cap_raw"] = _parse_korean_market_cap(val)
+                    elif key == "foreignRate":
+                        result["foreign_ratio"] = _parse_float(val.replace("%", "").strip())
+                    elif key == "highPriceOf52Weeks":
+                        result["high_52w"] = _parse_price(val)
+                    elif key == "lowPriceOf52Weeks":
+                        result["low_52w"] = _parse_price(val)
+                    elif key == "accumulatedTradingVolume":
+                        result["volume"] = _parse_price(val)
 
                 # 동종업계 종목
                 peers = data.get("industryCompareInfo", [])
@@ -4202,9 +4244,10 @@ def _get_analyst_action_kr(action: str) -> str:
 
 async def get_stock_company_us(ticker: str) -> dict:
     """
-    해외 종목 기업 정보
-    데이터 소스: Finviz snapshot + 기업 설명
+    해외 종목 기업 정보 (StockEasy 스타일)
+    데이터 소스: yfinance (기업개요, 주식수, 기관보유율 등)
     """
+    import yfinance as yf
     ticker = ticker.upper()
     cache_key = f"stock_company_us_{ticker}"
     cached = _cached(cache_key, 3600)  # 1시간 캐싱
@@ -4219,42 +4262,69 @@ async def get_stock_company_us(ticker: str) -> dict:
         "country": "",
         "exchange": "",
         "description": "",
-        "employees": "",
+        "employees": 0,
         "website": "",
         "target_price": 0,
         "recommendation": "",
-        "peers": []
+        "peers": [],
+        # StockEasy 스타일 추가 필드
+        "market_cap": 0,
+        "market_cap_str": "",
+        "price": 0,
+        "high_52w": 0,
+        "low_52w": 0,
+        "shares_outstanding": 0,
+        "float_shares": 0,
+        "float_ratio": 0,
+        "institutional_ratio": 0,
+        "insider_ratio": 0,
     }
 
     try:
-        async with httpx.AsyncClient(timeout=15, headers=FINVIZ_HEADERS) as client:
-            url = f"https://finviz.com/quote.ashx?t={ticker}"
-            r = await client.get(url)
+        # yfinance로 기업 정보 조회
+        stock = yf.Ticker(ticker)
+        info = stock.info
 
-            if r.status_code == 200:
-                html = r.text
+        result["name"] = info.get("shortName") or info.get("longName") or ""
+        result["sector"] = info.get("sector", "")
+        result["industry"] = info.get("industry", "")
+        result["country"] = info.get("country", "")
+        result["exchange"] = info.get("exchange", "")
+        result["website"] = info.get("website", "")
+        result["employees"] = info.get("fullTimeEmployees", 0) or 0
 
-                # 기본 정보 (snapshot에서)
-                summary = _parse_finviz_snapshot(html)
-                result["name"] = summary.get("name", "")
-                result["sector"] = summary.get("sector", "")
-                result["industry"] = summary.get("industry", "")
-                result["country"] = summary.get("country", "")
-                result["target_price"] = summary.get("target_price", 0)
-                result["recommendation"] = summary.get("recommendation", "")
+        # 기업 개요 (longBusinessSummary)
+        result["description"] = info.get("longBusinessSummary", "")[:1500]
 
-                # 기업 설명 (fullview-profile 클래스에서)
-                desc_match = re.search(r'class="fullview-profile"[^>]*>(.*?)</td>', html, re.DOTALL)
-                if desc_match:
-                    desc_html = desc_match.group(1)
-                    # HTML 태그 제거
-                    desc_text = re.sub(r'<[^>]+>', '', desc_html).strip()
-                    result["description"] = desc_text[:1000]  # 최대 1000자
+        # 시가총액, 현재가, 52주 고저
+        result["market_cap"] = info.get("marketCap", 0) or 0
+        if result["market_cap"] >= 1e12:
+            result["market_cap_str"] = f"${result['market_cap'] / 1e12:.2f}T"
+        elif result["market_cap"] >= 1e9:
+            result["market_cap_str"] = f"${result['market_cap'] / 1e9:.2f}B"
+        elif result["market_cap"] >= 1e6:
+            result["market_cap_str"] = f"${result['market_cap'] / 1e6:.2f}M"
+        else:
+            result["market_cap_str"] = f"${result['market_cap']:,.0f}"
 
-                # 직원 수
-                emp_match = re.search(r'Employees[^<]*</td>\s*<td[^>]*>([^<]+)</td>', html)
-                if emp_match:
-                    result["employees"] = emp_match.group(1).strip()
+        result["price"] = info.get("currentPrice") or info.get("regularMarketPrice") or 0
+        result["high_52w"] = info.get("fiftyTwoWeekHigh", 0) or 0
+        result["low_52w"] = info.get("fiftyTwoWeekLow", 0) or 0
+
+        # 발행주식수, 유통주식수
+        result["shares_outstanding"] = info.get("sharesOutstanding", 0) or 0
+        result["float_shares"] = info.get("floatShares", 0) or 0
+        if result["shares_outstanding"] > 0 and result["float_shares"] > 0:
+            result["float_ratio"] = round(result["float_shares"] / result["shares_outstanding"] * 100, 2)
+
+        # 기관/내부자 보유율
+        result["institutional_ratio"] = round((info.get("heldPercentInstitutions", 0) or 0) * 100, 2)
+        result["insider_ratio"] = round((info.get("heldPercentInsiders", 0) or 0) * 100, 2)
+
+        # 목표가, 추천의견
+        result["target_price"] = info.get("targetMeanPrice", 0) or 0
+        rec = info.get("recommendationKey", "")
+        result["recommendation"] = rec.upper() if rec else ""
 
         _set_cache(cache_key, result)
     except Exception as e:

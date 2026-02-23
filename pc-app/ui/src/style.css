@@ -6023,6 +6023,62 @@ body {
     margin-left: 8px;
 }
 
+/* Company Summary Card (StockEasy 스타일) */
+.company-summary-card {
+    background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-light) 100%);
+}
+
+.company-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+
+.company-summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px;
+    background: var(--bg-dark);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+
+.company-summary-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.company-summary-value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.company-summary-value.positive {
+    color: #EF4444;
+}
+
+.company-summary-value.negative {
+    color: #3B82F6;
+}
+
+.company-summary-value small {
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-left: 4px;
+}
+
+/* 기업 설명 */
+.sd-description {
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
 /* SMA 레전드 */
 .sma-legend {
     position: absolute;
