@@ -3375,22 +3375,31 @@
                     <div id="bbooster-ai-content">
                         <div class="ai-header">
                             <h2>🤖 BBooster AI</h2>
-                            <p class="ai-subtitle">AI가 선별한 투자 전략별 추천 종목</p>
-                            <span class="ai-updated" id="ai-updated-time">마지막 업데이트: -</span>
+                            <p class="ai-subtitle">투자 관련 질문을 물어보세요</p>
                         </div>
 
-                        <!-- 시장 선택 탭 -->
-                        <div class="ai-market-tabs">
-                            <button class="ai-tab active" data-market="kr">🇰🇷 국내주식</button>
-                            <button class="ai-tab" data-market="us">🇺🇸 해외주식</button>
-                            <button class="ai-tab" data-market="etf">📦 ETF</button>
-                        </div>
-
-                        <!-- 추천 카테고리 목록 -->
-                        <div class="ai-categories" id="ai-categories">
-                            <div class="ai-loading">
-                                <div class="loading-spinner"></div>
-                                <span>AI 추천 종목을 불러오는 중...</span>
+                        <!-- AI 채팅 영역 -->
+                        <div class="ai-chat-container">
+                            <div class="ai-chat-messages" id="ai-chat-messages">
+                                <div class="ai-chat-welcome">
+                                    <div class="welcome-icon">🤖</div>
+                                    <h3>BBooster AI에게 물어보세요</h3>
+                                    <p>종목 분석, 투자 전략, 시장 동향 등 투자 관련 질문에 답변해드립니다.</p>
+                                    <div class="ai-chat-examples">
+                                        <button class="example-btn" data-question="삼성전자 주가 전망은?">삼성전자 주가 전망은?</button>
+                                        <button class="example-btn" data-question="오늘 시장 동향 분석해줘">오늘 시장 동향 분석해줘</button>
+                                        <button class="example-btn" data-question="반도체 섹터 투자 전략 추천">반도체 섹터 투자 전략 추천</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="ai-chat-input-container">
+                                <textarea id="ai-chat-input" placeholder="투자 관련 질문을 입력하세요..." rows="1"></textarea>
+                                <button class="ai-chat-send" id="ai-chat-send" title="전송">
+                                    <span>전송</span>
+                                </button>
+                            </div>
+                            <div class="ai-chat-footer">
+                                <span class="ai-usage-info" id="ai-chat-usage">남은 횟수: -/-</span>
                             </div>
                         </div>
                     </div>
@@ -3803,7 +3812,7 @@
             </div>
             <div class="modal-footer stock-detail-footer">
                 <button class="btn btn-secondary" id="btn-add-to-watchlist">관심종목 추가</button>
-                <button class="btn btn-primary" id="btn-ai-analysis">AI 분석</button>
+                <button class="btn btn-primary" id="btn-ai-analysis-modal">🤖 AI 분석</button>
             </div>
         </div>
     </div>

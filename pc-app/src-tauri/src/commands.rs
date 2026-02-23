@@ -3165,12 +3165,51 @@ pub async fn request_ai_analysis(
         .await
         .map_err(|e| format!("네트워크 오류: {}", e))?;
 
+    let status = resp.status().as_u16();
     if resp.status().is_success() {
         resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
-    } else if resp.status().as_u16() == 403 {
+    } else if status == 401 {
+        Err("로그인이 필요합니다. 다시 로그인해주세요.".to_string())
+    } else if status == 403 {
         Err("AI 종합분석은 Standard 이상에서 이용 가능합니다".to_string())
     } else {
-        Err("AI 분석 요청 실패".to_string())
+        let body = resp.text().await.unwrap_or_default();
+        Err(format!("AI 분석 요청 실패 ({}): {}", status, body))
+    }
+}
+
+#[tauri::command]
+pub async fn request_ai_chat(
+    access_token: String,
+    message: String,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/ai/chat", VPS_SERVER_URL);
+
+    let body = serde_json::json!({
+        "message": message
+    });
+
+    let resp = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .timeout(std::time::Duration::from_secs(60))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    let status = resp.status().as_u16();
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else if status == 401 {
+        Err("로그인이 필요합니다. 다시 로그인해주세요.".to_string())
+    } else if status == 403 {
+        Err("AI 채팅은 Standard 이상에서 이용 가능합니다".to_string())
+    } else {
+        let body = resp.text().await.unwrap_or_default();
+        Err(format!("AI 채팅 요청 실패 ({}): {}", status, body))
     }
 }
 

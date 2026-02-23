@@ -12400,6 +12400,123 @@ async def request_ai_analysis(
     }
 
 
+class AIChatRequest(BaseModel):
+    message: str
+
+
+@app.post("/api/ai/chat")
+async def request_ai_chat(
+    request: AIChatRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """AI 채팅 요청"""
+    _ensure_ai_tables(db)
+
+    if not _check_standard_plan(current_user):
+        return {
+            "success": False,
+            "error": "AI 채팅은 Standard 이상에서 이용 가능합니다"
+        }
+
+    daily_max = _get_ai_daily_limit(current_user)
+    today = datetime.now(KST).date()
+
+    daily_count = 0
+
+    # 사용량 체크
+    try:
+        result = db.execute(
+            text("SELECT ai_usage_count, ai_usage_date FROM users WHERE id = :uid"),
+            {"uid": current_user.id}
+        )
+        row = result.fetchone()
+
+        if row:
+            usage_date = row[1]
+            if usage_date != today:
+                daily_count = 0
+                db.execute(
+                    text("UPDATE users SET ai_usage_count = 0, ai_usage_date = :today WHERE id = :uid"),
+                    {"uid": current_user.id, "today": today}
+                )
+            else:
+                daily_count = row[0] or 0
+            db.commit()
+
+        if daily_count >= daily_max:
+            return {
+                "success": False,
+                "error": "오늘의 AI 채팅 횟수를 모두 사용했습니다.",
+                "daily_used": daily_count,
+                "daily_max": daily_max,
+            }
+
+    except Exception as e:
+        print(f"AI chat usage check error: {e}")
+
+    # Claude API 호출
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
+
+        system_prompt = """당신은 BBooster의 AI 투자 어시스턴트입니다.
+사용자의 투자 관련 질문에 전문적이고 친절하게 답변합니다.
+
+역할:
+- 주식/ETF 분석 및 전망 제공
+- 투자 전략 조언
+- 시장 동향 설명
+- 기술적/기본적 분석 해설
+
+주의사항:
+- 법적 투자 조언이 아님을 명시
+- 객관적 데이터 기반 분석
+- 리스크 경고 포함
+- 한국어로 답변
+
+답변 형식:
+- 핵심 내용 먼저 제시
+- 명확하고 간결하게
+- 필요시 구조화된 목록 사용"""
+
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=1024,
+            system=system_prompt,
+            messages=[
+                {"role": "user", "content": request.message}
+            ]
+        )
+
+        reply = response.content[0].text if response.content else ""
+
+        # 사용량 증가
+        try:
+            db.execute(
+                text("UPDATE users SET ai_usage_count = ai_usage_count + 1 WHERE id = :uid"),
+                {"uid": current_user.id}
+            )
+            db.commit()
+            daily_count += 1
+        except Exception:
+            db.rollback()
+
+        return {
+            "success": True,
+            "reply": reply,
+            "daily_used": daily_count,
+            "daily_max": daily_max,
+        }
+
+    except Exception as e:
+        print(f"AI chat error: {e}")
+        return {
+            "success": False,
+            "error": f"AI 응답 생성 실패: {str(e)}"
+        }
+
+
 def _generate_simple_report(data: dict) -> str:
     """간단 템플릿 기반 보고서 생성"""
     name = data.get("name", data.get("symbol", "종목"))

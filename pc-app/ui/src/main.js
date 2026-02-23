@@ -4806,11 +4806,17 @@ document.getElementById('btn-ai-analysis')?.addEventListener('click', async () =
     errorEl.style.display = 'none';
 
     try {
+        const token = auth.accessToken || '';
+        const symbol = currentSymbolData.basic?.symbol || currentDetailSymbol;
+        const exchange = currentSymbolData.basic?.exchange || currentDetailExchange;
+        console.log('[AI Analysis] Requesting:', { symbol, exchange, hasToken: !!token });
+
         const result = await invoke('request_ai_analysis', {
-            accessToken: auth.accessToken || '',
-            symbol: currentSymbolData.basic?.symbol || currentDetailSymbol,
-            exchange: currentSymbolData.basic?.exchange || currentDetailExchange
+            accessToken: token,
+            symbol: symbol,
+            exchange: exchange
         });
+        console.log('[AI Analysis] Result:', result);
 
         loadingEl.style.display = 'none';
 
@@ -9327,10 +9333,10 @@ async function searchUnified(query) {
 }
 
 // =============================================================================
-// Phase 11-2: BBooster AI 추천
+// Phase 11-2: BBooster AI 채팅
 // =============================================================================
 
-let currentAiMarket = 'kr';
+let aiChatInitialized = false;
 
 async function loadBBoosterAI() {
     const restrictionEl = document.getElementById('bbooster-ai-restriction');
@@ -9349,26 +9355,152 @@ async function loadBBoosterAI() {
     if (restrictionEl) restrictionEl.style.display = 'none';
     if (contentEl) contentEl.style.display = 'block';
 
-    // 탭 이벤트 바인딩
-    initAiTabEvents();
+    // 채팅 이벤트 바인딩
+    initAiChatEvents();
 
-    // 초기 로드
-    loadAiRecommendations(currentAiMarket);
+    // AI 사용량 조회
+    loadAiChatUsage();
 }
 
-let aiTabEventsInitialized = false;
-function initAiTabEvents() {
-    if (aiTabEventsInitialized) return;
-    aiTabEventsInitialized = true;
+function initAiChatEvents() {
+    if (aiChatInitialized) return;
+    aiChatInitialized = true;
 
-    document.querySelectorAll('.ai-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            document.querySelectorAll('.ai-tab').forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            currentAiMarket = tab.dataset.market;
-            loadAiRecommendations(currentAiMarket);
+    const inputEl = document.getElementById('ai-chat-input');
+    const sendBtn = document.getElementById('ai-chat-send');
+
+    // 전송 버튼 클릭
+    sendBtn?.addEventListener('click', () => sendAiChatMessage());
+
+    // Enter 키로 전송 (Shift+Enter는 줄바꿈)
+    inputEl?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendAiChatMessage();
+        }
+    });
+
+    // textarea 자동 높이 조절
+    inputEl?.addEventListener('input', () => {
+        inputEl.style.height = 'auto';
+        inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
+    });
+
+    // 예시 질문 버튼
+    document.querySelectorAll('.example-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const question = btn.dataset.question;
+            if (inputEl) {
+                inputEl.value = question;
+                sendAiChatMessage();
+            }
         });
     });
+}
+
+async function loadAiChatUsage() {
+    try {
+        const response = await invoke('get_ai_usage', {
+            accessToken: auth.accessToken || ''
+        });
+        const usageEl = document.getElementById('ai-chat-usage');
+        if (usageEl && response) {
+            const dailyRemain = (response.daily_max || 0) - (response.daily_used || 0);
+            usageEl.textContent = `오늘 남은 횟수: ${dailyRemain}/${response.daily_max || 0}`;
+        }
+    } catch (err) {
+        console.error('AI 사용량 조회 실패:', err);
+    }
+}
+
+async function sendAiChatMessage() {
+    const inputEl = document.getElementById('ai-chat-input');
+    const messagesEl = document.getElementById('ai-chat-messages');
+    const sendBtn = document.getElementById('ai-chat-send');
+
+    const message = inputEl?.value?.trim();
+    if (!message) return;
+
+    // 입력 초기화 및 버튼 비활성화
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+    sendBtn.disabled = true;
+
+    // 환영 메시지 제거
+    const welcomeEl = messagesEl.querySelector('.ai-chat-welcome');
+    if (welcomeEl) welcomeEl.remove();
+
+    // 사용자 메시지 추가
+    messagesEl.innerHTML += `
+        <div class="ai-chat-message user">
+            <div class="ai-chat-avatar">👤</div>
+            <div class="ai-chat-bubble">${escapeHtml(message)}</div>
+        </div>
+    `;
+
+    // AI 응답 대기 표시
+    const typingId = 'ai-typing-' + Date.now();
+    messagesEl.innerHTML += `
+        <div class="ai-chat-message ai" id="${typingId}">
+            <div class="ai-chat-avatar">🤖</div>
+            <div class="ai-chat-bubble">
+                <div class="ai-typing-indicator">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // 스크롤 하단으로
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    try {
+        const response = await invoke('request_ai_chat', {
+            accessToken: auth.accessToken || '',
+            message: message
+        });
+
+        // 타이핑 표시 제거
+        document.getElementById(typingId)?.remove();
+
+        if (response.success) {
+            // AI 응답 추가
+            messagesEl.innerHTML += `
+                <div class="ai-chat-message ai">
+                    <div class="ai-chat-avatar">🤖</div>
+                    <div class="ai-chat-bubble">${markdownToHtml(response.reply || '')}</div>
+                </div>
+            `;
+
+            // 사용량 업데이트
+            loadAiChatUsage();
+        } else {
+            messagesEl.innerHTML += `
+                <div class="ai-chat-message ai">
+                    <div class="ai-chat-avatar">🤖</div>
+                    <div class="ai-chat-bubble" style="color: #ef4444;">${response.error || '응답을 받지 못했습니다'}</div>
+                </div>
+            `;
+        }
+    } catch (error) {
+        document.getElementById(typingId)?.remove();
+        messagesEl.innerHTML += `
+            <div class="ai-chat-message ai">
+                <div class="ai-chat-avatar">🤖</div>
+                <div class="ai-chat-bubble" style="color: #ef4444;">오류: ${error.toString()}</div>
+            </div>
+        `;
+    }
+
+    // 스크롤 하단으로
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    sendBtn.disabled = false;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 async function loadAiRecommendations(market) {
@@ -12864,12 +12996,57 @@ document.getElementById('btn-add-to-watchlist')?.addEventListener('click', async
     }
 });
 
-// AI 분석 버튼
-document.getElementById('btn-ai-analysis')?.addEventListener('click', () => {
+// AI 분석 버튼 (stock-detail-modal 푸터)
+document.getElementById('btn-ai-analysis-modal')?.addEventListener('click', async () => {
     if (!currentStockData) return;
+
+    // 모달 닫고 AI 모달 열기
     document.getElementById('stock-detail-modal').style.display = 'none';
-    // AI 분석 모달 열기 (기존 로직 활용)
-    requestAiAnalysis(currentStockData.symbol);
+
+    const modal = document.getElementById('ai-modal');
+    const loadingEl = document.getElementById('ai-loading');
+    const reportEl = document.getElementById('ai-report');
+    const errorEl = document.getElementById('ai-error');
+    const usageEl = document.getElementById('ai-usage');
+
+    modal.style.display = 'flex';
+    loadingEl.style.display = 'block';
+    reportEl.style.display = 'none';
+    errorEl.style.display = 'none';
+
+    try {
+        const token = auth.accessToken || '';
+        const symbol = currentStockData.symbol || currentStockData.code;
+        const exchange = currentStockData.exchange || 'KIS_KR';
+        console.log('[AI Analysis Modal] Requesting:', { symbol, exchange, hasToken: !!token });
+
+        const result = await invoke('request_ai_analysis', {
+            accessToken: token,
+            symbol: symbol,
+            exchange: exchange
+        });
+        console.log('[AI Analysis Modal] Result:', result);
+
+        loadingEl.style.display = 'none';
+
+        if (result.success) {
+            reportEl.innerHTML = markdownToHtml(result.report || '');
+            reportEl.style.display = 'block';
+            const dailyRemain = (result.daily_max || 0) - (result.daily_used || 0);
+            const monthlyRemain = (result.monthly_max || 0) - (result.monthly_used || 0);
+            usageEl.textContent = `오늘 ${result.daily_used}/${result.daily_max}회 | 이번 달 ${result.monthly_used}/${result.monthly_max}회`;
+        } else {
+            errorEl.textContent = result.error || 'AI 분석에 실패했습니다';
+            errorEl.style.display = 'block';
+            if (result.daily_max !== undefined) {
+                usageEl.textContent = `오늘 ${result.daily_used}/${result.daily_max}회 | 이번 달 ${result.monthly_used}/${result.monthly_max}회`;
+            }
+        }
+    } catch (error) {
+        loadingEl.style.display = 'none';
+        errorEl.textContent = error.toString();
+        errorEl.style.display = 'block';
+    }
 });
 
 // window에 openStockDetail 노출 (테이블 클릭에서 사용)
