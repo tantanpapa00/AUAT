@@ -250,6 +250,7 @@ from app.data_provider import (
     # Phase 9: 해외 종목 상세 (Finviz + Yahoo Finance)
     get_stock_summary_us, get_stock_chart_us, get_stock_news_us,
     get_stock_company_us, get_stock_financials_us,
+    get_stock_filings_us, get_stock_analyst_us,
     # Phase 10: ETF 상세
     get_etf_summary, get_etf_chart, get_etf_performance,
     # Day14: 환율 + 거래소별 잔고 조회
@@ -10592,6 +10593,36 @@ async def api_stock_news_us(
     - 누구나 접근 가능
     """
     data = await get_stock_news_us(ticker, limit)
+    return {"data": data}
+
+
+@app.get("/api/stock/us/{ticker}/filings")
+async def api_stock_filings_us(
+    ticker: str,
+    limit: int = Query(30, ge=1, le=50),
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    해외 종목 SEC 공시
+    - 데이터 소스: yfinance sec_filings
+    - 누구나 접근 가능
+    """
+    data = await get_stock_filings_us(ticker, limit)
+    return {"data": data}
+
+
+@app.get("/api/stock/us/{ticker}/analyst")
+async def api_stock_analyst_us(
+    ticker: str,
+    limit: int = Query(30, ge=1, le=50),
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    해외 종목 애널리스트 의견
+    - 데이터 소스: yfinance upgrades_downgrades
+    - 누구나 접근 가능
+    """
+    data = await get_stock_analyst_us(ticker, limit)
     return {"data": data}
 
 

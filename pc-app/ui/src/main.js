@@ -11001,27 +11001,142 @@ function formatResearchDate(dateStr) {
 // Phase 9: 해외 종목 상세 (US Stocks)
 // =============================================================================
 
-// 해외 종목 뉴스 로드 (Phase 9)
+// 해외 종목 소식 탭 - 3개 서브탭 (SEC공시/애널리스트/뉴스)
+let newsSubTabCacheUs = { filings: null, analyst: null, articles: null };
+let currentNewsTickerUs = '';
+
 async function loadStockNewsUs(ticker) {
     const newsContent = document.getElementById('info-news');
     if (!newsContent) return;
 
-    newsContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>Loading news...</span></div>';
+    // 종목 변경 시 캐시 초기화
+    if (currentNewsTickerUs !== ticker) {
+        newsSubTabCacheUs = { filings: null, analyst: null, articles: null };
+        currentNewsTickerUs = ticker;
+    }
+
+    // 서브탭 UI 렌더링
+    newsContent.innerHTML = `
+        <div class="news-sub-tabs">
+            <button class="news-tab-btn active" data-tab="filings">SEC 공시</button>
+            <button class="news-tab-btn" data-tab="analyst">애널리스트</button>
+            <button class="news-tab-btn" data-tab="articles">뉴스</button>
+        </div>
+        <div id="news-filings" class="news-content active"></div>
+        <div id="news-analyst" class="news-content" style="display:none;"></div>
+        <div id="news-articles" class="news-content" style="display:none;"></div>
+    `;
+
+    // 서브탭 클릭 이벤트
+    newsContent.querySelectorAll('.news-tab-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const tab = btn.dataset.tab;
+            newsContent.querySelectorAll('.news-tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            newsContent.querySelectorAll('.news-content').forEach(c => c.style.display = 'none');
+            document.getElementById(`news-${tab}`).style.display = 'block';
+
+            if (!newsSubTabCacheUs[tab]) {
+                switch(tab) {
+                    case 'filings': await loadFilingsUs(ticker); break;
+                    case 'analyst': await loadAnalystUs(ticker); break;
+                    case 'articles': await loadArticlesUs(ticker); break;
+                }
+            }
+        });
+    });
+
+    // 기본 SEC 공시 탭 로드
+    await loadFilingsUs(ticker);
+}
+
+// SEC 공시 로드
+async function loadFilingsUs(ticker) {
+    const container = document.getElementById('news-filings');
+    if (!container) return;
+
+    container.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>Loading SEC filings...</span></div>';
+
+    try {
+        const response = await invokeWithTimeout('get_stock_filings_us', {
+            accessToken: auth.accessToken || '',
+            ticker: ticker,
+            limit: 30
+        }, 15000);
+
+        const items = response?.data?.items || [];
+        newsSubTabCacheUs.filings = items;
+
+        if (items.length === 0) {
+            container.innerHTML = '<div class="sd-empty-state">No SEC filings available</div>';
+            return;
+        }
+
+        // 날짜별 그룹핑
+        const grouped = groupByDateUs(items, 'date');
+        container.innerHTML = renderFilingsGrouped(grouped);
+
+    } catch (error) {
+        console.error('Failed to load filings:', error);
+        container.innerHTML = '<div class="sd-empty-state">Failed to load SEC filings</div>';
+    }
+}
+
+// 애널리스트 의견 로드
+async function loadAnalystUs(ticker) {
+    const container = document.getElementById('news-analyst');
+    if (!container) return;
+
+    container.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>Loading analyst ratings...</span></div>';
+
+    try {
+        const response = await invokeWithTimeout('get_stock_analyst_us', {
+            accessToken: auth.accessToken || '',
+            ticker: ticker,
+            limit: 30
+        }, 15000);
+
+        const items = response?.data?.items || [];
+        newsSubTabCacheUs.analyst = items;
+
+        if (items.length === 0) {
+            container.innerHTML = '<div class="sd-empty-state">No analyst ratings available</div>';
+            return;
+        }
+
+        // 날짜별 그룹핑
+        const grouped = groupByDateUs(items, 'date');
+        container.innerHTML = renderAnalystGrouped(grouped);
+
+    } catch (error) {
+        console.error('Failed to load analyst:', error);
+        container.innerHTML = '<div class="sd-empty-state">Failed to load analyst ratings</div>';
+    }
+}
+
+// 뉴스 로드
+async function loadArticlesUs(ticker) {
+    const container = document.getElementById('news-articles');
+    if (!container) return;
+
+    container.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>Loading news...</span></div>';
 
     try {
         const response = await invokeWithTimeout('get_stock_news_us', {
             accessToken: auth.accessToken || '',
             ticker: ticker,
-            limit: 20
+            limit: 30
         }, 15000);
 
         const items = response?.data?.items || [];
+        newsSubTabCacheUs.articles = items;
 
         if (items.length === 0) {
-            newsContent.innerHTML = '<div class="sd-empty-state">No recent news available</div>';
+            container.innerHTML = '<div class="sd-empty-state">No recent news available</div>';
             return;
         }
 
+        // 뉴스 렌더링
         let html = '<div class="sd-news-list">';
         for (const item of items) {
             html += `
@@ -11035,13 +11150,123 @@ async function loadStockNewsUs(ticker) {
             `;
         }
         html += '</div>';
-
-        newsContent.innerHTML = html;
+        container.innerHTML = html;
 
     } catch (error) {
-        console.error('Failed to load US news:', error);
-        newsContent.innerHTML = '<div class="sd-empty-state">Failed to load news</div>';
+        console.error('Failed to load news:', error);
+        container.innerHTML = '<div class="sd-empty-state">Failed to load news</div>';
     }
+}
+
+// 날짜별 그룹핑 (US)
+function groupByDateUs(items, dateField) {
+    const groups = {};
+    for (const item of items) {
+        const dateKey = (item[dateField] || '').slice(0, 10);
+        if (!groups[dateKey]) groups[dateKey] = [];
+        groups[dateKey].push(item);
+    }
+    return groups;
+}
+
+// SEC 공시 그룹 렌더링
+function renderFilingsGrouped(grouped) {
+    const sortedDates = Object.keys(grouped).sort().reverse();
+    let html = '';
+
+    for (const dateKey of sortedDates) {
+        const items = grouped[dateKey];
+        const displayDate = formatUsDate(dateKey);
+
+        html += `<div class="news-date-group">
+            <div class="news-date-header">${displayDate}</div>
+            <div class="news-date-items">`;
+
+        for (const item of items) {
+            const badgeClass = getFilingBadgeClass(item.type);
+            html += `
+                <a href="${item.url}" target="_blank" class="sd-news-item">
+                    <div class="sd-news-title">${item.title}</div>
+                    <div class="sd-news-meta">
+                        <span class="news-badge ${badgeClass}">${item.type}</span>
+                    </div>
+                </a>`;
+        }
+
+        html += `</div></div>`;
+    }
+
+    return html || '<div class="sd-empty-state">No data available</div>';
+}
+
+// 애널리스트 그룹 렌더링
+function renderAnalystGrouped(grouped) {
+    const sortedDates = Object.keys(grouped).sort().reverse();
+    let html = '';
+
+    for (const dateKey of sortedDates) {
+        const items = grouped[dateKey];
+        const displayDate = formatUsDate(dateKey);
+
+        html += `<div class="news-date-group">
+            <div class="news-date-header">${displayDate}</div>
+            <div class="news-date-items">`;
+
+        for (const item of items) {
+            const actionClass = getActionClass(item.action);
+            const gradeText = item.from_grade
+                ? `${item.from_grade} → ${item.to_grade}`
+                : item.to_grade;
+            const targetText = item.target_price ? `$${item.target_price}` : '';
+
+            html += `
+                <div class="sd-news-item analyst-item">
+                    <div class="sd-news-title">${item.firm}</div>
+                    <div class="sd-news-meta">
+                        <span class="analyst-grade ${actionClass}">${gradeText}</span>
+                        ${targetText ? `<span class="analyst-target">목표가: ${targetText}</span>` : ''}
+                        <span class="news-badge ${actionClass}">${item.action_kr || item.action}</span>
+                    </div>
+                </div>`;
+        }
+
+        html += `</div></div>`;
+    }
+
+    return html || '<div class="sd-empty-state">No data available</div>';
+}
+
+// 미국 날짜 포맷 (Jan 28, 2026)
+function formatUsDate(dateStr) {
+    if (!dateStr) return '';
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const parts = dateStr.split('-');
+    if (parts.length >= 3) {
+        const month = months[parseInt(parts[1], 10) - 1] || parts[1];
+        const day = parseInt(parts[2], 10);
+        return `${month} ${day}, ${parts[0]}`;
+    }
+    return dateStr;
+}
+
+// SEC 공시 배지 클래스
+function getFilingBadgeClass(type) {
+    const classes = {
+        '10-K': 'filing-annual',
+        '10-Q': 'filing-quarterly',
+        '8-K': 'filing-current',
+        '4': 'filing-insider',
+    };
+    return classes[type] || 'filing-other';
+}
+
+// 애널리스트 액션 클래스
+function getActionClass(action) {
+    const a = (action || '').toLowerCase();
+    if (a === 'up' || a === 'upgrade') return 'action-upgrade';
+    if (a === 'down' || a === 'downgrade') return 'action-downgrade';
+    if (a === 'init') return 'action-initiate';
+    return 'action-maintain';
 }
 
 // 해외 종목 기업 정보 로드 (Phase 9)

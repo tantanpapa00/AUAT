@@ -2087,6 +2087,60 @@ pub async fn get_stock_news_us(
     }
 }
 
+/// 해외 종목 SEC 공시
+#[tauri::command]
+pub async fn get_stock_filings_us(
+    access_token: String,
+    ticker: String,
+    limit: Option<i32>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let limit_val = limit.unwrap_or(30);
+    let url = format!("{}/api/stock/us/{}/filings?limit={}", VPS_SERVER_URL, ticker, limit_val);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("SEC 공시를 가져올 수 없습니다".to_string())
+    }
+}
+
+/// 해외 종목 애널리스트 의견
+#[tauri::command]
+pub async fn get_stock_analyst_us(
+    access_token: String,
+    ticker: String,
+    limit: Option<i32>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let limit_val = limit.unwrap_or(30);
+    let url = format!("{}/api/stock/us/{}/analyst?limit={}", VPS_SERVER_URL, ticker, limit_val);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("애널리스트 의견을 가져올 수 없습니다".to_string())
+    }
+}
+
 /// 해외 종목 기업 정보 (Phase 9)
 #[tauri::command]
 pub async fn get_stock_company_us(

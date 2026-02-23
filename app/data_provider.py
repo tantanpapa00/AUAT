@@ -4083,6 +4083,120 @@ def _parse_finviz_news(html: str, limit: int = 20) -> list:
     return news
 
 
+async def get_stock_filings_us(ticker: str, limit: int = 30) -> dict:
+    """
+    해외 종목 SEC 공시
+    데이터 소스: yfinance sec_filings
+    """
+    ticker = ticker.upper()
+    cache_key = f"stock_filings_us_{ticker}"
+    cached = _cached(cache_key, 1800)  # 30분 캐싱
+    if cached:
+        return cached
+
+    result = {
+        "ticker": ticker,
+        "items": []
+    }
+
+    try:
+        stock = yf.Ticker(ticker)
+        filings = stock.sec_filings
+
+        if filings:
+            for f in filings[:limit]:
+                filing_type = f.get("type", "")
+                # 주요 공시만 필터링 (10-K, 10-Q, 8-K, 4, S-1 등)
+                if filing_type in ["10-K", "10-Q", "8-K", "4", "S-1", "S-3", "DEF 14A", "424B5"]:
+                    result["items"].append({
+                        "date": f.get("date", ""),
+                        "type": filing_type,
+                        "title": _get_sec_filing_title(filing_type),
+                        "url": f.get("edgarUrl", ""),
+                    })
+
+        _set_cache(cache_key, result)
+    except Exception as e:
+        print(f"[DataProvider] get_stock_filings_us error for {ticker}: {e}")
+        traceback.print_exc()
+
+    return result
+
+
+def _get_sec_filing_title(filing_type: str) -> str:
+    """SEC 공시 유형별 한글 제목"""
+    titles = {
+        "10-K": "Annual Report (연간 보고서)",
+        "10-Q": "Quarterly Report (분기 보고서)",
+        "8-K": "Current Report (수시 공시)",
+        "4": "Insider Transaction (내부자 거래)",
+        "S-1": "Registration Statement (등록 신청서)",
+        "S-3": "Registration Statement (간이 등록)",
+        "DEF 14A": "Proxy Statement (위임장)",
+        "424B5": "Prospectus (투자설명서)",
+    }
+    return titles.get(filing_type, filing_type)
+
+
+async def get_stock_analyst_us(ticker: str, limit: int = 30) -> dict:
+    """
+    해외 종목 애널리스트 의견
+    데이터 소스: yfinance upgrades_downgrades
+    """
+    ticker = ticker.upper()
+    cache_key = f"stock_analyst_us_{ticker}"
+    cached = _cached(cache_key, 1800)  # 30분 캐싱
+    if cached:
+        return cached
+
+    result = {
+        "ticker": ticker,
+        "items": []
+    }
+
+    try:
+        stock = yf.Ticker(ticker)
+        ud = stock.upgrades_downgrades
+
+        if ud is not None and not ud.empty:
+            for idx, row in ud.head(limit).iterrows():
+                # idx는 GradeDate (datetime)
+                date_str = idx.strftime("%Y-%m-%d") if hasattr(idx, 'strftime') else str(idx)[:10]
+
+                action = row.get("Action", "")
+                action_kr = _get_analyst_action_kr(action)
+
+                result["items"].append({
+                    "date": date_str,
+                    "firm": row.get("Firm", ""),
+                    "action": action,
+                    "action_kr": action_kr,
+                    "to_grade": row.get("ToGrade", ""),
+                    "from_grade": row.get("FromGrade", ""),
+                    "target_price": row.get("currentPriceTarget", 0),
+                    "prior_target": row.get("priorPriceTarget", 0),
+                })
+
+        _set_cache(cache_key, result)
+    except Exception as e:
+        print(f"[DataProvider] get_stock_analyst_us error for {ticker}: {e}")
+        traceback.print_exc()
+
+    return result
+
+
+def _get_analyst_action_kr(action: str) -> str:
+    """애널리스트 액션 한글 변환"""
+    actions = {
+        "up": "상향",
+        "down": "하향",
+        "main": "유지",
+        "reit": "재확인",
+        "init": "신규",
+    }
+    return actions.get(action.lower(), action)
+
+
 async def get_stock_company_us(ticker: str) -> dict:
     """
     해외 종목 기업 정보
