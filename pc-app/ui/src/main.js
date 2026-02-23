@@ -10080,13 +10080,25 @@ async function loadFinancialSummaryUs(ticker) {
             return '$' + Math.round(v) + 'M';
         };
 
-        // 최신 재무 데이터에서 값 추출 (연간 기준)
-        const latestRevenue = financials.revenue?.length > 0 ? financials.revenue[financials.revenue.length - 1] : 0;
-        const latestOpProfit = financials.operating_profit?.length > 0 ? financials.operating_profit[financials.operating_profit.length - 1] : 0;
-        const latestNetIncome = financials.net_income?.length > 0 ? financials.net_income[financials.net_income.length - 1] : 0;
-        const latestEps = financials.eps?.length > 0 ? financials.eps[financials.eps.length - 1] : 0;
-        const latestOpm = financials.opm?.length > 0 ? financials.opm[financials.opm.length - 1] : null;
-        const latestPeriod = financials.periods?.length > 0 ? financials.periods[financials.periods.length - 1] : '';
+        // 최신 확정 실적에서 값 추출 (연간 기준) - isConsensus가 false인 마지막 인덱스
+        let latestActualIdx = -1;
+        if (financials.isConsensus && financials.periods) {
+            for (let i = financials.periods.length - 1; i >= 0; i--) {
+                if (!financials.isConsensus[i]) {
+                    latestActualIdx = i;
+                    break;
+                }
+            }
+        }
+        // 확정 실적 없으면 마지막 항목 사용
+        const idx = latestActualIdx >= 0 ? latestActualIdx : (financials.periods?.length || 1) - 1;
+
+        const latestRevenue = financials.revenue?.[idx] || 0;
+        const latestOpProfit = financials.operating_profit?.[idx] || 0;
+        const latestNetIncome = financials.net_income?.[idx] || 0;
+        const latestEps = financials.eps?.[idx] || 0;
+        const latestOpm = financials.opm?.[idx] ?? null;
+        const latestPeriod = financials.periods?.[idx] || '';
 
         // 요약 재무 카드 - 국내주식과 동일한 6개 항목
         const summaryCardHtml = `
