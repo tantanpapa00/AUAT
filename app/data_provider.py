@@ -4034,7 +4034,7 @@ async def get_stock_news_us(ticker: str, limit: int = 20) -> dict:
 
 
 def _parse_finviz_news(html: str, limit: int = 20) -> list:
-    """Finviz 뉴스 테이블 파싱"""
+    """Finviz 뉴스 테이블 파싱 (2026년 새 HTML 구조)"""
     news = []
 
     try:
@@ -4047,23 +4047,24 @@ def _parse_finviz_news(html: str, limit: int = 20) -> list:
 
             current_date = ""
             for row in rows:
-                # 시간/날짜 추출
-                time_match = re.search(r'<td[^>]*>\s*([\w\-]+\s+\d+:\d+[AP]M|\d+:\d+[AP]M|Today\s+\d+:\d+[AP]M)\s*</td>', row)
+                # 시간/날짜 추출 (예: Feb-22-26 10:53PM 또는 10:53PM)
+                time_match = re.search(r'<td[^>]*>\s*([A-Za-z]{3}-\d{2}-\d{2}\s+\d+:\d+[AP]M|\d+:\d+[AP]M)\s*</td>', row)
                 time_str = ""
                 if time_match:
                     time_str = time_match.group(1).strip()
-                    if "Today" not in time_str and len(time_str) > 10:
-                        current_date = time_str.split()[0] if " " in time_str else time_str
+                    # 날짜가 포함된 경우 current_date 업데이트
+                    if '-' in time_str:
+                        current_date = time_str.split()[0]
 
-                # 뉴스 링크/제목 추출
-                link_match = re.search(r"trackAndOpenNews\([^,]+,\s*'([^']+)',\s*'([^']+)'\)", row)
+                # 새 HTML 구조: class="tab-link-news" href="URL">Title</a>
+                link_match = re.search(r'class="tab-link-news"[^>]*href="([^"]+)"[^>]*>([^<]+)</a>', row)
                 if link_match:
-                    source = link_match.group(1)
-                    url = link_match.group(2)
+                    url = link_match.group(1)
+                    title = link_match.group(2).strip()
 
-                    # 제목 추출
-                    title_match = re.search(r'class="tab-link[^"]*"[^>]*>([^<]+)</a>', row)
-                    title = title_match.group(1).strip() if title_match else ""
+                    # 출처 추출 (news-link-right 내의 span)
+                    source_match = re.search(r'class="news-link-right"[^>]*>.*?<span[^>]*>([^<]+)</span>', row, re.DOTALL)
+                    source = source_match.group(1).strip() if source_match else ""
 
                     if title:
                         news.append({
