@@ -3802,6 +3802,12 @@ async def get_stock_financials_us(ticker: str) -> dict:
             "net_income": [],
             "eps": [],
             "opm": []
+        },
+        "earnings_surprise": {
+            "quarters": [],
+            "eps_estimate": [],
+            "eps_actual": [],
+            "surprise_pct": []
         }
     }
 
@@ -3869,6 +3875,52 @@ async def get_stock_financials_us(ticker: str) -> dict:
                 if eps_val is None:
                     eps_val = qfin.loc["Basic EPS", col] if "Basic EPS" in qfin.index else None
                 result["quarterly"]["eps"].append(round(float(eps_val), 2) if eps_val and eps_val == eps_val else None)
+
+        # 어닝서프라이즈 데이터 (earnings_dates 사용)
+        try:
+            ed = stock.earnings_dates
+            if ed is not None and not ed.empty:
+                # Event Type이 'Earnings'이고 Reported EPS가 있는 것만 (실적 발표된 분기)
+                # 최근 8분기
+                import pandas as pd
+                now = pd.Timestamp.now(tz='America/New_York')
+
+                for idx, row in ed.iterrows():
+                    # 과거 실적만 (미래 예정 제외)
+                    if idx > now:
+                        continue
+                    # Earnings 이벤트만
+                    if row.get('Event Type') != 'Earnings':
+                        continue
+
+                    eps_est = row.get('EPS Estimate')
+                    eps_act = row.get('Reported EPS')
+                    surprise = row.get('Surprise(%)')
+
+                    # 분기 라벨 생성 (예: Q1'24)
+                    q = (idx.month - 1) // 3 + 1
+                    quarter_label = f"Q{q}'{str(idx.year)[2:]}"
+
+                    result["earnings_surprise"]["quarters"].append(quarter_label)
+                    result["earnings_surprise"]["eps_estimate"].append(
+                        round(float(eps_est), 2) if eps_est and eps_est == eps_est else None
+                    )
+                    result["earnings_surprise"]["eps_actual"].append(
+                        round(float(eps_act), 2) if eps_act and eps_act == eps_act else None
+                    )
+                    result["earnings_surprise"]["surprise_pct"].append(
+                        round(float(surprise), 2) if surprise and surprise == surprise else None
+                    )
+
+                    # 최대 8분기
+                    if len(result["earnings_surprise"]["quarters"]) >= 8:
+                        break
+
+                # 역순으로 정렬 (과거→최신)
+                for key in ["quarters", "eps_estimate", "eps_actual", "surprise_pct"]:
+                    result["earnings_surprise"][key] = list(reversed(result["earnings_surprise"][key]))
+        except Exception as e:
+            print(f"[DataProvider] earnings_surprise error for {ticker}: {e}")
 
         _set_cache(cache_key, result)
 

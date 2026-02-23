@@ -10171,16 +10171,15 @@ async function loadFinancialSummaryUs(ticker) {
                         <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-eps-quarter-us"></canvas></div>
                     </div>
 
-                    <!-- 당기순이익 -->
+                    <!-- 어닝서프라이즈 (Earnings Surprise) -->
                     <div class="sd-trend-card">
                         <div class="sd-trend-card-header">
                             <span class="sd-trend-dot" style="background:#a855f7"></span>
-                            <span class="sd-trend-title">당기순이익 (Net Income)</span>
+                            <span class="sd-trend-title">어닝서프라이즈</span>
                         </div>
-                        <div class="sd-trend-sub-label">연간</div>
-                        <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-ni-annual-us"></canvas></div>
-                        <div class="sd-trend-sub-label">분기별</div>
-                        <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-ni-quarter-us"></canvas></div>
+                        <div id="us-earnings-surprise-content">
+                            <div class="sd-trend-chart-wrapper" style="height:160px;"><canvas id="us-earnings-surprise-chart"></canvas></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -10259,19 +10258,145 @@ function renderAllFinancialChartsUs(financials) {
         isEstimate: quarter.isConsensus || [],
     }, FINANCIAL_CHART_COLORS.eps, 'eps', 'USD');
 
-    // 당기순이익 — 연간
-    renderStockEasyChart('sd-fc-ni-annual-us', {
-        periods: annual.periods || [],
-        values: annual.net_income || [],
-        isEstimate: annual.isConsensus || [],
-    }, NET_INCOME_COLORS, 'net_income', 'USD');
+    // 어닝서프라이즈 차트
+    const es = annual.earnings_surprise;
+    if (es && es.quarters && es.quarters.length > 0) {
+        renderEarningsSurpriseChart('us-earnings-surprise-chart', es);
+    } else {
+        const container = document.getElementById('us-earnings-surprise-content');
+        if (container) {
+            container.innerHTML = '<div class="sd-empty-card" style="padding:40px;text-align:center;color:#6b7280;">어닝서프라이즈 데이터 없음</div>';
+        }
+    }
+}
 
-    // 당기순이익 — 분기
-    renderStockEasyChart('sd-fc-ni-quarter-us', {
-        periods: quarter.periods || [],
-        values: quarter.net_income || [],
-        isEstimate: quarter.isConsensus || [],
-    }, NET_INCOME_COLORS, 'net_income', 'USD');
+// 어닝서프라이즈 차트 렌더링 (예상 vs 실제 EPS + 서프라이즈 %)
+function renderEarningsSurpriseChart(canvasId, data) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+
+    // 기존 차트 제거
+    if (canvas._chartInstance) {
+        canvas._chartInstance.destroy();
+    }
+
+    if (typeof Chart === 'undefined') {
+        console.error('[renderEarningsSurpriseChart] Chart.js 미로드');
+        return;
+    }
+
+    const { quarters, eps_estimate, eps_actual, surprise_pct } = data;
+
+    // 실제 EPS 막대 색상 (Beat=초록, Miss=빨강)
+    const actualColors = surprise_pct.map(s =>
+        s === null ? 'transparent' :
+        s >= 0 ? 'rgba(34, 197, 94, 0.8)' : 'rgba(239, 68, 68, 0.8)'
+    );
+    const actualBorders = surprise_pct.map(s =>
+        s === null ? 'transparent' :
+        s >= 0 ? '#22c55e' : '#ef4444'
+    );
+
+    canvas._chartInstance = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: quarters,
+            datasets: [
+                {
+                    label: '예상 EPS',
+                    data: eps_estimate,
+                    backgroundColor: 'rgba(156, 163, 175, 0.5)',
+                    borderColor: 'rgba(156, 163, 175, 0.8)',
+                    borderWidth: 1,
+                    borderRadius: 3,
+                    barPercentage: 0.4,
+                    categoryPercentage: 0.8,
+                    order: 2
+                },
+                {
+                    label: '실제 EPS',
+                    data: eps_actual,
+                    backgroundColor: actualColors,
+                    borderColor: actualBorders,
+                    borderWidth: 1,
+                    borderRadius: 3,
+                    barPercentage: 0.4,
+                    categoryPercentage: 0.8,
+                    order: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            layout: { padding: { top: 30, bottom: 5, left: 5, right: 5 } },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        color: '#9ca3af',
+                        font: { size: 10 },
+                        boxWidth: 12,
+                        padding: 8
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(17, 26, 46, 0.95)',
+                    titleColor: '#E5E7EB',
+                    bodyColor: '#E5E7EB',
+                    callbacks: {
+                        afterBody: function(context) {
+                            const idx = context[0].dataIndex;
+                            const s = surprise_pct[idx];
+                            if (s !== null) {
+                                const sign = s >= 0 ? '+' : '';
+                                const label = s >= 0 ? 'Beat' : 'Miss';
+                                return `서프라이즈: ${sign}${s.toFixed(2)}% (${label})`;
+                            }
+                            return '실적 미발표';
+                        }
+                    }
+                },
+                datalabels: {
+                    display: function(context) {
+                        // 실제 EPS 막대 위에만 서프라이즈 % 표시
+                        return context.datasetIndex === 1 && surprise_pct[context.dataIndex] !== null;
+                    },
+                    anchor: 'end',
+                    align: 'top',
+                    offset: 2,
+                    color: function(context) {
+                        const s = surprise_pct[context.dataIndex];
+                        return s >= 0 ? '#22c55e' : '#ef4444';
+                    },
+                    font: { size: 9, weight: 'bold' },
+                    formatter: function(value, context) {
+                        const s = surprise_pct[context.dataIndex];
+                        if (s === null) return '';
+                        return (s >= 0 ? '+' : '') + s.toFixed(1) + '%';
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#9ca3af', font: { size: 9 } }
+                },
+                y: {
+                    beginAtZero: false,
+                    grace: '15%',
+                    ticks: {
+                        color: '#6b7280',
+                        font: { size: 8 },
+                        callback: (v) => '$' + v.toFixed(2)
+                    },
+                    grid: { color: 'rgba(255,255,255,0.04)' }
+                }
+            }
+        }
+    });
 }
 
 // 재무추이 차트 렌더링 (Chart.js)
