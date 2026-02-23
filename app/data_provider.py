@@ -4100,6 +4100,7 @@ async def get_stock_filings_us(ticker: str, limit: int = 30) -> dict:
     }
 
     try:
+        import yfinance as yf
         stock = yf.Ticker(ticker)
         filings = stock.sec_filings
 
@@ -4155,6 +4156,7 @@ async def get_stock_analyst_us(ticker: str, limit: int = 30) -> dict:
     }
 
     try:
+        import yfinance as yf
         stock = yf.Ticker(ticker)
         ud = stock.upgrades_downgrades
 
