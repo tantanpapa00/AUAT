@@ -3654,33 +3654,38 @@ async def get_invest_indicators_kr(code: str) -> dict:
 
 
 async def _fetch_valuation_items(code: str) -> dict:
-    """네이버에서 밸류에이션 지표 가져오기"""
+    """네이버 finance API에서 밸류에이션 지표(PER, PBR) 가져오기"""
     items = {}
     try:
-        url = f"https://m.stock.naver.com/api/stock/{code}/integration"
+        # finance/quarter API에서 PER, PBR 가져오기
+        url = f"https://m.stock.naver.com/api/stock/{code}/finance/quarter"
         async with httpx.AsyncClient(timeout=10, headers=NAVER_HEADERS) as client:
             r = await client.get(url)
             if r.status_code == 200:
                 data = r.json()
+                rows = data.get("financeInfo", {}).get("rowList", [])
 
-                # PER
-                per = data.get("per")
-                if per:
-                    try:
-                        items["PER"] = float(per)
-                    except:
-                        pass
+                for row in rows:
+                    title = row.get("title", "")
+                    if title in ["PER", "PBR"]:
+                        cols = row.get("columns", {})
+                        # 최신 유효 값 찾기
+                        for col_data in reversed(list(cols.values())):
+                            val_str = col_data.get("value", "")
+                            if val_str and val_str != "-":
+                                try:
+                                    items[title] = float(val_str.replace(",", ""))
+                                    break
+                                except:
+                                    continue
 
-                # PBR
-                pbr = data.get("pbr")
-                if pbr:
-                    try:
-                        items["PBR"] = float(pbr)
-                    except:
-                        pass
-
-                # 배당수익률
-                div_yield = data.get("dividendYield")
+        # 배당수익률은 integration API에서
+        url2 = f"https://m.stock.naver.com/api/stock/{code}/integration"
+        async with httpx.AsyncClient(timeout=10, headers=NAVER_HEADERS) as client:
+            r2 = await client.get(url2)
+            if r2.status_code == 200:
+                data2 = r2.json()
+                div_yield = data2.get("dividendYield")
                 if div_yield:
                     try:
                         items["배당수익률"] = float(str(div_yield).replace("%", ""))
