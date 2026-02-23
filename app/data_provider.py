@@ -3769,6 +3769,116 @@ async def get_stock_chart_us(ticker: str, period: str = "3m", timeframe: str = "
     return result
 
 
+async def get_stock_financials_us(ticker: str) -> dict:
+    """
+    해외 종목 재무 데이터 (연간 + 분기)
+    데이터 소스: yfinance
+    국내주식 API와 동일한 구조로 반환
+    """
+    import yfinance as yf
+
+    ticker = ticker.upper()
+    cache_key = f"stock_financials_us_{ticker}"
+    cached = _cached(cache_key, 3600)  # 1시간 캐싱
+    if cached:
+        return cached
+
+    result = {
+        "ticker": ticker,
+        "currency": "USD",
+        "periods": [],
+        "isConsensus": [],
+        "revenue": [],
+        "operating_profit": [],
+        "net_income": [],
+        "eps": [],
+        "opm": [],
+        "gpm": [],
+        "quarterly": {
+            "periods": [],
+            "isConsensus": [],
+            "revenue": [],
+            "operating_profit": [],
+            "net_income": [],
+            "eps": [],
+            "opm": []
+        }
+    }
+
+    try:
+        stock = yf.Ticker(ticker)
+
+        # 연간 데이터
+        fin = stock.financials
+        if fin is not None and not fin.empty:
+            for col in reversed(fin.columns):  # 과거→최신 순
+                year = str(col.year)
+                result["periods"].append(year)
+                result["isConsensus"].append(False)
+
+                # 백만 달러 단위로 변환
+                rev = fin.loc["Total Revenue", col] / 1e6 if "Total Revenue" in fin.index else None
+                op = fin.loc["Operating Income", col] / 1e6 if "Operating Income" in fin.index else None
+                ni = fin.loc["Net Income", col] / 1e6 if "Net Income" in fin.index else None
+                gp = fin.loc["Gross Profit", col] / 1e6 if "Gross Profit" in fin.index else None
+
+                result["revenue"].append(round(rev, 1) if rev and rev == rev else None)
+                result["operating_profit"].append(round(op, 1) if op and op == op else None)
+                result["net_income"].append(round(ni, 1) if ni and ni == ni else None)
+
+                # OPM, GPM 계산
+                opm = (op / rev * 100) if rev and op and rev > 0 else None
+                gpm = (gp / rev * 100) if rev and gp and rev > 0 else None
+                result["opm"].append(round(opm, 1) if opm and opm == opm else None)
+                result["gpm"].append(round(gpm, 1) if gpm and gpm == gpm else None)
+
+                # EPS (info에서 가져오기)
+                result["eps"].append(None)  # 연간 EPS는 분기별로 대체
+
+        # EPS는 info에서
+        info = stock.info
+        if info:
+            trailing_eps = info.get("trailingEps")
+            if trailing_eps and result["eps"] and len(result["eps"]) > 0:
+                result["eps"][-1] = round(trailing_eps, 2) if trailing_eps else None
+
+        # 분기 데이터
+        qfin = stock.quarterly_financials
+        if qfin is not None and not qfin.empty:
+            for col in reversed(qfin.columns):
+                # Q1, Q2, Q3, Q4 형식으로 변환
+                month = col.month
+                quarter = (month - 1) // 3 + 1
+                period_str = f"{col.year}.Q{quarter}"
+                result["quarterly"]["periods"].append(period_str)
+                result["quarterly"]["isConsensus"].append(False)
+
+                rev = qfin.loc["Total Revenue", col] / 1e6 if "Total Revenue" in qfin.index else None
+                op = qfin.loc["Operating Income", col] / 1e6 if "Operating Income" in qfin.index else None
+                ni = qfin.loc["Net Income", col] / 1e6 if "Net Income" in qfin.index else None
+
+                result["quarterly"]["revenue"].append(round(rev, 1) if rev and rev == rev else None)
+                result["quarterly"]["operating_profit"].append(round(op, 1) if op and op == op else None)
+                result["quarterly"]["net_income"].append(round(ni, 1) if ni and ni == ni else None)
+
+                opm = (op / rev * 100) if rev and op and rev > 0 else None
+                result["quarterly"]["opm"].append(round(opm, 1) if opm and opm == opm else None)
+
+                # 분기 EPS (Diluted EPS 사용)
+                eps_val = qfin.loc["Diluted EPS", col] if "Diluted EPS" in qfin.index else None
+                if eps_val is None:
+                    eps_val = qfin.loc["Basic EPS", col] if "Basic EPS" in qfin.index else None
+                result["quarterly"]["eps"].append(round(float(eps_val), 2) if eps_val and eps_val == eps_val else None)
+
+        _set_cache(cache_key, result)
+
+    except Exception as e:
+        print(f"[DataProvider] get_stock_financials_us error for {ticker}: {e}")
+        traceback.print_exc()
+
+    return result
+
+
 async def get_stock_news_us(ticker: str, limit: int = 20) -> dict:
     """
     해외 종목 뉴스
@@ -3917,44 +4027,6 @@ async def get_stock_company_us(ticker: str) -> dict:
     return result
 
 
-async def get_stock_financials_us(ticker: str, fin_type: str = "annual") -> dict:
-    """
-    해외 종목 재무 추이
-    Yahoo Finance 차단으로 추이 데이터 없음 - Finviz 스냅샷 지표만 제공
-    """
-    ticker = ticker.upper()
-    cache_key = f"stock_financials_us_{ticker}_{fin_type}"
-    cached = _cached(cache_key, 1800)  # 30분 캐싱
-    if cached:
-        return cached
-
-    result = {
-        "ticker": ticker,
-        "type": fin_type,
-        "periods": [],
-        "revenue": [],
-        "operating_profit": [],
-        "net_income": [],
-        "eps": [],
-        "note": "Detailed financial trends are not available."
-    }
-
-    # Finviz에서 현재 스냅샷 지표만 가져옴
-    try:
-        summary = await get_stock_summary_us(ticker)
-        if summary:
-            # 현재 데이터만 제공
-            result["eps"] = [summary.get("eps", 0)]
-            result["per"] = summary.get("per", 0)
-            result["operating_margin"] = summary.get("operating_margin", 0)
-            result["profit_margin"] = summary.get("profit_margin", 0)
-
-        _set_cache(cache_key, result)
-    except Exception as e:
-        print(f"[DataProvider] get_stock_financials_us error for {ticker}: {e}")
-        traceback.print_exc()
-
-    return result
 
 
 # =============================================================================

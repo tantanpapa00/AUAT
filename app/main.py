@@ -10612,15 +10612,14 @@ async def api_stock_company_us(
 @app.get("/api/stock/us/{ticker}/financials")
 async def api_stock_financials_us(
     ticker: str,
-    fin_type: str = Query("annual", regex="^(annual|quarter)$"),
     current_user: User = Depends(get_current_user_optional)
 ):
     """
-    해외 종목 재무 정보
-    - 데이터 소스: Finviz snapshot (Yahoo Finance 차단으로 추이 데이터 제한)
+    해외 종목 재무 정보 (연간 + 분기)
+    - 데이터 소스: yfinance
     - 누구나 접근 가능
     """
-    data = await get_stock_financials_us(ticker, fin_type)
+    data = await get_stock_financials_us(ticker)
     return {"data": data}
 
 

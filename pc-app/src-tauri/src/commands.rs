@@ -2112,21 +2112,19 @@ pub async fn get_stock_company_us(
     }
 }
 
-/// 해외 종목 재무 정보 (Phase 9)
+/// 해외 종목 재무 정보 (Phase 9) - yfinance 연간+분기 데이터
 #[tauri::command]
 pub async fn get_stock_financials_us(
     access_token: String,
     ticker: String,
-    fin_type: Option<String>,
 ) -> Result<serde_json::Value, String> {
     let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
-    let ft = fin_type.unwrap_or_else(|| "annual".to_string());
-    let url = format!("{}/api/stock/us/{}/financials?fin_type={}", VPS_SERVER_URL, ticker, ft);
+    let url = format!("{}/api/stock/us/{}/financials", VPS_SERVER_URL, ticker);
 
     let resp = client
         .get(&url)
         .header("Authorization", format!("Bearer {}", access_token))
-        .timeout(std::time::Duration::from_secs(15))
+        .timeout(std::time::Duration::from_secs(30))  // yfinance 처리 시간
         .send()
         .await
         .map_err(|e| format!("네트워크 오류: {}", e))?;

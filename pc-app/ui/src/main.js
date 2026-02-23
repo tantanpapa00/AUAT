@@ -9767,8 +9767,9 @@ function renderEpsForecastChartFallback(container, annualData) {
 }
 
 // StockEasy 스타일 차트 렌더링 (실적/전망치 분리 + 점선 테두리)
-function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
-    console.log('[renderStockEasyChart] 시작:', canvasId, chartData);
+// currency: 'KRW' (기본, 억원/조원) 또는 'USD' ($M/$B)
+function renderStockEasyChart(canvasId, chartData, colorSet, chartType, currency = 'KRW') {
+    console.log('[renderStockEasyChart] 시작:', canvasId, chartData, 'currency:', currency);
 
     const canvas = document.getElementById(canvasId);
     if (!canvas) {
@@ -9808,17 +9809,29 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
         return p;
     });
 
-    // 숫자 포맷 함수
+    // 숫자 포맷 함수 (currency에 따라 분기)
     const formatLabel = (v) => {
         if (v === null || v === undefined || v === 0) return '';
-        if (chartType === 'eps') {
-            return Math.round(v).toLocaleString('ko-KR') + '원';
+        if (currency === 'USD') {
+            // USD: EPS는 $, 매출/영업이익은 $M/$B (백만달러 단위 입력)
+            if (chartType === 'eps') {
+                return '$' + v.toFixed(2);
+            }
+            const abs = Math.abs(v);
+            const sign = v < 0 ? '-' : '';
+            if (abs >= 1000) return sign + '$' + (abs / 1000).toFixed(1) + 'B';
+            return sign + '$' + Math.round(abs) + 'M';
+        } else {
+            // KRW: 억원/조원
+            if (chartType === 'eps') {
+                return Math.round(v).toLocaleString('ko-KR') + '원';
+            }
+            const abs = Math.abs(v);
+            const sign = v < 0 ? '-' : '';
+            if (abs >= 10000) return sign + (abs / 10000).toFixed(1) + '조';
+            if (abs >= 100) return sign + Math.round(abs) + '억';
+            return sign + v;
         }
-        const abs = Math.abs(v);
-        const sign = v < 0 ? '-' : '';
-        if (abs >= 10000) return sign + (abs / 10000).toFixed(1) + '조';
-        if (abs >= 100) return sign + Math.round(abs) + '억';
-        return sign + v;
     };
 
     // 데이터셋 구성
@@ -9836,17 +9849,7 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
         clip: false,
         color: '#ccc',
         font: { size: labelFontSize, weight: 'bold' },
-        formatter: (v) => {
-            if (v === null || v === undefined || v === 0) return '';
-            if (chartType === 'eps') {
-                return Math.round(v).toLocaleString() + '원';
-            }
-            const abs = Math.abs(v);
-            const sign = v < 0 ? '-' : '';
-            if (abs >= 10000) return sign + (abs / 10000).toFixed(1) + '조';
-            if (abs >= 100) return sign + Math.round(abs) + '억';
-            return sign + v;
-        },
+        formatter: formatLabel,  // currency에 따라 자동 분기
     };
 
     // 실적 막대 (채운 색상)
@@ -9970,17 +9973,7 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
                         clip: false,
                         color: '#ccc',
                         font: { size: 11, weight: 'bold' },
-                        formatter: (v) => {
-                            if (v === null || v === undefined || v === 0) return '';
-                            if (chartType === 'eps') {
-                                return Math.round(v).toLocaleString() + '원';
-                            }
-                            const abs = Math.abs(v);
-                            const sign = v < 0 ? '-' : '';
-                            if (abs >= 10000) return sign + (abs / 10000).toFixed(1) + '조';
-                            if (abs >= 100) return sign + Math.round(abs) + '억';
-                            return sign + v;
-                        },
+                        formatter: formatLabel,  // currency에 따라 자동 분기
                     },
                 },
                 scales: {
@@ -10000,13 +9993,18 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
                             font: { size: 8 },
                             maxTicksLimit: 4,
                             callback: (v) => {
-                                if (chartType === 'eps') {
-                                    return v.toLocaleString();
+                                if (currency === 'USD') {
+                                    if (chartType === 'eps') return '$' + v.toFixed(0);
+                                    const abs = Math.abs(v);
+                                    if (abs >= 1000) return '$' + (v / 1000).toFixed(0) + 'B';
+                                    return '$' + Math.round(v) + 'M';
+                                } else {
+                                    if (chartType === 'eps') return v.toLocaleString();
+                                    const abs = Math.abs(v);
+                                    if (abs >= 10000) return (v / 10000).toFixed(0) + '조';
+                                    if (abs >= 100) return Math.round(v) + '억';
+                                    return v;
                                 }
-                                const abs = Math.abs(v);
-                                if (abs >= 10000) return (v / 10000).toFixed(0) + '조';
-                                if (abs >= 100) return Math.round(v) + '억';
-                                return v;
                             },
                         },
                         grid: { color: 'rgba(255,255,255,0.04)' },
@@ -10033,118 +10031,247 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType) {
     }
 }
 
-// 해외 종목 재무 요약 로드 (Phase 9)
+// 해외 종목 재무 데이터 전역 저장
+let currentFinancialDataUs = { annual: null, quarter: null };
+let currentFinancialTickerUs = '';
+
+// 해외 종목 재무 요약 로드 (Phase 9) - 국내주식과 동일한 구조
 async function loadFinancialSummaryUs(ticker) {
     const summaryContent = document.getElementById('info-summary');
     if (!summaryContent) return;
 
     summaryContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>Loading...</span></div>';
 
+    currentFinancialTickerUs = ticker;
+    currentFinancialDataUs = { annual: null, quarter: null };
+
     try {
-        const response = await invokeWithTimeout('get_stock_summary_us', {
-            accessToken: auth.accessToken || '',
-            ticker: ticker
-        }, 15000);
+        // 요약 정보와 재무추이 병렬 로드
+        const [summaryResp, financialsResp] = await Promise.all([
+            invokeWithTimeout('get_stock_summary_us', {
+                accessToken: auth.accessToken || '',
+                ticker: ticker
+            }, 15000),
+            invokeWithTimeout('get_stock_financials_us', {
+                accessToken: auth.accessToken || '',
+                ticker: ticker
+            }, 30000)  // yfinance 처리 시간
+        ]);
 
-        const data = response?.data || {};
+        const summary = summaryResp?.data || {};
+        const financials = financialsResp?.data || {};
+        currentFinancialDataUs.annual = financials;
+        currentFinancialDataUs.quarter = financials.quarterly || {};
 
-        // 시가총액을 달러 표시로 포맷 (예: $3.88T, $130.5B)
+        console.log('[loadFinancialSummaryUs] financials:', financials);
+
+        // 시가총액을 달러 표시로 포맷
         const formatMarketCapUsd = (mcStr) => {
             if (!mcStr) return '-';
-            // 이미 "3884.34B" 형식이면 앞에 $ 붙임
-            if (mcStr.match(/^[\d.]+[BMT]$/i)) {
-                return '$' + mcStr;
-            }
+            if (mcStr.match(/^[\d.]+[BMT]$/i)) return '$' + mcStr;
             return mcStr;
         };
 
-        // 주요 재무지표 (국내주식과 동일한 6개 카드 + 한글 라벨)
+        // 백만달러 포맷 ($123.4M, $1.2B)
+        const formatUsdMillions = (v) => {
+            if (!v || v === 0) return '-';
+            const abs = Math.abs(v);
+            if (abs >= 1000) return '$' + (v / 1000).toFixed(1) + 'B';
+            return '$' + Math.round(v) + 'M';
+        };
+
+        // 최신 재무 데이터에서 값 추출 (연간 기준)
+        const latestRevenue = financials.revenue?.length > 0 ? financials.revenue[financials.revenue.length - 1] : 0;
+        const latestOpProfit = financials.operating_profit?.length > 0 ? financials.operating_profit[financials.operating_profit.length - 1] : 0;
+        const latestNetIncome = financials.net_income?.length > 0 ? financials.net_income[financials.net_income.length - 1] : 0;
+        const latestEps = financials.eps?.length > 0 ? financials.eps[financials.eps.length - 1] : 0;
+        const latestOpm = financials.opm?.length > 0 ? financials.opm[financials.opm.length - 1] : null;
+        const latestPeriod = financials.periods?.length > 0 ? financials.periods[financials.periods.length - 1] : '';
+
+        // 요약 재무 카드 - 국내주식과 동일한 6개 항목
         const summaryCardHtml = `
             <div class="sd-card">
-                <div class="sd-card-title">주요 재무지표</div>
+                <div class="sd-card-title">
+                    주요 재무지표
+                    <span class="sd-basis-label">${latestPeriod ? `기준: ${latestPeriod} (연간)` : ''}</span>
+                </div>
                 <div class="sd-financial-grid sd-grid-6">
                     <div class="sd-financial-item">
                         <span class="sd-financial-label">시가총액</span>
-                        <span class="sd-financial-value">${formatMarketCapUsd(data.market_cap)}</span>
+                        <span class="sd-financial-value">${formatMarketCapUsd(summary.market_cap)}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">PER</span>
-                        <span class="sd-financial-value">${data.per > 0 ? data.per.toFixed(2) : '-'}</span>
+                        <span class="sd-financial-label">매출액</span>
+                        <span class="sd-financial-value">${formatUsdMillions(latestRevenue)}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">선행PER</span>
-                        <span class="sd-financial-value">${data.forward_per > 0 ? data.forward_per.toFixed(2) : '-'}</span>
+                        <span class="sd-financial-label">영업이익</span>
+                        <span class="sd-financial-value ${latestOpProfit < 0 ? 'negative' : ''}">${formatUsdMillions(latestOpProfit)}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">PBR</span>
-                        <span class="sd-financial-value">${data.pbr > 0 ? data.pbr.toFixed(2) : '-'}</span>
+                        <span class="sd-financial-label">OPM</span>
+                        <span class="sd-financial-value ${latestOpm && latestOpm < 0 ? 'negative' : ''}">${latestOpm ? latestOpm.toFixed(1) + '%' : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
                         <span class="sd-financial-label">EPS</span>
-                        <span class="sd-financial-value">${data.eps > 0 ? '$' + data.eps.toFixed(2) : '-'}</span>
+                        <span class="sd-financial-value">${latestEps ? '$' + latestEps.toFixed(2) : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">ROE</span>
-                        <span class="sd-financial-value">${data.roe > 0 ? data.roe.toFixed(1) + '%' : '-'}</span>
+                        <span class="sd-financial-label">당기순이익</span>
+                        <span class="sd-financial-value ${latestNetIncome < 0 ? 'negative' : ''}">${formatUsdMillions(latestNetIncome)}</span>
                     </div>
-                </div>
-            </div>
-            <div class="sd-card">
-                <div class="sd-card-title">밸류에이션</div>
-                <div class="sd-financial-grid sd-grid-6">
-                    <div class="sd-financial-item">
-                        <span class="sd-financial-label">52주 최고</span>
-                        <span class="sd-financial-value positive">${data.high_52w > 0 ? '$' + data.high_52w.toFixed(2) : '-'}</span>
-                    </div>
-                    <div class="sd-financial-item">
-                        <span class="sd-financial-label">52주 최저</span>
-                        <span class="sd-financial-value negative">${data.low_52w > 0 ? '$' + data.low_52w.toFixed(2) : '-'}</span>
-                    </div>
-                    <div class="sd-financial-item">
-                        <span class="sd-financial-label">ROA</span>
-                        <span class="sd-financial-value">${data.roa > 0 ? data.roa.toFixed(1) + '%' : '-'}</span>
-                    </div>
-                    <div class="sd-financial-item">
-                        <span class="sd-financial-label">영업이익률</span>
-                        <span class="sd-financial-value">${data.operating_margin > 0 ? data.operating_margin.toFixed(1) + '%' : '-'}</span>
-                    </div>
-                    <div class="sd-financial-item">
-                        <span class="sd-financial-label">순이익률</span>
-                        <span class="sd-financial-value">${data.profit_margin > 0 ? data.profit_margin.toFixed(1) + '%' : '-'}</span>
-                    </div>
-                    <div class="sd-financial-item">
-                        <span class="sd-financial-label">배당률</span>
-                        <span class="sd-financial-value">${data.dividend_yield > 0 ? data.dividend_yield.toFixed(2) + '%' : '-'}</span>
-                    </div>
-                </div>
-            </div>
-            <div class="sd-card">
-                <div class="sd-card-title">애널리스트 평가</div>
-                <div class="sd-consensus-grid">
-                    <div class="sd-consensus-item">
-                        <span class="sd-consensus-label">목표주가</span>
-                        <span class="sd-consensus-value">${data.target_price > 0 ? '$' + data.target_price.toFixed(2) : '-'}</span>
-                    </div>
-                    <div class="sd-consensus-item">
-                        <span class="sd-consensus-label">투자의견</span>
-                        <span class="sd-consensus-value">${data.recommendation || '-'}</span>
-                    </div>
-                </div>
-            </div>
-            <div class="sd-card">
-                <div class="sd-card-title">재무추이</div>
-                <div class="sd-empty-state" style="padding: 40px; text-align: center; color: #9CA3AF;">
-                    데이터 준비 중
                 </div>
             </div>
         `;
 
-        summaryContent.innerHTML = summaryCardHtml;
+        // 재무추이 차트 - 국내주식과 동일한 2x2 레이아웃
+        const financialChartsHtml = `
+            <div class="sd-trend-section">
+                <div class="sd-trend-note">단위: 백만 달러 ($M), 연간 기준</div>
+
+                <!-- 매출액 + 영업이익: 2열 나란히 -->
+                <div class="sd-trend-row">
+                    <!-- 매출액 -->
+                    <div class="sd-trend-card">
+                        <div class="sd-trend-card-header">
+                            <span class="sd-trend-dot blue"></span>
+                            <span class="sd-trend-title">매출액 (Revenue)</span>
+                        </div>
+                        <div class="sd-trend-sub-label">연간</div>
+                        <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-revenue-annual-us"></canvas></div>
+                        <div class="sd-trend-sub-label">분기별</div>
+                        <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-revenue-quarter-us"></canvas></div>
+                    </div>
+
+                    <!-- 영업이익 -->
+                    <div class="sd-trend-card">
+                        <div class="sd-trend-card-header">
+                            <span class="sd-trend-dot green"></span>
+                            <span class="sd-trend-title">영업이익 (Operating Income)</span>
+                            <span class="sd-trend-legend-line">── OPM</span>
+                        </div>
+                        <div class="sd-trend-sub-label">연간</div>
+                        <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-op-annual-us"></canvas></div>
+                        <div class="sd-trend-sub-label">분기별</div>
+                        <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-op-quarter-us"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- EPS + 당기순이익: 2열 나란히 -->
+                <div class="sd-trend-row">
+                    <!-- EPS -->
+                    <div class="sd-trend-card">
+                        <div class="sd-trend-card-header">
+                            <span class="sd-trend-dot orange"></span>
+                            <span class="sd-trend-title">EPS</span>
+                        </div>
+                        <div class="sd-trend-sub-label">연간</div>
+                        <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-eps-annual-us"></canvas></div>
+                        <div class="sd-trend-sub-label">분기별</div>
+                        <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-eps-quarter-us"></canvas></div>
+                    </div>
+
+                    <!-- 당기순이익 -->
+                    <div class="sd-trend-card">
+                        <div class="sd-trend-card-header">
+                            <span class="sd-trend-dot" style="background:#a855f7"></span>
+                            <span class="sd-trend-title">당기순이익 (Net Income)</span>
+                        </div>
+                        <div class="sd-trend-sub-label">연간</div>
+                        <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-ni-annual-us"></canvas></div>
+                        <div class="sd-trend-sub-label">분기별</div>
+                        <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-ni-quarter-us"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        summaryContent.innerHTML = summaryCardHtml + financialChartsHtml;
+
+        // 차트 렌더링
+        renderAllFinancialChartsUs(financials);
 
     } catch (error) {
         console.error('Failed to load US financial summary:', error);
         summaryContent.innerHTML = '<div class="sd-empty-state">재무 정보를 불러올 수 없습니다</div>';
     }
+}
+
+// 해외주식 재무추이 차트 렌더링 (USD)
+function renderAllFinancialChartsUs(financials) {
+    const annual = financials || {};
+    const quarter = financials.quarterly || {};
+
+    console.log('[renderAllFinancialChartsUs] annual:', annual);
+    console.log('[renderAllFinancialChartsUs] quarter:', quarter);
+
+    // 당기순이익 색상 (보라색)
+    const NET_INCOME_COLORS = {
+        positive: '#a855f7',
+        positive_est: 'rgba(168, 85, 247, 0.15)',
+        negative: '#ef4444',
+        negative_est: 'rgba(239, 68, 68, 0.15)',
+        border: '#a855f7',
+    };
+
+    // 매출액 — 연간
+    renderStockEasyChart('sd-fc-revenue-annual-us', {
+        periods: annual.periods || [],
+        values: annual.revenue || [],
+        isEstimate: annual.isConsensus || [],
+        gpm: annual.gpm || [],
+    }, FINANCIAL_CHART_COLORS.revenue, 'revenue', 'USD');
+
+    // 매출액 — 분기
+    renderStockEasyChart('sd-fc-revenue-quarter-us', {
+        periods: quarter.periods || [],
+        values: quarter.revenue || [],
+        isEstimate: quarter.isConsensus || [],
+    }, FINANCIAL_CHART_COLORS.revenue, 'revenue', 'USD');
+
+    // 영업이익 — 연간 (OPM 라인 포함)
+    renderStockEasyChart('sd-fc-op-annual-us', {
+        periods: annual.periods || [],
+        values: annual.operating_profit || [],
+        isEstimate: annual.isConsensus || [],
+        opm: annual.opm || [],
+    }, FINANCIAL_CHART_COLORS.operating, 'operating', 'USD');
+
+    // 영업이익 — 분기
+    renderStockEasyChart('sd-fc-op-quarter-us', {
+        periods: quarter.periods || [],
+        values: quarter.operating_profit || [],
+        isEstimate: quarter.isConsensus || [],
+        opm: quarter.opm || [],
+    }, FINANCIAL_CHART_COLORS.operating, 'operating', 'USD');
+
+    // EPS — 연간
+    renderStockEasyChart('sd-fc-eps-annual-us', {
+        periods: annual.periods || [],
+        values: annual.eps || [],
+        isEstimate: annual.isConsensus || [],
+    }, FINANCIAL_CHART_COLORS.eps, 'eps', 'USD');
+
+    // EPS — 분기
+    renderStockEasyChart('sd-fc-eps-quarter-us', {
+        periods: quarter.periods || [],
+        values: quarter.eps || [],
+        isEstimate: quarter.isConsensus || [],
+    }, FINANCIAL_CHART_COLORS.eps, 'eps', 'USD');
+
+    // 당기순이익 — 연간
+    renderStockEasyChart('sd-fc-ni-annual-us', {
+        periods: annual.periods || [],
+        values: annual.net_income || [],
+        isEstimate: annual.isConsensus || [],
+    }, NET_INCOME_COLORS, 'net_income', 'USD');
+
+    // 당기순이익 — 분기
+    renderStockEasyChart('sd-fc-ni-quarter-us', {
+        periods: quarter.periods || [],
+        values: quarter.net_income || [],
+        isEstimate: quarter.isConsensus || [],
+    }, NET_INCOME_COLORS, 'net_income', 'USD');
 }
 
 // 재무추이 차트 렌더링 (Chart.js)
