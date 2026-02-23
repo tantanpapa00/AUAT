@@ -3838,15 +3838,9 @@ async def get_stock_financials_us(ticker: str) -> dict:
                 result["opm"].append(round(opm, 1) if opm and opm == opm else None)
                 result["gpm"].append(round(gpm, 1) if gpm and gpm == gpm else None)
 
-                # EPS (info에서 가져오기)
-                result["eps"].append(None)  # 연간 EPS는 분기별로 대체
-
-        # EPS는 info에서
-        info = stock.info
-        if info:
-            trailing_eps = info.get("trailingEps")
-            if trailing_eps and result["eps"] and len(result["eps"]) > 0:
-                result["eps"][-1] = round(trailing_eps, 2) if trailing_eps else None
+                # 연간 EPS (Diluted EPS 사용)
+                eps_val = fin.loc["Diluted EPS", col] if "Diluted EPS" in fin.index else None
+                result["eps"].append(round(float(eps_val), 2) if eps_val and eps_val == eps_val else None)
 
         # 컨센서스 예상치 (연간) - revenue_estimate, earnings_estimate 사용
         import datetime
@@ -3967,31 +3961,21 @@ async def get_stock_financials_us(ticker: str) -> dict:
         except Exception as e:
             print(f"[DataProvider] quarterly consensus error for {ticker}: {e}")
 
-        # 어닝서프라이즈 데이터 (earnings_dates 사용)
+        # 어닝서프라이즈 데이터 (earnings_history 사용)
         try:
-            ed = stock.earnings_dates
-            if ed is not None and not ed.empty:
-                # Reported EPS가 있는 것만 (실적 발표된 분기)
-                # 최근 8분기
-                import pandas as pd
-                now = pd.Timestamp.now(tz='America/New_York')
+            eh = stock.earnings_history
+            if eh is not None and not eh.empty:
+                for idx, row in eh.iterrows():
+                    # 분기 라벨 (idx는 'YYYY-MM-DD' 형식의 quarter 값)
+                    # earnings_history index는 quarter 컬럼 (예: 2025-01-31)
+                    import pandas as pd
+                    dt = pd.to_datetime(idx)
+                    q = (dt.month - 1) // 3 + 1
+                    quarter_label = f"Q{q}'{str(dt.year)[2:]}"
 
-                for idx, row in ed.iterrows():
-                    # 과거 실적만 (미래 예정 제외)
-                    if idx > now:
-                        continue
-
-                    eps_est = row.get('EPS Estimate')
-                    eps_act = row.get('Reported EPS')
-                    surprise = row.get('Surprise(%)')
-
-                    # Reported EPS가 없으면 스킵 (미발표)
-                    if eps_act is None or (isinstance(eps_act, float) and eps_act != eps_act):
-                        continue
-
-                    # 분기 라벨 생성 (예: Q1'24)
-                    q = (idx.month - 1) // 3 + 1
-                    quarter_label = f"Q{q}'{str(idx.year)[2:]}"
+                    eps_est = row.get('epsEstimate')
+                    eps_act = row.get('epsActual')
+                    surprise = row.get('surprisePercent')
 
                     result["earnings_surprise"]["quarters"].append(quarter_label)
                     result["earnings_surprise"]["eps_estimate"].append(
@@ -4001,16 +3985,8 @@ async def get_stock_financials_us(ticker: str) -> dict:
                         round(float(eps_act), 2) if eps_act and eps_act == eps_act else None
                     )
                     result["earnings_surprise"]["surprise_pct"].append(
-                        round(float(surprise), 2) if surprise and surprise == surprise else None
+                        round(float(surprise) * 100, 2) if surprise and surprise == surprise else None
                     )
-
-                    # 최대 8분기
-                    if len(result["earnings_surprise"]["quarters"]) >= 8:
-                        break
-
-                # 역순으로 정렬 (과거→최신)
-                for key in ["quarters", "eps_estimate", "eps_actual", "surprise_pct"]:
-                    result["earnings_surprise"][key] = list(reversed(result["earnings_surprise"][key]))
         except Exception as e:
             print(f"[DataProvider] earnings_surprise error for {ticker}: {e}")
 
