@@ -3848,6 +3848,49 @@ async def get_stock_financials_us(ticker: str) -> dict:
             if trailing_eps and result["eps"] and len(result["eps"]) > 0:
                 result["eps"][-1] = round(trailing_eps, 2) if trailing_eps else None
 
+        # 컨센서스 예상치 (연간) - revenue_estimate, earnings_estimate 사용
+        import datetime
+        current_year = datetime.datetime.now().year
+        try:
+            rev_est = stock.revenue_estimate
+            eps_est = stock.earnings_estimate
+
+            # 연간 예상치 추가 (0y=올해, +1y=내년)
+            for col, year_offset in [('0y', 0), ('+1y', 1)]:
+                year_label = f"{current_year + year_offset}(E)"
+
+                # 이미 해당 연도 실적이 있으면 스킵
+                if str(current_year + year_offset) in result["periods"]:
+                    continue
+
+                has_data = False
+                rev_val = None
+                eps_val = None
+
+                if rev_est is not None and not rev_est.empty and col in rev_est.index:
+                    avg_rev = rev_est.loc[col, 'avg']
+                    if avg_rev and avg_rev == avg_rev:
+                        rev_val = round(float(avg_rev) / 1e6, 1)  # 백만달러
+                        has_data = True
+
+                if eps_est is not None and not eps_est.empty and col in eps_est.index:
+                    avg_eps = eps_est.loc[col, 'avg']
+                    if avg_eps and avg_eps == avg_eps:
+                        eps_val = round(float(avg_eps), 2)
+                        has_data = True
+
+                if has_data:
+                    result["periods"].append(year_label)
+                    result["isConsensus"].append(True)
+                    result["revenue"].append(rev_val)
+                    result["operating_profit"].append(None)  # 컨센서스에 영업이익 없음
+                    result["net_income"].append(None)
+                    result["eps"].append(eps_val)
+                    result["opm"].append(None)
+                    result["gpm"].append(None)
+        except Exception as e:
+            print(f"[DataProvider] consensus estimate error for {ticker}: {e}")
+
         # 분기 데이터
         qfin = stock.quarterly_financials
         if qfin is not None and not qfin.empty:
@@ -3875,6 +3918,54 @@ async def get_stock_financials_us(ticker: str) -> dict:
                 if eps_val is None:
                     eps_val = qfin.loc["Basic EPS", col] if "Basic EPS" in qfin.index else None
                 result["quarterly"]["eps"].append(round(float(eps_val), 2) if eps_val and eps_val == eps_val else None)
+
+        # 분기 컨센서스 예상치 (0q=이번분기, +1q=다음분기)
+        try:
+            rev_est = stock.revenue_estimate
+            eps_est = stock.earnings_estimate
+            now = datetime.datetime.now()
+            current_q = (now.month - 1) // 3 + 1
+
+            for col, q_offset in [('0q', 0), ('+1q', 1)]:
+                target_q = current_q + q_offset
+                target_year = now.year
+                if target_q > 4:
+                    target_q -= 4
+                    target_year += 1
+
+                q_label = f"{target_year}.Q{target_q}(E)"
+
+                # 이미 해당 분기 실적이 있으면 스킵
+                base_label = f"{target_year}.Q{target_q}"
+                if base_label in result["quarterly"]["periods"]:
+                    continue
+
+                has_data = False
+                rev_val = None
+                eps_val = None
+
+                if rev_est is not None and not rev_est.empty and col in rev_est.index:
+                    avg_rev = rev_est.loc[col, 'avg']
+                    if avg_rev and avg_rev == avg_rev:
+                        rev_val = round(float(avg_rev) / 1e6, 1)
+                        has_data = True
+
+                if eps_est is not None and not eps_est.empty and col in eps_est.index:
+                    avg_eps = eps_est.loc[col, 'avg']
+                    if avg_eps and avg_eps == avg_eps:
+                        eps_val = round(float(avg_eps), 2)
+                        has_data = True
+
+                if has_data:
+                    result["quarterly"]["periods"].append(q_label)
+                    result["quarterly"]["isConsensus"].append(True)
+                    result["quarterly"]["revenue"].append(rev_val)
+                    result["quarterly"]["operating_profit"].append(None)
+                    result["quarterly"]["net_income"].append(None)
+                    result["quarterly"]["eps"].append(eps_val)
+                    result["quarterly"]["opm"].append(None)
+        except Exception as e:
+            print(f"[DataProvider] quarterly consensus error for {ticker}: {e}")
 
         # 어닝서프라이즈 데이터 (earnings_dates 사용)
         try:
