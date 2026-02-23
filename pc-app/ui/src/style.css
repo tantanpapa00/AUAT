@@ -6101,6 +6101,106 @@ body {
     align-items: center;
 }
 
+/* =====================================================
+   Company Tab - StockEasy 스타일 (기업 탭)
+   ===================================================== */
+
+/* 상단 요약 카드 */
+.company-header-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 16px;
+}
+
+.company-main-row {
+    display: flex;
+    gap: 40px;
+    margin-bottom: 20px;
+}
+
+.company-main-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.company-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.company-value-lg {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.company-sub-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.company-sub-row span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* 기업 개요 카드 */
+.company-overview-card {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+}
+
+.overview-header-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.overview-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.overview-subtitle {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    background: rgba(255,255,255,0.05);
+    padding: 4px 10px;
+    border-radius: 4px;
+}
+
+.overview-body {
+    font-size: 0.9rem;
+    line-height: 1.8;
+    color: var(--text-secondary);
+}
+
+.overview-body p {
+    margin-bottom: 12px;
+}
+
+.overview-body p:last-child {
+    margin-bottom: 0;
+}
+
 /* SMA 레전드 */
 .sma-legend {
     position: absolute;

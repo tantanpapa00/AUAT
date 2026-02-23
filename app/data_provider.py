@@ -3311,10 +3311,10 @@ async def get_stock_company_kr(code: str) -> dict:
     """
     국내 종목 기업 정보 탭 (StockEasy 스타일)
     - 시가총액, 현재가, 52주 고저, 외인비율 등 요약카드
+    - 기업 개요 (FnGuide bizSummary)
     - 동종업계 종목
-    - 리서치 리포트
     - 투자의견/목표가
-    데이터 소스: 네이버 integration API
+    데이터 소스: 네이버 integration API + FnGuide
     """
     cache_key = f"stock_company_kr_{code}"
     cached = _cached(cache_key, 1800)  # 30분 캐싱
@@ -3326,7 +3326,7 @@ async def get_stock_company_kr(code: str) -> dict:
         "name": "",
         "industry_code": None,
         "peers": [],  # 동종업계 종목
-        "researches": [],  # 리서치 리포트
+        "researches": [],  # 리서치 리포트 (더 이상 사용 안함)
         "consensus": None,  # 투자의견/목표가
         # StockEasy 스타일 추가 필드
         "market_cap": "",
@@ -3339,6 +3339,9 @@ async def get_stock_company_kr(code: str) -> dict:
         "foreign_ratio": 0,
         "volume": 0,
         "sector": "",
+        # FnGuide 기업 개요
+        "description_title": None,
+        "description": None,
     }
 
     try:
@@ -3399,16 +3402,6 @@ async def get_stock_company_kr(code: str) -> dict:
                         "market_cap": _parse_int(p.get("marketValue", "0")),
                     })
 
-                # 리서치 리포트
-                researches = data.get("researches", [])
-                for r_item in researches[:5]:  # 최근 5개
-                    result["researches"].append({
-                        "id": r_item.get("id"),
-                        "title": r_item.get("tit", ""),
-                        "broker": r_item.get("bnm", ""),
-                        "date": r_item.get("wdt", ""),
-                    })
-
                 # 투자의견/목표가
                 consensus = data.get("consensusInfo")
                 if consensus:
@@ -3417,6 +3410,37 @@ async def get_stock_company_kr(code: str) -> dict:
                         "target_price": _parse_int(consensus.get("priceTargetMean", "0")),
                         "date": consensus.get("createDate", ""),
                     }
+
+            # 3. FnGuide 기업개요 파싱
+            fnguide_url = f"https://comp.fnguide.com/SVO2/ASP/SVD_Main.asp?pGB=1&giession=&MenuYn=Y&ReportGB=&NewMenuID=101&stkGb=701&giession=&strItemCode=A{code}"
+            fnguide_headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+            try:
+                r_fn = await client.get(fnguide_url, headers=fnguide_headers, timeout=10)
+                if r_fn.status_code == 200:
+                    html = r_fn.text
+                    # bizSummaryHeader 파싱
+                    header_match = re.search(r'id="bizSummaryHeader"[^>]*>([^<]+)</h3>', html)
+                    if header_match:
+                        title = header_match.group(1).replace("&nbsp;", " ").strip()
+                        result["description_title"] = title
+
+                    # bizSummaryContent 파싱 (ul > li)
+                    content_match = re.search(r'id="bizSummaryContent"[^>]*>(.*?)</ul>', html, re.DOTALL)
+                    if content_match:
+                        content_html = content_match.group(1)
+                        # li 태그들 추출
+                        li_items = re.findall(r'<li[^>]*>(.*?)</li>', content_html, re.DOTALL)
+                        if li_items:
+                            texts = []
+                            for i, li in enumerate(li_items, 1):
+                                # HTML 태그 제거, &nbsp; 치환
+                                text = re.sub(r'<[^>]+>', '', li)
+                                text = text.replace("&nbsp;", " ").replace("&amp;", "&").strip()
+                                if text:
+                                    texts.append(f"{i}. {text}")
+                            result["description"] = "\n\n".join(texts)
+            except Exception as fn_err:
+                print(f"[DataProvider] FnGuide 파싱 오류: {fn_err}")
 
         _set_cache(cache_key, result)
     except Exception as e:
