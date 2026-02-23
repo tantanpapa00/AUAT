@@ -2023,57 +2023,76 @@ async def get_naver_sector_list() -> List[Dict[str, Any]]:
     return []
 
 
-async def get_naver_volume_rank(limit: int = 50) -> List[Dict[str, Any]]:
-    """네이버 금융에서 거래량 순위 (공개)"""
+async def get_naver_volume_rank(limit: int = 50, market: str = "ALL") -> List[Dict[str, Any]]:
+    """네이버 금융에서 거래량 순위 (공개) - market: ALL, KOSPI, KOSDAQ"""
     try:
+        results = []
+        markets = ["KOSPI", "KOSDAQ"] if market == "ALL" else [market.upper()]
+
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(
-                "https://m.stock.naver.com/api/stocks/volume/KOSPI?page=1&pageSize=50",
-                headers={"User-Agent": "Mozilla/5.0"}
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                stocks = data.get("stocks", [])
-                results = []
-                for i, stock in enumerate(stocks[:limit]):
-                    results.append({
-                        "rank": i + 1,
-                        "code": stock.get("itemCode", ""),
-                        "name": stock.get("stockName", ""),
-                        "current": int(stock.get("closePrice", "0").replace(",", "")),
-                        "change": float(stock.get("fluctuationsRatio", 0)),
-                        "volume": int(stock.get("accumulatedTradingVolume", "0").replace(",", "")),
-                    })
-                return results
+            for mkt in markets:
+                resp = await client.get(
+                    f"https://m.stock.naver.com/api/stocks/volume/{mkt}?page=1&pageSize=50",
+                    headers={"User-Agent": "Mozilla/5.0"}
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    stocks = data.get("stocks", [])
+                    for stock in stocks:
+                        results.append({
+                            "code": stock.get("itemCode", ""),
+                            "name": stock.get("stockName", ""),
+                            "current": int(stock.get("closePrice", "0").replace(",", "")),
+                            "change": float(stock.get("fluctuationsRatio", 0)),
+                            "volume": int(stock.get("accumulatedTradingVolume", "0").replace(",", "") if stock.get("accumulatedTradingVolume") else 0),
+                            "market": mkt,
+                        })
+
+        # 거래량 순 정렬 후 상위 limit개
+        results.sort(key=lambda x: x.get("volume", 0), reverse=True)
+        for i, r in enumerate(results[:limit]):
+            r["rank"] = i + 1
+        return results[:limit]
     except Exception as e:
         print(f"[Naver] Volume rank error: {e}")
 
     return []
 
 
-async def get_naver_fluctuation_rank(is_rise: bool = True, limit: int = 50) -> List[Dict[str, Any]]:
-    """네이버 금융에서 등락률 순위 (공개)"""
+async def get_naver_fluctuation_rank(is_rise: bool = True, limit: int = 50, market: str = "ALL") -> List[Dict[str, Any]]:
+    """네이버 금융에서 등락률 순위 (공개) - market: ALL, KOSPI, KOSDAQ"""
     try:
         endpoint = "rise" if is_rise else "fall"
+        results = []
+        markets = ["KOSPI", "KOSDAQ"] if market == "ALL" else [market.upper()]
+
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(
-                f"https://m.stock.naver.com/api/stocks/{endpoint}/KOSPI?page=1&pageSize=50",
-                headers={"User-Agent": "Mozilla/5.0"}
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                stocks = data.get("stocks", [])
-                results = []
-                for i, stock in enumerate(stocks[:limit]):
-                    results.append({
-                        "rank": i + 1,
-                        "code": stock.get("itemCode", ""),
-                        "name": stock.get("stockName", ""),
-                        "current": int(stock.get("closePrice", "0").replace(",", "")),
-                        "change": float(stock.get("fluctuationsRatio", 0)),
-                        "volume": int(stock.get("accumulatedTradingVolume", "0").replace(",", "") if stock.get("accumulatedTradingVolume") else 0),
-                    })
-                return results
+            for mkt in markets:
+                resp = await client.get(
+                    f"https://m.stock.naver.com/api/stocks/{endpoint}/{mkt}?page=1&pageSize=50",
+                    headers={"User-Agent": "Mozilla/5.0"}
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    stocks = data.get("stocks", [])
+                    for stock in stocks:
+                        results.append({
+                            "code": stock.get("itemCode", ""),
+                            "name": stock.get("stockName", ""),
+                            "current": int(stock.get("closePrice", "0").replace(",", "")),
+                            "change": float(stock.get("fluctuationsRatio", 0)),
+                            "volume": int(stock.get("accumulatedTradingVolume", "0").replace(",", "") if stock.get("accumulatedTradingVolume") else 0),
+                            "market": mkt,
+                        })
+
+        # 등락률 순 정렬 후 상위 limit개
+        if is_rise:
+            results.sort(key=lambda x: x.get("change", 0), reverse=True)
+        else:
+            results.sort(key=lambda x: x.get("change", 0))
+        for i, r in enumerate(results[:limit]):
+            r["rank"] = i + 1
+        return results[:limit]
     except Exception as e:
         print(f"[Naver] Fluctuation rank error: {e}")
 

@@ -5150,66 +5150,53 @@ async function loadMarketKr() {
                 <p>단기/장기 신호는 각각 단기적, 장기적 관점에서의 시장 흐름을 보여주는 지표입니다.</p>
             </div>
 
-            <!-- 5행: 서브탭 (시장지표 | 섹터 | 추세유지 | 신용잔고) -->
+            <!-- 5행: 서브탭 (오늘의 특징주 | 오늘의 업종 | 추세유지 | 신용잔고) -->
             <div class="se-subtabs">
-                <button class="se-subtab active" data-tab="market-indicators">시장지표</button>
-                <button class="se-subtab" data-tab="sector">섹터</button>
+                <button class="se-subtab active" data-tab="featured-stocks">오늘의 특징주</button>
+                <button class="se-subtab" data-tab="sector">오늘의 업종</button>
                 <button class="se-subtab" data-tab="trend-maintain">추세유지</button>
                 <button class="se-subtab" data-tab="credit-balance">신용잔고</button>
             </div>
 
-            <!-- 시장지표 탭 -->
-            <div class="se-tab-content" id="tab-market-indicators">
-                <!-- Big Picture 컴팩트 -->
-                <div class="se-bigpicture-row card">
-                    <div class="se-bp-item">
-                        <span class="se-bp-market">KOSPI</span>
-                        <span class="se-bp-dot" id="bp-kospi-dot">●</span>
-                        <span class="se-bp-status" id="bp-kospi-status">${kospiSig.status_label || '확인된 상승세'}</span>
-                        <span class="se-bp-exposure">(${kospiSig.exposure || '80-100%'})</span>
-                        <span class="se-bp-dd">DD:${kospiSig.active_dd_count || 0}</span>
-                        ${(kospiSig.active_dd_count || 0) >= 3 ? '<span class="se-bp-warn">⚠️</span>' : ''}
+            <!-- 오늘의 특징주 탭 -->
+            <div class="se-tab-content" id="tab-featured-stocks">
+                <div class="se-featured-controls">
+                    <div class="se-featured-tabs">
+                        <button class="se-featured-tab active" data-type="gainers">상승률 상위</button>
+                        <button class="se-featured-tab" data-type="losers">하락률 상위</button>
+                        <button class="se-featured-tab" data-type="volume">거래량 상위</button>
                     </div>
-                    <div class="se-bp-divider">|</div>
-                    <div class="se-bp-item">
-                        <span class="se-bp-market">KOSDAQ</span>
-                        <span class="se-bp-dot" id="bp-kosdaq-dot">●</span>
-                        <span class="se-bp-status" id="bp-kosdaq-status">${kosdaqSig.status_label || '확인된 상승세'}</span>
-                        <span class="se-bp-exposure">(${kosdaqSig.exposure || '80-100%'})</span>
-                        <span class="se-bp-dd">DD:${kosdaqSig.active_dd_count || 0}</span>
-                        ${(kosdaqSig.active_dd_count || 0) >= 3 ? '<span class="se-bp-warn">⚠️</span>' : ''}
+                    <div class="se-market-filter">
+                        <select id="featured-market-filter">
+                            <option value="ALL">전체</option>
+                            <option value="KOSPI">KOSPI</option>
+                            <option value="KOSDAQ">KOSDAQ</option>
+                        </select>
                     </div>
                 </div>
-
-                <!-- 20/200일선 하락비율 차트 -->
-                <div class="se-ma-chart card">
-                    <h3>20일/200일선 하락비율</h3>
-                    <div class="se-ma-chart-area">
-                        <canvas id="ma-ratio-chart"></canvas>
-                    </div>
+                <div class="se-featured-list" id="featured-stocks-list">
+                    <div class="loading-state">데이터 로딩 중...</div>
                 </div>
-
-                <!-- ADR 차트 -->
-                <div class="se-ma-chart card">
-                    <h3>ADR (등락비율)</h3>
-                    <div class="se-ma-chart-area">
-                        <canvas id="adr-chart"></canvas>
-                    </div>
-                </div>
-
             </div>
 
-            <!-- 섹터 탭 -->
+            <!-- 오늘의 업종 탭 -->
             <div class="se-tab-content" id="tab-sector" style="display:none;">
-                <div class="se-sector-grid">
-                    <div class="card">
-                        <h3>🔥 주도 섹터 TOP 10</h3>
-                        <div class="sector-list" id="kr-leading-sectors"></div>
+                <div class="se-sector-controls">
+                    <div class="se-sector-sort">
+                        <label>정렬:</label>
+                        <select id="sector-sort-by">
+                            <option value="change">등락률</option>
+                            <option value="volume">거래대금</option>
+                        </select>
                     </div>
-                    <div class="card">
-                        <h3>📉 약세 섹터 TOP 10</h3>
-                        <div class="sector-list" id="kr-weak-sectors"></div>
+                    <div class="se-sector-filter">
+                        <button class="se-filter-btn active" data-filter="all">전체</button>
+                        <button class="se-filter-btn" data-filter="up">상승</button>
+                        <button class="se-filter-btn" data-filter="down">하락</button>
                     </div>
+                </div>
+                <div class="se-sector-list-unified" id="kr-sector-unified">
+                    <div class="loading-state">데이터 로딩 중...</div>
                 </div>
             </div>
 
@@ -5256,10 +5243,6 @@ async function loadMarketKr() {
         updateSignalCapsule('short-term-capsule', kospiSig.short_term_signal || 'green');
         updateSignalCapsule('long-term-capsule', kospiSig.long_term_signal || 'green');
 
-        // Big Picture 색상 업데이트
-        updateBigPictureDot('bp-kospi-dot', kospiSig.status);
-        updateBigPictureDot('bp-kosdaq-dot', kosdaqSig.status);
-
         // 서브탭 이벤트
         document.querySelectorAll('.se-subtab').forEach(tab => {
             tab.addEventListener('click', (e) => {
@@ -5272,7 +5255,11 @@ async function loadMarketKr() {
                 if (tabId === 'trend-maintain') {
                     loadTrendMaintainData();
                 } else if (tabId === 'sector') {
-                    loadSectorData();
+                    loadSectorDataUnified();
+                } else if (tabId === 'featured-stocks') {
+                    const activeType = document.querySelector('.se-featured-tab.active')?.dataset.type || 'gainers';
+                    const market = document.getElementById('featured-market-filter')?.value || 'ALL';
+                    loadFeaturedStocksKr(activeType, market);
                 }
             });
         });
@@ -5336,9 +5323,14 @@ async function loadMarketKr() {
             }
         }
 
-        // 차트 로드
-        loadMaRatioChart();
-        loadAdrChart();
+        // 오늘의 특징주 로드 (기본 탭)
+        loadFeaturedStocksKr('gainers', 'ALL');
+
+        // 오늘의 특징주 탭 이벤트
+        setupFeaturedStocksEvents();
+
+        // 오늘의 업종 탭 이벤트
+        setupSectorTabEvents();
 
     } catch (error) {
         console.error('Market KR error:', error);
@@ -6094,6 +6086,288 @@ function renderSectorDetail(data, type) {
 
     html += '</div>';
     return html;
+}
+
+// ============================================================================
+// 오늘의 특징주 (Step 4)
+// ============================================================================
+
+// 특징주 로드 (상승률/하락률/거래량)
+async function loadFeaturedStocksKr(type = 'gainers', market = 'ALL') {
+    const listEl = document.getElementById('featured-stocks-list');
+    if (!listEl) return;
+
+    listEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+
+    try {
+        // ranking_type 매핑: gainers -> rise, losers -> fall, volume -> volume
+        const rankingType = type === 'gainers' ? 'rise' : (type === 'losers' ? 'fall' : 'volume');
+        const marketParam = market === 'ALL' ? 'all' : market.toLowerCase();
+
+        const data = await invokeWithTimeout('get_stock_ranking', {
+            accessToken: auth.accessToken || '',
+            rankingType: rankingType,
+            market: marketParam
+        }, 15000);
+
+        console.log('[loadFeaturedStocks]', type, market, data);
+
+        const stocks = data?.stocks || [];
+        if (stocks.length === 0) {
+            listEl.innerHTML = '<div class="empty-state">데이터가 없습니다</div>';
+            return;
+        }
+
+        // 상위 20개만 표시
+        const displayStocks = stocks.slice(0, 20);
+
+        listEl.innerHTML = `
+            <table class="se-featured-table">
+                <thead>
+                    <tr>
+                        <th class="rank-col">#</th>
+                        <th class="name-col">종목명</th>
+                        <th class="price-col">현재가</th>
+                        <th class="change-col">등락률</th>
+                        ${type === 'volume' ? '<th class="volume-col">거래량</th>' : ''}
+                    </tr>
+                </thead>
+                <tbody>
+                    ${displayStocks.map((s, idx) => {
+                        const changeClass = (s.change || 0) >= 0 ? 'profit' : 'loss';
+                        const sign = (s.change || 0) >= 0 ? '+' : '';
+                        const priceStr = (s.current || 0).toLocaleString();
+                        const volumeStr = type === 'volume' ? formatVolume(s.volume) : '';
+
+                        return `
+                            <tr class="stock-row" data-code="${s.code}" data-name="${s.name}">
+                                <td class="rank-col">${s.rank || idx + 1}</td>
+                                <td class="name-col">
+                                    <span class="stock-name">${s.name}</span>
+                                    <span class="stock-code">${s.code}</span>
+                                    ${s.market ? `<span class="stock-market ${s.market.toLowerCase()}">${s.market}</span>` : ''}
+                                </td>
+                                <td class="price-col">${priceStr}</td>
+                                <td class="change-col ${changeClass}">${sign}${(s.change || 0).toFixed(2)}%</td>
+                                ${type === 'volume' ? `<td class="volume-col">${volumeStr}</td>` : ''}
+                            </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+            </table>
+        `;
+
+        // 종목 클릭 이벤트
+        listEl.querySelectorAll('.stock-row').forEach(row => {
+            row.addEventListener('click', () => {
+                const code = row.dataset.code;
+                const name = row.dataset.name;
+                // 종목 상세 페이지로 이동
+                goToStockDetail(code, name, 'KR');
+            });
+        });
+    } catch (error) {
+        console.error('[loadFeaturedStocks] error:', error);
+        listEl.innerHTML = `<div class="error-state">${error?.message || '데이터 로드 실패'}</div>`;
+    }
+}
+
+// 특징주 탭 이벤트 설정
+function setupFeaturedStocksEvents() {
+    // 탭 버튼 이벤트
+    document.querySelectorAll('.se-featured-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.se-featured-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            const type = tab.dataset.type;
+            const market = document.getElementById('featured-market-filter')?.value || 'ALL';
+            loadFeaturedStocksKr(type, market);
+        });
+    });
+
+    // 시장 필터 이벤트
+    const marketFilter = document.getElementById('featured-market-filter');
+    if (marketFilter) {
+        marketFilter.addEventListener('change', () => {
+            const activeType = document.querySelector('.se-featured-tab.active')?.dataset.type || 'gainers';
+            loadFeaturedStocksKr(activeType, marketFilter.value);
+        });
+    }
+}
+
+// ============================================================================
+// 오늘의 업종 (Step 5) - 통합 리스트
+// ============================================================================
+
+// 업종 통합 로드
+async function loadSectorDataUnified() {
+    const listEl = document.getElementById('kr-sector-unified');
+    if (!listEl) return;
+
+    listEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+
+    try {
+        const data = await invokeWithTimeout('get_market_sectors', { accessToken: auth.accessToken || '' }, 10000);
+        console.log('[loadSectorDataUnified] data:', data);
+
+        const sectors = data?.sectors || data || [];
+        if (!sectors.length) {
+            listEl.innerHTML = '<div class="empty-state">섹터 데이터 없음</div>';
+            return;
+        }
+
+        // 캐시 저장
+        sectorDataCache = sectors;
+
+        // 기본 정렬: 등락률 내림차순
+        renderSectorList(sectors, 'change', 'all');
+    } catch (error) {
+        console.error('[loadSectorDataUnified] error:', error);
+        listEl.innerHTML = `<div class="error-state">${error?.message || error}</div>`;
+    }
+}
+
+// 섹터 리스트 렌더링 (정렬/필터 적용)
+function renderSectorList(sectors, sortBy = 'change', filter = 'all') {
+    const listEl = document.getElementById('kr-sector-unified');
+    if (!listEl) return;
+
+    // 필터 적용
+    let filtered = [...sectors];
+    if (filter === 'up') {
+        filtered = sectors.filter(s => (s.change_percent || 0) > 0);
+    } else if (filter === 'down') {
+        filtered = sectors.filter(s => (s.change_percent || 0) < 0);
+    }
+
+    // 정렬 적용
+    if (sortBy === 'change') {
+        filtered.sort((a, b) => Math.abs(b.change_percent || 0) - Math.abs(a.change_percent || 0));
+    } else if (sortBy === 'volume') {
+        filtered.sort((a, b) => (b.trading_value || 0) - (a.trading_value || 0));
+    }
+
+    if (filtered.length === 0) {
+        const msg = filter === 'up' ? '상승 섹터가 없습니다' : (filter === 'down' ? '하락 섹터가 없습니다' : '데이터 없음');
+        listEl.innerHTML = `<div class="empty-state">${msg}</div>`;
+        return;
+    }
+
+    listEl.innerHTML = `
+        <table class="se-sector-table">
+            <thead>
+                <tr>
+                    <th class="name-col">업종명</th>
+                    <th class="change-col">등락률</th>
+                    <th class="volume-col">거래대금</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${filtered.map(s => {
+                    const changeClass = (s.change_percent || 0) >= 0 ? 'profit' : 'loss';
+                    const sign = (s.change_percent || 0) >= 0 ? '+' : '';
+                    const volStr = formatSectorTradingValue(s.trading_value || 0);
+
+                    return `
+                        <tr class="sector-row clickable" data-sector="${s.name}">
+                            <td class="name-col">${s.name}</td>
+                            <td class="change-col ${changeClass}">${sign}${(s.change_percent || 0).toFixed(2)}%</td>
+                            <td class="volume-col">${volStr}</td>
+                        </tr>
+                    `;
+                }).join('')}
+            </tbody>
+        </table>
+    `;
+
+    // 섹터 클릭 이벤트 (섹터 종목 조회)
+    listEl.querySelectorAll('.sector-row').forEach(row => {
+        row.addEventListener('click', async () => {
+            const sectorName = row.dataset.sector;
+            // 섹터 상세 모달 또는 확장
+            showSectorStocksModal(sectorName);
+        });
+    });
+}
+
+// 섹터 종목 모달 표시
+async function showSectorStocksModal(sectorName) {
+    // 간단한 alert로 대체 (추후 모달로 개선 가능)
+    try {
+        const resp = await invokeWithTimeout('get_market_sector_stocks', {
+            accessToken: auth.accessToken || '',
+            sectorName: sectorName
+        }, 10000);
+
+        if (resp?.success) {
+            const stocks = [...(resp.top_gainers || []), ...(resp.top_losers || [])].slice(0, 10);
+            if (stocks.length > 0) {
+                const stockList = stocks.map((s, i) => {
+                    const sign = (s.change_percent || 0) >= 0 ? '+' : '';
+                    return `${i+1}. ${s.name}: ${sign}${(s.change_percent || 0).toFixed(1)}%`;
+                }).join('\n');
+                alert(`[${sectorName}] 주요 종목:\n\n${stockList}`);
+            } else {
+                alert(`[${sectorName}] 종목 데이터가 없습니다.`);
+            }
+        }
+    } catch (err) {
+        console.error('[showSectorStocksModal]', err);
+    }
+}
+
+// 업종 탭 이벤트 설정
+function setupSectorTabEvents() {
+    // 정렬 드롭다운
+    const sortSelect = document.getElementById('sector-sort-by');
+    if (sortSelect) {
+        sortSelect.addEventListener('change', () => {
+            const filter = document.querySelector('.se-filter-btn.active')?.dataset.filter || 'all';
+            renderSectorList(sectorDataCache, sortSelect.value, filter);
+        });
+    }
+
+    // 필터 버튼
+    document.querySelectorAll('.se-filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.se-filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const sortBy = document.getElementById('sector-sort-by')?.value || 'change';
+            renderSectorList(sectorDataCache, sortBy, btn.dataset.filter);
+        });
+    });
+}
+
+// 종목 상세 페이지 이동
+function goToStockDetail(code, name, market = 'KR') {
+    // 종목 상세 탭 활성화 + 데이터 로드
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    const stockBtn = document.querySelector('.nav-btn[data-page="stock"]');
+    if (stockBtn) stockBtn.classList.add('active');
+
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    const stockPage = document.getElementById('page-stock');
+    if (stockPage) stockPage.classList.add('active');
+
+    // 국내/해외 탭 설정
+    const krTab = document.querySelector('.stock-tab[data-tab="kr"]');
+    const usTab = document.querySelector('.stock-tab[data-tab="us"]');
+    if (market === 'KR' && krTab) {
+        krTab.click();
+    } else if (market === 'US' && usTab) {
+        usTab.click();
+    }
+
+    // 종목 검색 및 로드
+    setTimeout(() => {
+        const searchInput = document.querySelector('.stock-search-input');
+        if (searchInput) {
+            searchInput.value = code;
+            // 검색 트리거
+            const event = new KeyboardEvent('keypress', { key: 'Enter' });
+            searchInput.dispatchEvent(event);
+        }
+    }, 100);
 }
 
 // 해외시장 로드 (Phase 5: 국내시장과 동일 구조)

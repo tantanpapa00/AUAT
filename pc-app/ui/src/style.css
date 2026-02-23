@@ -12415,3 +12415,272 @@ body {
     outline: none;
     border-color: var(--primary);
 }
+
+/* ============================================================================
+   오늘의 특징주 탭 (Step 4)
+   ============================================================================ */
+
+.se-featured-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.se-featured-tabs {
+    display: flex;
+    gap: 4px;
+}
+
+.se-featured-tab {
+    padding: 8px 16px;
+    background: var(--bg-light);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.se-featured-tab:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.se-featured-tab.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+
+.se-market-filter select {
+    padding: 8px 12px;
+    background: var(--bg-light);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.se-featured-list {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.se-featured-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.se-featured-table thead th {
+    background: var(--bg-light);
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+}
+
+.se-featured-table tbody td {
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.se-featured-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.se-featured-table tbody tr:hover {
+    background: var(--bg-hover);
+    cursor: pointer;
+}
+
+.se-featured-table .rank-col {
+    width: 40px;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.se-featured-table .name-col {
+    min-width: 150px;
+}
+
+.se-featured-table .name-col .stock-name {
+    font-weight: 500;
+    display: block;
+}
+
+.se-featured-table .name-col .stock-code {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-right: 6px;
+}
+
+.se-featured-table .name-col .stock-market {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--bg-light);
+    color: var(--text-muted);
+}
+
+.se-featured-table .name-col .stock-market.kospi {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.se-featured-table .name-col .stock-market.kosdaq {
+    background: #fce7f3;
+    color: #be185d;
+}
+
+.se-featured-table .price-col {
+    text-align: right;
+    font-weight: 500;
+}
+
+.se-featured-table .change-col {
+    text-align: right;
+    font-weight: 600;
+}
+
+.se-featured-table .change-col.profit {
+    color: #ef4444;
+}
+
+.se-featured-table .change-col.loss {
+    color: #3b82f6;
+}
+
+.se-featured-table .volume-col {
+    text-align: right;
+    color: var(--text-muted);
+}
+
+/* ============================================================================
+   오늘의 업종 탭 (Step 5)
+   ============================================================================ */
+
+.se-sector-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.se-sector-sort {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.se-sector-sort label {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.se-sector-sort select {
+    padding: 8px 12px;
+    background: var(--bg-light);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.se-sector-filter {
+    display: flex;
+    gap: 4px;
+}
+
+.se-filter-btn {
+    padding: 8px 14px;
+    background: var(--bg-light);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.se-filter-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.se-filter-btn.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+
+.se-sector-list-unified {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.se-sector-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.se-sector-table thead th {
+    background: var(--bg-light);
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+}
+
+.se-sector-table tbody td {
+    padding: 14px 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.se-sector-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.se-sector-table tbody tr:hover {
+    background: var(--bg-hover);
+    cursor: pointer;
+}
+
+.se-sector-table .name-col {
+    font-weight: 500;
+}
+
+.se-sector-table .change-col {
+    text-align: right;
+    font-weight: 600;
+}
+
+.se-sector-table .change-col.profit {
+    color: #ef4444;
+}
+
+.se-sector-table .change-col.loss {
+    color: #3b82f6;
+}
+
+.se-sector-table .volume-col {
+    text-align: right;
+    color: var(--text-muted);
+}

@@ -11282,10 +11282,11 @@ async def get_stock_ranking(
 
     # KIS 계정 없으면 네이버 공개 API 사용
     if not results:
+        naver_market = market.upper() if market != "all" else "ALL"
         if ranking_type == "volume":
-            results = await get_naver_volume_rank(50)
+            results = await get_naver_volume_rank(50, naver_market)
         elif ranking_type in ("rise", "fall"):
-            results = await get_naver_fluctuation_rank(ranking_type == "rise", 50)
+            results = await get_naver_fluctuation_rank(ranking_type == "rise", 50, naver_market)
 
     return {
         "ranking_type": ranking_type,
