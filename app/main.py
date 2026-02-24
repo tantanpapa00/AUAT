@@ -12750,7 +12750,7 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
 
             response = await client.messages.create(
                 model="claude-haiku-4-5-20251001",
-                max_tokens=4096,
+                max_tokens=8000,
                 tools=[{"type": "web_search_20250305", "name": "web_search"}],
                 messages=[{"role": "user", "content": final_prompt}]
             )
@@ -12942,10 +12942,10 @@ _BBooster AI 분석 시스템에서 생성됨_
 # ============================================================================
 
 async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
-    """AI 분석용 차트 3종 생성 (가격+지지저항, 추세, 모멘텀)"""
-    import io
-    import base64
-    from datetime import datetime
+    """AI 분석용 차트 3종 생성 - StockEasy 수준 (캔들스틱 + 날짜 x축)"""
+    import matplotlib.dates as mdates
+    from matplotlib.patches import Rectangle
+    from datetime import datetime, timedelta
 
     chart_urls = {"price_chart": None, "trend_chart": None, "momentum_chart": None}
 
@@ -12965,8 +12965,10 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
             print(f"[Chart] Not enough data for {code}: {len(candles)} candles")
             return chart_urls
 
-        # 데이터 추출
-        dates = [c.get("localDate", "")[:10] for c in candles]
+        # 데이터 추출 (OHLCV)
+        dates_str = [c.get("localDate", "")[:10] for c in candles]
+        dates = [datetime.strptime(d, "%Y%m%d") if len(d) == 8 else datetime.strptime(d, "%Y-%m-%d") for d in dates_str]
+        opens = [float(c.get("openPrice", 0)) for c in candles]
         closes = [float(c.get("closePrice", 0)) for c in candles]
         highs = [float(c.get("highPrice", 0)) for c in candles]
         lows = [float(c.get("lowPrice", 0)) for c in candles]
@@ -12981,9 +12983,9 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
                 result.append(sum(data[i-period+1:i+1]) / period)
             return result
 
-        sma5 = _sma(closes, 5)
         sma20 = _sma(closes, 20)
         sma60 = _sma(closes, 60)
+        sma200 = _sma(closes, 200)
 
         # 지지/저항선 계산 (피봇 포인트 기반)
         recent_high = max(highs[-20:]) if len(highs) >= 20 else max(highs)
@@ -12995,220 +12997,229 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
         # 차트 ID 생성
         chart_id = f"{code}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
-        # ===== 차트 1: 가격 + 지지/저항선 =====
-        fig1, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6), height_ratios=[3, 1],
-                                         gridspec_kw={'hspace': 0.1})
+        # 최근 120일 표시 (1년치 중 최근)
+        display_len = min(120, len(closes))
 
-        # 최근 60일만 표시
-        display_len = min(60, len(closes))
-        x = range(display_len)
+        # 한국주식 색상: 상승=빨강, 하락=파랑
+        UP_COLOR = '#FF3B30'
+        DOWN_COLOR = '#007AFF'
 
-        # 가격선
-        ax1.plot(x, closes[-display_len:], 'b-', linewidth=1.5, label='종가')
+        # ===== 차트 1: 캔들스틱 + 지지/저항선 + 거래량 =====
+        fig1, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), height_ratios=[3, 1],
+                                         gridspec_kw={'hspace': 0.05}, sharex=True)
+        fig1.patch.set_facecolor('white')
 
-        # 이동평균선
-        if sma5[-display_len:][0] is not None:
-            ax1.plot(x, sma5[-display_len:], 'orange', linewidth=1, label='MA5', alpha=0.7)
-        if sma20[-display_len:][0] is not None:
-            ax1.plot(x, sma20[-display_len:], 'green', linewidth=1, label='MA20', alpha=0.7)
+        # 캔들스틱 그리기
+        width = 0.6
+        for i in range(display_len):
+            idx = len(closes) - display_len + i
+            date_num = mdates.date2num(dates[idx])
+            o, h, l, c = opens[idx], highs[idx], lows[idx], closes[idx]
+            color = UP_COLOR if c >= o else DOWN_COLOR
+
+            # 캔들 몸통
+            body_bottom = min(o, c)
+            body_height = abs(c - o) if abs(c - o) > 0 else 1
+            rect = Rectangle((date_num - width/2, body_bottom), width, body_height,
+                             facecolor=color, edgecolor=color, linewidth=0.5)
+            ax1.add_patch(rect)
+
+            # 캔들 꼬리
+            ax1.plot([date_num, date_num], [l, body_bottom], color=color, linewidth=0.5)
+            ax1.plot([date_num, date_num], [body_bottom + body_height, h], color=color, linewidth=0.5)
+
+        ax1.set_xlim(mdates.date2num(dates[-display_len]) - 2, mdates.date2num(dates[-1]) + 2)
+        ax1.set_ylim(min(lows[-display_len:]) * 0.95, max(highs[-display_len:]) * 1.05)
 
         # 지지/저항선
-        ax1.axhline(y=resistance1, color='red', linestyle='--', linewidth=1, label=f'저항 {int(resistance1):,}')
-        ax1.axhline(y=support1, color='green', linestyle='--', linewidth=1, label=f'지지 {int(support1):,}')
+        ax1.axhline(y=resistance1, color=UP_COLOR, linestyle='--', linewidth=1.2, alpha=0.8,
+                    label=f'저항 {int(resistance1):,}')
+        ax1.axhline(y=support1, color=DOWN_COLOR, linestyle='--', linewidth=1.2, alpha=0.8,
+                    label=f'지지 {int(support1):,}')
 
-        ax1.set_title(f'{name} ({code}) - 가격 차트', fontsize=12, fontweight='bold')
-        ax1.legend(loc='upper left', fontsize=8)
+        ax1.set_title(f'주가, 지지/저항 분석 - {name}({code})', fontsize=14, fontweight='bold')
+        ax1.legend(loc='upper left', fontsize=9)
         ax1.grid(True, alpha=0.3)
-        ax1.set_ylabel('가격 (원)')
-        ax1.set_xticks([])
+        ax1.set_ylabel('주가(원)', fontsize=11)
+        ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
 
-        # 거래량
-        colors = ['g' if closes[-display_len:][i] >= closes[-display_len:][i-1] else 'r'
-                  for i in range(1, display_len)]
-        colors = ['g'] + colors
-        ax2.bar(x, volumes[-display_len:], color=colors, alpha=0.5)
-        ax2.set_ylabel('거래량')
+        # 거래량 (색상 구분)
+        for i in range(display_len):
+            idx = len(closes) - display_len + i
+            date_num = mdates.date2num(dates[idx])
+            color = UP_COLOR if closes[idx] >= opens[idx] else DOWN_COLOR
+            ax2.bar(date_num, volumes[idx], color=color, width=width, alpha=0.7)
+
+        ax2.set_ylabel('거래량', fontsize=11)
+        ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x/1e6:.1f}M' if x >= 1e6 else f'{x/1e3:.0f}K'))
         ax2.grid(True, alpha=0.3)
 
-        # X축 라벨 (매 10일마다)
-        tick_positions = list(range(0, display_len, 10))
-        tick_labels = [dates[-display_len:][i][5:] for i in tick_positions if i < display_len]
-        ax2.set_xticks(tick_positions[:len(tick_labels)])
-        ax2.set_xticklabels(tick_labels, fontsize=8)
+        # X축 날짜 포맷
+        ax2.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
+        ax2.xaxis.set_major_locator(mdates.WeekdayLocator(interval=2))
+        plt.xticks(rotation=45, fontsize=8)
 
         plt.tight_layout()
 
         # 저장
         price_path = os.path.join(CHARTS_DIR, f"price_{chart_id}.png")
-        plt.savefig(price_path, dpi=100, bbox_inches='tight', facecolor='white')
+        plt.savefig(price_path, dpi=150, bbox_inches='tight')
         plt.close(fig1)
         chart_urls["price_chart"] = f"/static/charts/price_{chart_id}.png"
 
-        # ===== 차트 2: 추세 차트 (ADX + SMA 시계열) =====
-        from .screener.technicals import calc_adx
+        # ===== 차트 2: 추세추종 (캔들스틱 + SMA 이동평균선) =====
+        fig2, ax = plt.subplots(1, 1, figsize=(12, 6))
+        fig2.patch.set_facecolor('white')
 
-        fig2, (ax_price, ax_adx) = plt.subplots(2, 1, figsize=(10, 6), height_ratios=[2, 1],
-                                                  gridspec_kw={'hspace': 0.15})
+        # 캔들스틱 그리기
+        for i in range(display_len):
+            idx = len(closes) - display_len + i
+            date_num = mdates.date2num(dates[idx])
+            o, h, l, c = opens[idx], highs[idx], lows[idx], closes[idx]
+            color = UP_COLOR if c >= o else DOWN_COLOR
 
-        # 상단: 주가 + 이동평균선
-        ax_price.plot(range(display_len), closes[-display_len:], 'b-', linewidth=1.5, label='종가')
+            body_bottom = min(o, c)
+            body_height = abs(c - o) if abs(c - o) > 0 else 1
+            rect = Rectangle((date_num - width/2, body_bottom), width, body_height,
+                             facecolor=color, edgecolor=color, linewidth=0.5)
+            ax.add_patch(rect)
+            ax.plot([date_num, date_num], [l, body_bottom], color=color, linewidth=0.5)
+            ax.plot([date_num, date_num], [body_bottom + body_height, h], color=color, linewidth=0.5)
+
+        ax.set_xlim(mdates.date2num(dates[-display_len]) - 2, mdates.date2num(dates[-1]) + 2)
+        ax.set_ylim(min(lows[-display_len:]) * 0.95, max(highs[-display_len:]) * 1.05)
+
+        # SMA 라인
+        date_nums = [mdates.date2num(dates[len(dates) - display_len + i]) for i in range(display_len)]
         if sma20[-display_len:][0] is not None:
-            ax_price.plot(range(display_len), sma20[-display_len:], 'orange', linewidth=1.2, label='SMA20')
+            ax.plot(date_nums, sma20[-display_len:], label='SMA20', color='#FF9500', linewidth=1.5)
         if sma60[-display_len:][0] is not None:
-            ax_price.plot(range(display_len), sma60[-display_len:], 'green', linewidth=1.2, label='SMA60')
+            ax.plot(date_nums, sma60[-display_len:], label='SMA60', color='#007AFF', linewidth=1.5)
+        if sma200 and sma200[-display_len:][0] is not None:
+            ax.plot(date_nums, sma200[-display_len:], label='SMA200', color='#FF3B30', linewidth=1.5)
 
-        ax_price.set_title(f'{name} - 추세 분석', fontsize=12, fontweight='bold')
-        ax_price.legend(loc='upper left', fontsize=8)
-        ax_price.grid(True, alpha=0.3)
-        ax_price.set_ylabel('가격 (원)')
-        ax_price.set_xticks([])
-
-        # 하단: ADX 시계열
-        adx_values = []
-        plus_di_values = []
-        minus_di_values = []
-        for i in range(28, len(closes)):
-            adx_result = calc_adx(highs[:i+1], lows[:i+1], closes[:i+1], 14)
-            if adx_result:
-                adx_values.append(adx_result.get("adx", 0) or 0)
-                plus_di_values.append(adx_result.get("plus_di", 0) or 0)
-                minus_di_values.append(adx_result.get("minus_di", 0) or 0)
-            else:
-                adx_values.append(0)
-                plus_di_values.append(0)
-                minus_di_values.append(0)
-
-        if adx_values:
-            adx_display = adx_values[-display_len:] if len(adx_values) >= display_len else adx_values
-            pdi_display = plus_di_values[-display_len:] if len(plus_di_values) >= display_len else plus_di_values
-            mdi_display = minus_di_values[-display_len:] if len(minus_di_values) >= display_len else minus_di_values
-
-            ax_adx.plot(range(len(adx_display)), adx_display, 'purple', linewidth=1.5, label='ADX')
-            ax_adx.plot(range(len(pdi_display)), pdi_display, 'green', linewidth=1, alpha=0.7, label='+DI')
-            ax_adx.plot(range(len(mdi_display)), mdi_display, 'red', linewidth=1, alpha=0.7, label='-DI')
-            ax_adx.axhline(y=20, color='gray', linestyle='--', alpha=0.5)
-            ax_adx.axhline(y=40, color='gray', linestyle='--', alpha=0.5)
-            ax_adx.set_ylim(0, 80)
-            ax_adx.set_ylabel('ADX')
-            ax_adx.legend(loc='upper right', fontsize=8)
-            ax_adx.fill_between(range(len(adx_display)), 0, 20, alpha=0.1, color='red')
-            ax_adx.fill_between(range(len(adx_display)), 40, 80, alpha=0.1, color='green')
-
-        # X축 날짜 라벨
-        tick_positions = list(range(0, display_len, 10))
-        tick_labels = [dates[-display_len:][i][5:] for i in tick_positions if i < display_len]
-        ax_adx.set_xticks(tick_positions[:len(tick_labels)])
-        ax_adx.set_xticklabels(tick_labels, fontsize=8)
-        ax_adx.grid(True, alpha=0.3)
+        ax.set_title(f'추세추종 지표 분석 - {name}({code})', fontsize=14, fontweight='bold')
+        ax.set_ylabel('주가(원)', fontsize=11)
+        ax.legend(loc='upper left', fontsize=10)
+        ax.grid(True, alpha=0.3)
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
+        ax.xaxis.set_major_locator(mdates.WeekdayLocator(interval=2))
+        plt.xticks(rotation=45, fontsize=8)
 
         plt.tight_layout()
 
         trend_path = os.path.join(CHARTS_DIR, f"trend_{chart_id}.png")
-        plt.savefig(trend_path, dpi=100, bbox_inches='tight', facecolor='white')
+        plt.savefig(trend_path, dpi=150, bbox_inches='tight')
         plt.close(fig2)
         chart_urls["trend_chart"] = f"/static/charts/trend_{chart_id}.png"
 
-        # ===== 차트 3: 모멘텀 차트 (RSI + MACD 시계열) =====
+        # ===== 차트 3: 모멘텀 차트 (RSI + MACD 시계열) - 날짜 x축 =====
         from .screener.technicals import _calc_rsi
 
-        fig3, (ax_rsi, ax_macd) = plt.subplots(2, 1, figsize=(10, 6), height_ratios=[1, 1],
-                                                gridspec_kw={'hspace': 0.15})
+        fig3, (ax_rsi, ax_macd) = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
+        fig3.patch.set_facecolor('white')
 
-        # RSI 시계열
+        # RSI 시계열 계산
         rsi_values = []
         for i in range(14, len(closes)):
             rsi = _calc_rsi(closes[:i+1], 14)
             rsi_values.append(rsi if rsi else 50)
 
-        if rsi_values:
-            rsi_display = rsi_values[-display_len:] if len(rsi_values) >= display_len else rsi_values
-            ax_rsi.plot(range(len(rsi_display)), rsi_display, 'purple', linewidth=1.5, label='RSI(14)')
-            ax_rsi.axhline(y=70, color='red', linestyle='--', alpha=0.7, label='과매수(70)')
-            ax_rsi.axhline(y=30, color='green', linestyle='--', alpha=0.7, label='과매도(30)')
-            ax_rsi.fill_between(range(len(rsi_display)), 30, 70, alpha=0.1, color='gray')
+        # MACD 시계열 계산 (EMA 기반)
+        def _calc_ema_series(data, period):
+            ema = [None] * (period - 1)
+            multiplier = 2 / (period + 1)
+            ema.append(sum(data[:period]) / period)
+            for i in range(period, len(data)):
+                ema.append((data[i] - ema[-1]) * multiplier + ema[-1])
+            return ema
+
+        ema12 = _calc_ema_series(closes, 12)
+        ema26 = _calc_ema_series(closes, 26)
+        macd_line = [e12 - e26 if e12 and e26 else None for e12, e26 in zip(ema12, ema26)]
+
+        # Signal line (MACD의 9일 EMA)
+        macd_valid = [v for v in macd_line if v is not None]
+        if len(macd_valid) >= 9:
+            signal_line = [None] * (len(macd_line) - len(macd_valid))
+            signal_ema = _calc_ema_series(macd_valid, 9)
+            signal_line.extend(signal_ema)
+        else:
+            signal_line = [None] * len(macd_line)
+
+        histogram = [m - s if m and s else None for m, s in zip(macd_line, signal_line)]
+
+        # RSI 표시 (날짜 기반)
+        rsi_start_idx = 14
+        rsi_dates = dates[rsi_start_idx:]
+        rsi_date_nums = [mdates.date2num(d) for d in rsi_dates[-display_len:]]
+        rsi_display = rsi_values[-display_len:] if len(rsi_values) >= display_len else rsi_values
+
+        if len(rsi_date_nums) == len(rsi_display):
+            ax_rsi.plot(rsi_date_nums, rsi_display, color='#8B5CF6', linewidth=1.5, label='RSI(14)')
+            ax_rsi.axhline(y=70, color='#FF3B30', linestyle='--', linewidth=1, alpha=0.7, label='과매수 (70)')
+            ax_rsi.axhline(y=30, color='#34C759', linestyle='--', linewidth=1, alpha=0.7, label='과매도 (30)')
+            ax_rsi.axhline(y=50, color='gray', linestyle=':', linewidth=0.5, alpha=0.5)
+            ax_rsi.fill_between(rsi_date_nums, 70, 100, alpha=0.1, color='#FF3B30')
+            ax_rsi.fill_between(rsi_date_nums, 0, 30, alpha=0.1, color='#34C759')
             ax_rsi.set_ylim(0, 100)
-            ax_rsi.set_ylabel('RSI')
-            ax_rsi.set_title(f'{name} - 모멘텀 지표', fontsize=12, fontweight='bold')
-            ax_rsi.legend(loc='upper left', fontsize=8)
+            ax_rsi.set_ylabel('RSI', fontsize=11)
+            ax_rsi.set_title(f'모멘텀 지표 분석 - {name}({code})', fontsize=14, fontweight='bold')
+            ax_rsi.legend(loc='upper left', fontsize=9)
             ax_rsi.grid(True, alpha=0.3)
-            ax_rsi.set_xticks([])
 
             # 현재 RSI 값 표시
             current_rsi = rsi_display[-1]
             rsi_status = "과매수" if current_rsi > 70 else "과매도" if current_rsi < 30 else "중립"
-            ax_rsi.text(len(rsi_display)-1, current_rsi, f' {current_rsi:.1f} ({rsi_status})',
-                        va='center', fontsize=10, fontweight='bold',
-                        color='red' if current_rsi > 70 else 'green' if current_rsi < 30 else 'black')
+            ax_rsi.annotate(f'{current_rsi:.1f} ({rsi_status})',
+                           xy=(rsi_date_nums[-1], current_rsi),
+                           fontsize=10, fontweight='bold',
+                           color='#FF3B30' if current_rsi > 70 else '#34C759' if current_rsi < 30 else '#8B5CF6',
+                           xytext=(5, 0), textcoords='offset points')
 
-        # MACD 시계열 계산
-        def _calc_ema(data, period):
-            if len(data) < period:
-                return None
-            multiplier = 2 / (period + 1)
-            ema = sum(data[:period]) / period
-            for price in data[period:]:
-                ema = (price - ema) * multiplier + ema
-            return ema
+        # MACD 표시 (날짜 기반)
+        macd_display = macd_line[-display_len:]
+        signal_display = signal_line[-display_len:]
+        hist_display = histogram[-display_len:]
+        macd_date_nums = [mdates.date2num(dates[len(dates) - display_len + i]) for i in range(display_len)]
 
-        macd_line_series = []
-        signal_series = []
-        histogram_series = []
+        # MACD, Signal 라인
+        valid_macd = [(d, m) for d, m in zip(macd_date_nums, macd_display) if m is not None]
+        valid_signal = [(d, s) for d, s in zip(macd_date_nums, signal_display) if s is not None]
 
-        for i in range(33, len(closes)):  # 26 + 9 - 2 = 33 최소 필요 데이터
-            ema12 = _calc_ema(closes[:i+1], 12)
-            ema26 = _calc_ema(closes[:i+1], 26)
-            if ema12 and ema26:
-                macd_val = ema12 - ema26
-                macd_line_series.append(macd_val)
+        if valid_macd:
+            ax_macd.plot([x[0] for x in valid_macd], [x[1] for x in valid_macd],
+                        color='#007AFF', linewidth=1.5, label='MACD')
+        if valid_signal:
+            ax_macd.plot([x[0] for x in valid_signal], [x[1] for x in valid_signal],
+                        color='#FF9500', linewidth=1.5, label='Signal')
 
-        # Signal line (MACD의 9일 EMA)
-        for i in range(8, len(macd_line_series)):
-            signal = sum(macd_line_series[i-8:i+1]) / 9
-            signal_series.append(signal)
-            histogram_series.append(macd_line_series[i] - signal)
+        ax_macd.axhline(y=0, color='gray', linewidth=0.5)
 
-        if macd_line_series and signal_series:
-            macd_display_len = min(display_len, len(signal_series))
-            macd_display = macd_line_series[-(macd_display_len):]
-            signal_display = signal_series[-macd_display_len:]
-            hist_display = histogram_series[-macd_display_len:]
+        # 히스토그램 (양수=초록, 음수=빨강)
+        for i, (d, h) in enumerate(zip(macd_date_nums, hist_display)):
+            if h is not None:
+                color = '#34C759' if h >= 0 else '#FF3B30'
+                ax_macd.bar(d, h, color=color, width=0.6, alpha=0.6)
 
-            # MACD, Signal 라인
-            ax_macd.plot(range(len(macd_display)), macd_display, 'blue', linewidth=1.5, label='MACD')
-            ax_macd.plot(range(len(signal_display)), signal_display, 'orange', linewidth=1.5, label='Signal')
-            ax_macd.axhline(y=0, color='gray', linestyle='-', alpha=0.3)
-
-            # 히스토그램 (색상 구분)
-            colors = ['green' if h >= 0 else 'red' for h in hist_display]
-            ax_macd.bar(range(len(hist_display)), hist_display, color=colors, alpha=0.5, width=0.8)
-
-            ax_macd.set_ylabel('MACD')
-            ax_macd.legend(loc='upper left', fontsize=8)
-
-            # 현재 MACD 상태 표시
-            if hist_display:
-                curr_hist = hist_display[-1]
-                macd_status = "상승세" if curr_hist > 0 else "하락세"
-                ax_macd.text(len(hist_display)-1, macd_display[-1],
-                            f' {macd_display[-1]:.0f} ({macd_status})',
-                            va='center', fontsize=9, fontweight='bold',
-                            color='green' if curr_hist > 0 else 'red')
-
-        # X축 날짜 라벨
-        tick_positions = list(range(0, display_len, 10))
-        tick_labels = [dates[-display_len:][i][5:] for i in tick_positions if i < display_len]
-        ax_macd.set_xticks(tick_positions[:len(tick_labels)])
-        ax_macd.set_xticklabels(tick_labels, fontsize=8)
+        ax_macd.set_ylabel('MACD', fontsize=11)
+        ax_macd.legend(loc='upper left', fontsize=9)
         ax_macd.grid(True, alpha=0.3)
+
+        # X축 날짜 포맷
+        ax_macd.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
+        ax_macd.xaxis.set_major_locator(mdates.WeekdayLocator(interval=2))
+        plt.xticks(rotation=45, fontsize=8)
 
         plt.tight_layout()
 
         momentum_path = os.path.join(CHARTS_DIR, f"momentum_{chart_id}.png")
-        plt.savefig(momentum_path, dpi=100, bbox_inches='tight', facecolor='white')
+        plt.savefig(momentum_path, dpi=150, bbox_inches='tight')
         plt.close(fig3)
         chart_urls["momentum_chart"] = f"/static/charts/momentum_{chart_id}.png"
 
-        print(f"[Chart] Generated 3 charts for {name} ({code})")
+        print(f"[Chart] Generated 3 StockEasy-level charts for {name} ({code})")
 
     except Exception as e:
         print(f"[Chart] Error generating charts for {code}: {e}")
@@ -13474,12 +13485,13 @@ def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list
     # 기업 개요 (FnGuide)
     company_text = company_summary if company_summary else "기업 개요 정보 없음"
 
-    prompt = f"""당신은 전문 증권 애널리스트입니다. {name}({code})의 종합 분석 보고서를 작성해주세요.
+    prompt = f"""당신은 15년 경력의 전문 증권 애널리스트입니다.
+{name}({code})의 종합 분석 보고서를 아래 데이터와 웹검색을 기반으로 작성하세요.
 
-## 제공된 데이터
+## 제공 데이터
 
-### 기업 개요 (FnGuide)
-{company_text}
+### 기업 개요
+{company_text if company_text != "기업 개요 정보 없음" else "(데이터 없음 - 웹검색으로 보완하세요)"}
 
 ### 기본 정보
 - 종목명: {name} ({code})
@@ -13503,15 +13515,14 @@ def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list
 - 영업이익: {op_inc}
 - 순이익: {net_inc}
 
-### 기술적 지표
-| 지표 | 값 | 해석 |
-|------|-----|------|
-| RSI(14) | {rsi} | {'>70 과매수' if safe_float(rsi) > 70 else '<30 과매도' if safe_float(rsi) < 30 else '중립'} |
-| MACD | Line {macd_line}, Signal {macd_signal} | {'상승세' if safe_float(macd_hist) > 0 else '하락세'} |
-| ADX | {adx} | {'+DI ' + plus_di + ' / -DI ' + minus_di} |
-| 스토캐스틱 | %K {stoch_k}, %D {stoch_d} | |
-| SuperTrend | {supertrend} | |
-| RS (상대강도) | {rs} | |
+### 기술적 지표 (오늘 기준)
+- 현재가: {current:,}원
+- RSI(14): {rsi}
+- MACD: Line {macd_line}, Signal {macd_signal}, Histogram {macd_hist}
+- ADX: {adx} / +DI: {plus_di} / -DI: {minus_di}
+- 스토캐스틱: %K {stoch_k}, %D {stoch_d}
+- SuperTrend: {supertrend}
+- RS (상대강도): {rs}
 
 ### 이동평균선
 SMA5: {sma5} | SMA20: {sma20} | SMA60: {sma60} | SMA120: {sma120} | SMA200: {sma200}
@@ -13525,52 +13536,79 @@ SMA5: {sma5} | SMA20: {sma20} | SMA60: {sma60} | SMA120: {sma120} | SMA200: {sma
 
 ---
 
-## 작성 요청사항
+## 웹검색 필수 지시
 
-**중요: 웹검색을 활용하여 아래 정보를 반드시 검색한 후 보고서에 포함하세요:**
-1. 최신 뉴스 (최근 1주일 이내)
-2. 증권사 리포트 및 목표주가
-3. 주요 공시 및 이슈
+반드시 아래 3가지를 웹검색하여 보고서에 반영하세요:
+1. "{name} 증권사 목표주가 2026" → 최소 2개 증권사의 투자의견/목표주가
+2. "{name} 최신 뉴스" → 최근 1주일 핵심 이슈 3-5개
+3. "{name} 실적 전망 2026" → 컨센서스 매출/영업이익 전망
 
-### 보고서 구조 (StockEasy 수준):
+## 보고서 구조 (반드시 이 순서와 형식으로 작성)
 
-# {name}({code}) 종합 분석 보고서
+### 1. 핵심 요약
+6개 핵심 포인트를 각각 제목+2~3문장으로 작성. 예시:
+• 실적 개선 전망 및 목표주가 상향: 2026년 연결 기준 영업이익은 X억원으로 전망되며...
+• 미국 태양광 시장의 긍정적 환경: ...
+(구체적 수치 필수, 일반론 금지)
 
-## 1. 핵심 요약
-(6개 핵심 포인트, 각각 2-3문장으로 상세히)
+### 2. 실적 전망 및 목표주가 분석
+- 2026년 재무지표 전망 테이블 (매출액/영업이익/당기순이익/EPS)
+- 증권사별 투자의견/목표주가 테이블 (웹검색 기반, 최소 2개 증권사)
+- 시가총액 달성 가능성 분석 (멀티플 근거 포함)
 
-## 2. 실적 전망 및 목표주가
-(증권사 컨센서스, 목표주가 범위, 재무지표 테이블)
+### 3. 핵심 성장 동력 및 사업 전망
+- 3~4개 소섹션으로 구분 (예: 시장 환경, 차세대 기술, 신규 수요, 재무 구조)
+- 각 소섹션 2~3문단 서술
 
-## 3. 핵심 성장 동력
-(사업 확장, 신기술, 시장 점유율 등 3-4가지)
+### 4. 주요 이슈 및 시장 반응
+- 웹검색으로 찾은 최신 뉴스 3~5개를 소섹션으로 구분
+- 각 이슈가 주가에 미치는 영향 분석
 
-## 4. 주요 이슈 및 시장 반응
-(최신 뉴스 기반, 웹검색 결과 인용)
+### 5. 기술적 분석
 
-## 5. 기술적 분석
-### 5.1 주가 및 지지/저항
-(현재가 위치, 지지/저항선 구체적 가격대)
-### 5.2 추세추종 지표
-(ADX {adx}, +DI/-DI 해석, SuperTrend, RS)
-### 5.3 모멘텀 지표
-(RSI {rsi}, MACD, 스토캐스틱 각각 해석)
-### 5.4 거래량/수급 분석
-(거래량 추이, 외인/기관 동향 - 웹검색 활용)
-### 5.5 종합 기술적 판단
-(지표 테이블 + 3가지 시나리오 - 각 시나리오에 구체적 가격대 포함)
+#### 5.1 주가 및 지지/저항
+- 현재가 {current:,}원, 최근 10일 주가 범위, 상승률
+- 지지선 {support} / 저항선 {resistance} 가격 명시
+- 향후 돌파/이탈 시나리오
 
-## 6. 면책조항
+#### 5.2 추세추종 지표 분석
+- ADX {adx} 해석 (25 미만=약한 추세, 25~50=강한 추세, 50 이상=매우 강한 추세)
+- +DI {plus_di} / -DI {minus_di} 관계로 추세 방향 판단
+- SuperTrend {supertrend} 위치 및 현재가와의 간격
+- RS {rs} 시장 대비 우위 여부
+
+#### 5.3 모멘텀 지표 분석
+- RSI {rsi} 해석 (30 이하=과매도, 70 이상=과매수)
+- MACD Line {macd_line} / Signal {macd_signal} 교차 상태, Histogram {macd_hist} 방향
+- 스토캐스틱 %K {stoch_k} / %D {stoch_d} 교차 방향
+
+#### 5.4 주가, 거래량, 수급 분석
+- 최근 거래량 {volume:,}주 vs 20일 평균 {avg_vol:,}주 변화
+- 가격-거래량 관계 해석
+- 외국인/기관 수급 동향 (웹검색 활용)
+
+#### 5.5 종합 분석
+- 6개 지표 요약 테이블 (지표명/현재값/신호/상세정보)
+- 종합 신호 판단 (매수/매도/중립)
+- 3가지 예상 시나리오:
+  1. 상승추세지속 시나리오: 구체적 가격대 명시
+  2. 단기조정후재상승 시나리오: 구체적 가격대 명시
+  3. 추세전환 시나리오: 구체적 가격대 명시
+
+### 6. 면책조항
+"본 보고서는 투자 참고 자료로만 활용하시기 바라며, 특정 종목의 매수/매도를 권유하지 않습니다."
 
 ---
 
-### 작성 규칙:
-- 제공된 재무/기술적 데이터를 반드시 인용할 것
-- **추측하지 말고, 제공된 데이터와 웹검색 결과만 사용**
-- 증권사 목표주가는 웹검색으로 확인 후 기재
-- 시나리오에는 구체적 가격대 포함 (예: "상승 시나리오: 65,000원 돌파 시 72,000원 목표")
-- 한국어로 작성
-- 2500~3500자 분량으로 상세하게 작성
+## 작성 규칙 (필수 준수)
+
+1. 반드시 제공된 데이터의 실제 수치를 인용하세요. 추측 금지.
+2. 제공 데이터가 없는 항목은 웹검색으로 보완하세요. 그래도 없으면 "데이터 미확인"으로 표시.
+3. **"정보 부족으로 평가 불가" 같은 문구는 절대 쓰지 마세요.**
+4. 증권사 목표주가는 반드시 웹검색으로 확인 후 기재하세요.
+5. 시나리오별 가격대는 지지선/저항선 기반으로 구체적으로 제시하세요.
+6. 총 분량: **최소 3000자 이상** (충분히 상세하게).
+7. 마크다운 형식으로 작성 (# ## ### 헤딩, 테이블, 글머리 기호 사용).
 """
     return prompt
 
