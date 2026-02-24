@@ -9670,25 +9670,13 @@ async function sendAiQuestion(text) {
     if (sendBtn) sendBtn.disabled = false;
 }
 
-// AI 리포트 PDF 다운로드 (Tauri shell.open 사용)
+// AI 리포트 PDF 다운로드 (Tauri invoke 사용)
 async function downloadAiReportPdf(jobId, stockName, stockCode) {
     const pdfUrl = `https://qube-system.com/api/ai/report/pdf/${jobId}`;
 
     try {
-        // Tauri shell.open으로 브라우저에서 PDF 열기
-        if (window.__TAURI__?.shell?.open) {
-            await window.__TAURI__.shell.open(pdfUrl);
-            showToast('브라우저에서 PDF를 다운로드합니다', 'success');
-            return;
-        }
-    } catch (e) {
-        console.warn('[PDF] Tauri shell.open failed:', e);
-    }
-
-    // Fallback: 일반 브라우저 다운로드
-    try {
-        window.open(pdfUrl, '_blank');
-        showToast('PDF 다운로드 중...', 'success');
+        await invoke('open_url', { url: pdfUrl });
+        showToast('브라우저에서 PDF를 다운로드합니다', 'success');
     } catch (e) {
         console.error('[PDF Download]', e);
         showToast('PDF 다운로드 실패: ' + e.message, 'error');

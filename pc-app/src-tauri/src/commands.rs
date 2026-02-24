@@ -4866,3 +4866,14 @@ pub async fn get_screener(
         Err(format!("스크리너 조회 실패: {} - {}", status, body))
     }
 }
+
+
+// =====================================================
+// URL 열기 (PDF 다운로드용)
+// =====================================================
+
+#[tauri::command]
+pub async fn open_url(url: String) -> Result<String, String> {
+    open::that(&url).map_err(|e| format!("URL 열기 실패: {}", e))?;
+    Ok("success".to_string())
+}
