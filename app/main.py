@@ -12718,14 +12718,24 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
             fin = await _collect_financial_data_for_ai(code, market)
             news = await _collect_news_for_ai(code, name, market)
 
+            # 기업 개요 수집 (FnGuide bizSummaryContent)
+            company_summary = ""
+            if market == "kr":
+                try:
+                    from .data_provider import get_stock_company_kr
+                    company_data = await get_stock_company_kr(code)
+                    company_summary = company_data.get("description", "")
+                except Exception as e:
+                    print(f"[AI Chat] Company summary error: {e}")
+
             # 차트 생성
             _ai_jobs[job_id]["progress"] = f"📈 {name} 차트 생성 중..."
             chart_urls = await _generate_ai_charts(code, name, market)
 
             _ai_jobs[job_id]["progress"] = "🤖 AI가 분석 중..."
 
-            # 데이터 기반 프롬프트 생성
-            data_prompt = _build_claude_prompt(name, code, tech, fin, news)
+            # 데이터 기반 프롬프트 생성 (기업 개요 포함)
+            data_prompt = _build_claude_prompt(name, code, tech, fin, news, company_summary)
 
             # 사용자 질문 추가
             final_prompt = f"""{data_prompt}
@@ -12733,13 +12743,15 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
 ---
 사용자 질문: {message}
 
-위 데이터를 바탕으로 사용자의 질문에 답변해주세요.
+위 데이터와 웹검색 결과를 바탕으로 사용자의 질문에 답변해주세요.
 반드시 실제 수치(현재가, RSI, ADX, MACD 등)를 인용하며 답변하세요.
+최신 뉴스, 증권사 리포트, 목표주가가 필요하면 웹검색을 활용하세요.
 """
 
             response = await client.messages.create(
                 model="claude-haiku-4-5-20251001",
                 max_tokens=4096,
+                tools=[{"type": "web_search_20250305", "name": "web_search"}],
                 messages=[{"role": "user", "content": final_prompt}]
             )
         else:
@@ -12770,7 +12782,14 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
                 messages=[{"role": "user", "content": message}]
             )
 
-        reply = response.content[0].text if response.content else ""
+        # 웹검색 tool 사용 시 여러 content 블록이 있을 수 있음
+        reply = ""
+        for block in response.content:
+            if hasattr(block, 'text'):
+                reply += block.text
+            elif hasattr(block, 'type') and block.type == 'tool_use':
+                # 웹검색 결과는 별도 처리 (Claude가 자동으로 결과 반영)
+                pass
 
         _ai_jobs[job_id]["status"] = "done"
         _ai_jobs[job_id]["result"] = reply
@@ -13025,42 +13044,63 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
         plt.close(fig1)
         chart_urls["price_chart"] = f"/static/charts/price_{chart_id}.png"
 
-        # ===== 차트 2: 추세 차트 (ADX 기반) =====
+        # ===== 차트 2: 추세 차트 (ADX + SMA 시계열) =====
         from .screener.technicals import calc_adx
 
-        adx_result = calc_adx(highs, lows, closes, 14)
+        fig2, (ax_price, ax_adx) = plt.subplots(2, 1, figsize=(10, 6), height_ratios=[2, 1],
+                                                  gridspec_kw={'hspace': 0.15})
 
-        fig2, ax = plt.subplots(figsize=(10, 4))
+        # 상단: 주가 + 이동평균선
+        ax_price.plot(range(display_len), closes[-display_len:], 'b-', linewidth=1.5, label='종가')
+        if sma20[-display_len:][0] is not None:
+            ax_price.plot(range(display_len), sma20[-display_len:], 'orange', linewidth=1.2, label='SMA20')
+        if sma60[-display_len:][0] is not None:
+            ax_price.plot(range(display_len), sma60[-display_len:], 'green', linewidth=1.2, label='SMA60')
 
-        # ADX 값이 있으면 표시
-        if adx_result and adx_result.get("adx"):
-            adx_val = adx_result["adx"]
-            # 추세 강도 게이지
-            colors_gauge = ['#ff4444' if adx_val < 20 else '#ffaa00' if adx_val < 40 else '#44ff44']
-            ax.barh(['추세 강도'], [adx_val], color=colors_gauge, height=0.5)
-            ax.axvline(x=20, color='gray', linestyle='--', alpha=0.5)
-            ax.axvline(x=40, color='gray', linestyle='--', alpha=0.5)
-            ax.set_xlim(0, 100)
-            ax.set_xlabel('ADX')
+        ax_price.set_title(f'{name} - 추세 분석', fontsize=12, fontweight='bold')
+        ax_price.legend(loc='upper left', fontsize=8)
+        ax_price.grid(True, alpha=0.3)
+        ax_price.set_ylabel('가격 (원)')
+        ax_price.set_xticks([])
 
-            # 추세 상태 텍스트
-            if adx_val < 20:
-                trend_text = "비추세 (횡보)"
-                trend_color = 'red'
-            elif adx_val < 40:
-                trend_text = "보통 추세"
-                trend_color = 'orange'
+        # 하단: ADX 시계열
+        adx_values = []
+        plus_di_values = []
+        minus_di_values = []
+        for i in range(28, len(closes)):
+            adx_result = calc_adx(highs[:i+1], lows[:i+1], closes[:i+1], 14)
+            if adx_result:
+                adx_values.append(adx_result.get("adx", 0) or 0)
+                plus_di_values.append(adx_result.get("plus_di", 0) or 0)
+                minus_di_values.append(adx_result.get("minus_di", 0) or 0)
             else:
-                trend_text = "강한 추세"
-                trend_color = 'green'
+                adx_values.append(0)
+                plus_di_values.append(0)
+                minus_di_values.append(0)
 
-            ax.text(adx_val + 2, 0, f'{adx_val:.1f} - {trend_text}',
-                    va='center', fontsize=12, color=trend_color, fontweight='bold')
-        else:
-            ax.text(0.5, 0.5, '추세 데이터 없음', ha='center', va='center', fontsize=14)
+        if adx_values:
+            adx_display = adx_values[-display_len:] if len(adx_values) >= display_len else adx_values
+            pdi_display = plus_di_values[-display_len:] if len(plus_di_values) >= display_len else plus_di_values
+            mdi_display = minus_di_values[-display_len:] if len(minus_di_values) >= display_len else minus_di_values
 
-        ax.set_title(f'{name} - 추세 분석 (ADX)', fontsize=12, fontweight='bold')
-        ax.grid(True, alpha=0.3)
+            ax_adx.plot(range(len(adx_display)), adx_display, 'purple', linewidth=1.5, label='ADX')
+            ax_adx.plot(range(len(pdi_display)), pdi_display, 'green', linewidth=1, alpha=0.7, label='+DI')
+            ax_adx.plot(range(len(mdi_display)), mdi_display, 'red', linewidth=1, alpha=0.7, label='-DI')
+            ax_adx.axhline(y=20, color='gray', linestyle='--', alpha=0.5)
+            ax_adx.axhline(y=40, color='gray', linestyle='--', alpha=0.5)
+            ax_adx.set_ylim(0, 80)
+            ax_adx.set_ylabel('ADX')
+            ax_adx.legend(loc='upper right', fontsize=8)
+            ax_adx.fill_between(range(len(adx_display)), 0, 20, alpha=0.1, color='red')
+            ax_adx.fill_between(range(len(adx_display)), 40, 80, alpha=0.1, color='green')
+
+        # X축 날짜 라벨
+        tick_positions = list(range(0, display_len, 10))
+        tick_labels = [dates[-display_len:][i][5:] for i in tick_positions if i < display_len]
+        ax_adx.set_xticks(tick_positions[:len(tick_labels)])
+        ax_adx.set_xticklabels(tick_labels, fontsize=8)
+        ax_adx.grid(True, alpha=0.3)
+
         plt.tight_layout()
 
         trend_path = os.path.join(CHARTS_DIR, f"trend_{chart_id}.png")
@@ -13068,12 +13108,13 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
         plt.close(fig2)
         chart_urls["trend_chart"] = f"/static/charts/trend_{chart_id}.png"
 
-        # ===== 차트 3: 모멘텀 차트 (RSI + MACD) =====
-        from .screener.technicals import _calc_rsi, _calc_macd
+        # ===== 차트 3: 모멘텀 차트 (RSI + MACD 시계열) =====
+        from .screener.technicals import _calc_rsi
 
-        fig3, (ax_rsi, ax_macd) = plt.subplots(2, 1, figsize=(10, 5))
+        fig3, (ax_rsi, ax_macd) = plt.subplots(2, 1, figsize=(10, 6), height_ratios=[1, 1],
+                                                gridspec_kw={'hspace': 0.15})
 
-        # RSI
+        # RSI 시계열
         rsi_values = []
         for i in range(14, len(closes)):
             rsi = _calc_rsi(closes[:i+1], 14)
@@ -13081,40 +13122,85 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
 
         if rsi_values:
             rsi_display = rsi_values[-display_len:] if len(rsi_values) >= display_len else rsi_values
-            ax_rsi.plot(range(len(rsi_display)), rsi_display, 'purple', linewidth=1.5)
-            ax_rsi.axhline(y=70, color='red', linestyle='--', alpha=0.5)
-            ax_rsi.axhline(y=30, color='green', linestyle='--', alpha=0.5)
+            ax_rsi.plot(range(len(rsi_display)), rsi_display, 'purple', linewidth=1.5, label='RSI(14)')
+            ax_rsi.axhline(y=70, color='red', linestyle='--', alpha=0.7, label='과매수(70)')
+            ax_rsi.axhline(y=30, color='green', linestyle='--', alpha=0.7, label='과매도(30)')
             ax_rsi.fill_between(range(len(rsi_display)), 30, 70, alpha=0.1, color='gray')
             ax_rsi.set_ylim(0, 100)
             ax_rsi.set_ylabel('RSI')
             ax_rsi.set_title(f'{name} - 모멘텀 지표', fontsize=12, fontweight='bold')
+            ax_rsi.legend(loc='upper left', fontsize=8)
             ax_rsi.grid(True, alpha=0.3)
+            ax_rsi.set_xticks([])
 
             # 현재 RSI 값 표시
             current_rsi = rsi_display[-1]
             rsi_status = "과매수" if current_rsi > 70 else "과매도" if current_rsi < 30 else "중립"
             ax_rsi.text(len(rsi_display)-1, current_rsi, f' {current_rsi:.1f} ({rsi_status})',
-                        va='center', fontsize=10, fontweight='bold')
+                        va='center', fontsize=10, fontweight='bold',
+                        color='red' if current_rsi > 70 else 'green' if current_rsi < 30 else 'black')
 
-        # MACD
-        macd_result = _calc_macd(closes)
-        if macd_result and len(macd_result) >= 3:
-            macd_line, signal_line, histogram = macd_result
-            if macd_line is not None:
-                ax_macd.axhline(y=0, color='gray', linestyle='-', alpha=0.3)
-                ax_macd.plot([0], [macd_line], 'bo', markersize=10, label=f'MACD: {macd_line:.2f}')
-                ax_macd.plot([1], [signal_line], 'ro', markersize=10, label=f'Signal: {signal_line:.2f}')
+        # MACD 시계열 계산
+        def _calc_ema(data, period):
+            if len(data) < period:
+                return None
+            multiplier = 2 / (period + 1)
+            ema = sum(data[:period]) / period
+            for price in data[period:]:
+                ema = (price - ema) * multiplier + ema
+            return ema
 
-                # 히스토그램 색상
-                hist_color = 'green' if histogram > 0 else 'red'
-                ax_macd.bar([2], [histogram], color=hist_color, alpha=0.7, label=f'Hist: {histogram:.2f}')
+        macd_line_series = []
+        signal_series = []
+        histogram_series = []
 
-                ax_macd.set_ylabel('MACD')
-                ax_macd.legend(loc='upper right', fontsize=8)
-                ax_macd.set_xticks([0, 1, 2])
-                ax_macd.set_xticklabels(['MACD', 'Signal', 'Histogram'])
+        for i in range(33, len(closes)):  # 26 + 9 - 2 = 33 최소 필요 데이터
+            ema12 = _calc_ema(closes[:i+1], 12)
+            ema26 = _calc_ema(closes[:i+1], 26)
+            if ema12 and ema26:
+                macd_val = ema12 - ema26
+                macd_line_series.append(macd_val)
 
+        # Signal line (MACD의 9일 EMA)
+        for i in range(8, len(macd_line_series)):
+            signal = sum(macd_line_series[i-8:i+1]) / 9
+            signal_series.append(signal)
+            histogram_series.append(macd_line_series[i] - signal)
+
+        if macd_line_series and signal_series:
+            macd_display_len = min(display_len, len(signal_series))
+            macd_display = macd_line_series[-(macd_display_len):]
+            signal_display = signal_series[-macd_display_len:]
+            hist_display = histogram_series[-macd_display_len:]
+
+            # MACD, Signal 라인
+            ax_macd.plot(range(len(macd_display)), macd_display, 'blue', linewidth=1.5, label='MACD')
+            ax_macd.plot(range(len(signal_display)), signal_display, 'orange', linewidth=1.5, label='Signal')
+            ax_macd.axhline(y=0, color='gray', linestyle='-', alpha=0.3)
+
+            # 히스토그램 (색상 구분)
+            colors = ['green' if h >= 0 else 'red' for h in hist_display]
+            ax_macd.bar(range(len(hist_display)), hist_display, color=colors, alpha=0.5, width=0.8)
+
+            ax_macd.set_ylabel('MACD')
+            ax_macd.legend(loc='upper left', fontsize=8)
+
+            # 현재 MACD 상태 표시
+            if hist_display:
+                curr_hist = hist_display[-1]
+                macd_status = "상승세" if curr_hist > 0 else "하락세"
+                ax_macd.text(len(hist_display)-1, macd_display[-1],
+                            f' {macd_display[-1]:.0f} ({macd_status})',
+                            va='center', fontsize=9, fontweight='bold',
+                            color='green' if curr_hist > 0 else 'red')
+
+        # X축 날짜 라벨
+        tick_positions = list(range(0, display_len, 10))
+        tick_labels = [dates[-display_len:][i][5:] for i in tick_positions if i < display_len]
+        ax_macd.set_xticks(tick_positions[:len(tick_labels)])
+        ax_macd.set_xticklabels(tick_labels, fontsize=8)
         ax_macd.grid(True, alpha=0.3)
+
         plt.tight_layout()
 
         momentum_path = os.path.join(CHARTS_DIR, f"momentum_{chart_id}.png")
@@ -13303,8 +13389,8 @@ async def _collect_news_for_ai(code: str, name: str, market: str = "kr") -> list
     return news
 
 
-def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list) -> str:
-    """Claude에게 보낼 분석 프롬프트 구성"""
+def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list, company_summary: str = "") -> str:
+    """Claude에게 보낼 분석 프롬프트 구성 (StockEasy 수준)"""
 
     # 안전한 숫자 변환 함수
     def safe_int(v, default=0):
@@ -13348,7 +13434,10 @@ def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list
     # 추세 지표
     trend = tech.get("trend_indicators", {})
     adx = safe_str(trend.get("adx"))
+    plus_di = safe_str(trend.get("plus_di"))
+    minus_di = safe_str(trend.get("minus_di"))
     rs = safe_str(trend.get("rs_score"))
+    supertrend = safe_str(trend.get("supertrend"))
 
     # 모멘텀 지표
     mom = tech.get("momentum_indicators", {})
@@ -13359,13 +13448,19 @@ def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list
     stoch_k = safe_str(mom.get("stoch_k"))
     stoch_d = safe_str(mom.get("stoch_d"))
 
+    # 지지/저항
+    support = tech.get("support_levels", [])
+    resistance = tech.get("resistance_levels", [])
+
     # 재무
     ratios = fin.get("ratios", {})
     roe = safe_str(ratios.get("roe"))
     per = safe_str(ratios.get("per"))
     pbr = safe_str(ratios.get("pbr"))
+    eps = safe_str(ratios.get("eps"))
     debt = safe_str(ratios.get("debt_ratio"))
     opm = safe_str(ratios.get("operating_margin"))
+    market_cap = safe_str(ratios.get("market_cap"))
 
     # 연간 실적
     annual = fin.get("annual", {})
@@ -13376,79 +13471,106 @@ def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list
     # 뉴스
     news_text = "\n".join([f"- [{n['date']}] {n['title']}" for n in news[:5]]) if news else "최근 뉴스 없음"
 
-    prompt = f"""당신은 전문 주식 애널리스트입니다. 아래 데이터를 바탕으로 '{name}({code})' 종합 분석 보고서를 작성해주세요.
+    # 기업 개요 (FnGuide)
+    company_text = company_summary if company_summary else "기업 개요 정보 없음"
 
-## 기본 정보
-종목명: {name} ({code})
-현재가: {current:,}원
-등락률: {change}%
-52주 고가: {high_52w:,}원 / 저가: {low_52w:,}원
-거래량: {volume:,}주 (20일 평균: {avg_vol:,}주)
+    prompt = f"""당신은 전문 증권 애널리스트입니다. {name}({code})의 종합 분석 보고서를 작성해주세요.
 
-## 이동평균선
+## 제공된 데이터
+
+### 기업 개요 (FnGuide)
+{company_text}
+
+### 기본 정보
+- 종목명: {name} ({code})
+- 현재가: {current:,}원 ({change:+.2f}%)
+- 52주 고가/저가: {high_52w:,}원 / {low_52w:,}원
+- 거래량: {volume:,}주 (20일 평균: {avg_vol:,}주)
+- 시가총액: {market_cap}억원
+
+### 재무 지표
+| 지표 | 값 |
+|------|-----|
+| PER | {per} |
+| PBR | {pbr} |
+| ROE | {roe}% |
+| EPS | {eps}원 |
+| 부채비율 | {debt}% |
+| 영업이익률 | {opm}% |
+
+### 연간 실적 (최근 3년, 억원)
+- 매출액: {rev}
+- 영업이익: {op_inc}
+- 순이익: {net_inc}
+
+### 기술적 지표
+| 지표 | 값 | 해석 |
+|------|-----|------|
+| RSI(14) | {rsi} | {'>70 과매수' if safe_float(rsi) > 70 else '<30 과매도' if safe_float(rsi) < 30 else '중립'} |
+| MACD | Line {macd_line}, Signal {macd_signal} | {'상승세' if safe_float(macd_hist) > 0 else '하락세'} |
+| ADX | {adx} | {'+DI ' + plus_di + ' / -DI ' + minus_di} |
+| 스토캐스틱 | %K {stoch_k}, %D {stoch_d} | |
+| SuperTrend | {supertrend} | |
+| RS (상대강도) | {rs} | |
+
+### 이동평균선
 SMA5: {sma5} | SMA20: {sma20} | SMA60: {sma60} | SMA120: {sma120} | SMA200: {sma200}
 
-## 기술적 지표
-[추세]
-- ADX: {adx}
-- RS 상대강도: {rs}
+### 지지/저항선
+- 지지선: {support}
+- 저항선: {resistance}
 
-[모멘텀]
-- RSI(14): {rsi}
-- MACD: Line {macd_line}, Signal {macd_signal}, Histogram {macd_hist}
-- 스토캐스틱: %K {stoch_k}, %D {stoch_d}
-
-## 재무 지표
-- ROE: {roe}%
-- PER: {per}
-- PBR: {pbr}
-- 부채비율: {debt}%
-- 영업이익률: {opm}%
-
-## 연간 실적 (최근 3년, 억원)
-매출액: {rev}
-영업이익: {op_inc}
-순이익: {net_inc}
-
-## 최근 뉴스
+### 최근 뉴스 (수집됨)
 {news_text}
 
 ---
 
-## 보고서 작성 규칙
-1. 마크다운 형식으로 작성
-2. 전문적이고 객관적인 톤 유지
-3. 각 지표 해석 시 수치 근거 명시
-4. 아래 구조를 따를 것:
+## 작성 요청사항
+
+**중요: 웹검색을 활용하여 아래 정보를 반드시 검색한 후 보고서에 포함하세요:**
+1. 최신 뉴스 (최근 1주일 이내)
+2. 증권사 리포트 및 목표주가
+3. 주요 공시 및 이슈
+
+### 보고서 구조 (StockEasy 수준):
 
 # {name}({code}) 종합 분석 보고서
 
 ## 1. 핵심 요약
-(4~5개 핵심 불릿포인트 - 가장 중요한 정보만)
+(6개 핵심 포인트, 각각 2-3문장으로 상세히)
 
-## 2. 기술적 분석
-### 2.1 가격 및 추세
-(현재가 위치, 이동평균선 배열, 추세 판단)
-### 2.2 모멘텀 분석
-(RSI, MACD, 스토캐스틱 각각 해석)
-### 2.3 기술적 종합 판단
-(매수/매도/중립 + 근거)
+## 2. 실적 전망 및 목표주가
+(증권사 컨센서스, 목표주가 범위, 재무지표 테이블)
 
-## 3. 재무 분석
-(핵심 재무지표 해석 + 실적 추이)
+## 3. 핵심 성장 동력
+(사업 확장, 신기술, 시장 점유율 등 3-4가지)
 
-## 4. 투자 포인트 및 리스크
-### 4.1 긍정적 요인
-### 4.2 리스크 요인
+## 4. 주요 이슈 및 시장 반응
+(최신 뉴스 기반, 웹검색 결과 인용)
 
-## 5. 종합 의견
-(투자 관점 종합 + 시나리오별 전망)
+## 5. 기술적 분석
+### 5.1 주가 및 지지/저항
+(현재가 위치, 지지/저항선 구체적 가격대)
+### 5.2 추세추종 지표
+(ADX {adx}, +DI/-DI 해석, SuperTrend, RS)
+### 5.3 모멘텀 지표
+(RSI {rsi}, MACD, 스토캐스틱 각각 해석)
+### 5.4 거래량/수급 분석
+(거래량 추이, 외인/기관 동향 - 웹검색 활용)
+### 5.5 종합 기술적 판단
+(지표 테이블 + 3가지 시나리오 - 각 시나리오에 구체적 가격대 포함)
+
+## 6. 면책조항
 
 ---
-*면책조항: 본 보고서는 투자 참고 자료로만 활용하시기 바라며, 특정 종목의 매수/매도를 권유하지 않습니다.*
-*BBooster AI 분석 시스템에서 생성됨*
 
-한국어로 작성하고, 1500~2500자 분량으로 작성해주세요.
+### 작성 규칙:
+- 제공된 재무/기술적 데이터를 반드시 인용할 것
+- **추측하지 말고, 제공된 데이터와 웹검색 결과만 사용**
+- 증권사 목표주가는 웹검색으로 확인 후 기재
+- 시나리오에는 구체적 가격대 포함 (예: "상승 시나리오: 65,000원 돌파 시 72,000원 목표")
+- 한국어로 작성
+- 2500~3500자 분량으로 상세하게 작성
 """
     return prompt
 
