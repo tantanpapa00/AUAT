@@ -12533,7 +12533,7 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
 - 1500자 이상 상세하게"""
 
         response = await client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-haiku-4-5-20251001",
             max_tokens=4096,
             system=system_prompt,
             messages=[{"role": "user", "content": message}]
@@ -12975,7 +12975,7 @@ async def _generate_claude_report(name: str, code: str, market: str = "kr") -> d
         client = anthropic.AsyncAnthropic(api_key=api_key, timeout=50.0)
 
         response = await client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-haiku-4-5-20251001",
             max_tokens=4000,
             messages=[{"role": "user", "content": prompt}]
         )

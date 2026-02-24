@@ -9529,8 +9529,8 @@ async function pollAiChatResult(jobId, maxWaitSec = 120) {
                 progressEl.textContent = status.progress;
             }
 
-            if (status.status === 'done' && status.result) {
-                return status.result;
+            if (status.status === 'done' && status.report) {
+                return status.report;
             } else if (status.status === 'error') {
                 throw new Error(status.error || '응답 실패');
             }
