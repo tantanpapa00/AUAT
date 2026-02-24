@@ -9333,10 +9333,10 @@ async function searchUnified(query) {
 }
 
 // =============================================================================
-// Phase 11-2: BBooster AI 채팅
+// Phase 11-2: BBooster AI 추천
 // =============================================================================
 
-let aiChatInitialized = false;
+let currentAiMarket = 'kr';
 
 async function loadBBoosterAI() {
     const restrictionEl = document.getElementById('bbooster-ai-restriction');
@@ -9355,152 +9355,26 @@ async function loadBBoosterAI() {
     if (restrictionEl) restrictionEl.style.display = 'none';
     if (contentEl) contentEl.style.display = 'block';
 
-    // 채팅 이벤트 바인딩
-    initAiChatEvents();
+    // 탭 이벤트 바인딩
+    initAiTabEvents();
 
-    // AI 사용량 조회
-    loadAiChatUsage();
+    // 초기 로드
+    loadAiRecommendations(currentAiMarket);
 }
 
-function initAiChatEvents() {
-    if (aiChatInitialized) return;
-    aiChatInitialized = true;
+let aiTabEventsInitialized = false;
+function initAiTabEvents() {
+    if (aiTabEventsInitialized) return;
+    aiTabEventsInitialized = true;
 
-    const inputEl = document.getElementById('ai-chat-input');
-    const sendBtn = document.getElementById('ai-chat-send');
-
-    // 전송 버튼 클릭
-    sendBtn?.addEventListener('click', () => sendAiChatMessage());
-
-    // Enter 키로 전송 (Shift+Enter는 줄바꿈)
-    inputEl?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendAiChatMessage();
-        }
-    });
-
-    // textarea 자동 높이 조절
-    inputEl?.addEventListener('input', () => {
-        inputEl.style.height = 'auto';
-        inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
-    });
-
-    // 예시 질문 버튼
-    document.querySelectorAll('.example-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const question = btn.dataset.question;
-            if (inputEl) {
-                inputEl.value = question;
-                sendAiChatMessage();
-            }
+    document.querySelectorAll('.ai-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.ai-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            currentAiMarket = tab.dataset.market;
+            loadAiRecommendations(currentAiMarket);
         });
     });
-}
-
-async function loadAiChatUsage() {
-    try {
-        const response = await invoke('get_ai_usage', {
-            accessToken: auth.accessToken || ''
-        });
-        const usageEl = document.getElementById('ai-chat-usage');
-        if (usageEl && response) {
-            const dailyRemain = (response.daily_max || 0) - (response.daily_used || 0);
-            usageEl.textContent = `오늘 남은 횟수: ${dailyRemain}/${response.daily_max || 0}`;
-        }
-    } catch (err) {
-        console.error('AI 사용량 조회 실패:', err);
-    }
-}
-
-async function sendAiChatMessage() {
-    const inputEl = document.getElementById('ai-chat-input');
-    const messagesEl = document.getElementById('ai-chat-messages');
-    const sendBtn = document.getElementById('ai-chat-send');
-
-    const message = inputEl?.value?.trim();
-    if (!message) return;
-
-    // 입력 초기화 및 버튼 비활성화
-    inputEl.value = '';
-    inputEl.style.height = 'auto';
-    sendBtn.disabled = true;
-
-    // 환영 메시지 제거
-    const welcomeEl = messagesEl.querySelector('.ai-chat-welcome');
-    if (welcomeEl) welcomeEl.remove();
-
-    // 사용자 메시지 추가
-    messagesEl.innerHTML += `
-        <div class="ai-chat-message user">
-            <div class="ai-chat-avatar">👤</div>
-            <div class="ai-chat-bubble">${escapeHtml(message)}</div>
-        </div>
-    `;
-
-    // AI 응답 대기 표시
-    const typingId = 'ai-typing-' + Date.now();
-    messagesEl.innerHTML += `
-        <div class="ai-chat-message ai" id="${typingId}">
-            <div class="ai-chat-avatar">🤖</div>
-            <div class="ai-chat-bubble">
-                <div class="ai-typing-indicator">
-                    <span></span><span></span><span></span>
-                </div>
-            </div>
-        </div>
-    `;
-
-    // 스크롤 하단으로
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-
-    try {
-        const response = await invoke('request_ai_chat', {
-            accessToken: auth.accessToken || '',
-            message: message
-        });
-
-        // 타이핑 표시 제거
-        document.getElementById(typingId)?.remove();
-
-        if (response.success) {
-            // AI 응답 추가
-            messagesEl.innerHTML += `
-                <div class="ai-chat-message ai">
-                    <div class="ai-chat-avatar">🤖</div>
-                    <div class="ai-chat-bubble">${markdownToHtml(response.reply || '')}</div>
-                </div>
-            `;
-
-            // 사용량 업데이트
-            loadAiChatUsage();
-        } else {
-            messagesEl.innerHTML += `
-                <div class="ai-chat-message ai">
-                    <div class="ai-chat-avatar">🤖</div>
-                    <div class="ai-chat-bubble" style="color: #ef4444;">${response.error || '응답을 받지 못했습니다'}</div>
-                </div>
-            `;
-        }
-    } catch (error) {
-        document.getElementById(typingId)?.remove();
-        messagesEl.innerHTML += `
-            <div class="ai-chat-message ai">
-                <div class="ai-chat-avatar">🤖</div>
-                <div class="ai-chat-bubble" style="color: #ef4444;">오류: ${error.toString()}</div>
-            </div>
-        `;
-    }
-
-    // 스크롤 하단으로
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-    sendBtn.disabled = false;
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 async function loadAiRecommendations(market) {
