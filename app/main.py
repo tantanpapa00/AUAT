@@ -12470,10 +12470,10 @@ async def request_ai_chat(
     except Exception as e:
         print(f"AI chat usage check error: {e}")
 
-    # Claude API 호출
+    # Claude API 호출 (AsyncAnthropic 사용 - 이벤트 루프 블로킹 방지)
     try:
         import anthropic
-        client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
+        client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""), timeout=50.0)
 
         system_prompt = """당신은 BBooster의 AI 투자 어시스턴트입니다.
 사용자의 투자 관련 질문에 전문적이고 친절하게 답변합니다.
@@ -12495,7 +12495,7 @@ async def request_ai_chat(
 - 명확하고 간결하게
 - 필요시 구조화된 목록 사용"""
 
-        response = client.messages.create(
+        response = await client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=1024,
             system=system_prompt,
@@ -12934,11 +12934,11 @@ async def _generate_claude_report(name: str, code: str, market: str = "kr") -> d
         # 프롬프트 구성
         prompt = _build_claude_prompt(name, code, tech, fin, news)
 
-        # Claude API 호출
+        # Claude API 호출 (AsyncAnthropic 사용 - 이벤트 루프 블로킹 방지)
         print(f"[AI Report] Calling Claude API...")
-        client = anthropic.Anthropic(api_key=api_key)
+        client = anthropic.AsyncAnthropic(api_key=api_key, timeout=50.0)
 
-        response = client.messages.create(
+        response = await client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=4000,
             messages=[{"role": "user", "content": prompt}]
