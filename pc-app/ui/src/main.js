@@ -9504,7 +9504,7 @@ function initAiChatInput() {
     });
 }
 
-// 종목 자동완성 검색 (fetch 직접 호출)
+// 종목 자동완성 검색 (invoke 사용)
 async function searchStockAutocomplete(query) {
     const dropdown = document.getElementById('ai-autocomplete-dropdown');
     if (!dropdown) {
@@ -9513,10 +9513,7 @@ async function searchStockAutocomplete(query) {
     }
 
     try {
-        const resp = await fetch(`https://qube-system.com/api/search?q=${encodeURIComponent(query)}&limit=5`);
-        if (!resp.ok) throw new Error('검색 실패');
-
-        const result = await resp.json();
+        const result = await invoke('ai_search_stock', { query: query });
         console.log('[Autocomplete] result:', result);
 
         if (!result?.results?.length) {
@@ -9678,7 +9675,7 @@ async function sendAiQuestion(text) {
     if (sendBtn) sendBtn.disabled = false;
 }
 
-// AI 리포트 PDF 다운로드 (fetch + blob + <a download>)
+// AI 리포트 PDF 다운로드 (invoke로 파일 저장)
 async function downloadAiReportPdf(jobId, stockName, stockCode) {
     const btn = event?.target;
     if (btn) {
@@ -9687,23 +9684,14 @@ async function downloadAiReportPdf(jobId, stockName, stockCode) {
     }
 
     try {
-        const resp = await fetch(`https://qube-system.com/api/ai/report/pdf/${jobId}`);
-        if (!resp.ok) throw new Error('PDF 생성 실패');
-
-        const blob = await resp.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${stockName || 'BBooster'}_${stockCode || jobId}_분석리포트.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-
-        showToast('PDF 다운로드 완료', 'success');
+        const savePath = await invoke('download_ai_pdf', {
+            jobId: jobId,
+            fileName: `${stockName || 'BBooster'}_${stockCode || jobId}_분석리포트.pdf`
+        });
+        showToast('PDF 저장 완료: ' + savePath, 'success');
     } catch (e) {
         console.error('[PDF Download]', e);
-        showToast('PDF 다운로드 실패: ' + e.message, 'error');
+        showToast('PDF 다운로드 실패: ' + e, 'error');
     }
 
     if (btn) {

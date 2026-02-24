@@ -4877,3 +4877,70 @@ pub async fn open_url(url: String) -> Result<String, String> {
     open::that(&url).map_err(|e| format!("URL 열기 실패: {}", e))?;
     Ok("success".to_string())
 }
+
+// =====================================================
+// AI 자동완성 검색 (인증 불필요)
+// =====================================================
+
+#[tauri::command]
+pub async fn ai_search_stock(query: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .danger_accept_invalid_certs(true)
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let url = format!(
+        "{}/api/search?q={}&limit=5",
+        VPS_SERVER_URL,
+        urlencoding::encode(&query)
+    );
+
+    let resp = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("검색 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+        Ok(data)
+    } else {
+        Err("검색 실패".to_string())
+    }
+}
+
+// =====================================================
+// AI PDF 다운로드 (파일 저장)
+// =====================================================
+
+#[tauri::command]
+pub async fn download_ai_pdf(job_id: String, file_name: String) -> Result<String, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .danger_accept_invalid_certs(true)
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let url = format!("{}/api/ai/report/pdf/{}", VPS_SERVER_URL, job_id);
+
+    let resp = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("PDF 요청 실패: {}", e))?;
+
+    if !resp.status().is_success() {
+        return Err(format!("PDF 생성 실패: {}", resp.status()));
+    }
+
+    let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
+
+    let download_dir = dirs::download_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."));
+    let path = download_dir.join(&file_name);
+
+    std::fs::write(&path, &bytes).map_err(|e| format!("파일 저장 실패: {}", e))?;
+
+    Ok(path.to_string_lossy().to_string())
+}

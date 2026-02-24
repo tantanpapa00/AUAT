@@ -229,6 +229,9 @@ fn main() {
             commands::get_kis_order_settings,
             // URL 열기 (PDF 다운로드용)
             commands::open_url,
+            // AI 자동완성 + PDF 다운로드
+            commands::ai_search_stock,
+            commands::download_ai_pdf,
         ])
         .setup(|app| {
             // 앱 시작 시 VPS 서버 연결 확인 (로컬 서버 시작 없음)
