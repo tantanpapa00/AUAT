@@ -12407,6 +12407,149 @@ async def get_ai_job_status(job_id: str):
         }
 
 
+@app.get("/api/ai/report/pdf/{job_id}")
+async def download_ai_report_pdf(job_id: str):
+    """AI 분석 리포트 PDF 다운로드"""
+    from fastapi.responses import FileResponse
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image as RLImage
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch, cm
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    import tempfile
+    import re
+
+    job = _ai_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="작업을 찾을 수 없습니다")
+
+    if job["status"] != "done":
+        raise HTTPException(status_code=400, detail="분석이 완료되지 않았습니다")
+
+    # 한글 폰트 등록
+    font_paths = [
+        '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
+        'C:/Windows/Fonts/malgun.ttf',
+    ]
+    font_registered = False
+    for fp in font_paths:
+        if os.path.exists(fp):
+            try:
+                pdfmetrics.registerFont(TTFont('Korean', fp))
+                font_registered = True
+                break
+            except:
+                pass
+
+    # PDF 생성
+    pdf_path = os.path.join(CHARTS_DIR, f"report_{job_id}.pdf")
+
+    doc = SimpleDocTemplate(
+        pdf_path,
+        pagesize=A4,
+        rightMargin=2*cm, leftMargin=2*cm,
+        topMargin=2*cm, bottomMargin=2*cm
+    )
+
+    styles = getSampleStyleSheet()
+
+    # 한글 스타일 정의
+    if font_registered:
+        styles.add(ParagraphStyle(
+            name='KoreanTitle',
+            fontName='Korean',
+            fontSize=18,
+            spaceAfter=20,
+            alignment=1  # center
+        ))
+        styles.add(ParagraphStyle(
+            name='KoreanBody',
+            fontName='Korean',
+            fontSize=10,
+            leading=14,
+            spaceAfter=10
+        ))
+        styles.add(ParagraphStyle(
+            name='KoreanHeading',
+            fontName='Korean',
+            fontSize=14,
+            spaceBefore=15,
+            spaceAfter=10
+        ))
+    else:
+        styles.add(ParagraphStyle(name='KoreanTitle', parent=styles['Title']))
+        styles.add(ParagraphStyle(name='KoreanBody', parent=styles['Normal']))
+        styles.add(ParagraphStyle(name='KoreanHeading', parent=styles['Heading2']))
+
+    story = []
+
+    # 제목
+    stock_info = job.get("stock", {})
+    stock_name = stock_info.get("name", "종목")
+    stock_code = stock_info.get("code", "")
+    title = f"{stock_name}({stock_code}) AI 분석 리포트"
+    story.append(Paragraph(title, styles['KoreanTitle']))
+    story.append(Spacer(1, 0.5*inch))
+
+    # 차트 이미지 추가
+    charts = job.get("charts", {})
+    for chart_key, chart_path in charts.items():
+        if chart_path:
+            full_path = os.path.join("/app", chart_path.lstrip("/"))
+            if os.path.exists(full_path):
+                try:
+                    img = RLImage(full_path, width=6*inch, height=3*inch)
+                    story.append(img)
+                    story.append(Spacer(1, 0.3*inch))
+                except Exception as e:
+                    print(f"[PDF] Chart error: {e}")
+
+    story.append(Spacer(1, 0.3*inch))
+
+    # 본문 (마크다운을 간단히 변환)
+    report_text = job.get("result", "")
+
+    # 마크다운 → 간단한 HTML 변환
+    lines = report_text.split('\n')
+    for line in lines:
+        line = line.strip()
+        if not line:
+            story.append(Spacer(1, 0.1*inch))
+            continue
+
+        # 제목 처리
+        if line.startswith('## '):
+            text = line[3:]
+            story.append(Paragraph(text, styles['KoreanHeading']))
+        elif line.startswith('# '):
+            text = line[2:]
+            story.append(Paragraph(text, styles['KoreanHeading']))
+        elif line.startswith('### '):
+            text = line[4:]
+            story.append(Paragraph(f"<b>{text}</b>", styles['KoreanBody']))
+        elif line.startswith('- '):
+            text = line[2:]
+            text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
+            story.append(Paragraph(f"• {text}", styles['KoreanBody']))
+        elif line.startswith('**') and line.endswith('**'):
+            text = line[2:-2]
+            story.append(Paragraph(f"<b>{text}</b>", styles['KoreanBody']))
+        else:
+            text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', line)
+            text = re.sub(r'\*(.+?)\*', r'<i>\1</i>', text)
+            story.append(Paragraph(text, styles['KoreanBody']))
+
+    # PDF 빌드
+    doc.build(story)
+
+    return FileResponse(
+        pdf_path,
+        media_type="application/pdf",
+        filename=f"{stock_name}_{stock_code}_분석리포트.pdf"
+    )
+
+
 async def _run_ai_analysis_job(job_id: str, symbol: str, market: str):
     """백그라운드에서 AI 분석 실행"""
     try:

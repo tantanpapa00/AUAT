@@ -9420,6 +9420,8 @@ function initAiTabEvents() {
 
 // AI 채팅 입력 이벤트
 let aiChatInputInitialized = false;
+let aiAutocompleteTimeout = null;
+
 function initAiChatInput() {
     if (aiChatInputInitialized) return;
     aiChatInputInitialized = true;
@@ -9427,14 +9429,69 @@ function initAiChatInput() {
     const input = document.getElementById('ai-quick-input');
     const sendBtn = document.getElementById('ai-send-btn');
 
+    // 자동완성 드롭다운 생성
+    if (input && !document.getElementById('ai-autocomplete-dropdown')) {
+        const dropdown = document.createElement('div');
+        dropdown.id = 'ai-autocomplete-dropdown';
+        dropdown.style.cssText = `
+            position:absolute;left:0;right:0;top:100%;
+            background:#1e293b;border:1px solid rgba(255,255,255,0.1);
+            border-radius:8px;max-height:200px;overflow-y:auto;
+            display:none;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,0.3);
+        `;
+        input.parentElement.style.position = 'relative';
+        input.parentElement.appendChild(dropdown);
+    }
+
     // 전송 버튼 클릭
     sendBtn?.addEventListener('click', () => sendAiQuestion());
 
-    // Enter 키로 전송
+    // 입력 이벤트 (자동완성)
+    input?.addEventListener('input', (e) => {
+        const value = e.target.value.trim();
+        if (aiAutocompleteTimeout) clearTimeout(aiAutocompleteTimeout);
+
+        if (value.length >= 1) {
+            aiAutocompleteTimeout = setTimeout(() => searchStockAutocomplete(value), 300);
+        } else {
+            hideAiAutocomplete();
+        }
+    });
+
+    // Enter 키로 전송 또는 자동완성 선택
     input?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
+        const dropdown = document.getElementById('ai-autocomplete-dropdown');
+        const items = dropdown?.querySelectorAll('.ai-autocomplete-item');
+        const selected = dropdown?.querySelector('.ai-autocomplete-item.selected');
+
+        if (e.key === 'ArrowDown' && items?.length) {
             e.preventDefault();
-            sendAiQuestion();
+            const idx = selected ? Array.from(items).indexOf(selected) : -1;
+            items.forEach(i => i.classList.remove('selected'));
+            items[(idx + 1) % items.length].classList.add('selected');
+        } else if (e.key === 'ArrowUp' && items?.length) {
+            e.preventDefault();
+            const idx = selected ? Array.from(items).indexOf(selected) : items.length;
+            items.forEach(i => i.classList.remove('selected'));
+            items[(idx - 1 + items.length) % items.length].classList.add('selected');
+        } else if (e.key === 'Enter') {
+            if (selected) {
+                e.preventDefault();
+                selectAutocompleteItem(selected);
+            } else {
+                e.preventDefault();
+                hideAiAutocomplete();
+                sendAiQuestion();
+            }
+        } else if (e.key === 'Escape') {
+            hideAiAutocomplete();
+        }
+    });
+
+    // 외부 클릭 시 드롭다운 닫기
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#ai-quick-input') && !e.target.closest('#ai-autocomplete-dropdown')) {
+            hideAiAutocomplete();
         }
     });
 
@@ -9445,6 +9502,68 @@ function initAiChatInput() {
             if (question) sendAiQuestion(question);
         });
     });
+}
+
+// 종목 자동완성 검색
+async function searchStockAutocomplete(query) {
+    const dropdown = document.getElementById('ai-autocomplete-dropdown');
+    if (!dropdown) return;
+
+    try {
+        const result = await invoke('search_stocks', {
+            accessToken: auth.accessToken || '',
+            query: query,
+            limit: 5
+        });
+
+        if (!result?.results?.length) {
+            hideAiAutocomplete();
+            return;
+        }
+
+        dropdown.innerHTML = result.results.map(stock => `
+            <div class="ai-autocomplete-item" data-name="${stock.name}" data-code="${stock.code}"
+                style="padding:10px 12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.05);">
+                <span style="color:#e5e7eb;font-weight:500;">${stock.name}</span>
+                <span style="color:#6b7280;font-size:12px;">${stock.code}</span>
+            </div>
+        `).join('');
+
+        // 호버 효과
+        dropdown.querySelectorAll('.ai-autocomplete-item').forEach(item => {
+            item.addEventListener('mouseenter', () => {
+                dropdown.querySelectorAll('.ai-autocomplete-item').forEach(i => i.classList.remove('selected'));
+                item.classList.add('selected');
+                item.style.background = 'rgba(239,68,68,0.1)';
+            });
+            item.addEventListener('mouseleave', () => {
+                item.style.background = '';
+            });
+            item.addEventListener('click', () => selectAutocompleteItem(item));
+        });
+
+        dropdown.style.display = 'block';
+    } catch (e) {
+        console.warn('[Autocomplete]', e);
+        hideAiAutocomplete();
+    }
+}
+
+// 자동완성 항목 선택
+function selectAutocompleteItem(item) {
+    const input = document.getElementById('ai-quick-input');
+    const name = item.dataset.name;
+    if (input && name) {
+        input.value = `${name} 분석해줘`;
+        hideAiAutocomplete();
+        input.focus();
+    }
+}
+
+// 자동완성 드롭다운 숨기기
+function hideAiAutocomplete() {
+    const dropdown = document.getElementById('ai-autocomplete-dropdown');
+    if (dropdown) dropdown.style.display = 'none';
 }
 
 // AI 질문 전송 (폴링 방식)
@@ -9483,7 +9602,11 @@ async function sendAiQuestion(text) {
         if (!jobId) throw new Error('작업 ID가 없습니다');
 
         // 2) 폴링 (2초마다, 최대 120초)
-        const answer = await pollAiChatResult(jobId, 120);
+        const result = await pollAiChatResult(jobId, 120);
+        const answer = result.report;
+        const charts = result.charts;
+        const stock = result.stock;
+        const currentJobId = result.jobId;
 
         // 마크다운 변환
         let html = answer
@@ -9495,12 +9618,45 @@ async function sendAiQuestion(text) {
             .replace(/\n\n/g, '<br><br>')
             .replace(/\n/g, '<br>');
 
+        // 차트 HTML 생성
+        let chartsHtml = '';
+        if (charts) {
+            const baseUrl = 'https://qube-system.com';
+            chartsHtml = `
+                <div style="margin:16px 0;display:flex;flex-direction:column;gap:12px;">
+                    <div style="color:#9ca3af;font-size:13px;font-weight:600;">📊 분석 차트</div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        ${charts.price_chart ? `<img src="${baseUrl}${charts.price_chart}" style="max-width:100%;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="가격 차트">` : ''}
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        ${charts.trend_chart ? `<img src="${baseUrl}${charts.trend_chart}" style="max-width:48%;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="추세 차트">` : ''}
+                        ${charts.momentum_chart ? `<img src="${baseUrl}${charts.momentum_chart}" style="max-width:48%;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="모멘텀 차트">` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        // PDF 다운로드 버튼 (종목 분석 시)
+        let pdfBtnHtml = '';
+        if (stock && currentJobId) {
+            pdfBtnHtml = `
+                <button onclick="downloadAiReportPdf('${currentJobId}', '${stock.name}', '${stock.code}')"
+                    style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;">
+                    <span>📄</span> PDF 다운로드
+                </button>
+            `;
+        }
+
         responseArea.innerHTML = `
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
                 <span style="color:#ef4444;font-weight:600;">🤖 AI 답변</span>
-                <button onclick="document.getElementById('ai-response-area').style.display='none'"
-                    style="background:none;border:none;color:#6b7280;cursor:pointer;font-size:18px;">✕</button>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    ${pdfBtnHtml}
+                    <button onclick="document.getElementById('ai-response-area').style.display='none'"
+                        style="background:none;border:none;color:#6b7280;cursor:pointer;font-size:18px;">✕</button>
+                </div>
             </div>
+            ${chartsHtml}
             <div class="ai-answer" style="color:#b0b7c3;font-size:14px;line-height:1.7;">${html}</div>
         `;
 
@@ -9514,7 +9670,34 @@ async function sendAiQuestion(text) {
     if (sendBtn) sendBtn.disabled = false;
 }
 
-// AI 채팅 결과 폴링
+// AI 리포트 PDF 다운로드
+async function downloadAiReportPdf(jobId, stockName, stockCode) {
+    try {
+        const url = `https://qube-system.com/api/ai/report/pdf/${jobId}`;
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            throw new Error('PDF 생성 실패');
+        }
+
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = `${stockName}_${stockCode}_분석리포트.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(downloadUrl);
+
+        showToast('PDF 다운로드 완료', 'success');
+    } catch (e) {
+        console.error('[PDF Download]', e);
+        showToast('PDF 다운로드 실패: ' + e.message, 'error');
+    }
+}
+
+// AI 채팅 결과 폴링 (차트/종목 정보 포함)
 async function pollAiChatResult(jobId, maxWaitSec = 120) {
     const startTime = Date.now();
     const progressEl = document.getElementById('ai-chat-progress');
@@ -9530,7 +9713,13 @@ async function pollAiChatResult(jobId, maxWaitSec = 120) {
             }
 
             if (status.status === 'done' && status.report) {
-                return status.report;
+                // 차트와 종목 정보 포함하여 반환
+                return {
+                    report: status.report,
+                    charts: status.charts || null,
+                    stock: status.stock || null,
+                    jobId: jobId
+                };
             } else if (status.status === 'error') {
                 throw new Error(status.error || '응답 실패');
             }
