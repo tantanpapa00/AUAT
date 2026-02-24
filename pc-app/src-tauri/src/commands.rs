@@ -3160,7 +3160,7 @@ pub async fn request_ai_analysis(
         .header("Authorization", format!("Bearer {}", access_token))
         .header("Content-Type", "application/json")
         .json(&body)
-        .timeout(std::time::Duration::from_secs(60))
+        .timeout(std::time::Duration::from_secs(120))  // AI 분석: 2분 타임아웃
         .send()
         .await
         .map_err(|e| format!("네트워크 오류: {}", e))?;
@@ -3195,7 +3195,7 @@ pub async fn request_ai_chat(
         .header("Authorization", format!("Bearer {}", access_token))
         .header("Content-Type", "application/json")
         .json(&body)
-        .timeout(std::time::Duration::from_secs(60))
+        .timeout(std::time::Duration::from_secs(120))  // AI 채팅: 2분 타임아웃
         .send()
         .await
         .map_err(|e| format!("네트워크 오류: {}", e))?;
