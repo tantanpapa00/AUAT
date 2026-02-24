@@ -3379,6 +3379,24 @@
                             <span class="ai-updated" id="ai-updated-time">마지막 업데이트: -</span>
                         </div>
 
+                        <!-- AI 채팅 입력 영역 -->
+                        <div class="ai-chat-section">
+                            <div class="ai-chat-input-box">
+                                <div class="ai-chat-label">무엇이 궁금하신가요?</div>
+                                <div class="ai-chat-row">
+                                    <input type="text" id="ai-quick-input" class="ai-quick-input"
+                                           placeholder="종목 분석, 시장 전망 등 질문하세요...">
+                                    <button class="ai-send-btn" id="ai-send-btn">전송</button>
+                                </div>
+                                <div class="ai-suggest-chips">
+                                    <button class="ai-chip" data-question="삼성전자 주가 전망은?">삼성전자 주가 전망은?</button>
+                                    <button class="ai-chip" data-question="오늘 시장 동향 분석해줘">오늘 시장 동향 분석해줘</button>
+                                    <button class="ai-chip" data-question="반도체 섹터 투자 전략 추천">반도체 섹터 투자 전략 추천</button>
+                                </div>
+                            </div>
+                            <div id="ai-response-area" class="ai-response-area" style="display:none;"></div>
+                        </div>
+
                         <!-- 시장 선택 탭 -->
                         <div class="ai-market-tabs">
                             <button class="ai-tab active" data-market="kr">🇰🇷 국내주식</button>

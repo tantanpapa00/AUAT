@@ -9358,6 +9358,9 @@ async function loadBBoosterAI() {
     // 탭 이벤트 바인딩
     initAiTabEvents();
 
+    // 채팅 입력 이벤트 바인딩
+    initAiChatInput();
+
     // 초기 로드
     loadAiRecommendations(currentAiMarket);
 }
@@ -9375,6 +9378,100 @@ function initAiTabEvents() {
             loadAiRecommendations(currentAiMarket);
         });
     });
+}
+
+// AI 채팅 입력 이벤트
+let aiChatInputInitialized = false;
+function initAiChatInput() {
+    if (aiChatInputInitialized) return;
+    aiChatInputInitialized = true;
+
+    const input = document.getElementById('ai-quick-input');
+    const sendBtn = document.getElementById('ai-send-btn');
+
+    // 전송 버튼 클릭
+    sendBtn?.addEventListener('click', () => sendAiQuestion());
+
+    // Enter 키로 전송
+    input?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            sendAiQuestion();
+        }
+    });
+
+    // 추천 질문 칩 클릭
+    document.querySelectorAll('.ai-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            const question = chip.dataset.question;
+            if (question) sendAiQuestion(question);
+        });
+    });
+}
+
+// AI 질문 전송
+async function sendAiQuestion(text) {
+    const input = document.getElementById('ai-quick-input');
+    const msg = text || (input ? input.value.trim() : '');
+    if (!msg) return;
+    if (input) input.value = '';
+
+    const responseArea = document.getElementById('ai-response-area');
+    const sendBtn = document.getElementById('ai-send-btn');
+
+    responseArea.style.display = 'block';
+    if (sendBtn) sendBtn.disabled = true;
+
+    // 로딩 표시
+    responseArea.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;color:#6b7280;">
+            <div class="loading-spinner" style="width:20px;height:20px;"></div>
+            AI가 답변을 생성하고 있습니다...
+        </div>
+    `;
+
+    try {
+        const result = await invoke('request_ai_chat', {
+            accessToken: auth.accessToken || '',
+            message: msg
+        });
+
+        let answer = '';
+        if (result && result.success && result.reply) {
+            answer = result.reply;
+        } else if (result && result.error) {
+            answer = '오류: ' + result.error;
+        } else {
+            answer = '응답을 처리할 수 없습니다.';
+        }
+
+        // 마크다운 변환
+        let html = answer
+            .replace(/^### (.*$)/gm, '<h3 style="color:#e5e7eb;font-size:15px;margin:14px 0 6px;">$1</h3>')
+            .replace(/^## (.*$)/gm, '<h2 style="color:#e5e7eb;font-size:17px;margin:18px 0 8px;padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,0.08);">$1</h2>')
+            .replace(/^# (.*$)/gm, '<h1 style="color:#fff;font-size:20px;margin:20px 0 10px;">$1</h1>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong style="color:#e5e7eb;">$1</strong>')
+            .replace(/^- (.*$)/gm, '<div style="padding:3px 0 3px 16px;color:#b0b7c3;">$1</div>')
+            .replace(/\n\n/g, '<br><br>')
+            .replace(/\n/g, '<br>');
+
+        responseArea.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <span style="color:#ef4444;font-weight:600;">AI 답변</span>
+                <button onclick="document.getElementById('ai-response-area').style.display='none'"
+                    style="background:none;border:none;color:#6b7280;cursor:pointer;font-size:18px;">x</button>
+            </div>
+            <div class="ai-answer">${html}</div>
+        `;
+
+    } catch (e) {
+        responseArea.innerHTML = `
+            <div style="color:#ef4444;">오류: ${e.message || e}</div>
+            <div style="color:#6b7280;font-size:13px;margin-top:8px;">잠시 후 다시 시도해주세요.</div>
+        `;
+    }
+
+    if (sendBtn) sendBtn.disabled = false;
 }
 
 async function loadAiRecommendations(market) {

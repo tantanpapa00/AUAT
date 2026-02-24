@@ -12898,3 +12898,110 @@ body {
     0%, 60%, 100% { transform: translateY(0); }
     30% { transform: translateY(-8px); }
 }
+
+/* ===========================================
+   AI Quick Chat Section (BBooster AI 페이지)
+   =========================================== */
+
+.ai-chat-section {
+    margin: 0 0 20px;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+}
+
+.ai-chat-label {
+    color: #e5e7eb;
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.ai-chat-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.ai-quick-input {
+    flex: 1;
+    padding: 12px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #e5e7eb;
+    font-size: 14px;
+    outline: none;
+}
+
+.ai-quick-input:focus {
+    border-color: rgba(239, 68, 68, 0.5);
+}
+
+.ai-quick-input::placeholder {
+    color: #6b7280;
+}
+
+.ai-send-btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 10px;
+    background: #ef4444;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.ai-send-btn:hover {
+    background: #dc2626;
+}
+
+.ai-send-btn:disabled {
+    background: #6b7280;
+    cursor: not-allowed;
+}
+
+.ai-suggest-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.ai-chip {
+    padding: 8px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 20px;
+    background: transparent;
+    color: #9ca3af;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.ai-chip:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+}
+
+.ai-response-area {
+    margin-top: 16px;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.ai-response-area .ai-answer {
+    color: #b0b7c3;
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.ai-response-area h1, .ai-response-area h2, .ai-response-area h3 {
+    color: #e5e7eb;
+}
