@@ -12325,7 +12325,7 @@ async def request_ai_analysis(
         "progress": "📊 요청 접수됨",
         "result": None,
         "created_at": datetime.now(KST),
-        "user_id": current_user.id,
+        "user_id": current_user.id if current_user else None,
         "symbol": request.symbol,
         "exchange": request.exchange,
     }
@@ -12497,17 +12497,17 @@ async def request_ai_chat(
         "progress": "🤖 AI가 생각 중...",
         "result": None,
         "created_at": datetime.now(KST),
-        "user_id": current_user.id,
+        "user_id": current_user.id if current_user else None,
         "type": "chat",
     }
 
     # 백그라운드 실행
-    asyncio.create_task(_run_ai_chat_job(job_id, request.message, current_user.id))
+    asyncio.create_task(_run_ai_chat_job(job_id, request.message, current_user.id if current_user else None))
 
     return {"success": True, "job_id": job_id, "status": "pending"}
 
 
-async def _run_ai_chat_job(job_id: str, message: str, user_id: int):
+async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
     """백그라운드에서 AI 채팅 실행"""
     try:
         _ai_jobs[job_id]["status"] = "running"
@@ -12545,18 +12545,19 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int):
         _ai_jobs[job_id]["result"] = reply
         _ai_jobs[job_id]["progress"] = "✅ 완료"
 
-        # 사용량 증가
-        try:
-            from app.database import SessionLocal
-            db = SessionLocal()
-            db.execute(
-                text("UPDATE users SET ai_usage_count = ai_usage_count + 1 WHERE id = :uid"),
-                {"uid": user_id}
-            )
-            db.commit()
-            db.close()
-        except Exception as e:
-            print(f"[AI Chat Job] DB update error: {e}")
+        # 사용량 증가 (user_id가 있을 때만)
+        if user_id:
+            try:
+                from app.database import SessionLocal
+                db = SessionLocal()
+                db.execute(
+                    text("UPDATE users SET ai_usage_count = ai_usage_count + 1 WHERE id = :uid"),
+                    {"uid": user_id}
+                )
+                db.commit()
+                db.close()
+            except Exception as e:
+                print(f"[AI Chat Job] DB update error: {e}")
 
         print(f"[AI Chat Job] {job_id} 완료: {len(reply)}자")
 
