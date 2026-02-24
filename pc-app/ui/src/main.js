@@ -9699,6 +9699,7 @@ async function downloadAiReportPdf(jobId, stockName, stockCode) {
         btn.disabled = false;
     }
 }
+window.downloadAiReportPdf = downloadAiReportPdf;
 
 // AI 채팅 결과 폴링 (차트/종목 정보 포함)
 async function pollAiChatResult(jobId, maxWaitSec = 120) {
