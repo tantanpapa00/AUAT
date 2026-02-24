@@ -12625,17 +12625,18 @@ async def _detect_stock_from_message(message: str) -> dict:
         if stock:
             return {"code": code, "name": stock.name, "market": "kr"}
 
-    # 2. 종목명으로 검색
+    # 2. 종목명으로 검색 (search 메서드 사용)
     # 메시지에서 한글 단어 추출
     words = re.findall(r'[가-힣]+', message)
 
     for word in words:
         if len(word) < 2:
             continue
-        # 마스터 캐시에서 이름으로 검색
-        for code, stock in master._kr_stocks.items():
-            if stock.name == word or word in stock.name:
-                return {"code": code, "name": stock.name, "market": "kr"}
+        # 마스터 캐시 search 메서드 사용
+        results = master.search(word, market="KIS_KR", limit=1)
+        if results:
+            stock = results[0]
+            return {"code": stock.code, "name": stock.name, "market": "kr"}
 
     # 3. 네이버 검색 API로 fallback
     for word in words:
