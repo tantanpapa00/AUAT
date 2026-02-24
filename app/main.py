@@ -12665,18 +12665,18 @@ async def _collect_technical_data_for_ai(code: str, market: str = "kr") -> dict:
                         if rsi:
                             data["momentum_indicators"]["rsi"] = rsi
 
-                        # MACD
+                        # MACD (returns tuple: macd_line, signal_line, histogram)
                         macd = _calc_macd(closes)
-                        if macd:
-                            data["momentum_indicators"]["macd_line"] = macd.get("macd")
-                            data["momentum_indicators"]["macd_signal"] = macd.get("signal")
-                            data["momentum_indicators"]["macd_histogram"] = macd.get("histogram")
+                        if macd and isinstance(macd, tuple) and len(macd) >= 3:
+                            data["momentum_indicators"]["macd_line"] = macd[0]
+                            data["momentum_indicators"]["macd_signal"] = macd[1]
+                            data["momentum_indicators"]["macd_histogram"] = macd[2]
 
-                        # 스토캐스틱
+                        # 스토캐스틱 (returns tuple: k, d)
                         stoch = _calc_stochastic(highs, lows, closes)
-                        if stoch:
-                            data["momentum_indicators"]["stoch_k"] = stoch.get("k")
-                            data["momentum_indicators"]["stoch_d"] = stoch.get("d")
+                        if stoch and isinstance(stoch, tuple) and len(stoch) >= 2:
+                            data["momentum_indicators"]["stoch_k"] = stoch[0]
+                            data["momentum_indicators"]["stoch_d"] = stoch[1]
 
                         # ADX
                         adx_result = calc_adx(highs, lows, closes, 14)
