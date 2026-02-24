@@ -9670,27 +9670,25 @@ async function sendAiQuestion(text) {
     if (sendBtn) sendBtn.disabled = false;
 }
 
-// AI 리포트 PDF 다운로드
+// AI 리포트 PDF 다운로드 (Tauri shell.open 사용)
 async function downloadAiReportPdf(jobId, stockName, stockCode) {
+    const pdfUrl = `https://qube-system.com/api/ai/report/pdf/${jobId}`;
+
     try {
-        const url = `https://qube-system.com/api/ai/report/pdf/${jobId}`;
-        const response = await fetch(url);
-
-        if (!response.ok) {
-            throw new Error('PDF 생성 실패');
+        // Tauri shell.open으로 브라우저에서 PDF 열기
+        if (window.__TAURI__?.shell?.open) {
+            await window.__TAURI__.shell.open(pdfUrl);
+            showToast('브라우저에서 PDF를 다운로드합니다', 'success');
+            return;
         }
+    } catch (e) {
+        console.warn('[PDF] Tauri shell.open failed:', e);
+    }
 
-        const blob = await response.blob();
-        const downloadUrl = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        a.download = `${stockName}_${stockCode}_분석리포트.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(downloadUrl);
-
-        showToast('PDF 다운로드 완료', 'success');
+    // Fallback: 일반 브라우저 다운로드
+    try {
+        window.open(pdfUrl, '_blank');
+        showToast('PDF 다운로드 중...', 'success');
     } catch (e) {
         console.error('[PDF Download]', e);
         showToast('PDF 다운로드 실패: ' + e.message, 'error');
