@@ -1,12 +1,41 @@
 import uuid
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException, Request, Query
 from fastapi.responses import HTMLResponse
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 from typing import Optional, Literal, Dict
 from enum import Enum
+
+# Matplotlib 설정 (한글 폰트, 백그라운드 모드)
+import matplotlib
+matplotlib.use('Agg')  # Non-interactive backend
+import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+
+# 한글 폰트 설정
+def _setup_korean_font():
+    """matplotlib 한글 폰트 설정"""
+    font_paths = [
+        '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',  # Linux (Docker)
+        'C:/Windows/Fonts/malgun.ttf',  # Windows
+        '/System/Library/Fonts/AppleGothic.ttf',  # macOS
+    ]
+    for fp in font_paths:
+        if os.path.exists(fp):
+            fm.fontManager.addfont(fp)
+            font_name = fm.FontProperties(fname=fp).get_name()
+            plt.rcParams['font.family'] = font_name
+            plt.rcParams['axes.unicode_minus'] = False
+            print(f"[Chart] Korean font loaded: {font_name}")
+            return
+    print("[Chart] Warning: Korean font not found, using default")
+    plt.rcParams['axes.unicode_minus'] = False
+
+_setup_korean_font()
 
 
 def _fix_mojibake(s: str):
@@ -201,6 +230,12 @@ async def lifespan(app):
 
 
 app = FastAPI(title="BBooster API v1.0", lifespan=lifespan)
+
+# Static files for chart images
+STATIC_DIR = "/app/static"
+CHARTS_DIR = os.path.join(STATIC_DIR, "charts")
+os.makedirs(CHARTS_DIR, exist_ok=True)
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 # =========================
@@ -12345,12 +12380,18 @@ async def get_ai_job_status(job_id: str):
         return {"success": False, "error": "작업을 찾을 수 없습니다", "status": "not_found"}
 
     if job["status"] == "done":
-        return {
+        response = {
             "success": True,
             "status": "done",
             "report": job["result"],
             "progress": "✅ 완료"
         }
+        # 차트 URL 포함 (존재하는 경우)
+        if "charts" in job:
+            response["charts"] = job["charts"]
+        if "stock" in job:
+            response["stock"] = job["stock"]
+        return response
     elif job["status"] == "error":
         return {
             "success": False,
@@ -12508,7 +12549,7 @@ async def request_ai_chat(
 
 
 async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
-    """백그라운드에서 AI 채팅 실행 - 종목 인식 시 데이터 기반 분석"""
+    """백그라운드에서 AI 채팅 실행 - 종목 인식 시 데이터 기반 분석 + 차트 생성"""
     try:
         _ai_jobs[job_id]["status"] = "running"
         _ai_jobs[job_id]["progress"] = "🔍 종목 인식 중..."
@@ -12518,6 +12559,7 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
 
         # 종목 인식 시도
         detected_stock = await _detect_stock_from_message(message)
+        chart_urls = None  # 차트 URL 초기화
 
         if detected_stock:
             # 종목이 인식됨 → 데이터 수집 후 분석
@@ -12532,6 +12574,10 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
             tech = await _collect_technical_data_for_ai(code, market)
             fin = await _collect_financial_data_for_ai(code, market)
             news = await _collect_news_for_ai(code, name, market)
+
+            # 차트 생성
+            _ai_jobs[job_id]["progress"] = f"📈 {name} 차트 생성 중..."
+            chart_urls = await _generate_ai_charts(code, name, market)
 
             _ai_jobs[job_id]["progress"] = "🤖 AI가 분석 중..."
 
@@ -12587,6 +12633,11 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
         _ai_jobs[job_id]["result"] = reply
         _ai_jobs[job_id]["progress"] = "✅ 완료"
 
+        # 차트 URL 포함 (종목 분석 시)
+        if chart_urls:
+            _ai_jobs[job_id]["charts"] = chart_urls
+            _ai_jobs[job_id]["stock"] = detected_stock
+
         # 사용량 증가 (user_id가 있을 때만)
         if user_id:
             try:
@@ -12601,7 +12652,7 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
             except Exception as e:
                 print(f"[AI Chat Job] DB update error: {e}")
 
-        print(f"[AI Chat Job] {job_id} 완료: {len(reply)}자")
+        print(f"[AI Chat Job] {job_id} 완료: {len(reply)}자, 차트: {bool(chart_urls)}")
 
     except Exception as e:
         print(f"[AI Chat Job] {job_id} 오류: {e}")
@@ -12722,6 +12773,220 @@ def _generate_simple_report(data: dict) -> str:
 _BBooster AI 분석 시스템에서 생성됨_
 """
     return report
+
+
+# ============================================================================
+# AI 차트 생성 (matplotlib)
+# ============================================================================
+
+async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
+    """AI 분석용 차트 3종 생성 (가격+지지저항, 추세, 모멘텀)"""
+    import io
+    import base64
+    from datetime import datetime
+
+    chart_urls = {"price_chart": None, "trend_chart": None, "momentum_chart": None}
+
+    try:
+        # 캔들 데이터 가져오기
+        candles = []
+        if market == "kr":
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    f"https://api.stock.naver.com/chart/domestic/item/{code}/day?startDateTime=20240101&endDateTime=20261231",
+                    headers={"User-Agent": "Mozilla/5.0"}
+                )
+                if resp.status_code == 200:
+                    candles = resp.json() if isinstance(resp.json(), list) else []
+
+        if len(candles) < 20:
+            print(f"[Chart] Not enough data for {code}: {len(candles)} candles")
+            return chart_urls
+
+        # 데이터 추출
+        dates = [c.get("localDate", "")[:10] for c in candles]
+        closes = [float(c.get("closePrice", 0)) for c in candles]
+        highs = [float(c.get("highPrice", 0)) for c in candles]
+        lows = [float(c.get("lowPrice", 0)) for c in candles]
+        volumes = [int(c.get("accumulatedTradingVolume", 0)) for c in candles]
+
+        # 이동평균 계산
+        def _sma(data, period):
+            if len(data) < period:
+                return [None] * len(data)
+            result = [None] * (period - 1)
+            for i in range(period - 1, len(data)):
+                result.append(sum(data[i-period+1:i+1]) / period)
+            return result
+
+        sma5 = _sma(closes, 5)
+        sma20 = _sma(closes, 20)
+        sma60 = _sma(closes, 60)
+
+        # 지지/저항선 계산 (피봇 포인트 기반)
+        recent_high = max(highs[-20:]) if len(highs) >= 20 else max(highs)
+        recent_low = min(lows[-20:]) if len(lows) >= 20 else min(lows)
+        pivot = (recent_high + recent_low + closes[-1]) / 3
+        resistance1 = 2 * pivot - recent_low
+        support1 = 2 * pivot - recent_high
+
+        # 차트 ID 생성
+        chart_id = f"{code}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
+        # ===== 차트 1: 가격 + 지지/저항선 =====
+        fig1, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6), height_ratios=[3, 1],
+                                         gridspec_kw={'hspace': 0.1})
+
+        # 최근 60일만 표시
+        display_len = min(60, len(closes))
+        x = range(display_len)
+
+        # 가격선
+        ax1.plot(x, closes[-display_len:], 'b-', linewidth=1.5, label='종가')
+
+        # 이동평균선
+        if sma5[-display_len:][0] is not None:
+            ax1.plot(x, sma5[-display_len:], 'orange', linewidth=1, label='MA5', alpha=0.7)
+        if sma20[-display_len:][0] is not None:
+            ax1.plot(x, sma20[-display_len:], 'green', linewidth=1, label='MA20', alpha=0.7)
+
+        # 지지/저항선
+        ax1.axhline(y=resistance1, color='red', linestyle='--', linewidth=1, label=f'저항 {int(resistance1):,}')
+        ax1.axhline(y=support1, color='green', linestyle='--', linewidth=1, label=f'지지 {int(support1):,}')
+
+        ax1.set_title(f'{name} ({code}) - 가격 차트', fontsize=12, fontweight='bold')
+        ax1.legend(loc='upper left', fontsize=8)
+        ax1.grid(True, alpha=0.3)
+        ax1.set_ylabel('가격 (원)')
+        ax1.set_xticks([])
+
+        # 거래량
+        colors = ['g' if closes[-display_len:][i] >= closes[-display_len:][i-1] else 'r'
+                  for i in range(1, display_len)]
+        colors = ['g'] + colors
+        ax2.bar(x, volumes[-display_len:], color=colors, alpha=0.5)
+        ax2.set_ylabel('거래량')
+        ax2.grid(True, alpha=0.3)
+
+        # X축 라벨 (매 10일마다)
+        tick_positions = list(range(0, display_len, 10))
+        tick_labels = [dates[-display_len:][i][5:] for i in tick_positions if i < display_len]
+        ax2.set_xticks(tick_positions[:len(tick_labels)])
+        ax2.set_xticklabels(tick_labels, fontsize=8)
+
+        plt.tight_layout()
+
+        # 저장
+        price_path = os.path.join(CHARTS_DIR, f"price_{chart_id}.png")
+        plt.savefig(price_path, dpi=100, bbox_inches='tight', facecolor='white')
+        plt.close(fig1)
+        chart_urls["price_chart"] = f"/static/charts/price_{chart_id}.png"
+
+        # ===== 차트 2: 추세 차트 (ADX 기반) =====
+        from .screener.technicals import calc_adx
+
+        adx_result = calc_adx(highs, lows, closes, 14)
+
+        fig2, ax = plt.subplots(figsize=(10, 4))
+
+        # ADX 값이 있으면 표시
+        if adx_result and adx_result.get("adx"):
+            adx_val = adx_result["adx"]
+            # 추세 강도 게이지
+            colors_gauge = ['#ff4444' if adx_val < 20 else '#ffaa00' if adx_val < 40 else '#44ff44']
+            ax.barh(['추세 강도'], [adx_val], color=colors_gauge, height=0.5)
+            ax.axvline(x=20, color='gray', linestyle='--', alpha=0.5)
+            ax.axvline(x=40, color='gray', linestyle='--', alpha=0.5)
+            ax.set_xlim(0, 100)
+            ax.set_xlabel('ADX')
+
+            # 추세 상태 텍스트
+            if adx_val < 20:
+                trend_text = "비추세 (횡보)"
+                trend_color = 'red'
+            elif adx_val < 40:
+                trend_text = "보통 추세"
+                trend_color = 'orange'
+            else:
+                trend_text = "강한 추세"
+                trend_color = 'green'
+
+            ax.text(adx_val + 2, 0, f'{adx_val:.1f} - {trend_text}',
+                    va='center', fontsize=12, color=trend_color, fontweight='bold')
+        else:
+            ax.text(0.5, 0.5, '추세 데이터 없음', ha='center', va='center', fontsize=14)
+
+        ax.set_title(f'{name} - 추세 분석 (ADX)', fontsize=12, fontweight='bold')
+        ax.grid(True, alpha=0.3)
+        plt.tight_layout()
+
+        trend_path = os.path.join(CHARTS_DIR, f"trend_{chart_id}.png")
+        plt.savefig(trend_path, dpi=100, bbox_inches='tight', facecolor='white')
+        plt.close(fig2)
+        chart_urls["trend_chart"] = f"/static/charts/trend_{chart_id}.png"
+
+        # ===== 차트 3: 모멘텀 차트 (RSI + MACD) =====
+        from .screener.technicals import _calc_rsi, _calc_macd
+
+        fig3, (ax_rsi, ax_macd) = plt.subplots(2, 1, figsize=(10, 5))
+
+        # RSI
+        rsi_values = []
+        for i in range(14, len(closes)):
+            rsi = _calc_rsi(closes[:i+1], 14)
+            rsi_values.append(rsi if rsi else 50)
+
+        if rsi_values:
+            rsi_display = rsi_values[-display_len:] if len(rsi_values) >= display_len else rsi_values
+            ax_rsi.plot(range(len(rsi_display)), rsi_display, 'purple', linewidth=1.5)
+            ax_rsi.axhline(y=70, color='red', linestyle='--', alpha=0.5)
+            ax_rsi.axhline(y=30, color='green', linestyle='--', alpha=0.5)
+            ax_rsi.fill_between(range(len(rsi_display)), 30, 70, alpha=0.1, color='gray')
+            ax_rsi.set_ylim(0, 100)
+            ax_rsi.set_ylabel('RSI')
+            ax_rsi.set_title(f'{name} - 모멘텀 지표', fontsize=12, fontweight='bold')
+            ax_rsi.grid(True, alpha=0.3)
+
+            # 현재 RSI 값 표시
+            current_rsi = rsi_display[-1]
+            rsi_status = "과매수" if current_rsi > 70 else "과매도" if current_rsi < 30 else "중립"
+            ax_rsi.text(len(rsi_display)-1, current_rsi, f' {current_rsi:.1f} ({rsi_status})',
+                        va='center', fontsize=10, fontweight='bold')
+
+        # MACD
+        macd_result = _calc_macd(closes)
+        if macd_result and len(macd_result) >= 3:
+            macd_line, signal_line, histogram = macd_result
+            if macd_line is not None:
+                ax_macd.axhline(y=0, color='gray', linestyle='-', alpha=0.3)
+                ax_macd.plot([0], [macd_line], 'bo', markersize=10, label=f'MACD: {macd_line:.2f}')
+                ax_macd.plot([1], [signal_line], 'ro', markersize=10, label=f'Signal: {signal_line:.2f}')
+
+                # 히스토그램 색상
+                hist_color = 'green' if histogram > 0 else 'red'
+                ax_macd.bar([2], [histogram], color=hist_color, alpha=0.7, label=f'Hist: {histogram:.2f}')
+
+                ax_macd.set_ylabel('MACD')
+                ax_macd.legend(loc='upper right', fontsize=8)
+                ax_macd.set_xticks([0, 1, 2])
+                ax_macd.set_xticklabels(['MACD', 'Signal', 'Histogram'])
+
+        ax_macd.grid(True, alpha=0.3)
+        plt.tight_layout()
+
+        momentum_path = os.path.join(CHARTS_DIR, f"momentum_{chart_id}.png")
+        plt.savefig(momentum_path, dpi=100, bbox_inches='tight', facecolor='white')
+        plt.close(fig3)
+        chart_urls["momentum_chart"] = f"/static/charts/momentum_{chart_id}.png"
+
+        print(f"[Chart] Generated 3 charts for {name} ({code})")
+
+    except Exception as e:
+        print(f"[Chart] Error generating charts for {code}: {e}")
+        import traceback
+        traceback.print_exc()
+
+    return chart_urls
 
 
 # ============================================================================
