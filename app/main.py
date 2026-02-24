@@ -12330,16 +12330,31 @@ async def request_ai_analysis(
         "change": 0,
     }
 
+    # 시장 구분
+    is_domestic = request.exchange.lower() in ("kis_kr", "kis_kr_etf")
+    market = "kr" if is_domestic else "us"
+
     # 마스터에서 이름 조회
     master = get_master_cache()
     stock = master.get_stock(request.symbol)
     if stock:
         symbol_data["name"] = stock.name
         symbol_data["market"] = stock.market
-
-    # 시장 구분
-    is_domestic = request.exchange.lower() in ("kis_kr", "kis_kr_etf")
-    market = "kr" if is_domestic else "us"
+    elif is_domestic:
+        # 마스터에 없으면 네이버 API에서 직접 이름 조회
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.get(
+                    f"https://m.stock.naver.com/api/stock/{request.symbol}/basic",
+                    headers={"User-Agent": "Mozilla/5.0"}
+                )
+                if resp.status_code == 200:
+                    naver_data = resp.json()
+                    if naver_data.get("stockName"):
+                        symbol_data["name"] = naver_data["stockName"]
+                        print(f"[AI] Got name from Naver: {symbol_data['name']}")
+        except Exception as e:
+            print(f"[AI] Failed to get name from Naver: {e}")
 
     # Claude API로 AI 리포트 생성
     ai_result = await _generate_claude_report(
@@ -12605,10 +12620,13 @@ async def _collect_technical_data_for_ai(code: str, market: str = "kr") -> dict:
         },
     }
 
+    price_data = None  # 초기화
+
     try:
         # 캔들 데이터 가져오기 (최근 250일)
         if market == "kr":
             price_data = await get_naver_stock_price(code)
+            print(f"[AI] price_data for {code}: {price_data}")
             # 네이버에서 차트 데이터
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(
@@ -12746,44 +12764,66 @@ async def _collect_news_for_ai(code: str, name: str, market: str = "kr") -> list
 def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list) -> str:
     """Claude에게 보낼 분석 프롬프트 구성"""
 
+    # 안전한 숫자 변환 함수
+    def safe_int(v, default=0):
+        if v is None:
+            return default
+        try:
+            return int(v)
+        except (ValueError, TypeError):
+            return default
+
+    def safe_float(v, default=0.0):
+        if v is None:
+            return default
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return default
+
+    def safe_str(v, default="-"):
+        if v is None:
+            return default
+        return str(round(v, 2)) if isinstance(v, float) else str(v)
+
     # 가격 정보
     price = tech.get("price", {})
-    current = price.get("current", 0)
-    change = price.get("change_pct", 0)
-    high_52w = price.get("high_52w", 0)
-    low_52w = price.get("low_52w", 0)
-    volume = price.get("volume", 0)
-    avg_vol = price.get("avg_volume_20d", 0)
+    current = safe_int(price.get("current"))
+    change = safe_float(price.get("change_pct"))
+    high_52w = safe_int(price.get("high_52w"))
+    low_52w = safe_int(price.get("low_52w"))
+    volume = safe_int(price.get("volume"))
+    avg_vol = safe_int(price.get("avg_volume_20d"))
 
     # 이동평균
     ma = tech.get("moving_averages", {})
-    sma5 = ma.get("sma_5", "-")
-    sma20 = ma.get("sma_20", "-")
-    sma60 = ma.get("sma_60", "-")
-    sma120 = ma.get("sma_120", "-")
-    sma200 = ma.get("sma_200", "-")
+    sma5 = safe_str(ma.get("sma_5"))
+    sma20 = safe_str(ma.get("sma_20"))
+    sma60 = safe_str(ma.get("sma_60"))
+    sma120 = safe_str(ma.get("sma_120"))
+    sma200 = safe_str(ma.get("sma_200"))
 
     # 추세 지표
     trend = tech.get("trend_indicators", {})
-    adx = trend.get("adx", "-")
-    rs = trend.get("rs_score", "-")
+    adx = safe_str(trend.get("adx"))
+    rs = safe_str(trend.get("rs_score"))
 
     # 모멘텀 지표
     mom = tech.get("momentum_indicators", {})
-    rsi = mom.get("rsi", "-")
-    macd_line = mom.get("macd_line", "-")
-    macd_signal = mom.get("macd_signal", "-")
-    macd_hist = mom.get("macd_histogram", "-")
-    stoch_k = mom.get("stoch_k", "-")
-    stoch_d = mom.get("stoch_d", "-")
+    rsi = safe_str(mom.get("rsi"))
+    macd_line = safe_str(mom.get("macd_line"))
+    macd_signal = safe_str(mom.get("macd_signal"))
+    macd_hist = safe_str(mom.get("macd_histogram"))
+    stoch_k = safe_str(mom.get("stoch_k"))
+    stoch_d = safe_str(mom.get("stoch_d"))
 
     # 재무
     ratios = fin.get("ratios", {})
-    roe = ratios.get("roe", "-")
-    per = ratios.get("per", "-")
-    pbr = ratios.get("pbr", "-")
-    debt = ratios.get("debt_ratio", "-")
-    opm = ratios.get("operating_margin", "-")
+    roe = safe_str(ratios.get("roe"))
+    per = safe_str(ratios.get("per"))
+    pbr = safe_str(ratios.get("pbr"))
+    debt = safe_str(ratios.get("debt_ratio"))
+    opm = safe_str(ratios.get("operating_margin"))
 
     # 연간 실적
     annual = fin.get("annual", {})
