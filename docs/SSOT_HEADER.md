@@ -23,7 +23,7 @@
 | Phase 8 | 종목 상세 페이지 — 국내 | ✅ DONE | Day 26~27 |
 | Phase 9 | 종목 상세 페이지 — 해외 | 대기 | - |
 | Phase 10 | ETF 상세 페이지 | 대기 | - |
-| Phase 11 | BBooster AI + 종목검색 통합 | 대기 | - |
+| Phase 11 | BBooster AI — StockEasy 수준 리포트 | ✅ DONE | Day 30 |
 | Phase 12 | 모바일 앱 | 대기 | - |
 | Phase 13 | 성능 + 출시 준비 | 대기 | - |
 
@@ -441,6 +441,86 @@
 - Day 27: ✅ 완료 (Phase 8-2 FnGuide 6년 컨센서스 + stockeasy 복제)
 - Day 28: ✅ 완료 (백테스트 숨은 필터 제거 + warmup 최적화 + 필터 파라미터 전송 수정)
 - Day 29: ✅ 완료 (프리미엄전략 거래소드롭다운+종목매칭+저장API 전면수정)
+- Day 30: ✅ 완료 (AI 리포트 StockEasy 수준 개선 - 웹검색tool/캔들차트/프롬프트재설계)
+
+## Day 30 진행사항 (2026-02-25)
+
+### AI 리포트 StockEasy 수준 개선 ✅ DONE
+
+**배경**: BBooster AI 리포트(4페이지) vs StockEasy(9페이지) 비교 결과 품질 격차 확인
+
+**핵심 변경**:
+
+| 작업 | 내용 | 상태 |
+|------|------|------|
+| Claude web_search tool | 증권사 리포트/최신 뉴스 자동 검색 | ✅ |
+| 기업 개요 연결 | FnGuide bizSummaryContent → 프롬프트 포함 | ✅ |
+| 프롬프트 재설계 | 6개 섹션 구조, 3000자 이상, 웹검색 필수 지시 | ✅ |
+| 차트 캔들스틱화 | 라인차트 → 캔들스틱 + 날짜 x축 | ✅ |
+| max_tokens 증가 | 4096 → 8000 | ✅ |
+
+**차트 개선 상세**:
+
+| 차트 | Before | After |
+|------|--------|-------|
+| 가격 | 라인차트, x축 인덱스 | 캔들스틱, 날짜 x축, 지지/저항선 |
+| 추세 | ADX 게이지바 | 캔들+SMA20/60/200 |
+| 모멘텀 | MACD 점3개 | RSI+MACD 시계열 (라인+히스토그램) |
+| 색상 | g/r | 상승=#FF3B30, 하락=#007AFF (한국규칙) |
+| 해상도 | dpi 100 | dpi 150, 120일 표시 |
+
+**프롬프트 개선**:
+- 역할: "15년 경력의 전문 증권 애널리스트"
+- 웹검색 필수 지시: 3가지 검색 키워드 명시
+  - "{종목명} 증권사 목표주가 2026"
+  - "{종목명} 최신 뉴스"
+  - "{종목명} 실적 전망 2026"
+- 금지 규칙: "정보 부족으로 평가 불가" 문구 금지
+- 보고서 구조: 6개 섹션 강제 (핵심요약/실적전망/성장동력/이슈/기술분석/면책)
+
+**수정 파일**:
+| 파일 | 변경 |
+|------|------|
+| `app/main.py` | `_generate_ai_charts` 캔들스틱 재작성 |
+| `app/main.py` | `_build_claude_prompt` StockEasy 구조 |
+| `app/main.py` | Claude API `tools: [web_search]` 추가 |
+| `app/main.py` | 기업 개요 `get_stock_company_kr` 연결 |
+
+| 커밋 | 메시지 |
+|------|--------|
+| dd2b7d0 | feat: AI 리포트 StockEasy 수준 개선 |
+| c5ae8fe | feat: AI 리포트 StockEasy 수준 전면 개선 |
+
+### PC앱 AI 자동완성/PDF 다운로드 수정 ✅ DONE
+
+**문제**: fetch로 qube-system.com 직접 호출 → CORS 또는 Tauri 제한으로 실패
+
+**수정**:
+| 기능 | Before | After |
+|------|--------|-------|
+| 자동완성 | `fetch(qube-system.com/api/search)` | `invoke('ai_search_stock')` |
+| PDF 다운로드 | `fetch + blob + <a download>` | `invoke('download_ai_pdf')` → 다운로드 폴더 저장 |
+
+**신규 Rust 커맨드**:
+| 커맨드 | 설명 |
+|--------|------|
+| `ai_search_stock` | 인증 불필요 검색, 5초 타임아웃 |
+| `download_ai_pdf` | PDF 바이너리 → 다운로드 폴더 저장 |
+
+**수정 파일**:
+| 파일 | 변경 |
+|------|------|
+| `pc-app/src-tauri/src/commands.rs` | `ai_search_stock`, `download_ai_pdf` 추가 |
+| `pc-app/src-tauri/src/main.rs` | invoke_handler 등록 |
+| `pc-app/ui/src/main.js` | fetch → invoke 방식 변경 |
+| `pc-app/ui/src/main.js` | `window.downloadAiReportPdf` 등록 (빌드러 minify 대응) |
+
+| 커밋 | 메시지 |
+|------|--------|
+| d59997a | fix: AI 자동완성/PDF 다운로드를 invoke 방식으로 변경 |
+| a8d3d98 | fix: window.downloadAiReportPdf 등록 추가 |
+
+---
 
 ## Day 29 진행사항 (2026-02-22)
 
