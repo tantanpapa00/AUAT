@@ -9504,17 +9504,20 @@ function initAiChatInput() {
     });
 }
 
-// 종목 자동완성 검색
+// 종목 자동완성 검색 (fetch 직접 호출)
 async function searchStockAutocomplete(query) {
     const dropdown = document.getElementById('ai-autocomplete-dropdown');
-    if (!dropdown) return;
+    if (!dropdown) {
+        console.warn('[Autocomplete] dropdown not found');
+        return;
+    }
 
     try {
-        const result = await invoke('search_stocks', {
-            accessToken: auth.accessToken || '',
-            query: query,
-            limit: 5
-        });
+        const resp = await fetch(`https://qube-system.com/api/search?q=${encodeURIComponent(query)}&limit=5`);
+        if (!resp.ok) throw new Error('검색 실패');
+
+        const result = await resp.json();
+        console.log('[Autocomplete] result:', result);
 
         if (!result?.results?.length) {
             hideAiAutocomplete();
@@ -9529,22 +9532,27 @@ async function searchStockAutocomplete(query) {
             </div>
         `).join('');
 
-        // 호버 효과
+        // 클릭/호버 이벤트
         dropdown.querySelectorAll('.ai-autocomplete-item').forEach(item => {
             item.addEventListener('mouseenter', () => {
-                dropdown.querySelectorAll('.ai-autocomplete-item').forEach(i => i.classList.remove('selected'));
+                dropdown.querySelectorAll('.ai-autocomplete-item').forEach(i => {
+                    i.classList.remove('selected');
+                    i.style.background = '';
+                });
                 item.classList.add('selected');
-                item.style.background = 'rgba(239,68,68,0.1)';
+                item.style.background = 'rgba(239,68,68,0.15)';
             });
             item.addEventListener('mouseleave', () => {
+                item.classList.remove('selected');
                 item.style.background = '';
             });
             item.addEventListener('click', () => selectAutocompleteItem(item));
         });
 
         dropdown.style.display = 'block';
+        console.log('[Autocomplete] dropdown shown');
     } catch (e) {
-        console.warn('[Autocomplete]', e);
+        console.error('[Autocomplete] error:', e);
         hideAiAutocomplete();
     }
 }
@@ -9670,16 +9678,37 @@ async function sendAiQuestion(text) {
     if (sendBtn) sendBtn.disabled = false;
 }
 
-// AI 리포트 PDF 다운로드 (Tauri invoke 사용)
+// AI 리포트 PDF 다운로드 (fetch + blob + <a download>)
 async function downloadAiReportPdf(jobId, stockName, stockCode) {
-    const pdfUrl = `https://qube-system.com/api/ai/report/pdf/${jobId}`;
+    const btn = event?.target;
+    if (btn) {
+        btn.textContent = '⏳ 생성 중...';
+        btn.disabled = true;
+    }
 
     try {
-        await invoke('open_url', { url: pdfUrl });
-        showToast('브라우저에서 PDF를 다운로드합니다', 'success');
+        const resp = await fetch(`https://qube-system.com/api/ai/report/pdf/${jobId}`);
+        if (!resp.ok) throw new Error('PDF 생성 실패');
+
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${stockName || 'BBooster'}_${stockCode || jobId}_분석리포트.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        showToast('PDF 다운로드 완료', 'success');
     } catch (e) {
         console.error('[PDF Download]', e);
         showToast('PDF 다운로드 실패: ' + e.message, 'error');
+    }
+
+    if (btn) {
+        btn.innerHTML = '<span>📄</span> PDF 다운로드';
+        btn.disabled = false;
     }
 }
 
