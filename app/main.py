@@ -1,3 +1,4 @@
+import uuid
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException, Request, Query
 from fastapi.responses import HTMLResponse
@@ -12212,6 +12213,19 @@ async def get_ai_usage(
     }
 
 
+# ============================================================================
+# AI 작업 큐 시스템 (비동기 처리)
+# ============================================================================
+_ai_jobs = {}  # {job_id: {"status": "pending"|"running"|"done"|"error", ...}}
+
+def _cleanup_old_jobs():
+    """30분 지난 작업 삭제"""
+    cutoff = datetime.now(KST) - timedelta(minutes=30)
+    expired = [k for k, v in _ai_jobs.items() if v.get("created_at", datetime.now(KST)) < cutoff]
+    for k in expired:
+        del _ai_jobs[k]
+
+
 class AIAnalyzeRequest(BaseModel):
     symbol: str
     exchange: str
@@ -12223,7 +12237,7 @@ async def request_ai_analysis(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """AI 종합분석 요청"""
+    """AI 종합분석 요청 → job_id 즉시 반환 (백그라운드 처리)"""
     _ensure_ai_tables(db)
 
     if not _check_standard_plan(current_user):
@@ -12249,7 +12263,6 @@ async def request_ai_analysis(
             usage_date = row[1]
             monthly_date = row[3] or ""
 
-            # 일일 리셋
             if usage_date != today:
                 daily_count = 0
                 db.execute(
@@ -12259,7 +12272,6 @@ async def request_ai_analysis(
             else:
                 daily_count = row[0] or 0
 
-            # 월간 리셋
             if monthly_date != this_month:
                 monthly_count = 0
                 db.execute(
@@ -12271,36 +12283,20 @@ async def request_ai_analysis(
 
             db.commit()
 
-        # 일일 제한 체크
         if daily_count >= daily_max:
-            return {
-                "success": False,
-                "error": "오늘의 AI 분석 횟수를 모두 사용했습니다. 내일 다시 이용해주세요.",
-                "daily_used": daily_count,
-                "daily_max": daily_max,
-                "monthly_used": monthly_count,
-                "monthly_max": monthly_max,
-            }
+            return {"success": False, "error": "오늘의 AI 분석 횟수를 모두 사용했습니다."}
 
-        # 월간 제한 체크
         if monthly_count >= monthly_max:
-            return {
-                "success": False,
-                "error": "이번 달 AI 분석 횟수를 모두 사용했습니다. 다음 달에 이용해주세요.",
-                "daily_used": daily_count,
-                "daily_max": daily_max,
-                "monthly_used": monthly_count,
-                "monthly_max": monthly_max,
-            }
+            return {"success": False, "error": "이번 달 AI 분석 횟수를 모두 사용했습니다."}
 
     except Exception as e:
         print(f"AI usage check error: {e}")
 
-    # 캐시 확인 (1시간 이내)
+    # 캐시 확인 (6시간 이내)
     try:
         cache_result = db.execute(
             text("""
-                SELECT report_text, data_snapshot FROM ai_reports
+                SELECT report_text FROM ai_reports
                 WHERE symbol = :sym AND exchange = :ex AND expires_at > NOW()
                 ORDER BY created_at DESC LIMIT 1
             """),
@@ -12308,111 +12304,137 @@ async def request_ai_analysis(
         )
         cache_row = cache_result.fetchone()
         if cache_row:
-            # 캐시된 결과 반환 시 횟수 차감 안 함
-            return {
-                "success": True,
-                "report": cache_row[0],
-                "cached": True,
-                "daily_used": daily_count,
-                "daily_max": daily_max,
-                "monthly_used": monthly_count,
-                "monthly_max": monthly_max,
-            }
+            return {"success": True, "status": "done", "report": cache_row[0], "cached": True}
     except Exception:
         pass
 
-    # 종목 데이터 수집
-    symbol_data = {
-        "symbol": request.symbol,
-        "exchange": request.exchange,
-        "name": request.symbol,
-        "current_price": 0,
-        "change": 0,
-    }
+    # 작업 큐 정리 및 job_id 생성
+    _cleanup_old_jobs()
+    job_id = str(uuid.uuid4())[:8]
 
     # 시장 구분
     is_domestic = request.exchange.lower() in ("kis_kr", "kis_kr_etf")
     market = "kr" if is_domestic else "us"
 
-    # 마스터에서 이름 조회
-    master = get_master_cache()
-    stock = master.get_stock(request.symbol)
-    if stock:
-        symbol_data["name"] = stock.name
-        symbol_data["market"] = stock.market
-    elif is_domestic:
-        # 마스터에 없으면 네이버 API에서 직접 이름 조회
-        try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.get(
-                    f"https://m.stock.naver.com/api/stock/{request.symbol}/basic",
-                    headers={"User-Agent": "Mozilla/5.0"}
-                )
-                if resp.status_code == 200:
-                    naver_data = resp.json()
-                    if naver_data.get("stockName"):
-                        symbol_data["name"] = naver_data["stockName"]
-                        print(f"[AI] Got name from Naver: {symbol_data['name']}")
-        except Exception as e:
-            print(f"[AI] Failed to get name from Naver: {e}")
-
-    # Claude API로 AI 리포트 생성
-    ai_result = await _generate_claude_report(
-        name=symbol_data["name"],
-        code=request.symbol,
-        market=market
-    )
-
-    report = ai_result.get("report", "")
-    is_fallback = ai_result.get("fallback", False)
-
-    if is_fallback:
-        print(f"[AI Analysis] Using fallback template for {request.symbol}")
-
-    # 사용량 증가 (일일 + 월간)
-    try:
-        db.execute(
-            text("""UPDATE users SET
-                ai_usage_count = ai_usage_count + 1,
-                ai_monthly_count = ai_monthly_count + 1
-                WHERE id = :uid"""),
-            {"uid": current_user.id}
-        )
-        db.commit()
-        daily_count += 1
-        monthly_count += 1
-    except Exception:
-        db.rollback()
-
-    # 캐시 저장 (6시간)
-    try:
-        expires = datetime.now(timezone.utc) + timedelta(hours=6)
-        db.execute(
-            text("""
-                INSERT INTO ai_reports (symbol, exchange, report_text, data_snapshot, expires_at)
-                VALUES (:sym, :ex, :report, :data, :expires)
-            """),
-            {
-                "sym": request.symbol,
-                "ex": request.exchange,
-                "report": report,
-                "data": json.dumps(symbol_data),
-                "expires": expires
-            }
-        )
-        db.commit()
-    except Exception:
-        db.rollback()
-
-    return {
-        "success": True,
-        "report": report,
-        "cached": False,
-        "daily_used": daily_count,
-        "daily_max": daily_max,
-        "monthly_used": monthly_count,
-        "monthly_max": monthly_max,
+    # 작업 등록
+    _ai_jobs[job_id] = {
+        "status": "pending",
+        "progress": "📊 요청 접수됨",
+        "result": None,
+        "created_at": datetime.now(KST),
+        "user_id": current_user.id,
+        "symbol": request.symbol,
+        "exchange": request.exchange,
     }
+
+    # 백그라운드에서 실행 (즉시 반환)
+    asyncio.create_task(_run_ai_analysis_job(job_id, request.symbol, market))
+
+    return {"success": True, "job_id": job_id, "status": "pending"}
+
+
+@app.get("/api/ai/status/{job_id}")
+async def get_ai_job_status(job_id: str):
+    """AI 분석 작업 상태 조회"""
+    job = _ai_jobs.get(job_id)
+
+    if not job:
+        return {"success": False, "error": "작업을 찾을 수 없습니다", "status": "not_found"}
+
+    if job["status"] == "done":
+        return {
+            "success": True,
+            "status": "done",
+            "report": job["result"],
+            "progress": "✅ 완료"
+        }
+    elif job["status"] == "error":
+        return {
+            "success": False,
+            "status": "error",
+            "error": job.get("error", "알 수 없는 오류"),
+            "progress": "❌ 오류 발생"
+        }
+    else:
+        return {
+            "success": True,
+            "status": job["status"],
+            "progress": job.get("progress", "처리 중...")
+        }
+
+
+async def _run_ai_analysis_job(job_id: str, symbol: str, market: str):
+    """백그라운드에서 AI 분석 실행"""
+    try:
+        _ai_jobs[job_id]["status"] = "running"
+        _ai_jobs[job_id]["progress"] = "📊 종목 데이터 수집 중..."
+
+        # 종목명 조회
+        name = symbol
+        master = get_master_cache()
+        stock = master.get_stock(symbol)
+        if stock:
+            name = stock.name
+        elif market == "kr":
+            try:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    resp = await client.get(
+                        f"https://m.stock.naver.com/api/stock/{symbol}/basic",
+                        headers={"User-Agent": "Mozilla/5.0"}
+                    )
+                    if resp.status_code == 200:
+                        naver_data = resp.json()
+                        if naver_data.get("stockName"):
+                            name = naver_data["stockName"]
+            except Exception:
+                pass
+
+        _ai_jobs[job_id]["progress"] = "🤖 AI가 분석 중..."
+
+        # Claude API로 리포트 생성
+        ai_result = await _generate_claude_report(name=name, code=symbol, market=market)
+
+        report = ai_result.get("report", "")
+        if not report or len(report) < 200:
+            raise Exception("리포트 생성 실패")
+
+        # 완료
+        _ai_jobs[job_id]["status"] = "done"
+        _ai_jobs[job_id]["result"] = report
+        _ai_jobs[job_id]["progress"] = "✅ 완료"
+
+        # 사용량 증가 + 캐시 저장 (DB 세션 새로 생성)
+        try:
+            from app.database import SessionLocal
+            db = SessionLocal()
+            user_id = _ai_jobs[job_id].get("user_id")
+            exchange = _ai_jobs[job_id].get("exchange", "")
+
+            if user_id:
+                db.execute(
+                    text("UPDATE users SET ai_usage_count = ai_usage_count + 1, ai_monthly_count = ai_monthly_count + 1 WHERE id = :uid"),
+                    {"uid": user_id}
+                )
+
+            expires = datetime.now(timezone.utc) + timedelta(hours=6)
+            db.execute(
+                text("INSERT INTO ai_reports (symbol, exchange, report_text, data_snapshot, expires_at) VALUES (:sym, :ex, :report, :data, :expires)"),
+                {"sym": symbol, "ex": exchange, "report": report, "data": "{}", "expires": expires}
+            )
+            db.commit()
+            db.close()
+        except Exception as e:
+            print(f"[AI Job] DB update error: {e}")
+
+        print(f"[AI Job] {job_id} 완료: {len(report)}자")
+
+    except Exception as e:
+        print(f"[AI Job] {job_id} 오류: {e}")
+        _ai_jobs[job_id]["status"] = "error"
+        _ai_jobs[job_id]["error"] = str(e)
+        _ai_jobs[job_id]["progress"] = "❌ 오류 발생"
+
+
 
 
 class AIChatRequest(BaseModel):
@@ -12425,18 +12447,14 @@ async def request_ai_chat(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """AI 채팅 요청"""
+    """AI 채팅 요청 → job_id 즉시 반환 (백그라운드 처리)"""
     _ensure_ai_tables(db)
 
     if not _check_standard_plan(current_user):
-        return {
-            "success": False,
-            "error": "AI 채팅은 Standard 이상에서 이용 가능합니다"
-        }
+        return {"success": False, "error": "AI 채팅은 Standard 이상에서 이용 가능합니다"}
 
     daily_max = _get_ai_daily_limit(current_user)
     today = datetime.now(KST).date()
-
     daily_count = 0
 
     # 사용량 체크
@@ -12448,8 +12466,7 @@ async def request_ai_chat(
         row = result.fetchone()
 
         if row:
-            usage_date = row[1]
-            if usage_date != today:
+            if row[1] != today:
                 daily_count = 0
                 db.execute(
                     text("UPDATE users SET ai_usage_count = 0, ai_usage_date = :today WHERE id = :uid"),
@@ -12460,18 +12477,35 @@ async def request_ai_chat(
             db.commit()
 
         if daily_count >= daily_max:
-            return {
-                "success": False,
-                "error": "오늘의 AI 채팅 횟수를 모두 사용했습니다.",
-                "daily_used": daily_count,
-                "daily_max": daily_max,
-            }
+            return {"success": False, "error": "오늘의 AI 채팅 횟수를 모두 사용했습니다."}
 
     except Exception as e:
         print(f"AI chat usage check error: {e}")
 
-    # Claude API 호출 (AsyncAnthropic 사용 - 이벤트 루프 블로킹 방지)
+    # 작업 큐에 등록
+    _cleanup_old_jobs()
+    job_id = str(uuid.uuid4())[:8]
+
+    _ai_jobs[job_id] = {
+        "status": "pending",
+        "progress": "🤖 AI가 생각 중...",
+        "result": None,
+        "created_at": datetime.now(KST),
+        "user_id": current_user.id,
+        "type": "chat",
+    }
+
+    # 백그라운드 실행
+    asyncio.create_task(_run_ai_chat_job(job_id, request.message, current_user.id))
+
+    return {"success": True, "job_id": job_id, "status": "pending"}
+
+
+async def _run_ai_chat_job(job_id: str, message: str, user_id: int):
+    """백그라운드에서 AI 채팅 실행"""
     try:
+        _ai_jobs[job_id]["status"] = "running"
+
         import anthropic
         client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""), timeout=50.0)
 
@@ -12489,47 +12523,42 @@ async def request_ai_chat(
 - 객관적 데이터 기반 분석
 - 리스크 경고 포함
 - 한국어로 답변
-
-답변 형식:
-- 핵심 내용 먼저 제시
-- 명확하고 간결하게
-- 필요시 구조화된 목록 사용"""
+- 마크다운 형식 (## 제목, - 목록, **강조**)
+- 1500자 이상 상세하게"""
 
         response = await client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=1024,
+            max_tokens=4096,
             system=system_prompt,
-            messages=[
-                {"role": "user", "content": request.message}
-            ]
+            messages=[{"role": "user", "content": message}]
         )
 
         reply = response.content[0].text if response.content else ""
 
+        _ai_jobs[job_id]["status"] = "done"
+        _ai_jobs[job_id]["result"] = reply
+        _ai_jobs[job_id]["progress"] = "✅ 완료"
+
         # 사용량 증가
         try:
+            from app.database import SessionLocal
+            db = SessionLocal()
             db.execute(
                 text("UPDATE users SET ai_usage_count = ai_usage_count + 1 WHERE id = :uid"),
-                {"uid": current_user.id}
+                {"uid": user_id}
             )
             db.commit()
-            daily_count += 1
-        except Exception:
-            db.rollback()
+            db.close()
+        except Exception as e:
+            print(f"[AI Chat Job] DB update error: {e}")
 
-        return {
-            "success": True,
-            "reply": reply,
-            "daily_used": daily_count,
-            "daily_max": daily_max,
-        }
+        print(f"[AI Chat Job] {job_id} 완료: {len(reply)}자")
 
     except Exception as e:
-        print(f"AI chat error: {e}")
-        return {
-            "success": False,
-            "error": f"AI 응답 생성 실패: {str(e)}"
-        }
+        print(f"[AI Chat Job] {job_id} 오류: {e}")
+        _ai_jobs[job_id]["status"] = "error"
+        _ai_jobs[job_id]["error"] = str(e)
+        _ai_jobs[job_id]["progress"] = "❌ 오류 발생"
 
 
 def _generate_simple_report(data: dict) -> str:

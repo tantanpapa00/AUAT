@@ -3160,7 +3160,7 @@ pub async fn request_ai_analysis(
         .header("Authorization", format!("Bearer {}", access_token))
         .header("Content-Type", "application/json")
         .json(&body)
-        .timeout(std::time::Duration::from_secs(120))  // AI 분석: 2분 타임아웃
+        .timeout(std::time::Duration::from_secs(15))  // job_id만 받으므로 15초 충분
         .send()
         .await
         .map_err(|e| format!("네트워크 오류: {}", e))?;
@@ -3175,6 +3175,27 @@ pub async fn request_ai_analysis(
     } else {
         let body = resp.text().await.unwrap_or_default();
         Err(format!("AI 분석 요청 실패 ({}): {}", status, body))
+    }
+}
+
+#[tauri::command]
+pub async fn check_ai_status(
+    job_id: String,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/ai/status/{}", VPS_SERVER_URL, job_id);
+
+    let resp = client
+        .get(&url)
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))
+    } else {
+        Err("상태 조회 실패".to_string())
     }
 }
 
@@ -3195,7 +3216,7 @@ pub async fn request_ai_chat(
         .header("Authorization", format!("Bearer {}", access_token))
         .header("Content-Type", "application/json")
         .json(&body)
-        .timeout(std::time::Duration::from_secs(120))  // AI 채팅: 2분 타임아웃
+        .timeout(std::time::Duration::from_secs(15))  // job_id만 받으므로 15초 충분
         .send()
         .await
         .map_err(|e| format!("네트워크 오류: {}", e))?;

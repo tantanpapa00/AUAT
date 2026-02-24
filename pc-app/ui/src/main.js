@@ -4787,7 +4787,7 @@ document.querySelectorAll('.event-tab').forEach(tab => {
 let currentDetailSymbol = null;
 let currentDetailExchange = null;
 
-// AI 분석 버튼 클릭
+// AI 분석 버튼 클릭 (폴링 방식)
 document.getElementById('btn-ai-analysis')?.addEventListener('click', async () => {
     if (!currentSymbolData) {
         showToast('종목을 먼저 선택하세요', 'error');
@@ -4802,6 +4802,7 @@ document.getElementById('btn-ai-analysis')?.addEventListener('click', async () =
 
     modal.style.display = 'flex';
     loadingEl.style.display = 'block';
+    loadingEl.innerHTML = '<div class="ai-spinner"></div><p id="ai-progress-text" style="color:#9ca3af;margin-top:12px;">📊 종목 데이터 수집 중...</p>';
     reportEl.style.display = 'none';
     errorEl.style.display = 'none';
 
@@ -4809,38 +4810,75 @@ document.getElementById('btn-ai-analysis')?.addEventListener('click', async () =
         const token = auth.accessToken || '';
         const symbol = currentSymbolData.basic?.symbol || currentDetailSymbol;
         const exchange = currentSymbolData.basic?.exchange || currentDetailExchange;
-        console.log('[AI Analysis] Requesting:', { symbol, exchange, hasToken: !!token });
+        console.log('[AI Analysis] Requesting:', { symbol, exchange });
 
-        const result = await invoke('request_ai_analysis', {
+        // 1) 분석 요청 (job_id 즉시 반환)
+        const reqResult = await invoke('request_ai_analysis', {
             accessToken: token,
             symbol: symbol,
             exchange: exchange
         });
-        console.log('[AI Analysis] Result:', result);
+        console.log('[AI Analysis] Request result:', reqResult);
+
+        if (!reqResult.success) {
+            throw new Error(reqResult.error || '요청 실패');
+        }
+
+        // 캐시된 결과면 바로 표시
+        if (reqResult.status === 'done' && reqResult.report) {
+            loadingEl.style.display = 'none';
+            reportEl.innerHTML = markdownToHtml(reqResult.report);
+            reportEl.style.display = 'block';
+            return;
+        }
+
+        const jobId = reqResult.job_id;
+        if (!jobId) throw new Error('작업 ID가 없습니다');
+
+        // 2) 폴링 (2초마다, 최대 120초)
+        const report = await pollAiJobResult(jobId, 120);
 
         loadingEl.style.display = 'none';
+        reportEl.innerHTML = markdownToHtml(report);
+        reportEl.style.display = 'block';
 
-        if (result.success) {
-            reportEl.innerHTML = markdownToHtml(result.report || '');
-            reportEl.style.display = 'block';
-            // 일일/월간 사용량 표시
-            const dailyRemain = (result.daily_max || 0) - (result.daily_used || 0);
-            const monthlyRemain = (result.monthly_max || 0) - (result.monthly_used || 0);
-            usageEl.textContent = `오늘 ${result.daily_used}/${result.daily_max}회 | 이번 달 ${result.monthly_used}/${result.monthly_max}회`;
-        } else {
-            errorEl.textContent = result.error || 'AI 분석에 실패했습니다';
-            errorEl.style.display = 'block';
-            // 제한 초과 시에도 사용량 표시
-            if (result.daily_max !== undefined) {
-                usageEl.textContent = `오늘 ${result.daily_used}/${result.daily_max}회 | 이번 달 ${result.monthly_used}/${result.monthly_max}회`;
-            }
-        }
     } catch (error) {
         loadingEl.style.display = 'none';
         errorEl.textContent = error.toString();
         errorEl.style.display = 'block';
     }
 });
+
+// AI 작업 결과 폴링
+async function pollAiJobResult(jobId, maxWaitSec = 120) {
+    const startTime = Date.now();
+    const progressEl = document.getElementById('ai-progress-text');
+
+    while ((Date.now() - startTime) / 1000 < maxWaitSec) {
+        await new Promise(r => setTimeout(r, 2000)); // 2초 대기
+
+        try {
+            const status = await invoke('check_ai_status', { jobId });
+            console.log('[AI Poll]', jobId, status);
+
+            // 진행률 업데이트
+            if (progressEl && status.progress) {
+                progressEl.textContent = status.progress;
+            }
+
+            if (status.status === 'done' && status.report) {
+                return status.report;
+            } else if (status.status === 'error') {
+                throw new Error(status.error || '분석 실패');
+            }
+            // pending/running → 계속 폴링
+        } catch (e) {
+            if (e.message && e.message.includes('분석 실패')) throw e;
+            console.warn('[AI Poll] 재시도:', e);
+        }
+    }
+    throw new Error('시간 초과 (2분). 다시 시도해주세요.');
+}
 
 // 간단한 마크다운 변환
 function markdownToHtml(md) {
@@ -9409,7 +9447,7 @@ function initAiChatInput() {
     });
 }
 
-// AI 질문 전송
+// AI 질문 전송 (폴링 방식)
 async function sendAiQuestion(text) {
     const input = document.getElementById('ai-quick-input');
     const msg = text || (input ? input.value.trim() : '');
@@ -9425,25 +9463,27 @@ async function sendAiQuestion(text) {
     // 로딩 표시
     responseArea.innerHTML = `
         <div style="display:flex;align-items:center;gap:10px;color:#6b7280;">
-            <div class="loading-spinner" style="width:20px;height:20px;"></div>
-            AI가 답변을 생성하고 있습니다...
+            <div class="ai-spinner-small"></div>
+            <span id="ai-chat-progress">🤖 AI가 생각 중...</span>
         </div>
     `;
 
     try {
-        const result = await invoke('request_ai_chat', {
+        // 1) 요청 (job_id 반환)
+        const reqResult = await invoke('request_ai_chat', {
             accessToken: auth.accessToken || '',
             message: msg
         });
 
-        let answer = '';
-        if (result && result.success && result.reply) {
-            answer = result.reply;
-        } else if (result && result.error) {
-            answer = '오류: ' + result.error;
-        } else {
-            answer = '응답을 처리할 수 없습니다.';
+        if (!reqResult.success) {
+            throw new Error(reqResult.error || '요청 실패');
         }
+
+        const jobId = reqResult.job_id;
+        if (!jobId) throw new Error('작업 ID가 없습니다');
+
+        // 2) 폴링 (2초마다, 최대 120초)
+        const answer = await pollAiChatResult(jobId, 120);
 
         // 마크다운 변환
         let html = answer
@@ -9451,17 +9491,17 @@ async function sendAiQuestion(text) {
             .replace(/^## (.*$)/gm, '<h2 style="color:#e5e7eb;font-size:17px;margin:18px 0 8px;padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,0.08);">$1</h2>')
             .replace(/^# (.*$)/gm, '<h1 style="color:#fff;font-size:20px;margin:20px 0 10px;">$1</h1>')
             .replace(/\*\*(.*?)\*\*/g, '<strong style="color:#e5e7eb;">$1</strong>')
-            .replace(/^- (.*$)/gm, '<div style="padding:3px 0 3px 16px;color:#b0b7c3;">$1</div>')
+            .replace(/^- (.*$)/gm, '<div style="padding:3px 0 3px 16px;color:#b0b7c3;">• $1</div>')
             .replace(/\n\n/g, '<br><br>')
             .replace(/\n/g, '<br>');
 
         responseArea.innerHTML = `
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                <span style="color:#ef4444;font-weight:600;">AI 답변</span>
+                <span style="color:#ef4444;font-weight:600;">🤖 AI 답변</span>
                 <button onclick="document.getElementById('ai-response-area').style.display='none'"
-                    style="background:none;border:none;color:#6b7280;cursor:pointer;font-size:18px;">x</button>
+                    style="background:none;border:none;color:#6b7280;cursor:pointer;font-size:18px;">✕</button>
             </div>
-            <div class="ai-answer">${html}</div>
+            <div class="ai-answer" style="color:#b0b7c3;font-size:14px;line-height:1.7;">${html}</div>
         `;
 
     } catch (e) {
@@ -9472,6 +9512,34 @@ async function sendAiQuestion(text) {
     }
 
     if (sendBtn) sendBtn.disabled = false;
+}
+
+// AI 채팅 결과 폴링
+async function pollAiChatResult(jobId, maxWaitSec = 120) {
+    const startTime = Date.now();
+    const progressEl = document.getElementById('ai-chat-progress');
+
+    while ((Date.now() - startTime) / 1000 < maxWaitSec) {
+        await new Promise(r => setTimeout(r, 2000));
+
+        try {
+            const status = await invoke('check_ai_status', { jobId });
+
+            if (progressEl && status.progress) {
+                progressEl.textContent = status.progress;
+            }
+
+            if (status.status === 'done' && status.result) {
+                return status.result;
+            } else if (status.status === 'error') {
+                throw new Error(status.error || '응답 실패');
+            }
+        } catch (e) {
+            if (e.message && e.message.includes('응답 실패')) throw e;
+            console.warn('[AI Chat Poll] 재시도:', e);
+        }
+    }
+    throw new Error('시간 초과 (2분). 다시 시도해주세요.');
 }
 
 async function loadAiRecommendations(market) {
@@ -12967,7 +13035,7 @@ document.getElementById('btn-add-to-watchlist')?.addEventListener('click', async
     }
 });
 
-// AI 분석 버튼 (stock-detail-modal 푸터)
+// AI 분석 버튼 (stock-detail-modal 푸터) - 폴링 방식
 document.getElementById('btn-ai-analysis-modal')?.addEventListener('click', async () => {
     if (!currentStockData) return;
 
@@ -12982,6 +13050,7 @@ document.getElementById('btn-ai-analysis-modal')?.addEventListener('click', asyn
 
     modal.style.display = 'flex';
     loadingEl.style.display = 'block';
+    loadingEl.innerHTML = '<div class="ai-spinner"></div><p id="ai-progress-text2" style="color:#9ca3af;margin-top:12px;">📊 종목 데이터 수집 중...</p>';
     reportEl.style.display = 'none';
     errorEl.style.display = 'none';
 
@@ -12989,36 +13058,71 @@ document.getElementById('btn-ai-analysis-modal')?.addEventListener('click', asyn
         const token = auth.accessToken || '';
         const symbol = currentStockData.symbol || currentStockData.code;
         const exchange = currentStockData.exchange || 'KIS_KR';
-        console.log('[AI Analysis Modal] Requesting:', { symbol, exchange, hasToken: !!token });
+        console.log('[AI Analysis Modal] Requesting:', { symbol, exchange });
 
-        const result = await invoke('request_ai_analysis', {
+        // 1) 요청 (job_id 반환)
+        const reqResult = await invoke('request_ai_analysis', {
             accessToken: token,
             symbol: symbol,
             exchange: exchange
         });
-        console.log('[AI Analysis Modal] Result:', result);
+        console.log('[AI Analysis Modal] Request result:', reqResult);
+
+        if (!reqResult.success) {
+            throw new Error(reqResult.error || '요청 실패');
+        }
+
+        // 캐시된 결과면 바로 표시
+        if (reqResult.status === 'done' && reqResult.report) {
+            loadingEl.style.display = 'none';
+            reportEl.innerHTML = markdownToHtml(reqResult.report);
+            reportEl.style.display = 'block';
+            return;
+        }
+
+        const jobId = reqResult.job_id;
+        if (!jobId) throw new Error('작업 ID가 없습니다');
+
+        // 2) 폴링
+        const report = await pollAiJobResult2(jobId, 120);
 
         loadingEl.style.display = 'none';
+        reportEl.innerHTML = markdownToHtml(report);
+        reportEl.style.display = 'block';
 
-        if (result.success) {
-            reportEl.innerHTML = markdownToHtml(result.report || '');
-            reportEl.style.display = 'block';
-            const dailyRemain = (result.daily_max || 0) - (result.daily_used || 0);
-            const monthlyRemain = (result.monthly_max || 0) - (result.monthly_used || 0);
-            usageEl.textContent = `오늘 ${result.daily_used}/${result.daily_max}회 | 이번 달 ${result.monthly_used}/${result.monthly_max}회`;
-        } else {
-            errorEl.textContent = result.error || 'AI 분석에 실패했습니다';
-            errorEl.style.display = 'block';
-            if (result.daily_max !== undefined) {
-                usageEl.textContent = `오늘 ${result.daily_used}/${result.daily_max}회 | 이번 달 ${result.monthly_used}/${result.monthly_max}회`;
-            }
-        }
     } catch (error) {
         loadingEl.style.display = 'none';
         errorEl.textContent = error.toString();
         errorEl.style.display = 'block';
     }
 });
+
+// AI 작업 결과 폴링 (모달용)
+async function pollAiJobResult2(jobId, maxWaitSec = 120) {
+    const startTime = Date.now();
+    const progressEl = document.getElementById('ai-progress-text2');
+
+    while ((Date.now() - startTime) / 1000 < maxWaitSec) {
+        await new Promise(r => setTimeout(r, 2000));
+
+        try {
+            const status = await invoke('check_ai_status', { jobId });
+
+            if (progressEl && status.progress) {
+                progressEl.textContent = status.progress;
+            }
+
+            if (status.status === 'done' && status.report) {
+                return status.report;
+            } else if (status.status === 'error') {
+                throw new Error(status.error || '분석 실패');
+            }
+        } catch (e) {
+            if (e.message && e.message.includes('분석 실패')) throw e;
+        }
+    }
+    throw new Error('시간 초과');
+}
 
 // window에 openStockDetail 노출 (테이블 클릭에서 사용)
 window.openStockDetail = openStockDetail;

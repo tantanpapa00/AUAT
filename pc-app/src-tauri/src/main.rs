@@ -139,6 +139,7 @@ fn main() {
             // AI + Watchlist (STEP 3)
             commands::get_ai_usage,
             commands::request_ai_analysis,
+            commands::check_ai_status,
             commands::request_ai_chat,
             commands::get_market_timeline,
             commands::get_watchlist_groups,
