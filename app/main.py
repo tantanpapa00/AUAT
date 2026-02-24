@@ -12508,14 +12508,56 @@ async def request_ai_chat(
 
 
 async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
-    """백그라운드에서 AI 채팅 실행"""
+    """백그라운드에서 AI 채팅 실행 - 종목 인식 시 데이터 기반 분석"""
     try:
         _ai_jobs[job_id]["status"] = "running"
+        _ai_jobs[job_id]["progress"] = "🔍 종목 인식 중..."
 
         import anthropic
         client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""), timeout=50.0)
 
-        system_prompt = """당신은 BBooster의 AI 투자 어시스턴트입니다.
+        # 종목 인식 시도
+        detected_stock = await _detect_stock_from_message(message)
+
+        if detected_stock:
+            # 종목이 인식됨 → 데이터 수집 후 분석
+            code = detected_stock["code"]
+            name = detected_stock["name"]
+            market = detected_stock.get("market", "kr")
+
+            print(f"[AI Chat] 종목 인식: {name}({code})")
+            _ai_jobs[job_id]["progress"] = f"📊 {name} 데이터 수집 중..."
+
+            # 데이터 수집 (_run_ai_analysis_job과 동일)
+            tech = await _collect_technical_data_for_ai(code, market)
+            fin = await _collect_financial_data_for_ai(code, market)
+            news = await _collect_news_for_ai(code, name, market)
+
+            _ai_jobs[job_id]["progress"] = "🤖 AI가 분석 중..."
+
+            # 데이터 기반 프롬프트 생성
+            data_prompt = _build_claude_prompt(name, code, tech, fin, news)
+
+            # 사용자 질문 추가
+            final_prompt = f"""{data_prompt}
+
+---
+사용자 질문: {message}
+
+위 데이터를 바탕으로 사용자의 질문에 답변해주세요.
+반드시 실제 수치(현재가, RSI, ADX, MACD 등)를 인용하며 답변하세요.
+"""
+
+            response = await client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=4096,
+                messages=[{"role": "user", "content": final_prompt}]
+            )
+        else:
+            # 종목 미인식 → 일반 채팅
+            _ai_jobs[job_id]["progress"] = "🤖 AI가 생각 중..."
+
+            system_prompt = """당신은 BBooster의 AI 투자 어시스턴트입니다.
 사용자의 투자 관련 질문에 전문적이고 친절하게 답변합니다.
 
 역할:
@@ -12532,12 +12574,12 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
 - 마크다운 형식 (## 제목, - 목록, **강조**)
 - 1500자 이상 상세하게"""
 
-        response = await client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=4096,
-            system=system_prompt,
-            messages=[{"role": "user", "content": message}]
-        )
+            response = await client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=4096,
+                system=system_prompt,
+                messages=[{"role": "user", "content": message}]
+            )
 
         reply = response.content[0].text if response.content else ""
 
@@ -12566,6 +12608,59 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
         _ai_jobs[job_id]["status"] = "error"
         _ai_jobs[job_id]["error"] = str(e)
         _ai_jobs[job_id]["progress"] = "❌ 오류 발생"
+
+
+async def _detect_stock_from_message(message: str) -> dict:
+    """메시지에서 종목명/코드 인식"""
+    import re
+
+    # 마스터 캐시에서 종목 검색
+    master = get_master_cache()
+
+    # 1. 6자리 숫자 코드 패턴 (예: 009830, 005930)
+    code_match = re.search(r'\b(\d{6})\b', message)
+    if code_match:
+        code = code_match.group(1)
+        stock = master.get_stock(code)
+        if stock:
+            return {"code": code, "name": stock.name, "market": "kr"}
+
+    # 2. 종목명으로 검색
+    # 메시지에서 한글 단어 추출
+    words = re.findall(r'[가-힣]+', message)
+
+    for word in words:
+        if len(word) < 2:
+            continue
+        # 마스터 캐시에서 이름으로 검색
+        for code, stock in master._kr_stocks.items():
+            if stock.name == word or word in stock.name:
+                return {"code": code, "name": stock.name, "market": "kr"}
+
+    # 3. 네이버 검색 API로 fallback
+    for word in words:
+        if len(word) < 2:
+            continue
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                resp = await client.get(
+                    f"https://m.stock.naver.com/api/json/search/searchListJson.nhn?keyword={word}",
+                    headers={"User-Agent": "Mozilla/5.0"}
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    items = data.get("result", {}).get("d", [])
+                    if items and len(items) > 0:
+                        item = items[0]
+                        return {
+                            "code": item.get("cd", ""),
+                            "name": item.get("nm", word),
+                            "market": "kr"
+                        }
+        except Exception:
+            pass
+
+    return None
 
 
 def _generate_simple_report(data: dict) -> str:
