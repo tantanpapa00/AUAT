@@ -12613,30 +12613,34 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
 async def _detect_stock_from_message(message: str) -> dict:
     """메시지에서 종목명/코드 인식"""
     import re
-
-    # 마스터 캐시에서 종목 검색
-    master = get_master_cache()
+    from app.screener.kr_screener import load_kr_stocks
 
     # 1. 6자리 숫자 코드 패턴 (예: 009830, 005930)
     code_match = re.search(r'\b(\d{6})\b', message)
     if code_match:
         code = code_match.group(1)
-        stock = master.get_stock(code)
-        if stock:
-            return {"code": code, "name": stock.name, "market": "kr"}
+        # 스크리너 캐시에서 코드로 검색
+        kr_stocks = await load_kr_stocks()
+        for stock in kr_stocks:
+            if stock.get("code") == code:
+                return {"code": code, "name": stock.get("name", code), "market": "kr"}
 
-    # 2. 종목명으로 검색 (search 메서드 사용)
-    # 메시지에서 한글 단어 추출
+    # 2. 종목명으로 검색 (스크리너 캐시 사용)
+    kr_stocks = await load_kr_stocks()
     words = re.findall(r'[가-힣]+', message)
 
     for word in words:
         if len(word) < 2:
             continue
-        # 마스터 캐시 search 메서드 사용
-        results = master.search(word, market="KIS_KR", limit=1)
-        if results:
-            stock = results[0]
-            return {"code": stock.code, "name": stock.name, "market": "kr"}
+        # 정확한 이름 매칭 먼저
+        for stock in kr_stocks:
+            if stock.get("name") == word:
+                return {"code": stock.get("code"), "name": stock.get("name"), "market": "kr"}
+        # 부분 매칭 (종목명에 단어가 포함된 경우)
+        for stock in kr_stocks:
+            stock_name = stock.get("name", "")
+            if word in stock_name and len(word) >= 2:
+                return {"code": stock.get("code"), "name": stock_name, "market": "kr"}
 
     # 3. 네이버 검색 API로 fallback
     for word in words:
@@ -12645,17 +12649,15 @@ async def _detect_stock_from_message(message: str) -> dict:
         try:
             async with httpx.AsyncClient(timeout=3.0) as client:
                 resp = await client.get(
-                    f"https://m.stock.naver.com/api/json/search/searchListJson.nhn?keyword={word}",
+                    f"https://m.stock.naver.com/api/stock/{word}/basic",
                     headers={"User-Agent": "Mozilla/5.0"}
                 )
                 if resp.status_code == 200:
                     data = resp.json()
-                    items = data.get("result", {}).get("d", [])
-                    if items and len(items) > 0:
-                        item = items[0]
+                    if data.get("stockCode"):
                         return {
-                            "code": item.get("cd", ""),
-                            "name": item.get("nm", word),
+                            "code": data.get("stockCode"),
+                            "name": data.get("stockName", word),
                             "market": "kr"
                         }
         except Exception:
