@@ -43,6 +43,8 @@ services:
       DATABASE_URL: postgresql://${DB_USER:-bbooster}:${DB_PASSWORD:-bbooster_secret}@db:5432/${DB_NAME:-bbooster}
       TV_SECRET: ${TV_SECRET:-changeme}
       ESTOP_ENABLED: ${ESTOP_ENABLED:-false}
+    volumes:
+      - charts_data:/app/static/charts  # AI 차트 이미지 영속화
     ports:
       - "${APP_PORT:-8000}:8000"
     healthcheck:
@@ -69,4 +71,6 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
+  charts_data:
     driver: local
