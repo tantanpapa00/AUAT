@@ -11218,10 +11218,20 @@ async def api_ai_recommendations(
                     cleaned["signal"] = f"PER {item.get('per', 0):.1f}"
                 elif config.get("sort") == "market_cap":
                     mc = item.get("market_cap", 0)
-                    if mc >= 1_000_000_000_000:
-                        cleaned["signal"] = f"시총 {mc/1_000_000_000_000:.1f}조"
+                    if market == "us":
+                        # US 시총: _parse_market_cap()이 "조 달러" 단위로 반환 (예: 4.68)
+                        if mc >= 1:
+                            cleaned["signal"] = f"${mc:.1f}T"
+                        elif mc >= 0.001:
+                            cleaned["signal"] = f"${mc*1000:.0f}B"
+                        else:
+                            cleaned["signal"] = f"${mc*1000000:.0f}M"
                     else:
-                        cleaned["signal"] = f"시총 {mc/100_000_000:.0f}억"
+                        # 한국 시총: 원 단위
+                        if mc >= 1_000_000_000_000:
+                            cleaned["signal"] = f"시총 {mc/1_000_000_000_000:.1f}조"
+                        else:
+                            cleaned["signal"] = f"시총 {mc/100_000_000:.0f}억"
                 else:
                     cleaned["signal"] = ""
                 cleaned_items.append(cleaned)

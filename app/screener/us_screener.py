@@ -248,6 +248,18 @@ async def fetch_sp500_metadata() -> Dict[str, Dict]:
                         sector_en = cols[3].text.strip()
                         mcap_str = cols[6].text.strip()
 
+                        # cols[8] = Price, cols[9] = Change
+                        try:
+                            price = float(cols[8].text.strip().replace(',', ''))
+                        except (ValueError, IndexError):
+                            price = 0
+
+                        try:
+                            change_text = cols[9].text.strip().replace('%', '')
+                            change_pct = float(change_text)
+                        except (ValueError, IndexError):
+                            change_pct = 0
+
                         if ticker:
                             sector_kr = FINVIZ_SECTOR_KR.get(sector_en, sector_en)
                             mcap = _parse_market_cap(mcap_str)
@@ -256,6 +268,8 @@ async def fetch_sp500_metadata() -> Dict[str, Dict]:
                                 "name": company,
                                 "sector": sector_kr,
                                 "market_cap": mcap,
+                                "price": price,
+                                "change_pct": change_pct,
                             })
                     except Exception:
                         continue
@@ -270,6 +284,8 @@ async def fetch_sp500_metadata() -> Dict[str, Dict]:
                     "sector": stock["sector"],
                     "market_cap": stock["market_cap"],
                     "name": stock["name"],
+                    "price": stock.get("price", 0),
+                    "change_pct": stock.get("change_pct", 0),
                 }
 
             print(f"[Finviz Screener] S&P 500: {len(result)}개 종목 ({page}페이지)")

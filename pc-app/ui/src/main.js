@@ -12200,70 +12200,70 @@ async function loadFinancialTabUs(ticker) {
 
         const data = response?.data || {};
 
-        // 재무 지표 그리드
+        // 재무 지표 그리드 (한글화)
         const financialHtml = `
             <div class="sd-card">
-                <div class="sd-card-title">Financial Metrics</div>
+                <div class="sd-card-title">투자 지표</div>
                 <div class="sd-financial-grid">
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">P/E</span>
+                        <span class="sd-financial-label">PER (주가수익비율)</span>
                         <span class="sd-financial-value">${data.per > 0 ? data.per.toFixed(2) : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">Forward P/E</span>
+                        <span class="sd-financial-label">Forward PER</span>
                         <span class="sd-financial-value">${data.forward_per > 0 ? data.forward_per.toFixed(2) : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">P/B</span>
+                        <span class="sd-financial-label">PBR (주가순자산비율)</span>
                         <span class="sd-financial-value">${data.pbr > 0 ? data.pbr.toFixed(2) : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">EPS (TTM)</span>
+                        <span class="sd-financial-label">주당순이익 (EPS)</span>
                         <span class="sd-financial-value">$${data.eps > 0 ? data.eps.toFixed(2) : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">ROE</span>
+                        <span class="sd-financial-label">자기자본이익률 (ROE)</span>
                         <span class="sd-financial-value">${data.roe > 0 ? data.roe.toFixed(1) + '%' : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">ROA</span>
+                        <span class="sd-financial-label">총자산이익률 (ROA)</span>
                         <span class="sd-financial-value">${data.roa > 0 ? data.roa.toFixed(1) + '%' : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">Oper. Margin</span>
+                        <span class="sd-financial-label">영업이익률</span>
                         <span class="sd-financial-value">${data.operating_margin > 0 ? data.operating_margin.toFixed(1) + '%' : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">Profit Margin</span>
+                        <span class="sd-financial-label">순이익률</span>
                         <span class="sd-financial-value">${data.profit_margin > 0 ? data.profit_margin.toFixed(1) + '%' : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">Dividend Yield</span>
+                        <span class="sd-financial-label">배당수익률</span>
                         <span class="sd-financial-value">${data.dividend_yield > 0 ? data.dividend_yield.toFixed(2) + '%' : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">Debt/Equity</span>
+                        <span class="sd-financial-label">부채비율</span>
                         <span class="sd-financial-value">${data.debt_equity > 0 ? data.debt_equity.toFixed(2) : '-'}</span>
                     </div>
                 </div>
             </div>
             <div class="sd-card">
-                <div class="sd-card-title">Trading Info</div>
+                <div class="sd-card-title">거래 정보</div>
                 <div class="sd-financial-grid">
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">Volume</span>
+                        <span class="sd-financial-label">거래량</span>
                         <span class="sd-financial-value">${data.volume > 0 ? formatVolumeUs(data.volume) : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">Avg Volume</span>
+                        <span class="sd-financial-label">평균거래량</span>
                         <span class="sd-financial-value">${data.avg_volume > 0 ? formatVolumeUs(data.avg_volume) : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">52W High</span>
+                        <span class="sd-financial-label">52주 최고가</span>
                         <span class="sd-financial-value positive">$${data.high_52w > 0 ? data.high_52w.toFixed(2) : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">52W Low</span>
+                        <span class="sd-financial-label">52주 최저가</span>
                         <span class="sd-financial-value negative">$${data.low_52w > 0 ? data.low_52w.toFixed(2) : '-'}</span>
                     </div>
                 </div>
@@ -12274,7 +12274,7 @@ async function loadFinancialTabUs(ticker) {
 
     } catch (error) {
         console.error('Failed to load financial tab (US):', error);
-        financialContent.innerHTML = '<div class="sd-card"><div class="sd-empty-state">Failed to load financial data</div></div>';
+        financialContent.innerHTML = '<div class="sd-card"><div class="sd-empty-state">재무 정보를 불러올 수 없습니다</div></div>';
     }
 }
 
