@@ -4824,10 +4824,14 @@ document.getElementById('btn-ai-analysis')?.addEventListener('click', async () =
             throw new Error(reqResult.error || '요청 실패');
         }
 
+        // 종목 정보 저장
+        const stockName = currentSymbolData.basic?.name || symbol;
+        const stockCode = symbol;
+
         // 캐시된 결과면 바로 표시
         if (reqResult.status === 'done' && reqResult.report) {
             loadingEl.style.display = 'none';
-            reportEl.innerHTML = markdownToHtml(reqResult.report);
+            reportEl.innerHTML = buildAiReportHtml(reqResult.report, reqResult.job_id || 'cached', stockName, stockCode);
             reportEl.style.display = 'block';
             return;
         }
@@ -4839,7 +4843,7 @@ document.getElementById('btn-ai-analysis')?.addEventListener('click', async () =
         const report = await pollAiJobResult(jobId, 120);
 
         loadingEl.style.display = 'none';
-        reportEl.innerHTML = markdownToHtml(report);
+        reportEl.innerHTML = buildAiReportHtml(report, jobId, stockName, stockCode);
         reportEl.style.display = 'block';
 
     } catch (error) {
@@ -4892,6 +4896,20 @@ function markdownToHtml(md) {
         .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
         .replace(/^---$/gim, '<hr>')
         .replace(/\n/g, '<br>');
+}
+
+// AI 리포트 HTML 생성 (PDF 다운로드 버튼 포함)
+function buildAiReportHtml(report, jobId, stockName, stockCode) {
+    const reportHtml = markdownToHtml(report);
+    return `
+        <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+            <button onclick="window.downloadAiReportPdf('${jobId}', '${stockName}', '${stockCode}')"
+                style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;">
+                <span>📄</span> PDF 다운로드
+            </button>
+        </div>
+        ${reportHtml}
+    `;
 }
 
 // AI 모달 닫기
@@ -13251,6 +13269,7 @@ document.getElementById('btn-ai-analysis-modal')?.addEventListener('click', asyn
         const token = auth.accessToken || '';
         const symbol = currentStockData.symbol || currentStockData.code;
         const exchange = currentStockData.exchange || 'KIS_KR';
+        const stockName = currentStockData.name || symbol;
         console.log('[AI Analysis Modal] Requesting:', { symbol, exchange });
 
         // 1) 요청 (job_id 반환)
@@ -13268,7 +13287,7 @@ document.getElementById('btn-ai-analysis-modal')?.addEventListener('click', asyn
         // 캐시된 결과면 바로 표시
         if (reqResult.status === 'done' && reqResult.report) {
             loadingEl.style.display = 'none';
-            reportEl.innerHTML = markdownToHtml(reqResult.report);
+            reportEl.innerHTML = buildAiReportHtml(reqResult.report, reqResult.job_id || 'cached', stockName, symbol);
             reportEl.style.display = 'block';
             return;
         }
@@ -13280,7 +13299,7 @@ document.getElementById('btn-ai-analysis-modal')?.addEventListener('click', asyn
         const report = await pollAiJobResult2(jobId, 120);
 
         loadingEl.style.display = 'none';
-        reportEl.innerHTML = markdownToHtml(report);
+        reportEl.innerHTML = buildAiReportHtml(report, jobId, stockName, symbol);
         reportEl.style.display = 'block';
 
     } catch (error) {

@@ -14280,7 +14280,7 @@ async def _generate_claude_report(name: str, code: str, market: str = "kr") -> d
 
         response = await client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=4000,
+            max_tokens=8000,  # 6개 섹션 완전한 리포트 생성 위해 증가
             messages=[{"role": "user", "content": prompt}]
         )
 
