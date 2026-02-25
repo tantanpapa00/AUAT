@@ -12742,6 +12742,15 @@ async def _run_ai_analysis_job(job_id: str, symbol: str, market: str):
             except Exception:
                 pass
 
+        # 차트 생성
+        _ai_jobs[job_id]["progress"] = "📈 차트 생성 중..."
+        try:
+            chart_urls = await _generate_ai_charts(symbol, name, market)
+            if chart_urls:
+                _ai_jobs[job_id]["charts"] = chart_urls
+        except Exception as e:
+            print(f"[AI Job] Chart generation error: {e}")
+
         _ai_jobs[job_id]["progress"] = "🤖 AI가 분석 중..."
 
         # Claude API로 리포트 생성
@@ -12750,6 +12759,9 @@ async def _run_ai_analysis_job(job_id: str, symbol: str, market: str):
         report = ai_result.get("report", "")
         if not report or len(report) < 200:
             raise Exception("리포트 생성 실패")
+
+        # 종목 정보 저장 (PDF 다운로드용)
+        _ai_jobs[job_id]["stock"] = {"name": name, "code": symbol}
 
         # 완료
         _ai_jobs[job_id]["status"] = "done"

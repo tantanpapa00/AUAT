@@ -4831,7 +4831,7 @@ document.getElementById('btn-ai-analysis')?.addEventListener('click', async () =
         // 캐시된 결과면 바로 표시
         if (reqResult.status === 'done' && reqResult.report) {
             loadingEl.style.display = 'none';
-            reportEl.innerHTML = buildAiReportHtml(reqResult.report, reqResult.job_id || 'cached', stockName, stockCode);
+            reportEl.innerHTML = buildAiReportHtml(reqResult.report, reqResult.job_id || 'cached', stockName, stockCode, reqResult.charts);
             reportEl.style.display = 'block';
             return;
         }
@@ -4840,10 +4840,10 @@ document.getElementById('btn-ai-analysis')?.addEventListener('click', async () =
         if (!jobId) throw new Error('작업 ID가 없습니다');
 
         // 2) 폴링 (2초마다, 최대 120초)
-        const report = await pollAiJobResult(jobId, 120);
+        const result = await pollAiJobResult(jobId, 120);
 
         loadingEl.style.display = 'none';
-        reportEl.innerHTML = buildAiReportHtml(report, jobId, stockName, stockCode);
+        reportEl.innerHTML = buildAiReportHtml(result.report, jobId, stockName, stockCode, result.charts);
         reportEl.style.display = 'block';
 
     } catch (error) {
@@ -4853,7 +4853,7 @@ document.getElementById('btn-ai-analysis')?.addEventListener('click', async () =
     }
 });
 
-// AI 작업 결과 폴링
+// AI 작업 결과 폴링 (차트 포함 전체 status 반환)
 async function pollAiJobResult(jobId, maxWaitSec = 120) {
     const startTime = Date.now();
     const progressEl = document.getElementById('ai-progress-text');
@@ -4871,7 +4871,12 @@ async function pollAiJobResult(jobId, maxWaitSec = 120) {
             }
 
             if (status.status === 'done' && status.report) {
-                return status.report;
+                // 전체 status 반환 (차트 포함)
+                return {
+                    report: status.report,
+                    charts: status.charts || null,
+                    stock: status.stock || null
+                };
             } else if (status.status === 'error') {
                 throw new Error(status.error || '분석 실패');
             }
@@ -4898,19 +4903,66 @@ function markdownToHtml(md) {
         .replace(/\n/g, '<br>');
 }
 
-// AI 리포트 HTML 생성 (PDF 다운로드 버튼 포함)
-function buildAiReportHtml(report, jobId, stockName, stockCode) {
+// AI 리포트 HTML 생성 (차트 + PDF 다운로드 버튼 포함)
+function buildAiReportHtml(report, jobId, stockName, stockCode, charts) {
     const reportHtml = markdownToHtml(report);
+    const baseUrl = 'http://76.13.180.30';
+
+    // 차트 HTML 생성
+    let chartsHtml = '';
+    if (charts && (charts.price_chart || charts.trend_chart || charts.momentum_chart)) {
+        chartsHtml = `
+            <div style="margin-bottom:20px;">
+                <div style="margin-bottom:12px;">
+                    ${charts.price_chart ? `<img src="${baseUrl}${charts.price_chart}" style="width:100%;max-width:800px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="가격 차트">` : ''}
+                </div>
+                <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                    ${charts.trend_chart ? `<img src="${baseUrl}${charts.trend_chart}" style="flex:1;min-width:300px;max-width:48%;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="추세 차트">` : ''}
+                    ${charts.momentum_chart ? `<img src="${baseUrl}${charts.momentum_chart}" style="flex:1;min-width:300px;max-width:48%;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="모멘텀 차트">` : ''}
+                </div>
+            </div>
+        `;
+    }
+
     return `
-        <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:12px;gap:8px;">
             <button onclick="window.downloadAiReportPdf('${jobId}', '${stockName}', '${stockCode}')"
                 style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;">
                 <span>📄</span> PDF 다운로드
             </button>
+            <button onclick="window.shareAiReport('${stockName}', '${stockCode}')"
+                style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;">
+                <span>🔗</span> 공유
+            </button>
         </div>
+        ${chartsHtml}
         ${reportHtml}
     `;
 }
+
+// AI 리포트 공유
+window.shareAiReport = async function(stockName, stockCode) {
+    const shareText = `📊 ${stockName}(${stockCode}) AI 종합분석\n\nBBooster에서 생성된 AI 투자 분석 리포트입니다.`;
+
+    if (navigator.share) {
+        try {
+            await navigator.share({
+                title: `${stockName} AI 분석`,
+                text: shareText
+            });
+        } catch (e) {
+            console.log('Share cancelled');
+        }
+    } else {
+        // 클립보드 복사
+        try {
+            await navigator.clipboard.writeText(shareText);
+            showToast('분석 내용이 클립보드에 복사되었습니다', 'success');
+        } catch (e) {
+            showToast('공유 실패', 'error');
+        }
+    }
+};
 
 // AI 모달 닫기
 document.getElementById('ai-modal-close')?.addEventListener('click', () => {
@@ -13287,7 +13339,7 @@ document.getElementById('btn-ai-analysis-modal')?.addEventListener('click', asyn
         // 캐시된 결과면 바로 표시
         if (reqResult.status === 'done' && reqResult.report) {
             loadingEl.style.display = 'none';
-            reportEl.innerHTML = buildAiReportHtml(reqResult.report, reqResult.job_id || 'cached', stockName, symbol);
+            reportEl.innerHTML = buildAiReportHtml(reqResult.report, reqResult.job_id || 'cached', stockName, symbol, reqResult.charts);
             reportEl.style.display = 'block';
             return;
         }
@@ -13296,10 +13348,10 @@ document.getElementById('btn-ai-analysis-modal')?.addEventListener('click', asyn
         if (!jobId) throw new Error('작업 ID가 없습니다');
 
         // 2) 폴링
-        const report = await pollAiJobResult2(jobId, 120);
+        const result = await pollAiJobResult2(jobId, 120);
 
         loadingEl.style.display = 'none';
-        reportEl.innerHTML = buildAiReportHtml(report, jobId, stockName, symbol);
+        reportEl.innerHTML = buildAiReportHtml(result.report, jobId, stockName, symbol, result.charts);
         reportEl.style.display = 'block';
 
     } catch (error) {
@@ -13309,7 +13361,7 @@ document.getElementById('btn-ai-analysis-modal')?.addEventListener('click', asyn
     }
 });
 
-// AI 작업 결과 폴링 (모달용)
+// AI 작업 결과 폴링 (모달용 - 차트 포함)
 async function pollAiJobResult2(jobId, maxWaitSec = 120) {
     const startTime = Date.now();
     const progressEl = document.getElementById('ai-progress-text2');
@@ -13325,7 +13377,11 @@ async function pollAiJobResult2(jobId, maxWaitSec = 120) {
             }
 
             if (status.status === 'done' && status.report) {
-                return status.report;
+                return {
+                    report: status.report,
+                    charts: status.charts || null,
+                    stock: status.stock || null
+                };
             } else if (status.status === 'error') {
                 throw new Error(status.error || '분석 실패');
             }
