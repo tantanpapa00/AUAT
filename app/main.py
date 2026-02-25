@@ -8351,9 +8351,10 @@ async def get_portfolio_summary(
                 {"user_id": current_user.id, "yesterday": yesterday}
             ).scalar()
 
-            if yesterday_snapshot and yesterday_snapshot > 0:
-                daily_change = total_assets - yesterday_snapshot
-                daily_change_rate = ((total_assets / yesterday_snapshot) - 1) * 100
+            if yesterday_snapshot and float(yesterday_snapshot) > 0:
+                yesterday_val = float(yesterday_snapshot)
+                daily_change = float(total_assets) - yesterday_val
+                daily_change_rate = ((float(total_assets) / yesterday_val) - 1) * 100
 
             # 첫 스냅샷 날짜 (참고용)
             first_snapshot = db.execute(
@@ -10171,6 +10172,32 @@ async def get_symbol_detail(
                             "volume_formatted": _format_volume(price_data["volume"]),
                         }
 
+                    # 해외주식 재무 데이터 (yfinance)
+                    try:
+                        us_fin = await get_stock_financials_us(symbol)
+                        if us_fin and us_fin.get("revenue"):
+                            # yfinance 데이터를 프론트 기대 형식으로 변환
+                            response["financial"] = {
+                                "per": us_fin.get("per"),
+                                "pbr": us_fin.get("pbr"),
+                                "roe": us_fin.get("roe"),
+                                "eps": us_fin.get("eps", [None])[-1] if us_fin.get("eps") else None,
+                                "income_statement": [
+                                    {
+                                        "period": us_fin["periods"][i] if i < len(us_fin.get("periods", [])) else "-",
+                                        "revenue": us_fin["revenue"][i] if i < len(us_fin.get("revenue", [])) else 0,
+                                        "revenue_formatted": f"${us_fin['revenue'][i]:,.0f}M" if i < len(us_fin.get("revenue", [])) and us_fin["revenue"][i] else "-",
+                                        "operating_profit": us_fin["operating_profit"][i] if i < len(us_fin.get("operating_profit", [])) else 0,
+                                        "operating_profit_formatted": f"${us_fin['operating_profit'][i]:,.0f}M" if i < len(us_fin.get("operating_profit", [])) and us_fin["operating_profit"][i] else "-",
+                                        "net_income": us_fin["net_income"][i] if i < len(us_fin.get("net_income", [])) else 0,
+                                        "net_income_formatted": f"${us_fin['net_income'][i]:,.0f}M" if i < len(us_fin.get("net_income", [])) and us_fin["net_income"][i] else "-",
+                                    }
+                                    for i in range(min(4, len(us_fin.get("periods", []))))
+                                ]
+                            }
+                    except Exception as e:
+                        print(f"[Symbol Detail] US financial error for {symbol}: {e}")
+
                 # 일봉 데이터 (차트용)
                 daily_data = await get_daily_prices(app_key, app_secret, token.access_token, symbol, market, 60)
                 if daily_data:
@@ -10233,6 +10260,31 @@ async def get_symbol_detail(
                 daily_data = await get_yahoo_daily_prices(symbol, 60)
                 if daily_data:
                     response["daily_prices"] = daily_data
+
+                # 해외주식 재무 데이터 (yfinance)
+                try:
+                    us_fin = await get_stock_financials_us(symbol)
+                    if us_fin and us_fin.get("revenue"):
+                        response["financial"] = {
+                            "per": us_fin.get("per"),
+                            "pbr": us_fin.get("pbr"),
+                            "roe": us_fin.get("roe"),
+                            "eps": us_fin.get("eps", [None])[-1] if us_fin.get("eps") else None,
+                            "income_statement": [
+                                {
+                                    "period": us_fin["periods"][i] if i < len(us_fin.get("periods", [])) else "-",
+                                    "revenue": us_fin["revenue"][i] if i < len(us_fin.get("revenue", [])) else 0,
+                                    "revenue_formatted": f"${us_fin['revenue'][i]:,.0f}M" if i < len(us_fin.get("revenue", [])) and us_fin["revenue"][i] else "-",
+                                    "operating_profit": us_fin["operating_profit"][i] if i < len(us_fin.get("operating_profit", [])) else 0,
+                                    "operating_profit_formatted": f"${us_fin['operating_profit'][i]:,.0f}M" if i < len(us_fin.get("operating_profit", [])) and us_fin["operating_profit"][i] else "-",
+                                    "net_income": us_fin["net_income"][i] if i < len(us_fin.get("net_income", [])) else 0,
+                                    "net_income_formatted": f"${us_fin['net_income'][i]:,.0f}M" if i < len(us_fin.get("net_income", [])) and us_fin["net_income"][i] else "-",
+                                }
+                                for i in range(min(4, len(us_fin.get("periods", []))))
+                            ]
+                        }
+                except Exception as e:
+                    print(f"[Symbol Detail] US financial error for {symbol}: {e}")
 
     # 암호화폐 거래소
     else:
@@ -12791,7 +12843,7 @@ async def _run_ai_analysis_job(job_id: str, symbol: str, market: str):
 
         # 사용량 증가 + 캐시 저장 (DB 세션 새로 생성)
         try:
-            from app.database import SessionLocal
+            from app.db import SessionLocal
             db = SessionLocal()
             user_id = _ai_jobs[job_id].get("user_id")
             exchange = _ai_jobs[job_id].get("exchange", "")
@@ -13072,7 +13124,7 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
         # 사용량 증가 (user_id가 있을 때만)
         if user_id:
             try:
-                from app.database import SessionLocal
+                from app.db import SessionLocal
                 db = SessionLocal()
                 db.execute(
                     text("UPDATE users SET ai_usage_count = ai_usage_count + 1 WHERE id = :uid"),
@@ -14014,6 +14066,96 @@ async def _collect_technical_data_for_ai(code: str, market: str = "kr") -> dict:
                                 data["resistance_levels"] = resistance_levels
                         except Exception as e:
                             print(f"[AI] Support/Resistance calculation error: {e}")
+
+        elif market == "us":
+            # 해외 주식: yfinance로 데이터 수집
+            import yfinance as yf
+
+            try:
+                ticker = yf.Ticker(code)
+                info = ticker.info or {}
+
+                # 현재가
+                current_price = info.get('currentPrice') or info.get('regularMarketPrice')
+                prev_close = info.get('previousClose') or info.get('regularMarketPreviousClose')
+
+                if current_price and prev_close:
+                    change_pct = ((current_price - prev_close) / prev_close) * 100
+                else:
+                    change_pct = 0
+
+                price_data = {
+                    "current": current_price,
+                    "change": round(change_pct, 2) if change_pct else 0,
+                    "volume": info.get('volume'),
+                }
+
+                data["price"]["current"] = current_price
+                data["price"]["change_pct"] = round(change_pct, 2) if change_pct else 0
+                data["price"]["volume"] = info.get('volume')
+                data["price"]["high_52w"] = info.get('fiftyTwoWeekHigh')
+                data["price"]["low_52w"] = info.get('fiftyTwoWeekLow')
+                data["price"]["avg_volume_20d"] = info.get('averageVolume')
+
+                # 일봉 데이터로 기술적 지표 계산
+                hist = ticker.history(period="2y")
+                if hist is not None and len(hist) >= 20:
+                    closes = hist['Close'].tolist()
+                    highs = hist['High'].tolist()
+                    lows = hist['Low'].tolist()
+                    volumes = hist['Volume'].tolist()
+
+                    # 이동평균
+                    if len(closes) >= 5:
+                        data["moving_averages"]["sma_5"] = round(sum(closes[-5:]) / 5, 2)
+                    if len(closes) >= 20:
+                        data["moving_averages"]["sma_20"] = round(sum(closes[-20:]) / 20, 2)
+                    if len(closes) >= 60:
+                        data["moving_averages"]["sma_60"] = round(sum(closes[-60:]) / 60, 2)
+                    if len(closes) >= 120:
+                        data["moving_averages"]["sma_120"] = round(sum(closes[-120:]) / 120, 2)
+                    if len(closes) >= 200:
+                        data["moving_averages"]["sma_200"] = round(sum(closes[-200:]) / 200, 2)
+
+                    # RSI
+                    rsi = _calc_rsi(closes, 14)
+                    if rsi:
+                        data["momentum_indicators"]["rsi"] = rsi
+
+                    # MACD
+                    macd = _calc_macd(closes)
+                    if macd and isinstance(macd, tuple) and len(macd) >= 3:
+                        data["momentum_indicators"]["macd_line"] = macd[0]
+                        data["momentum_indicators"]["macd_signal"] = macd[1]
+                        data["momentum_indicators"]["macd_histogram"] = macd[2]
+
+                    # 스토캐스틱
+                    stoch = _calc_stochastic(highs, lows, closes)
+                    if stoch and isinstance(stoch, tuple) and len(stoch) >= 2:
+                        data["momentum_indicators"]["stoch_k"] = stoch[0]
+                        data["momentum_indicators"]["stoch_d"] = stoch[1]
+
+                    # ADX
+                    adx_result = calc_adx(highs, lows, closes, 14)
+                    if adx_result:
+                        data["trend_indicators"]["adx"] = adx_result.get("adx")
+                        data["trend_indicators"]["plus_di"] = adx_result.get("plus_di")
+                        data["trend_indicators"]["minus_di"] = adx_result.get("minus_di")
+
+                    # 지지/저항 (간단 계산)
+                    recent_high = max(highs[-60:]) if len(highs) >= 60 else max(highs)
+                    recent_low = min(lows[-60:]) if len(lows) >= 60 else min(lows)
+                    fib_range = recent_high - recent_low
+                    fib_382 = recent_high - fib_range * 0.382
+                    fib_618 = recent_high - fib_range * 0.618
+
+                    data["support_levels"] = [round(fib_382, 2), round(fib_618, 2)]
+                    data["resistance_levels"] = [round(recent_high, 2), round(recent_high * 1.05, 2)]
+
+                    print(f"[AI] US technical data collected for {code}: price=${current_price}")
+
+            except Exception as e:
+                print(f"[AI] US technical data error for {code}: {e}")
 
         if price_data:
             data["price"]["current"] = price_data.get("current", 0)
