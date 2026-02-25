@@ -4906,19 +4906,18 @@ function markdownToHtml(md) {
 // AI 리포트 HTML 생성 (차트 + PDF 다운로드 버튼 포함)
 function buildAiReportHtml(report, jobId, stockName, stockCode, charts) {
     const reportHtml = markdownToHtml(report);
-    const baseUrl = 'http://76.13.180.30';
 
-    // 차트 HTML 생성
+    // 차트 HTML 생성 (base64 data URL 직접 사용)
     let chartsHtml = '';
     if (charts && (charts.price_chart || charts.trend_chart || charts.momentum_chart)) {
         chartsHtml = `
             <div style="margin-bottom:20px;">
                 <div style="margin-bottom:12px;">
-                    ${charts.price_chart ? `<img src="${baseUrl}${charts.price_chart}" style="width:100%;max-width:800px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="가격 차트">` : ''}
+                    ${charts.price_chart ? `<img src="${charts.price_chart}" style="width:100%;max-width:800px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="가격 차트">` : ''}
                 </div>
                 <div style="display:flex;gap:12px;flex-wrap:wrap;">
-                    ${charts.trend_chart ? `<img src="${baseUrl}${charts.trend_chart}" style="flex:1;min-width:300px;max-width:48%;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="추세 차트">` : ''}
-                    ${charts.momentum_chart ? `<img src="${baseUrl}${charts.momentum_chart}" style="flex:1;min-width:300px;max-width:48%;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="모멘텀 차트">` : ''}
+                    ${charts.trend_chart ? `<img src="${charts.trend_chart}" style="flex:1;min-width:300px;max-width:48%;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="추세 차트">` : ''}
+                    ${charts.momentum_chart ? `<img src="${charts.momentum_chart}" style="flex:1;min-width:300px;max-width:48%;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="모멘텀 차트">` : ''}
                 </div>
             </div>
         `;
@@ -9693,19 +9692,18 @@ async function sendAiQuestion(text) {
             .replace(/\n\n/g, '<br><br>')
             .replace(/\n/g, '<br>');
 
-        // 차트 HTML 생성
+        // 차트 HTML 생성 (base64 data URL 직접 사용)
         let chartsHtml = '';
         if (charts) {
-            const baseUrl = 'https://qube-system.com';
             chartsHtml = `
                 <div style="margin:16px 0;display:flex;flex-direction:column;gap:12px;">
                     <div style="color:#9ca3af;font-size:13px;font-weight:600;">📊 분석 차트</div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                        ${charts.price_chart ? `<img src="${baseUrl}${charts.price_chart}" style="max-width:100%;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="가격 차트">` : ''}
+                        ${charts.price_chart ? `<img src="${charts.price_chart}" style="max-width:100%;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="가격 차트">` : ''}
                     </div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                        ${charts.trend_chart ? `<img src="${baseUrl}${charts.trend_chart}" style="max-width:48%;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="추세 차트">` : ''}
-                        ${charts.momentum_chart ? `<img src="${baseUrl}${charts.momentum_chart}" style="max-width:48%;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="모멘텀 차트">` : ''}
+                        ${charts.trend_chart ? `<img src="${charts.trend_chart}" style="max-width:48%;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="추세 차트">` : ''}
+                        ${charts.momentum_chart ? `<img src="${charts.momentum_chart}" style="max-width:48%;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="모멘텀 차트">` : ''}
                     </div>
                 </div>
             `;

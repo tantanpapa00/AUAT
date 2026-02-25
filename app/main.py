@@ -13200,12 +13200,14 @@ _BBooster AI 분석 시스템에서 생성됨_
 # ============================================================================
 
 async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
-    """AI 분석용 차트 3종 생성 - StockEasy 수준 (캔들스틱 + 날짜 x축)"""
+    """AI 분석용 차트 3종 생성 - base64로 반환 (Mixed Content 방지)"""
     import matplotlib.dates as mdates
     from matplotlib.patches import Rectangle
     from datetime import datetime, timedelta
+    import base64
+    import io
 
-    chart_urls = {"price_chart": None, "trend_chart": None, "momentum_chart": None}
+    chart_data = {"price_chart": None, "trend_chart": None, "momentum_chart": None}
 
     try:
         # 캔들 데이터 가져오기
@@ -13221,7 +13223,7 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
 
         if len(candles) < 20:
             print(f"[Chart] Not enough data for {code}: {len(candles)} candles")
-            return chart_urls
+            return chart_data
 
         # 데이터 추출 (OHLCV)
         dates_str = [c.get("localDate", "")[:10] for c in candles]
@@ -13567,11 +13569,14 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
 
         plt.tight_layout()
 
-        # 저장
-        price_path = os.path.join(CHARTS_DIR, f"price_{chart_id}.png")
-        plt.savefig(price_path, dpi=150, bbox_inches='tight')
+        # base64로 변환 (Mixed Content 방지)
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+        buf.seek(0)
+        b64 = base64.b64encode(buf.read()).decode('utf-8')
+        buf.close()
         plt.close(fig1)
-        chart_urls["price_chart"] = f"/static/charts/price_{chart_id}.png"
+        chart_data["price_chart"] = f"data:image/png;base64,{b64}"
 
         # ===== 차트 2: 추세추종 (캔들스틱 + SMA 이동평균선) =====
         fig2, ax = plt.subplots(1, 1, figsize=(12, 6))
@@ -13615,10 +13620,14 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
 
         plt.tight_layout()
 
-        trend_path = os.path.join(CHARTS_DIR, f"trend_{chart_id}.png")
-        plt.savefig(trend_path, dpi=150, bbox_inches='tight')
+        # base64로 변환
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+        buf.seek(0)
+        b64 = base64.b64encode(buf.read()).decode('utf-8')
+        buf.close()
         plt.close(fig2)
-        chart_urls["trend_chart"] = f"/static/charts/trend_{chart_id}.png"
+        chart_data["trend_chart"] = f"data:image/png;base64,{b64}"
 
         # ===== 차트 3: 모멘텀 차트 (RSI + MACD 시계열) - 날짜 x축 =====
         from .screener.technicals import _calc_rsi
@@ -13720,10 +13729,14 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
 
         plt.tight_layout()
 
-        momentum_path = os.path.join(CHARTS_DIR, f"momentum_{chart_id}.png")
-        plt.savefig(momentum_path, dpi=150, bbox_inches='tight')
+        # base64로 변환
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+        buf.seek(0)
+        b64 = base64.b64encode(buf.read()).decode('utf-8')
+        buf.close()
         plt.close(fig3)
-        chart_urls["momentum_chart"] = f"/static/charts/momentum_{chart_id}.png"
+        chart_data["momentum_chart"] = f"data:image/png;base64,{b64}"
 
         print(f"[Chart] Generated 3 StockEasy-level charts for {name} ({code})")
 
@@ -13732,7 +13745,7 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
         import traceback
         traceback.print_exc()
 
-    return chart_urls
+    return chart_data
 
 
 # ============================================================================

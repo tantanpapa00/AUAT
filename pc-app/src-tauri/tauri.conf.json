@@ -3,7 +3,8 @@
     "beforeBuildCommand": "",
     "beforeDevCommand": "npm --prefix ui run dev",
     "devPath": "http://localhost:5173",
-    "distDir": "../ui/dist"
+    "distDir": "../ui/dist",
+    "withGlobalTauri": true
   },
   "package": {
     "productName": "BBooster",
