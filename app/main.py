@@ -209,7 +209,14 @@ from .pine_parser import parse_pine_inputs
 @asynccontextmanager
 async def lifespan(app):
     """FastAPI lifespan - 시작/종료 이벤트"""
-    # 스크리너 메모리 캐시 워밍업 (첫 요청 3초 이내 응답 위해)
+    # 1. AI 테이블 초기화 (서버 시작 시 1회만 — ALTER TABLE 블로킹 방지)
+    try:
+        with _db_conn() as db:
+            _ensure_ai_tables(db)
+    except Exception as e:
+        print(f"[DB] AI 테이블 초기화 경고: {e}")
+
+    # 2. 스크리너 메모리 캐시 워밍업 (첫 요청 3초 이내 응답 위해)
     try:
         from app.screener.kr_screener import load_kr_stocks
         from app.screener.us_screener import load_us_stocks
@@ -12092,8 +12099,17 @@ WATCHLIST_LIMITS = {
 }
 
 
+# AI 테이블 초기화 플래그 (서버 시작 시 1회만 실행)
+_ai_tables_initialized = False
+
+
 def _ensure_ai_tables(db: Session):
-    """AI/관심종목 테이블 생성"""
+    """AI/관심종목 테이블 생성 — 서버 시작 시 1회만 실행"""
+    global _ai_tables_initialized
+    if _ai_tables_initialized:
+        return  # 이미 초기화됨
+
+    print("[DB] AI 테이블 초기화 시작...")
     sqls = [
         """
         DO $$ BEGIN
@@ -12155,6 +12171,9 @@ def _ensure_ai_tables(db: Session):
             db.commit()
         except Exception:
             db.rollback()
+
+    _ai_tables_initialized = True
+    print("[DB] AI 테이블 초기화 완료")
 
 
 def _check_standard_plan(user: Optional[User]) -> bool:

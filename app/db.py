@@ -56,9 +56,16 @@ def wait_for_db(max_retries: int = 30, retry_interval: float = 2.0) -> bool:
 
 
 def get_db():
-    """FastAPI dependency for database session."""
+    """FastAPI dependency for database session.
+
+    Note: idle_in_transaction 방지를 위해 반드시 commit/rollback 후 close
+    """
     db = SessionLocal()
     try:
         yield db
+        db.commit()  # 성공 시 커밋 (이미 커밋된 경우 no-op)
+    except Exception:
+        db.rollback()  # 예외 시 롤백
+        raise
     finally:
         db.close()
