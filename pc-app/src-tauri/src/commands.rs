@@ -3160,7 +3160,7 @@ pub async fn request_ai_analysis(
         .header("Authorization", format!("Bearer {}", access_token))
         .header("Content-Type", "application/json")
         .json(&body)
-        .timeout(std::time::Duration::from_secs(15))  // job_id만 받으므로 15초 충분
+        .timeout(std::time::Duration::from_secs(60))  // DB 체크 등으로 시간 소요 가능
         .send()
         .await
         .map_err(|e| format!("네트워크 오류: {}", e))?;
@@ -3216,7 +3216,7 @@ pub async fn request_ai_chat(
         .header("Authorization", format!("Bearer {}", access_token))
         .header("Content-Type", "application/json")
         .json(&body)
-        .timeout(std::time::Duration::from_secs(15))  // job_id만 받으므로 15초 충분
+        .timeout(std::time::Duration::from_secs(60))  // DB 체크 등으로 시간 소요 가능
         .send()
         .await
         .map_err(|e| format!("네트워크 오류: {}", e))?;

@@ -12273,7 +12273,12 @@ async def request_ai_analysis(
     db: Session = Depends(get_db)
 ):
     """AI 종합분석 요청 → job_id 즉시 반환 (백그라운드 처리)"""
+    import time as time_module
+    t0 = time_module.time()
+    print(f"[AI Analyze] === 요청 시작: {request.symbol} ===")
+
     _ensure_ai_tables(db)
+    print(f"[AI Analyze] _ensure_ai_tables: {time_module.time()-t0:.2f}초")
 
     # 테스트용: 인증 없이도 동작하도록 (current_user가 None이면 스킵)
     if current_user and not _check_standard_plan(current_user):
@@ -12330,6 +12335,8 @@ async def request_ai_analysis(
         except Exception as e:
             print(f"AI usage check error: {e}")
 
+    print(f"[AI Analyze] usage check: {time_module.time()-t0:.2f}초")
+
     # 캐시 확인 (6시간 이내)
     try:
         cache_result = db.execute(
@@ -12368,6 +12375,7 @@ async def request_ai_analysis(
     # 백그라운드에서 실행 (즉시 반환)
     asyncio.create_task(_run_ai_analysis_job(job_id, request.symbol, market))
 
+    print(f"[AI Analyze] === 총 소요: {time_module.time()-t0:.2f}초, job_id={job_id} ===")
     return {"success": True, "job_id": job_id, "status": "pending"}
 
 
