@@ -5,6 +5,7 @@ from fastapi import FastAPI, Depends, HTTPException, Request, Query
 from fastapi.responses import HTMLResponse
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 from typing import Optional, Literal, Dict
@@ -237,6 +238,15 @@ async def lifespan(app):
 
 
 app = FastAPI(title="BBooster API v1.0", lifespan=lifespan)
+
+# CORS 설정 — Tauri webview에서 외부 이미지 로딩 허용
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Tauri는 tauri://localhost 또는 https://tauri.localhost 사용
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Static files for chart images
 STATIC_DIR = "/app/static"
