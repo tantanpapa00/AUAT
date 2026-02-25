@@ -12550,7 +12550,8 @@ async def download_ai_report_pdf(job_id: str):
 
     lines = report_text.split('\n')
     i = 0
-    charts_inserted = False
+    # 차트 삽입 상태 추적: 0=지지/저항, 1=추세추종, 2=모멘텀
+    chart_insert_idx = 0
 
     while i < len(lines):
         line = lines[i].strip()
@@ -12585,14 +12586,6 @@ async def download_ai_report_pdf(job_id: str):
             story.append(Spacer(1, 0.15*inch))
             story.append(Paragraph(text, styles['KoreanHeading']))
             story.append(Spacer(1, 0.08*inch))
-
-            # "기술적 분석" 섹션이면 차트 삽입
-            if not charts_inserted and ('기술적 분석' in text or '기술적분석' in text or '5.' in text):
-                for img in chart_images:
-                    story.append(img)
-                    story.append(Spacer(1, 0.2*inch))
-                charts_inserted = True
-
             i += 1
             continue
         elif line.startswith('# '):
@@ -12605,6 +12598,29 @@ async def download_ai_report_pdf(job_id: str):
         elif line.startswith('### '):
             text = convert_markdown(line[4:])
             story.append(Paragraph(f"<b>{text}</b>", styles['KoreanBody']))
+            story.append(Spacer(1, 0.08*inch))
+
+            # 5.1 지지/저항 섹션 → 차트1 삽입
+            if chart_insert_idx == 0 and ('5.1' in line or '지지' in text or '저항' in text or '주가' in text):
+                if len(chart_images) > 0:
+                    story.append(chart_images[0])
+                    story.append(Spacer(1, 0.15*inch))
+                chart_insert_idx = 1
+
+            # 5.2 추세추종 섹션 → 차트2 삽입
+            elif chart_insert_idx == 1 and ('5.2' in line or '추세' in text or '이동평균' in text):
+                if len(chart_images) > 1:
+                    story.append(chart_images[1])
+                    story.append(Spacer(1, 0.15*inch))
+                chart_insert_idx = 2
+
+            # 5.3 모멘텀 섹션 → 차트3 삽입
+            elif chart_insert_idx == 2 and ('5.3' in line or '모멘텀' in text or 'RSI' in text or 'MACD' in text):
+                if len(chart_images) > 2:
+                    story.append(chart_images[2])
+                    story.append(Spacer(1, 0.15*inch))
+                chart_insert_idx = 3
+
             i += 1
             continue
         elif line.startswith('#### '):
@@ -12637,12 +12653,12 @@ async def download_ai_report_pdf(job_id: str):
         story.append(Paragraph(text, styles['KoreanBody']))
         i += 1
 
-    # 차트가 삽입되지 않았다면 마지막에 추가
-    if not charts_inserted and chart_images:
+    # 차트가 삽입되지 않은 것이 있으면 마지막에 추가
+    if chart_insert_idx < len(chart_images) and chart_images:
         story.append(Spacer(1, 0.3*inch))
-        story.append(Paragraph("차트", styles['KoreanHeading']))
-        for img in chart_images:
-            story.append(img)
+        story.append(Paragraph("추가 차트", styles['KoreanHeading']))
+        for idx in range(chart_insert_idx, len(chart_images)):
+            story.append(chart_images[idx])
             story.append(Spacer(1, 0.2*inch))
 
     # PDF 빌드
@@ -13305,8 +13321,8 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
         # 차트 ID 생성
         chart_id = f"{code}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
-        # 최근 120일 표시 (1년치 중 최근)
-        display_len = min(120, len(closes))
+        # 최근 500일 표시 (2년치)
+        display_len = min(500, len(closes))
 
         # 한국주식 색상: 상승=빨강, 하락=파랑
         UP_COLOR = '#FF3B30'
@@ -13369,8 +13385,8 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
         ax2.grid(True, alpha=0.3)
 
         # X축 날짜 포맷
-        ax2.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
-        ax2.xaxis.set_major_locator(mdates.WeekdayLocator(interval=2))
+        ax2.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%b'))
+        ax2.xaxis.set_major_locator(mdates.MonthLocator(interval=4))
         plt.xticks(rotation=45, fontsize=8)
 
         plt.tight_layout()
@@ -13417,8 +13433,8 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
         ax.legend(loc='upper left', fontsize=10)
         ax.grid(True, alpha=0.3)
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
-        ax.xaxis.set_major_locator(mdates.WeekdayLocator(interval=2))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%b'))
+        ax.xaxis.set_major_locator(mdates.MonthLocator(interval=4))
         plt.xticks(rotation=45, fontsize=8)
 
         plt.tight_layout()
@@ -13522,8 +13538,8 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
         ax_macd.grid(True, alpha=0.3)
 
         # X축 날짜 포맷
-        ax_macd.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
-        ax_macd.xaxis.set_major_locator(mdates.WeekdayLocator(interval=2))
+        ax_macd.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%b'))
+        ax_macd.xaxis.set_major_locator(mdates.MonthLocator(interval=4))
         plt.xticks(rotation=45, fontsize=8)
 
         plt.tight_layout()
