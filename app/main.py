@@ -12599,31 +12599,49 @@ async def download_ai_report_pdf(job_id: str):
             text = convert_markdown(line[4:])
             story.append(Paragraph(f"<b>{text}</b>", styles['KoreanBody']))
             story.append(Spacer(1, 0.08*inch))
-
-            # 5.1 지지/저항 섹션 → 차트1 삽입
-            if chart_insert_idx == 0 and ('5.1' in line or '지지' in text or '저항' in text or '주가' in text):
-                if len(chart_images) > 0:
-                    story.append(chart_images[0])
-                    story.append(Spacer(1, 0.15*inch))
-                chart_insert_idx = 1
-
-            # 5.2 추세추종 섹션 → 차트2 삽입
-            elif chart_insert_idx == 1 and ('5.2' in line or '추세' in text or '이동평균' in text):
-                if len(chart_images) > 1:
-                    story.append(chart_images[1])
-                    story.append(Spacer(1, 0.15*inch))
-                chart_insert_idx = 2
-
-            # 5.3 모멘텀 섹션 → 차트3 삽입
-            elif chart_insert_idx == 2 and ('5.3' in line or '모멘텀' in text or 'RSI' in text or 'MACD' in text):
-                if len(chart_images) > 2:
-                    story.append(chart_images[2])
-                    story.append(Spacer(1, 0.15*inch))
-                chart_insert_idx = 3
-
             i += 1
             continue
         elif line.startswith('#### '):
+            text = convert_markdown(line[5:])
+            raw_line = line[5:].strip()
+
+            # #### 5.1, #### 5.2, #### 5.3 섹션 감지 (정확한 패턴 매칭)
+            # 섹션 제목 → 차트 → 설명 순서로 배치
+
+            # 5.1 주가 및 지지/저항 → 차트1
+            if chart_insert_idx == 0 and (raw_line.startswith('5.1') or '5.1 ' in raw_line):
+                story.append(Paragraph(f"<b>{text}</b>", styles['KoreanBody']))
+                story.append(Spacer(1, 0.1*inch))
+                if len(chart_images) > 0:
+                    story.append(chart_images[0])
+                    story.append(Spacer(1, 0.12*inch))
+                chart_insert_idx = 1
+                i += 1
+                continue
+
+            # 5.2 추세추종 지표 → 차트2
+            elif chart_insert_idx == 1 and (raw_line.startswith('5.2') or '5.2 ' in raw_line):
+                story.append(Paragraph(f"<b>{text}</b>", styles['KoreanBody']))
+                story.append(Spacer(1, 0.1*inch))
+                if len(chart_images) > 1:
+                    story.append(chart_images[1])
+                    story.append(Spacer(1, 0.12*inch))
+                chart_insert_idx = 2
+                i += 1
+                continue
+
+            # 5.3 모멘텀 지표 → 차트3
+            elif chart_insert_idx == 2 and (raw_line.startswith('5.3') or '5.3 ' in raw_line):
+                story.append(Paragraph(f"<b>{text}</b>", styles['KoreanBody']))
+                story.append(Spacer(1, 0.1*inch))
+                if len(chart_images) > 2:
+                    story.append(chart_images[2])
+                    story.append(Spacer(1, 0.12*inch))
+                chart_insert_idx = 3
+                i += 1
+                continue
+
+            # 일반 #### 헤딩
             text = convert_markdown(line[5:])
             story.append(Paragraph(f"<b>{text}</b>", styles['KoreanBody']))
             i += 1
@@ -13178,18 +13196,16 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
         sma60 = _sma(closes, 60)
         sma200 = _sma(closes, 200)
 
-        # === 피보나치 기반 지지/저항 계산 (StockEasy 역분석 결과) ===
+        # === 지지/저항 계산 (돌출도 기반 스윙 포인트 + 거래량 밀집 구간) ===
         def calculate_support_resistance(highs_arr, lows_arr, closes_arr, volumes_arr, current_price, num_levels=2):
             """
-            StockEasy 방식의 지지/저항 계산 (피보나치 되돌림 기반)
+            개선된 지지/저항 계산 - 52주 저가 문제 해결
 
-            핵심 로직 (레벨 분산 강제):
-            - 1차 지지: 피보나치 38.2% 되돌림 (현재가 가까이)
-            - 2차 지지: 스윙 로우 (현재가 멀리)
-            - 1차 저항: 로컬 고점 (현재가 가까이)
-            - 2차 저항: 스윙 하이 (현재가 멀리)
-
-            1차와 2차가 10% 이내로 가까우면 1차를 23.6%로 조정
+            핵심 변경:
+            - 52주 저가가 아닌 "최근 주요 상승파동의 시작점"을 스윙 로우로 사용
+            - 돌출도(prominence) 기반으로 의미 있는 스윙 포인트만 선택
+            - 거래량 밀집 구간으로 지지/저항 보정
+            - 현재가가 52주 고가인 경우 피보나치 확장으로 저항 계산
             """
             import numpy as np
 
@@ -13197,115 +13213,226 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
             lows_np = np.array(lows_arr, dtype=float)
             closes_np = np.array(closes_arr, dtype=float)
             volumes_np = np.array(volumes_arr, dtype=float)
+            n = len(closes_np)
 
             # ============================================
-            # 1단계: 스윙 하이/로우 찾기
-            # ============================================
-            swing_high = float(highs_np.max())
-            swing_high_idx = int(np.argmax(highs_np))
-
-            # 스윙 하이 이전 구간에서 가장 낮은 저점 = 스윙 로우
-            if swing_high_idx > 20:
-                search_start = max(0, swing_high_idx - 250)
-                swing_low = float(lows_np[search_start:swing_high_idx].min())
-            else:
-                swing_low = float(lows_np.min())
-
-            # ============================================
-            # 2단계: 피보나치 되돌림 계산
-            # ============================================
-            fib_range = swing_high - swing_low
-
-            # 횡보 종목 체크 (피보나치 의미 없음)
-            if fib_range < current_price * 0.15:
-                # 폴백: 현재가 기준 비율로 설정
-                return [round(current_price * 0.92), round(current_price * 0.85)], \
-                       [round(current_price * 1.08), round(current_price * 1.15)]
-
-            fib_382 = swing_high - fib_range * 0.382  # 38.2% 되돌림
-            fib_236 = swing_high - fib_range * 0.236  # 23.6% 되돌림
-
-            # ============================================
-            # 3단계: 거래량 밀집 구간으로 스윙 로우 보정
+            # 1단계: 거래량 밀집 구간 찾기 (Volume Profile)
             # ============================================
             price_min, price_max = float(lows_np.min()), float(highs_np.max())
-            num_bins = 40
+            price_range_total = price_max - price_min
+            num_bins = 50
             bin_edges = np.linspace(price_min, price_max, num_bins + 1)
             volume_profile = np.zeros(num_bins)
 
-            for i in range(len(closes_np)):
+            for i in range(n):
                 c, v = closes_np[i], volumes_np[i]
-                bin_idx = min(int((c - price_min) / (price_max - price_min) * num_bins), num_bins - 1)
+                bin_idx = min(int((c - price_min) / price_range_total * num_bins), num_bins - 1)
                 volume_profile[bin_idx] += v
 
-            top_volume_bins = np.argsort(volume_profile)[-8:]
-            volume_nodes = sorted([float((bin_edges[b] + bin_edges[b + 1]) / 2) for b in top_volume_bins])
-
-            # 스윙 로우를 거래량 밀집 노드로 보정 (5% 이내)
-            swing_low_adjusted = swing_low
-            for vn in volume_nodes:
-                if abs(vn - swing_low) / swing_low < 0.05:
-                    swing_low_adjusted = vn
-                    break
+            # 거래량 상위 30% 구간만 추출
+            vol_threshold = np.percentile(volume_profile, 70)
+            volume_clusters = []
+            for b in range(num_bins):
+                if volume_profile[b] >= vol_threshold:
+                    mid_price = (bin_edges[b] + bin_edges[b + 1]) / 2
+                    volume_clusters.append({'price': mid_price, 'volume': volume_profile[b]})
 
             # ============================================
-            # 4단계: 로컬 고점 찾기 (1차 저항용)
+            # 2단계: 돌출도 기반 로컬 고저점 찾기
             # ============================================
-            order = 10
+            window = 15
+            min_prominence_pct = 0.08  # 전체 가격범위 대비 8% 이상 돌출
+
             local_highs = []
+            local_lows = []
 
-            for i in range(order, len(highs_np) - order):
-                if all(highs_np[i] >= highs_np[i - j] for j in range(1, order + 1)) and \
-                   all(highs_np[i] >= highs_np[i + j] for j in range(1, order + 1)):
-                    local_highs.append(float(highs_np[i]))
+            for i in range(window, n - window):
+                # 로컬 고점 체크
+                if highs_np[i] == max(highs_np[i - window:i + window + 1]):
+                    left_min = min(lows_np[max(0, i - window):i])
+                    right_min = min(lows_np[i + 1:min(n, i + window + 1)])
+                    prominence = highs_np[i] - max(left_min, right_min)
+                    if prominence >= price_range_total * min_prominence_pct:
+                        local_highs.append({
+                            'idx': i, 'price': float(highs_np[i]),
+                            'prominence': prominence
+                        })
+
+                # 로컬 저점 체크
+                if lows_np[i] == min(lows_np[i - window:i + window + 1]):
+                    left_max = max(highs_np[max(0, i - window):i])
+                    right_max = max(highs_np[i + 1:min(n, i + window + 1)])
+                    prominence = min(left_max, right_max) - lows_np[i]
+                    if prominence >= price_range_total * min_prominence_pct:
+                        local_lows.append({
+                            'idx': i, 'price': float(lows_np[i]),
+                            'prominence': prominence
+                        })
 
             # ============================================
-            # 5단계: 지지선 결정 (레벨 분산 강제)
+            # 3단계: 의미 있는 스윙 하이/로우 선택
             # ============================================
-            # 1차 지지: 피보나치 38.2% (현재가 가까이)
-            support_1 = round(fib_382)
-            # 2차 지지: 스윙 로우 (현재가 멀리)
-            support_2 = round(swing_low_adjusted)
+            # 스윙 하이: 돌출도 상위 중 현재가 위에 있는 것 (없으면 전체 최고)
+            highs_above = [h for h in local_highs if h['price'] > current_price * 1.01]
+            if highs_above:
+                swing_high_point = min(highs_above, key=lambda x: x['price'])  # 가장 가까운 고점
+            else:
+                swing_high_point = {'price': float(highs_np.max()), 'idx': int(np.argmax(highs_np))}
+            swing_high = swing_high_point['price']
 
-            # 예외: 1차와 2차가 너무 가까우면(10% 이내) 1차를 23.6%로 올림
-            if support_2 > 0 and abs(support_1 - support_2) / support_2 < 0.10:
-                support_1 = round(fib_236)
+            # 스윙 로우: 현재가 대비 -50% 이내의 주요 저점 중 가장 가까운 것
+            # (52주 저가 대신 최근 의미있는 지지 구간 찾기)
+            lows_below = [l for l in local_lows
+                          if l['price'] < current_price * 0.99
+                          and l['price'] >= current_price * 0.50]  # -50% 이내
 
-            # 1차가 현재가보다 높으면 현재가*0.95로 조정
-            if support_1 >= current_price:
-                support_1 = round(current_price * 0.95)
+            if lows_below:
+                # 돌출도 상위 50% 중 현재가에 가장 가까운 것
+                lows_below.sort(key=lambda x: x['prominence'], reverse=True)
+                top_lows = lows_below[:max(1, len(lows_below) // 2)]
+                swing_low_point = max(top_lows, key=lambda x: x['price'])  # 현재가에 가까운 것
+            else:
+                # -50% 이내에 없으면 거래량 밀집 구간 중 현재가 아래에서 가장 가까운 것
+                vol_below = [vc for vc in volume_clusters if vc['price'] < current_price * 0.98]
+                if vol_below:
+                    swing_low_point = max(vol_below, key=lambda x: x['price'])
+                else:
+                    # 폴백: 전체 최저가 사용 (기존 방식)
+                    swing_low_point = {'price': float(lows_np.min())}
+            swing_low = swing_low_point['price']
 
-            # 1차가 2차보다 낮으면 스왑 (1차는 현재가 가까이 원칙)
+            # ============================================
+            # 4단계: 피보나치 레벨 계산
+            # ============================================
+            fib_range = swing_high - swing_low
+
+            # 횡보 종목 체크
+            if fib_range < current_price * 0.12:
+                return [round(current_price * 0.95), round(current_price * 0.88)], \
+                       [round(current_price * 1.05), round(current_price * 1.12)]
+
+            fib_236 = swing_low + fib_range * 0.236
+            fib_382 = swing_low + fib_range * 0.382
+            fib_500 = swing_low + fib_range * 0.500
+            fib_618 = swing_low + fib_range * 0.618
+            fib_786 = swing_low + fib_range * 0.786
+            # 피보나치 확장 (현재가가 고가일 때 저항용)
+            fib_ext_127 = swing_low + fib_range * 1.272
+            fib_ext_161 = swing_low + fib_range * 1.618
+
+            # ============================================
+            # 5단계: 지지선 후보 수집 + 거래량 밀집 보정
+            # ============================================
+            support_candidates = []
+
+            # 피보나치 레벨들 (현재가 아래만)
+            for fib_level, name in [(fib_786, '78.6'), (fib_618, '61.8'),
+                                     (fib_500, '50.0'), (fib_382, '38.2'), (fib_236, '23.6')]:
+                if fib_level < current_price * 0.98:
+                    # 거래량 밀집 구간과 가까우면 보정
+                    adjusted = fib_level
+                    for vc in volume_clusters:
+                        if abs(vc['price'] - fib_level) / fib_level < 0.03:
+                            adjusted = vc['price']
+                            break
+                    dist_pct = (current_price - adjusted) / current_price * 100
+                    support_candidates.append({'level': adjusted, 'dist': dist_pct, 'source': f'fib_{name}'})
+
+            # 거래량 밀집 구간 (현재가 아래)
+            for vc in volume_clusters:
+                if vc['price'] < current_price * 0.97:
+                    dist_pct = (current_price - vc['price']) / current_price * 100
+                    # 중복 체크 (이미 있는 레벨과 3% 이내면 스킵)
+                    is_dup = any(abs(sc['level'] - vc['price']) / sc['level'] < 0.03 for sc in support_candidates)
+                    if not is_dup:
+                        support_candidates.append({'level': vc['price'], 'dist': dist_pct, 'source': 'vol'})
+
+            # 거리순 정렬
+            support_candidates.sort(key=lambda x: x['dist'])
+
+            # ============================================
+            # 6단계: 저항선 후보 수집
+            # ============================================
+            resistance_candidates = []
+
+            # 현재가가 52주 고가 근처인지 체크
+            at_high = current_price >= float(highs_np.max()) * 0.97
+
+            if at_high:
+                # 피보나치 확장 사용
+                if fib_ext_127 > current_price * 1.02:
+                    dist_pct = (fib_ext_127 - current_price) / current_price * 100
+                    resistance_candidates.append({'level': fib_ext_127, 'dist': dist_pct, 'source': 'fib_127'})
+                if fib_ext_161 > current_price * 1.02:
+                    dist_pct = (fib_ext_161 - current_price) / current_price * 100
+                    resistance_candidates.append({'level': fib_ext_161, 'dist': dist_pct, 'source': 'fib_161'})
+            else:
+                # 로컬 고점들
+                for lh in local_highs:
+                    if lh['price'] > current_price * 1.02:
+                        dist_pct = (lh['price'] - current_price) / current_price * 100
+                        resistance_candidates.append({'level': lh['price'], 'dist': dist_pct, 'source': 'local'})
+
+            # 스윙 하이 추가 (아직 없으면)
+            if swing_high > current_price * 1.02:
+                is_dup = any(abs(rc['level'] - swing_high) / rc['level'] < 0.03 for rc in resistance_candidates)
+                if not is_dup:
+                    dist_pct = (swing_high - current_price) / current_price * 100
+                    resistance_candidates.append({'level': swing_high, 'dist': dist_pct, 'source': 'swing'})
+
+            # 거래량 밀집 구간 (현재가 위)
+            for vc in volume_clusters:
+                if vc['price'] > current_price * 1.02:
+                    dist_pct = (vc['price'] - current_price) / current_price * 100
+                    is_dup = any(abs(rc['level'] - vc['price']) / rc['level'] < 0.03 for rc in resistance_candidates)
+                    if not is_dup:
+                        resistance_candidates.append({'level': vc['price'], 'dist': dist_pct, 'source': 'vol'})
+
+            resistance_candidates.sort(key=lambda x: x['dist'])
+
+            # ============================================
+            # 7단계: 최종 선택 (1차=가까운것, 2차=먼것)
+            # ============================================
+            if len(support_candidates) >= 2:
+                support_1 = round(support_candidates[0]['level'])
+                # 2차는 1차와 최소 8% 이상 떨어진 것
+                support_2 = None
+                for sc in support_candidates[1:]:
+                    if abs(sc['level'] - support_candidates[0]['level']) / support_candidates[0]['level'] >= 0.08:
+                        support_2 = round(sc['level'])
+                        break
+                if support_2 is None:
+                    support_2 = round(support_candidates[-1]['level'])
+            elif len(support_candidates) == 1:
+                support_1 = round(support_candidates[0]['level'])
+                support_2 = round(swing_low)
+            else:
+                support_1 = round(current_price * 0.92)
+                support_2 = round(current_price * 0.85)
+
+            if len(resistance_candidates) >= 2:
+                resistance_1 = round(resistance_candidates[0]['level'])
+                resistance_2 = None
+                for rc in resistance_candidates[1:]:
+                    if abs(rc['level'] - resistance_candidates[0]['level']) / resistance_candidates[0]['level'] >= 0.08:
+                        resistance_2 = round(rc['level'])
+                        break
+                if resistance_2 is None:
+                    resistance_2 = round(resistance_candidates[-1]['level'])
+            elif len(resistance_candidates) == 1:
+                resistance_1 = round(resistance_candidates[0]['level'])
+                resistance_2 = round(swing_high * 1.1) if at_high else round(swing_high)
+            else:
+                resistance_1 = round(current_price * 1.08)
+                resistance_2 = round(current_price * 1.15)
+
+            # 1차가 2차보다 멀면 스왑
             if support_1 < support_2:
                 support_1, support_2 = support_2, support_1
-
-            support_levels = [support_1, support_2]
-
-            # ============================================
-            # 6단계: 저항선 결정 (레벨 분산 강제)
-            # ============================================
-            # 1차 저항: 현재가 위 로컬 고점 중 가장 가까운 것
-            local_highs_above = sorted([h for h in local_highs if h > current_price * 1.02])
-            resistance_1 = round(local_highs_above[0]) if local_highs_above else round(fib_236)
-
-            # 2차 저항: 스윙 하이
-            resistance_2 = round(swing_high)
-
-            # 예외: 1차와 2차가 너무 가까우면(10% 이내) 2차를 스윙하이*1.05로 올림
-            if resistance_2 > 0 and abs(resistance_2 - resistance_1) / resistance_1 < 0.10:
-                resistance_2 = round(swing_high * 1.05)
-
-            # 1차가 현재가보다 낮으면 현재가*1.05로 조정
-            if resistance_1 <= current_price:
-                resistance_1 = round(current_price * 1.05)
-
-            # 1차가 2차보다 높으면 스왑 (1차는 현재가 가까이 원칙)
             if resistance_1 > resistance_2:
                 resistance_1, resistance_2 = resistance_2, resistance_1
 
-            resistance_levels = [resistance_1, resistance_2]
-
-            return support_levels, resistance_levels
+            return [support_1, support_2], [resistance_1, resistance_2]
 
         # 지지/저항 계산 실행
         current_price = closes[-1]
@@ -13355,16 +13482,16 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
         ax1.set_xlim(mdates.date2num(dates[-display_len]) - 2, mdates.date2num(dates[-1]) + 2)
         ax1.set_ylim(min(lows[-display_len:]) * 0.95, max(highs[-display_len:]) * 1.05)
 
-        # 지지/저항선 (4개: 1차는 진하게, 2차는 연하게)
-        # 저항선 (빨강 계열)
-        ax1.axhline(y=resistance1, color='#FF3B30', linestyle='--', linewidth=1.5, alpha=0.9,
+        # 지지/저항선 (4개: 두껍고 선명하게)
+        # 저항선 (빨간색, 두꺼운 파선)
+        ax1.axhline(y=resistance1, color='#FF1744', linestyle='--', linewidth=2.5, alpha=0.95,
                     label=f'1차 저항 {int(resistance1):,}')
-        ax1.axhline(y=resistance2, color='#FF8080', linestyle='--', linewidth=1.0, alpha=0.6,
+        ax1.axhline(y=resistance2, color='#FF5252', linestyle='--', linewidth=2.0, alpha=0.7,
                     label=f'2차 저항 {int(resistance2):,}')
-        # 지지선 (파랑 계열)
-        ax1.axhline(y=support1, color='#007AFF', linestyle='--', linewidth=1.5, alpha=0.9,
+        # 지지선 (초록색, 두꺼운 파선)
+        ax1.axhline(y=support1, color='#00C853', linestyle='--', linewidth=2.5, alpha=0.95,
                     label=f'1차 지지 {int(support1):,}')
-        ax1.axhline(y=support2, color='#66B2FF', linestyle='--', linewidth=1.0, alpha=0.6,
+        ax1.axhline(y=support2, color='#69F0AE', linestyle='--', linewidth=2.0, alpha=0.7,
                     label=f'2차 지지 {int(support2):,}')
 
         ax1.set_title(f'주가, 지지/저항 분석 - {name}({code})', fontsize=14, fontweight='bold')
