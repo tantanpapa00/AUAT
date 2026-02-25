@@ -4831,7 +4831,7 @@ document.getElementById('btn-ai-analysis')?.addEventListener('click', async () =
         // 캐시된 결과면 바로 표시
         if (reqResult.status === 'done' && reqResult.report) {
             loadingEl.style.display = 'none';
-            reportEl.innerHTML = buildAiReportHtml(reqResult.report, reqResult.job_id || 'cached', stockName, stockCode, reqResult.charts);
+            reportEl.innerHTML = buildAiReportHtml(reqResult.report, reqResult.job_id || 'cached', stockName, stockCode, reqResult.charts, reqResult.sections);
             reportEl.style.display = 'block';
             return;
         }
@@ -4843,7 +4843,7 @@ document.getElementById('btn-ai-analysis')?.addEventListener('click', async () =
         const result = await pollAiJobResult(jobId, 120);
 
         loadingEl.style.display = 'none';
-        reportEl.innerHTML = buildAiReportHtml(result.report, jobId, stockName, stockCode, result.charts);
+        reportEl.innerHTML = buildAiReportHtml(result.report, jobId, stockName, stockCode, result.charts, result.sections);
         reportEl.style.display = 'block';
 
     } catch (error) {
@@ -4871,10 +4871,11 @@ async function pollAiJobResult(jobId, maxWaitSec = 120) {
             }
 
             if (status.status === 'done' && status.report) {
-                // 전체 status 반환 (차트 포함)
+                // 전체 status 반환 (차트 + 섹션 포함)
                 return {
                     report: status.report,
                     charts: status.charts || null,
+                    sections: status.sections || null,
                     stock: status.stock || null
                 };
             } else if (status.status === 'error') {
@@ -4903,40 +4904,108 @@ function markdownToHtml(md) {
         .replace(/\n/g, '<br>');
 }
 
-// AI 리포트 HTML 생성 (차트 + PDF 다운로드 버튼 포함)
-function buildAiReportHtml(report, jobId, stockName, stockCode, charts) {
-    const reportHtml = markdownToHtml(report);
+// AI 리포트 HTML 생성 (차트-텍스트 묶음 배치)
+function buildAiReportHtml(report, jobId, stockName, stockCode, charts, sections) {
+    // sections가 없으면 프론트엔드에서 분리
+    const sec = sections || splitAiReport(report || '');
+    const c = charts || {};
 
-    // 차트 HTML 생성 (base64 data URL 직접 사용)
-    let chartsHtml = '';
-    if (charts && (charts.price_chart || charts.trend_chart || charts.momentum_chart)) {
-        chartsHtml = `
-            <div style="margin-bottom:20px;">
-                <div style="margin-bottom:12px;">
-                    ${charts.price_chart ? `<img src="${charts.price_chart}" style="width:100%;max-width:800px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="가격 차트">` : ''}
-                </div>
-                <div style="display:flex;gap:12px;flex-wrap:wrap;">
-                    ${charts.trend_chart ? `<img src="${charts.trend_chart}" style="flex:1;min-width:300px;max-width:48%;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="추세 차트">` : ''}
-                    ${charts.momentum_chart ? `<img src="${charts.momentum_chart}" style="flex:1;min-width:300px;max-width:48%;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="모멘텀 차트">` : ''}
-                </div>
-            </div>
-        `;
-    }
+    // 구분자 제거 함수
+    const cleanSection = (text) => {
+        if (!text) return '';
+        return text
+            .replace(/\[SECTION_1_4\]/g, '')
+            .replace(/\[SECTION_51\]/g, '')
+            .replace(/\[SECTION_52\]/g, '')
+            .replace(/\[SECTION_53\]/g, '')
+            .replace(/\[SECTION_54_END\]/g, '')
+            .trim();
+    };
 
     return `
-        <div style="display:flex;justify-content:flex-end;margin-bottom:12px;gap:8px;">
-            <button onclick="window.downloadAiReportPdf('${jobId}', '${stockName}', '${stockCode}')"
-                style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;">
-                <span>📄</span> PDF 다운로드
-            </button>
-            <button onclick="window.shareAiReport('${stockName}', '${stockCode}')"
-                style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;">
-                <span>🔗</span> 공유
-            </button>
+        <div class="ai-report" style="font-size:14px;line-height:1.7;color:#e0e0e0;">
+            <!-- 버튼 영역 -->
+            <div style="display:flex;justify-content:flex-end;margin-bottom:16px;gap:8px;">
+                <button onclick="window.downloadAiReportPdf('${jobId}', '${stockName}', '${stockCode}')"
+                    style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;">
+                    <span>📄</span> PDF 다운로드
+                </button>
+                <button onclick="window.shareAiReport('${stockName}', '${stockCode}')"
+                    style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;">
+                    <span>🔗</span> 공유
+                </button>
+            </div>
+
+            <!-- 1~4 섹션: 핵심요약, 실적, 성장동력, 이슈 (차트 없음) -->
+            <div class="report-section">${markdownToHtml(cleanSection(sec.before_ta))}</div>
+
+            <!-- 5. 기술적 분석 -->
+            <h2 style="color:#ef4444;margin-top:30px;padding-top:20px;border-top:2px solid #ef4444;">5. 기술적 분석</h2>
+
+            <!-- 5.1 지지/저항: 제목 → 차트 → 설명 -->
+            <h3 style="margin-top:25px;color:#f59e0b;">5.1 주가 및 지지/저항선 분석</h3>
+            ${c.price_chart ? `<img src="${c.price_chart}" style="width:100%;max-width:720px;margin:12px 0;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="가격 차트">` : ''}
+            <div class="report-section">${markdownToHtml(cleanSection(sec.section_51).replace(/^#{1,4}\s*5\.1[^\n]*\n?/i, ''))}</div>
+
+            <!-- 5.2 추세: 제목 → 차트 → 설명 -->
+            <h3 style="margin-top:25px;color:#f59e0b;">5.2 추세추종 지표 분석</h3>
+            ${c.trend_chart ? `<img src="${c.trend_chart}" style="width:100%;max-width:720px;margin:12px 0;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="추세 차트">` : ''}
+            <div class="report-section">${markdownToHtml(cleanSection(sec.section_52).replace(/^#{1,4}\s*5\.2[^\n]*\n?/i, ''))}</div>
+
+            <!-- 5.3 모멘텀: 제목 → 차트 → 설명 -->
+            <h3 style="margin-top:25px;color:#f59e0b;">5.3 모멘텀 지표 분석</h3>
+            ${c.momentum_chart ? `<img src="${c.momentum_chart}" style="width:100%;max-width:720px;margin:12px 0;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="모멘텀 차트">` : ''}
+            <div class="report-section">${markdownToHtml(cleanSection(sec.section_53).replace(/^#{1,4}\s*5\.3[^\n]*\n?/i, ''))}</div>
+
+            <!-- 5.4~ 거래량, 종합, 시나리오, 투자전략, 면책 -->
+            <div class="report-section" style="margin-top:20px;">${markdownToHtml(cleanSection(sec.after_53))}</div>
         </div>
-        ${chartsHtml}
-        ${reportHtml}
     `;
+}
+
+// 프론트엔드 섹션 분리 (백엔드 sections가 없을 때 폴백)
+function splitAiReport(text) {
+    const sections = { before_ta: '', section_51: '', section_52: '', section_53: '', after_53: '' };
+    if (!text) return sections;
+
+    const markers = ['[SECTION_1_4]', '[SECTION_51]', '[SECTION_52]', '[SECTION_53]', '[SECTION_54_END]'];
+    const keys = ['before_ta', 'section_51', 'section_52', 'section_53', 'after_53'];
+
+    let found = false;
+    for (let i = 0; i < markers.length; i++) {
+        const start = text.indexOf(markers[i]);
+        if (start === -1) continue;
+        found = true;
+
+        const contentStart = start + markers[i].length;
+        let end = text.length;
+
+        for (let j = i + 1; j < markers.length; j++) {
+            const nextPos = text.indexOf(markers[j]);
+            if (nextPos !== -1) { end = nextPos; break; }
+        }
+
+        sections[keys[i]] = text.substring(contentStart, end).trim();
+    }
+
+    // 구분자 없으면 "5.1", "5.2" 패턴으로 분리
+    if (!found) {
+        const taIdx = text.search(/#{1,3}\s*5\.\s*기술적\s*분석|5\.1\s/);
+        if (taIdx === -1) { sections.before_ta = text; return sections; }
+
+        sections.before_ta = text.substring(0, taIdx).trim();
+        const ta = text.substring(taIdx);
+
+        const find = (pattern) => { const m = ta.search(pattern); return m !== -1 ? m : null; };
+        const s51 = find(/#{1,4}\s*5\.1\s/), s52 = find(/#{1,4}\s*5\.2\s/), s53 = find(/#{1,4}\s*5\.3\s/), s54 = find(/#{1,4}\s*5\.4\s/);
+
+        if (s51 !== null) sections.section_51 = ta.substring(s51, s52 ?? s53 ?? s54 ?? ta.length).trim();
+        if (s52 !== null) sections.section_52 = ta.substring(s52, s53 ?? s54 ?? ta.length).trim();
+        if (s53 !== null) sections.section_53 = ta.substring(s53, s54 ?? ta.length).trim();
+        if (s54 !== null) sections.after_53 = ta.substring(s54).trim();
+    }
+
+    return sections;
 }
 
 // AI 리포트 공유
@@ -13337,7 +13406,7 @@ document.getElementById('btn-ai-analysis-modal')?.addEventListener('click', asyn
         // 캐시된 결과면 바로 표시
         if (reqResult.status === 'done' && reqResult.report) {
             loadingEl.style.display = 'none';
-            reportEl.innerHTML = buildAiReportHtml(reqResult.report, reqResult.job_id || 'cached', stockName, symbol, reqResult.charts);
+            reportEl.innerHTML = buildAiReportHtml(reqResult.report, reqResult.job_id || 'cached', stockName, symbol, reqResult.charts, reqResult.sections);
             reportEl.style.display = 'block';
             return;
         }
@@ -13349,7 +13418,7 @@ document.getElementById('btn-ai-analysis-modal')?.addEventListener('click', asyn
         const result = await pollAiJobResult2(jobId, 120);
 
         loadingEl.style.display = 'none';
-        reportEl.innerHTML = buildAiReportHtml(result.report, jobId, stockName, symbol, result.charts);
+        reportEl.innerHTML = buildAiReportHtml(result.report, jobId, stockName, symbol, result.charts, result.sections);
         reportEl.style.display = 'block';
 
     } catch (error) {
@@ -13378,6 +13447,7 @@ async function pollAiJobResult2(jobId, maxWaitSec = 120) {
                 return {
                     report: status.report,
                     charts: status.charts || null,
+                    sections: status.sections || null,
                     stock: status.stock || null
                 };
             } else if (status.status === 'error') {

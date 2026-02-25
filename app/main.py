@@ -12417,10 +12417,14 @@ async def get_ai_job_status(job_id: str):
         return {"success": False, "error": "작업을 찾을 수 없습니다", "status": "not_found"}
 
     if job["status"] == "done":
+        report_text = job["result"] or ""
+        sections = split_ai_report(report_text)
+
         response = {
             "success": True,
             "status": "done",
-            "report": job["result"],
+            "report": report_text,
+            "sections": sections,  # 분리된 섹션 (차트-텍스트 묶음 배치용)
             "progress": "✅ 완료"
         }
         # 차트 URL 포함 (존재하는 경우)
@@ -14055,6 +14059,92 @@ async def _collect_news_for_ai(code: str, name: str, market: str = "kr") -> list
     return news
 
 
+def split_ai_report(text: str) -> dict:
+    """AI 응답을 구분자로 섹션 분리"""
+    import re
+
+    sections = {
+        'before_ta': '',
+        'section_51': '',
+        'section_52': '',
+        'section_53': '',
+        'after_53': ''
+    }
+
+    markers = ['[SECTION_1_4]', '[SECTION_51]', '[SECTION_52]', '[SECTION_53]', '[SECTION_54_END]']
+    keys = ['before_ta', 'section_51', 'section_52', 'section_53', 'after_53']
+
+    found = False
+    for i, marker in enumerate(markers):
+        start = text.find(marker)
+        if start == -1:
+            continue
+        found = True
+        start += len(marker)
+
+        end = len(text)
+        for next_marker in markers[i + 1:]:
+            next_pos = text.find(next_marker)
+            if next_pos != -1:
+                end = next_pos
+                break
+
+        sections[keys[i]] = text[start:end].strip()
+
+    # 구분자 못 찾으면 폴백 (5.1, 5.2 패턴으로 자동 분리)
+    if not found or not sections['section_51']:
+        sections = _fallback_split_report(text)
+
+    return sections
+
+
+def _fallback_split_report(text: str) -> dict:
+    """구분자 없을 때 '5.1', '5.2' 패턴으로 자동 분리"""
+    import re
+
+    sections = {
+        'before_ta': '',
+        'section_51': '',
+        'section_52': '',
+        'section_53': '',
+        'after_53': ''
+    }
+
+    # 기술적 분석 시작점 찾기
+    ta_match = re.search(r'#{1,3}\s*5\.\s*기술적\s*분석|5\.1\s', text)
+    if not ta_match:
+        sections['before_ta'] = text
+        return sections
+
+    sections['before_ta'] = text[:ta_match.start()].strip()
+    ta_text = text[ta_match.start():]
+
+    # 각 섹션 시작점 찾기
+    s51 = re.search(r'#{1,4}\s*5\.1\s', ta_text)
+    s52 = re.search(r'#{1,4}\s*5\.2\s', ta_text)
+    s53 = re.search(r'#{1,4}\s*5\.3\s', ta_text)
+    s54 = re.search(r'#{1,4}\s*5\.4\s', ta_text)
+
+    s51_start = s51.start() if s51 else None
+    s52_start = s52.start() if s52 else None
+    s53_start = s53.start() if s53 else None
+    s54_start = s54.start() if s54 else None
+
+    if s51_start is not None:
+        end = s52_start or s53_start or s54_start or len(ta_text)
+        sections['section_51'] = ta_text[s51_start:end].strip()
+    if s52_start is not None:
+        end = s53_start or s54_start or len(ta_text)
+        sections['section_52'] = ta_text[s52_start:end].strip()
+    if s53_start is not None:
+        end = s54_start or len(ta_text)
+        sections['section_53'] = ta_text[s53_start:end].strip()
+    if s54_start is not None:
+        sections['after_53'] = ta_text[s54_start:].strip()
+
+    return sections
+
+
 def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list, company_summary: str = "") -> str:
     """Claude에게 보낼 분석 프롬프트 구성 (StockEasy 수준)"""
 
@@ -14215,6 +14305,15 @@ SMA5: {sma5} | SMA20: {sma20} | SMA60: {sma60} | SMA120: {sma120} | SMA200: {sma
 
 ## 보고서 구조 (반드시 이 순서와 형식으로 작성)
 
+**중요: 아래 구분자를 반드시 각 섹션 시작 전에 줄 맨 앞에 단독으로 작성하세요.**
+- [SECTION_1_4] : 1~4섹션 시작 전
+- [SECTION_51] : 5.1 시작 전
+- [SECTION_52] : 5.2 시작 전
+- [SECTION_53] : 5.3 시작 전
+- [SECTION_54_END] : 5.4 시작 전
+
+[SECTION_1_4]
+
 ### 1. 핵심 요약
 6개 핵심 포인트를 각각 제목+2~3문장으로 작성. 예시:
 • 실적 개선 전망 및 목표주가 상향: 2026년 연결 기준 영업이익은 X억원으로 전망되며...
@@ -14236,11 +14335,15 @@ SMA5: {sma5} | SMA20: {sma20} | SMA60: {sma60} | SMA120: {sma120} | SMA200: {sma
 
 ### 5. 기술적 분석
 
+[SECTION_51]
+
 #### 5.1 주가 및 지지/저항
 - 현재가 {current:,}원, 최근 10일 주가 범위, 상승률
 - 1차 지지 {support1} / 2차 지지 {support2} 가격 명시
 - 1차 저항 {resistance1} / 2차 저항 {resistance2} 가격 명시
 - 향후 돌파/이탈 시나리오 (각 레벨별 의미)
+
+[SECTION_52]
 
 #### 5.2 추세추종 지표 분석
 - ADX {adx} 해석 (25 미만=약한 추세, 25~50=강한 추세, 50 이상=매우 강한 추세)
@@ -14248,10 +14351,14 @@ SMA5: {sma5} | SMA20: {sma20} | SMA60: {sma60} | SMA120: {sma120} | SMA200: {sma
 - SuperTrend {supertrend} 위치 및 현재가와의 간격
 - RS {rs} 시장 대비 우위 여부
 
+[SECTION_53]
+
 #### 5.3 모멘텀 지표 분석
 - RSI {rsi} 해석 (30 이하=과매도, 70 이상=과매수)
 - MACD Line {macd_line} / Signal {macd_signal} 교차 상태, Histogram {macd_hist} 방향
 - 스토캐스틱 %K {stoch_k} / %D {stoch_d} 교차 방향
+
+[SECTION_54_END]
 
 #### 5.4 주가, 거래량, 수급 분석
 - 최근 거래량 {volume:,}주 vs 20일 평균 {avg_vol:,}주 변화
