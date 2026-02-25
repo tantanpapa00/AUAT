@@ -13067,12 +13067,131 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
         sma60 = _sma(closes, 60)
         sma200 = _sma(closes, 200)
 
-        # 지지/저항선 계산 (피봇 포인트 기반)
-        recent_high = max(highs[-20:]) if len(highs) >= 20 else max(highs)
-        recent_low = min(lows[-20:]) if len(lows) >= 20 else min(lows)
-        pivot = (recent_high + recent_low + closes[-1]) / 3
-        resistance1 = 2 * pivot - recent_low
-        support1 = 2 * pivot - recent_high
+        # === 개선된 지지/저항 계산 (StockEasy 수준) ===
+        def calculate_support_resistance(highs_arr, lows_arr, closes_arr, volumes_arr, current_price, num_levels=2):
+            """
+            현재가 기준 위아래로 의미 있는 지지/저항 레벨 계산
+            방법: 로컬 고저점 + 거래량 밀집 구간 + 이동평균선 결합
+            """
+            import numpy as np
+
+            highs_np = np.array(highs_arr, dtype=float)
+            lows_np = np.array(lows_arr, dtype=float)
+            closes_np = np.array(closes_arr, dtype=float)
+            volumes_np = np.array(volumes_arr, dtype=float)
+
+            # 로컬 고저점 찾기 (scipy 없이)
+            def find_local_extrema(data, order=5):
+                local_min_idx = []
+                local_max_idx = []
+                for i in range(order, len(data) - order):
+                    if all(data[i] <= data[i-j] for j in range(1, order+1)) and \
+                       all(data[i] <= data[i+j] for j in range(1, order+1)):
+                        local_min_idx.append(i)
+                    if all(data[i] >= data[i-j] for j in range(1, order+1)) and \
+                       all(data[i] >= data[i+j] for j in range(1, order+1)):
+                        local_max_idx.append(i)
+                return local_min_idx, local_max_idx
+
+            local_min_idx, local_max_idx = find_local_extrema(closes_np, order=5)
+            local_min_prices = lows_np[local_min_idx].tolist() if local_min_idx else []
+            local_max_prices = highs_np[local_max_idx].tolist() if local_max_idx else []
+
+            # 거래량 밀집 구간 (Volume Profile 간소화)
+            price_min, price_max = lows_np.min(), highs_np.max()
+            num_bins = 30
+            bin_edges = np.linspace(price_min, price_max, num_bins + 1)
+            volume_profile = np.zeros(num_bins)
+
+            for i, (c, v) in enumerate(zip(closes_np, volumes_np)):
+                bin_idx = min(int((c - price_min) / (price_max - price_min) * num_bins), num_bins - 1)
+                volume_profile[bin_idx] += v
+
+            # 상위 거래량 구간의 중심 가격
+            top_bins = np.argsort(volume_profile)[-8:]
+            volume_levels = [float((bin_edges[b] + bin_edges[b+1]) / 2) for b in top_bins]
+
+            # 이동평균선
+            sma_levels = []
+            for period in [20, 60, 120, 200]:
+                if len(closes_np) >= period:
+                    sma_val = float(np.mean(closes_np[-period:]))
+                    sma_levels.append(sma_val)
+
+            # === 후보 분류: 현재가 기준 ===
+            support_candidates = []
+            resistance_candidates = []
+            tolerance = 0.02  # 현재가의 2% 이내는 제외
+
+            # 로컬 저점 → 지지 후보
+            for p in local_min_prices:
+                if p < current_price * (1 - tolerance):
+                    support_candidates.append(p)
+
+            # 로컬 고점 → 저항 후보
+            for p in local_max_prices:
+                if p > current_price * (1 + tolerance):
+                    resistance_candidates.append(p)
+
+            # 거래량 밀집 구간
+            for p in volume_levels:
+                if p < current_price * (1 - tolerance):
+                    support_candidates.append(p)
+                elif p > current_price * (1 + tolerance):
+                    resistance_candidates.append(p)
+
+            # 이동평균선
+            for sma in sma_levels:
+                if sma < current_price * (1 - tolerance):
+                    support_candidates.append(sma)
+                elif sma > current_price * (1 + tolerance):
+                    resistance_candidates.append(sma)
+
+            # === 클러스터링: 비슷한 가격대 통합 (5% 이내) ===
+            def cluster_levels(prices, tolerance_pct=0.05):
+                if not prices:
+                    return []
+                prices = sorted(prices)
+                clusters = [[prices[0]]]
+                for p in prices[1:]:
+                    if clusters[-1] and (p - clusters[-1][-1]) / clusters[-1][-1] < tolerance_pct:
+                        clusters[-1].append(p)
+                    else:
+                        clusters.append([p])
+                return [round(np.mean(c)) for c in clusters]
+
+            support_levels = cluster_levels(support_candidates)
+            resistance_levels = cluster_levels(resistance_candidates)
+
+            # 거리 기준 정렬
+            support_levels = sorted(support_levels, reverse=True)  # 현재가에 가까운 순
+            resistance_levels = sorted(resistance_levels)  # 현재가에 가까운 순
+
+            # 상위 num_levels개만
+            support_levels = support_levels[:num_levels]
+            resistance_levels = resistance_levels[:num_levels]
+
+            # 최소 보장: 부족하면 비율 기반 추가
+            while len(support_levels) < num_levels:
+                base = support_levels[-1] if support_levels else current_price
+                support_levels.append(round(base * 0.9))
+
+            while len(resistance_levels) < num_levels:
+                base = resistance_levels[-1] if resistance_levels else current_price
+                resistance_levels.append(round(base * 1.1))
+
+            return support_levels, resistance_levels
+
+        # 지지/저항 계산 실행
+        current_price = closes[-1]
+        support_levels, resistance_levels = calculate_support_resistance(
+            highs, lows, closes, volumes, current_price, num_levels=2
+        )
+        # 호환성: 기존 변수명 유지
+        support1 = support_levels[0] if support_levels else current_price * 0.95
+        support2 = support_levels[1] if len(support_levels) > 1 else support1 * 0.9
+        resistance1 = resistance_levels[0] if resistance_levels else current_price * 1.05
+        resistance2 = resistance_levels[1] if len(resistance_levels) > 1 else resistance1 * 1.1
 
         # 차트 ID 생성
         chart_id = f"{code}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
@@ -13111,14 +13230,20 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
         ax1.set_xlim(mdates.date2num(dates[-display_len]) - 2, mdates.date2num(dates[-1]) + 2)
         ax1.set_ylim(min(lows[-display_len:]) * 0.95, max(highs[-display_len:]) * 1.05)
 
-        # 지지/저항선
-        ax1.axhline(y=resistance1, color=UP_COLOR, linestyle='--', linewidth=1.2, alpha=0.8,
-                    label=f'저항 {int(resistance1):,}')
-        ax1.axhline(y=support1, color=DOWN_COLOR, linestyle='--', linewidth=1.2, alpha=0.8,
-                    label=f'지지 {int(support1):,}')
+        # 지지/저항선 (4개: 1차는 진하게, 2차는 연하게)
+        # 저항선 (빨강 계열)
+        ax1.axhline(y=resistance1, color='#FF3B30', linestyle='--', linewidth=1.5, alpha=0.9,
+                    label=f'1차 저항 {int(resistance1):,}')
+        ax1.axhline(y=resistance2, color='#FF8080', linestyle='--', linewidth=1.0, alpha=0.6,
+                    label=f'2차 저항 {int(resistance2):,}')
+        # 지지선 (파랑 계열)
+        ax1.axhline(y=support1, color='#007AFF', linestyle='--', linewidth=1.5, alpha=0.9,
+                    label=f'1차 지지 {int(support1):,}')
+        ax1.axhline(y=support2, color='#66B2FF', linestyle='--', linewidth=1.0, alpha=0.6,
+                    label=f'2차 지지 {int(support2):,}')
 
         ax1.set_title(f'주가, 지지/저항 분석 - {name}({code})', fontsize=14, fontweight='bold')
-        ax1.legend(loc='upper left', fontsize=9)
+        ax1.legend(loc='upper left', fontsize=8, ncol=2)  # 2열로 표시
         ax1.grid(True, alpha=0.3)
         ax1.set_ylabel('주가(원)', fontsize=11)
         ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
@@ -13337,6 +13462,8 @@ async def _collect_technical_data_for_ai(code: str, market: str = "kr") -> dict:
             "sma_5": None, "sma_20": None, "sma_60": None,
             "sma_120": None, "sma_200": None,
         },
+        "support_levels": [],  # [1차지지, 2차지지]
+        "resistance_levels": [],  # [1차저항, 2차저항]
     }
 
     price_data = None  # 초기화
@@ -13417,6 +13544,87 @@ async def _collect_technical_data_for_ai(code: str, market: str = "kr") -> dict:
                                 data["trend_indicators"]["supertrend_dir"] = int(st_dir[-1])  # -1=bullish, 1=bearish
                         except Exception as e:
                             print(f"[AI] SuperTrend calculation error: {e}")
+
+                        # 지지/저항 계산 (StockEasy 수준 - 4레벨)
+                        try:
+                            import numpy as np
+                            current_price = closes[-1]
+                            highs_np = np.array(highs, dtype=float)
+                            lows_np = np.array(lows, dtype=float)
+                            closes_np = np.array(closes, dtype=float)
+                            volumes_np = np.array(volumes, dtype=float)
+
+                            # 로컬 고저점 찾기
+                            def find_local_extrema(arr, order=5):
+                                local_min_idx, local_max_idx = [], []
+                                for i in range(order, len(arr) - order):
+                                    if all(arr[i] <= arr[i-j] for j in range(1, order+1)) and \
+                                       all(arr[i] <= arr[i+j] for j in range(1, order+1)):
+                                        local_min_idx.append(i)
+                                    if all(arr[i] >= arr[i-j] for j in range(1, order+1)) and \
+                                       all(arr[i] >= arr[i+j] for j in range(1, order+1)):
+                                        local_max_idx.append(i)
+                                return local_min_idx, local_max_idx
+
+                            local_min_idx, local_max_idx = find_local_extrema(closes_np, order=5)
+                            local_min_prices = lows_np[local_min_idx].tolist() if local_min_idx else []
+                            local_max_prices = highs_np[local_max_idx].tolist() if local_max_idx else []
+
+                            # 거래량 밀집 구간
+                            price_min, price_max = lows_np.min(), highs_np.max()
+                            num_bins = 30
+                            bin_edges = np.linspace(price_min, price_max, num_bins + 1)
+                            volume_profile = np.zeros(num_bins)
+                            for i, (c, v) in enumerate(zip(closes_np, volumes_np)):
+                                bin_idx = min(int((c - price_min) / (price_max - price_min) * num_bins), num_bins - 1)
+                                volume_profile[bin_idx] += v
+                            top_bins = np.argsort(volume_profile)[-8:]
+                            volume_levels = [float((bin_edges[b] + bin_edges[b+1]) / 2) for b in top_bins]
+
+                            # 이동평균선
+                            sma_levels = []
+                            for period in [20, 60, 120]:
+                                if len(closes_np) >= period:
+                                    sma_levels.append(float(np.mean(closes_np[-period:])))
+
+                            # 후보 분류
+                            support_candidates, resistance_candidates = [], []
+                            tolerance = 0.02
+                            for p in local_min_prices + volume_levels + sma_levels:
+                                if p < current_price * (1 - tolerance):
+                                    support_candidates.append(p)
+                            for p in local_max_prices + volume_levels + sma_levels:
+                                if p > current_price * (1 + tolerance):
+                                    resistance_candidates.append(p)
+
+                            # 클러스터링
+                            def cluster_levels(prices, tol=0.05):
+                                if not prices:
+                                    return []
+                                prices = sorted(prices)
+                                clusters = [[prices[0]]]
+                                for p in prices[1:]:
+                                    if clusters[-1] and (p - clusters[-1][-1]) / clusters[-1][-1] < tol:
+                                        clusters[-1].append(p)
+                                    else:
+                                        clusters.append([p])
+                                return [round(np.mean(c)) for c in clusters]
+
+                            support_levels = sorted(cluster_levels(support_candidates), reverse=True)[:2]
+                            resistance_levels = sorted(cluster_levels(resistance_candidates))[:2]
+
+                            # 최소 보장
+                            while len(support_levels) < 2:
+                                base = support_levels[-1] if support_levels else current_price
+                                support_levels.append(round(base * 0.9))
+                            while len(resistance_levels) < 2:
+                                base = resistance_levels[-1] if resistance_levels else current_price
+                                resistance_levels.append(round(base * 1.1))
+
+                            data["support_levels"] = support_levels
+                            data["resistance_levels"] = resistance_levels
+                        except Exception as e:
+                            print(f"[AI] Support/Resistance calculation error: {e}")
 
         if price_data:
             data["price"]["current"] = price_data.get("current", 0)
@@ -13562,9 +13770,13 @@ def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list
     stoch_k = safe_str(mom.get("stoch_k"))
     stoch_d = safe_str(mom.get("stoch_d"))
 
-    # 지지/저항
-    support = tech.get("support_levels", [])
-    resistance = tech.get("resistance_levels", [])
+    # 지지/저항 (4레벨)
+    support_levels = tech.get("support_levels", [])
+    resistance_levels = tech.get("resistance_levels", [])
+    support1 = f"{support_levels[0]:,}원" if support_levels else "-"
+    support2 = f"{support_levels[1]:,}원" if len(support_levels) > 1 else "-"
+    resistance1 = f"{resistance_levels[0]:,}원" if resistance_levels else "-"
+    resistance2 = f"{resistance_levels[1]:,}원" if len(resistance_levels) > 1 else "-"
 
     # 재무
     ratios = fin.get("ratios", {})
@@ -13630,9 +13842,11 @@ def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list
 ### 이동평균선
 SMA5: {sma5} | SMA20: {sma20} | SMA60: {sma60} | SMA120: {sma120} | SMA200: {sma200}
 
-### 지지/저항선
-- 지지선: {support}
-- 저항선: {resistance}
+### 지지/저항선 (4레벨 분석)
+- 1차 지지선: {support1} (현재가 근접, 단기 지지)
+- 2차 지지선: {support2} (장기 지지, 추세 전환 기준)
+- 1차 저항선: {resistance1} (현재가 근접, 단기 저항)
+- 2차 저항선: {resistance2} (중기 저항, 돌파 목표)
 
 ### 최근 뉴스 (수집됨)
 {news_text}
@@ -13673,8 +13887,9 @@ SMA5: {sma5} | SMA20: {sma20} | SMA60: {sma60} | SMA120: {sma120} | SMA200: {sma
 
 #### 5.1 주가 및 지지/저항
 - 현재가 {current:,}원, 최근 10일 주가 범위, 상승률
-- 지지선 {support} / 저항선 {resistance} 가격 명시
-- 향후 돌파/이탈 시나리오
+- 1차 지지 {support1} / 2차 지지 {support2} 가격 명시
+- 1차 저항 {resistance1} / 2차 저항 {resistance2} 가격 명시
+- 향후 돌파/이탈 시나리오 (각 레벨별 의미)
 
 #### 5.2 추세추종 지표 분석
 - ADX {adx} 해석 (25 미만=약한 추세, 25~50=강한 추세, 50 이상=매우 강한 추세)
