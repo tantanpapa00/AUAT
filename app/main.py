@@ -12698,7 +12698,8 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
         _ai_jobs[job_id]["progress"] = "🔍 종목 인식 중..."
 
         import anthropic
-        client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""), timeout=50.0)
+        # web_search tool 사용 시 Claude가 여러번 검색하므로 timeout 충분히 설정
+        client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""), timeout=180.0)
 
         # 종목 인식 시도
         detected_stock = await _detect_stock_from_message(message)
@@ -13536,12 +13537,14 @@ SMA5: {sma5} | SMA20: {sma20} | SMA60: {sma60} | SMA120: {sma120} | SMA200: {sma
 
 ---
 
-## 웹검색 필수 지시
+## 웹검색 지시 (최대 3회만 검색)
 
-반드시 아래 3가지를 웹검색하여 보고서에 반영하세요:
+아래 3가지 검색어로 **정확히 3회만** 웹검색하세요 (추가 검색 금지):
 1. "{name} 증권사 목표주가 2026" → 최소 2개 증권사의 투자의견/목표주가
 2. "{name} 최신 뉴스" → 최근 1주일 핵심 이슈 3-5개
 3. "{name} 실적 전망 2026" → 컨센서스 매출/영업이익 전망
+
+⚠️ 중요: 웹검색은 위 3회로 제한. 추가 검색 없이 수집된 정보로 보고서 작성.
 
 ## 보고서 구조 (반드시 이 순서와 형식으로 작성)
 
@@ -13638,7 +13641,7 @@ async def _generate_claude_report(name: str, code: str, market: str = "kr") -> d
 
         # Claude API 호출 (AsyncAnthropic 사용 - 이벤트 루프 블로킹 방지)
         print(f"[AI Report] Calling Claude API...")
-        client = anthropic.AsyncAnthropic(api_key=api_key, timeout=50.0)
+        client = anthropic.AsyncAnthropic(api_key=api_key, timeout=180.0)
 
         response = await client.messages.create(
             model="claude-haiku-4-5-20251001",
