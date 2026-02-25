@@ -12549,8 +12549,15 @@ async def download_ai_report_pdf(job_id: str):
                 except Exception as e:
                     print(f"[PDF] Chart error: {e}")
 
+    # 섹션 마커 제거 (PDF에 [SECTION_*] 노출 방지)
+    def clean_section_markers(txt):
+        markers = ['[SECTION_1_4]', '[SECTION_51]', '[SECTION_52]', '[SECTION_53]', '[SECTION_54_END]']
+        for m in markers:
+            txt = txt.replace(m, '')
+        return txt.strip()
+
     # 본문 (마크다운을 변환)
-    report_text = job.get("result", "")
+    report_text = clean_section_markers(job.get("result", ""))
 
     # 마크다운 볼드/이탤릭 변환 함수
     def convert_markdown(txt):
@@ -13216,6 +13223,8 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
     try:
         # 캔들 데이터 가져오기
         candles = []
+        is_us_market = market == "us"
+
         if market == "kr":
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(
@@ -13224,6 +13233,26 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
                 )
                 if resp.status_code == 200:
                     candles = resp.json() if isinstance(resp.json(), list) else []
+
+        elif market == "us":
+            # US 주식: yfinance 사용
+            try:
+                import yfinance as yf
+                ticker = yf.Ticker(code)
+                hist = ticker.history(period="2y")  # 최근 2년치
+                if not hist.empty:
+                    for idx, row in hist.iterrows():
+                        candles.append({
+                            "localDate": idx.strftime("%Y%m%d"),
+                            "openPrice": row["Open"],
+                            "highPrice": row["High"],
+                            "lowPrice": row["Low"],
+                            "closePrice": row["Close"],
+                            "accumulatedTradingVolume": int(row["Volume"])
+                        })
+                    print(f"[Chart] yfinance fetched {len(candles)} candles for {code}")
+            except Exception as e:
+                print(f"[Chart] yfinance error for {code}: {e}")
 
         if len(candles) < 20:
             print(f"[Chart] Not enough data for {code}: {len(candles)} candles")
@@ -13506,9 +13535,13 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
         # 최근 500일 표시 (2년치)
         display_len = min(500, len(closes))
 
-        # 한국주식 색상: 상승=빨강, 하락=파랑
-        UP_COLOR = '#FF3B30'
-        DOWN_COLOR = '#007AFF'
+        # 색상: 한국=상승빨강/하락파랑, 미국=상승초록/하락빨강
+        if is_us_market:
+            UP_COLOR = '#34C759'   # 미국: 상승=초록
+            DOWN_COLOR = '#FF3B30'  # 미국: 하락=빨강
+        else:
+            UP_COLOR = '#FF3B30'   # 한국: 상승=빨강
+            DOWN_COLOR = '#007AFF'  # 한국: 하락=파랑
 
         # ===== 차트 1: 캔들스틱 + 지지/저항선 + 거래량 =====
         fig1, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), height_ratios=[3, 1],
@@ -13552,7 +13585,8 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
         ax1.set_title(f'주가, 지지/저항 분석 - {name}({code})', fontsize=14, fontweight='bold')
         ax1.legend(loc='upper left', fontsize=8, ncol=2)  # 2열로 표시
         ax1.grid(True, alpha=0.3)
-        ax1.set_ylabel('주가(원)', fontsize=11)
+        price_label = '주가($)' if is_us_market else '주가(원)'
+        ax1.set_ylabel(price_label, fontsize=11)
         ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
 
         # 거래량 (색상 구분)
@@ -13614,7 +13648,7 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
             ax.plot(date_nums, sma200[-display_len:], label='SMA200', color='#FF3B30', linewidth=1.5)
 
         ax.set_title(f'추세추종 지표 분석 - {name}({code})', fontsize=14, fontweight='bold')
-        ax.set_ylabel('주가(원)', fontsize=11)
+        ax.set_ylabel(price_label, fontsize=11)
         ax.legend(loc='upper left', fontsize=10)
         ax.grid(True, alpha=0.3)
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
