@@ -538,10 +538,23 @@ def calc_adx(highs, lows, closes, period=14) -> Dict[str, Any]:
             dx_list.append(abs(pdi - mdi) / (pdi + mdi) * 100)
 
     if len(dx_list) < period:
-        return {'adx': None}
+        return {'adx': None, 'plus_di': None, 'minus_di': None}
 
     adx = sum(dx_list[-period:]) / period
-    return {'adx': round(adx, 2)}
+
+    # 마지막 +DI, -DI 계산
+    if atr > 0:
+        final_plus_di = (plus_di_sum / atr) * 100
+        final_minus_di = (minus_di_sum / atr) * 100
+    else:
+        final_plus_di = None
+        final_minus_di = None
+
+    return {
+        'adx': round(adx, 2),
+        'plus_di': round(final_plus_di, 2) if final_plus_di is not None else None,
+        'minus_di': round(final_minus_di, 2) if final_minus_di is not None else None
+    }
 
 
 def calc_cci(highs, lows, closes, period=20) -> Dict[str, Any]:

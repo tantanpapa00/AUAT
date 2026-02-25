@@ -12518,26 +12518,36 @@ async def download_ai_report_pdf(job_id: str):
             story.append(Spacer(1, 0.1*inch))
             continue
 
+        # 마크다운 볼드/이탤릭 변환 함수
+        def convert_markdown(txt):
+            txt = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', txt)
+            txt = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<i>\1</i>', txt)
+            return txt
+
         # 제목 처리
         if line.startswith('## '):
-            text = line[3:]
+            text = convert_markdown(line[3:])
             story.append(Paragraph(text, styles['KoreanHeading']))
         elif line.startswith('# '):
-            text = line[2:]
+            text = convert_markdown(line[2:])
             story.append(Paragraph(text, styles['KoreanHeading']))
         elif line.startswith('### '):
-            text = line[4:]
+            text = convert_markdown(line[4:])
+            story.append(Paragraph(f"<b>{text}</b>", styles['KoreanBody']))
+        elif line.startswith('#### '):
+            text = convert_markdown(line[5:])
             story.append(Paragraph(f"<b>{text}</b>", styles['KoreanBody']))
         elif line.startswith('- '):
-            text = line[2:]
-            text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
+            text = convert_markdown(line[2:])
+            story.append(Paragraph(f"• {text}", styles['KoreanBody']))
+        elif line.startswith('• '):
+            text = convert_markdown(line[2:])
             story.append(Paragraph(f"• {text}", styles['KoreanBody']))
         elif line.startswith('**') and line.endswith('**'):
             text = line[2:-2]
             story.append(Paragraph(f"<b>{text}</b>", styles['KoreanBody']))
         else:
-            text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', line)
-            text = re.sub(r'\*(.+?)\*', r'<i>\1</i>', text)
+            text = convert_markdown(line)
             story.append(Paragraph(text, styles['KoreanBody']))
 
     # PDF 빌드
@@ -12691,9 +12701,53 @@ async def request_ai_chat(
     return {"success": True, "job_id": job_id, "status": "pending"}
 
 
+def _clean_ai_response(text: str) -> str:
+    """Claude 내부 사고 문구 제거"""
+    import re as re_module
+
+    if not text:
+        return text
+
+    # 패턴 1: "웹검색을 통해..." 류의 사고 과정 문구 제거
+    text = re_module.sub(r'웹검색을 통해[^.]*\.', '', text)
+    text = re_module.sub(r'웹검색 결과를 바탕으로[^.]*\.', '', text)
+    text = re_module.sub(r'최신 정보를 수집하겠습니다[^.]*\.', '', text)
+    text = re_module.sub(r'보고서를 작성하겠습니다[^.]*\.', '', text)
+    text = re_module.sub(r'분석.*작성하겠습니다[^.]*\.', '', text)
+    text = re_module.sub(r'필요한 정보를 수집하겠습니다[^.]*\.', '', text)
+
+    # 패턴 2: 본문 시작 전 메타 문구 제거
+    lines = text.strip().split('\n')
+    start_idx = 0
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        # 본문 시작 패턴 감지
+        if (stripped.startswith('---') or
+            stripped.startswith('# ') or
+            stripped.startswith('## ') or
+            stripped.startswith('### ') or
+            stripped.startswith('**1.') or
+            stripped.startswith('1.') or
+            stripped.startswith('• ')):
+            start_idx = i
+            break
+
+    if start_idx > 0:
+        text = '\n'.join(lines[start_idx:])
+
+    # 앞뒤 빈줄/구분선 정리
+    text = text.strip()
+    while text.startswith('---'):
+        text = text[3:].strip()
+
+    return text
+
+
 async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
     """백그라운드에서 AI 채팅 실행 - 종목 인식 시 데이터 기반 분석 + 차트 생성"""
+    import time as time_module
     try:
+        t_start = time_module.time()
         _ai_jobs[job_id]["status"] = "running"
         _ai_jobs[job_id]["progress"] = "🔍 종목 인식 중..."
 
@@ -12703,6 +12757,8 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
 
         # 종목 인식 시도
         detected_stock = await _detect_stock_from_message(message)
+        t_detect = time_module.time()
+        print(f"[AI 시간] 종목 인식: {t_detect - t_start:.1f}초")
         chart_urls = None  # 차트 URL 초기화
 
         if detected_stock:
@@ -12715,9 +12771,18 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
             _ai_jobs[job_id]["progress"] = f"📊 {name} 데이터 수집 중..."
 
             # 데이터 수집 (_run_ai_analysis_job과 동일)
+            t_data_start = time_module.time()
             tech = await _collect_technical_data_for_ai(code, market)
+            t_tech = time_module.time()
+            print(f"[AI 시간] 기술 데이터 수집: {t_tech - t_data_start:.1f}초")
+
             fin = await _collect_financial_data_for_ai(code, market)
+            t_fin = time_module.time()
+            print(f"[AI 시간] 재무 데이터 수집: {t_fin - t_tech:.1f}초")
+
             news = await _collect_news_for_ai(code, name, market)
+            t_news = time_module.time()
+            print(f"[AI 시간] 뉴스 수집: {t_news - t_fin:.1f}초")
 
             # 기업 개요 수집 (FnGuide bizSummaryContent)
             company_summary = ""
@@ -12728,15 +12793,21 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
                     company_summary = company_data.get("description", "")
                 except Exception as e:
                     print(f"[AI Chat] Company summary error: {e}")
+            t_company = time_module.time()
+            print(f"[AI 시간] 기업 개요 수집: {t_company - t_news:.1f}초")
 
             # 차트 생성
             _ai_jobs[job_id]["progress"] = f"📈 {name} 차트 생성 중..."
             chart_urls = await _generate_ai_charts(code, name, market)
+            t_chart = time_module.time()
+            print(f"[AI 시간] 차트 생성: {t_chart - t_company:.1f}초")
 
             _ai_jobs[job_id]["progress"] = "🤖 AI가 분석 중..."
 
             # 데이터 기반 프롬프트 생성 (기업 개요 포함)
             data_prompt = _build_claude_prompt(name, code, tech, fin, news, company_summary)
+            t_prompt = time_module.time()
+            print(f"[AI 시간] 프롬프트 조립: {t_prompt - t_chart:.1f}초")
 
             # 사용자 질문 추가
             final_prompt = f"""{data_prompt}
@@ -12755,6 +12826,8 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
                 tools=[{"type": "web_search_20250305", "name": "web_search"}],
                 messages=[{"role": "user", "content": final_prompt}]
             )
+            t_claude = time_module.time()
+            print(f"[AI 시간] Claude API 호출: {t_claude - t_prompt:.1f}초")
         else:
             # 종목 미인식 → 일반 채팅
             _ai_jobs[job_id]["progress"] = "🤖 AI가 생각 중..."
@@ -12791,6 +12864,12 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
             elif hasattr(block, 'type') and block.type == 'tool_use':
                 # 웹검색 결과는 별도 처리 (Claude가 자동으로 결과 반영)
                 pass
+
+        # Claude 내부 사고 문구 제거
+        reply = _clean_ai_response(reply)
+
+        t_end = time_module.time()
+        print(f"[AI 시간] 전체 소요시간: {t_end - t_start:.1f}초")
 
         _ai_jobs[job_id]["status"] = "done"
         _ai_jobs[job_id]["result"] = reply
@@ -13318,10 +13397,26 @@ async def _collect_technical_data_for_ai(code: str, market: str = "kr") -> dict:
                             data["momentum_indicators"]["stoch_k"] = stoch[0]
                             data["momentum_indicators"]["stoch_d"] = stoch[1]
 
-                        # ADX
+                        # ADX (+ plus_di, minus_di)
                         adx_result = calc_adx(highs, lows, closes, 14)
                         if adx_result:
                             data["trend_indicators"]["adx"] = adx_result.get("adx")
+                            data["trend_indicators"]["plus_di"] = adx_result.get("plus_di")
+                            data["trend_indicators"]["minus_di"] = adx_result.get("minus_di")
+
+                        # SuperTrend 계산
+                        try:
+                            import numpy as np
+                            from .strategy_engine.indicators import calc_supertrend
+                            highs_np = np.array(highs, dtype=float)
+                            lows_np = np.array(lows, dtype=float)
+                            closes_np = np.array(closes, dtype=float)
+                            st_value, st_dir = calc_supertrend(highs_np, lows_np, closes_np, atr_len=10, factor=3.0)
+                            if len(st_value) > 0 and not np.isnan(st_value[-1]):
+                                data["trend_indicators"]["supertrend"] = round(st_value[-1], 0)
+                                data["trend_indicators"]["supertrend_dir"] = int(st_dir[-1])  # -1=bullish, 1=bearish
+                        except Exception as e:
+                            print(f"[AI] SuperTrend calculation error: {e}")
 
         if price_data:
             data["price"]["current"] = price_data.get("current", 0)
@@ -13449,7 +13544,14 @@ def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list
     plus_di = safe_str(trend.get("plus_di"))
     minus_di = safe_str(trend.get("minus_di"))
     rs = safe_str(trend.get("rs_score"))
-    supertrend = safe_str(trend.get("supertrend"))
+    supertrend_val = trend.get("supertrend")
+    supertrend_dir = trend.get("supertrend_dir")
+    # SuperTrend 표시: 값 + 방향
+    if supertrend_val is not None:
+        st_signal = "상승" if supertrend_dir == -1 else "하락" if supertrend_dir == 1 else ""
+        supertrend = f"{int(supertrend_val):,}원 ({st_signal})" if st_signal else f"{int(supertrend_val):,}원"
+    else:
+        supertrend = "-"
 
     # 모멘텀 지표
     mom = tech.get("momentum_indicators", {})
@@ -13612,6 +13714,8 @@ SMA5: {sma5} | SMA20: {sma20} | SMA60: {sma60} | SMA120: {sma120} | SMA200: {sma
 5. 시나리오별 가격대는 지지선/저항선 기반으로 구체적으로 제시하세요.
 6. 총 분량: **최소 3000자 이상** (충분히 상세하게).
 7. 마크다운 형식으로 작성 (# ## ### 헤딩, 테이블, 글머리 기호 사용).
+8. **절대 금지**: "웹검색을 통해", "정보를 수집하겠습니다", "보고서를 작성하겠습니다" 같은 작업 과정 설명을 포함하지 마세요.
+9. 보고서 본문(1. 핵심 요약)부터 바로 시작하세요. 서두/인사말 없이 바로 분석 내용으로 시작.
 """
     return prompt
 
