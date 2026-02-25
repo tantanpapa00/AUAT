@@ -14147,6 +14147,11 @@ def _fallback_split_report(text: str) -> dict:
 
 def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list, company_summary: str = "") -> str:
     """Claude에게 보낼 분석 프롬프트 구성 (StockEasy 수준)"""
+    from datetime import datetime, timezone, timedelta
+
+    # 오늘 날짜 (KST)
+    KST = timezone(timedelta(hours=9))
+    today = datetime.now(KST).strftime('%Y년 %m월 %d일')
 
     # 안전한 숫자 변환 함수
     def safe_int(v, default=0):
@@ -14242,6 +14247,8 @@ def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list
     company_text = company_summary if company_summary else "기업 개요 정보 없음"
 
     prompt = f"""당신은 15년 경력의 전문 증권 애널리스트입니다.
+오늘 날짜: {today}
+
 {name}({code})의 종합 분석 보고서를 아래 데이터와 웹검색을 기반으로 작성하세요.
 
 ## 제공 데이터
