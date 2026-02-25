@@ -12482,6 +12482,9 @@ async def download_ai_report_pdf(job_id: str):
         styles.add(ParagraphStyle(name='KoreanBody', parent=styles['Normal']))
         styles.add(ParagraphStyle(name='KoreanHeading', parent=styles['Heading2']))
 
+    from reportlab.platypus import HRFlowable, Table, TableStyle
+    from reportlab.lib import colors
+
     story = []
 
     # 제목
@@ -12490,65 +12493,157 @@ async def download_ai_report_pdf(job_id: str):
     stock_code = stock_info.get("code", "")
     title = f"{stock_name}({stock_code}) AI 분석 리포트"
     story.append(Paragraph(title, styles['KoreanTitle']))
-    story.append(Spacer(1, 0.5*inch))
+    story.append(Spacer(1, 0.3*inch))
 
-    # 차트 이미지 추가
+    # 차트 이미지 준비 (나중에 기술적 분석 섹션에 삽입)
     charts = job.get("charts", {})
+    chart_images = []
     for chart_key, chart_path in charts.items():
         if chart_path:
             full_path = os.path.join("/app", chart_path.lstrip("/"))
             if os.path.exists(full_path):
                 try:
                     img = RLImage(full_path, width=6*inch, height=3*inch)
-                    story.append(img)
-                    story.append(Spacer(1, 0.3*inch))
+                    chart_images.append(img)
                 except Exception as e:
                     print(f"[PDF] Chart error: {e}")
 
-    story.append(Spacer(1, 0.3*inch))
-
-    # 본문 (마크다운을 간단히 변환)
+    # 본문 (마크다운을 변환)
     report_text = job.get("result", "")
 
-    # 마크다운 → 간단한 HTML 변환
+    # 마크다운 볼드/이탤릭 변환 함수
+    def convert_markdown(txt):
+        txt = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', txt)
+        txt = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<i>\1</i>', txt)
+        return txt
+
+    # 테이블 파싱 함수
+    def parse_markdown_table(table_lines):
+        """마크다운 테이블을 ReportLab Table로 변환"""
+        rows = []
+        for tl in table_lines:
+            tl = tl.strip()
+            if tl.startswith('|') and tl.endswith('|'):
+                cells = [c.strip() for c in tl[1:-1].split('|')]
+                # 구분선 무시
+                if all(c.replace('-', '').replace(':', '') == '' for c in cells):
+                    continue
+                rows.append(cells)
+        if not rows:
+            return None
+        # 테이블 생성
+        table_data = []
+        for row in rows:
+            table_data.append([Paragraph(convert_markdown(c), styles['KoreanBody']) for c in row])
+        t = Table(table_data, repeatRows=1)
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Korean' if font_registered else 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ]))
+        return t
+
     lines = report_text.split('\n')
-    for line in lines:
-        line = line.strip()
+    i = 0
+    charts_inserted = False
+
+    while i < len(lines):
+        line = lines[i].strip()
+
+        # 빈 줄
         if not line:
-            story.append(Spacer(1, 0.1*inch))
+            story.append(Spacer(1, 0.08*inch))
+            i += 1
             continue
 
-        # 마크다운 볼드/이탤릭 변환 함수
-        def convert_markdown(txt):
-            txt = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', txt)
-            txt = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<i>\1</i>', txt)
-            return txt
+        # 수평선 (---, ***, ___)
+        if line in ['---', '***', '___'] or (len(line) >= 3 and all(c == '-' for c in line)):
+            story.append(HRFlowable(width="100%", thickness=1, color=colors.grey, spaceAfter=10, spaceBefore=10))
+            i += 1
+            continue
 
-        # 제목 처리
+        # 테이블 감지 (|로 시작하는 줄)
+        if line.startswith('|'):
+            table_lines = []
+            while i < len(lines) and lines[i].strip().startswith('|'):
+                table_lines.append(lines[i])
+                i += 1
+            table = parse_markdown_table(table_lines)
+            if table:
+                story.append(table)
+                story.append(Spacer(1, 0.15*inch))
+            continue
+
+        # 제목 처리 (## 1. 제목 형태)
         if line.startswith('## '):
             text = convert_markdown(line[3:])
+            story.append(Spacer(1, 0.15*inch))
             story.append(Paragraph(text, styles['KoreanHeading']))
+            story.append(Spacer(1, 0.08*inch))
+
+            # "기술적 분석" 섹션이면 차트 삽입
+            if not charts_inserted and ('기술적 분석' in text or '기술적분석' in text or '5.' in text):
+                for img in chart_images:
+                    story.append(img)
+                    story.append(Spacer(1, 0.2*inch))
+                charts_inserted = True
+
+            i += 1
+            continue
         elif line.startswith('# '):
             text = convert_markdown(line[2:])
+            story.append(Spacer(1, 0.15*inch))
             story.append(Paragraph(text, styles['KoreanHeading']))
+            story.append(Spacer(1, 0.08*inch))
+            i += 1
+            continue
         elif line.startswith('### '):
             text = convert_markdown(line[4:])
             story.append(Paragraph(f"<b>{text}</b>", styles['KoreanBody']))
+            i += 1
+            continue
         elif line.startswith('#### '):
             text = convert_markdown(line[5:])
             story.append(Paragraph(f"<b>{text}</b>", styles['KoreanBody']))
-        elif line.startswith('- '):
+            i += 1
+            continue
+
+        # 리스트 항목
+        if line.startswith('- ') or line.startswith('* '):
             text = convert_markdown(line[2:])
             story.append(Paragraph(f"• {text}", styles['KoreanBody']))
-        elif line.startswith('• '):
+            i += 1
+            continue
+        if line.startswith('• '):
             text = convert_markdown(line[2:])
             story.append(Paragraph(f"• {text}", styles['KoreanBody']))
-        elif line.startswith('**') and line.endswith('**'):
+            i += 1
+            continue
+
+        # 전체가 볼드인 줄
+        if line.startswith('**') and line.endswith('**') and line.count('**') == 2:
             text = line[2:-2]
             story.append(Paragraph(f"<b>{text}</b>", styles['KoreanBody']))
-        else:
-            text = convert_markdown(line)
-            story.append(Paragraph(text, styles['KoreanBody']))
+            i += 1
+            continue
+
+        # 일반 텍스트
+        text = convert_markdown(line)
+        story.append(Paragraph(text, styles['KoreanBody']))
+        i += 1
+
+    # 차트가 삽입되지 않았다면 마지막에 추가
+    if not charts_inserted and chart_images:
+        story.append(Spacer(1, 0.3*inch))
+        story.append(Paragraph("차트", styles['KoreanHeading']))
+        for img in chart_images:
+            story.append(img)
+            story.append(Spacer(1, 0.2*inch))
 
     # PDF 빌드
     doc.build(story)
@@ -13072,11 +13167,13 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
             """
             StockEasy 방식의 지지/저항 계산 (피보나치 되돌림 기반)
 
-            핵심 로직:
-            - 1차 지지: 피보나치 38.2% 되돌림
-            - 2차 지지: 스윙 로우 (거래량 밀집 보정)
-            - 1차 저항: 로컬 고점
-            - 2차 저항: 스윙 하이 근처
+            핵심 로직 (레벨 분산 강제):
+            - 1차 지지: 피보나치 38.2% 되돌림 (현재가 가까이)
+            - 2차 지지: 스윙 로우 (현재가 멀리)
+            - 1차 저항: 로컬 고점 (현재가 가까이)
+            - 2차 저항: 스윙 하이 (현재가 멀리)
+
+            1차와 2차가 10% 이내로 가까우면 1차를 23.6%로 조정
             """
             import numpy as np
 
@@ -13095,10 +13192,8 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
             if swing_high_idx > 20:
                 search_start = max(0, swing_high_idx - 250)
                 swing_low = float(lows_np[search_start:swing_high_idx].min())
-                swing_low_idx = search_start + int(np.argmin(lows_np[search_start:swing_high_idx]))
             else:
                 swing_low = float(lows_np.min())
-                swing_low_idx = int(np.argmin(lows_np))
 
             # ============================================
             # 2단계: 피보나치 되돌림 계산
@@ -13112,12 +13207,10 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
                        [round(current_price * 1.08), round(current_price * 1.15)]
 
             fib_382 = swing_high - fib_range * 0.382  # 38.2% 되돌림
-            fib_500 = swing_high - fib_range * 0.500  # 50.0% 되돌림
-            fib_618 = swing_high - fib_range * 0.618  # 61.8% 되돌림
             fib_236 = swing_high - fib_range * 0.236  # 23.6% 되돌림
 
             # ============================================
-            # 3단계: 거래량 밀집 구간 찾기
+            # 3단계: 거래량 밀집 구간으로 스윙 로우 보정
             # ============================================
             price_min, price_max = float(lows_np.min()), float(highs_np.max())
             num_bins = 40
@@ -13132,114 +13225,69 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
             top_volume_bins = np.argsort(volume_profile)[-8:]
             volume_nodes = sorted([float((bin_edges[b] + bin_edges[b + 1]) / 2) for b in top_volume_bins])
 
-            # ============================================
-            # 4단계: 로컬 고점/저점 찾기
-            # ============================================
-            order = 10
-            local_highs = []
-            local_lows = []
-
-            for i in range(order, len(highs_np) - order):
-                if all(highs_np[i] >= highs_np[i - j] for j in range(1, order + 1)) and \
-                   all(highs_np[i] >= highs_np[i + j] for j in range(1, order + 1)):
-                    local_highs.append(float(highs_np[i]))
-                if all(lows_np[i] <= lows_np[i - j] for j in range(1, order + 1)) and \
-                   all(lows_np[i] <= lows_np[i + j] for j in range(1, order + 1)):
-                    local_lows.append(float(lows_np[i]))
-
-            # ============================================
-            # 5단계: 지지/저항 후보 수집 (가중치 포함)
-            # ============================================
-            support_candidates = []  # (가격, 가중치)
-            resistance_candidates = []
-
-            # --- 지지 후보 ---
-            # 피보나치 38.2% (가장 중요)
-            if fib_382 < current_price * 0.98:
-                support_candidates.append((fib_382, 3.0))
-            # 피보나치 50%
-            if fib_500 < current_price * 0.98:
-                support_candidates.append((fib_500, 2.0))
-            # 피보나치 61.8%
-            if fib_618 < current_price * 0.98:
-                support_candidates.append((fib_618, 2.0))
-            # 스윙 로우 (거래량 밀집 보정)
+            # 스윙 로우를 거래량 밀집 노드로 보정 (5% 이내)
             swing_low_adjusted = swing_low
             for vn in volume_nodes:
                 if abs(vn - swing_low) / swing_low < 0.05:
                     swing_low_adjusted = vn
                     break
-            if swing_low_adjusted < current_price * 0.98:
-                support_candidates.append((swing_low_adjusted, 2.5))
-            # 거래량 밀집 (현재가 아래)
-            for vn in volume_nodes:
-                if vn < current_price * 0.97:
-                    support_candidates.append((vn, 1.5))
-            # 로컬 저점
-            for ll in local_lows:
-                if ll < current_price * 0.97:
-                    support_candidates.append((ll, 1.0))
-
-            # --- 저항 후보 ---
-            # 로컬 고점 (현재가 위)
-            for lh in local_highs:
-                if lh > current_price * 1.02:
-                    resistance_candidates.append((lh, 2.0))
-            # 스윙 하이
-            if swing_high > current_price * 1.02:
-                resistance_candidates.append((swing_high, 2.5))
-            # 피보나치 23.6%
-            if fib_236 > current_price * 1.02:
-                resistance_candidates.append((fib_236, 2.0))
-            # 거래량 밀집 (현재가 위)
-            for vn in volume_nodes:
-                if vn > current_price * 1.02:
-                    resistance_candidates.append((vn, 1.5))
 
             # ============================================
-            # 6단계: 클러스터링 + 가중치 기반 선택
+            # 4단계: 로컬 고점 찾기 (1차 저항용)
             # ============================================
-            def select_best_levels(candidates, num, ascending=True):
-                if not candidates:
-                    return []
-                # 가격순 정렬
-                candidates = sorted(candidates, key=lambda x: x[0])
-                # 3% 이내 클러스터링
-                clusters = [[candidates[0]]]
-                for c in candidates[1:]:
-                    if clusters[-1] and (c[0] - clusters[-1][-1][0]) / clusters[-1][-1][0] < 0.03:
-                        clusters[-1].append(c)
-                    else:
-                        clusters.append([c])
-                # 각 클러스터: 가중 평균 가격 + 총 가중치
-                cluster_results = []
-                for cluster in clusters:
-                    total_weight = sum(c[1] for c in cluster)
-                    weighted_price = sum(c[0] * c[1] for c in cluster) / total_weight
-                    cluster_results.append((round(weighted_price), total_weight))
-                # 가중치 높은 순 정렬
-                cluster_results.sort(key=lambda x: x[1], reverse=True)
-                selected = [r[0] for r in cluster_results[:num]]
-                # 현재가와의 거리순 재정렬
-                selected.sort(reverse=not ascending)
-                return selected
+            order = 10
+            local_highs = []
 
-            support_levels = select_best_levels(
-                [(p, w) for p, w in support_candidates if p < current_price * 0.97],
-                num_levels, ascending=False
-            )
-            resistance_levels = select_best_levels(
-                [(p, w) for p, w in resistance_candidates if p > current_price * 1.02],
-                num_levels, ascending=True
-            )
+            for i in range(order, len(highs_np) - order):
+                if all(highs_np[i] >= highs_np[i - j] for j in range(1, order + 1)) and \
+                   all(highs_np[i] >= highs_np[i + j] for j in range(1, order + 1)):
+                    local_highs.append(float(highs_np[i]))
 
-            # 최소 보장
-            while len(support_levels) < num_levels:
-                base = support_levels[-1] if support_levels else current_price
-                support_levels.append(round(base * 0.85))
-            while len(resistance_levels) < num_levels:
-                base = resistance_levels[-1] if resistance_levels else current_price
-                resistance_levels.append(round(base * 1.15))
+            # ============================================
+            # 5단계: 지지선 결정 (레벨 분산 강제)
+            # ============================================
+            # 1차 지지: 피보나치 38.2% (현재가 가까이)
+            support_1 = round(fib_382)
+            # 2차 지지: 스윙 로우 (현재가 멀리)
+            support_2 = round(swing_low_adjusted)
+
+            # 예외: 1차와 2차가 너무 가까우면(10% 이내) 1차를 23.6%로 올림
+            if support_2 > 0 and abs(support_1 - support_2) / support_2 < 0.10:
+                support_1 = round(fib_236)
+
+            # 1차가 현재가보다 높으면 현재가*0.95로 조정
+            if support_1 >= current_price:
+                support_1 = round(current_price * 0.95)
+
+            # 1차가 2차보다 낮으면 스왑 (1차는 현재가 가까이 원칙)
+            if support_1 < support_2:
+                support_1, support_2 = support_2, support_1
+
+            support_levels = [support_1, support_2]
+
+            # ============================================
+            # 6단계: 저항선 결정 (레벨 분산 강제)
+            # ============================================
+            # 1차 저항: 현재가 위 로컬 고점 중 가장 가까운 것
+            local_highs_above = sorted([h for h in local_highs if h > current_price * 1.02])
+            resistance_1 = round(local_highs_above[0]) if local_highs_above else round(fib_236)
+
+            # 2차 저항: 스윙 하이
+            resistance_2 = round(swing_high)
+
+            # 예외: 1차와 2차가 너무 가까우면(10% 이내) 2차를 스윙하이*1.05로 올림
+            if resistance_2 > 0 and abs(resistance_2 - resistance_1) / resistance_1 < 0.10:
+                resistance_2 = round(swing_high * 1.05)
+
+            # 1차가 현재가보다 낮으면 현재가*1.05로 조정
+            if resistance_1 <= current_price:
+                resistance_1 = round(current_price * 1.05)
+
+            # 1차가 2차보다 높으면 스왑 (1차는 현재가 가까이 원칙)
+            if resistance_1 > resistance_2:
+                resistance_1, resistance_2 = resistance_2, resistance_1
+
+            resistance_levels = [resistance_1, resistance_2]
 
             return support_levels, resistance_levels
 
