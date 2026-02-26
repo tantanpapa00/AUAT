@@ -33,6 +33,7 @@
 
 /* ===== 라이트 테마 ===== */
 :root[data-theme="light"] {
+    /* 기본 색상 */
     --primary: #DC2626;
     --primary-dark: #B91C1C;
     --primary-light: #EF4444;
@@ -40,25 +41,44 @@
     --danger: #DC2626;
     --warning: #D97706;
     --info: #2563EB;
-    --bg-dark: #F3F4F6;
-    --bg-card: #FFFFFF;
-    --bg-card2: #F9FAFB;
-    --bg-light: #E5E7EB;
-    --card-bg: #FFFFFF;
-    --text-primary: #111827;
-    --text-secondary: #4B5563;
-    --text-muted: #9CA3AF;
-    --border: #D1D5DB;
-    /* 추가 라이트 테마 변수 */
-    --bg-hover: #E5E7EB;
-    --modal-overlay: rgba(0, 0, 0, 0.4);
-    --scrollbar-bg: #E5E7EB;
-    --scrollbar-thumb: #9CA3AF;
-    --input-bg: #FFFFFF;
-    --table-header-bg: #F3F4F6;
-    --table-row-hover: #F3F4F6;
-    --chart-grid: #E5E7EB;
-    --chart-text: #4B5563;
+
+    /* 배경 색상 - 밝은 회색 톤 */
+    --bg-dark: #f0f1f5;
+    --bg-card: #ffffff;
+    --bg-card2: #f5f6fa;
+    --bg-light: #e8e9ed;
+    --card-bg: #ffffff;
+    --bg-hover: #e8e9ed;
+    --bg-primary: #f0f1f5;
+
+    /* 텍스트 색상 - 높은 대비 */
+    --text-primary: #111111;
+    --text-secondary: #444444;
+    --text-muted: #777777;
+
+    /* 테두리 */
+    --border: #c8cad0;
+    --border-color: #c8cad0;
+
+    /* 기타 UI 요소 */
+    --modal-overlay: rgba(0, 0, 0, 0.5);
+    --scrollbar-bg: #e0e1e5;
+    --scrollbar-thumb: #a0a3a8;
+    --input-bg: #ffffff;
+    --table-header-bg: #e8e9ed;
+    --table-row-hover: #f0f1f5;
+    --chart-grid: #d0d1d5;
+    --chart-text: #333333;
+
+    /* placeholder 색상 */
+    --placeholder-color: #888888;
+}
+
+/* 라이트 테마 placeholder 스타일 */
+:root[data-theme="light"] input::placeholder,
+:root[data-theme="light"] textarea::placeholder {
+    color: #888888 !important;
+    opacity: 1;
 }
 
 * {
