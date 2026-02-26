@@ -5190,7 +5190,7 @@ async def get_etf_chart(code: str, period: str = "3m") -> dict:
     데이터 소스: 네이버 fchart (국내 주식과 동일)
     """
     # 국내 주식 차트 API 재활용
-    return await get_stock_chart_kr(code, period)
+    return await get_chart_data(code, period)
 
 
 async def get_etf_performance(code: str) -> dict:
