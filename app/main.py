@@ -12923,9 +12923,8 @@ async def download_ai_report_pdf(job_id: str):
         story.append(Paragraph(text, styles['KoreanBody']))
         i += 1
 
-    # 5. 기술적 분석 — 항상 섹션별 차트+텍스트 삽입
+    # 5. 기술적 분석 — 항상 섹션별 차트+텍스트 삽입 (제목은 AI 텍스트에 포함됨)
     story.append(Spacer(1, 0.2*inch))
-    story.append(Paragraph("5. 기술적 분석", styles['KoreanHeading']))
 
     # 5.1 주가 및 지지/저항 → 차트1
     insert_section_with_chart(sections.get('section_51'), 'price_chart', '5.1 주가 및 지지/저항선 분석')
@@ -14126,14 +14125,19 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
                 else:
                     adx_series.append(sum(dx_list[i-adx_period+1:i+1]) / adx_period)
 
-        # ADX/DI 그리기 (데이터가 충분한 경우)
-        if len(adx_series) >= display_len:
-            adx_display = adx_series[-display_len:]
-            plus_di_display = plus_di_series[-display_len:]
-            minus_di_display = minus_di_series[-display_len:]
+        # ADX/DI 그리기 (최소 30일 이상이면 표시)
+        min_adx_len = 30
+        if len(adx_series) >= min_adx_len:
+            # 표시할 데이터 길이 결정 (ADX 길이와 display_len 중 작은 값)
+            actual_display = min(len(adx_series), display_len)
+            adx_display = adx_series[-actual_display:]
+            plus_di_display = plus_di_series[-actual_display:]
+            minus_di_display = minus_di_series[-actual_display:]
+            # date_nums도 맞춤
+            date_nums_adx = date_nums[-actual_display:] if len(date_nums) >= actual_display else date_nums
 
             # ADX 라인 (유효한 값만)
-            valid_adx = [(d, a) for d, a in zip(date_nums, adx_display) if a is not None]
+            valid_adx = [(d, a) for d, a in zip(date_nums_adx, adx_display) if a is not None]
             if valid_adx:
                 current_adx = valid_adx[-1][1] if valid_adx else 0
                 ax_adx.plot([x[0] for x in valid_adx], [x[1] for x in valid_adx],
@@ -14142,18 +14146,18 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
             # +DI (초록) / -DI (빨강)
             if plus_di_display:
                 current_plus = plus_di_display[-1] if plus_di_display else 0
-                ax_adx.plot(date_nums, plus_di_display, color='#34C759', linewidth=1.5,
+                ax_adx.plot(date_nums_adx, plus_di_display, color='#34C759', linewidth=1.5,
                            label=f'+DI ({current_plus:.1f})')
             if minus_di_display:
                 current_minus = minus_di_display[-1] if minus_di_display else 0
-                ax_adx.plot(date_nums, minus_di_display, color='#FF3B30', linewidth=1.5,
+                ax_adx.plot(date_nums_adx, minus_di_display, color='#FF3B30', linewidth=1.5,
                            label=f'-DI ({current_minus:.1f})')
 
             # ADX 기준선 (25=추세 발생, 50=강한 추세)
             ax_adx.axhline(y=25, color='gray', linestyle='--', linewidth=0.8, alpha=0.6)
             ax_adx.axhline(y=50, color='gray', linestyle='--', linewidth=0.8, alpha=0.6)
-            ax_adx.text(date_nums[-1] + 1, 25, '25', fontsize=8, color='gray', va='center')
-            ax_adx.text(date_nums[-1] + 1, 50, '50', fontsize=8, color='gray', va='center')
+            ax_adx.text(date_nums_adx[-1] + 1, 25, '25', fontsize=8, color='gray', va='center')
+            ax_adx.text(date_nums_adx[-1] + 1, 50, '50', fontsize=8, color='gray', va='center')
 
             # Y축 범위
             all_values = [v for v in adx_display + plus_di_display + minus_di_display if v is not None]
@@ -14162,8 +14166,8 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
             else:
                 ax_adx.set_ylim(0, 60)
         else:
-            ax_adx.text(0.5, 0.5, 'ADX/DI 데이터 부족', transform=ax_adx.transAxes,
-                       ha='center', va='center', fontsize=12, color='gray')
+            ax_adx.text(0.5, 0.5, f'ADX/DI 데이터 부족 (최소 {min_adx_len}일 필요, 현재 {len(adx_series)}일)',
+                       transform=ax_adx.transAxes, ha='center', va='center', fontsize=10, color='gray')
             ax_adx.set_ylim(0, 60)
 
         ax_adx.set_ylabel('ADX / DI', fontsize=11)
@@ -14607,15 +14611,39 @@ async def _collect_technical_data_for_ai(code: str, market: str = "kr") -> dict:
                         data["trend_indicators"]["plus_di"] = adx_result.get("plus_di")
                         data["trend_indicators"]["minus_di"] = adx_result.get("minus_di")
 
-                    # 지지/저항 (간단 계산)
+                    # 지지/저항 (피보나치 기반, 현재가 기준 분류)
                     recent_high = max(highs[-60:]) if len(highs) >= 60 else max(highs)
                     recent_low = min(lows[-60:]) if len(lows) >= 60 else min(lows)
                     fib_range = recent_high - recent_low
-                    fib_382 = recent_high - fib_range * 0.382
-                    fib_618 = recent_high - fib_range * 0.618
 
-                    data["support_levels"] = [round(fib_382, 2), round(fib_618, 2)]
-                    data["resistance_levels"] = [round(recent_high, 2), round(recent_high * 1.05, 2)]
+                    # 피보나치 레벨 계산 (저점 기준)
+                    fib_236 = recent_low + fib_range * 0.236
+                    fib_382 = recent_low + fib_range * 0.382
+                    fib_500 = recent_low + fib_range * 0.500
+                    fib_618 = recent_low + fib_range * 0.618
+                    fib_786 = recent_low + fib_range * 0.786
+
+                    # 모든 레벨
+                    all_levels = [recent_low, fib_236, fib_382, fib_500, fib_618, fib_786, recent_high]
+
+                    # 현재가 기준으로 지지(아래)/저항(위) 분류
+                    support = sorted([lvl for lvl in all_levels if lvl < current_price], reverse=True)
+                    resistance = sorted([lvl for lvl in all_levels if lvl > current_price])
+
+                    # 가장 가까운 2개씩 선택 (없으면 기본값)
+                    if len(support) >= 2:
+                        data["support_levels"] = [round(support[0], 2), round(support[1], 2)]
+                    elif len(support) == 1:
+                        data["support_levels"] = [round(support[0], 2), round(support[0] * 0.95, 2)]
+                    else:
+                        data["support_levels"] = [round(recent_low, 2), round(recent_low * 0.95, 2)]
+
+                    if len(resistance) >= 2:
+                        data["resistance_levels"] = [round(resistance[0], 2), round(resistance[1], 2)]
+                    elif len(resistance) == 1:
+                        data["resistance_levels"] = [round(resistance[0], 2), round(resistance[0] * 1.05, 2)]
+                    else:
+                        data["resistance_levels"] = [round(recent_high, 2), round(recent_high * 1.05, 2)]
 
                     print(f"[AI] US technical data collected for {code}: price=${current_price}")
 
