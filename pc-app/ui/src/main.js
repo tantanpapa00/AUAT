@@ -7104,7 +7104,7 @@ function renderUsHeatmap(heatmap) {
             const symPx = Math.max(Math.min(Math.round(minDim * 0.28), 36), 3);
             const pctPx = Math.max(Math.round(symPx * 0.72), 3);
 
-            html += `<div class="hm-cell" style="left:${s.x.toFixed(1)}px;top:${s.y.toFixed(1)}px;width:${s.w.toFixed(1)}px;height:${s.h.toFixed(1)}px;background:${bg}" title="${tooltip}" data-minw="${s.w}" data-minh="${s.h}">`;
+            html += `<div class="hm-cell" style="left:${s.x.toFixed(1)}px;top:${s.y.toFixed(1)}px;width:${s.w.toFixed(1)}px;height:${s.h.toFixed(1)}px;background:${bg}" title="${tooltip}" data-minw="${s.w}" data-minh="${s.h}" data-ticker="${s.symbol}" data-name="${(s.name || s.symbol).replace(/"/g, '&quot;')}">`;
             html += `<span class="hm-sym" style="font-size:${symPx}px">${s.symbol}</span>`;
             html += `<span class="hm-pct" style="font-size:${pctPx}px">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</span>`;
             html += '</div>';
@@ -7114,6 +7114,18 @@ function renderUsHeatmap(heatmap) {
     grid.style.width = W + 'px';
     grid.style.height = H + 'px';
     grid.innerHTML = html;
+
+    // === 히트맵 종목 클릭 이벤트 (이벤트 위임) ===
+    grid.addEventListener('click', (e) => {
+        const cell = e.target.closest('.hm-cell');
+        if (cell) {
+            const ticker = cell.dataset.ticker;
+            const name = cell.dataset.name || ticker;
+            if (ticker) {
+                openStockDetail(ticker, 'us');
+            }
+        }
+    });
 
     // === 줌 & 패닝 ===
     const newWrap = wrap.cloneNode(false);
