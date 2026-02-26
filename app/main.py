@@ -12386,8 +12386,8 @@ async def get_ai_usage(
 _ai_jobs = {}  # {job_id: {"status": "pending"|"running"|"done"|"error", ...}}
 
 def _cleanup_old_jobs():
-    """30분 지난 작업 삭제"""
-    cutoff = datetime.now(KST) - timedelta(minutes=30)
+    """24시간 지난 작업 삭제 (PDF 다운로드 여유 확보)"""
+    cutoff = datetime.now(KST) - timedelta(hours=24)
     expired = [k for k, v in _ai_jobs.items() if v.get("created_at", datetime.now(KST)) < cutoff]
     for k in expired:
         del _ai_jobs[k]
@@ -14693,44 +14693,64 @@ async def _collect_etf_data_for_ai(code: str) -> dict:
                 result["low_52w"] = sise_data.get("low52wPrice", 0)
                 result["volume"] = sise_data.get("accumulatedTradingVolume", 0)
 
-            # 3. ETF 정보 조회 시도 (다양한 엔드포인트)
-            etf_endpoints = [
-                f"https://m.stock.naver.com/api/stock/{code}/etf",
-                f"https://api.stock.naver.com/etf/{code}/basic",
-            ]
-            for endpoint in etf_endpoints:
-                try:
-                    etf_resp = await client.get(endpoint, headers={"User-Agent": "Mozilla/5.0"})
-                    if etf_resp.status_code == 200 and "html" not in etf_resp.text.lower()[:100]:
-                        etf_data = etf_resp.json()
-                        if isinstance(etf_data, dict):
-                            result["nav"] = etf_data.get("nav", 0) or etf_data.get("iNav", 0)
-                            result["nav_diff_pct"] = etf_data.get("navDiffRate", 0) or etf_data.get("premiumRate", 0)
-                            result["total_expense"] = etf_data.get("totalExpenseRatio", 0) or etf_data.get("ter", 0)
-                            result["aum"] = etf_data.get("netAssetTotalAmount", 0) or etf_data.get("aum", 0)
-                            result["tracking_index"] = etf_data.get("indexName", "") or etf_data.get("benchmarkName", "")
-                            result["manager"] = etf_data.get("companyName", "") or etf_data.get("assetManager", "")
-                            result["dividend_yield"] = etf_data.get("dividendYield", 0)
+            # 3. ETF 정보 조회 (integration API 사용 - 가장 신뢰성 높음)
+            try:
+                int_resp = await client.get(
+                    f"https://m.stock.naver.com/api/stock/{code}/integration",
+                    headers={"User-Agent": "Mozilla/5.0"}
+                )
+                if int_resp.status_code == 200:
+                    int_data = int_resp.json()
+                    etf_ind = int_data.get("etfKeyIndicator", {})
 
-                            # 수익률
-                            result["returns"] = {
-                                "1m": etf_data.get("return1m", 0),
-                                "3m": etf_data.get("return3m", 0),
-                                "6m": etf_data.get("return6m", 0),
-                                "1y": etf_data.get("return1y", 0),
-                                "ytd": etf_data.get("returnYtd", 0),
-                            }
+                    if etf_ind:
+                        # 운용사
+                        result["manager"] = etf_ind.get("issuerName", "")
 
-                            # 편입종목
-                            holdings = etf_data.get("constituents", []) or etf_data.get("holdings", [])
-                            if holdings:
-                                result["holdings"] = [
-                                    {"name": h.get("itemName", "") or h.get("name", ""), "weight": h.get("weight", 0)}
-                                    for h in holdings[:10]
-                                ]
-                            break
-                except Exception:
-                    continue
+                        # NAV (문자열 → 숫자)
+                        nav_val = etf_ind.get("nav", 0)
+                        if isinstance(nav_val, str):
+                            nav_val = nav_val.replace(",", "")
+                        try:
+                            result["nav"] = float(nav_val)
+                        except:
+                            result["nav"] = 0
+
+                        # 괴리율
+                        dev_sign = etf_ind.get("deviationSign", "")
+                        dev_rate = etf_ind.get("deviationRate", 0) or 0
+                        result["nav_diff_pct"] = -dev_rate if dev_sign == "-" else dev_rate
+
+                        # 총보수
+                        result["total_expense"] = etf_ind.get("totalFee", 0) or 0
+
+                        # 순자산총액 (문자열 → 숫자, 억원 단위)
+                        aum_str = etf_ind.get("totalNav", "0")
+                        if isinstance(aum_str, str):
+                            # "18조 5,738억" → 185738
+                            import re
+                            aum_str = aum_str.replace(",", "").replace(" ", "")
+                            jo_match = re.search(r'(\d+)조', aum_str)
+                            eok_match = re.search(r'(\d+)억', aum_str)
+                            jo = int(jo_match.group(1)) if jo_match else 0
+                            eok = int(eok_match.group(1)) if eok_match else 0
+                            result["aum"] = jo * 10000 + eok
+                        else:
+                            result["aum"] = aum_str or 0
+
+                        # 배당수익률
+                        result["dividend_yield"] = etf_ind.get("dividendYieldTtm", 0) or 0
+
+                        # 수익률
+                        result["returns"] = {
+                            "1m": etf_ind.get("returnRate1m", 0) or 0,
+                            "3m": etf_ind.get("returnRate3m", 0) or 0,
+                            "6m": 0,  # integration API에 없음
+                            "1y": etf_ind.get("returnRate1y", 0) or 0,
+                            "ytd": 0,  # integration API에 없음
+                        }
+            except Exception as e:
+                print(f"[ETF Data] Integration API error: {e}")
 
             # 4. ETF명으로 추적지수 추론 (네이버 API 실패 시 폴백)
             if not result["tracking_index"] and result["name"]:
