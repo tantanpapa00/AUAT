@@ -9181,14 +9181,18 @@ function setupEtfTabs() {
 }
 
 function updateEtfDetailUI(data) {
+    // 모달 컨텍스트 내에서 요소 선택 (중복 ID 문제 해결)
+    const modal = document.getElementById('stock-detail-modal');
+    if (!modal) return;
+
     const nameEl = document.getElementById('detail-stock-name');
     const codeEl = document.getElementById('detail-stock-code');
     const priceEl = document.getElementById('detail-stock-price');
     const changeEl = document.getElementById('detail-stock-change');
 
     // 현재가용 엘리먼트 (stock-detail-modal용)
-    const currentPriceEl = document.getElementById('detail-current-price');
-    const priceChangeEl = document.getElementById('detail-price-change');
+    const currentPriceEl = modal.querySelector('#detail-current-price');
+    const priceChangeEl = modal.querySelector('#detail-price-change');
 
     if (nameEl) nameEl.textContent = data.name || '-';
     if (codeEl) codeEl.textContent = data.code || '';
@@ -9216,11 +9220,11 @@ function updateEtfDetailUI(data) {
         priceChangeEl.className = `price-change ${change > 0 ? 'profit' : change < 0 ? 'loss' : ''}`;
     }
 
-    // 시가/고가/저가/거래량
-    const openEl = document.getElementById('detail-open');
-    const highEl = document.getElementById('detail-high');
-    const lowEl = document.getElementById('detail-low');
-    const volumeEl = document.getElementById('detail-volume');
+    // 시가/고가/저가/거래량 - 모달 내부 요소 선택
+    const openEl = modal.querySelector('#detail-open');
+    const highEl = modal.querySelector('#detail-high');
+    const lowEl = modal.querySelector('#detail-low');
+    const volumeEl = modal.querySelector('#detail-volume');
 
     if (openEl) openEl.textContent = data.open ? data.open.toLocaleString() : '-';
     if (highEl) highEl.textContent = data.high ? data.high.toLocaleString() : '-';
@@ -13370,8 +13374,12 @@ async function initCandleChart(symbol, exchange, timeframe = 'daily') {
                 }, 20000);
             }
 
-            // API 응답에서 candles 추출 (data로 감싸진 경우 처리)
-            const candles = chartResponse?.data?.candles || chartResponse?.candles || [];
+            // API 응답에서 candles 추출 (다양한 응답 형식 지원)
+            // - 주식: {candles: [...]}
+            // - ETF: {data: [...]} (배열 직접 반환)
+            const candles = chartResponse?.data?.candles
+                || chartResponse?.candles
+                || (Array.isArray(chartResponse?.data) ? chartResponse.data : []);
 
             if (candles.length > 0) {
                 // API 데이터를 TradingView 형식으로 변환
