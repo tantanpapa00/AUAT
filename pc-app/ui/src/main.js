@@ -9950,61 +9950,37 @@ async function sendAiQuestion(text) {
         const charts = result.charts;
         const stock = result.stock;
         const currentJobId = result.jobId;
+        const sections = result.sections;
 
-        // 마크다운 변환 (테마 지원 CSS 변수 사용)
-        let html = answer
-            .replace(/^### (.*$)/gm, '<h3 style="color:var(--text-primary);font-size:15px;margin:14px 0 6px;">$1</h3>')
-            .replace(/^## (.*$)/gm, '<h2 style="color:var(--text-primary);font-size:17px;margin:18px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border);">$1</h2>')
-            .replace(/^# (.*$)/gm, '<h1 style="color:var(--text-primary);font-size:20px;margin:20px 0 10px;">$1</h1>')
-            .replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--text-primary);">$1</strong>')
-            .replace(/^- (.*$)/gm, '<div style="padding:3px 0 3px 16px;color:var(--text-secondary);">• $1</div>')
-            .replace(/\n\n/g, '<br><br>')
-            .replace(/\n/g, '<br>');
-
-        // 차트 HTML 생성 (base64 data URL 직접 사용)
-        let chartsHtml = '';
-        if (charts) {
-            chartsHtml = `
-                <div style="margin:16px 0;display:flex;flex-direction:column;gap:12px;">
-                    <div style="color:var(--text-secondary);font-size:13px;font-weight:600;">📊 분석 차트</div>
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                        ${charts.price_chart ? `<img src="${charts.price_chart}" style="max-width:100%;border-radius:8px;border:1px solid var(--border);" alt="가격 차트">` : ''}
-                    </div>
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                        ${charts.trend_chart ? `<img src="${charts.trend_chart}" style="max-width:48%;border-radius:8px;border:1px solid var(--border);" alt="추세 차트">` : ''}
-                        ${charts.momentum_chart ? `<img src="${charts.momentum_chart}" style="max-width:48%;border-radius:8px;border:1px solid var(--border);" alt="모멘텀 차트">` : ''}
-                    </div>
-                </div>
-            `;
-        }
-
-        // PDF 다운로드 버튼 + 공유 버튼 (종목 분석 시)
-        let actionBtnsHtml = '';
-        if (stock && currentJobId) {
-            actionBtnsHtml = `
-                <button onclick="downloadAiReportPdf('${currentJobId}', '${stock.name}', '${stock.code}')"
-                    style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;">
-                    <span>📄</span> PDF 다운로드
-                </button>
-                <button onclick="shareAiReport('${stock.name}', '${stock.code}')"
-                    style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;">
-                    <span>📤</span> 공유
-                </button>
-            `;
-        }
-
-        responseArea.innerHTML = `
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                <span style="color:#ef4444;font-weight:600;">🤖 AI 답변</span>
-                <div style="display:flex;gap:8px;align-items:center;">
-                    ${actionBtnsHtml}
+        // 종목 분석인 경우 buildAiReportHtml() 사용 (차트-텍스트 섹션별 배치)
+        if (stock && charts) {
+            responseArea.innerHTML = `
+                <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
                     <button onclick="document.getElementById('ai-response-area').style.display='none'"
                         style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;">✕</button>
                 </div>
-            </div>
-            ${chartsHtml}
-            <div class="ai-answer" style="color:var(--text-secondary);font-size:14px;line-height:1.7;">${html}</div>
-        `;
+                ${buildAiReportHtml(answer, currentJobId, stock.name, stock.code, charts, sections)}
+            `;
+        } else {
+            // 일반 AI 채팅 (종목 분석 아닌 경우)
+            let html = answer
+                .replace(/^### (.*$)/gm, '<h3 style="color:var(--text-primary);font-size:15px;margin:14px 0 6px;">$1</h3>')
+                .replace(/^## (.*$)/gm, '<h2 style="color:var(--text-primary);font-size:17px;margin:18px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border);">$1</h2>')
+                .replace(/^# (.*$)/gm, '<h1 style="color:var(--text-primary);font-size:20px;margin:20px 0 10px;">$1</h1>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--text-primary);">$1</strong>')
+                .replace(/^- (.*$)/gm, '<div style="padding:3px 0 3px 16px;color:var(--text-secondary);">• $1</div>')
+                .replace(/\n\n/g, '<br><br>')
+                .replace(/\n/g, '<br>');
+
+            responseArea.innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <span style="color:#ef4444;font-weight:600;">🤖 AI 답변</span>
+                    <button onclick="document.getElementById('ai-response-area').style.display='none'"
+                        style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;">✕</button>
+                </div>
+                <div class="ai-answer" style="color:var(--text-secondary);font-size:14px;line-height:1.7;">${html}</div>
+            `;
+        }
 
     } catch (e) {
         responseArea.innerHTML = `
