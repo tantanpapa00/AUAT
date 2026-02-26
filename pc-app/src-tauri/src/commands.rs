@@ -2033,6 +2033,58 @@ pub async fn get_invest_indicators_kr(
 // Phase 9: 해외 종목 상세 (Finviz + Yahoo Finance)
 // =============================================================================
 
+/// 해외 종목 상세 재무제표 (국내와 동일 구조)
+#[tauri::command]
+pub async fn get_stock_statement_us(
+    access_token: String,
+    ticker: String,
+    period_type: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let period = period_type.unwrap_or_else(|| "annual".to_string());
+    let url = format!("{}/api/stock/us/{}/statement?period_type={}", VPS_SERVER_URL, ticker, period);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(30))  // yfinance 데이터 로딩 대응
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("재무제표를 가져올 수 없습니다".to_string())
+    }
+}
+
+/// 해외 종목 투자지표 4카테고리 (국내와 동일 구조)
+#[tauri::command]
+pub async fn get_invest_indicators_us(
+    access_token: String,
+    ticker: String,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let url = format!("{}/api/stock/us/{}/invest-indicators", VPS_SERVER_URL, ticker);
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .timeout(std::time::Duration::from_secs(30))  // yfinance 데이터 로딩 대응
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 오류: {}", e))?;
+
+    if resp.status().is_success() {
+        let data: serde_json::Value = resp.json().await.map_err(|e| format!("응답 파싱 오류: {}", e))?;
+        Ok(data)
+    } else {
+        Err("투자지표를 가져올 수 없습니다".to_string())
+    }
+}
+
 /// 해외 종목 요약 정보 (Phase 9)
 #[tauri::command]
 pub async fn get_stock_summary_us(

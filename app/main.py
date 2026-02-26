@@ -10773,6 +10773,39 @@ async def api_stock_financials_us(
     return {"data": data}
 
 
+@app.get("/api/stock/us/{ticker}/statement")
+async def api_stock_statement_us(
+    ticker: str,
+    period_type: str = Query("annual", regex="^(annual|quarter)$"),
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    해외 종목 상세 재무제표 (국내와 동일 구조)
+    - period_type: annual(연간), quarter(분기)
+    - 데이터 소스: yfinance
+    - 누구나 접근 가능
+    """
+    from app.yahoo_finance import get_stock_statement_us
+    data = await get_stock_statement_us(ticker, period_type)
+    return {"data": data}
+
+
+@app.get("/api/stock/us/{ticker}/invest-indicators")
+async def api_stock_invest_indicators_us(
+    ticker: str,
+    current_user: User = Depends(get_current_user_optional)
+):
+    """
+    해외 종목 투자지표 4카테고리 (국내와 동일 구조)
+    - 성장성/수익성/안정성/밸류에이션
+    - 데이터 소스: yfinance
+    - 누구나 접근 가능
+    """
+    from app.yahoo_finance import get_invest_indicators_us
+    data = await get_invest_indicators_us(ticker)
+    return {"data": data}
+
+
 # =============================================================================
 # Phase 10: ETF 상세 페이지 API
 # =============================================================================

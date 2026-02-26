@@ -191,6 +191,8 @@ fn main() {
             commands::get_stock_analyst_us,
             commands::get_stock_company_us,
             commands::get_stock_financials_us,
+            commands::get_stock_statement_us,
+            commands::get_invest_indicators_us,
             // Phase 10: ETF 상세
             commands::get_etf_summary,
             commands::get_etf_chart,
