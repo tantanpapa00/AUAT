@@ -14035,11 +14035,13 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
         plt.close(fig1)
         chart_data["price_chart"] = f"data:image/png;base64,{b64}"
 
-        # ===== 차트 2: 추세추종 (캔들스틱 + SMA 이동평균선) =====
-        fig2, ax = plt.subplots(1, 1, figsize=(12, 6))
+        # ===== 차트 2: 추세추종 (2패널: 캔들+SMA / ADX+DI) =====
+        fig2, (ax_price, ax_adx) = plt.subplots(2, 1, figsize=(12, 8),
+                                                  height_ratios=[2, 1],
+                                                  gridspec_kw={'hspace': 0.15})
         fig2.patch.set_facecolor('white')
 
-        # 캔들스틱 그리기
+        # === 상단: 캔들스틱 + SMA ===
         for i in range(display_len):
             idx = len(closes) - display_len + i
             date_num = mdates.date2num(dates[idx])
@@ -14050,29 +14052,125 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
             body_height = abs(c - o) if abs(c - o) > 0 else 1
             rect = Rectangle((date_num - width/2, body_bottom), width, body_height,
                              facecolor=color, edgecolor=color, linewidth=0.5)
-            ax.add_patch(rect)
-            ax.plot([date_num, date_num], [l, body_bottom], color=color, linewidth=0.5)
-            ax.plot([date_num, date_num], [body_bottom + body_height, h], color=color, linewidth=0.5)
+            ax_price.add_patch(rect)
+            ax_price.plot([date_num, date_num], [l, body_bottom], color=color, linewidth=0.5)
+            ax_price.plot([date_num, date_num], [body_bottom + body_height, h], color=color, linewidth=0.5)
 
-        ax.set_xlim(mdates.date2num(dates[-display_len]) - 2, mdates.date2num(dates[-1]) + 2)
-        ax.set_ylim(min(lows[-display_len:]) * 0.95, max(highs[-display_len:]) * 1.05)
+        ax_price.set_xlim(mdates.date2num(dates[-display_len]) - 2, mdates.date2num(dates[-1]) + 2)
+        ax_price.set_ylim(min(lows[-display_len:]) * 0.95, max(highs[-display_len:]) * 1.05)
 
         # SMA 라인
         date_nums = [mdates.date2num(dates[len(dates) - display_len + i]) for i in range(display_len)]
         if sma20[-display_len:][0] is not None:
-            ax.plot(date_nums, sma20[-display_len:], label='SMA20', color='#FF9500', linewidth=1.5)
+            ax_price.plot(date_nums, sma20[-display_len:], label='SMA20', color='#FF9500', linewidth=1.5)
         if sma60[-display_len:][0] is not None:
-            ax.plot(date_nums, sma60[-display_len:], label='SMA60', color='#007AFF', linewidth=1.5)
+            ax_price.plot(date_nums, sma60[-display_len:], label='SMA60', color='#007AFF', linewidth=1.5)
         if sma200 and sma200[-display_len:][0] is not None:
-            ax.plot(date_nums, sma200[-display_len:], label='SMA200', color='#FF3B30', linewidth=1.5)
+            ax_price.plot(date_nums, sma200[-display_len:], label='SMA200', color='#FF3B30', linewidth=1.5)
 
-        ax.set_title(f'추세추종 지표 분석 - {name}({code})', fontsize=14, fontweight='bold')
-        ax.set_ylabel(price_label, fontsize=11)
-        ax.legend(loc='upper left', fontsize=10)
-        ax.grid(True, alpha=0.3)
-        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%b'))
-        ax.xaxis.set_major_locator(mdates.MonthLocator(interval=4))
+        ax_price.set_title(f'추세추종 지표 분석 - {name}({code})', fontsize=14, fontweight='bold')
+        ax_price.set_ylabel(price_label, fontsize=11)
+        ax_price.legend(loc='upper left', fontsize=9)
+        ax_price.grid(True, alpha=0.3)
+        ax_price.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
+        ax_price.tick_params(axis='x', labelbottom=False)
+
+        # === 하단: ADX + +DI + -DI 시계열 ===
+        # ADX/DI 시계열 계산
+        adx_series = []
+        plus_di_series = []
+        minus_di_series = []
+        adx_period = 14
+
+        # TR, +DM, -DM 계산
+        tr_list = []
+        plus_dm_list = []
+        minus_dm_list = []
+        for i in range(1, len(closes)):
+            h_diff = highs[i] - highs[i-1]
+            l_diff = lows[i-1] - lows[i]
+            plus_dm_list.append(h_diff if h_diff > l_diff and h_diff > 0 else 0)
+            minus_dm_list.append(l_diff if l_diff > h_diff and l_diff > 0 else 0)
+            tr_list.append(max(highs[i]-lows[i], abs(highs[i]-closes[i-1]), abs(lows[i]-closes[i-1])))
+
+        if len(tr_list) >= adx_period * 2:
+            # Smoothed TR, +DM, -DM
+            atr = sum(tr_list[:adx_period]) / adx_period
+            plus_dm_smooth = sum(plus_dm_list[:adx_period]) / adx_period
+            minus_dm_smooth = sum(minus_dm_list[:adx_period]) / adx_period
+            dx_list = []
+
+            for i in range(adx_period, len(tr_list)):
+                atr = (atr * (adx_period-1) + tr_list[i]) / adx_period
+                plus_dm_smooth = (plus_dm_smooth * (adx_period-1) + plus_dm_list[i]) / adx_period
+                minus_dm_smooth = (minus_dm_smooth * (adx_period-1) + minus_dm_list[i]) / adx_period
+
+                if atr > 0:
+                    pdi = (plus_dm_smooth / atr) * 100
+                    mdi = (minus_dm_smooth / atr) * 100
+                else:
+                    pdi = mdi = 0
+
+                plus_di_series.append(pdi)
+                minus_di_series.append(mdi)
+
+                if pdi + mdi > 0:
+                    dx_list.append(abs(pdi - mdi) / (pdi + mdi) * 100)
+                else:
+                    dx_list.append(0)
+
+            # ADX = DX의 이동평균
+            for i in range(len(dx_list)):
+                if i < adx_period - 1:
+                    adx_series.append(None)
+                else:
+                    adx_series.append(sum(dx_list[i-adx_period+1:i+1]) / adx_period)
+
+        # ADX/DI 그리기 (데이터가 충분한 경우)
+        if len(adx_series) >= display_len:
+            adx_display = adx_series[-display_len:]
+            plus_di_display = plus_di_series[-display_len:]
+            minus_di_display = minus_di_series[-display_len:]
+
+            # ADX 라인 (유효한 값만)
+            valid_adx = [(d, a) for d, a in zip(date_nums, adx_display) if a is not None]
+            if valid_adx:
+                current_adx = valid_adx[-1][1] if valid_adx else 0
+                ax_adx.plot([x[0] for x in valid_adx], [x[1] for x in valid_adx],
+                           color='#000000', linewidth=2, label=f'ADX ({current_adx:.1f})')
+
+            # +DI (초록) / -DI (빨강)
+            if plus_di_display:
+                current_plus = plus_di_display[-1] if plus_di_display else 0
+                ax_adx.plot(date_nums, plus_di_display, color='#34C759', linewidth=1.5,
+                           label=f'+DI ({current_plus:.1f})')
+            if minus_di_display:
+                current_minus = minus_di_display[-1] if minus_di_display else 0
+                ax_adx.plot(date_nums, minus_di_display, color='#FF3B30', linewidth=1.5,
+                           label=f'-DI ({current_minus:.1f})')
+
+            # ADX 기준선 (25=추세 발생, 50=강한 추세)
+            ax_adx.axhline(y=25, color='gray', linestyle='--', linewidth=0.8, alpha=0.6)
+            ax_adx.axhline(y=50, color='gray', linestyle='--', linewidth=0.8, alpha=0.6)
+            ax_adx.text(date_nums[-1] + 1, 25, '25', fontsize=8, color='gray', va='center')
+            ax_adx.text(date_nums[-1] + 1, 50, '50', fontsize=8, color='gray', va='center')
+
+            # Y축 범위
+            all_values = [v for v in adx_display + plus_di_display + minus_di_display if v is not None]
+            if all_values:
+                ax_adx.set_ylim(0, max(60, max(all_values) * 1.1))
+            else:
+                ax_adx.set_ylim(0, 60)
+        else:
+            ax_adx.text(0.5, 0.5, 'ADX/DI 데이터 부족', transform=ax_adx.transAxes,
+                       ha='center', va='center', fontsize=12, color='gray')
+            ax_adx.set_ylim(0, 60)
+
+        ax_adx.set_ylabel('ADX / DI', fontsize=11)
+        ax_adx.legend(loc='upper left', fontsize=9)
+        ax_adx.grid(True, alpha=0.3)
+        ax_adx.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%b'))
+        ax_adx.xaxis.set_major_locator(mdates.MonthLocator(interval=4))
         plt.xticks(rotation=45, fontsize=8)
 
         plt.tight_layout()
