@@ -5047,41 +5047,106 @@ function splitAiReport(text) {
     const sections = { before_ta: '', section_51: '', section_52: '', section_53: '', after_53: '' };
     if (!text) return sections;
 
-    const markers = ['[SECTION_1_4]', '[SECTION_51]', '[SECTION_52]', '[SECTION_53]', '[SECTION_54_END]'];
-    const keys = ['before_ta', 'section_51', 'section_52', 'section_53', 'after_53'];
+    // 방법 A: [SECTION_1_4]와 [SECTION_51] 둘 다 있는 경우 (정상 경로)
+    if (text.includes('[SECTION_1_4]') && text.includes('[SECTION_51]')) {
+        const parts = text.split('[SECTION_51]');
+        sections.before_ta = parts[0].replace('[SECTION_1_4]', '').trim();
+        let rest = parts[1] || '';
 
-    let found = false;
-    for (let i = 0; i < markers.length; i++) {
-        const start = text.indexOf(markers[i]);
-        if (start === -1) continue;
-        found = true;
-
-        const contentStart = start + markers[i].length;
-        let end = text.length;
-
-        for (let j = i + 1; j < markers.length; j++) {
-            const nextPos = text.indexOf(markers[j]);
-            if (nextPos !== -1) { end = nextPos; break; }
+        // [SECTION_52]로 분리
+        if (rest.includes('[SECTION_52]')) {
+            const parts52 = rest.split('[SECTION_52]');
+            sections.section_51 = parts52[0].trim();
+            rest = parts52[1] || '';
         }
-
-        sections[keys[i]] = text.substring(contentStart, end).trim();
+        // [SECTION_53]로 분리
+        if (rest.includes('[SECTION_53]')) {
+            const parts53 = rest.split('[SECTION_53]');
+            sections.section_52 = parts53[0].trim();
+            rest = parts53[1] || '';
+        }
+        // [SECTION_54_END]로 분리
+        if (rest.includes('[SECTION_54_END]')) {
+            const parts54 = rest.split('[SECTION_54_END]');
+            sections.section_53 = parts54[0].trim();
+            sections.after_53 = parts54[1] ? parts54[1].trim() : '';
+        } else {
+            sections.section_53 = rest.trim();
+        }
     }
+    // 방법 B: [SECTION_1_4] 없지만 [SECTION_51] 있는 경우 (핵심 폴백!)
+    else if (text.includes('[SECTION_51]')) {
+        const parts = text.split('[SECTION_51]');
+        sections.before_ta = parts[0].trim();  // [SECTION_51] 이전 전부가 before_ta
+        let rest = parts[1] || '';
 
-    // 구분자 없으면 "5.1", "5.2" 패턴으로 분리
-    if (!found) {
-        const taIdx = text.search(/#{1,3}\s*5\.\s*기술적\s*분석|5\.1\s/);
+        if (rest.includes('[SECTION_52]')) {
+            const parts52 = rest.split('[SECTION_52]');
+            sections.section_51 = parts52[0].trim();
+            rest = parts52[1] || '';
+        } else {
+            const s52Match = rest.search(/(?:#{1,4}\s*)?5\.2\s/);
+            if (s52Match !== -1) {
+                sections.section_51 = rest.substring(0, s52Match).trim();
+                rest = rest.substring(s52Match);
+            } else {
+                sections.section_51 = rest.trim();
+                rest = '';
+            }
+        }
+        if (rest.includes('[SECTION_53]')) {
+            const parts53 = rest.split('[SECTION_53]');
+            sections.section_52 = parts53[0].trim();
+            rest = parts53[1] || '';
+        } else {
+            const s53Match = rest.search(/(?:#{1,4}\s*)?5\.3\s/);
+            if (s53Match !== -1) {
+                sections.section_52 = rest.substring(0, s53Match).trim();
+                rest = rest.substring(s53Match);
+            } else {
+                sections.section_52 = rest.trim();
+                rest = '';
+            }
+        }
+        if (rest.includes('[SECTION_54_END]')) {
+            const parts54 = rest.split('[SECTION_54_END]');
+            sections.section_53 = parts54[0].trim();
+            sections.after_53 = parts54[1] ? parts54[1].trim() : '';
+        } else {
+            const s54Match = rest.search(/(?:#{1,4}\s*)?(?:5\.4|6\.)\s/);
+            if (s54Match !== -1) {
+                sections.section_53 = rest.substring(0, s54Match).trim();
+                sections.after_53 = rest.substring(s54Match).trim();
+            } else {
+                sections.section_53 = rest.trim();
+            }
+        }
+    }
+    // 방법 C: 마커 전혀 없는 경우 — 섹션 번호로 자동 분리
+    else {
+        const taIdx = text.search(/(?:#{1,4}\s*)?5\.1\s/);
         if (taIdx === -1) { sections.before_ta = text; return sections; }
 
         sections.before_ta = text.substring(0, taIdx).trim();
         const ta = text.substring(taIdx);
 
         const find = (pattern) => { const m = ta.search(pattern); return m !== -1 ? m : null; };
-        const s51 = find(/#{1,4}\s*5\.1\s/), s52 = find(/#{1,4}\s*5\.2\s/), s53 = find(/#{1,4}\s*5\.3\s/), s54 = find(/#{1,4}\s*5\.4\s/);
+        const s51 = find(/#{1,4}\s*5\.1\s/), s52 = find(/#{1,4}\s*5\.2\s/), s53 = find(/#{1,4}\s*5\.3\s/), s54 = find(/#{1,4}\s*(?:5\.4|6\.)\s/);
 
         if (s51 !== null) sections.section_51 = ta.substring(s51, s52 ?? s53 ?? s54 ?? ta.length).trim();
         if (s52 !== null) sections.section_52 = ta.substring(s52, s53 ?? s54 ?? ta.length).trim();
         if (s53 !== null) sections.section_53 = ta.substring(s53, s54 ?? ta.length).trim();
         if (s54 !== null) sections.after_53 = ta.substring(s54).trim();
+    }
+
+    // 모든 섹션에서 남은 마커 제거
+    for (const key of Object.keys(sections)) {
+        sections[key] = sections[key]
+            .replace(/\[SECTION_1_4\]/g, '')
+            .replace(/\[SECTION_51\]/g, '')
+            .replace(/\[SECTION_52\]/g, '')
+            .replace(/\[SECTION_53\]/g, '')
+            .replace(/\[SECTION_54_END\]/g, '');
     }
 
     return sections;

@@ -12758,13 +12758,19 @@ async def download_ai_report_pdf(job_id: str):
             if para_line:
                 story.append(Paragraph(convert_markdown(para_line), styles['KoreanBody']))
 
-    # 1~4 섹션 처리 (차트 없음)
-    lines = (sections.get('before_ta') or report_text).split('\n')
+    # before_ta 방어 로직: 비어있으면 5.1 이전 텍스트를 직접 추출
+    before_ta = sections.get('before_ta', '')
+    if not before_ta.strip():
+        # 폴백: report_text에서 5.1 이전까지만 추출
+        match = re.search(r'(?:#{1,4}\s*)?5\.1\s', report_text)
+        if match:
+            before_ta = report_text[:match.start()].strip()
+        else:
+            before_ta = report_text  # 최후 폴백
+
+    # 1~4 섹션 처리 (차트 없음, before_ta만 처리)
+    lines = before_ta.split('\n')
     i = 0
-    # 차트 삽입 상태 추적: 0=지지/저항, 1=추세추종, 2=모멘텀
-    chart_insert_idx = 0
-    # 섹션별 처리 여부
-    used_split_sections = bool(sections.get('section_51') or sections.get('section_52') or sections.get('section_53'))
 
     while i < len(lines):
         line = lines[i].strip()
@@ -12815,46 +12821,7 @@ async def download_ai_report_pdf(job_id: str):
             i += 1
             continue
         elif line.startswith('#### '):
-            text = convert_markdown(line[5:])
-            raw_line = line[5:].strip()
-
-            # #### 5.1, #### 5.2, #### 5.3 섹션 감지 (정확한 패턴 매칭)
-            # 섹션 제목 → 차트 → 설명 순서로 배치
-
-            # 5.1 주가 및 지지/저항 → 차트1
-            if chart_insert_idx == 0 and (raw_line.startswith('5.1') or '5.1 ' in raw_line):
-                story.append(Paragraph(f"<b>{text}</b>", styles['KoreanBody']))
-                story.append(Spacer(1, 0.1*inch))
-                if len(chart_images) > 0:
-                    story.append(chart_images[0])
-                    story.append(Spacer(1, 0.12*inch))
-                chart_insert_idx = 1
-                i += 1
-                continue
-
-            # 5.2 추세추종 지표 → 차트2
-            elif chart_insert_idx == 1 and (raw_line.startswith('5.2') or '5.2 ' in raw_line):
-                story.append(Paragraph(f"<b>{text}</b>", styles['KoreanBody']))
-                story.append(Spacer(1, 0.1*inch))
-                if len(chart_images) > 1:
-                    story.append(chart_images[1])
-                    story.append(Spacer(1, 0.12*inch))
-                chart_insert_idx = 2
-                i += 1
-                continue
-
-            # 5.3 모멘텀 지표 → 차트3
-            elif chart_insert_idx == 2 and (raw_line.startswith('5.3') or '5.3 ' in raw_line):
-                story.append(Paragraph(f"<b>{text}</b>", styles['KoreanBody']))
-                story.append(Spacer(1, 0.1*inch))
-                if len(chart_images) > 2:
-                    story.append(chart_images[2])
-                    story.append(Spacer(1, 0.12*inch))
-                chart_insert_idx = 3
-                i += 1
-                continue
-
-            # 일반 #### 헤딩
+            # 일반 #### 헤딩 (5.1/5.2/5.3은 아래 섹션별 처리에서 담당)
             text = convert_markdown(line[5:])
             story.append(Paragraph(f"<b>{text}</b>", styles['KoreanBody']))
             i += 1
@@ -12884,35 +12851,26 @@ async def download_ai_report_pdf(job_id: str):
         story.append(Paragraph(text, styles['KoreanBody']))
         i += 1
 
-    # split_ai_report로 분리된 섹션이 있으면 섹션별 차트 삽입
-    if used_split_sections:
-        # 5. 기술적 분석 대제목
-        story.append(Spacer(1, 0.2*inch))
-        story.append(Paragraph("5. 기술적 분석", styles['KoreanHeading']))
+    # 5. 기술적 분석 — 항상 섹션별 차트+텍스트 삽입
+    story.append(Spacer(1, 0.2*inch))
+    story.append(Paragraph("5. 기술적 분석", styles['KoreanHeading']))
 
-        # 5.1 주가 및 지지/저항 → 차트1
-        insert_section_with_chart(sections.get('section_51'), 'price_chart', '5.1 주가 및 지지/저항선 분석')
+    # 5.1 주가 및 지지/저항 → 차트1
+    insert_section_with_chart(sections.get('section_51'), 'price_chart', '5.1 주가 및 지지/저항선 분석')
 
-        # 5.2 추세추종 지표 → 차트2
-        insert_section_with_chart(sections.get('section_52'), 'trend_chart', '5.2 추세추종 지표 분석')
+    # 5.2 추세추종 지표 → 차트2
+    insert_section_with_chart(sections.get('section_52'), 'trend_chart', '5.2 추세추종 지표 분석')
 
-        # 5.3 모멘텀 지표 → 차트3
-        insert_section_with_chart(sections.get('section_53'), 'momentum_chart', '5.3 모멘텀 지표 분석')
+    # 5.3 모멘텀 지표 → 차트3
+    insert_section_with_chart(sections.get('section_53'), 'momentum_chart', '5.3 모멘텀 지표 분석')
 
-        # 5.4~ 나머지 섹션
-        if sections.get('after_53'):
-            story.append(Spacer(1, 0.15*inch))
-            for para_line in sections['after_53'].split('\n'):
-                para_line = para_line.strip()
-                if para_line:
-                    story.append(Paragraph(convert_markdown(para_line), styles['KoreanBody']))
-
-    # 섹션 분리 실패 시 + 차트가 삽입되지 않은 경우 폴백 (차트만 추가, "추가 차트" 제목 없이)
-    elif chart_insert_idx < len(chart_images) and chart_images:
-        story.append(Spacer(1, 0.3*inch))
-        for idx in range(chart_insert_idx, len(chart_images)):
-            story.append(chart_images[idx])
-            story.append(Spacer(1, 0.2*inch))
+    # 5.4~ 나머지 섹션
+    if sections.get('after_53'):
+        story.append(Spacer(1, 0.15*inch))
+        for para_line in sections['after_53'].split('\n'):
+            para_line = para_line.strip()
+            if para_line:
+                story.append(Paragraph(convert_markdown(para_line), styles['KoreanBody']))
 
     # PDF 빌드
     doc.build(story)
@@ -14451,7 +14409,7 @@ async def _collect_news_for_ai(code: str, name: str, market: str = "kr") -> list
 
 
 def split_ai_report(text: str) -> dict:
-    """AI 응답을 구분자로 섹션 분리"""
+    """AI 보고서를 섹션별로 분리. [SECTION_1_4] 마커가 없어도 안전하게 동작."""
     import re
 
     sections = {
@@ -14462,76 +14420,67 @@ def split_ai_report(text: str) -> dict:
         'after_53': ''
     }
 
-    markers = ['[SECTION_1_4]', '[SECTION_51]', '[SECTION_52]', '[SECTION_53]', '[SECTION_54_END]']
-    keys = ['before_ta', 'section_51', 'section_52', 'section_53', 'after_53']
-
-    found = False
-    for i, marker in enumerate(markers):
-        start = text.find(marker)
-        if start == -1:
-            continue
-        found = True
-        start += len(marker)
-
-        end = len(text)
-        for next_marker in markers[i + 1:]:
-            next_pos = text.find(next_marker)
-            if next_pos != -1:
-                end = next_pos
-                break
-
-        sections[keys[i]] = text[start:end].strip()
-
-    # 구분자 못 찾으면 폴백 (5.1, 5.2 패턴으로 자동 분리)
-    if not found or not sections['section_51']:
-        sections = _fallback_split_report(text)
-
-    return sections
-
-
-def _fallback_split_report(text: str) -> dict:
-    """구분자 없을 때 '5.1', '5.2' 패턴으로 자동 분리"""
-    import re
-
-    sections = {
-        'before_ta': '',
-        'section_51': '',
-        'section_52': '',
-        'section_53': '',
-        'after_53': ''
-    }
-
-    # 기술적 분석 시작점 찾기
-    ta_match = re.search(r'#{1,3}\s*5\.\s*기술적\s*분석|5\.1\s', text)
-    if not ta_match:
-        sections['before_ta'] = text
+    if not text:
         return sections
 
-    sections['before_ta'] = text[:ta_match.start()].strip()
-    ta_text = text[ta_match.start():]
+    # 방법 A: [SECTION_1_4]와 [SECTION_51] 둘 다 있는 경우 (정상 경로)
+    if '[SECTION_1_4]' in text and '[SECTION_51]' in text:
+        parts = text.split('[SECTION_51]', 1)
+        sections['before_ta'] = parts[0].replace('[SECTION_1_4]', '').strip()
+        rest = parts[1] if len(parts) > 1 else ''
 
-    # 각 섹션 시작점 찾기
-    s51 = re.search(r'#{1,4}\s*5\.1\s', ta_text)
-    s52 = re.search(r'#{1,4}\s*5\.2\s', ta_text)
-    s53 = re.search(r'#{1,4}\s*5\.3\s', ta_text)
-    s54 = re.search(r'#{1,4}\s*5\.4\s', ta_text)
+    # 방법 B: [SECTION_1_4] 없지만 [SECTION_51] 있는 경우 (핵심 폴백!)
+    elif '[SECTION_51]' in text:
+        parts = text.split('[SECTION_51]', 1)
+        sections['before_ta'] = parts[0].strip()  # [SECTION_51] 이전 전부가 before_ta
+        rest = parts[1] if len(parts) > 1 else ''
 
-    s51_start = s51.start() if s51 else None
-    s52_start = s52.start() if s52 else None
-    s53_start = s53.start() if s53 else None
-    s54_start = s54.start() if s54 else None
+    # 방법 C: 마커 전혀 없는 경우 — 섹션 번호(5.1, 5.2 등)로 자동 분리
+    else:
+        # "5.1" 또는 "### 5.1" 또는 "#### 5.1" 패턴으로 분리
+        pattern = r'(?=(?:#{1,4}\s*)?5\.1\s)'
+        split_result = re.split(pattern, text, maxsplit=1)
+        sections['before_ta'] = split_result[0].strip()
+        rest = split_result[1] if len(split_result) > 1 else ''
 
-    if s51_start is not None:
-        end = s52_start or s53_start or s54_start or len(ta_text)
-        sections['section_51'] = ta_text[s51_start:end].strip()
-    if s52_start is not None:
-        end = s53_start or s54_start or len(ta_text)
-        sections['section_52'] = ta_text[s52_start:end].strip()
-    if s53_start is not None:
-        end = s54_start or len(ta_text)
-        sections['section_53'] = ta_text[s53_start:end].strip()
-    if s54_start is not None:
-        sections['after_53'] = ta_text[s54_start:].strip()
+    # [SECTION_52]로 분리
+    if '[SECTION_52]' in rest:
+        parts52 = rest.split('[SECTION_52]', 1)
+        sections['section_51'] = parts52[0].replace('[SECTION_51]', '').strip()
+        rest2 = parts52[1] if len(parts52) > 1 else ''
+    else:
+        # 5.2 패턴으로 분리
+        pattern52 = r'(?=(?:#{1,4}\s*)?5\.2\s)'
+        split52 = re.split(pattern52, rest, maxsplit=1)
+        sections['section_51'] = split52[0].replace('[SECTION_51]', '').strip()
+        rest2 = split52[1] if len(split52) > 1 else ''
+
+    # [SECTION_53]로 분리
+    if '[SECTION_53]' in rest2:
+        parts53 = rest2.split('[SECTION_53]', 1)
+        sections['section_52'] = parts53[0].replace('[SECTION_52]', '').strip()
+        rest3 = parts53[1] if len(parts53) > 1 else ''
+    else:
+        pattern53 = r'(?=(?:#{1,4}\s*)?5\.3\s)'
+        split53 = re.split(pattern53, rest2, maxsplit=1)
+        sections['section_52'] = split53[0].replace('[SECTION_52]', '').strip()
+        rest3 = split53[1] if len(split53) > 1 else ''
+
+    # 5.4 또는 6. 이후로 분리
+    if '[SECTION_54_END]' in rest3:
+        parts54 = rest3.split('[SECTION_54_END]', 1)
+        sections['section_53'] = parts54[0].replace('[SECTION_53]', '').strip()
+        sections['after_53'] = parts54[1].strip() if len(parts54) > 1 else ''
+    else:
+        pattern_after = r'(?=(?:#{1,4}\s*)?(?:5\.4|6\.)\s)'
+        split_after = re.split(pattern_after, rest3, maxsplit=1)
+        sections['section_53'] = split_after[0].replace('[SECTION_53]', '').strip()
+        sections['after_53'] = split_after[1].strip() if len(split_after) > 1 else ''
+
+    # 모든 섹션에서 남은 마커 제거
+    for key in sections:
+        for marker in ['[SECTION_1_4]', '[SECTION_51]', '[SECTION_52]', '[SECTION_53]', '[SECTION_54_END]']:
+            sections[key] = sections[key].replace(marker, '')
 
     return sections
 
@@ -14639,6 +14588,9 @@ def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list
 
     prompt = f"""당신은 15년 경력의 전문 증권 애널리스트입니다.
 오늘 날짜: {today}
+
+⚠️ 필수: 보고서 맨 처음에 반드시 [SECTION_1_4]를 단독 줄로 쓴 후 본문을 시작하세요!
+[SECTION_1_4]를 빠뜨리면 보고서 레이아웃이 깨집니다.
 
 {name}({code})의 종합 분석 보고서를 아래 데이터와 웹검색을 기반으로 작성하세요.
 
@@ -15008,6 +14960,9 @@ def _build_etf_prompt(name: str, code: str, data: dict) -> str:
 
     prompt = f"""
 당신은 ETF 전문 애널리스트입니다. 아래 ETF 정보를 바탕으로 투자 분석 보고서를 작성해주세요.
+
+⚠️ 필수: 보고서 맨 처음에 반드시 [SECTION_1_4]를 단독 줄로 쓴 후 본문을 시작하세요!
+[SECTION_1_4]를 빠뜨리면 보고서 레이아웃이 깨집니다.
 
 ## 분석 대상
 - ETF명: {name}
