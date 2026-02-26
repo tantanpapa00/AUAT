@@ -10967,28 +10967,100 @@ async def api_search_stocks(
         except Exception as e:
             print(f"[Search] US error: {e}")
 
-        # KIS_US에 해외상장 ETF 포함 (주요 미국 ETF)
+        # KIS_US에 해외상장 ETF 포함 (주요 미국 ETF 70개+)
         us_etfs = [
-            {"code": "QQQ", "name": "Invesco QQQ Trust (NASDAQ 100)", "market": "US ETF"},
+            # 주요 지수 추종 ETF
             {"code": "SPY", "name": "SPDR S&P 500 ETF Trust", "market": "US ETF"},
-            {"code": "SCHD", "name": "Schwab U.S. Dividend Equity ETF", "market": "US ETF"},
+            {"code": "QQQ", "name": "Invesco QQQ Trust (NASDAQ 100)", "market": "US ETF"},
             {"code": "VOO", "name": "Vanguard S&P 500 ETF", "market": "US ETF"},
             {"code": "VTI", "name": "Vanguard Total Stock Market ETF", "market": "US ETF"},
             {"code": "IVV", "name": "iShares Core S&P 500 ETF", "market": "US ETF"},
+            {"code": "DIA", "name": "SPDR Dow Jones Industrial Average ETF", "market": "US ETF"},
+            {"code": "IWM", "name": "iShares Russell 2000 ETF", "market": "US ETF"},
+            {"code": "MDY", "name": "SPDR S&P MidCap 400 ETF", "market": "US ETF"},
+            # Schwab ETF (SCHG, SCHD 등)
+            {"code": "SCHD", "name": "Schwab U.S. Dividend Equity ETF", "market": "US ETF"},
+            {"code": "SCHG", "name": "Schwab U.S. Large-Cap Growth ETF", "market": "US ETF"},
+            {"code": "SCHB", "name": "Schwab U.S. Broad Market ETF", "market": "US ETF"},
+            {"code": "SCHA", "name": "Schwab U.S. Small-Cap ETF", "market": "US ETF"},
+            {"code": "SCHX", "name": "Schwab U.S. Large-Cap ETF", "market": "US ETF"},
+            {"code": "SCHF", "name": "Schwab International Equity ETF", "market": "US ETF"},
+            {"code": "SCHE", "name": "Schwab Emerging Markets Equity ETF", "market": "US ETF"},
+            # Vanguard ETF
             {"code": "VGT", "name": "Vanguard Information Technology ETF", "market": "US ETF"},
             {"code": "VUG", "name": "Vanguard Growth ETF", "market": "US ETF"},
             {"code": "VTV", "name": "Vanguard Value ETF", "market": "US ETF"},
-            {"code": "ARKK", "name": "ARK Innovation ETF", "market": "US ETF"},
+            {"code": "VXUS", "name": "Vanguard Total International Stock ETF", "market": "US ETF"},
+            {"code": "VEA", "name": "Vanguard FTSE Developed Markets ETF", "market": "US ETF"},
+            {"code": "VWO", "name": "Vanguard FTSE Emerging Markets ETF", "market": "US ETF"},
+            {"code": "VIG", "name": "Vanguard Dividend Appreciation ETF", "market": "US ETF"},
+            {"code": "VYM", "name": "Vanguard High Dividend Yield ETF", "market": "US ETF"},
+            {"code": "VNQ", "name": "Vanguard Real Estate ETF", "market": "US ETF"},
+            # 섹터 ETF (SPDR Select Sector)
             {"code": "XLK", "name": "Technology Select Sector SPDR Fund", "market": "US ETF"},
             {"code": "XLF", "name": "Financial Select Sector SPDR Fund", "market": "US ETF"},
             {"code": "XLE", "name": "Energy Select Sector SPDR Fund", "market": "US ETF"},
             {"code": "XLV", "name": "Health Care Select Sector SPDR Fund", "market": "US ETF"},
+            {"code": "XLY", "name": "Consumer Discretionary Select Sector SPDR Fund", "market": "US ETF"},
+            {"code": "XLP", "name": "Consumer Staples Select Sector SPDR Fund", "market": "US ETF"},
+            {"code": "XLI", "name": "Industrial Select Sector SPDR Fund", "market": "US ETF"},
+            {"code": "XLB", "name": "Materials Select Sector SPDR Fund", "market": "US ETF"},
+            {"code": "XLU", "name": "Utilities Select Sector SPDR Fund", "market": "US ETF"},
+            {"code": "XLRE", "name": "Real Estate Select Sector SPDR Fund", "market": "US ETF"},
+            # 채권 ETF (USHY 포함)
+            {"code": "USHY", "name": "iShares Broad USD High Yield Corporate Bond ETF", "market": "US ETF"},
+            {"code": "HYG", "name": "iShares iBoxx High Yield Corporate Bond ETF", "market": "US ETF"},
+            {"code": "LQD", "name": "iShares iBoxx Investment Grade Corporate Bond ETF", "market": "US ETF"},
+            {"code": "BND", "name": "Vanguard Total Bond Market ETF", "market": "US ETF"},
+            {"code": "AGG", "name": "iShares Core U.S. Aggregate Bond ETF", "market": "US ETF"},
+            {"code": "TLT", "name": "iShares 20+ Year Treasury Bond ETF", "market": "US ETF"},
+            {"code": "IEF", "name": "iShares 7-10 Year Treasury Bond ETF", "market": "US ETF"},
+            {"code": "SHY", "name": "iShares 1-3 Year Treasury Bond ETF", "market": "US ETF"},
+            {"code": "TIP", "name": "iShares TIPS Bond ETF", "market": "US ETF"},
+            {"code": "VCIT", "name": "Vanguard Intermediate-Term Corporate Bond ETF", "market": "US ETF"},
+            {"code": "VCSH", "name": "Vanguard Short-Term Corporate Bond ETF", "market": "US ETF"},
+            # 원자재/금/은
             {"code": "GLD", "name": "SPDR Gold Shares", "market": "US ETF"},
             {"code": "SLV", "name": "iShares Silver Trust", "market": "US ETF"},
-            {"code": "TLT", "name": "iShares 20+ Year Treasury Bond ETF", "market": "US ETF"},
+            {"code": "IAU", "name": "iShares Gold Trust", "market": "US ETF"},
+            {"code": "GDX", "name": "VanEck Gold Miners ETF", "market": "US ETF"},
+            {"code": "USO", "name": "United States Oil Fund", "market": "US ETF"},
+            {"code": "DBC", "name": "Invesco DB Commodity Index Tracking Fund", "market": "US ETF"},
+            # 반도체 ETF
+            {"code": "SOXX", "name": "iShares Semiconductor ETF", "market": "US ETF"},
+            {"code": "SMH", "name": "VanEck Semiconductor ETF", "market": "US ETF"},
+            {"code": "SOXL", "name": "Direxion Daily Semiconductor Bull 3X", "market": "US ETF"},
+            {"code": "SOXS", "name": "Direxion Daily Semiconductor Bear 3X", "market": "US ETF"},
+            # 레버리지/인버스 ETF
             {"code": "TQQQ", "name": "ProShares UltraPro QQQ (3x)", "market": "US ETF"},
             {"code": "SQQQ", "name": "ProShares UltraPro Short QQQ (-3x)", "market": "US ETF"},
-            {"code": "SOXL", "name": "Direxion Daily Semiconductor Bull 3X", "market": "US ETF"},
+            {"code": "SPXL", "name": "Direxion Daily S&P 500 Bull 3X", "market": "US ETF"},
+            {"code": "SPXS", "name": "Direxion Daily S&P 500 Bear 3X", "market": "US ETF"},
+            {"code": "UPRO", "name": "ProShares UltraPro S&P 500 (3x)", "market": "US ETF"},
+            {"code": "SSO", "name": "ProShares Ultra S&P 500 (2x)", "market": "US ETF"},
+            # ARK ETF
+            {"code": "ARKK", "name": "ARK Innovation ETF", "market": "US ETF"},
+            {"code": "ARKW", "name": "ARK Next Generation Internet ETF", "market": "US ETF"},
+            {"code": "ARKG", "name": "ARK Genomic Revolution ETF", "market": "US ETF"},
+            {"code": "ARKF", "name": "ARK Fintech Innovation ETF", "market": "US ETF"},
+            {"code": "ARKQ", "name": "ARK Autonomous Tech & Robotics ETF", "market": "US ETF"},
+            # 신흥국/국제 ETF
+            {"code": "EEM", "name": "iShares MSCI Emerging Markets ETF", "market": "US ETF"},
+            {"code": "EFA", "name": "iShares MSCI EAFE ETF", "market": "US ETF"},
+            {"code": "IEMG", "name": "iShares Core MSCI Emerging Markets ETF", "market": "US ETF"},
+            {"code": "FXI", "name": "iShares China Large-Cap ETF", "market": "US ETF"},
+            {"code": "MCHI", "name": "iShares MSCI China ETF", "market": "US ETF"},
+            {"code": "EWJ", "name": "iShares MSCI Japan ETF", "market": "US ETF"},
+            {"code": "EWZ", "name": "iShares MSCI Brazil ETF", "market": "US ETF"},
+            # 테마 ETF
+            {"code": "XBI", "name": "SPDR S&P Biotech ETF", "market": "US ETF"},
+            {"code": "IBB", "name": "iShares Biotechnology ETF", "market": "US ETF"},
+            {"code": "KWEB", "name": "KraneShares CSI China Internet ETF", "market": "US ETF"},
+            {"code": "ICLN", "name": "iShares Global Clean Energy ETF", "market": "US ETF"},
+            {"code": "TAN", "name": "Invesco Solar ETF", "market": "US ETF"},
+            {"code": "BOTZ", "name": "Global X Robotics & Artificial Intelligence ETF", "market": "US ETF"},
+            {"code": "HACK", "name": "ETFMG Prime Cyber Security ETF", "market": "US ETF"},
+            {"code": "JETS", "name": "U.S. Global Jets ETF", "market": "US ETF"},
         ]
         for etf in us_etfs:
             code = etf["code"].upper()
