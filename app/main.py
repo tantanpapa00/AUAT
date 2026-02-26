@@ -13335,21 +13335,68 @@ async def _detect_stock_from_message(message: str) -> dict:
         except Exception:
             pass
 
-    # 4. 영문 회사명으로 US 종목 검색 (예: Apple, Tesla, Nvidia)
+    # 4. 영문 종목명 풀네임으로 yfinance 검색 (예: "Technology Select Sector SPDR Fund")
+    # 한글과 "분석", "해줘" 등을 제거한 영문 부분만 추출
+    eng_full = re.sub(r'[가-힣]', '', message)
+    eng_full = re.sub(r'분석해줘|분석|해줘|알려줘|보고서|좀', '', eng_full, flags=re.IGNORECASE).strip()
+    if len(eng_full) > 5:  # 최소 5글자 이상의 영문 문장
+        try:
+            import yfinance as yf
+            # yfinance는 티커만 검색 가능하므로, 먼저 알려진 ETF 풀네임 매핑 확인
+            etf_name_map = {
+                "technology select sector spdr fund": "XLK",
+                "spdr s&p 500 etf trust": "SPY",
+                "invesco qqq trust": "QQQ",
+                "schwab us dividend equity etf": "SCHD",
+                "vanguard total stock market etf": "VTI",
+                "ishares core s&p 500 etf": "IVV",
+                "vanguard s&p 500 etf": "VOO",
+                "financial select sector spdr fund": "XLF",
+                "energy select sector spdr fund": "XLE",
+                "health care select sector spdr fund": "XLV",
+            }
+            eng_lower = eng_full.lower().strip()
+            if eng_lower in etf_name_map:
+                ticker = etf_name_map[eng_lower]
+                yf_ticker = yf.Ticker(ticker)
+                info = yf_ticker.info
+                if info and info.get("shortName"):
+                    return {
+                        "code": ticker,
+                        "name": info.get("shortName", ticker),
+                        "market": "us",
+                        "is_etf": True
+                    }
+        except Exception as e:
+            print(f"[_detect_stock] ETF fullname search error: {e}")
+
+    # 5. 영문 회사명으로 US 종목 검색 (예: Apple, Tesla, Nvidia)
+    # 흔한 영어 단어 제외 (ETF 이름에 자주 등장하는 단어들)
+    common_words = {
+        'technology', 'select', 'sector', 'fund', 'trust', 'index', 'etf',
+        'inc', 'corp', 'corporation', 'group', 'company', 'limited', 'ltd',
+        'the', 'and', 'for', 'spdr', 'ishares', 'vanguard', 'schwab', 'invesco',
+        'equity', 'dividend', 'growth', 'value', 'market', 'stock', 'bond',
+        'international', 'global', 'world', 'emerging', 'developed', 'total',
+        'core', 'small', 'mid', 'large', 'cap', 'high', 'low', 'ultra',
+    }
     eng_words = re.findall(r'[A-Za-z]+', message)
     for word in eng_words:
-        if len(word) < 3:
+        if len(word) < 4:  # 최소 4글자
+            continue
+        if word.lower() in common_words:
             continue
         try:
             us_stocks = await load_us_stocks()
             for stock in us_stocks:
                 stock_name = stock.get("name", "").lower()
-                if word.lower() in stock_name:
+                # 부분 매칭 대신 단어 경계 매칭 (더 정확함)
+                if re.search(r'\b' + re.escape(word.lower()) + r'\b', stock_name):
                     return {"code": stock.get("code"), "name": stock.get("name"), "market": "us"}
         except Exception:
             pass
 
-    # 5. 네이버 검색 API로 fallback (한국주식)
+    # 6. 네이버 검색 API로 fallback (한국주식)
     for word in words:
         if len(word) < 2:
             continue
