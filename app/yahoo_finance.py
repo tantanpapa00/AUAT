@@ -241,11 +241,12 @@ async def get_crypto_prices() -> List[Dict[str, Any]]:
 
 async def get_stock_statement_us(ticker: str, period_type: str = "annual") -> dict:
     """
-    해외 종목 상세 재무제표 (국내와 동일 구조)
+    해외 종목 상세 재무제표 (국내와 동일 구조 - 16개 항목)
     period_type: annual(연간), quarter(분기)
     데이터 소스: yfinance
     """
     import yfinance as yf
+    import math
 
     result = {
         "code": ticker,
@@ -279,134 +280,181 @@ async def get_stock_statement_us(ticker: str, period_type: str = "annual") -> di
             return result
 
         # 기간 목록 (최근 4개)
+        num_periods = min(4, len(income_stmt.columns))
         periods = []
-        for col in income_stmt.columns[:4]:
+        for col in income_stmt.columns[:num_periods]:
             if hasattr(col, 'strftime'):
                 periods.append(col.strftime('%Y.%m'))
             else:
                 periods.append(str(col)[:7])
         result["periods"] = periods
 
-        # 값 추출 헬퍼
-        def get_row_values(df, row_names):
+        # 값 추출 헬퍼 (백만 달러 단위)
+        def get_row_values(df, row_names, divisor=1_000_000):
+            if df is None or df.empty:
+                return [None] * num_periods
             for name in row_names:
                 if name in df.index:
                     vals = []
-                    for col in df.columns[:4]:
+                    for col in df.columns[:num_periods]:
                         try:
                             v = df.loc[name, col]
-                            if v is not None and not (hasattr(v, '__float__') and str(v) == 'nan'):
-                                vals.append(float(v) / 1_000_000)  # 백만 달러 단위
+                            if v is not None and not (isinstance(v, float) and math.isnan(v)):
+                                vals.append(float(v) / divisor if divisor else float(v))
                             else:
                                 vals.append(None)
                         except:
                             vals.append(None)
                     return vals
-            return [None] * 4
+            return [None] * num_periods
 
         # 손익계산서 항목
         revenue = get_row_values(income_stmt, ['Total Revenue', 'Revenue'])
         operating_income = get_row_values(income_stmt, ['Operating Income', 'EBIT'])
         net_income = get_row_values(income_stmt, ['Net Income', 'Net Income Common Stockholders'])
-        gross_profit = get_row_values(income_stmt, ['Gross Profit'])
+        net_income_common = get_row_values(income_stmt, ['Net Income Common Stockholders', 'Net Income'])
+        minority_interest = get_row_values(income_stmt, ['Minority Interest', 'Net Income From Continuing Operation Net Minority Interest'])
+        basic_eps = get_row_values(income_stmt, ['Basic EPS', 'Diluted EPS'], divisor=1)
 
-        # 비율 계산
-        def calc_margin(numerator, denominator):
-            margins = []
+        # 대차대조표 항목
+        total_equity = get_row_values(balance_sheet, ['Stockholders Equity', 'Total Stockholder Equity', 'Total Equity Gross Minority Interest'])
+        total_liabilities = get_row_values(balance_sheet, ['Total Liabilities Net Minority Interest', 'Total Liabilities', 'Total Debt'])
+        current_assets = get_row_values(balance_sheet, ['Current Assets', 'Total Current Assets'])
+        current_liabilities = get_row_values(balance_sheet, ['Current Liabilities', 'Total Current Liabilities'])
+        inventory = get_row_values(balance_sheet, ['Inventory', 'Net Inventory'])
+        retained_earnings = get_row_values(balance_sheet, ['Retained Earnings', 'Retained Earnings (Accumulated Deficit)'])
+        shares_outstanding_raw = get_row_values(balance_sheet, ['Ordinary Shares Number', 'Share Issued'], divisor=1)
+
+        # info에서 추가 데이터
+        current_price = info.get('currentPrice') or info.get('regularMarketPrice') or 0
+        shares_outstanding = info.get('sharesOutstanding') or (shares_outstanding_raw[0] if shares_outstanding_raw and shares_outstanding_raw[0] else None)
+        dividend_rate = info.get('dividendRate')  # 연간 배당금
+
+        # 비율 계산 함수
+        def calc_ratio(numerator, denominator, multiplier=100):
+            result_vals = []
             for n, d in zip(numerator, denominator):
                 if n is not None and d is not None and d != 0:
-                    margins.append(round((n / d) * 100, 1))
+                    result_vals.append(round((n / d) * multiplier, 1))
                 else:
-                    margins.append(None)
-            return margins
+                    result_vals.append(None)
+            return result_vals
 
-        operating_margin = calc_margin(operating_income, revenue)
-        net_margin = calc_margin(net_income, revenue)
+        # 영업이익률, 순이익률
+        operating_margin = calc_ratio(operating_income, revenue)
+        net_margin = calc_ratio(net_income, revenue)
 
-        # 재무상태표에서 비율 계산
-        debt_ratio = None
-        current_ratio = None
-        roe = None
+        # ROE (분기별) - Net Income / Equity * 100
+        roe_vals = calc_ratio(net_income, total_equity)
 
-        if balance_sheet is not None and not balance_sheet.empty:
-            def get_latest(df, row_names):
-                for name in row_names:
-                    if name in df.index:
-                        try:
-                            v = df.loc[name, df.columns[0]]
-                            if v is not None and str(v) != 'nan':
-                                return float(v)
-                        except:
-                            pass
-                return None
+        # 부채비율 (분기별) - Total Liabilities / Equity * 100
+        debt_ratio_vals = calc_ratio(total_liabilities, total_equity)
 
-            total_debt = get_latest(balance_sheet, ['Total Debt', 'Long Term Debt'])
-            total_equity = get_latest(balance_sheet, ['Total Stockholder Equity', 'Stockholders Equity', 'Total Equity Gross Minority Interest'])
-            current_assets = get_latest(balance_sheet, ['Current Assets', 'Total Current Assets'])
-            current_liabilities = get_latest(balance_sheet, ['Current Liabilities', 'Total Current Liabilities'])
+        # 당좌비율 (분기별) - (Current Assets - Inventory) / Current Liabilities * 100
+        quick_ratio_vals = []
+        for ca, inv, cl in zip(current_assets, inventory, current_liabilities):
+            if ca is not None and cl is not None and cl != 0:
+                inv_val = inv if inv is not None else 0
+                quick_ratio_vals.append(round(((ca - inv_val) / cl) * 100, 1))
+            else:
+                quick_ratio_vals.append(None)
 
-            if total_debt and total_equity and total_equity != 0:
-                debt_ratio = round((total_debt / total_equity) * 100, 1)
+        # 유보율 - Retained Earnings / Equity * 100
+        retention_ratio_vals = calc_ratio(retained_earnings, total_equity)
 
-            if current_assets and current_liabilities and current_liabilities != 0:
-                current_ratio = round((current_assets / current_liabilities) * 100, 1)
+        # EPS (이미 계산된 값 또는 info에서)
+        eps_vals = basic_eps if any(v is not None for v in basic_eps) else [info.get('trailingEps')] * num_periods
 
-            # ROE 계산
-            latest_net_income = net_income[0] if net_income and net_income[0] else None
-            if latest_net_income and total_equity and total_equity != 0:
-                roe = round((latest_net_income * 1_000_000 / total_equity) * 100, 1)
+        # PER (분기별) - Price / EPS
+        per_vals = []
+        for eps in eps_vals:
+            if eps is not None and eps != 0 and current_price:
+                per_vals.append(round(current_price / eps, 2))
+            else:
+                per_vals.append(None)
 
-        # info에서 가져오기 (yfinance 기본 제공)
-        if debt_ratio is None:
-            debt_ratio = info.get('debtToEquity')
-        if roe is None:
+        # BPS (분기별) - Equity / Shares Outstanding (백만→원본 단위로 복원)
+        bps_vals = []
+        for eq in total_equity:
+            if eq is not None and shares_outstanding and shares_outstanding != 0:
+                # eq는 백만 달러 단위이므로 원본으로 복원 후 주당 계산
+                bps_vals.append(round((eq * 1_000_000) / shares_outstanding, 2))
+            else:
+                bps_vals.append(None)
+
+        # PBR (분기별) - Price / BPS
+        pbr_vals = []
+        for bps in bps_vals:
+            if bps is not None and bps != 0 and current_price:
+                pbr_vals.append(round(current_price / bps, 2))
+            else:
+                pbr_vals.append(None)
+
+        # 주당배당금 (연간 기준, 모든 기간 동일)
+        dividend_vals = [dividend_rate] * num_periods if dividend_rate else [None] * num_periods
+
+        # Rows 구성 (국내와 동일한 16개 항목, 동일 순서)
+        result["rows"] = [
+            {"label": "매출액", "values": revenue, "unit": "$M"},
+            {"label": "영업이익", "values": operating_income, "unit": "$M"},
+            {"label": "당기순이익", "values": net_income, "unit": "$M"},
+            {"label": "지배주주순이익", "values": net_income_common, "unit": "$M"},
+            {"label": "비지배주주순이익", "values": minority_interest, "unit": "$M"},
+            {"label": "영업이익률", "values": operating_margin, "unit": "%"},
+            {"label": "순이익률", "values": net_margin, "unit": "%"},
+            {"label": "ROE", "values": roe_vals, "unit": "%"},
+            {"label": "부채비율", "values": debt_ratio_vals, "unit": "%"},
+            {"label": "당좌비율", "values": quick_ratio_vals, "unit": "%"},
+            {"label": "유보율", "values": retention_ratio_vals, "unit": "%"},
+            {"label": "EPS", "values": eps_vals, "unit": "$"},
+            {"label": "PER", "values": per_vals, "unit": "배"},
+            {"label": "BPS", "values": bps_vals, "unit": "$"},
+            {"label": "PBR", "values": pbr_vals, "unit": "배"},
+            {"label": "주당배당금", "values": dividend_vals, "unit": "$"},
+        ]
+
+        # 건전성 데이터 (최신 분기 기준)
+        debt_ratio_latest = debt_ratio_vals[0] if debt_ratio_vals and debt_ratio_vals[0] else info.get('debtToEquity')
+        roe_latest = roe_vals[0] if roe_vals and roe_vals[0] else None
+        if roe_latest is None:
             roe_val = info.get('returnOnEquity')
             if roe_val:
-                roe = round(roe_val * 100, 1)
-        if current_ratio is None:
-            cr_val = info.get('currentRatio')
-            if cr_val:
-                current_ratio = round(cr_val * 100, 1)
-
+                roe_latest = round(roe_val * 100, 1)
         op_margin_latest = operating_margin[0] if operating_margin and operating_margin[0] else None
         if op_margin_latest is None:
             om_val = info.get('operatingMargins')
             if om_val:
                 op_margin_latest = round(om_val * 100, 1)
+        current_ratio_latest = None
+        if current_assets and current_liabilities and current_assets[0] and current_liabilities[0] and current_liabilities[0] != 0:
+            current_ratio_latest = round((current_assets[0] / current_liabilities[0]) * 100, 1)
+        if current_ratio_latest is None:
+            cr_val = info.get('currentRatio')
+            if cr_val:
+                current_ratio_latest = round(cr_val * 100, 1)
 
-        # Rows 구성
-        result["rows"] = [
-            {"label": "매출액", "values": revenue, "unit": "$M"},
-            {"label": "영업이익", "values": operating_income, "unit": "$M"},
-            {"label": "당기순이익", "values": net_income, "unit": "$M"},
-            {"label": "매출총이익", "values": gross_profit, "unit": "$M"},
-            {"label": "영업이익률", "values": operating_margin, "unit": "%"},
-            {"label": "순이익률", "values": net_margin, "unit": "%"},
-        ]
-
-        # 건전성 데이터
-        result["health"]["debt_ratio"] = debt_ratio
-        result["health"]["roe"] = roe
+        result["health"]["debt_ratio"] = debt_ratio_latest
+        result["health"]["roe"] = roe_latest
         result["health"]["operating_margin"] = op_margin_latest
-        result["health"]["current_ratio"] = current_ratio
+        result["health"]["current_ratio"] = current_ratio_latest
 
         # 건전성 점수 계산 (국내와 동일 로직)
         score = 0
 
         # 부채비율 (낮을수록 좋음)
-        if debt_ratio is not None:
-            if debt_ratio < 50: score += 25
-            elif debt_ratio < 100: score += 20
-            elif debt_ratio < 150: score += 15
-            elif debt_ratio < 200: score += 10
+        if debt_ratio_latest is not None:
+            if debt_ratio_latest < 50: score += 25
+            elif debt_ratio_latest < 100: score += 20
+            elif debt_ratio_latest < 150: score += 15
+            elif debt_ratio_latest < 200: score += 10
             else: score += 5
 
         # ROE (높을수록 좋음)
-        if roe is not None:
-            if roe > 15: score += 25
-            elif roe > 10: score += 20
-            elif roe > 5: score += 15
-            elif roe > 0: score += 10
+        if roe_latest is not None:
+            if roe_latest > 15: score += 25
+            elif roe_latest > 10: score += 20
+            elif roe_latest > 5: score += 15
+            elif roe_latest > 0: score += 10
             else: score += 5
 
         # 영업이익률 (높을수록 좋음)
@@ -418,11 +466,11 @@ async def get_stock_statement_us(ticker: str, period_type: str = "annual") -> di
             else: score += 5
 
         # 유동비율 (높을수록 좋음)
-        if current_ratio is not None:
-            if current_ratio > 200: score += 25
-            elif current_ratio > 150: score += 20
-            elif current_ratio > 100: score += 15
-            elif current_ratio > 50: score += 10
+        if current_ratio_latest is not None:
+            if current_ratio_latest > 200: score += 25
+            elif current_ratio_latest > 150: score += 20
+            elif current_ratio_latest > 100: score += 15
+            elif current_ratio_latest > 50: score += 10
             else: score += 5
 
         result["health"]["score"] = score

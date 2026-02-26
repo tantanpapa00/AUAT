@@ -12233,9 +12233,16 @@ async function loadFinancialTabUs(ticker) {
                     return `${sign}$${(absVal / 1000).toFixed(1)}B`;
                 } else if (absVal >= 1) {
                     return `${sign}$${Math.round(absVal).toLocaleString()}M`;
+                } else if (absVal >= 0.01) {
+                    return `${sign}$${absVal.toFixed(1)}M`;
                 } else {
                     return '-';
                 }
+            } else if (unit === '$') {
+                // 달러 (EPS, BPS, 주당배당금)
+                if (val === 0) return '-';
+                const sign = val < 0 ? '-' : '';
+                return `${sign}$${Math.abs(val).toFixed(2)}`;
             }
             return val.toLocaleString();
         };
