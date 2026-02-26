@@ -1443,9 +1443,9 @@
 
                             <!-- 로딩 표시 -->
                             <div id="custom-backtest-loading" style="display:none; text-align:center; padding:40px;">
-                                <div style="display:inline-block; width:32px; height:32px; border:3px solid rgba(255,255,255,0.1); border-top-color:#3B82F6; border-radius:50%; animation:spin 1s linear infinite;"></div>
-                                <div id="custom-backtest-loading-msg" style="font-size:14px; color:#9CA3AF; margin-top:12px;">시세 데이터 준비 중...</div>
-                                <div style="font-size:12px; color:#6B7280; margin-top:4px;">첫 조회 시 다소 시간이 걸릴 수 있습니다</div>
+                                <div style="display:inline-block; width:32px; height:32px; border:3px solid var(--border); border-top-color:#3B82F6; border-radius:50%; animation:spin 1s linear infinite;"></div>
+                                <div id="custom-backtest-loading-msg" style="font-size:14px; color:var(--text-muted); margin-top:12px;">시세 데이터 준비 중...</div>
+                                <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">첫 조회 시 다소 시간이 걸릴 수 있습니다</div>
                             </div>
 
                             <!-- 에러 표시 -->
@@ -1945,9 +1945,9 @@
 
                                 <!-- 로딩 표시 -->
                                 <div id="mr-backtest-loading" style="display:none; text-align:center; padding:40px;">
-                                    <div style="display:inline-block; width:32px; height:32px; border:3px solid rgba(255,255,255,0.1); border-top-color:#EF4444; border-radius:50%; animation:spin 1s linear infinite;"></div>
-                                    <div id="mr-backtest-loading-msg" style="font-size:14px; color:#9CA3AF; margin-top:12px;">시세 데이터 준비 중...</div>
-                                    <div style="font-size:12px; color:#6B7280; margin-top:4px;">첫 조회 시 다소 시간이 걸릴 수 있습니다</div>
+                                    <div style="display:inline-block; width:32px; height:32px; border:3px solid var(--border); border-top-color:#EF4444; border-radius:50%; animation:spin 1s linear infinite;"></div>
+                                    <div id="mr-backtest-loading-msg" style="font-size:14px; color:var(--text-muted); margin-top:12px;">시세 데이터 준비 중...</div>
+                                    <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">첫 조회 시 다소 시간이 걸릴 수 있습니다</div>
                                 </div>
 
                                 <!-- 에러 표시 -->
@@ -1955,11 +1955,11 @@
 
                                 <!-- 백테스트 결과 (트레이딩뷰 동일 구조) -->
                                 <div id="mr-backtest-result" style="display:none; margin-top:16px;">
-                                    <p id="mr-bt-message" style="color:#9CA3AF; margin-bottom:16px; font-size:13px;"></p>
+                                    <p id="mr-bt-message" style="color:var(--text-muted); margin-bottom:16px; font-size:13px;"></p>
 
                                     <!-- 캔들 차트 (TradingView Lightweight Charts) - 맨 위 -->
-                                    <div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:16px; margin-bottom:16px;">
-                                        <h4 style="color:#E5E7EB; margin-bottom:12px; font-size:14px;">캔들 차트 (20/50/200일선)</h4>
+                                    <div style="background:var(--bg-card2); border-radius:8px; padding:16px; margin-bottom:16px;">
+                                        <h4 style="color:var(--text-primary); margin-bottom:12px; font-size:14px;">캔들 차트 (20/50/200일선)</h4>
                                         <div id="mr-candle-chart" style="width:100%; height:400px;"></div>
                                     </div>
 
@@ -1991,11 +1991,11 @@
                                     </div>
 
                                     <!-- 수익률 테이블 (전체/매수/매도 3열) -->
-                                    <div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:16px; margin-bottom:16px;">
-                                        <h4 style="color:#E5E7EB; margin-bottom:12px; font-size:14px;">📊 수익률</h4>
+                                    <div style="background:var(--bg-card2); border-radius:8px; padding:16px; margin-bottom:16px;">
+                                        <h4 style="color:var(--text-primary); margin-bottom:12px; font-size:14px;">📊 수익률</h4>
                                         <table id="mr-bt-performance-table" style="width:100%; border-collapse:collapse; font-size:13px;">
                                             <thead>
-                                                <tr style="color:#9CA3AF; border-bottom:1px solid rgba(255,255,255,0.1);">
+                                                <tr style="color:var(--text-muted); border-bottom:1px solid var(--border);">
                                                     <th style="padding:8px; text-align:left; width:25%;"></th>
                                                     <th style="padding:8px; text-align:right; width:25%;">전체</th>
                                                     <th style="padding:8px; text-align:right; width:25%;">매수</th>
@@ -2007,23 +2007,23 @@
                                     </div>
 
                                     <!-- 자산 추이 차트 -->
-                                    <div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:16px; margin-bottom:16px;">
-                                        <h4 style="color:#E5E7EB; margin-bottom:12px; font-size:14px;">📈 자산 추이</h4>
+                                    <div style="background:var(--bg-card2); border-radius:8px; padding:16px; margin-bottom:16px;">
+                                        <h4 style="color:var(--text-primary); margin-bottom:12px; font-size:14px;">📈 자산 추이</h4>
                                         <div style="position:relative; height:300px; width:100%; overflow:hidden;">
                                             <canvas id="mr-backtest-chart"></canvas>
                                         </div>
                                     </div>
 
                                     <!-- 거래 내역 테이블 (수익금+수익률 둘 다 표시) -->
-                                    <div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:16px;">
+                                    <div style="background:var(--bg-card2); border-radius:8px; padding:16px;">
                                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                                            <h4 style="color:#E5E7EB; font-size:14px;">📋 거래 내역</h4>
-                                            <span id="mr-bt-trade-count" style="color:#6B7280; font-size:12px;"></span>
+                                            <h4 style="color:var(--text-primary); font-size:14px;">📋 거래 내역</h4>
+                                            <span id="mr-bt-trade-count" style="color:var(--text-muted); font-size:12px;"></span>
                                         </div>
                                         <div style="max-height:400px; overflow-y:auto;">
                                             <table id="mr-bt-trades-table" style="width:100%; border-collapse:collapse; font-size:12px;">
                                                 <thead>
-                                                    <tr style="color:#9CA3AF; border-bottom:1px solid rgba(255,255,255,0.1);">
+                                                    <tr style="color:var(--text-muted); border-bottom:1px solid var(--border);">
                                                         <th style="padding:8px 4px; text-align:left;">#</th>
                                                         <th style="padding:8px 4px; text-align:left;">타입</th>
                                                         <th style="padding:8px 4px; text-align:left;">날짜</th>
@@ -2185,7 +2185,7 @@
                                     </div>
                                     <!-- 피라미딩 비중 (JS에서 동적 생성) -->
                                     <div id="trend-pyr-weights-container">
-                                        <label style="color:#9CA3AF; font-size:13px;">차수별 비중</label>
+                                        <label style="color:var(--text-muted); font-size:13px;">차수별 비중</label>
                                         <div id="trend-pyr-weights-row" class="mr-row"></div>
                                         <span id="trend-pyr-weights-sum" class="mr-help">합계: 100%</span>
                                     </div>
@@ -2260,7 +2260,7 @@
                                     </div>
                                     <!-- 분할매도 비중 (JS에서 동적 생성) -->
                                     <div id="trend-sell-tranches-container">
-                                        <label style="color:#9CA3AF; font-size:13px;">매도 비중 (%)</label>
+                                        <label style="color:var(--text-muted); font-size:13px;">매도 비중 (%)</label>
                                         <div id="trend-sell-tranches-row" class="mr-row"></div>
                                     </div>
                                     <div class="mr-row" style="margin-top:8px;">
@@ -2331,9 +2331,9 @@
 
                                 <!-- 로딩 표시 -->
                                 <div id="trend-backtest-loading" style="display:none; text-align:center; padding:40px;">
-                                    <div style="display:inline-block; width:32px; height:32px; border:3px solid rgba(255,255,255,0.1); border-top-color:#10B981; border-radius:50%; animation:spin 1s linear infinite;"></div>
-                                    <div id="trend-backtest-loading-msg" style="font-size:14px; color:#9CA3AF; margin-top:12px;">시세 데이터 준비 중...</div>
-                                    <div style="font-size:12px; color:#6B7280; margin-top:4px;">첫 조회 시 다소 시간이 걸릴 수 있습니다</div>
+                                    <div style="display:inline-block; width:32px; height:32px; border:3px solid var(--border); border-top-color:#10B981; border-radius:50%; animation:spin 1s linear infinite;"></div>
+                                    <div id="trend-backtest-loading-msg" style="font-size:14px; color:var(--text-muted); margin-top:12px;">시세 데이터 준비 중...</div>
+                                    <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">첫 조회 시 다소 시간이 걸릴 수 있습니다</div>
                                 </div>
 
                                 <!-- 백테스트 에러 -->
@@ -2341,11 +2341,11 @@
 
                                 <!-- 백테스트 결과 -->
                                 <div id="trend-backtest-result" style="display:none; margin-top:16px;">
-                                    <p id="trend-bt-message" style="color:#9CA3AF; margin-bottom:16px; font-size:13px;"></p>
+                                    <p id="trend-bt-message" style="color:var(--text-muted); margin-bottom:16px; font-size:13px;"></p>
 
                                     <!-- 캔들 차트 (TradingView Lightweight Charts) - 맨 위 -->
-                                    <div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:16px; margin-bottom:16px;">
-                                        <h4 style="color:#E5E7EB; margin-bottom:12px; font-size:14px;">캔들 차트 (20/50/200일선)</h4>
+                                    <div style="background:var(--bg-card2); border-radius:8px; padding:16px; margin-bottom:16px;">
+                                        <h4 style="color:var(--text-primary); margin-bottom:12px; font-size:14px;">캔들 차트 (20/50/200일선)</h4>
                                         <div id="trend-candle-chart" style="width:100%; height:400px;"></div>
                                     </div>
 
@@ -2377,11 +2377,11 @@
                                     </div>
 
                                     <!-- 수익률 테이블 -->
-                                    <div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:16px; margin-bottom:16px;">
-                                        <h4 style="color:#E5E7EB; margin-bottom:12px; font-size:14px;">수익률</h4>
+                                    <div style="background:var(--bg-card2); border-radius:8px; padding:16px; margin-bottom:16px;">
+                                        <h4 style="color:var(--text-primary); margin-bottom:12px; font-size:14px;">수익률</h4>
                                         <table style="width:100%; border-collapse:collapse; font-size:13px;">
                                             <thead>
-                                                <tr style="color:#9CA3AF; border-bottom:1px solid rgba(255,255,255,0.1);">
+                                                <tr style="color:var(--text-muted); border-bottom:1px solid var(--border);">
                                                     <th style="padding:8px; text-align:left; width:25%;"></th>
                                                     <th style="padding:8px; text-align:right; width:25%;">전체</th>
                                                     <th style="padding:8px; text-align:right; width:25%;">매수</th>
@@ -2393,17 +2393,17 @@
                                     </div>
 
                                     <!-- 자산 추이 차트 -->
-                                    <div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:16px; margin-bottom:16px;">
-                                        <h4 style="color:#E5E7EB; margin-bottom:12px; font-size:14px;">자산 추이</h4>
+                                    <div style="background:var(--bg-card2); border-radius:8px; padding:16px; margin-bottom:16px;">
+                                        <h4 style="color:var(--text-primary); margin-bottom:12px; font-size:14px;">자산 추이</h4>
                                         <div style="position:relative; height:300px; width:100%; overflow:hidden;">
                                             <canvas id="trend-backtest-chart"></canvas>
                                         </div>
                                     </div>
 
                                     <!-- 거래 내역 -->
-                                    <div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:16px;">
+                                    <div style="background:var(--bg-card2); border-radius:8px; padding:16px;">
                                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                                            <h4 style="color:#E5E7EB; font-size:14px;">거래 내역</h4>
+                                            <h4 style="color:var(--text-primary); font-size:14px;">거래 내역</h4>
                                             <span id="trend-bt-trade-count" style="color:#6B7280; font-size:12px;"></span>
                                         </div>
                                         <div style="max-height:400px; overflow-y:auto;">
