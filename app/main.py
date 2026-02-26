@@ -14646,7 +14646,7 @@ SMA5: {sma5} | SMA20: {sma20} | SMA60: {sma60} | SMA120: {sma120} | SMA200: {sma
 # ============================================
 
 async def _collect_etf_data_for_ai(code: str) -> dict:
-    """ETF 전용 데이터 수집"""
+    """ETF 전용 데이터 수집 - 네이버 금융 API + 웹검색 보완"""
     result = {
         "name": "",
         "current_price": 0,
@@ -14660,12 +14660,14 @@ async def _collect_etf_data_for_ai(code: str) -> dict:
         "dividend_yield": 0,
         "holdings": [],
         "returns": {},
+        "high_52w": 0,
+        "low_52w": 0,
+        "volume": 0,
     }
 
     try:
-        # 네이버 ETF API로 기본 정보 수집
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            # ETF 기본 정보
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            # 1. 네이버 기본 정보 API
             resp = await client.get(
                 f"https://m.stock.naver.com/api/stock/{code}/basic",
                 headers={"User-Agent": "Mozilla/5.0"}
@@ -14673,42 +14675,97 @@ async def _collect_etf_data_for_ai(code: str) -> dict:
             if resp.status_code == 200:
                 data = resp.json()
                 result["name"] = data.get("stockName", "")
-                result["current_price"] = data.get("closePrice", 0)
-                result["change_pct"] = data.get("compareToPreviousClosePrice", {}).get("rate", 0)
+                # closePrice가 문자열인 경우 처리
+                close_price = data.get("closePrice", "0")
+                if isinstance(close_price, str):
+                    close_price = close_price.replace(",", "")
+                result["current_price"] = int(close_price) if close_price else 0
+                result["change_pct"] = float(data.get("fluctuationsRatio", 0) or 0)
 
-            # ETF 상세 정보
-            etf_resp = await client.get(
-                f"https://m.stock.naver.com/api/stock/{code}/etf",
+            # 2. 네이버 시세 정보
+            sise_resp = await client.get(
+                f"https://m.stock.naver.com/api/stock/{code}/price",
                 headers={"User-Agent": "Mozilla/5.0"}
             )
-            if etf_resp.status_code == 200:
-                etf_data = etf_resp.json()
-                result["nav"] = etf_data.get("nav", 0)
-                result["nav_diff_pct"] = etf_data.get("navDiffRate", 0)
-                result["total_expense"] = etf_data.get("totalExpenseRatio", 0)
-                result["aum"] = etf_data.get("netAssetTotalAmount", 0)
-                result["tracking_index"] = etf_data.get("indexName", "")
-                result["manager"] = etf_data.get("companyName", "")
-                result["dividend_yield"] = etf_data.get("dividendYield", 0)
+            if sise_resp.status_code == 200:
+                sise_data = sise_resp.json()
+                result["high_52w"] = sise_data.get("high52wPrice", 0)
+                result["low_52w"] = sise_data.get("low52wPrice", 0)
+                result["volume"] = sise_data.get("accumulatedTradingVolume", 0)
 
-                # 수익률 정보
-                result["returns"] = {
-                    "1m": etf_data.get("return1m", 0),
-                    "3m": etf_data.get("return3m", 0),
-                    "6m": etf_data.get("return6m", 0),
-                    "1y": etf_data.get("return1y", 0),
-                    "ytd": etf_data.get("returnYtd", 0),
-                }
+            # 3. ETF 정보 조회 시도 (다양한 엔드포인트)
+            etf_endpoints = [
+                f"https://m.stock.naver.com/api/stock/{code}/etf",
+                f"https://api.stock.naver.com/etf/{code}/basic",
+            ]
+            for endpoint in etf_endpoints:
+                try:
+                    etf_resp = await client.get(endpoint, headers={"User-Agent": "Mozilla/5.0"})
+                    if etf_resp.status_code == 200 and "html" not in etf_resp.text.lower()[:100]:
+                        etf_data = etf_resp.json()
+                        if isinstance(etf_data, dict):
+                            result["nav"] = etf_data.get("nav", 0) or etf_data.get("iNav", 0)
+                            result["nav_diff_pct"] = etf_data.get("navDiffRate", 0) or etf_data.get("premiumRate", 0)
+                            result["total_expense"] = etf_data.get("totalExpenseRatio", 0) or etf_data.get("ter", 0)
+                            result["aum"] = etf_data.get("netAssetTotalAmount", 0) or etf_data.get("aum", 0)
+                            result["tracking_index"] = etf_data.get("indexName", "") or etf_data.get("benchmarkName", "")
+                            result["manager"] = etf_data.get("companyName", "") or etf_data.get("assetManager", "")
+                            result["dividend_yield"] = etf_data.get("dividendYield", 0)
 
-                # 편입종목 상위 10개
-                holdings = etf_data.get("constituents", [])[:10]
-                result["holdings"] = [
-                    {"name": h.get("itemName", ""), "weight": h.get("weight", 0)}
-                    for h in holdings
-                ]
+                            # 수익률
+                            result["returns"] = {
+                                "1m": etf_data.get("return1m", 0),
+                                "3m": etf_data.get("return3m", 0),
+                                "6m": etf_data.get("return6m", 0),
+                                "1y": etf_data.get("return1y", 0),
+                                "ytd": etf_data.get("returnYtd", 0),
+                            }
+
+                            # 편입종목
+                            holdings = etf_data.get("constituents", []) or etf_data.get("holdings", [])
+                            if holdings:
+                                result["holdings"] = [
+                                    {"name": h.get("itemName", "") or h.get("name", ""), "weight": h.get("weight", 0)}
+                                    for h in holdings[:10]
+                                ]
+                            break
+                except Exception:
+                    continue
+
+            # 4. ETF명으로 추적지수 추론 (네이버 API 실패 시 폴백)
+            if not result["tracking_index"] and result["name"]:
+                name = result["name"].upper()
+                if "200" in name:
+                    result["tracking_index"] = "KOSPI 200"
+                elif "50" in name:
+                    result["tracking_index"] = "KOSPI 50"
+                elif "KOSDAQ" in name or "코스닥" in result["name"]:
+                    result["tracking_index"] = "KOSDAQ 150"
+                elif "S&P500" in name or "S&P" in name:
+                    result["tracking_index"] = "S&P 500"
+                elif "NASDAQ" in name or "나스닥" in result["name"]:
+                    result["tracking_index"] = "NASDAQ 100"
+
+            # 5. 운용사 추론
+            if not result["manager"] and result["name"]:
+                name = result["name"]
+                if "KODEX" in name:
+                    result["manager"] = "삼성자산운용"
+                elif "TIGER" in name:
+                    result["manager"] = "미래에셋자산운용"
+                elif "KBSTAR" in name:
+                    result["manager"] = "KB자산운용"
+                elif "ARIRANG" in name:
+                    result["manager"] = "한화자산운용"
+                elif "HANARO" in name:
+                    result["manager"] = "NH-아문디자산운용"
+
+            print(f"[ETF Data] Collected for {code}: name={result['name']}, price={result['current_price']}")
 
     except Exception as e:
         print(f"[ETF Data] Error collecting data for {code}: {e}")
+        import traceback
+        traceback.print_exc()
 
     return result
 

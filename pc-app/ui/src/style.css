@@ -77,8 +77,58 @@
 /* 라이트 테마 placeholder 스타일 */
 :root[data-theme="light"] input::placeholder,
 :root[data-theme="light"] textarea::placeholder {
-    color: #888888 !important;
+    color: #666666 !important;
     opacity: 1;
+}
+
+/* 라이트 테마 입력창 스타일 강화 */
+:root[data-theme="light"] input,
+:root[data-theme="light"] textarea,
+:root[data-theme="light"] select {
+    background: #ffffff !important;
+    color: #111111 !important;
+    border: 2px solid #b0b3ba !important;
+}
+
+:root[data-theme="light"] input:focus,
+:root[data-theme="light"] textarea:focus,
+:root[data-theme="light"] select:focus {
+    border-color: #3b82f6 !important;
+    outline: none;
+}
+
+/* 라이트 테마 AI 채팅 입력창 */
+:root[data-theme="light"] .ai-chat-input,
+:root[data-theme="light"] .chat-input,
+:root[data-theme="light"] #ai-chat-input {
+    background: #ffffff !important;
+    color: #111111 !important;
+    border: 2px solid #9ca3af !important;
+}
+
+:root[data-theme="light"] .ai-chat-input::placeholder,
+:root[data-theme="light"] .chat-input::placeholder,
+:root[data-theme="light"] #ai-chat-input::placeholder {
+    color: #555555 !important;
+}
+
+/* 라이트 테마 카드/모달 배경 */
+:root[data-theme="light"] .card,
+:root[data-theme="light"] .modal-content,
+:root[data-theme="light"] .ai-modal-content {
+    background: #ffffff !important;
+    color: #111111 !important;
+}
+
+/* 라이트 테마 링크 색상 */
+:root[data-theme="light"] a,
+:root[data-theme="light"] .suggestion-link,
+:root[data-theme="light"] .sample-query {
+    color: #1565c0;
+}
+
+:root[data-theme="light"] a:hover {
+    color: #0d47a1;
 }
 
 * {

@@ -9901,7 +9901,7 @@ async function sendAiQuestion(text) {
                 </div>
             </div>
             ${chartsHtml}
-            <div class="ai-answer" style="color:#b0b7c3;font-size:14px;line-height:1.7;">${html}</div>
+            <div class="ai-answer" style="color:var(--text-secondary);font-size:14px;line-height:1.7;">${html}</div>
         `;
 
     } catch (e) {
@@ -10522,14 +10522,14 @@ async function renderEpsForecastChart(code, annualData) {
         container.innerHTML = `
             <div style="padding:4px 0;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                    <span style="font-size:11px;color:#888;">${fy1.year}년 전망치</span>
+                    <span style="font-size:11px;color:var(--text-muted);">${fy1.year}년 전망치</span>
                     <span style="font-size:10px;color:${lineColor};font-weight:bold;">
                         ${isUp ? '▲' : '▼'} ${Math.abs(changePercent)}%
-                        <span style="color:#666;font-weight:normal;margin-left:4px;">${changeCount}회 변경</span>
+                        <span style="color:var(--text-muted);font-weight:normal;margin-left:4px;">${changeCount}회 변경</span>
                     </span>
                 </div>
-                <div style="display:flex;justify-content:space-between;font-size:10px;color:#aaa;margin-bottom:4px;">
-                    <span>시작: <b style="color:#ddd;">${firstVal.toLocaleString()}원</b></span>
+                <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-bottom:4px;">
+                    <span>시작: <b style="color:var(--text-primary);">${firstVal.toLocaleString()}원</b></span>
                     <span>현재: <b style="color:${lineColor};">${lastVal.toLocaleString()}원</b></span>
                 </div>
                 <div style="position:relative;height:70px;">
@@ -10620,7 +10620,7 @@ function renderEpsForecastChartFallback(container, annualData) {
 
     container.innerHTML = `
         <div style="padding:4px 0;">
-            <div style="font-size:11px;color:#888;margin-bottom:6px;text-align:center;">연도별 EPS 전망</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;text-align:center;">연도별 EPS 전망</div>
             <div style="position:relative;height:100px;">
                 <canvas id="${canvasId}"></canvas>
             </div>
@@ -11346,7 +11346,7 @@ function renderFinancialTrendChart(financials) {
 
     // Chart.js가 로드되어 있는지 확인
     if (typeof Chart === 'undefined') {
-        canvas.parentElement.innerHTML = '<div style="padding:20px;text-align:center;color:#9CA3AF;">차트를 불러올 수 없습니다</div>';
+        canvas.parentElement.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);">차트를 불러올 수 없습니다</div>';
         return;
     }
 
@@ -12280,11 +12280,11 @@ async function loadCompanyInfoUs(ticker) {
                     <div class="overview-body">
                         ${formatDescription(data.description)}
                     </div>
-                    <div class="company-meta-row" style="display:flex;flex-wrap:wrap;gap:16px;margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);font-size:0.85rem;color:#9CA3AF;">
-                        ${data.sector ? `<span>📂 섹터: <strong style="color:#E5E7EB;">${data.sector}</strong></span>` : ''}
-                        ${data.industry ? `<span>🏭 업종: <strong style="color:#E5E7EB;">${data.industry}</strong></span>` : ''}
-                        ${data.headquarters ? `<span>📍 본사: <strong style="color:#E5E7EB;">${data.headquarters}</strong></span>` : ''}
-                        ${data.employees > 0 ? `<span>👥 직원: <strong style="color:#E5E7EB;">${data.employees.toLocaleString()}명</strong></span>` : ''}
+                    <div class="company-meta-row" style="display:flex;flex-wrap:wrap;gap:16px;margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);font-size:0.85rem;color:var(--text-muted);">
+                        ${data.sector ? `<span>📂 섹터: <strong style="color:var(--text-primary);">${data.sector}</strong></span>` : ''}
+                        ${data.industry ? `<span>🏭 업종: <strong style="color:var(--text-primary);">${data.industry}</strong></span>` : ''}
+                        ${data.headquarters ? `<span>📍 본사: <strong style="color:var(--text-primary);">${data.headquarters}</strong></span>` : ''}
+                        ${data.employees > 0 ? `<span>👥 직원: <strong style="color:var(--text-primary);">${data.employees.toLocaleString()}명</strong></span>` : ''}
                         ${data.website ? `<span>🌐 <a href="${data.website}" target="_blank" style="color:#3B82F6;">${data.website.replace('https://', '').replace('http://', '')}</a></span>` : ''}
                     </div>
                 </div>
@@ -14023,7 +14023,7 @@ function updateMrTimeframeOptions(exchange) {
     if (exchangeHelpEl) {
         if (isKIS) {
             exchangeHelpEl.textContent = '한국투자증권: 일봉/주봉만 지원 (분봉 불가)';
-            exchangeHelpEl.style.color = '#f59e0b';
+            exchangeHelpEl.style.color = 'var(--warning)';
         } else {
             exchangeHelpEl.textContent = '백테스트할 거래소를 선택하세요';
             exchangeHelpEl.style.color = '';
@@ -14780,7 +14780,7 @@ function displayMrBacktestError(errorMsg) {
 
     if (resultEl) resultEl.style.display = 'none';
     if (errorEl) {
-        errorEl.innerHTML = `<strong style="color:#EF4444;">⚠️ 백테스트 실패</strong><br><span style="color:#9CA3AF;">${errorMsg}</span>`;
+        errorEl.innerHTML = `<strong style="color:var(--danger);">⚠️ 백테스트 실패</strong><br><span style="color:var(--text-muted);">${errorMsg}</span>`;
         errorEl.style.display = 'block';
     }
 }
@@ -14875,7 +14875,7 @@ function createBacktestCandleChart(containerId, candles, trades) {
 
     // 방어: candles가 없거나 빈 배열이면 스킵
     if (!candles || !Array.isArray(candles) || candles.length === 0) {
-        container.innerHTML = '<div style="color:#6B7280; text-align:center; padding:40px;">캔들 데이터가 없습니다</div>';
+        container.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:40px;">캔들 데이터가 없습니다</div>';
         return null;
     }
 
@@ -15047,7 +15047,7 @@ function createBacktestCandleChart(containerId, candles, trades) {
         return chart;
     } catch (err) {
         console.error('캔들차트 생성 에러:', err);
-        container.innerHTML = '<div style="color:#F87171; text-align:center; padding:40px;">차트 생성 실패: ' + (err.message || err) + '</div>';
+        container.innerHTML = '<div style="color:var(--danger); text-align:center; padding:40px;">차트 생성 실패: ' + (err.message || err) + '</div>';
         return null;
     }
 }
@@ -15139,19 +15139,19 @@ function renderMrPerformanceTable(m, currency, fmtAmt) {
         const fPct = (v) => v != null ? `<br><span style="font-size:11px;color:${pnlColor(v)}">${v > 0 ? '+' : ''}${Number(v).toFixed(2)}%</span>` : '';
         const cellColor = (v) => pnlColor(v);
         return `<tr>
-            <td style="color:#9CA3AF; font-weight:600;">${label}</td>
+            <td style="color:var(--text-muted); font-weight:600;">${label}</td>
             <td style="text-align:right; color:${cellColor(allAmt)};">${fmtAmt(allAmt)}${fPct(allPct)}</td>
             <td style="text-align:right; color:${cellColor(buyAmt)};">${fmtAmt(buyAmt)}${fPct(buyPct)}</td>
-            <td style="text-align:right; color:#6B7280;">${sellAmt != null && sellAmt !== 0 ? fmtAmt(sellAmt) : '—'}${sellPct != null && sellPct !== 0 ? fPct(sellPct) : ''}</td>
+            <td style="text-align:right; color:var(--text-muted);">${sellAmt != null && sellAmt !== 0 ? fmtAmt(sellAmt) : '—'}${sellPct != null && sellPct !== 0 ? fPct(sellPct) : ''}</td>
         </tr>`;
     };
 
     const simpleRow = (label, all, buy, sell) => {
         return `<tr>
-            <td style="color:#9CA3AF; font-weight:600;">${label}</td>
+            <td style="color:var(--text-muted); font-weight:600;">${label}</td>
             <td style="text-align:right; color:#D1D5DB;">${all ?? '—'}</td>
             <td style="text-align:right; color:#D1D5DB;">${buy ?? '—'}</td>
-            <td style="text-align:right; color:#6B7280;">${sell != null && sell !== 0 ? sell : '—'}</td>
+            <td style="text-align:right; color:var(--text-muted);">${sell != null && sell !== 0 ? sell : '—'}</td>
         </tr>`;
     };
 
@@ -15175,7 +15175,7 @@ function renderMrTradesTable(trades, currency) {
     if (countEl) countEl.textContent = `총 ${trades.length}건`;
 
     if (trades.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px; color:#6B7280;">거래 내역이 없습니다</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px; color:var(--text-muted);">거래 내역이 없습니다</td></tr>';
         return;
     }
 
@@ -15209,12 +15209,12 @@ function renderMrTradesTable(trades, currency) {
         const cumText = t.cumulative_pnl != null ? formatMrAmount(t.cumulative_pnl, currency) : '-';
 
         return `<tr>
-            <td style="padding:6px 4px; color:#9CA3AF;">${t.no || idx + 1}</td>
+            <td style="padding:6px 4px; color:var(--text-muted);">${t.no || idx + 1}</td>
             <td style="padding:6px 4px; color:${typeColor}; font-weight:600;">${typeText}</td>
             <td style="padding:6px 4px; color:#D1D5DB;">${dateStr}</td>
-            <td style="padding:6px 4px; text-align:right; color:#E5E7EB;">${priceStr}</td>
+            <td style="padding:6px 4px; text-align:right; color:var(--text-primary);">${priceStr}</td>
             <td style="padding:6px 4px; text-align:right; color:#D1D5DB;">${qtyStr}</td>
-            <td style="padding:6px 4px; color:#9CA3AF;">${trancheText}</td>
+            <td style="padding:6px 4px; color:var(--text-muted);">${trancheText}</td>
             <td style="padding:6px 4px; text-align:right; color:${pnlColor};">${pnlAmtText}</td>
             <td style="padding:6px 4px; text-align:right; color:${pnlColor};">${pnlPctText}</td>
             <td style="padding:6px 4px; text-align:right; color:${cumColor};">${cumText}</td>
@@ -16496,19 +16496,19 @@ function renderCustomPerformanceTable(m, currency) {
         const fPct = (v) => v != null ? `<br><span style="font-size:11px;color:${pnlColor(v)}">${v > 0 ? '+' : ''}${Number(v).toFixed(2)}%</span>` : '';
         const cellColor = (v) => pnlColor(v);
         return `<tr>
-            <td style="color:#9CA3AF; font-weight:600;">${label}</td>
+            <td style="color:var(--text-muted); font-weight:600;">${label}</td>
             <td style="text-align:right; color:${cellColor(allAmt)};">${fmtAmt(allAmt)}${fPct(allPct)}</td>
             <td style="text-align:right; color:${cellColor(buyAmt)};">${fmtAmt(buyAmt)}${fPct(buyPct)}</td>
-            <td style="text-align:right; color:#6B7280;">${sellAmt != null && sellAmt !== 0 ? fmtAmt(sellAmt) : '—'}${sellPct != null && sellPct !== 0 ? fPct(sellPct) : ''}</td>
+            <td style="text-align:right; color:var(--text-muted);">${sellAmt != null && sellAmt !== 0 ? fmtAmt(sellAmt) : '—'}${sellPct != null && sellPct !== 0 ? fPct(sellPct) : ''}</td>
         </tr>`;
     };
 
     const simpleRow = (label, all, buy, sell) => {
         return `<tr>
-            <td style="color:#9CA3AF; font-weight:600;">${label}</td>
+            <td style="color:var(--text-muted); font-weight:600;">${label}</td>
             <td style="text-align:right; color:#D1D5DB;">${all ?? '—'}</td>
             <td style="text-align:right; color:#D1D5DB;">${buy ?? '—'}</td>
-            <td style="text-align:right; color:#6B7280;">${sell != null && sell !== 0 ? sell : '—'}</td>
+            <td style="text-align:right; color:var(--text-muted);">${sell != null && sell !== 0 ? sell : '—'}</td>
         </tr>`;
     };
 
@@ -16662,7 +16662,7 @@ document.getElementById('btn-trend-run-backtest')?.addEventListener('click', asy
             const errorMsg = result.error || result.message || '백테스트 실패';
             if (errorEl) {
                 errorEl.style.display = 'block';
-                errorEl.innerHTML = `<span style="color:#EF4444;">${errorMsg}</span>`;
+                errorEl.innerHTML = `<span style="color:var(--danger);">${errorMsg}</span>`;
             }
             showToast(errorMsg, 'error');
         }
@@ -16671,7 +16671,7 @@ document.getElementById('btn-trend-run-backtest')?.addEventListener('click', asy
         const errorMsg = humanizeMrError(error);
         if (errorEl) {
             errorEl.style.display = 'block';
-            errorEl.innerHTML = `<span style="color:#EF4444;">${errorMsg}</span>`;
+            errorEl.innerHTML = `<span style="color:var(--danger);">${errorMsg}</span>`;
         }
         if (resultEl) resultEl.style.display = 'none';
         showToast(errorMsg, 'error');
@@ -16712,7 +16712,7 @@ function displayTrendBacktestResult(result) {
     if (!result.success) {
         if (errorEl) {
             errorEl.style.display = 'block';
-            errorEl.innerHTML = `<span style="color:#EF4444;">⚠️ ${result.error || result.message || '알 수 없는 오류'}</span>`;
+            errorEl.innerHTML = `<span style="color:var(--danger);">⚠️ ${result.error || result.message || '알 수 없는 오류'}</span>`;
         }
         resultEl.style.display = 'none';
         return;
@@ -16797,19 +16797,19 @@ function renderTrendPerformanceTable(m, currency, fmtAmt) {
         const fPct = (v) => v != null ? `<br><span style="font-size:11px;color:${pnlColor(v)}">${v > 0 ? '+' : ''}${Number(v).toFixed(2)}%</span>` : '';
         const cellColor = (v) => pnlColor(v);
         return `<tr>
-            <td style="color:#9CA3AF; font-weight:600;">${label}</td>
+            <td style="color:var(--text-muted); font-weight:600;">${label}</td>
             <td style="text-align:right; color:${cellColor(allAmt)};">${fmtAmt(allAmt)}${fPct(allPct)}</td>
             <td style="text-align:right; color:${cellColor(buyAmt)};">${fmtAmt(buyAmt)}${fPct(buyPct)}</td>
-            <td style="text-align:right; color:#6B7280;">${sellAmt != null && sellAmt !== 0 ? fmtAmt(sellAmt) : '—'}${sellPct != null && sellPct !== 0 ? fPct(sellPct) : ''}</td>
+            <td style="text-align:right; color:var(--text-muted);">${sellAmt != null && sellAmt !== 0 ? fmtAmt(sellAmt) : '—'}${sellPct != null && sellPct !== 0 ? fPct(sellPct) : ''}</td>
         </tr>`;
     };
 
     const simpleRow = (label, all, buy, sell) => {
         return `<tr>
-            <td style="color:#9CA3AF; font-weight:600;">${label}</td>
+            <td style="color:var(--text-muted); font-weight:600;">${label}</td>
             <td style="text-align:right; color:#D1D5DB;">${all ?? '—'}</td>
             <td style="text-align:right; color:#D1D5DB;">${buy ?? '—'}</td>
-            <td style="text-align:right; color:#6B7280;">${sell != null && sell !== 0 ? sell : '—'}</td>
+            <td style="text-align:right; color:var(--text-muted);">${sell != null && sell !== 0 ? sell : '—'}</td>
         </tr>`;
     };
 
@@ -16833,7 +16833,7 @@ function renderTrendTradesTable(trades, currency) {
     if (countEl) countEl.textContent = `총 ${trades.length}건`;
 
     if (trades.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px; color:#6B7280;">거래 내역이 없습니다</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px; color:var(--text-muted);">거래 내역이 없습니다</td></tr>';
         return;
     }
 
@@ -16867,12 +16867,12 @@ function renderTrendTradesTable(trades, currency) {
         const cumText = t.cumulative_pnl != null ? formatMrAmount(t.cumulative_pnl, currency) : '-';
 
         return `<tr>
-            <td style="padding:6px 4px; color:#9CA3AF;">${t.no || idx + 1}</td>
+            <td style="padding:6px 4px; color:var(--text-muted);">${t.no || idx + 1}</td>
             <td style="padding:6px 4px; color:${typeColor}; font-weight:600;">${typeText}</td>
             <td style="padding:6px 4px; color:#D1D5DB;">${dateStr}</td>
-            <td style="padding:6px 4px; text-align:right; color:#E5E7EB;">${priceStr}</td>
+            <td style="padding:6px 4px; text-align:right; color:var(--text-primary);">${priceStr}</td>
             <td style="padding:6px 4px; text-align:right; color:#D1D5DB;">${qtyStr}</td>
-            <td style="padding:6px 4px; color:#9CA3AF;">${trancheText}</td>
+            <td style="padding:6px 4px; color:var(--text-muted);">${trancheText}</td>
             <td style="padding:6px 4px; text-align:right; color:${pnlColor};">${pnlAmtText}</td>
             <td style="padding:6px 4px; text-align:right; color:${pnlColor};">${pnlPctText}</td>
             <td style="padding:6px 4px; text-align:right; color:${cumColor};">${cumText}</td>
