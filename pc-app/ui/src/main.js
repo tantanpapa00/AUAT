@@ -9889,7 +9889,7 @@ async function loadAiRecommendations(market) {
         const response = await invokeWithTimeout('get_ai_recommendations', {
             accessToken: auth.accessToken || '',
             market: market
-        }, 15000);
+        }, 60000);  // US Finviz 스크래핑 대응 (60초)
 
         if (!response || !response.categories) {
             container.innerHTML = '<div class="ai-empty">추천 데이터를 불러올 수 없습니다</div>';

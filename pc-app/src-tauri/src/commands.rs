@@ -2336,7 +2336,7 @@ pub async fn get_ai_recommendations(
     let resp = client
         .get(&url)
         .header("Authorization", format!("Bearer {}", access_token))
-        .timeout(std::time::Duration::from_secs(15))
+        .timeout(std::time::Duration::from_secs(60))  // US Finviz 스크래핑 대응
         .send()
         .await
         .map_err(|e| format!("네트워크 오류: {}", e))?;
