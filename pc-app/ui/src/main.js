@@ -9895,9 +9895,12 @@ async function searchStockAutocomplete(query) {
 // 자동완성 항목 선택
 function selectAutocompleteItem(item) {
     const input = document.getElementById('ai-quick-input');
+    const code = item.dataset.code;
     const name = item.dataset.name;
-    if (input && name) {
-        input.value = `${name} 분석해줘`;
+    if (input && code) {
+        // 티커 코드를 사용하여 정확한 종목 인식 보장
+        // 예: "SCHG 분석해줘" (종목명 사용 시 "U.S."의 "U"가 매칭되는 버그 방지)
+        input.value = `${code} 분석해줘`;
         hideAiAutocomplete();
         input.focus();
     }

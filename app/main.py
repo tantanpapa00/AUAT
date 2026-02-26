@@ -13318,7 +13318,15 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
 
 
 async def _detect_stock_from_message(message: str) -> dict:
-    """메시지에서 종목명/코드 인식 (한국주식 + 미국주식 + ETF)"""
+    """메시지에서 종목명/코드 인식 (한국주식 + 미국주식 + ETF)
+
+    인식 순서:
+    1. 6자리 숫자 코드 (한국 주식/ETF)
+    2. US ETF 풀네임 매칭 (Schwab U.S. Large-Cap Growth ETF → SCHG)
+    3. US 티커 심볼 (SCHG, XLK, AAPL 등)
+    4. 한글 종목명
+    5. 영문 회사명
+    """
     import re
     from app.screener.kr_screener import load_kr_stocks
     from app.screener.us_screener import load_us_stocks
@@ -13342,36 +13350,137 @@ async def _detect_stock_from_message(message: str) -> dict:
         except Exception:
             pass
 
-    # 2. US 티커 심볼 패턴 (예: AAPL, TSLA, NVDA, XLK) - 대문자 1~5자
-    us_ticker_match = re.search(r'\b([A-Z]{1,5})\b', message.upper())
-    if us_ticker_match:
-        ticker = us_ticker_match.group(1)
-        # US 스크리너 캐시에서 검색 (S&P 500)
-        try:
-            us_stocks = await load_us_stocks()
-            for stock in us_stocks:
-                if stock.get("code", "").upper() == ticker:
-                    return {"code": ticker, "name": stock.get("name", ticker), "market": "us"}
-        except Exception as e:
-            print(f"[_detect_stock] US stock search error: {e}")
+    # 2. US ETF 풀네임 매칭 먼저! (티커 추출 전에 확인)
+    # "Schwab U.S. Large-Cap Growth ETF" 같은 풀네임에서 "U"가 먼저 매칭되는 버그 방지
+    etf_name_map = {
+        # SPDR Sector ETFs
+        "technology select sector spdr fund": "XLK",
+        "financial select sector spdr fund": "XLF",
+        "energy select sector spdr fund": "XLE",
+        "health care select sector spdr fund": "XLV",
+        "consumer discretionary select sector spdr fund": "XLY",
+        "consumer staples select sector spdr fund": "XLP",
+        "industrial select sector spdr fund": "XLI",
+        "materials select sector spdr fund": "XLB",
+        "utilities select sector spdr fund": "XLU",
+        "real estate select sector spdr fund": "XLRE",
+        # Major Index ETFs
+        "spdr s&p 500 etf trust": "SPY",
+        "spdr dow jones industrial average etf": "DIA",
+        "invesco qqq trust": "QQQ",
+        "ishares russell 2000 etf": "IWM",
+        # Schwab ETFs
+        "schwab us dividend equity etf": "SCHD",
+        "schwab u.s. large-cap growth etf": "SCHG",
+        "schwab us large-cap growth etf": "SCHG",
+        "schwab u.s. broad market etf": "SCHB",
+        "schwab u.s. small-cap etf": "SCHA",
+        "schwab u.s. large-cap etf": "SCHX",
+        # Vanguard ETFs
+        "vanguard total stock market etf": "VTI",
+        "vanguard s&p 500 etf": "VOO",
+        "vanguard information technology etf": "VGT",
+        "vanguard growth etf": "VUG",
+        "vanguard value etf": "VTV",
+        "vanguard dividend appreciation etf": "VIG",
+        "vanguard high dividend yield etf": "VYM",
+        # iShares ETFs
+        "ishares core s&p 500 etf": "IVV",
+        "ishares broad usd high yield corporate bond etf": "USHY",
+        "ishares iboxx high yield corporate bond etf": "HYG",
+        "ishares 20+ year treasury bond etf": "TLT",
+        "ishares semiconductor etf": "SOXX",
+        # Other popular ETFs
+        "ark innovation etf": "ARKK",
+        "spdr gold shares": "GLD",
+        "vaneck semiconductor etf": "SMH",
+    }
+    # 한글/분석/해줘 등 제거 후 영문만 추출
+    eng_full = re.sub(r'[가-힣]', '', message)
+    eng_full = re.sub(r'분석해줘|분석|해줘|알려줘|보고서|좀', '', eng_full, flags=re.IGNORECASE).strip()
+    eng_lower = eng_full.lower().strip()
 
-        # S&P 500에 없으면 yfinance로 US ETF/주식 확인
+    # 정확한 풀네임 매칭
+    if eng_lower in etf_name_map:
+        ticker = etf_name_map[eng_lower]
         try:
             import yfinance as yf
             yf_ticker = yf.Ticker(ticker)
             info = yf_ticker.info
             if info and info.get("shortName"):
-                # ETF인지 주식인지 판별
-                quote_type = info.get("quoteType", "").upper()
-                is_etf = quote_type == "ETF"
                 return {
                     "code": ticker,
                     "name": info.get("shortName", ticker),
                     "market": "us",
-                    "is_etf": is_etf
+                    "is_etf": True
                 }
-        except Exception as e:
-            print(f"[_detect_stock] yfinance fallback error for {ticker}: {e}")
+        except Exception:
+            pass
+
+    # 부분 매칭 (ETF 이름이 메시지에 포함된 경우)
+    for etf_name, ticker in etf_name_map.items():
+        if etf_name in eng_lower:
+            try:
+                import yfinance as yf
+                yf_ticker = yf.Ticker(ticker)
+                info = yf_ticker.info
+                if info and info.get("shortName"):
+                    return {
+                        "code": ticker,
+                        "name": info.get("shortName", ticker),
+                        "market": "us",
+                        "is_etf": True
+                    }
+            except Exception:
+                continue
+
+    # 3. US 티커 심볼 패턴 (예: AAPL, TSLA, NVDA, XLK) - 대문자 1~5자
+    # 메시지 시작 부분에서 티커 찾기 (더 정확한 매칭)
+    us_ticker_match = re.search(r'\b([A-Z]{1,5})\b', message.upper())
+    if us_ticker_match:
+        ticker = us_ticker_match.group(1)
+
+        # 흔한 영어 단어 제외 (ETF 이름에서 잘못 추출되는 것 방지)
+        SKIP_WORDS = {'A', 'I', 'U', 'AI', 'IT', 'THE', 'AND', 'FOR', 'ETF', 'US',
+                      'USD', 'KR', 'KRW', 'PDF', 'OK', 'PM', 'AM', 'CEO', 'IPO',
+                      'PE', 'EPS', 'ROE', 'PER', 'PBR', 'BPS', 'GDP', 'CPI', 'CAP'}
+        if ticker in SKIP_WORDS:
+            # SKIP_WORDS에 해당하면 다음 매칭 시도
+            all_matches = re.findall(r'\b([A-Z]{1,5})\b', message.upper())
+            for match in all_matches:
+                if match not in SKIP_WORDS:
+                    ticker = match
+                    break
+            else:
+                ticker = None  # 유효한 티커 없음
+
+        if ticker:
+            # US 스크리너 캐시에서 검색 (S&P 500)
+            try:
+                us_stocks = await load_us_stocks()
+                for stock in us_stocks:
+                    if stock.get("code", "").upper() == ticker:
+                        return {"code": ticker, "name": stock.get("name", ticker), "market": "us"}
+            except Exception as e:
+                print(f"[_detect_stock] US stock search error: {e}")
+
+            # S&P 500에 없으면 yfinance로 US ETF/주식 확인
+            try:
+                import yfinance as yf
+                yf_ticker = yf.Ticker(ticker)
+                info = yf_ticker.info
+                if info and info.get("shortName"):
+                    # ETF인지 주식인지 판별
+                    quote_type = info.get("quoteType", "").upper()
+                    is_etf = quote_type == "ETF"
+                    return {
+                        "code": ticker,
+                        "name": info.get("shortName", ticker),
+                        "market": "us",
+                        "is_etf": is_etf
+                    }
+            except Exception as e:
+                print(f"[_detect_stock] yfinance fallback error for {ticker}: {e}")
 
     # 3. 한글 종목명으로 검색 (한국주식 + ETF)
     kr_stocks = await load_kr_stocks()
@@ -13408,40 +13517,6 @@ async def _detect_stock_from_message(message: str) -> dict:
             pass
 
     # 4. 영문 종목명 풀네임으로 yfinance 검색 (예: "Technology Select Sector SPDR Fund")
-    # 한글과 "분석", "해줘" 등을 제거한 영문 부분만 추출
-    eng_full = re.sub(r'[가-힣]', '', message)
-    eng_full = re.sub(r'분석해줘|분석|해줘|알려줘|보고서|좀', '', eng_full, flags=re.IGNORECASE).strip()
-    if len(eng_full) > 5:  # 최소 5글자 이상의 영문 문장
-        try:
-            import yfinance as yf
-            # yfinance는 티커만 검색 가능하므로, 먼저 알려진 ETF 풀네임 매핑 확인
-            etf_name_map = {
-                "technology select sector spdr fund": "XLK",
-                "spdr s&p 500 etf trust": "SPY",
-                "invesco qqq trust": "QQQ",
-                "schwab us dividend equity etf": "SCHD",
-                "vanguard total stock market etf": "VTI",
-                "ishares core s&p 500 etf": "IVV",
-                "vanguard s&p 500 etf": "VOO",
-                "financial select sector spdr fund": "XLF",
-                "energy select sector spdr fund": "XLE",
-                "health care select sector spdr fund": "XLV",
-            }
-            eng_lower = eng_full.lower().strip()
-            if eng_lower in etf_name_map:
-                ticker = etf_name_map[eng_lower]
-                yf_ticker = yf.Ticker(ticker)
-                info = yf_ticker.info
-                if info and info.get("shortName"):
-                    return {
-                        "code": ticker,
-                        "name": info.get("shortName", ticker),
-                        "market": "us",
-                        "is_etf": True
-                    }
-        except Exception as e:
-            print(f"[_detect_stock] ETF fullname search error: {e}")
-
     # 5. 영문 회사명으로 US 종목 검색 (예: Apple, Tesla, Nvidia)
     # 흔한 영어 단어 제외 (ETF 이름에 자주 등장하는 단어들)
     common_words = {
