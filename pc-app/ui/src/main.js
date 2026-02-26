@@ -55,6 +55,85 @@ const auth = {
 };
 
 // =====================================================
+// Theme System (다크/라이트 테마)
+// =====================================================
+
+/**
+ * 테마 설정
+ * @param {string} theme - 'dark' 또는 'light'
+ */
+function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('bbooster-theme', theme);
+
+    // 테마 버튼 활성 상태 갱신
+    const darkBtn = document.getElementById('theme-btn-dark');
+    const lightBtn = document.getElementById('theme-btn-light');
+    if (darkBtn) darkBtn.classList.toggle('active', theme === 'dark');
+    if (lightBtn) lightBtn.classList.toggle('active', theme === 'light');
+
+    // 차트 테마 갱신 (있을 경우)
+    updateChartTheme(theme);
+}
+
+/**
+ * 저장된 테마 로드
+ */
+function loadTheme() {
+    const saved = localStorage.getItem('bbooster-theme') || 'dark';
+    setTheme(saved);
+}
+
+/**
+ * 차트 테마 색상 반환
+ */
+function getChartThemeColors() {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    return {
+        background: isLight ? '#FFFFFF' : '#111A2E',
+        textColor: isLight ? '#4B5563' : '#9CA3AF',
+        gridColor: isLight ? '#E5E7EB' : '#22304A',
+        upColor: isLight ? '#DC2626' : '#EF4444',
+        downColor: isLight ? '#2563EB' : '#3B82F6',
+    };
+}
+
+/**
+ * 차트 테마 업데이트 (TradingView Lightweight Charts)
+ */
+function updateChartTheme(theme) {
+    // candleChart가 전역으로 존재하면 업데이트
+    if (typeof candleChart !== 'undefined' && candleChart) {
+        const colors = getChartThemeColors();
+        try {
+            candleChart.applyOptions({
+                layout: {
+                    background: { type: ColorType.Solid, color: colors.background },
+                    textColor: colors.textColor,
+                },
+                grid: {
+                    vertLines: { color: colors.gridColor },
+                    horzLines: { color: colors.gridColor },
+                },
+            });
+        } catch (e) {
+            console.log('[Theme] 차트 테마 업데이트 스킵:', e.message);
+        }
+    }
+}
+
+// 앱 시작 시 테마 로드
+loadTheme();
+
+// 테마 버튼 이벤트 리스너 (이벤트 위임)
+document.addEventListener('click', (e) => {
+    const themeBtn = e.target.closest('.theme-btn');
+    if (themeBtn && themeBtn.dataset.theme) {
+        setTheme(themeBtn.dataset.theme);
+    }
+});
+
+// =====================================================
 // [BUG FIX] DOM 안전 조작 함수 - null 방지
 // =====================================================
 

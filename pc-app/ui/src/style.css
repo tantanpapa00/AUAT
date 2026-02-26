@@ -1,4 +1,6 @@
 /* BBooster PC App Styles */
+
+/* ===== 다크 테마 (기본) ===== */
 :root {
     --primary: #DC2626;
     --primary-dark: #B91C1C;
@@ -17,6 +19,46 @@
     --text-muted: #6B7280;
     --border: #22304A;
     --sidebar-width: 220px;
+    /* 추가 다크 테마 변수 */
+    --bg-hover: #1E293B;
+    --modal-overlay: rgba(0, 0, 0, 0.7);
+    --scrollbar-bg: #1E293B;
+    --scrollbar-thumb: #3B4A6B;
+    --input-bg: #1E293B;
+    --table-header-bg: #1E293B;
+    --table-row-hover: #22304A;
+    --chart-grid: #22304A;
+    --chart-text: #9CA3AF;
+}
+
+/* ===== 라이트 테마 ===== */
+:root[data-theme="light"] {
+    --primary: #DC2626;
+    --primary-dark: #B91C1C;
+    --primary-light: #EF4444;
+    --success: #16A34A;
+    --danger: #DC2626;
+    --warning: #D97706;
+    --info: #2563EB;
+    --bg-dark: #F3F4F6;
+    --bg-card: #FFFFFF;
+    --bg-card2: #F9FAFB;
+    --bg-light: #E5E7EB;
+    --card-bg: #FFFFFF;
+    --text-primary: #111827;
+    --text-secondary: #4B5563;
+    --text-muted: #9CA3AF;
+    --border: #D1D5DB;
+    /* 추가 라이트 테마 변수 */
+    --bg-hover: #E5E7EB;
+    --modal-overlay: rgba(0, 0, 0, 0.4);
+    --scrollbar-bg: #E5E7EB;
+    --scrollbar-thumb: #9CA3AF;
+    --input-bg: #FFFFFF;
+    --table-header-bg: #F3F4F6;
+    --table-row-hover: #F3F4F6;
+    --chart-grid: #E5E7EB;
+    --chart-text: #4B5563;
 }
 
 * {
@@ -8305,6 +8347,64 @@ body {
 
 .settings-notice .notice-icon {
     font-size: 16px;
+}
+
+/* ===== 테마 토글 ===== */
+.theme-setting-section {
+    background: var(--bg-card);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+    border: 1px solid var(--border);
+}
+
+.theme-setting-section h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+}
+
+.theme-toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+}
+
+.theme-toggle-row span {
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.theme-toggle {
+    display: flex;
+    gap: 8px;
+}
+
+.theme-btn {
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-light);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.theme-btn.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+
+.theme-btn:hover:not(.active) {
+    background: var(--bg-hover);
+    border-color: var(--text-muted);
 }
 
 /* Limit with Toggle (v2) */
