@@ -13210,11 +13210,13 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
 
 
 async def _detect_stock_from_message(message: str) -> dict:
-    """메시지에서 종목명/코드 인식"""
+    """메시지에서 종목명/코드 인식 (한국주식 + 미국주식 + ETF)"""
     import re
     from app.screener.kr_screener import load_kr_stocks
+    from app.screener.us_screener import load_us_stocks
+    from app.naver_finance import get_etf_list
 
-    # 1. 6자리 숫자 코드 패턴 (예: 009830, 005930)
+    # 1. 6자리 숫자 코드 패턴 (예: 009830, 005930) - 한국주식/ETF
     code_match = re.search(r'\b(\d{6})\b', message)
     if code_match:
         code = code_match.group(1)
@@ -13223,25 +13225,77 @@ async def _detect_stock_from_message(message: str) -> dict:
         for stock in kr_stocks:
             if stock.get("code") == code:
                 return {"code": code, "name": stock.get("name", code), "market": "kr"}
+        # ETF 목록에서도 검색
+        try:
+            etf_list = await get_etf_list()
+            for etf in etf_list:
+                if etf.get("code") == code:
+                    return {"code": code, "name": etf.get("name", code), "market": "kr", "is_etf": True}
+        except Exception:
+            pass
 
-    # 2. 종목명으로 검색 (스크리너 캐시 사용)
+    # 2. US 티커 심볼 패턴 (예: AAPL, TSLA, NVDA) - 대문자 1~5자
+    us_ticker_match = re.search(r'\b([A-Z]{1,5})\b', message.upper())
+    if us_ticker_match:
+        ticker = us_ticker_match.group(1)
+        # US 스크리너 캐시에서 검색
+        try:
+            us_stocks = await load_us_stocks()
+            for stock in us_stocks:
+                if stock.get("code", "").upper() == ticker:
+                    return {"code": ticker, "name": stock.get("name", ticker), "market": "us"}
+        except Exception as e:
+            print(f"[_detect_stock] US stock search error: {e}")
+
+    # 3. 한글 종목명으로 검색 (한국주식 + ETF)
     kr_stocks = await load_kr_stocks()
     words = re.findall(r'[가-힣]+', message)
 
     for word in words:
         if len(word) < 2:
             continue
-        # 정확한 이름 매칭 먼저
+        # 정확한 이름 매칭 먼저 (한국주식)
         for stock in kr_stocks:
             if stock.get("name") == word:
                 return {"code": stock.get("code"), "name": stock.get("name"), "market": "kr"}
+        # ETF 이름 매칭
+        try:
+            etf_list = await get_etf_list()
+            for etf in etf_list:
+                if etf.get("name") == word:
+                    return {"code": etf.get("code"), "name": etf.get("name"), "market": "kr", "is_etf": True}
+        except Exception:
+            pass
         # 부분 매칭 (종목명에 단어가 포함된 경우)
         for stock in kr_stocks:
             stock_name = stock.get("name", "")
             if word in stock_name and len(word) >= 2:
                 return {"code": stock.get("code"), "name": stock_name, "market": "kr"}
+        # ETF 부분 매칭
+        try:
+            etf_list = await get_etf_list()
+            for etf in etf_list:
+                etf_name = etf.get("name", "")
+                if word in etf_name and len(word) >= 2:
+                    return {"code": etf.get("code"), "name": etf_name, "market": "kr", "is_etf": True}
+        except Exception:
+            pass
 
-    # 3. 네이버 검색 API로 fallback
+    # 4. 영문 회사명으로 US 종목 검색 (예: Apple, Tesla, Nvidia)
+    eng_words = re.findall(r'[A-Za-z]+', message)
+    for word in eng_words:
+        if len(word) < 3:
+            continue
+        try:
+            us_stocks = await load_us_stocks()
+            for stock in us_stocks:
+                stock_name = stock.get("name", "").lower()
+                if word.lower() in stock_name:
+                    return {"code": stock.get("code"), "name": stock.get("name"), "market": "us"}
+        except Exception:
+            pass
+
+    # 5. 네이버 검색 API로 fallback (한국주식)
     for word in words:
         if len(word) < 2:
             continue
@@ -14790,6 +14844,57 @@ async def _collect_etf_data_for_ai(code: str) -> dict:
     return result
 
 
+def _format_technical_data_for_prompt(tech: dict) -> str:
+    """기술적 분석 데이터를 프롬프트 문자열로 변환"""
+    if not tech:
+        return "기술적 지표 데이터 없음"
+
+    lines = []
+
+    # 가격 정보
+    price = tech.get("price", {})
+    if price.get("current"):
+        lines.append(f"- 현재가: {price.get('current', 0):,}원")
+    if price.get("high_52w"):
+        lines.append(f"- 52주 최고: {price.get('high_52w', 0):,}원")
+    if price.get("low_52w"):
+        lines.append(f"- 52주 최저: {price.get('low_52w', 0):,}원")
+
+    # 이동평균
+    ma = tech.get("moving_averages", {})
+    ma_lines = []
+    for period in [5, 20, 60, 120, 200]:
+        val = ma.get(f"sma_{period}")
+        if val:
+            ma_lines.append(f"SMA{period}={val:,}")
+    if ma_lines:
+        lines.append(f"- 이동평균: {', '.join(ma_lines)}")
+
+    # 모멘텀 지표
+    mom = tech.get("momentum_indicators", {})
+    if mom.get("rsi"):
+        lines.append(f"- RSI(14): {mom.get('rsi', 0):.1f}")
+    if mom.get("macd_line") is not None:
+        lines.append(f"- MACD: 라인={mom.get('macd_line', 0):.2f}, 시그널={mom.get('macd_signal', 0):.2f}, 히스토그램={mom.get('macd_histogram', 0):.2f}")
+    if mom.get("stoch_k") is not None:
+        lines.append(f"- 스토캐스틱: %K={mom.get('stoch_k', 0):.1f}, %D={mom.get('stoch_d', 0):.1f}")
+
+    # 추세 지표
+    trend = tech.get("trend_indicators", {})
+    if trend.get("adx"):
+        lines.append(f"- ADX: {trend.get('adx', 0):.1f} (+DI={trend.get('plus_di', 0):.1f}, -DI={trend.get('minus_di', 0):.1f})")
+
+    # 지지/저항
+    support = tech.get("support_levels", [])
+    resistance = tech.get("resistance_levels", [])
+    if support:
+        lines.append(f"- 지지선: {', '.join([f'{s:,}원' for s in support])}")
+    if resistance:
+        lines.append(f"- 저항선: {', '.join([f'{r:,}원' for r in resistance])}")
+
+    return "\n".join(lines) if lines else "기술적 지표 데이터 없음"
+
+
 def _build_etf_prompt(name: str, code: str, data: dict) -> str:
     """ETF 전용 AI 분석 프롬프트 구성"""
     from datetime import datetime, timezone, timedelta
@@ -14838,6 +14943,9 @@ def _build_etf_prompt(name: str, code: str, data: dict) -> str:
 ### 편입종목 상위 10개
 {holdings_text}
 
+### 기술적 분석 지표
+{_format_technical_data_for_prompt(data.get('technical', {}))}
+
 ---
 
 ## 작성해야 할 보고서 구조 (마크다운 형식)
@@ -14862,12 +14970,18 @@ def _build_etf_prompt(name: str, code: str, data: dict) -> str:
 - 동일 지수 추적 ETF와 비교 (웹검색으로 확인)
 - 거래량 및 유동성
 
-### 5. 투자 의견
+### 5. 기술적 분석
+- 이동평균선 분석 (SMA 5/20/60/120/200 vs 현재가)
+- 모멘텀 지표 해석 (RSI 과매수/과매도 구간, MACD 골든/데드크로스 여부)
+- 추세 강도 (ADX 및 방향성 지표)
+- 지지/저항선 현황
+
+### 6. 투자 의견
 - 적합한 투자자 유형
 - 투자 시 주의사항
 - 포트폴리오 내 역할 제안
 
-### 6. 면책조항
+### 7. 면책조항
 "본 보고서는 투자 참고 자료로만 활용하시기 바라며, 특정 종목의 매수/매도를 권유하지 않습니다."
 
 ---
@@ -14904,6 +15018,11 @@ async def _generate_etf_report(name: str, code: str, market: str = "kr") -> dict
         # ETF 데이터 수집
         print(f"[ETF Report] Collecting ETF data for {name}({code})...")
         etf_data = await _collect_etf_data_for_ai(code)
+
+        # 기술적 데이터 추가 — 국내주식과 동일한 함수 재사용
+        print(f"[ETF Report] Collecting technical data for {name}({code})...")
+        technical_data = await _collect_technical_data_for_ai(code, market)
+        etf_data['technical'] = technical_data
 
         # 프롬프트 구성
         prompt = _build_etf_prompt(name, code, etf_data)

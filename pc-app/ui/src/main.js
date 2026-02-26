@@ -9913,13 +9913,17 @@ async function sendAiQuestion(text) {
             `;
         }
 
-        // PDF 다운로드 버튼 (종목 분석 시)
-        let pdfBtnHtml = '';
+        // PDF 다운로드 버튼 + 공유 버튼 (종목 분석 시)
+        let actionBtnsHtml = '';
         if (stock && currentJobId) {
-            pdfBtnHtml = `
+            actionBtnsHtml = `
                 <button onclick="downloadAiReportPdf('${currentJobId}', '${stock.name}', '${stock.code}')"
                     style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;">
                     <span>📄</span> PDF 다운로드
+                </button>
+                <button onclick="shareAiReport('${stock.name}', '${stock.code}')"
+                    style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;">
+                    <span>📤</span> 공유
                 </button>
             `;
         }
@@ -9928,7 +9932,7 @@ async function sendAiQuestion(text) {
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
                 <span style="color:#ef4444;font-weight:600;">🤖 AI 답변</span>
                 <div style="display:flex;gap:8px;align-items:center;">
-                    ${pdfBtnHtml}
+                    ${actionBtnsHtml}
                     <button onclick="document.getElementById('ai-response-area').style.display='none'"
                         style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;">✕</button>
                 </div>
@@ -9972,6 +9976,47 @@ async function downloadAiReportPdf(jobId, stockName, stockCode) {
     }
 }
 window.downloadAiReportPdf = downloadAiReportPdf;
+
+// AI 리포트 공유 (클립보드 복사)
+async function shareAiReport(stockName, stockCode) {
+    const responseArea = document.getElementById('ai-response-area');
+    const answerEl = responseArea?.querySelector('.ai-answer');
+
+    if (!answerEl) {
+        showToast('공유할 내용이 없습니다', 'error');
+        return;
+    }
+
+    // HTML을 텍스트로 변환
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = answerEl.innerHTML;
+    const textContent = tempDiv.innerText || tempDiv.textContent;
+
+    // 공유 텍스트 구성
+    const shareText = `📊 ${stockName} (${stockCode}) AI 분석 리포트\n\n${textContent}\n\n─────────────────\n🤖 BBooster AI 분석\n📱 https://qube-system.com`;
+
+    try {
+        // 클립보드에 복사
+        await navigator.clipboard.writeText(shareText);
+        showToast('클립보드에 복사되었습니다!', 'success');
+    } catch (e) {
+        // 클립보드 API 실패 시 fallback
+        const textarea = document.createElement('textarea');
+        textarea.value = shareText;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            document.execCommand('copy');
+            showToast('클립보드에 복사되었습니다!', 'success');
+        } catch (err) {
+            showToast('복사 실패: ' + err, 'error');
+        }
+        document.body.removeChild(textarea);
+    }
+}
+window.shareAiReport = shareAiReport;
 
 // AI 채팅 결과 폴링 (차트/종목 정보 포함)
 async function pollAiChatResult(jobId, maxWaitSec = 120) {
