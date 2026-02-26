@@ -5040,6 +5040,9 @@ async def get_etf_summary(code: str) -> dict:
         "code": code,
         "name": "",
         "price": 0,
+        "open": 0,
+        "high": 0,
+        "low": 0,
         "change": 0,
         "change_pct": 0,
         "nav": 0,
@@ -5132,6 +5135,46 @@ async def get_etf_summary(code: str) -> dict:
                 # 이름 (없으면 basic에서)
                 if not result["name"]:
                     result["name"] = basic.get("stockName", code)
+
+            # price API로 시가/고가/저가/거래량 (최근 1일치)
+            url_price = f"https://m.stock.naver.com/api/stock/{code}/price"
+            r_price = await client.get(url_price, headers=headers)
+
+            if r_price.status_code == 200:
+                price_data = r_price.json()
+                if isinstance(price_data, list) and len(price_data) > 0:
+                    latest = price_data[0]  # 가장 최근 데이터
+
+                    # 시가
+                    open_str = latest.get("openPrice", "0")
+                    if isinstance(open_str, str):
+                        open_str = open_str.replace(",", "")
+                    try:
+                        result["open"] = int(float(open_str))
+                    except:
+                        pass
+
+                    # 고가
+                    high_str = latest.get("highPrice", "0")
+                    if isinstance(high_str, str):
+                        high_str = high_str.replace(",", "")
+                    try:
+                        result["high"] = int(float(high_str))
+                    except:
+                        pass
+
+                    # 저가
+                    low_str = latest.get("lowPrice", "0")
+                    if isinstance(low_str, str):
+                        low_str = low_str.replace(",", "")
+                    try:
+                        result["low"] = int(float(low_str))
+                    except:
+                        pass
+
+                    # 거래량
+                    vol = latest.get("accumulatedTradingVolume", 0)
+                    result["volume"] = vol if isinstance(vol, int) else int(vol or 0)
 
         _set_cache(cache_key, result)
     except Exception as e:

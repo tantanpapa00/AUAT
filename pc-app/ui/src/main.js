@@ -9186,21 +9186,50 @@ function updateEtfDetailUI(data) {
     const priceEl = document.getElementById('detail-stock-price');
     const changeEl = document.getElementById('detail-stock-change');
 
+    // 현재가용 엘리먼트 (stock-detail-modal용)
+    const currentPriceEl = document.getElementById('detail-current-price');
+    const priceChangeEl = document.getElementById('detail-price-change');
+
     if (nameEl) nameEl.textContent = data.name || '-';
     if (codeEl) codeEl.textContent = data.code || '';
 
-    // 가격 (KRW)
+    // 가격 (KRW) - 두 엘리먼트 모두 업데이트
+    const priceValue = (data.price || 0).toLocaleString();
     if (priceEl) {
-        priceEl.textContent = (data.price || 0).toLocaleString() + '원';
+        priceEl.textContent = priceValue + '원';
+    }
+    if (currentPriceEl) {
+        currentPriceEl.textContent = priceValue;
     }
 
     // 등락
+    const change = data.change || 0;
+    const changePct = data.change_pct || 0;
+    const sign = change >= 0 ? '+' : '';
+    const colorClass = change > 0 ? 'rise' : change < 0 ? 'fall' : '';
+
     if (changeEl) {
-        const change = data.change || 0;
-        const changePct = data.change_pct || 0;
-        const sign = change >= 0 ? '+' : '';
-        const colorClass = change > 0 ? 'rise' : change < 0 ? 'fall' : '';
         changeEl.innerHTML = `<span class="${colorClass}">${sign}${change.toLocaleString()} (${sign}${changePct.toFixed(2)}%)</span>`;
+    }
+    if (priceChangeEl) {
+        priceChangeEl.textContent = `${sign}${change.toLocaleString()} (${sign}${changePct.toFixed(2)}%)`;
+        priceChangeEl.className = `price-change ${change > 0 ? 'profit' : change < 0 ? 'loss' : ''}`;
+    }
+
+    // 시가/고가/저가/거래량
+    const openEl = document.getElementById('detail-open');
+    const highEl = document.getElementById('detail-high');
+    const lowEl = document.getElementById('detail-low');
+    const volumeEl = document.getElementById('detail-volume');
+
+    if (openEl) openEl.textContent = data.open ? data.open.toLocaleString() : '-';
+    if (highEl) highEl.textContent = data.high ? data.high.toLocaleString() : '-';
+    if (lowEl) lowEl.textContent = data.low ? data.low.toLocaleString() : '-';
+    if (volumeEl) {
+        const vol = data.volume || 0;
+        if (vol >= 1e8) volumeEl.textContent = `${(vol / 1e8).toFixed(0)}억`;
+        else if (vol >= 1e4) volumeEl.textContent = `${(vol / 1e4).toFixed(0)}만`;
+        else volumeEl.textContent = vol > 0 ? vol.toLocaleString() : '-';
     }
 }
 
