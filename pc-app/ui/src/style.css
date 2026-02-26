@@ -9481,6 +9481,19 @@ body {
     color: var(--text-secondary);
 }
 
+/* RS 종목 링크 (클릭 가능) */
+.rs-stock-link {
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: background 0.15s, color 0.15s;
+}
+
+.rs-stock-link:hover {
+    background: var(--primary);
+    color: #fff;
+}
+
 /* RS 90 이상 굵게 */
 .rs-strong {
     font-weight: 700;

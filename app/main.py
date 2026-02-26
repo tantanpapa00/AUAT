@@ -11388,7 +11388,7 @@ async def api_market_sectors(
 
 @app.get("/api/market/ranking")
 async def get_stock_ranking(
-    ranking_type: str = Query("volume", description="순위 유형: volume, rise, fall, market_cap, foreign_buy, foreign_sell, institution_buy, institution_sell"),
+    ranking_type: str = Query("volume", description="순위 유형: volume, trading_value, rise, fall, market_cap, foreign_buy, foreign_sell, institution_buy, institution_sell"),
     market: str = Query("all", description="시장: all, kospi, kosdaq"),
     current_user: User = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
@@ -11413,6 +11413,13 @@ async def get_stock_ranking(
         if token:
             if ranking_type == "volume":
                 results = await get_volume_rank(app_key, app_secret, token.access_token, market_code, 50) or []
+            elif ranking_type == "trading_value":
+                # 거래대금 순위: volume API 사용 후 value 기준 정렬
+                raw_results = await get_volume_rank(app_key, app_secret, token.access_token, market_code, 50) or []
+                results = sorted(raw_results, key=lambda x: x.get("value", 0), reverse=True)
+                # rank 재할당
+                for i, item in enumerate(results):
+                    item["rank"] = i + 1
             elif ranking_type == "rise":
                 results = await get_fluctuation_rank(app_key, app_secret, token.access_token, market_code, True, 50) or []
             elif ranking_type == "fall":
@@ -11431,7 +11438,8 @@ async def get_stock_ranking(
     # KIS 계정 없으면 네이버 공개 API 사용
     if not results:
         naver_market = market.upper() if market != "all" else "ALL"
-        if ranking_type == "volume":
+        if ranking_type in ("volume", "trading_value"):
+            # 네이버는 거래대금 데이터 없음, 거래량으로 대체
             results = await get_naver_volume_rank(50, naver_market)
         elif ranking_type in ("rise", "fall"):
             results = await get_naver_fluctuation_rank(ranking_type == "rise", 50, naver_market)

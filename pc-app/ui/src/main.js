@@ -5332,11 +5332,11 @@ async function loadMarketKr() {
                 <p>단기/장기 신호는 각각 단기적, 장기적 관점에서의 시장 흐름을 보여주는 지표입니다.</p>
             </div>
 
-            <!-- 5행: 서브탭 (오늘의 특징주 | 오늘의 업종 | 추세유지 | 신용잔고) -->
+            <!-- 5행: 서브탭 (오늘의 특징주 | 오늘의 업종 | 섹터별 추세 | 신용잔고) -->
             <div class="se-subtabs">
                 <button class="se-subtab active" data-tab="featured-stocks">오늘의 특징주</button>
                 <button class="se-subtab" data-tab="sector">오늘의 업종</button>
-                <button class="se-subtab" data-tab="trend-maintain">추세유지</button>
+                <button class="se-subtab" data-tab="trend-maintain">섹터별 추세</button>
                 <button class="se-subtab" data-tab="credit-balance">신용잔고</button>
             </div>
 
@@ -5346,7 +5346,7 @@ async function loadMarketKr() {
                     <div class="se-featured-tabs">
                         <button class="se-featured-tab active" data-type="gainers">상승률 상위</button>
                         <button class="se-featured-tab" data-type="losers">하락률 상위</button>
-                        <button class="se-featured-tab" data-type="volume">거래량 상위</button>
+                        <button class="se-featured-tab" data-type="trading_value">거래대금 상위</button>
                     </div>
                     <div class="se-market-filter">
                         <select id="featured-market-filter">
@@ -5382,10 +5382,10 @@ async function loadMarketKr() {
                 </div>
             </div>
 
-            <!-- 추세유지 탭 -->
+            <!-- 섹터별 추세 탭 -->
             <div class="se-tab-content" id="tab-trend-maintain" style="display:none;">
                 <div class="card">
-                    <h3>섹터별 추세유지 (20MA 기준)</h3>
+                    <h3>섹터별 추세 (20MA 기준)</h3>
                     <p class="trend-maintain-desc">
                         • <b>포지션</b>: 현재가가 20일 이동평균선 위에 며칠째 유지 또는 이탈 중인지<br>
                         • <b>신호등</b>: 섹터의 현재 상태 (<span style="color:#22c55e">●</span>양호, <span style="color:#fde047">●</span>주의, <span style="color:#ef4444">●</span>매우주의)<br>
@@ -6072,11 +6072,12 @@ function renderTrendMaintainTable() {
         const gapClass = (s.gap_percent || 0) >= 0 ? 'positive' : 'negative';
         const changeClass = (s.change_percent || 0) >= 0 ? 'profit' : 'loss';
 
-        // 대표종목(RS) 표시 - RS 90 이상 굵게 (최대 5개)
+        // 대표종목(RS) 표시 - RS 90 이상 굵게 (최대 5개), 클릭 가능
         const topHoldingsHtml = (s.top_holdings || []).slice(0, 5).map(stock => {
             const rs = stock.rs || 0;
             const rsClass = rs >= 90 ? 'rs-strong' : 'rs-normal';
-            return `<span class="${rsClass}">${stock.name}(${rs})</span>`;
+            const code = stock.code || '';
+            return `<span class="rs-stock-link ${rsClass}" data-code="${code}" data-name="${stock.name}">${stock.name}(${rs})</span>`;
         }).join(', ');
 
         return `
@@ -6091,6 +6092,17 @@ function renderTrendMaintainTable() {
             </tr>
         `;
     }).join('');
+
+    // 대표RS 종목 클릭 이벤트 바인딩
+    tbody.querySelectorAll('.rs-stock-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const code = link.dataset.code;
+            if (code) {
+                openStockDetail(code, 'kis_kr');
+            }
+        });
+    });
 }
 
 // 섹터 데이터 저장 (클릭 이벤트용)
@@ -6282,8 +6294,8 @@ async function loadFeaturedStocksKr(type = 'gainers', market = 'ALL') {
     listEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
 
     try {
-        // ranking_type 매핑: gainers -> rise, losers -> fall, volume -> volume
-        const rankingType = type === 'gainers' ? 'rise' : (type === 'losers' ? 'fall' : 'volume');
+        // ranking_type 매핑: gainers -> rise, losers -> fall, trading_value -> trading_value
+        const rankingType = type === 'gainers' ? 'rise' : (type === 'losers' ? 'fall' : 'trading_value');
         const marketParam = market === 'ALL' ? 'all' : market.toLowerCase();
 
         const data = await invokeWithTimeout('get_stock_ranking', {
@@ -6311,7 +6323,7 @@ async function loadFeaturedStocksKr(type = 'gainers', market = 'ALL') {
                         <th class="name-col">종목명</th>
                         <th class="price-col">현재가</th>
                         <th class="change-col">등락률</th>
-                        ${type === 'volume' ? '<th class="volume-col">거래량</th>' : ''}
+                        ${type === 'trading_value' ? '<th class="volume-col">거래대금</th>' : ''}
                     </tr>
                 </thead>
                 <tbody>
@@ -6319,7 +6331,7 @@ async function loadFeaturedStocksKr(type = 'gainers', market = 'ALL') {
                         const changeClass = (s.change || 0) >= 0 ? 'profit' : 'loss';
                         const sign = (s.change || 0) >= 0 ? '+' : '';
                         const priceStr = (s.current || 0).toLocaleString();
-                        const volumeStr = type === 'volume' ? formatVolume(s.volume) : '';
+                        const valueStr = type === 'trading_value' ? formatTradingValue(s.value) : '';
 
                         return `
                             <tr class="stock-row" data-code="${s.code}" data-name="${s.name}">
@@ -6331,7 +6343,7 @@ async function loadFeaturedStocksKr(type = 'gainers', market = 'ALL') {
                                 </td>
                                 <td class="price-col">${priceStr}</td>
                                 <td class="change-col ${changeClass}">${sign}${(s.change || 0).toFixed(2)}%</td>
-                                ${type === 'volume' ? `<td class="volume-col">${volumeStr}</td>` : ''}
+                                ${type === 'trading_value' ? `<td class="volume-col">${valueStr}</td>` : ''}
                             </tr>
                         `;
                     }).join('')}
@@ -6339,13 +6351,12 @@ async function loadFeaturedStocksKr(type = 'gainers', market = 'ALL') {
             </table>
         `;
 
-        // 종목 클릭 이벤트
+        // 종목 클릭 이벤트 → 모달로 종목 상세 열기
         listEl.querySelectorAll('.stock-row').forEach(row => {
             row.addEventListener('click', () => {
                 const code = row.dataset.code;
-                const name = row.dataset.name;
-                // 종목 상세 페이지로 이동
-                goToStockDetail(code, name, 'KR');
+                // 종목 상세 모달 열기
+                openStockDetail(code, 'kis_kr');
             });
         });
     } catch (error) {
