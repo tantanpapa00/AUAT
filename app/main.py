@@ -12823,8 +12823,9 @@ async def download_ai_report_pdf(job_id: str):
             if img:
                 story.append(img)
                 story.append(Spacer(1, 0.12*inch))
-        # 섹션 텍스트 (제목 제거)
+        # 섹션 텍스트 (제목 + "5. 기술적 분석" 중복 제거)
         clean_text = re.sub(r'^#{1,4}\s*5\.\d[^\n]*\n?', '', section_text, flags=re.MULTILINE)
+        clean_text = re.sub(r'^#{1,4}\s*5\.\s*기술적\s*분석\s*\n?', '', clean_text, flags=re.MULTILINE)
         for para_line in clean_text.split('\n'):
             para_line = para_line.strip()
             if para_line:
@@ -12839,6 +12840,9 @@ async def download_ai_report_pdf(job_id: str):
             before_ta = report_text[:match.start()].strip()
         else:
             before_ta = report_text  # 최후 폴백
+
+    # ★ "5. 기술적 분석" 제목 중복 방지: before_ta 끝에서 제거 (5.1~5.3에서 차트와 함께 별도 처리됨)
+    before_ta = re.sub(r'\n*#{1,4}\s*5\.\s*기술적\s*분석\s*$', '', before_ta).strip()
 
     # 1~4 섹션 처리 (차트 없음, before_ta만 처리)
     lines = before_ta.split('\n')
@@ -12990,11 +12994,11 @@ async def _run_ai_analysis_job(job_id: str, symbol: str, market: str, is_etf: bo
 
         _ai_jobs[job_id]["progress"] = "🤖 AI가 분석 중..."
 
-        # Claude API로 리포트 생성 (ETF 여부에 따라 분기)
+        # Claude API로 리포트 생성 (ETF 여부에 따라 분기, 차트 데이터 전달)
         if is_etf:
-            ai_result = await _generate_etf_report(name=name, code=symbol, market=market)
+            ai_result = await _generate_etf_report(name=name, code=symbol, market=market, chart_data=chart_urls)
         else:
-            ai_result = await _generate_claude_report(name=name, code=symbol, market=market)
+            ai_result = await _generate_claude_report(name=name, code=symbol, market=market, chart_data=chart_urls)
 
         report = ai_result.get("report", "")
         if not report or len(report) < 200:
@@ -13209,6 +13213,12 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
             chart_urls = await _generate_ai_charts(code, name, market)
             t_chart = time_module.time()
             print(f"[AI 시간] 차트 생성: {t_chart - t_company:.1f}초")
+
+            # ★ 차트↔텍스트 지지/저항 통일: 차트 계산값으로 덮어쓰기
+            if chart_urls.get("support_levels"):
+                tech["support_levels"] = chart_urls["support_levels"]
+            if chart_urls.get("resistance_levels"):
+                tech["resistance_levels"] = chart_urls["resistance_levels"]
 
             _ai_jobs[job_id]["progress"] = "🤖 AI가 분석 중..."
 
@@ -13946,6 +13956,11 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
         support2 = support_levels[1] if len(support_levels) > 1 else support1 * 0.9
         resistance1 = resistance_levels[0] if resistance_levels else current_price * 1.05
         resistance2 = resistance_levels[1] if len(resistance_levels) > 1 else resistance1 * 1.1
+
+        # ★ 차트와 AI 텍스트 통일: 지지/저항 값을 chart_data에 저장
+        chart_data["support_levels"] = [support1, support2]
+        chart_data["resistance_levels"] = [resistance1, resistance2]
+        chart_data["current_price"] = current_price
 
         # 차트 ID 생성
         chart_id = f"{code}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
@@ -15457,7 +15472,7 @@ def _build_etf_prompt(name: str, code: str, data: dict, market: str = "kr") -> s
     return prompt
 
 
-async def _generate_etf_report(name: str, code: str, market: str = "kr") -> dict:
+async def _generate_etf_report(name: str, code: str, market: str = "kr", chart_data: dict = None) -> dict:
     """ETF 전용 Claude API 리포트 생성"""
     import anthropic
 
@@ -15478,6 +15493,14 @@ async def _generate_etf_report(name: str, code: str, market: str = "kr") -> dict
         # 기술적 데이터 추가 — 국내주식과 동일한 함수 재사용
         print(f"[ETF Report] Collecting technical data for {name}({code})...")
         technical_data = await _collect_technical_data_for_ai(code, market)
+
+        # ★ 차트↔텍스트 지지/저항 통일: 차트 계산값으로 덮어쓰기
+        if chart_data:
+            if chart_data.get("support_levels"):
+                technical_data["support_levels"] = chart_data["support_levels"]
+            if chart_data.get("resistance_levels"):
+                technical_data["resistance_levels"] = chart_data["resistance_levels"]
+
         etf_data['technical'] = technical_data
 
         # 프롬프트 구성
@@ -15512,7 +15535,7 @@ async def _generate_etf_report(name: str, code: str, market: str = "kr") -> dict
         }
 
 
-async def _generate_claude_report(name: str, code: str, market: str = "kr") -> dict:
+async def _generate_claude_report(name: str, code: str, market: str = "kr", chart_data: dict = None) -> dict:
     """Claude API로 종합 분석 리포트 생성"""
     import anthropic
 
@@ -15531,6 +15554,13 @@ async def _generate_claude_report(name: str, code: str, market: str = "kr") -> d
         tech = await _collect_technical_data_for_ai(code, market)
         fin = await _collect_financial_data_for_ai(code, market)
         news = await _collect_news_for_ai(code, name, market)
+
+        # ★ 차트↔텍스트 지지/저항 통일: 차트 계산값으로 덮어쓰기
+        if chart_data:
+            if chart_data.get("support_levels"):
+                tech["support_levels"] = chart_data["support_levels"]
+            if chart_data.get("resistance_levels"):
+                tech["resistance_levels"] = chart_data["resistance_levels"]
 
         # 프롬프트 구성 (market에 따라 통화 단위 변경)
         prompt = _build_claude_prompt(name, code, tech, fin, news, "", market)
