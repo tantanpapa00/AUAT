@@ -267,7 +267,7 @@ from app.auth import (
     GOOGLE_CLIENT_ID, SKIP_AUTH, is_public_path,
     register_user, authenticate_user
 )
-from app.models import User
+from app.models import User, StockRS
 from app.kis_api import (
     get_master_cache, refresh_master_cache, StockMaster,
     get_kis_token, get_domestic_price, get_overseas_price,
@@ -15435,10 +15435,49 @@ async def trigger_market_signal_update(
         return {"success": False, "error": str(e)}
 
 
-async def fetch_stockeasy_csv() -> Dict[str, Dict]:
+# 종목명 → 종목코드 매핑 캐시
+_stock_name_to_code_cache: Dict[str, str] = {}
+_stock_name_cache_time: Optional[datetime] = None
+
+async def get_stock_name_to_code_map(db: Session) -> Dict[str, str]:
+    """
+    StockRS 테이블에서 종목명 → 종목코드 매핑 로드 (1시간 캐시)
+    """
+    global _stock_name_to_code_cache, _stock_name_cache_time
+
+    # 캐시 유효성 확인 (1시간)
+    if _stock_name_cache_time and (datetime.now() - _stock_name_cache_time).total_seconds() < 3600:
+        if _stock_name_to_code_cache:
+            return _stock_name_to_code_cache
+
+    try:
+        # 최근 RS 데이터에서 종목명 → 코드 매핑 추출
+        from sqlalchemy import text
+        result = db.execute(text("""
+            SELECT DISTINCT ON (name) symbol, name
+            FROM stock_rs
+            WHERE name IS NOT NULL AND symbol IS NOT NULL
+            ORDER BY name, date DESC
+        """))
+
+        mapping = {}
+        for row in result:
+            if row.name and row.symbol:
+                mapping[row.name.strip()] = row.symbol.strip()
+
+        _stock_name_to_code_cache = mapping
+        _stock_name_cache_time = datetime.now()
+        print(f"[StockNameCache] 종목명 매핑 로드: {len(mapping)}개")
+        return mapping
+    except Exception as e:
+        print(f"[StockNameCache] 매핑 로드 오류: {e}")
+        return _stock_name_to_code_cache or {}
+
+
+async def fetch_stockeasy_csv(db: Session = None) -> Dict[str, Dict]:
     """
     스탁이지 ETF 테이블 CSV 파싱
-    Returns: {종목코드: {sector, etf_name, position, gap_percent, signal, top_holdings: [{name, rs}]}}
+    Returns: {종목코드: {sector, etf_name, position, gap_percent, signal, top_holdings: [{name, rs, code}]}}
     """
     import httpx
     import csv
@@ -15446,6 +15485,11 @@ async def fetch_stockeasy_csv() -> Dict[str, Dict]:
     import re
 
     url = "https://stockeasy.intellio.kr/requestfile/etf_sector/etf_table.csv"
+
+    # 종목명 → 코드 매핑 가져오기
+    name_to_code = {}
+    if db:
+        name_to_code = await get_stock_name_to_code_map(db)
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -15469,9 +15513,12 @@ async def fetch_stockeasy_csv() -> Dict[str, Dict]:
                     # 정규식으로 파싱: 종목명(RS점수)
                     matches = re.findall(r'([^,()]+)\((\d+)\)', holdings_str)
                     for name, rs in matches:
+                        stock_name = name.strip()
+                        stock_code = name_to_code.get(stock_name, '')
                         top_holdings.append({
-                            "name": name.strip(),
-                            "rs": int(rs)
+                            "name": stock_name,
+                            "rs": int(rs),
+                            "code": stock_code  # 종목코드 추가
                         })
 
                 result[code] = {
@@ -15494,6 +15541,7 @@ async def fetch_stockeasy_csv() -> Dict[str, Dict]:
 @app.get("/api/market/trend-maintain")
 async def get_market_trend_maintain(
     current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
 ):
     """
     추세유지 분석 (섹터 ETF 20MA 기준)
@@ -15509,8 +15557,8 @@ async def get_market_trend_maintain(
     result = []
 
     try:
-        # 스탁이지 CSV에서 대표종목 데이터 가져오기
-        stockeasy_data = await fetch_stockeasy_csv()
+        # 스탁이지 CSV에서 대표종목 데이터 가져오기 (종목코드 포함)
+        stockeasy_data = await fetch_stockeasy_csv(db)
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             headers = {"User-Agent": "Mozilla/5.0"}
