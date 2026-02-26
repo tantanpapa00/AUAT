@@ -1,5 +1,5 @@
 # FINISH_SSOT.md (완성품 전용 SSOT / COPY-PASTE)
-- Last updated: 2026-02-11 KST
+- Last updated: 2026-02-27 KST
 - Owner: 기훈(작가님)
 
 > 이 문서는 "완성품(외관+내관+도로+조경)" 제작만을 위한 SSOT이다.
@@ -436,6 +436,34 @@
   - `pc-app/ui/index.html` — 거래소 드롭다운 옵션
 
 - Commits: `53f3519`, `02daa30`, `04db84e`
+
+## Day 31 (2026-02-27) — DONE ✅
+- **AI 리포트 차트↔텍스트 지지/저항 통일**
+  - [x] 차트 함수에서 계산된 지지/저항을 `chart_data`에 저장
+  - [x] AI 프롬프트에 차트와 동일한 값 전달 (별도 계산 방지)
+  - [x] `_generate_claude_report`, `_generate_etf_report`에 `chart_data` 파라미터 추가
+
+- **ADX 패널 "데이터 부족" 수정**
+  - [x] 조건 완화: `len(adx_series) >= 200` → `>= 30`
+  - [x] 변수 참조 수정: `date_nums_adx`
+
+- **"5. 기술적 분석" 제목 중복 제거**
+  - [x] `before_ta` 끝에서 제목 정규식 제거
+  - [x] `insert_section_with_chart`에서 제목 제거 정규식 추가
+
+- **US ETF 자동완성 확장**
+  - [x] `US_ETFS` 목록 20개 → 80개 (USHY, SCHG, SCHD 등)
+
+- **종목 인식 함수 근본 수정**
+  - [x] SKIP_WORDS 필터 추가 (단일 글자 및 일반 단어)
+  - [x] ETF fullname 매칭 우선 처리
+  - [x] 자동완성 선택 시 티커 코드 사용
+
+- **수정된 파일**
+  - `app/main.py` — 지지/저항 통일, ADX, 제목 중복, ETF 목록, 종목 인식
+  - `pc-app/ui/src/main.js` — 자동완성 티커 코드 사용
+
+- Commits: `eca0806`, `5de6a3c`
 
 ---
 
