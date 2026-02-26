@@ -12574,6 +12574,7 @@ async def download_ai_report_pdf(job_id: str):
     from reportlab.pdfbase.ttfonts import TTFont
     import tempfile
     import re
+    import io
 
     job = _ai_jobs.get(job_id)
     if not job:
@@ -12651,17 +12652,38 @@ async def download_ai_report_pdf(job_id: str):
     story.append(Spacer(1, 0.3*inch))
 
     # 차트 이미지 준비 (나중에 기술적 분석 섹션에 삽입)
+    # base64 data URL → reportlab Image 변환
+    import base64 as b64_module
+
+    def _base64_to_rl_image(chart_data, width=6*inch, height=3*inch):
+        """base64 data URL을 reportlab Image로 변환"""
+        if not chart_data:
+            return None
+        try:
+            if chart_data.startswith("data:image"):
+                b64_str = chart_data.split(",", 1)[1]
+            else:
+                b64_str = chart_data
+            img_bytes = b64_module.b64decode(b64_str)
+            img_buf = io.BytesIO(img_bytes)
+            return RLImage(img_buf, width=width, height=height)
+        except Exception as e:
+            print(f"[PDF] Chart base64 decode error: {e}")
+            return None
+
     charts = job.get("charts", {})
     chart_images = []
-    for chart_key, chart_path in charts.items():
-        if chart_path:
-            full_path = os.path.join("/app", chart_path.lstrip("/"))
-            if os.path.exists(full_path):
-                try:
-                    img = RLImage(full_path, width=6*inch, height=3*inch)
-                    chart_images.append(img)
-                except Exception as e:
-                    print(f"[PDF] Chart error: {e}")
+
+    # 순서 보장: price_chart → trend_chart → momentum_chart
+    for chart_key in ['price_chart', 'trend_chart', 'momentum_chart']:
+        chart_data = charts.get(chart_key)
+        if chart_data:
+            img = _base64_to_rl_image(chart_data)
+            if img:
+                chart_images.append(img)
+                print(f"[PDF] Loaded {chart_key} from base64")
+            else:
+                print(f"[PDF] Failed to load {chart_key}")
 
     # 섹션 마커 제거 (PDF에 [SECTION_*] 노출 방지)
     def clean_section_markers(txt):
