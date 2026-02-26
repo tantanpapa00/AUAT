@@ -12732,10 +12732,39 @@ async def download_ai_report_pdf(job_id: str):
         ]))
         return t
 
-    lines = report_text.split('\n')
+    # 섹션별 차트 삽입을 위해 split_ai_report 사용
+    sections = split_ai_report(report_text)
+    charts = job.get("charts", {})
+
+    # 섹션 5.1/5.2/5.3에 차트 직접 삽입하는 헬퍼
+    def insert_section_with_chart(section_text, chart_key, section_title):
+        """섹션 제목 → 차트 → 텍스트 순서로 story에 추가"""
+        if not section_text:
+            return
+        story.append(Spacer(1, 0.15*inch))
+        story.append(Paragraph(f"<b>{section_title}</b>", styles['KoreanBody']))
+        story.append(Spacer(1, 0.1*inch))
+        # 차트 삽입
+        chart_data = charts.get(chart_key)
+        if chart_data:
+            img = _base64_to_rl_image(chart_data)
+            if img:
+                story.append(img)
+                story.append(Spacer(1, 0.12*inch))
+        # 섹션 텍스트 (제목 제거)
+        clean_text = re.sub(r'^#{1,4}\s*5\.\d[^\n]*\n?', '', section_text, flags=re.MULTILINE)
+        for para_line in clean_text.split('\n'):
+            para_line = para_line.strip()
+            if para_line:
+                story.append(Paragraph(convert_markdown(para_line), styles['KoreanBody']))
+
+    # 1~4 섹션 처리 (차트 없음)
+    lines = (sections.get('before_ta') or report_text).split('\n')
     i = 0
     # 차트 삽입 상태 추적: 0=지지/저항, 1=추세추종, 2=모멘텀
     chart_insert_idx = 0
+    # 섹션별 처리 여부
+    used_split_sections = bool(sections.get('section_51') or sections.get('section_52') or sections.get('section_53'))
 
     while i < len(lines):
         line = lines[i].strip()
@@ -12855,10 +12884,32 @@ async def download_ai_report_pdf(job_id: str):
         story.append(Paragraph(text, styles['KoreanBody']))
         i += 1
 
-    # 차트가 삽입되지 않은 것이 있으면 마지막에 추가
-    if chart_insert_idx < len(chart_images) and chart_images:
+    # split_ai_report로 분리된 섹션이 있으면 섹션별 차트 삽입
+    if used_split_sections:
+        # 5. 기술적 분석 대제목
+        story.append(Spacer(1, 0.2*inch))
+        story.append(Paragraph("5. 기술적 분석", styles['KoreanHeading']))
+
+        # 5.1 주가 및 지지/저항 → 차트1
+        insert_section_with_chart(sections.get('section_51'), 'price_chart', '5.1 주가 및 지지/저항선 분석')
+
+        # 5.2 추세추종 지표 → 차트2
+        insert_section_with_chart(sections.get('section_52'), 'trend_chart', '5.2 추세추종 지표 분석')
+
+        # 5.3 모멘텀 지표 → 차트3
+        insert_section_with_chart(sections.get('section_53'), 'momentum_chart', '5.3 모멘텀 지표 분석')
+
+        # 5.4~ 나머지 섹션
+        if sections.get('after_53'):
+            story.append(Spacer(1, 0.15*inch))
+            for para_line in sections['after_53'].split('\n'):
+                para_line = para_line.strip()
+                if para_line:
+                    story.append(Paragraph(convert_markdown(para_line), styles['KoreanBody']))
+
+    # 섹션 분리 실패 시 + 차트가 삽입되지 않은 경우 폴백 (차트만 추가, "추가 차트" 제목 없이)
+    elif chart_insert_idx < len(chart_images) and chart_images:
         story.append(Spacer(1, 0.3*inch))
-        story.append(Paragraph("추가 차트", styles['KoreanHeading']))
         for idx in range(chart_insert_idx, len(chart_images)):
             story.append(chart_images[idx])
             story.append(Spacer(1, 0.2*inch))
@@ -13141,11 +13192,16 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
             final_prompt = f"""{data_prompt}
 
 ---
+⚠️ 절대 규칙:
+- 즉시 종합 분석 보고서를 작성해라. 질문하지 마라. 의도를 묻지 마라.
+- 사용자에게 되물어보지 말고 바로 보고서를 시작해라.
+- 요청된 종목({name})에 대해서만 분석해라.
+- 보고서를 작성할지 묻는 질문은 절대 금지.
+
 사용자 질문: {message}
 
-위 데이터와 웹검색 결과를 바탕으로 사용자의 질문에 답변해주세요.
-반드시 실제 수치(현재가, RSI, ADX, MACD 등)를 인용하며 답변하세요.
-최신 뉴스, 증권사 리포트, 목표주가가 필요하면 웹검색을 활용하세요.
+위 데이터를 기반으로 {name}({code})의 종합 분석 보고서를 즉시 작성해라.
+반드시 실제 수치(현재가, RSI, ADX, MACD 등)를 인용하며 작성하세요.
 """
 
             response = await client.messages.create(
@@ -13256,11 +13312,11 @@ async def _detect_stock_from_message(message: str) -> dict:
         except Exception:
             pass
 
-    # 2. US 티커 심볼 패턴 (예: AAPL, TSLA, NVDA) - 대문자 1~5자
+    # 2. US 티커 심볼 패턴 (예: AAPL, TSLA, NVDA, XLK) - 대문자 1~5자
     us_ticker_match = re.search(r'\b([A-Z]{1,5})\b', message.upper())
     if us_ticker_match:
         ticker = us_ticker_match.group(1)
-        # US 스크리너 캐시에서 검색
+        # US 스크리너 캐시에서 검색 (S&P 500)
         try:
             us_stocks = await load_us_stocks()
             for stock in us_stocks:
@@ -13268,6 +13324,24 @@ async def _detect_stock_from_message(message: str) -> dict:
                     return {"code": ticker, "name": stock.get("name", ticker), "market": "us"}
         except Exception as e:
             print(f"[_detect_stock] US stock search error: {e}")
+
+        # S&P 500에 없으면 yfinance로 US ETF/주식 확인
+        try:
+            import yfinance as yf
+            yf_ticker = yf.Ticker(ticker)
+            info = yf_ticker.info
+            if info and info.get("shortName"):
+                # ETF인지 주식인지 판별
+                quote_type = info.get("quoteType", "").upper()
+                is_etf = quote_type == "ETF"
+                return {
+                    "code": ticker,
+                    "name": info.get("shortName", ticker),
+                    "market": "us",
+                    "is_etf": is_etf
+                }
+        except Exception as e:
+            print(f"[_detect_stock] yfinance fallback error for {ticker}: {e}")
 
     # 3. 한글 종목명으로 검색 (한국주식 + ETF)
     kr_stocks = await load_kr_stocks()
