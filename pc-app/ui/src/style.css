@@ -108,8 +108,33 @@
 
 :root[data-theme="light"] .ai-chat-input::placeholder,
 :root[data-theme="light"] .chat-input::placeholder,
-:root[data-theme="light"] #ai-chat-input::placeholder {
+:root[data-theme="light"] #ai-chat-input::placeholder,
+:root[data-theme="light"] .ai-quick-input::placeholder {
     color: #555555 !important;
+}
+
+/* 라이트 테마 AI 채팅 레이블 (무엇이 궁금하신가요?) */
+:root[data-theme="light"] .ai-chat-label {
+    color: #333333 !important;
+}
+
+/* 라이트 테마 AI 입력창 테두리 */
+:root[data-theme="light"] .ai-quick-input {
+    background: #ffffff !important;
+    color: #111111 !important;
+    border: 2px solid #9ca3af !important;
+}
+
+/* 라이트 테마 AI 추천 칩 */
+:root[data-theme="light"] .ai-chip {
+    background: #f3f4f6 !important;
+    color: #374151 !important;
+    border: 1px solid #d1d5db !important;
+}
+
+:root[data-theme="light"] .ai-chip:hover {
+    background: #e5e7eb !important;
+    border-color: #9ca3af !important;
 }
 
 /* 라이트 테마 카드/모달 배경 */
