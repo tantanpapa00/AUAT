@@ -13141,8 +13141,8 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
 
             _ai_jobs[job_id]["progress"] = "🤖 AI가 분석 중..."
 
-            # 데이터 기반 프롬프트 생성 (기업 개요 포함)
-            data_prompt = _build_claude_prompt(name, code, tech, fin, news, company_summary)
+            # 데이터 기반 프롬프트 생성 (기업 개요 포함, market에 따라 통화 단위 변경)
+            data_prompt = _build_claude_prompt(name, code, tech, fin, news, company_summary, market)
             t_prompt = time_module.time()
             print(f"[AI 시간] 프롬프트 조립: {t_prompt - t_chart:.1f}초")
 
@@ -14532,13 +14532,32 @@ def split_ai_report(text: str) -> dict:
     return sections
 
 
-def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list, company_summary: str = "") -> str:
+def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list, company_summary: str = "", market: str = "kr") -> str:
     """Claude에게 보낼 분석 프롬프트 구성 (StockEasy 수준)"""
     from datetime import datetime, timezone, timedelta
 
     # 오늘 날짜 (KST)
     KST = timezone(timedelta(hours=9))
     today = datetime.now(KST).strftime('%Y년 %m월 %d일')
+
+    # 통화 단위 설정 (market에 따라)
+    if market == "us":
+        currency_prefix = "$"
+        currency_suffix = ""
+        cap_unit = "억달러"
+        currency_instruction = """
+⚠️ 통화 단위 필수 규칙:
+- 이 종목은 미국 시장(US) 종목이다.
+- 모든 가격(현재가, 지지선, 저항선, 목표주가, SMA 등)을 반드시 달러($)로 표시해라.
+- "원"을 절대 사용하지 마라.
+- 올바른 예: 현재가 $143, 1차 저항선 $149.9, SMA200 $135.62
+- 잘못된 예: 현재가 143원 ← 이렇게 쓰면 안 됨
+"""
+    else:
+        currency_prefix = ""
+        currency_suffix = "원"
+        cap_unit = "억원"
+        currency_instruction = ""
 
     # 안전한 숫자 변환 함수
     def safe_int(v, default=0):
@@ -14635,7 +14654,7 @@ def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list
 
     prompt = f"""당신은 15년 경력의 전문 증권 애널리스트입니다.
 오늘 날짜: {today}
-
+{currency_instruction}
 ⚠️ 필수: 보고서 맨 처음에 반드시 [SECTION_1_4]를 단독 줄로 쓴 후 본문을 시작하세요!
 [SECTION_1_4]를 빠뜨리면 보고서 레이아웃이 깨집니다.
 
@@ -14648,10 +14667,10 @@ def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list
 
 ### 기본 정보
 - 종목명: {name} ({code})
-- 현재가: {current:,}원 ({change:+.2f}%)
-- 52주 고가/저가: {high_52w:,}원 / {low_52w:,}원
+- 현재가: {currency_prefix}{current:,}{currency_suffix} ({change:+.2f}%)
+- 52주 고가/저가: {currency_prefix}{high_52w:,}{currency_suffix} / {currency_prefix}{low_52w:,}{currency_suffix}
 - 거래량: {volume:,}주 (20일 평균: {avg_vol:,}주)
-- 시가총액: {market_cap}억원
+- 시가총액: {market_cap}{cap_unit}
 
 ### 재무 지표
 | 지표 | 값 |
@@ -14659,17 +14678,17 @@ def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list
 | PER | {per} |
 | PBR | {pbr} |
 | ROE | {roe}% |
-| EPS | {eps}원 |
+| EPS | {currency_prefix}{eps}{currency_suffix} |
 | 부채비율 | {debt}% |
 | 영업이익률 | {opm}% |
 
-### 연간 실적 (최근 3년, 억원)
+### 연간 실적 (최근 3년, {cap_unit})
 - 매출액: {rev}
 - 영업이익: {op_inc}
 - 순이익: {net_inc}
 
 ### 기술적 지표 (오늘 기준)
-- 현재가: {current:,}원
+- 현재가: {currency_prefix}{current:,}{currency_suffix}
 - RSI(14): {rsi}
 - MACD: Line {macd_line}, Signal {macd_signal}, Histogram {macd_hist}
 - ADX: {adx} / +DI: {plus_di} / -DI: {minus_di}
@@ -14735,7 +14754,7 @@ SMA5: {sma5} | SMA20: {sma20} | SMA60: {sma60} | SMA120: {sma120} | SMA200: {sma
 [SECTION_51]
 
 #### 5.1 주가 및 지지/저항
-- 현재가 {current:,}원, 최근 10일 주가 범위, 상승률
+- 현재가 {currency_prefix}{current:,}{currency_suffix}, 최근 10일 주가 범위, 상승률
 - 1차 지지 {support1} / 2차 지지 {support2} 가격 명시
 - 1차 저항 {resistance1} / 2차 저항 {resistance2} 가격 명시
 - 향후 돌파/이탈 시나리오 (각 레벨별 의미)
@@ -14939,21 +14958,29 @@ async def _collect_etf_data_for_ai(code: str) -> dict:
     return result
 
 
-def _format_technical_data_for_prompt(tech: dict) -> str:
+def _format_technical_data_for_prompt(tech: dict, market: str = "kr") -> str:
     """기술적 분석 데이터를 프롬프트 문자열로 변환"""
     if not tech:
         return "기술적 지표 데이터 없음"
+
+    # 통화 단위 설정
+    if market == "us":
+        def fmt_price(val):
+            return f"${val:,.2f}"
+    else:
+        def fmt_price(val):
+            return f"{val:,}원"
 
     lines = []
 
     # 가격 정보
     price = tech.get("price", {})
     if price.get("current"):
-        lines.append(f"- 현재가: {price.get('current', 0):,}원")
+        lines.append(f"- 현재가: {fmt_price(price.get('current', 0))}")
     if price.get("high_52w"):
-        lines.append(f"- 52주 최고: {price.get('high_52w', 0):,}원")
+        lines.append(f"- 52주 최고: {fmt_price(price.get('high_52w', 0))}")
     if price.get("low_52w"):
-        lines.append(f"- 52주 최저: {price.get('low_52w', 0):,}원")
+        lines.append(f"- 52주 최저: {fmt_price(price.get('low_52w', 0))}")
 
     # 이동평균
     ma = tech.get("moving_averages", {})
@@ -14983,18 +15010,37 @@ def _format_technical_data_for_prompt(tech: dict) -> str:
     support = tech.get("support_levels", [])
     resistance = tech.get("resistance_levels", [])
     if support:
-        lines.append(f"- 지지선: {', '.join([f'{s:,}원' for s in support])}")
+        lines.append(f"- 지지선: {', '.join([fmt_price(s) for s in support])}")
     if resistance:
-        lines.append(f"- 저항선: {', '.join([f'{r:,}원' for r in resistance])}")
+        lines.append(f"- 저항선: {', '.join([fmt_price(r) for r in resistance])}")
 
     return "\n".join(lines) if lines else "기술적 지표 데이터 없음"
 
 
-def _build_etf_prompt(name: str, code: str, data: dict) -> str:
+def _build_etf_prompt(name: str, code: str, data: dict, market: str = "kr") -> str:
     """ETF 전용 AI 분석 프롬프트 구성"""
     from datetime import datetime, timezone, timedelta
     KST = timezone(timedelta(hours=9))
     today = datetime.now(KST).strftime('%Y년 %m월 %d일')
+
+    # 통화 단위 설정 (market에 따라)
+    if market == "us":
+        currency_prefix = "$"
+        currency_suffix = ""
+        cap_unit = "억달러"
+        currency_instruction = """
+⚠️ 통화 단위 필수 규칙:
+- 이 ETF는 미국 시장(US) 종목이다.
+- 모든 가격(현재가, NAV, 지지선, 저항선 등)을 반드시 달러($)로 표시해라.
+- "원"을 절대 사용하지 마라.
+- 올바른 예: 현재가 $143, 1차 저항선 $149.9
+- 잘못된 예: 현재가 143원 ← 이렇게 쓰면 안 됨
+"""
+    else:
+        currency_prefix = ""
+        currency_suffix = "원"
+        cap_unit = "억원"
+        currency_instruction = ""
 
     # 편입종목 문자열
     holdings_text = "\n".join([
@@ -15005,9 +15051,14 @@ def _build_etf_prompt(name: str, code: str, data: dict) -> str:
     # 수익률 정보
     returns = data.get("returns", {})
 
+    # 가격 정보 포맷팅
+    current_price = data.get('current_price', 0)
+    nav = data.get('nav', 0)
+    aum = data.get('aum', 0)
+
     prompt = f"""
 당신은 ETF 전문 애널리스트입니다. 아래 ETF 정보를 바탕으로 투자 분석 보고서를 작성해주세요.
-
+{currency_instruction}
 ⚠️ 필수: 보고서 맨 처음에 반드시 [SECTION_1_4]를 단독 줄로 쓴 후 본문을 시작하세요!
 [SECTION_1_4]를 빠뜨리면 보고서 레이아웃이 깨집니다.
 
@@ -15019,16 +15070,16 @@ def _build_etf_prompt(name: str, code: str, data: dict) -> str:
 ## 제공된 데이터
 
 ### 가격 정보
-- 현재가: {data.get('current_price', 0):,}원
+- 현재가: {currency_prefix}{current_price:,}{currency_suffix}
 - 등락률: {data.get('change_pct', 0):.2f}%
-- NAV(순자산가치): {data.get('nav', 0):,}원
+- NAV(순자산가치): {currency_prefix}{nav:,}{currency_suffix}
 - 괴리율: {data.get('nav_diff_pct', 0):.2f}%
 
 ### ETF 기본 정보
 - 추적 지수: {data.get('tracking_index', '정보 없음')}
 - 운용사: {data.get('manager', '정보 없음')}
 - 총보수: {data.get('total_expense', 0):.2f}%
-- 순자산총액: {data.get('aum', 0):,.0f}억원
+- 순자산총액: {aum:,.0f}{cap_unit}
 - 배당수익률: {data.get('dividend_yield', 0):.2f}%
 
 ### 수익률
@@ -15042,7 +15093,7 @@ def _build_etf_prompt(name: str, code: str, data: dict) -> str:
 {holdings_text}
 
 ### 기술적 분석 지표
-{_format_technical_data_for_prompt(data.get('technical', {}))}
+{_format_technical_data_for_prompt(data.get('technical', {}), market)}
 
 ---
 
@@ -15157,7 +15208,7 @@ async def _generate_etf_report(name: str, code: str, market: str = "kr") -> dict
         etf_data['technical'] = technical_data
 
         # 프롬프트 구성
-        prompt = _build_etf_prompt(name, code, etf_data)
+        prompt = _build_etf_prompt(name, code, etf_data, market)
 
         # Claude API 호출
         print(f"[ETF Report] Calling Claude API...")
@@ -15208,8 +15259,8 @@ async def _generate_claude_report(name: str, code: str, market: str = "kr") -> d
         fin = await _collect_financial_data_for_ai(code, market)
         news = await _collect_news_for_ai(code, name, market)
 
-        # 프롬프트 구성
-        prompt = _build_claude_prompt(name, code, tech, fin, news)
+        # 프롬프트 구성 (market에 따라 통화 단위 변경)
+        prompt = _build_claude_prompt(name, code, tech, fin, news, "", market)
 
         # Claude API 호출 (AsyncAnthropic 사용 - 이벤트 루프 블로킹 방지)
         print(f"[AI Report] Calling Claude API...")
