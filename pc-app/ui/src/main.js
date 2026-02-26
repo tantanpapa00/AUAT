@@ -3869,7 +3869,7 @@ function initBacktestChartWithData(equityCurve) {
             plugins: { legend: { display: false } },
             scales: {
                 y: {
-                    grid: { color: 'rgba(255,255,255,0.1)' },
+                    grid: { color: 'var(--border)' },
                     ticks: { color: '#9CA3AF', callback: (v) => `₩${(v/1000000).toFixed(0)}M` }
                 },
                 x: { display: false }
@@ -3911,7 +3911,7 @@ function initBacktestChart() {
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: {
-                y: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#9CA3AF' } },
+                y: { grid: { color: 'var(--border)' }, ticks: { color: '#9CA3AF' } },
                 x: { display: false }
             }
         }
@@ -4881,7 +4881,7 @@ document.getElementById('btn-ai-analysis')?.addEventListener('click', async () =
 
     modal.style.display = 'flex';
     loadingEl.style.display = 'block';
-    loadingEl.innerHTML = '<div class="ai-spinner"></div><p id="ai-progress-text" style="color:#9ca3af;margin-top:12px;">📊 종목 데이터 수집 중...</p>';
+    loadingEl.innerHTML = '<div class="ai-spinner"></div><p id="ai-progress-text" style="color:var(--text-muted);margin-top:12px;">📊 종목 데이터 수집 중...</p>';
     reportEl.style.display = 'none';
     errorEl.style.display = 'none';
 
@@ -5002,7 +5002,7 @@ function buildAiReportHtml(report, jobId, stockName, stockCode, charts, sections
     };
 
     return `
-        <div class="ai-report" style="font-size:14px;line-height:1.7;color:#e0e0e0;">
+        <div class="ai-report" style="font-size:14px;line-height:1.7;color:var(--text-primary);">
             <!-- 버튼 영역 -->
             <div style="display:flex;justify-content:flex-end;margin-bottom:16px;gap:8px;">
                 <button onclick="window.downloadAiReportPdf('${jobId}', '${stockName}', '${stockCode}')"
@@ -5019,21 +5019,21 @@ function buildAiReportHtml(report, jobId, stockName, stockCode, charts, sections
             <div class="report-section">${markdownToHtml(cleanSection(sec.before_ta))}</div>
 
             <!-- 5. 기술적 분석 -->
-            <h2 style="color:#ef4444;margin-top:30px;padding-top:20px;border-top:2px solid #ef4444;">5. 기술적 분석</h2>
+            <h2 style="color:var(--danger);margin-top:30px;padding-top:20px;border-top:2px solid var(--danger);">5. 기술적 분석</h2>
 
             <!-- 5.1 지지/저항: 제목 → 차트 → 설명 -->
-            <h3 style="margin-top:25px;color:#f59e0b;">5.1 주가 및 지지/저항선 분석</h3>
-            ${c.price_chart ? `<img src="${c.price_chart}" style="width:100%;max-width:720px;margin:12px 0;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="가격 차트">` : ''}
+            <h3 style="margin-top:25px;color:var(--warning);">5.1 주가 및 지지/저항선 분석</h3>
+            ${c.price_chart ? `<img src="${c.price_chart}" style="width:100%;max-width:720px;margin:12px 0;border-radius:8px;border:1px solid var(--border);" alt="가격 차트">` : ''}
             <div class="report-section">${markdownToHtml(cleanSection(sec.section_51).replace(/^#{1,4}\s*5\.1[^\n]*\n?/i, ''))}</div>
 
             <!-- 5.2 추세: 제목 → 차트 → 설명 -->
-            <h3 style="margin-top:25px;color:#f59e0b;">5.2 추세추종 지표 분석</h3>
-            ${c.trend_chart ? `<img src="${c.trend_chart}" style="width:100%;max-width:720px;margin:12px 0;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="추세 차트">` : ''}
+            <h3 style="margin-top:25px;color:var(--warning);">5.2 추세추종 지표 분석</h3>
+            ${c.trend_chart ? `<img src="${c.trend_chart}" style="width:100%;max-width:720px;margin:12px 0;border-radius:8px;border:1px solid var(--border);" alt="추세 차트">` : ''}
             <div class="report-section">${markdownToHtml(cleanSection(sec.section_52).replace(/^#{1,4}\s*5\.2[^\n]*\n?/i, ''))}</div>
 
             <!-- 5.3 모멘텀: 제목 → 차트 → 설명 -->
-            <h3 style="margin-top:25px;color:#f59e0b;">5.3 모멘텀 지표 분석</h3>
-            ${c.momentum_chart ? `<img src="${c.momentum_chart}" style="width:100%;max-width:720px;margin:12px 0;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="모멘텀 차트">` : ''}
+            <h3 style="margin-top:25px;color:var(--warning);">5.3 모멘텀 지표 분석</h3>
+            ${c.momentum_chart ? `<img src="${c.momentum_chart}" style="width:100%;max-width:720px;margin:12px 0;border-radius:8px;border:1px solid var(--border);" alt="모멘텀 차트">` : ''}
             <div class="report-section">${markdownToHtml(cleanSection(sec.section_53).replace(/^#{1,4}\s*5\.3[^\n]*\n?/i, ''))}</div>
 
             <!-- 5.4~ 거래량, 종합, 시나리오, 투자전략, 면책 -->
@@ -6726,10 +6726,10 @@ async function loadMarketUs() {
                 </div>
                 <!-- 중앙: 전체시장 상승/하락 -->
                 <div style="text-align:center">
-                    <div style="font-size:0.7em;color:#6b7280;margin-bottom:2px">전체 시장</div>
+                    <div style="font-size:0.7em;color:var(--text-muted);margin-bottom:2px">전체 시장</div>
                     <div style="font-size:0.85em">
                         <span style="color:#22c55e">▲${data.rising_stocks || 0}</span>
-                        <span style="color:#6b7280;margin:0 2px">·</span>
+                        <span style="color:var(--text-muted);margin:0 2px">·</span>
                         <span style="color:#ef4444">▼${data.falling_stocks || 0}</span>
                     </div>
                     <div style="display:flex;height:4px;margin-top:4px;border-radius:2px;overflow:hidden;width:100px">
@@ -7500,7 +7500,7 @@ function renderEtfDashboard(data, container) {
                 </div>
                 <div class="etf-stat">
                     <span class="etf-stat-label">보합</span>
-                    <span class="etf-stat-value" style="color:#6b7280">${unchanged}</span>
+                    <span class="etf-stat-value" style="color:var(--text-muted)">${unchanged}</span>
                 </div>
             </div>
         </div>
@@ -7667,7 +7667,7 @@ function renderEtfDashboard(data, container) {
             const top3 = data.top3_volume || [];
             const colors = ['#4ade80', '#60a5fa', '#fbbf24'];
             contentEl.innerHTML = `
-                <div style="font-size:0.82em;color:#6b7280;margin-bottom:12px">
+                <div style="font-size:0.82em;color:var(--text-muted);margin-bottom:12px">
                     거래량 증가 TOP3 종목의 현황입니다.
                 </div>
                 <div class="etf-top3-list">
@@ -7680,9 +7680,9 @@ function renderEtfDashboard(data, container) {
                                     <strong>${e.name}</strong>
                                 </div>
                                 <div style="display:flex;gap:16px;margin-top:6px;font-size:0.88em">
-                                    <span style="color:#9ca3af">현재가 ${(e.price||0).toLocaleString()}</span>
+                                    <span style="color:var(--text-muted)">현재가 ${(e.price||0).toLocaleString()}</span>
                                     <span class="${isUp?'profit':'loss'}">${isUp?'+':''}${(e.change_pct||0).toFixed(2)}%</span>
-                                    <span style="color:#9ca3af">거래량 ${(e.volume||0).toLocaleString()}</span>
+                                    <span style="color:var(--text-muted)">거래량 ${(e.volume||0).toLocaleString()}</span>
                                 </div>
                             </div>
                         `;
@@ -7739,9 +7739,9 @@ function renderEtfDashboard(data, container) {
                 <span class="etf-rank-num">${i + 1}</span>
                 <div class="etf-rank-info">
                     <strong>${e.name || '-'}</strong>
-                    <span style="color:#6b7280;font-size:0.82em">현재가 ${(e.price || 0).toLocaleString()}</span>
+                    <span style="color:var(--text-muted);font-size:0.82em">현재가 ${(e.price || 0).toLocaleString()}</span>
                 </div>
-                ${navStr ? `<div style="color:#6b7280;font-size:0.82em;min-width:90px;text-align:center">iNAV ${navStr}</div>` : ''}
+                ${navStr ? `<div style="color:var(--text-muted);font-size:0.82em;min-width:90px;text-align:center">iNAV ${navStr}</div>` : ''}
                 <div class="etf-rank-change">${rightContent}</div>
             </div>
         `;
@@ -9675,7 +9675,7 @@ function initAiChatInput() {
         dropdown.id = 'ai-autocomplete-dropdown';
         dropdown.style.cssText = `
             position:absolute;left:0;right:0;top:100%;
-            background:#1e293b;border:1px solid rgba(255,255,255,0.1);
+            background:#1e293b;border:1px solid var(--border);
             border-radius:8px;max-height:200px;overflow-y:auto;
             display:none;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,0.3);
         `;
@@ -9764,8 +9764,8 @@ async function searchStockAutocomplete(query) {
         dropdown.innerHTML = result.results.map(stock => `
             <div class="ai-autocomplete-item" data-name="${stock.name}" data-code="${stock.code}"
                 style="padding:10px 12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.05);">
-                <span style="color:#e5e7eb;font-weight:500;">${stock.name}</span>
-                <span style="color:#6b7280;font-size:12px;">${stock.code}</span>
+                <span style="color:var(--text-primary);font-weight:500;">${stock.name}</span>
+                <span style="color:var(--text-muted);font-size:12px;">${stock.code}</span>
             </div>
         `).join('');
 
@@ -9826,7 +9826,7 @@ async function sendAiQuestion(text) {
 
     // 로딩 표시
     responseArea.innerHTML = `
-        <div style="display:flex;align-items:center;gap:10px;color:#6b7280;">
+        <div style="display:flex;align-items:center;gap:10px;color:var(--text-muted);">
             <div class="ai-spinner-small"></div>
             <span id="ai-chat-progress">🤖 AI가 생각 중...</span>
         </div>
@@ -9853,13 +9853,13 @@ async function sendAiQuestion(text) {
         const stock = result.stock;
         const currentJobId = result.jobId;
 
-        // 마크다운 변환
+        // 마크다운 변환 (테마 지원 CSS 변수 사용)
         let html = answer
-            .replace(/^### (.*$)/gm, '<h3 style="color:#e5e7eb;font-size:15px;margin:14px 0 6px;">$1</h3>')
-            .replace(/^## (.*$)/gm, '<h2 style="color:#e5e7eb;font-size:17px;margin:18px 0 8px;padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,0.08);">$1</h2>')
-            .replace(/^# (.*$)/gm, '<h1 style="color:#fff;font-size:20px;margin:20px 0 10px;">$1</h1>')
-            .replace(/\*\*(.*?)\*\*/g, '<strong style="color:#e5e7eb;">$1</strong>')
-            .replace(/^- (.*$)/gm, '<div style="padding:3px 0 3px 16px;color:#b0b7c3;">• $1</div>')
+            .replace(/^### (.*$)/gm, '<h3 style="color:var(--text-primary);font-size:15px;margin:14px 0 6px;">$1</h3>')
+            .replace(/^## (.*$)/gm, '<h2 style="color:var(--text-primary);font-size:17px;margin:18px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border);">$1</h2>')
+            .replace(/^# (.*$)/gm, '<h1 style="color:var(--text-primary);font-size:20px;margin:20px 0 10px;">$1</h1>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--text-primary);">$1</strong>')
+            .replace(/^- (.*$)/gm, '<div style="padding:3px 0 3px 16px;color:var(--text-secondary);">• $1</div>')
             .replace(/\n\n/g, '<br><br>')
             .replace(/\n/g, '<br>');
 
@@ -9868,13 +9868,13 @@ async function sendAiQuestion(text) {
         if (charts) {
             chartsHtml = `
                 <div style="margin:16px 0;display:flex;flex-direction:column;gap:12px;">
-                    <div style="color:#9ca3af;font-size:13px;font-weight:600;">📊 분석 차트</div>
+                    <div style="color:var(--text-secondary);font-size:13px;font-weight:600;">📊 분석 차트</div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                        ${charts.price_chart ? `<img src="${charts.price_chart}" style="max-width:100%;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="가격 차트">` : ''}
+                        ${charts.price_chart ? `<img src="${charts.price_chart}" style="max-width:100%;border-radius:8px;border:1px solid var(--border);" alt="가격 차트">` : ''}
                     </div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                        ${charts.trend_chart ? `<img src="${charts.trend_chart}" style="max-width:48%;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="추세 차트">` : ''}
-                        ${charts.momentum_chart ? `<img src="${charts.momentum_chart}" style="max-width:48%;border-radius:8px;border:1px solid rgba(255,255,255,0.1);" alt="모멘텀 차트">` : ''}
+                        ${charts.trend_chart ? `<img src="${charts.trend_chart}" style="max-width:48%;border-radius:8px;border:1px solid var(--border);" alt="추세 차트">` : ''}
+                        ${charts.momentum_chart ? `<img src="${charts.momentum_chart}" style="max-width:48%;border-radius:8px;border:1px solid var(--border);" alt="모멘텀 차트">` : ''}
                     </div>
                 </div>
             `;
@@ -9897,7 +9897,7 @@ async function sendAiQuestion(text) {
                 <div style="display:flex;gap:8px;align-items:center;">
                     ${pdfBtnHtml}
                     <button onclick="document.getElementById('ai-response-area').style.display='none'"
-                        style="background:none;border:none;color:#6b7280;cursor:pointer;font-size:18px;">✕</button>
+                        style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;">✕</button>
                 </div>
             </div>
             ${chartsHtml}
@@ -9907,7 +9907,7 @@ async function sendAiQuestion(text) {
     } catch (e) {
         responseArea.innerHTML = `
             <div style="color:#ef4444;">오류: ${e.message || e}</div>
-            <div style="color:#6b7280;font-size:13px;margin-top:8px;">잠시 후 다시 시도해주세요.</div>
+            <div style="color:var(--text-muted);font-size:13px;margin-top:8px;">잠시 후 다시 시도해주세요.</div>
         `;
     }
 
@@ -10219,14 +10219,40 @@ async function loadFinancialSummaryKr(code) {
         const financials = financialsResp?.data || {};
         currentFinancialDataKr.annual = financials;
 
-        // 최신 재무 데이터에서 값 추출 (연간 기준)
-        const latestRevenue = financials.revenue?.length > 0 ? financials.revenue[financials.revenue.length - 1] : 0;
-        const latestOpProfit = financials.operating_profit?.length > 0 ? financials.operating_profit[financials.operating_profit.length - 1] : 0;
-        const latestNetIncome = financials.net_income?.length > 0 ? financials.net_income[financials.net_income.length - 1] : 0;
-        const latestEps = financials.eps?.length > 0 ? financials.eps[financials.eps.length - 1] : 0;
+        // 0이 아닌 최신값을 찾는 헬퍼 함수 (2027E 등 0인 값 건너뛰기)
+        const findLatestNonZero = (arr, periodsArr) => {
+            if (!arr || arr.length === 0) return { value: 0, index: -1, period: '' };
+            // 뒤에서부터 0이 아닌 값 찾기
+            for (let i = arr.length - 1; i >= 0; i--) {
+                if (arr[i] !== 0 && arr[i] !== null && arr[i] !== undefined) {
+                    return {
+                        value: arr[i],
+                        index: i,
+                        period: periodsArr?.[i] || ''
+                    };
+                }
+            }
+            // 모두 0이면 마지막 값 반환
+            return { value: arr[arr.length - 1] || 0, index: arr.length - 1, period: periodsArr?.[arr.length - 1] || '' };
+        };
+
+        const periods = financials.periods || [];
+
+        // 최신 재무 데이터에서 값 추출 (0이 아닌 최신값)
+        const revenueData = findLatestNonZero(financials.revenue, periods);
+        const opProfitData = findLatestNonZero(financials.operating_profit, periods);
+        const netIncomeData = findLatestNonZero(financials.net_income, periods);
+        const epsData = findLatestNonZero(financials.eps, periods);
+
+        const latestRevenue = revenueData.value;
+        const latestOpProfit = opProfitData.value;
+        const latestNetIncome = netIncomeData.value;
+        const latestEps = epsData.value;
         const opm = latestRevenue > 0 ? ((latestOpProfit / latestRevenue) * 100).toFixed(1) : '-';
-        const latestPeriod = financials.periods?.length > 0 ? financials.periods[financials.periods.length - 1] : '';
-        const isLatestEstimate = financials.isConsensus?.length > 0 ? financials.isConsensus[financials.isConsensus.length - 1] : false;
+
+        // 가장 최근의 유효한 기간 표시 (매출액 기준)
+        const latestPeriod = revenueData.period || (periods.length > 0 ? periods[periods.length - 1] : '');
+        const isLatestEstimate = latestPeriod.includes('E');
 
         // 요약 재무 카드 - StockEasy 스타일 6개 항목
         const summaryCardHtml = `
@@ -10957,25 +10983,41 @@ async function loadFinancialSummaryUs(ticker) {
             return '$' + Math.round(v) + 'M';
         };
 
-        // 최신 확정 실적에서 값 추출 (연간 기준) - isConsensus가 false인 마지막 인덱스
-        let latestActualIdx = -1;
-        if (financials.isConsensus && financials.periods) {
-            for (let i = financials.periods.length - 1; i >= 0; i--) {
-                if (!financials.isConsensus[i]) {
-                    latestActualIdx = i;
-                    break;
+        // 0이 아닌 최신값을 찾는 헬퍼 함수 (전망치 0인 값 건너뛰기)
+        const findLatestNonZeroUs = (arr, periodsArr, isConsensusArr) => {
+            if (!arr || arr.length === 0) return { value: 0, index: -1, period: '' };
+            // 뒤에서부터 0이 아니고 확정실적인 값 우선 찾기
+            for (let i = arr.length - 1; i >= 0; i--) {
+                if (arr[i] !== 0 && arr[i] !== null && arr[i] !== undefined) {
+                    return {
+                        value: arr[i],
+                        index: i,
+                        period: periodsArr?.[i] || '',
+                        isConsensus: isConsensusArr?.[i] || false
+                    };
                 }
             }
-        }
-        // 확정 실적 없으면 마지막 항목 사용
-        const idx = latestActualIdx >= 0 ? latestActualIdx : (financials.periods?.length || 1) - 1;
+            // 모두 0이면 마지막 값 반환
+            return { value: arr[arr.length - 1] || 0, index: arr.length - 1, period: periodsArr?.[arr.length - 1] || '' };
+        };
 
-        const latestRevenue = financials.revenue?.[idx] || 0;
-        const latestOpProfit = financials.operating_profit?.[idx] || 0;
-        const latestNetIncome = financials.net_income?.[idx] || 0;
-        const latestEps = financials.eps?.[idx] || 0;
+        const periods = financials.periods || [];
+        const isConsensusArr = financials.isConsensus || [];
+
+        // 최신 재무 데이터에서 값 추출 (0이 아닌 최신값)
+        const revenueData = findLatestNonZeroUs(financials.revenue, periods, isConsensusArr);
+        const opProfitData = findLatestNonZeroUs(financials.operating_profit, periods, isConsensusArr);
+        const netIncomeData = findLatestNonZeroUs(financials.net_income, periods, isConsensusArr);
+        const epsData = findLatestNonZeroUs(financials.eps, periods, isConsensusArr);
+
+        const idx = revenueData.index >= 0 ? revenueData.index : (periods.length || 1) - 1;
+
+        const latestRevenue = revenueData.value;
+        const latestOpProfit = opProfitData.value;
+        const latestNetIncome = netIncomeData.value;
+        const latestEps = epsData.value;
         const latestOpm = financials.opm?.[idx] ?? null;
-        const latestPeriod = financials.periods?.[idx] || '';
+        const latestPeriod = revenueData.period || periods[periods.length - 1] || '';
 
         // 요약 재무 카드 - 국내주식과 동일한 6개 항목
         const summaryCardHtml = `
@@ -11154,7 +11196,7 @@ function renderAllFinancialChartsUs(financials) {
     } else {
         const container = document.getElementById('us-earnings-surprise-content');
         if (container) {
-            container.innerHTML = '<div class="sd-empty-card" style="padding:40px;text-align:center;color:#6b7280;">어닝서프라이즈 데이터 없음</div>';
+            container.innerHTML = '<div class="sd-empty-card" style="padding:40px;text-align:center;color:var(--text-muted);">어닝서프라이즈 데이터 없음</div>';
         }
     }
 }
@@ -11815,7 +11857,7 @@ async function loadCompanyInfoKr(code) {
 
             // 2. 기업 개요 (FnGuide bizSummary)
             const formatDescription = (text) => {
-                if (!text) return '<p style="color:#6b7280;">기업 개요 데이터가 없습니다.</p>';
+                if (!text) return '<p style="color:var(--text-muted);">기업 개요 데이터가 없습니다.</p>';
                 return text.split('\n\n').map(p => `<p style="margin-bottom:12px;">${p}</p>`).join('');
             };
 
@@ -12175,7 +12217,7 @@ async function loadCompanyInfoUs(ticker) {
     const companyContent = document.getElementById('info-company');
     if (!companyContent) return;
 
-    companyContent.innerHTML = '<div style="text-align:center;color:#6b7280;padding:40px;">기업 정보를 불러오는 중...</div>';
+    companyContent.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px;">기업 정보를 불러오는 중...</div>';
 
     try {
         const response = await invokeWithTimeout('get_stock_company_us', {
@@ -12197,7 +12239,7 @@ async function loadCompanyInfoUs(ticker) {
 
             // 기업 개요 포맷팅 (번호별 문단 분리)
             const formatDescription = (text) => {
-                if (!text) return '<p style="color:#6b7280;">기업 개요 데이터가 없습니다.</p>';
+                if (!text) return '<p style="color:var(--text-muted);">기업 개요 데이터가 없습니다.</p>';
                 // 번호로 시작하는 라인을 문단으로 분리
                 const paragraphs = text.split(/\n+/).filter(p => p.trim());
                 return paragraphs.map(p => `<p style="margin-bottom:12px;">${p}</p>`).join('');
@@ -12356,7 +12398,7 @@ async function loadFinancialTabUs(ticker) {
             const color = score >= 70 ? '#22c55e' : score >= 50 ? '#f59e0b' : '#ef4444';
             return `
                 <svg viewBox="0 0 100 100" width="80" height="80">
-                    <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="8"/>
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="var(--border)" stroke-width="8"/>
                     <circle cx="50" cy="50" r="40" fill="none" stroke="${color}" stroke-width="8"
                         stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"
                         stroke-linecap="round" transform="rotate(-90 50 50)"/>
@@ -12393,29 +12435,29 @@ async function loadFinancialTabUs(ticker) {
                 const detailItems = Object.entries(items).map(([k, v]) => {
                     const formatted = typeof v === 'number' ? (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(1)) : v;
                     const suffix = ['PER', 'PBR', 'Forward PER'].includes(k) ? '배' : (k.includes('율') || k === 'ROE' || k === 'ROA' ? '%' : '');
-                    return `<div style="display:flex;justify-content:space-between;padding:6px 0;color:#9ca3af;font-size:12px;"><span>${k}</span><span style="color:#d1d5db;">${formatted}${suffix}</span></div>`;
+                    return `<div style="display:flex;justify-content:space-between;padding:6px 0;color:var(--text-muted);font-size:12px;"><span>${k}</span><span style="color:var(--text-secondary);">${formatted}${suffix}</span></div>`;
                 }).join('');
 
                 return `
-                    <div class="invest-indicator-card" data-cat="${cat.key}" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:14px 16px;cursor:pointer;">
+                    <div class="invest-indicator-card" data-cat="${cat.key}" style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:14px 16px;cursor:pointer;">
                         <div style="display:flex;align-items:center;gap:8px;">
                             <span style="font-size:16px;">${cat.icon}</span>
-                            <span style="flex:1;color:#d1d5db;font-size:14px;">${cat.label}</span>
+                            <span style="flex:1;color:var(--text-secondary);font-size:14px;">${cat.label}</span>
                             <span style="padding:2px 8px;border-radius:4px;background:${gradeColor};color:#fff;font-size:12px;font-weight:700;">${grade}</span>
-                            <span class="expand-arrow" style="color:#6b7280;font-size:10px;">▼</span>
+                            <span class="expand-arrow" style="color:var(--text-muted);font-size:10px;">▼</span>
                         </div>
                         <div class="indicator-detail" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.05);">
-                            ${detailItems || '<div style="color:#6b7280;font-size:12px;">데이터 없음</div>'}
+                            ${detailItems || '<div style="color:var(--text-muted);font-size:12px;">데이터 없음</div>'}
                         </div>
                     </div>
                 `;
             }).join('');
 
             return `
-                <div class="invest-indicators-section" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:20px;margin-bottom:16px;">
+                <div class="invest-indicators-section" style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                        <h3 style="margin:0;font-size:1rem;color:#e5e7eb;">투자 지표</h3>
-                        <div style="display:flex;gap:6px;font-size:10px;color:#6b7280;">
+                        <h3 style="margin:0;font-size:1rem;color:var(--text-primary);">투자 지표</h3>
+                        <div style="display:flex;gap:6px;font-size:10px;color:var(--text-muted);">
                             <span style="padding:2px 6px;border-radius:3px;background:#059669;color:#fff;">A+</span>매우우수
                             <span style="padding:2px 6px;border-radius:3px;background:#3b82f6;color:#fff;">B</span>양호
                             <span style="padding:2px 6px;border-radius:3px;background:#f59e0b;color:#fff;">C</span>보통
@@ -12438,31 +12480,31 @@ async function loadFinancialTabUs(ticker) {
 
             // 건전성 카드
             const healthCardHtml = `
-                <div class="financial-health-card" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:20px;margin-bottom:16px;">
-                    <h3 style="margin:0 0 16px;font-size:1rem;color:#e5e7eb;">재무 건전성</h3>
+                <div class="financial-health-card" style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;">
+                    <h3 style="margin:0 0 16px;font-size:1rem;color:var(--text-primary);">재무 건전성</h3>
                     <div style="display:flex;align-items:center;gap:24px;">
                         <div>${renderHealthGauge(health.score || 0)}</div>
                         <div style="flex:1;">
                             <div style="margin-bottom:12px;">
                                 <span style="display:inline-block;padding:4px 12px;border-radius:4px;background:${gradeColor};color:#fff;font-weight:700;">${health.grade}등급</span>
-                                <span style="margin-left:8px;color:#9ca3af;">${health.grade_label}</span>
+                                <span style="margin-left:8px;color:var(--text-muted);">${health.grade_label}</span>
                             </div>
                             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
                                 <div style="text-align:center;">
-                                    <div style="font-size:11px;color:#6b7280;">부채비율</div>
-                                    <div style="font-size:14px;font-weight:600;color:#e5e7eb;">${health.debt_ratio != null ? health.debt_ratio.toFixed(1) + '%' : '-'}</div>
+                                    <div style="font-size:11px;color:var(--text-muted);">부채비율</div>
+                                    <div style="font-size:14px;font-weight:600;color:var(--text-primary);">${health.debt_ratio != null ? health.debt_ratio.toFixed(1) + '%' : '-'}</div>
                                 </div>
                                 <div style="text-align:center;">
-                                    <div style="font-size:11px;color:#6b7280;">ROE</div>
-                                    <div style="font-size:14px;font-weight:600;color:#e5e7eb;">${health.roe != null ? health.roe.toFixed(1) + '%' : '-'}</div>
+                                    <div style="font-size:11px;color:var(--text-muted);">ROE</div>
+                                    <div style="font-size:14px;font-weight:600;color:var(--text-primary);">${health.roe != null ? health.roe.toFixed(1) + '%' : '-'}</div>
                                 </div>
                                 <div style="text-align:center;">
-                                    <div style="font-size:11px;color:#6b7280;">영업이익률</div>
-                                    <div style="font-size:14px;font-weight:600;color:#e5e7eb;">${health.operating_margin != null ? health.operating_margin.toFixed(1) + '%' : '-'}</div>
+                                    <div style="font-size:11px;color:var(--text-muted);">영업이익률</div>
+                                    <div style="font-size:14px;font-weight:600;color:var(--text-primary);">${health.operating_margin != null ? health.operating_margin.toFixed(1) + '%' : '-'}</div>
                                 </div>
                                 <div style="text-align:center;">
-                                    <div style="font-size:11px;color:#6b7280;">유동비율</div>
-                                    <div style="font-size:14px;font-weight:600;color:#e5e7eb;">${health.current_ratio != null ? health.current_ratio.toFixed(1) + '%' : '-'}</div>
+                                    <div style="font-size:11px;color:var(--text-muted);">유동비율</div>
+                                    <div style="font-size:14px;font-weight:600;color:var(--text-primary);">${health.current_ratio != null ? health.current_ratio.toFixed(1) + '%' : '-'}</div>
                                 </div>
                             </div>
                         </div>
@@ -12475,12 +12517,12 @@ async function loadFinancialTabUs(ticker) {
             const rows = data.rows || [];
 
             const tableHtml = `
-                <div style="overflow-x:auto;border:1px solid rgba(255,255,255,0.1);border-radius:8px;">
+                <div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;">
                     <table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
                         <thead>
                             <tr style="background:rgba(255,255,255,0.05);">
-                                <th style="padding:10px 12px;text-align:left;color:#9ca3af;font-weight:500;position:sticky;left:0;background:#1a1a2e;z-index:1;min-width:110px;">항목</th>
-                                ${periods.map(p => `<th style="padding:10px 12px;text-align:right;color:#9ca3af;font-weight:500;">${p}</th>`).join('')}
+                                <th style="padding:10px 12px;text-align:left;color:var(--text-muted);font-weight:500;position:sticky;left:0;background:var(--bg-card);z-index:1;min-width:110px;">항목</th>
+                                ${periods.map(p => `<th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:500;">${p}</th>`).join('')}
                             </tr>
                         </thead>
                         <tbody>
@@ -12489,7 +12531,7 @@ async function loadFinancialTabUs(ticker) {
                                 const isRatio = ['%', '배'].includes(unit);
                                 return `
                                     <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-                                        <td style="padding:10px 12px;font-weight:500;color:#e5e7eb;position:sticky;left:0;background:#1a1a2e;z-index:1;${isRatio ? 'padding-left:20px;color:#9ca3af;' : ''}">${row.label}</td>
+                                        <td style="padding:10px 12px;font-weight:500;color:var(--text-primary);position:sticky;left:0;background:var(--bg-card);z-index:1;${isRatio ? 'padding-left:20px;color:var(--text-muted);' : ''}">${row.label}</td>
                                         ${row.values.map(v => {
                                             const formatted = formatValueUs(v, unit);
                                             const isNeg = v !== null && v < 0;
@@ -12509,7 +12551,7 @@ async function loadFinancialTabUs(ticker) {
             return healthCardHtml + indicatorsHtml + `
                 <div class="sd-card" style="background:transparent;padding:0;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                        <div style="font-size:1rem;font-weight:600;color:#e5e7eb;">재무제표</div>
+                        <div style="font-size:1rem;font-weight:600;color:var(--text-primary);">재무제표</div>
                         <div style="display:flex;gap:4px;">
                             <button class="sd-period-btn ${periodType === 'quarter' ? 'active' : ''}" data-period="quarter" style="padding:6px 14px;border:1px solid rgba(255,255,255,0.15);border-radius:6px;background:${periodType === 'quarter' ? 'rgba(239,68,68,0.15)' : 'transparent'};color:${periodType === 'quarter' ? '#ef4444' : '#9ca3af'};font-size:13px;cursor:pointer;">분기</button>
                             <button class="sd-period-btn ${periodType === 'annual' ? 'active' : ''}" data-period="annual" style="padding:6px 14px;border:1px solid rgba(255,255,255,0.15);border-radius:6px;background:${periodType === 'annual' ? 'rgba(239,68,68,0.15)' : 'transparent'};color:${periodType === 'annual' ? '#ef4444' : '#9ca3af'};font-size:13px;cursor:pointer;">연간</button>
@@ -12789,7 +12831,7 @@ async function loadFinancialTabKr(code) {
             const color = score >= 70 ? '#22c55e' : score >= 50 ? '#f59e0b' : '#ef4444';
             return `
                 <svg viewBox="0 0 100 100" width="80" height="80">
-                    <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="8"/>
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="var(--border)" stroke-width="8"/>
                     <circle cx="50" cy="50" r="40" fill="none" stroke="${color}" stroke-width="8"
                         stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"
                         stroke-linecap="round" transform="rotate(-90 50 50)"/>
@@ -12826,29 +12868,29 @@ async function loadFinancialTabKr(code) {
                 const detailItems = Object.entries(items).map(([k, v]) => {
                     const formatted = typeof v === 'number' ? (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(1)) : v;
                     const suffix = ['PER', 'PBR'].includes(k) ? '배' : (k.includes('율') || k === 'ROE' || k === 'ROA' ? '%' : '');
-                    return `<div style="display:flex;justify-content:space-between;padding:6px 0;color:#9ca3af;font-size:12px;"><span>${k}</span><span style="color:#d1d5db;">${formatted}${suffix}</span></div>`;
+                    return `<div style="display:flex;justify-content:space-between;padding:6px 0;color:var(--text-muted);font-size:12px;"><span>${k}</span><span style="color:var(--text-secondary);">${formatted}${suffix}</span></div>`;
                 }).join('');
 
                 return `
-                    <div class="invest-indicator-card" data-cat="${cat.key}" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:14px 16px;cursor:pointer;">
+                    <div class="invest-indicator-card" data-cat="${cat.key}" style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:14px 16px;cursor:pointer;">
                         <div style="display:flex;align-items:center;gap:8px;">
                             <span style="font-size:16px;">${cat.icon}</span>
-                            <span style="flex:1;color:#d1d5db;font-size:14px;">${cat.label}</span>
+                            <span style="flex:1;color:var(--text-secondary);font-size:14px;">${cat.label}</span>
                             <span style="padding:2px 8px;border-radius:4px;background:${gradeColor};color:#fff;font-size:12px;font-weight:700;">${grade}</span>
-                            <span class="expand-arrow" style="color:#6b7280;font-size:10px;">▼</span>
+                            <span class="expand-arrow" style="color:var(--text-muted);font-size:10px;">▼</span>
                         </div>
                         <div class="indicator-detail" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.05);">
-                            ${detailItems || '<div style="color:#6b7280;font-size:12px;">데이터 없음</div>'}
+                            ${detailItems || '<div style="color:var(--text-muted);font-size:12px;">데이터 없음</div>'}
                         </div>
                     </div>
                 `;
             }).join('');
 
             return `
-                <div class="invest-indicators-section" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:20px;margin-bottom:16px;">
+                <div class="invest-indicators-section" style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                        <h3 style="margin:0;font-size:1rem;color:#e5e7eb;">투자 지표</h3>
-                        <div style="display:flex;gap:6px;font-size:10px;color:#6b7280;">
+                        <h3 style="margin:0;font-size:1rem;color:var(--text-primary);">투자 지표</h3>
+                        <div style="display:flex;gap:6px;font-size:10px;color:var(--text-muted);">
                             <span style="padding:2px 6px;border-radius:3px;background:#059669;color:#fff;">A+</span>매우우수
                             <span style="padding:2px 6px;border-radius:3px;background:#3b82f6;color:#fff;">B</span>양호
                             <span style="padding:2px 6px;border-radius:3px;background:#f59e0b;color:#fff;">C</span>보통
@@ -12871,31 +12913,31 @@ async function loadFinancialTabKr(code) {
 
             // 건전성 카드
             const healthCardHtml = `
-                <div class="financial-health-card" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:20px;margin-bottom:16px;">
-                    <h3 style="margin:0 0 16px;font-size:1rem;color:#e5e7eb;">재무 건전성</h3>
+                <div class="financial-health-card" style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;">
+                    <h3 style="margin:0 0 16px;font-size:1rem;color:var(--text-primary);">재무 건전성</h3>
                     <div style="display:flex;align-items:center;gap:24px;">
                         <div>${renderHealthGauge(health.score || 0)}</div>
                         <div style="flex:1;">
                             <div style="margin-bottom:12px;">
                                 <span style="display:inline-block;padding:4px 12px;border-radius:4px;background:${gradeColor};color:#fff;font-weight:700;">${health.grade}등급</span>
-                                <span style="margin-left:8px;color:#9ca3af;">${health.grade_label}</span>
+                                <span style="margin-left:8px;color:var(--text-muted);">${health.grade_label}</span>
                             </div>
                             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
                                 <div style="text-align:center;">
-                                    <div style="font-size:11px;color:#6b7280;">부채비율</div>
-                                    <div style="font-size:14px;font-weight:600;color:#e5e7eb;">${health.debt_ratio != null ? health.debt_ratio.toFixed(1) + '%' : '-'}</div>
+                                    <div style="font-size:11px;color:var(--text-muted);">부채비율</div>
+                                    <div style="font-size:14px;font-weight:600;color:var(--text-primary);">${health.debt_ratio != null ? health.debt_ratio.toFixed(1) + '%' : '-'}</div>
                                 </div>
                                 <div style="text-align:center;">
-                                    <div style="font-size:11px;color:#6b7280;">ROE</div>
-                                    <div style="font-size:14px;font-weight:600;color:#e5e7eb;">${health.roe != null ? health.roe.toFixed(1) + '%' : '-'}</div>
+                                    <div style="font-size:11px;color:var(--text-muted);">ROE</div>
+                                    <div style="font-size:14px;font-weight:600;color:var(--text-primary);">${health.roe != null ? health.roe.toFixed(1) + '%' : '-'}</div>
                                 </div>
                                 <div style="text-align:center;">
-                                    <div style="font-size:11px;color:#6b7280;">영업이익률</div>
-                                    <div style="font-size:14px;font-weight:600;color:#e5e7eb;">${health.operating_margin != null ? health.operating_margin.toFixed(1) + '%' : '-'}</div>
+                                    <div style="font-size:11px;color:var(--text-muted);">영업이익률</div>
+                                    <div style="font-size:14px;font-weight:600;color:var(--text-primary);">${health.operating_margin != null ? health.operating_margin.toFixed(1) + '%' : '-'}</div>
                                 </div>
                                 <div style="text-align:center;">
-                                    <div style="font-size:11px;color:#6b7280;">유동비율</div>
-                                    <div style="font-size:14px;font-weight:600;color:#e5e7eb;">${health.current_ratio != null ? health.current_ratio.toFixed(1) + '%' : '-'}</div>
+                                    <div style="font-size:11px;color:var(--text-muted);">유동비율</div>
+                                    <div style="font-size:14px;font-weight:600;color:var(--text-primary);">${health.current_ratio != null ? health.current_ratio.toFixed(1) + '%' : '-'}</div>
                                 </div>
                             </div>
                         </div>
@@ -12908,12 +12950,12 @@ async function loadFinancialTabKr(code) {
             const rows = data.rows || [];
 
             const tableHtml = `
-                <div style="overflow-x:auto;border:1px solid rgba(255,255,255,0.1);border-radius:8px;">
+                <div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;">
                     <table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
                         <thead>
                             <tr style="background:rgba(255,255,255,0.05);">
-                                <th style="padding:10px 12px;text-align:left;color:#9ca3af;font-weight:500;position:sticky;left:0;background:#1a1a2e;z-index:1;min-width:110px;">항목</th>
-                                ${periods.map(p => `<th style="padding:10px 12px;text-align:right;color:#9ca3af;font-weight:500;">${p}</th>`).join('')}
+                                <th style="padding:10px 12px;text-align:left;color:var(--text-muted);font-weight:500;position:sticky;left:0;background:var(--bg-card);z-index:1;min-width:110px;">항목</th>
+                                ${periods.map(p => `<th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:500;">${p}</th>`).join('')}
                             </tr>
                         </thead>
                         <tbody>
@@ -12922,7 +12964,7 @@ async function loadFinancialTabKr(code) {
                                 const isRatio = ['%', '배'].includes(unit);
                                 return `
                                     <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-                                        <td style="padding:10px 12px;font-weight:500;color:#e5e7eb;position:sticky;left:0;background:#1a1a2e;z-index:1;${isRatio ? 'padding-left:20px;color:#9ca3af;' : ''}">${row.label}</td>
+                                        <td style="padding:10px 12px;font-weight:500;color:var(--text-primary);position:sticky;left:0;background:var(--bg-card);z-index:1;${isRatio ? 'padding-left:20px;color:var(--text-muted);' : ''}">${row.label}</td>
                                         ${row.values.map(v => {
                                             const formatted = formatValue(v, unit);
                                             const isNeg = v !== null && v < 0;
@@ -12942,7 +12984,7 @@ async function loadFinancialTabKr(code) {
             return healthCardHtml + indicatorsHtml + `
                 <div class="sd-card" style="background:transparent;padding:0;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                        <div style="font-size:1rem;font-weight:600;color:#e5e7eb;">재무제표</div>
+                        <div style="font-size:1rem;font-weight:600;color:var(--text-primary);">재무제표</div>
                         <div style="display:flex;gap:4px;">
                             <button class="sd-period-btn ${periodType === 'quarter' ? 'active' : ''}" data-period="quarter" style="padding:6px 14px;border:1px solid rgba(255,255,255,0.15);border-radius:6px;background:${periodType === 'quarter' ? 'rgba(239,68,68,0.15)' : 'transparent'};color:${periodType === 'quarter' ? '#ef4444' : '#9ca3af'};font-size:13px;cursor:pointer;">분기</button>
                             <button class="sd-period-btn ${periodType === 'annual' ? 'active' : ''}" data-period="annual" style="padding:6px 14px;border:1px solid rgba(255,255,255,0.15);border-radius:6px;background:${periodType === 'annual' ? 'rgba(239,68,68,0.15)' : 'transparent'};color:${periodType === 'annual' ? '#ef4444' : '#9ca3af'};font-size:13px;cursor:pointer;">연간</button>
@@ -13668,7 +13710,7 @@ document.getElementById('btn-ai-analysis-modal')?.addEventListener('click', asyn
 
     modal.style.display = 'flex';
     loadingEl.style.display = 'block';
-    loadingEl.innerHTML = '<div class="ai-spinner"></div><p id="ai-progress-text2" style="color:#9ca3af;margin-top:12px;">📊 종목 데이터 수집 중...</p>';
+    loadingEl.innerHTML = '<div class="ai-spinner"></div><p id="ai-progress-text2" style="color:var(--text-muted);margin-top:12px;">📊 종목 데이터 수집 중...</p>';
     reportEl.style.display = 'none';
     errorEl.style.display = 'none';
 
@@ -14867,10 +14909,10 @@ function createBacktestCandleChart(containerId, candles, trades) {
             mode: CrosshairMode.Normal,
         },
         rightPriceScale: {
-            borderColor: 'rgba(255,255,255,0.1)',
+            borderColor: 'var(--border)',
         },
         timeScale: {
-            borderColor: 'rgba(255,255,255,0.1)',
+            borderColor: 'var(--border)',
             timeVisible: true,
             secondsVisible: false,
             fixLeftEdge: true,

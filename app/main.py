@@ -12489,9 +12489,19 @@ async def request_ai_analysis(
     _cleanup_old_jobs()
     job_id = str(uuid.uuid4())[:8]
 
-    # 시장 구분
-    is_domestic = request.exchange.lower() in ("kis_kr", "kis_kr_etf")
+    # 시장 구분 및 ETF 여부 확인
+    exchange_lower = request.exchange.lower()
+    is_domestic = exchange_lower in ("kis_kr", "kis_kr_etf")
     market = "kr" if is_domestic else "us"
+
+    # ETF 여부 확인: exchange에 etf가 포함되어 있거나 DB에서 is_etf 확인
+    is_etf = "etf" in exchange_lower
+    if not is_etf:
+        # DB에서 확인
+        master = get_master_cache()
+        stock = master.get_stock(request.symbol)
+        if stock and getattr(stock, 'is_etf', False):
+            is_etf = True
 
     # 작업 등록
     _ai_jobs[job_id] = {
@@ -12502,10 +12512,11 @@ async def request_ai_analysis(
         "user_id": current_user.id if current_user else None,
         "symbol": request.symbol,
         "exchange": request.exchange,
+        "is_etf": is_etf,
     }
 
     # 백그라운드에서 실행 (즉시 반환)
-    asyncio.create_task(_run_ai_analysis_job(job_id, request.symbol, market))
+    asyncio.create_task(_run_ai_analysis_job(job_id, request.symbol, market, is_etf))
 
     print(f"[AI Analyze] === 총 소요: {time_module.time()-t0:.2f}초, job_id={job_id} ===")
     return {"success": True, "job_id": job_id, "status": "pending"}
@@ -12840,7 +12851,7 @@ async def download_ai_report_pdf(job_id: str):
     )
 
 
-async def _run_ai_analysis_job(job_id: str, symbol: str, market: str):
+async def _run_ai_analysis_job(job_id: str, symbol: str, market: str, is_etf: bool = False):
     """백그라운드에서 AI 분석 실행"""
     try:
         _ai_jobs[job_id]["status"] = "running"
@@ -12877,8 +12888,11 @@ async def _run_ai_analysis_job(job_id: str, symbol: str, market: str):
 
         _ai_jobs[job_id]["progress"] = "🤖 AI가 분석 중..."
 
-        # Claude API로 리포트 생성
-        ai_result = await _generate_claude_report(name=name, code=symbol, market=market)
+        # Claude API로 리포트 생성 (ETF 여부에 따라 분기)
+        if is_etf:
+            ai_result = await _generate_etf_report(name=name, code=symbol, market=market)
+        else:
+            ai_result = await _generate_claude_report(name=name, code=symbol, market=market)
 
         report = ai_result.get("report", "")
         if not report or len(report) < 200:
@@ -14625,6 +14639,225 @@ SMA5: {sma5} | SMA20: {sma20} | SMA60: {sma60} | SMA120: {sma120} | SMA200: {sma
 9. 보고서 본문(1. 핵심 요약)부터 바로 시작하세요. 서두/인사말 없이 바로 분석 내용으로 시작.
 """
     return prompt
+
+
+# ============================================
+# ETF 전용 AI 리포트 생성
+# ============================================
+
+async def _collect_etf_data_for_ai(code: str) -> dict:
+    """ETF 전용 데이터 수집"""
+    result = {
+        "name": "",
+        "current_price": 0,
+        "change_pct": 0,
+        "nav": 0,
+        "nav_diff_pct": 0,
+        "total_expense": 0,
+        "aum": 0,
+        "tracking_index": "",
+        "manager": "",
+        "dividend_yield": 0,
+        "holdings": [],
+        "returns": {},
+    }
+
+    try:
+        # 네이버 ETF API로 기본 정보 수집
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            # ETF 기본 정보
+            resp = await client.get(
+                f"https://m.stock.naver.com/api/stock/{code}/basic",
+                headers={"User-Agent": "Mozilla/5.0"}
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                result["name"] = data.get("stockName", "")
+                result["current_price"] = data.get("closePrice", 0)
+                result["change_pct"] = data.get("compareToPreviousClosePrice", {}).get("rate", 0)
+
+            # ETF 상세 정보
+            etf_resp = await client.get(
+                f"https://m.stock.naver.com/api/stock/{code}/etf",
+                headers={"User-Agent": "Mozilla/5.0"}
+            )
+            if etf_resp.status_code == 200:
+                etf_data = etf_resp.json()
+                result["nav"] = etf_data.get("nav", 0)
+                result["nav_diff_pct"] = etf_data.get("navDiffRate", 0)
+                result["total_expense"] = etf_data.get("totalExpenseRatio", 0)
+                result["aum"] = etf_data.get("netAssetTotalAmount", 0)
+                result["tracking_index"] = etf_data.get("indexName", "")
+                result["manager"] = etf_data.get("companyName", "")
+                result["dividend_yield"] = etf_data.get("dividendYield", 0)
+
+                # 수익률 정보
+                result["returns"] = {
+                    "1m": etf_data.get("return1m", 0),
+                    "3m": etf_data.get("return3m", 0),
+                    "6m": etf_data.get("return6m", 0),
+                    "1y": etf_data.get("return1y", 0),
+                    "ytd": etf_data.get("returnYtd", 0),
+                }
+
+                # 편입종목 상위 10개
+                holdings = etf_data.get("constituents", [])[:10]
+                result["holdings"] = [
+                    {"name": h.get("itemName", ""), "weight": h.get("weight", 0)}
+                    for h in holdings
+                ]
+
+    except Exception as e:
+        print(f"[ETF Data] Error collecting data for {code}: {e}")
+
+    return result
+
+
+def _build_etf_prompt(name: str, code: str, data: dict) -> str:
+    """ETF 전용 AI 분석 프롬프트 구성"""
+    from datetime import datetime, timezone, timedelta
+    KST = timezone(timedelta(hours=9))
+    today = datetime.now(KST).strftime('%Y년 %m월 %d일')
+
+    # 편입종목 문자열
+    holdings_text = "\n".join([
+        f"  - {h['name']}: {h['weight']}%"
+        for h in data.get("holdings", [])
+    ]) if data.get("holdings") else "편입종목 정보 없음"
+
+    # 수익률 정보
+    returns = data.get("returns", {})
+
+    prompt = f"""
+당신은 ETF 전문 애널리스트입니다. 아래 ETF 정보를 바탕으로 투자 분석 보고서를 작성해주세요.
+
+## 분석 대상
+- ETF명: {name}
+- 종목코드: {code}
+- 분석일: {today}
+
+## 제공된 데이터
+
+### 가격 정보
+- 현재가: {data.get('current_price', 0):,}원
+- 등락률: {data.get('change_pct', 0):.2f}%
+- NAV(순자산가치): {data.get('nav', 0):,}원
+- 괴리율: {data.get('nav_diff_pct', 0):.2f}%
+
+### ETF 기본 정보
+- 추적 지수: {data.get('tracking_index', '정보 없음')}
+- 운용사: {data.get('manager', '정보 없음')}
+- 총보수: {data.get('total_expense', 0):.2f}%
+- 순자산총액: {data.get('aum', 0):,.0f}억원
+- 배당수익률: {data.get('dividend_yield', 0):.2f}%
+
+### 수익률
+- 1개월: {returns.get('1m', 0):.2f}%
+- 3개월: {returns.get('3m', 0):.2f}%
+- 6개월: {returns.get('6m', 0):.2f}%
+- 1년: {returns.get('1y', 0):.2f}%
+- YTD: {returns.get('ytd', 0):.2f}%
+
+### 편입종목 상위 10개
+{holdings_text}
+
+---
+
+## 작성해야 할 보고서 구조 (마크다운 형식)
+
+### 1. 핵심 요약
+- ETF 개요 (추적 지수, 투자 전략, 특징)
+- 최근 수익률 요약
+- 핵심 투자 포인트 3가지
+
+### 2. 추적 지수 분석
+- 벤치마크 지수 설명
+- 지수 최근 동향 (웹검색으로 확인)
+- 추적 오차 및 괴리율 분석
+
+### 3. 편입종목 분석
+- 상위 편입종목 현황
+- 섹터/테마 구성
+- 주요 편입종목의 최근 이슈 (웹검색으로 확인)
+
+### 4. 비용 및 효율성
+- 총보수 분석
+- 동일 지수 추적 ETF와 비교 (웹검색으로 확인)
+- 거래량 및 유동성
+
+### 5. 투자 의견
+- 적합한 투자자 유형
+- 투자 시 주의사항
+- 포트폴리오 내 역할 제안
+
+### 6. 면책조항
+"본 보고서는 투자 참고 자료로만 활용하시기 바라며, 특정 종목의 매수/매도를 권유하지 않습니다."
+
+---
+
+## 작성 규칙 (필수 준수)
+
+1. **중요**: 이 종목은 ETF(상장지수펀드)입니다. 일반 주식처럼 EPS, PER, 재무제표를 분석하지 마세요.
+2. ETF 특성에 맞게 NAV, 괴리율, 추적오차, 보수율, 편입종목을 중심으로 분석하세요.
+3. 제공된 데이터의 실제 수치를 인용하세요. 추측 금지.
+4. 제공 데이터가 없는 항목은 웹검색으로 보완하세요.
+5. 동일 지수를 추적하는 다른 ETF와의 비교를 포함하세요.
+6. 총 분량: **최소 2000자 이상**.
+7. 마크다운 형식으로 작성 (# ## ### 헤딩, 테이블, 글머리 기호 사용).
+8. **절대 금지**: "상장폐지", "거래정지" 같은 부정확한 표현. ETF는 펀드이므로 일반 주식과 다릅니다.
+9. 보고서 본문(1. 핵심 요약)부터 바로 시작하세요. 서두/인사말 없이 바로 분석 내용으로 시작.
+"""
+    return prompt
+
+
+async def _generate_etf_report(name: str, code: str, market: str = "kr") -> dict:
+    """ETF 전용 Claude API 리포트 생성"""
+    import anthropic
+
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        print("[ETF Report] ANTHROPIC_API_KEY 없음, fallback 사용")
+        return {
+            "success": False,
+            "report": f"# {name} ({code}) ETF 분석\n\nETF 분석 데이터를 불러올 수 없습니다.",
+            "fallback": True
+        }
+
+    try:
+        # ETF 데이터 수집
+        print(f"[ETF Report] Collecting ETF data for {name}({code})...")
+        etf_data = await _collect_etf_data_for_ai(code)
+
+        # 프롬프트 구성
+        prompt = _build_etf_prompt(name, code, etf_data)
+
+        # Claude API 호출
+        print(f"[ETF Report] Calling Claude API...")
+        client = anthropic.AsyncAnthropic(api_key=api_key, timeout=180.0)
+
+        response = await client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=6000,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        report_md = response.content[0].text
+        print(f"[ETF Report] Generated report: {len(report_md)} chars")
+
+        return {
+            "success": True,
+            "report": report_md,
+            "fallback": False
+        }
+
+    except Exception as e:
+        print(f"[ETF Report] Claude API error: {e}")
+        return {
+            "success": False,
+            "report": f"# {name} ({code}) ETF 분석\n\nETF 분석 중 오류가 발생했습니다: {e}",
+            "error": str(e),
+            "fallback": True
+        }
 
 
 async def _generate_claude_report(name: str, code: str, market: str = "kr") -> dict:
