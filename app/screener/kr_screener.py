@@ -445,6 +445,34 @@ async def enrich_financial_data(stocks: List[Dict]) -> List[Dict]:
                 if eps and cns_eps and eps != 0:
                     stock["eps_growth"] = round((cns_eps - eps) / abs(eps) * 100, 2)
 
+                # ROE가 없으면 네이버 데스크톱 페이지에서 추가 크롤링
+                if not stock.get("roe"):
+                    try:
+                        from bs4 import BeautifulSoup
+                        desktop_headers = {
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                        }
+                        desktop_url = f"https://finance.naver.com/item/main.naver?code={code}"
+                        r = await client.get(desktop_url, headers=desktop_headers, timeout=10)
+                        if r.status_code == 200:
+                            r.encoding = "euc-kr"
+                            soup = BeautifulSoup(r.text, "lxml")
+                            # ROE 파싱 (클래스 th_cop_anal13)
+                            roe_th = soup.find("th", class_="th_cop_anal13")
+                            if roe_th:
+                                roe_tr = roe_th.find_parent("tr")
+                                if roe_tr:
+                                    tds = roe_tr.find_all("td")
+                                    for td in tds:
+                                        txt = td.get_text(strip=True)
+                                        if txt and txt != "-":
+                                            val = _parse_float(txt.replace(",", ""))
+                                            if val != 0:
+                                                stock["roe"] = val
+                                                break
+                    except Exception:
+                        pass
+
             except Exception as e:
                 # 개별 종목 에러는 무시하고 계속 진행
                 pass

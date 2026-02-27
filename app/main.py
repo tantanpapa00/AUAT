@@ -11162,10 +11162,10 @@ PRESET_STRATEGIES = {
         },
         "value": {
             "title": "💰 저평가 가치주",
-            "description": "PER 15 이하 + PBR 1.5 이하",
-            "sort": "per",
-            "order": "asc",
-            "filters": {"per": {"min": 0.1, "max": 15}, "pbr": {"min": 0.1, "max": 1.5}},
+            "description": "PER 15 이하 + ROE 15% 이상 + PBR 1.5 이하",
+            "sort": "roe",
+            "order": "desc",
+            "filters": {"per": {"min": 0.1, "max": 15}, "roe": {"min": 15}, "pbr": {"min": 0.1, "max": 1.5}},
             "limit": 10
         },
         "dividend": {
@@ -11321,10 +11321,11 @@ async def api_ai_recommendations(
                 }
                 # 시그널 생성 (간단한 설명)
                 if strategy_id == "value":
-                    # 저평가 가치주: PER/PBR 표시
+                    # 저평가 가치주: PER/ROE/PBR 표시
                     per_val = item.get('per', 0)
+                    roe_val = item.get('roe', 0)
                     pbr_val = item.get('pbr', 0)
-                    cleaned["signal"] = f"PER {per_val:.1f} PBR {pbr_val:.2f}"
+                    cleaned["signal"] = f"PER {per_val:.1f} ROE {roe_val:.0f}% PBR {pbr_val:.2f}"
                 elif strategy_id == "dividend":
                     # 배당성장주: 배당수익률 표시
                     div_yield = item.get('dividend_yield', 0)
