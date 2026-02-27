@@ -1344,8 +1344,9 @@
 
                     <!-- 커스텀 전략 탭 -->
                     <section class="strategy-content card" id="strategy-tab-custom" style="display: none;">
-                        <h2>커스텀 전략 설정</h2>
-                        <p class="strategy-description">지표 기반 조건 빌더로 나만의 매매 전략을 생성하세요</p>
+                        <h2>커스텀 전략 설정 <span class="difficulty-badge advanced">🔴 고급</span></h2>
+                        <p class="strategy-description">🛠️ 나만의 조건으로 직접 만드는 전략</p>
+                        <p class="strategy-subdesc">매수/매도 조건을 원하는 대로 조합하여 자신만의 전략을 구성합니다. 자동매매 경험이 있는 분에게 추천합니다.</p>
 
                         <!-- 거래소 + 종목 + 타임프레임 -->
                         <div class="custom-section">
@@ -1526,8 +1527,9 @@
 
                     <!-- 역추세매매 탭 (MR 프리미엄 엔진) - 리디자인 -->
                     <section class="strategy-content card" id="strategy-tab-reversal" style="display: none;">
-                        <h2>역추세매매 설정</h2>
-                        <p class="strategy-description">SPO 기반 평균회귀 전략 - 파인스크립트 1:1 설정</p>
+                        <h2>역추세매매 설정 <span class="difficulty-badge beginner">🟢 초보 추천</span></h2>
+                        <p class="strategy-description">📉 과하게 떨어진 종목의 반등을 노리는 전략</p>
+                        <p class="strategy-subdesc">평균보다 많이 떨어진 종목을 매수하고, 가격이 회복되면 매도합니다. 비중 조절과 운용 방식에 따라 수익률이 크게 달라질 수 있습니다.</p>
 
                         <!-- ① 거래소 + 종목 (항상 열림) -->
                         <div class="mr-section" id="mr-section-basic">
@@ -1607,7 +1609,7 @@
                                     <div class="mr-field">
                                         <label>오실레이터 스무딩</label>
                                         <input type="number" id="mr-osc-smooth" class="form-input" value="20" min="2" max="50" step="1">
-                                        <span class="mr-help">smoother 길이 (기본: 20)</span>
+                                        <span class="mr-help">smoother 길이 (기본: 4)</span>
                                     </div>
                                     <div class="mr-field">
                                         <label>오실레이터 임계값</label>
@@ -1635,9 +1637,9 @@
                                     <div class="mr-field">
                                         <label class="checkbox-label">
                                             <input type="checkbox" id="mr-st-reversal-fix" checked>
-                                            HTF Supertrend 반전보정
+                                            HTF 반전보정
                                         </label>
-                                        <span class="mr-help">Supertrend 뒤집힐 때 튀는 값 보정</span>
+                                        <span class="mr-help">HTF 뒤집힐 때 튀는 값 보정</span>
                                     </div>
                                     <div class="mr-field">
                                         <label class="checkbox-label">
@@ -1759,7 +1761,7 @@
                                         </div>
                                     </div>
                                     <div class="mr-row">
-                                        <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r1-allow-osc-buy" checked> OSC 매수 허용</label></div>
+                                        <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r1-allow-osc-buy" checked> 해당국면 매수허용</label></div>
                                         <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r1-buy1-only"> BUY1만 허용</label></div>
                                         <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r1-sell1-only"> SELL1만 허용</label></div>
                                     </div>
@@ -1810,7 +1812,7 @@
                                         </div>
                                     </div>
                                     <div class="mr-row">
-                                        <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r2-allow-osc-buy"> OSC 매수 허용</label><span class="mr-help">조정장에서는 기본 OFF</span></div>
+                                        <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r2-allow-osc-buy"> 해당국면 매수허용</label><span class="mr-help">조정장에서는 기본 OFF</span></div>
                                         <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r2-buy1-only"> BUY1만 허용</label></div>
                                         <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r2-sell1-only"> SELL1만 허용</label></div>
                                     </div>
@@ -1848,7 +1850,7 @@
                                         </div>
                                     </div>
                                     <div class="mr-row">
-                                        <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r3-allow-osc-buy" checked> OSC 매수 허용</label></div>
+                                        <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r3-allow-osc-buy" checked> 해당국면 매수허용</label></div>
                                         <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r3-buy1-only" checked> BUY1만 허용 (반복)</label><span class="mr-help">반등장에서 BUY1만 반복</span></div>
                                         <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r3-sell1-only"> SELL1만 허용</label></div>
                                     </div>
@@ -1900,7 +1902,7 @@
                                         </div>
                                     </div>
                                     <div class="mr-row">
-                                        <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r4-allow-osc-buy" checked> OSC 매수 허용</label></div>
+                                        <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r4-allow-osc-buy" checked> 해당국면 매수허용</label></div>
                                         <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r4-buy1-only"> BUY1만 허용</label></div>
                                         <div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r4-sell1-only"> SELL1만 허용</label></div>
                                     </div>
@@ -2053,8 +2055,9 @@
 
                     <!-- 추세매매 탭 (Trend 프리미엄 엔진) - v8 UI 전면 재설계 -->
                     <section class="strategy-content card" id="strategy-tab-trend" style="display: none;">
-                        <h2>추세매매 설정</h2>
-                        <p class="strategy-description">슈퍼트렌드 + HVI + QQE + 상위TF VWMA 기반 추세추종 전략</p>
+                        <h2>추세매매 설정 <span class="difficulty-badge intermediate">🟡 중급</span></h2>
+                        <p class="strategy-description">📈 오르는 종목에 올라타는 전략</p>
+                        <p class="strategy-subdesc">상승 흐름이 시작된 종목을 매수하고, 흐름이 꺾이면 매도합니다. 강한 상승장에서 큰 수익을 기대할 수 있습니다.</p>
 
                         <!-- ① 거래소 + 종목 (항상 열림) -->
                         <div class="mr-section" id="trend-section-basic">

@@ -4084,8 +4084,41 @@ body {
 }
 
 .strategy-description {
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+}
+
+.strategy-subdesc {
     color: var(--text-muted);
+    font-size: 0.9rem;
     margin-bottom: 25px;
+    line-height: 1.5;
+}
+
+/* 난이도 뱃지 */
+.difficulty-badge {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 12px;
+    margin-left: 10px;
+    vertical-align: middle;
+    font-weight: 500;
+}
+
+.difficulty-badge.beginner {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+}
+
+.difficulty-badge.intermediate {
+    background: rgba(234, 179, 8, 0.15);
+    color: #eab308;
+}
+
+.difficulty-badge.advanced {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
 }
 
 .strategy-form {
