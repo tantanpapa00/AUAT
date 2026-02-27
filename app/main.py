@@ -12939,13 +12939,35 @@ async def download_ai_report_pdf(job_id: str):
     # 5.3 모멘텀 지표 → 차트3
     insert_section_with_chart(sections.get('section_53'), 'momentum_chart', '5.3 모멘텀 지표 분석')
 
-    # 5.4~ 나머지 섹션
+    # 5.4~ 나머지 섹션 (면책조항 제외 - 아래에서 고정 삽입)
     if sections.get('after_53'):
-        story.append(Spacer(1, 0.15*inch))
-        for para_line in sections['after_53'].split('\n'):
-            para_line = para_line.strip()
-            if para_line:
-                story.append(Paragraph(convert_markdown(para_line), styles['KoreanBody']))
+        # AI가 생성한 면책조항 부분 제거 (고정 삽입으로 대체)
+        after_53_text = sections['after_53']
+        after_53_text = re.sub(r'(?:#{1,4}\s*)?(?:6|7)\.\s*면책조항.*', '', after_53_text, flags=re.DOTALL).strip()
+
+        if after_53_text:
+            story.append(Spacer(1, 0.15*inch))
+            for para_line in after_53_text.split('\n'):
+                para_line = para_line.strip()
+                if para_line:
+                    story.append(Paragraph(convert_markdown(para_line), styles['KoreanBody']))
+
+    # ===== 면책조항 고정 삽입 (AI 출력과 무관하게 항상 표시) =====
+    story.append(Spacer(1, 0.3*inch))
+    story.append(HRFlowable(width="100%", thickness=1, color=colors.grey, spaceAfter=10, spaceBefore=10))
+    story.append(Spacer(1, 0.1*inch))
+    story.append(Paragraph("<b>6. 면책조항</b>", styles['KoreanHeading']))
+    story.append(Spacer(1, 0.08*inch))
+    disclaimer_text = (
+        "본 보고서는 투자 참고 자료로만 활용하시기 바라며, "
+        "특정 종목의 매수/매도를 권유하지 않습니다. "
+        "투자 결정은 본인의 투자 성향, 시간 범위, 재정 상황을 고려하여 "
+        "신중하게 내려주시기 바랍니다. "
+        "과거 성과는 미래 결과를 보장하지 않으며, "
+        "투자 손실 위험이 존재합니다. "
+        "기술적 분석은 확률 기반 분석으로, 모든 신호가 정확히 작동하지 않을 수 있습니다."
+    )
+    story.append(Paragraph(disclaimer_text, styles['KoreanBody']))
 
     # PDF 빌드
     doc.build(story)
@@ -15512,7 +15534,7 @@ async def _generate_etf_report(name: str, code: str, market: str = "kr", chart_d
 
         response = await client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=6000,
+            max_tokens=8000,  # 잘림 방지: 6000 → 8000
             messages=[{"role": "user", "content": prompt}]
         )
 
