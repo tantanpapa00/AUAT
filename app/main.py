@@ -11825,8 +11825,8 @@ async def get_us_stock_ranking(
             result.append({
                 "rank": i + 1,
                 "name": s.get("name", ""),
-                "code": s.get("symbol", ""),
-                "market": "NYSE/NASDAQ",
+                "code": s.get("symbol") or s.get("code", ""),  # symbol 또는 code
+                "market": s.get("exchange", "NYSE/NASDAQ"),
                 "current": s.get("price", 0),
                 "change": s.get("change_pct", 0),
                 "value": s.get("market_cap", 0),  # 시가총액 (조 달러)
