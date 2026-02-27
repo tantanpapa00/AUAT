@@ -11162,18 +11162,18 @@ PRESET_STRATEGIES = {
         },
         "value": {
             "title": "💰 저평가 가치주",
-            "description": "PER 10 이하 + ROE 10% 이상",
+            "description": "PER 15 이하 + ROE 15% 이상 + PBR 1.5 이하",
             "sort": "roe",
             "order": "desc",
-            "filters": {"per": {"min": 1, "max": 10}, "roe": {"min": 10}},
+            "filters": {"per": {"min": 0.1, "max": 15}, "roe": {"min": 15}, "pbr": {"min": 0.1, "max": 1.5}},
             "limit": 10
         },
         "dividend": {
-            "title": "🎯 고배당 안정주",
-            "description": "배당수익률 3% 이상",
+            "title": "📈 배당성장주",
+            "description": "5년 이상 연속으로 배당금을 늘려온 기업",
             "sort": "dividend_yield",
             "order": "desc",
-            "filters": {"dividend_yield": {"min": 3}},
+            "filters": {"dividend_growth_5y": True},
             "limit": 10
         },
         "large_cap": {
@@ -11277,9 +11277,16 @@ async def api_ai_recommendations(
             items = []
 
             if market == "kr":
-                from app.screener.kr_screener import load_kr_stocks
+                from app.screener.kr_screener import load_kr_stocks, enrich_financial_data
                 from app.screener.filters import apply_screener_filters, sort_screener_results
                 stocks = await load_kr_stocks()
+
+                # 재무 필터가 있으면 재무 데이터 보강 필요
+                financial_keys = ["per", "pbr", "roe", "dividend_yield", "dividend_growth_5y"]
+                has_financial = any(config.get("filters", {}).get(k) for k in financial_keys)
+                if has_financial or config.get("sort") in ["per", "pbr", "roe", "dividend_yield"]:
+                    stocks = await enrich_financial_data(stocks[:500])
+
                 if config.get("filters"):
                     stocks = apply_screener_filters(stocks, config["filters"])
                 stocks = sort_screener_results(stocks, config.get("sort", "market_cap"), config.get("order", "desc"))
@@ -11313,7 +11320,17 @@ async def api_ai_recommendations(
                     "change_pct": item.get("change_pct", 0),
                 }
                 # 시그널 생성 (간단한 설명)
-                if config.get("sort") == "change_pct":
+                if strategy_id == "value":
+                    # 저평가 가치주: PER/ROE/PBR 모두 표시
+                    per_val = item.get('per', 0)
+                    roe_val = item.get('roe', 0)
+                    pbr_val = item.get('pbr', 0)
+                    cleaned["signal"] = f"PER {per_val:.1f} ROE {roe_val:.0f}% PBR {pbr_val:.2f}"
+                elif strategy_id == "dividend":
+                    # 배당성장주: 배당수익률 표시
+                    div_yield = item.get('dividend_yield', 0)
+                    cleaned["signal"] = f"배당 {div_yield:.1f}% (5년↑)"
+                elif config.get("sort") == "change_pct":
                     cleaned["signal"] = f"+{item.get('change_pct', 0):.1f}% 상승"
                 elif config.get("sort") == "dividend_yield":
                     cleaned["signal"] = f"배당 {item.get('dividend_yield', 0):.1f}%"

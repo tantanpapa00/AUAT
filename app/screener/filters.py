@@ -9,6 +9,51 @@
 
 from typing import List, Dict, Any, Union, Tuple
 
+# 5년 이상 연속 배당 증가 종목 (국내)
+# 참고: 한국거래소/네이버금융 기준 최근 5년간 매년 배당 증가한 종목
+KR_DIVIDEND_GROWTH_5Y = {
+    "005930",  # 삼성전자
+    "000660",  # SK하이닉스
+    "017670",  # SK텔레콤
+    "033780",  # KT&G
+    "010130",  # 고려아연
+    "000810",  # 삼성화재
+    "005830",  # DB손해보험
+    "001450",  # 현대해상
+    "086790",  # 하나금융지주
+    "055550",  # 신한지주
+    "105560",  # KB금융
+    "316140",  # 우리금융지주
+    "024110",  # 기업은행
+    "000270",  # 기아
+    "005380",  # 현대차
+    "009150",  # 삼성전기
+    "006400",  # 삼성SDI
+    "028260",  # 삼성물산
+    "018260",  # 삼성에스디에스
+    "207940",  # 삼성바이오로직스
+    "032830",  # 삼성생명
+    "010140",  # 삼성중공업
+    "003550",  # LG
+    "066570",  # LG전자
+    "051910",  # LG화학
+    "096770",  # SK이노베이션
+    "034730",  # SK
+    "030200",  # KT
+    "032640",  # LG유플러스
+    "035420",  # NAVER
+    "035720",  # 카카오
+    "036570",  # 엔씨소프트
+    "251270",  # 넷마블
+    "259960",  # 크래프톤
+    "068270",  # 셀트리온
+    "091990",  # 셀트리온헬스케어
+    "003490",  # 대한항공
+    "180640",  # 한진칼
+    "004020",  # 현대제철
+    "005490",  # POSCO홀딩스
+}
+
 
 def _parse_filter_v2(value: Any) -> Tuple[float, float, Dict]:
     """
@@ -176,6 +221,10 @@ def apply_screener_filters(stocks: List[Dict], filters: Dict) -> List[Dict]:
             result = _filter_by_minmax(result, "dividend_yield", min_val, max_val)
         else:
             result = _filter_by_range(result, "dividend_yield", filters["dividend_yield"])
+
+    # 5년 연속 배당 증가 필터 (국내만)
+    if filters.get("dividend_growth_5y"):
+        result = [s for s in result if s.get("code") in KR_DIVIDEND_GROWTH_5Y]
 
     # 추가 재무지표 (V2) - yfinance 기반 13개 필터
     financial_fields = [

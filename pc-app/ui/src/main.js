@@ -7396,11 +7396,12 @@ function renderUsTrendMaintainTable() {
         const gapClass = (s.gap_percent || 0) >= 0 ? 'positive' : 'negative';
         const changeClass = (s.change_percent || 0) >= 0 ? 'profit' : 'loss';
 
-        // 대표종목(RS) 표시 - RS 90 이상 굵게
+        // 대표종목(RS) 표시 - RS 90 이상 굵게, 클릭 가능
         const topHoldingsHtml = (s.top_holdings || []).slice(0, 5).map(stock => {
             const rs = stock.rs || 0;
             const rsClass = rs >= 90 ? 'rs-strong' : 'rs-normal';
-            return `<span class="${rsClass}">${stock.name}(${rs})</span>`;
+            const ticker = stock.name || '';  // 해외는 name이 티커
+            return `<span class="rs-stock-link ${rsClass}" data-ticker="${ticker}">${stock.name}(${rs})</span>`;
         }).join(', ');
 
         return `
@@ -7415,6 +7416,17 @@ function renderUsTrendMaintainTable() {
             </tr>
         `;
     }).join('');
+
+    // 대표RS 종목 클릭 이벤트 바인딩 (해외 - kis_us)
+    tbody.querySelectorAll('.rs-stock-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const ticker = link.dataset.ticker;
+            if (ticker) {
+                openStockDetail(ticker, 'kis_us');
+            }
+        });
+    });
 }
 
 // 시가총액 포맷 (USD)
