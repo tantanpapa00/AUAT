@@ -15637,7 +15637,13 @@ async def _generate_claude_report(name: str, code: str, market: str = "kr", char
         )
 
         report_md = response.content[0].text
+        stop_reason = response.stop_reason
+        input_tokens = response.usage.input_tokens
+        output_tokens = response.usage.output_tokens
         print(f"[AI Report] Generated report: {len(report_md)} chars")
+        print(f"[AI Report] stop_reason={stop_reason}, input_tokens={input_tokens}, output_tokens={output_tokens}")
+        if stop_reason == "max_tokens":
+            print(f"[AI Report] ⚠️ WARNING: 출력이 max_tokens에 도달하여 잘림! output_tokens={output_tokens}")
 
         return {
             "success": True,
