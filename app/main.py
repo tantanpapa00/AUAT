@@ -11776,6 +11776,172 @@ async def api_market_us_full(
         }
 
 
+# ============================================
+# 해외시장 특징주 API (Phase 6)
+# ============================================
+
+@app.get("/api/market/us/ranking")
+async def get_us_stock_ranking(
+    sort: str = Query("change", description="정렬 기준: change(등락률), volume(거래대금)"),
+    order: str = Query("desc", description="정렬 순서: desc(내림차순), asc(오름차순)"),
+    limit: int = Query(20, description="반환 개수"),
+    current_user: User = Depends(get_current_user_optional),
+):
+    """
+    해외(US) 특징주 API - 상승률/하락률/거래대금 상위 종목
+    국내 /api/market/ranking과 동일한 응답 구조
+    """
+    # admin이면 무조건 통과
+    if current_user and current_user.role == "admin":
+        pass
+    elif not _check_pro_plan(current_user):
+        if not current_user:
+            raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+        raise HTTPException(status_code=403, detail="Pro 이상 요금제에서 이용 가능합니다")
+
+    try:
+        from app.screener.us_screener import load_us_stocks
+
+        # US 종목 데이터 로드 (캐시됨)
+        stocks = await load_us_stocks()
+
+        if not stocks:
+            return {"success": True, "ranking_type": sort, "market": "us", "stocks": []}
+
+        # 정렬
+        reverse = (order == "desc")
+        if sort == "change":
+            stocks.sort(key=lambda x: x.get("change_pct") or 0, reverse=reverse)
+        elif sort == "volume":
+            # Finviz 데이터에는 volume이 없으므로 market_cap으로 대체
+            stocks.sort(key=lambda x: x.get("market_cap") or 0, reverse=reverse)
+
+        # 상위 limit개 추출
+        top_stocks = stocks[:limit]
+
+        # 응답 형식 맞추기 (국내 API와 동일 구조)
+        result = []
+        for i, s in enumerate(top_stocks):
+            result.append({
+                "rank": i + 1,
+                "name": s.get("name", ""),
+                "code": s.get("symbol", ""),
+                "market": "NYSE/NASDAQ",
+                "current": s.get("price", 0),
+                "change": s.get("change_pct", 0),
+                "value": s.get("market_cap", 0),  # 시가총액 (조 달러)
+            })
+
+        return {
+            "success": True,
+            "ranking_type": sort,
+            "market": "us",
+            "stocks": result,
+        }
+
+    except Exception as e:
+        print(f"[API] /api/market/us/ranking 오류: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "ranking_type": sort, "market": "us", "stocks": [], "error": str(e)}
+
+
+# ============================================
+# 해외시장 섹터별 등락률 API (Phase 6)
+# ============================================
+
+# 섹터 ETF 한글 이름 매핑
+US_SECTOR_NAME_MAP = {
+    "XLK": "기술", "XLF": "금융", "XLV": "헬스케어",
+    "XLE": "에너지", "XLY": "임의소비재", "XLP": "필수소비재",
+    "XLI": "산업재", "XLB": "소재", "XLU": "유틸리티",
+    "XLRE": "부동산", "XLC": "커뮤니케이션"
+}
+
+@app.get("/api/market/us/sectors")
+async def get_us_market_sectors(
+    sort: str = Query("change", description="정렬 기준: change(등락률), volume(거래대금)"),
+    order: str = Query("desc", description="정렬 순서: desc(내림차순), asc(오름차순)"),
+    current_user: User = Depends(get_current_user_optional),
+):
+    """
+    해외(US) 섹터별 등락률 API - S&P 500 GICS 11개 섹터
+    국내 /api/market/sectors와 동일한 응답 구조
+    """
+    # admin이면 무조건 통과
+    if current_user and current_user.role == "admin":
+        pass
+    elif not _check_pro_plan(current_user):
+        if not current_user:
+            raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+        raise HTTPException(status_code=403, detail="Pro 이상 요금제에서 이용 가능합니다")
+
+    try:
+        from .market_analysis.data_collector_us import US_SECTOR_ETFS, fetch_sector_etf_daily
+        import yfinance as yf
+
+        result = []
+
+        for etf in US_SECTOR_ETFS:
+            symbol = etf["symbol"]
+            try:
+                # yfinance로 현재가 및 등락률 가져오기
+                ticker = yf.Ticker(symbol)
+                hist = ticker.history(period="2d")
+
+                if len(hist) >= 2:
+                    current_price = float(hist["Close"].iloc[-1])
+                    prev_price = float(hist["Close"].iloc[-2])
+                    change_pct = ((current_price - prev_price) / prev_price) * 100
+                    volume = int(hist["Volume"].iloc[-1]) if "Volume" in hist.columns else 0
+                elif len(hist) == 1:
+                    current_price = float(hist["Close"].iloc[-1])
+                    change_pct = 0
+                    volume = int(hist["Volume"].iloc[-1]) if "Volume" in hist.columns else 0
+                else:
+                    current_price = 0
+                    change_pct = 0
+                    volume = 0
+
+                result.append({
+                    "name": etf["name"],
+                    "name_en": etf["name_en"],
+                    "etf": symbol,
+                    "change_percent": round(change_pct, 2),
+                    "trading_value": volume,
+                    "price": round(current_price, 2),
+                })
+            except Exception as etf_err:
+                print(f"[US Sectors] {symbol} 오류: {etf_err}")
+                result.append({
+                    "name": etf["name"],
+                    "name_en": etf["name_en"],
+                    "etf": symbol,
+                    "change_percent": 0,
+                    "trading_value": 0,
+                    "price": 0,
+                })
+
+        # 정렬
+        reverse = (order == "desc")
+        if sort == "change":
+            result.sort(key=lambda x: abs(x.get("change_percent") or 0), reverse=reverse)
+        elif sort == "volume":
+            result.sort(key=lambda x: x.get("trading_value") or 0, reverse=reverse)
+
+        return {
+            "success": True,
+            "sectors": result,
+            "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        }
+
+    except Exception as e:
+        print(f"[API] /api/market/us/sectors 오류: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "sectors": [], "error": str(e)}
+
+
 @app.get("/api/market/us/trend-maintain")
 async def get_us_trend_maintain(
     current_user: User = Depends(get_current_user_optional),
