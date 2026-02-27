@@ -487,6 +487,8 @@ async def warmup_roe_cache(stocks: List[Dict] = None) -> None:
     """
     재무 데이터 캐시 초기화 (서버 시작 시 호출)
     상위 500개 종목의 PER/PBR/ROE/배당수익률을 네이버 API에서 수집
+    - PER/PBR/배당수익률: 네이버 모바일 integration API
+    - ROE: 네이버 데스크톱 페이지 크롤링 (모바일 API에 ROE 없음)
     """
     global _roe_cache, _roe_cache_ts, _financial_cache, _financial_cache_ts
 
@@ -503,10 +505,11 @@ async def warmup_roe_cache(stocks: List[Dict] = None) -> None:
     }
 
     async def fetch_financial(client, code, semaphore):
-        """단일 종목 재무 데이터 조회 (네이버 모바일 integration API)"""
+        """단일 종목 재무 데이터 조회 (모바일 API + 데스크톱 ROE)"""
         async with semaphore:
             result = {"per": None, "pbr": None, "roe": None, "dividend_yield": None}
             try:
+                # 1. 모바일 API로 PER/PBR/배당수익률 수집
                 url = f"https://m.stock.naver.com/api/stock/{code}/integration"
                 r = await client.get(url, timeout=10)
                 if r.status_code == 200:
@@ -519,17 +522,35 @@ async def warmup_roe_cache(stocks: List[Dict] = None) -> None:
                             result["per"] = _parse_float(value.replace("배", ""))
                         elif key == "pbr":
                             result["pbr"] = _parse_float(value.replace("배", ""))
-                        elif key == "roe":
-                            result["roe"] = _parse_float(value.replace("%", ""))
                         elif key == "dividendYieldRatio":
                             result["dividend_yield"] = _parse_float(value.replace("%", ""))
+
+                # 2. 데스크톱 페이지에서 ROE 크롤링
+                from bs4 import BeautifulSoup
+                roe_url = f"https://finance.naver.com/item/main.naver?code={code}"
+                roe_r = await client.get(roe_url, timeout=10)
+                if roe_r.status_code == 200:
+                    roe_r.encoding = "euc-kr"
+                    soup = BeautifulSoup(roe_r.text, "lxml")
+                    roe_th = soup.find("th", class_="th_cop_anal13")
+                    if roe_th:
+                        roe_tr = roe_th.find_parent("tr")
+                        if roe_tr:
+                            tds = roe_tr.find_all("td")
+                            for td in tds:
+                                txt = td.get_text(strip=True)
+                                if txt and txt != "-":
+                                    val = _parse_float(txt.replace(",", ""))
+                                    if val != 0:
+                                        result["roe"] = val
+                                        break
             except Exception:
                 pass
             return code, result
 
-    semaphore = asyncio.Semaphore(20)  # 동시 20개 요청
+    semaphore = asyncio.Semaphore(15)  # 동시 15개 요청 (ROE 크롤링 포함)
 
-    async with httpx.AsyncClient(headers=headers, timeout=15) as client:
+    async with httpx.AsyncClient(headers=headers, timeout=20) as client:
         tasks = [fetch_financial(client, s.get("code"), semaphore) for s in target_stocks if s.get("code")]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
