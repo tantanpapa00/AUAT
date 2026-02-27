@@ -421,12 +421,12 @@ async def fetch_sp500_financials() -> Dict[str, Dict]:
 
 async def fetch_sp500_valuation() -> Dict[str, Dict]:
     """
-    Finviz Valuation 뷰(v=141)에서 PER, PBR 데이터 수집
+    Finviz Valuation 뷰(v=121)에서 PER, PBR 데이터 수집
     Returns: {"AAPL": {"per": 28.5, "pbr": 45.2}, ...}
 
-    v=141 컬럼 순서:
-    No., Ticker, Market Cap, P/E, Forward P/E, PEG, P/S, P/B, P/Cash, P/FCF,
-    Dividend, Payout, EPS, EPS this Y, EPS next Y, EPS past 5Y, EPS next 5Y, Sales past 5Y, Price, Change, Volume
+    v=121 컬럼 순서:
+    No., Ticker, P/E, Fwd P/E, PEG, P/S, P/B, P/C, P/FCF,
+    EPS This Y, EPS Next Y, EPS Past 5Y, EPS Next 5Y, Sales Past 5Y, Price, Change, Volume
     """
     from bs4 import BeautifulSoup
 
@@ -438,11 +438,11 @@ async def fetch_sp500_valuation() -> Dict[str, Dict]:
 
             while True:
                 offset = (page - 1) * 20 + 1
-                url = f"https://finviz.com/screener.ashx?v=141&f=idx_sp500&o=-marketcap&r={offset}"
+                url = f"https://finviz.com/screener.ashx?v=121&f=idx_sp500&o=-marketcap&r={offset}"
 
                 r = await client.get(url, headers=FINVIZ_HEADERS)
                 if r.status_code != 200:
-                    print(f"[Finviz v=141 Valuation] 페이지 {page} 실패: {r.status_code}")
+                    print(f"[Finviz v=121 Valuation] 페이지 {page} 실패: {r.status_code}")
                     break
 
                 soup = BeautifulSoup(r.text, 'lxml')
@@ -462,10 +462,10 @@ async def fetch_sp500_valuation() -> Dict[str, Dict]:
                         ticker = ticker_link.text.strip() if ticker_link else ""
 
                         if ticker:
-                            # v=141 컬럼: No, Ticker, MktCap, P/E, Fwd P/E, PEG, P/S, P/B, ...
+                            # v=121 컬럼: No, Ticker, P/E, Fwd P/E, PEG, P/S, P/B, ...
                             result[ticker] = {
-                                "per": _parse_finviz_float(cols[3].text.strip()),
-                                "pbr": _parse_finviz_float(cols[7].text.strip()),
+                                "per": _parse_finviz_float(cols[2].text.strip()),
+                                "pbr": _parse_finviz_float(cols[6].text.strip()),
                             }
                     except Exception:
                         continue
@@ -475,10 +475,10 @@ async def fetch_sp500_valuation() -> Dict[str, Dict]:
                 page += 1
                 await asyncio.sleep(0.3)
 
-            print(f"[Finviz v=141 Valuation] S&P 500 PER/PBR: {len(result)}개 종목 ({page}페이지)")
+            print(f"[Finviz v=121 Valuation] S&P 500 PER/PBR: {len(result)}개 종목 ({page}페이지)")
 
     except Exception as e:
-        print(f"[Finviz v=141 Valuation] 오류: {e}")
+        print(f"[Finviz v=121 Valuation] 오류: {e}")
         import traceback
         traceback.print_exc()
 
