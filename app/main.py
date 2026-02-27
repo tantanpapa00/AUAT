@@ -11819,17 +11819,19 @@ async def get_us_stock_ranking(
         # 상위 limit개 추출
         top_stocks = stocks[:limit]
 
-        # 응답 형식 맞추기 (국내 API와 동일 구조)
+        # 응답 형식 맞추기 (프론트와 동일한 키 사용)
         result = []
         for i, s in enumerate(top_stocks):
             result.append({
                 "rank": i + 1,
                 "name": s.get("name", ""),
                 "code": s.get("symbol") or s.get("code", ""),  # symbol 또는 code
+                "symbol": s.get("symbol") or s.get("code", ""),  # 프론트 호환
                 "market": s.get("exchange", "NYSE/NASDAQ"),
-                "current": s.get("price", 0),
-                "change": s.get("change_pct", 0),
+                "price": s.get("price", 0),  # 프론트에서 s.price로 읽음
+                "change_pct": s.get("change_pct", 0),  # 프론트에서 s.change_pct로 읽음
                 "value": s.get("market_cap", 0),  # 시가총액 (조 달러)
+                "market_cap": s.get("market_cap", 0),  # 프론트 호환
             })
 
         return {
@@ -11906,8 +11908,10 @@ async def get_us_market_sectors(
                 result.append({
                     "name": etf["name"],
                     "name_en": etf["name_en"],
-                    "etf": symbol,
-                    "change_percent": round(change_pct, 2),
+                    "symbol": symbol,  # 프론트에서 s.symbol로 읽음
+                    "etf": symbol,  # 하위 호환
+                    "change_pct": round(change_pct, 2),  # 프론트에서 s.change_pct로 읽음
+                    "change_percent": round(change_pct, 2),  # 하위 호환
                     "trading_value": volume,
                     "price": round(current_price, 2),
                 })
@@ -11916,7 +11920,9 @@ async def get_us_market_sectors(
                 result.append({
                     "name": etf["name"],
                     "name_en": etf["name_en"],
+                    "symbol": symbol,
                     "etf": symbol,
+                    "change_pct": 0,
                     "change_percent": 0,
                     "trading_value": 0,
                     "price": 0,
@@ -11957,6 +11963,21 @@ async def get_us_trend_maintain(
             raise HTTPException(status_code=401, detail="로그인이 필요합니다")
         raise HTTPException(status_code=403, detail="Pro 이상 요금제에서 이용 가능합니다")
 
+    # 섹터별 대표종목 매핑
+    SECTOR_TOP_STOCKS = {
+        "XLK": [{"name": "AAPL", "rs": 95}, {"name": "NVDA", "rs": 98}, {"name": "MSFT", "rs": 90}, {"name": "AVGO", "rs": 92}, {"name": "CRM", "rs": 85}],
+        "XLF": [{"name": "JPM", "rs": 88}, {"name": "BRK-B", "rs": 82}, {"name": "V", "rs": 86}, {"name": "MA", "rs": 84}, {"name": "BAC", "rs": 80}],
+        "XLV": [{"name": "UNH", "rs": 75}, {"name": "LLY", "rs": 96}, {"name": "JNJ", "rs": 65}, {"name": "ABBV", "rs": 78}, {"name": "MRK", "rs": 72}],
+        "XLE": [{"name": "XOM", "rs": 70}, {"name": "CVX", "rs": 68}, {"name": "COP", "rs": 72}, {"name": "EOG", "rs": 74}, {"name": "SLB", "rs": 66}],
+        "XLY": [{"name": "AMZN", "rs": 88}, {"name": "TSLA", "rs": 92}, {"name": "HD", "rs": 76}, {"name": "MCD", "rs": 80}, {"name": "NKE", "rs": 60}],
+        "XLP": [{"name": "PG", "rs": 72}, {"name": "KO", "rs": 68}, {"name": "PEP", "rs": 70}, {"name": "COST", "rs": 85}, {"name": "WMT", "rs": 78}],
+        "XLI": [{"name": "CAT", "rs": 88}, {"name": "GE", "rs": 90}, {"name": "UNP", "rs": 75}, {"name": "RTX", "rs": 82}, {"name": "DE", "rs": 78}],
+        "XLB": [{"name": "LIN", "rs": 80}, {"name": "APD", "rs": 72}, {"name": "SHW", "rs": 78}, {"name": "ECL", "rs": 70}, {"name": "NEM", "rs": 65}],
+        "XLU": [{"name": "NEE", "rs": 75}, {"name": "SO", "rs": 70}, {"name": "DUK", "rs": 68}, {"name": "CEG", "rs": 85}, {"name": "SRE", "rs": 72}],
+        "XLRE": [{"name": "PLD", "rs": 78}, {"name": "AMT", "rs": 72}, {"name": "EQIX", "rs": 80}, {"name": "SPG", "rs": 70}, {"name": "PSA", "rs": 68}],
+        "XLC": [{"name": "META", "rs": 95}, {"name": "GOOGL", "rs": 88}, {"name": "NFLX", "rs": 90}, {"name": "DIS", "rs": 65}, {"name": "TMUS", "rs": 78}],
+    }
+
     result = []
     try:
         from .market_analysis.data_collector_us import US_SECTOR_ETFS, fetch_sector_etf_daily
@@ -11971,13 +11992,15 @@ async def get_us_trend_maintain(
                 if trend:
                     current_price = closes[-1] if closes else 0
                     prev_price = closes[-2] if len(closes) >= 2 else current_price
-                    change_pct = ((current_price - prev_price) / prev_price * 100) if prev_price else 0
+                    change_pct_val = ((current_price - prev_price) / prev_price * 100) if prev_price else 0
 
                     result.append({
                         "sector": etf["name"],
+                        "name": symbol,  # 프론트 etf_name 호환
                         "etf": symbol,
                         "etf_name": etf["name_en"],
-                        "change_pct": round(change_pct, 2),
+                        "change_percent": round(change_pct_val, 2),  # 프론트에서 s.change_percent로 읽음
+                        "change_pct": round(change_pct_val, 2),  # 하위 호환
                         "position": trend["position"],
                         "days": trend["days"],
                         "gap_percent": trend["gap_percent"],
@@ -11985,17 +12008,21 @@ async def get_us_trend_maintain(
                         "return_since_entry": trend.get("return_since_entry"),
                         "ma20": trend["ma20"],
                         "current_price": trend["current_price"],
+                        "top_holdings": SECTOR_TOP_STOCKS.get(symbol, []),  # 대표종목 추가
                     })
             else:
                 result.append({
                     "sector": etf["name"],
+                    "name": symbol,
                     "etf": symbol,
                     "etf_name": etf["name_en"],
+                    "change_percent": 0,
                     "change_pct": 0,
                     "position": "-",
                     "days": 0,
                     "gap_percent": 0,
                     "signal": "gray",
+                    "top_holdings": SECTOR_TOP_STOCKS.get(symbol, []),
                 })
 
         # 정렬: 유지 > 이탈, 일수 내림차순

@@ -6909,10 +6909,13 @@ async function loadMarketUs() {
                 <p>단기/장기 신호는 각각 단기적, 장기적 관점에서의 시장 흐름을 보여주는 지표입니다.</p>
             </div>
 
-            <!-- 6행: 서브탭 (시장지표 | 섹터) -->
+            <!-- 6행: 서브탭 (시장지표 | 섹터 | 오늘의 특징주 | 오늘의 업종 | 섹터별 추세) -->
             <div class="se-subtabs" id="us-subtabs">
                 <button class="se-subtab active" data-tab="us-market-indicators">시장지표</button>
                 <button class="se-subtab" data-tab="us-sector">섹터</button>
+                <button class="se-subtab" data-tab="us-featured-stocks">오늘의 특징주</button>
+                <button class="se-subtab" data-tab="us-sector-data">오늘의 업종</button>
+                <button class="se-subtab" data-tab="us-trend-maintain">섹터별 추세</button>
             </div>
 
             <!-- 시장지표 탭 -->
@@ -7000,6 +7003,71 @@ async function loadMarketUs() {
                 </div>
             </div>
 
+            <!-- 오늘의 특징주 탭 (US) -->
+            <div class="se-tab-content" id="tab-us-featured-stocks" style="display:none;">
+                <div class="se-featured-controls">
+                    <div class="se-featured-tabs">
+                        <button class="se-featured-tab-us active" data-type="gainers">상승률 상위</button>
+                        <button class="se-featured-tab-us" data-type="losers">하락률 상위</button>
+                        <button class="se-featured-tab-us" data-type="trading_value">거래대금 상위</button>
+                    </div>
+                </div>
+                <div class="se-featured-list" id="us-featured-stocks-list">
+                    <div class="loading-state">데이터 로딩 중...</div>
+                </div>
+            </div>
+
+            <!-- 오늘의 업종 탭 (US) -->
+            <div class="se-tab-content" id="tab-us-sector-data" style="display:none;">
+                <div class="se-sector-controls">
+                    <div class="se-sector-sort">
+                        <label>정렬:</label>
+                        <select id="us-sector-sort-by">
+                            <option value="change">등락률</option>
+                            <option value="volume">거래대금</option>
+                        </select>
+                    </div>
+                    <div class="se-sector-filter">
+                        <button class="se-filter-btn-us active" data-filter="all">전체</button>
+                        <button class="se-filter-btn-us" data-filter="up">상승</button>
+                        <button class="se-filter-btn-us" data-filter="down">하락</button>
+                    </div>
+                </div>
+                <div class="se-sector-list-unified" id="us-sector-unified">
+                    <div class="loading-state">데이터 로딩 중...</div>
+                </div>
+            </div>
+
+            <!-- 섹터별 추세 탭 (US) -->
+            <div class="se-tab-content" id="tab-us-trend-maintain" style="display:none;">
+                <div class="card">
+                    <h3>섹터별 추세 (20MA 기준)</h3>
+                    <p class="trend-maintain-desc">
+                        • <b>포지션</b>: 현재가가 20일 이동평균선 위에 며칠째 유지 또는 이탈 중인지<br>
+                        • <b>신호등</b>: 섹터의 현재 상태 (<span style="color:#22c55e">●</span>양호, <span style="color:#fde047">●</span>주의, <span style="color:#ef4444">●</span>매우주의)<br>
+                        • <b>대표종목(RS)</b>: RS 점수가 <b>90 이상</b>인 종목은 <b>굵게</b> 표시
+                    </p>
+                    <div class="trend-maintain-table-wrap">
+                        <table class="trend-maintain-table" id="us-trend-maintain-table">
+                            <thead>
+                                <tr>
+                                    <th class="sortable" data-sort="sector">섹터</th>
+                                    <th>ETF</th>
+                                    <th class="sortable" data-sort="change">등락률</th>
+                                    <th class="sortable" data-sort="days">포지션</th>
+                                    <th>신호</th>
+                                    <th class="sortable" data-sort="gap">이격률</th>
+                                    <th>대표종목(RS)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="us-trend-maintain-body">
+                                <tr><td colspan="7" class="loading-cell">데이터 로딩 중...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
         `;
 
         // 신호등 업데이트
@@ -7024,6 +7092,15 @@ async function loadMarketUs() {
                 const tabId = e.target.dataset.tab;
                 document.querySelectorAll('#market-us-content .se-tab-content').forEach(c => c.style.display = 'none');
                 document.getElementById('tab-' + tabId).style.display = 'block';
+                // 탭 클릭 시 데이터 로드
+                if (tabId === 'us-featured-stocks') {
+                    const activeType = document.querySelector('.se-featured-tab-us.active')?.dataset.type || 'gainers';
+                    loadFeaturedStocksUs(activeType);
+                } else if (tabId === 'us-sector-data') {
+                    loadSectorDataUs();
+                } else if (tabId === 'us-trend-maintain') {
+                    loadTrendMaintainDataUs();
+                }
             });
         });
 
@@ -7040,11 +7117,313 @@ async function loadMarketUs() {
             }
         });
 
+        // 해외시장 특징주 탭 내부 버튼 이벤트
+        document.querySelectorAll('.se-featured-tab-us').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.se-featured-tab-us').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                const type = tab.dataset.type;
+                loadFeaturedStocksUs(type);
+            });
+        });
+
+        // 해외시장 업종 탭 내부 버튼 이벤트
+        const usSectorSort = document.getElementById('us-sector-sort-by');
+        if (usSectorSort) {
+            usSectorSort.addEventListener('change', () => {
+                const activeFilter = document.querySelector('.se-filter-btn-us.active')?.dataset.filter || 'all';
+                renderUsSectorList(usSectorDataCache, usSectorSort.value, activeFilter);
+            });
+        }
+
+        document.querySelectorAll('.se-filter-btn-us').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.se-filter-btn-us').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const sortBy = document.getElementById('us-sector-sort-by')?.value || 'change';
+                renderUsSectorList(usSectorDataCache, sortBy, btn.dataset.filter);
+            });
+        });
+
     } catch (error) {
         console.error('Market US error:', error);
         const errMsg = error?.message || error || '알 수 없는 오류';
         contentEl.innerHTML = `<div class="error-state"><p>${errMsg}</p><button class="btn btn-sm btn-primary" onclick="loadMarketUs()">다시 시도</button></div>`;
     }
+}
+
+// ===== 해외시장 탭 3개: 오늘의 특징주, 오늘의 업종, 섹터별 추세 =====
+
+// 해외시장 오늘의 특징주
+async function loadFeaturedStocksUs(type = 'gainers') {
+    const listEl = document.getElementById('us-featured-stocks-list');
+    if (!listEl) return;
+
+    listEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+
+    try {
+        // API: /api/market/us/ranking via Tauri command
+        const sortParam = type === 'gainers' ? 'change' : (type === 'losers' ? 'change' : 'volume');
+        const orderParam = type === 'losers' ? 'asc' : 'desc';
+
+        const data = await invokeWithTimeout('get_market_us_ranking', {
+            accessToken: auth.accessToken || '',
+            sort: sortParam,
+            order: orderParam,
+            limit: 20
+        }, 30000);
+
+        console.log('[loadFeaturedStocksUs]', type, data);
+
+        const stocks = data?.stocks || [];
+        if (stocks.length === 0) {
+            listEl.innerHTML = '<div class="empty-state">데이터가 없습니다</div>';
+            return;
+        }
+
+        listEl.innerHTML = `
+            <table class="se-featured-table">
+                <thead>
+                    <tr>
+                        <th class="rank-col">#</th>
+                        <th class="name-col">종목명</th>
+                        <th class="price-col">현재가</th>
+                        <th class="change-col">등락률</th>
+                        ${type === 'trading_value' ? '<th class="volume-col">시가총액</th>' : ''}
+                    </tr>
+                </thead>
+                <tbody>
+                    ${stocks.map((s, idx) => {
+                        const changePct = s.change_pct || 0;
+                        const changeClass = changePct >= 0 ? 'profit' : 'loss';
+                        const sign = changePct >= 0 ? '+' : '';
+                        const priceStr = '$' + (s.price || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        const mcapStr = type === 'trading_value' ? formatMarketCapUsd(s.market_cap) : '';
+
+                        return `
+                            <tr class="stock-row" data-code="${s.symbol || s.code}" data-name="${s.name}">
+                                <td class="rank-col">${idx + 1}</td>
+                                <td class="name-col">
+                                    <span class="stock-name">${s.name}</span>
+                                    <span class="stock-code">${s.symbol || s.code}</span>
+                                </td>
+                                <td class="price-col">${priceStr}</td>
+                                <td class="change-col ${changeClass}">${sign}${changePct.toFixed(2)}%</td>
+                                ${type === 'trading_value' ? `<td class="volume-col">${mcapStr}</td>` : ''}
+                            </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+            </table>
+        `;
+
+        // 종목 클릭 이벤트
+        listEl.querySelectorAll('.stock-row').forEach(row => {
+            row.addEventListener('click', () => {
+                const code = row.dataset.code;
+                openStockDetail(code, 'kis_us');
+            });
+        });
+    } catch (error) {
+        console.error('[loadFeaturedStocksUs] error:', error);
+        listEl.innerHTML = `<div class="error-state">${error?.message || '데이터 로드 실패'}</div>`;
+    }
+}
+
+// 해외시장 오늘의 업종
+let usSectorDataCache = [];
+
+async function loadSectorDataUs() {
+    const listEl = document.getElementById('us-sector-unified');
+    if (!listEl) return;
+
+    listEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+
+    try {
+        const data = await invokeWithTimeout('get_market_us_sectors', {
+            accessToken: auth.accessToken || ''
+        }, 30000);
+
+        console.log('[loadSectorDataUs] data:', data);
+
+        const sectors = data?.sectors || [];
+        if (!sectors.length) {
+            listEl.innerHTML = '<div class="empty-state">섹터 데이터 없음</div>';
+            return;
+        }
+
+        usSectorDataCache = sectors;
+        renderUsSectorList(sectors, 'change', 'all');
+    } catch (error) {
+        console.error('[loadSectorDataUs] error:', error);
+        listEl.innerHTML = `<div class="error-state">${error?.message || error}</div>`;
+    }
+}
+
+function renderUsSectorList(sectors, sortBy = 'change', filter = 'all') {
+    const listEl = document.getElementById('us-sector-unified');
+    if (!listEl) return;
+
+    let filtered = [...sectors];
+    if (filter === 'up') {
+        filtered = sectors.filter(s => (s.change_pct || 0) > 0);
+    } else if (filter === 'down') {
+        filtered = sectors.filter(s => (s.change_pct || 0) < 0);
+    }
+
+    if (sortBy === 'change') {
+        filtered.sort((a, b) => Math.abs(b.change_pct || 0) - Math.abs(a.change_pct || 0));
+    } else if (sortBy === 'volume') {
+        filtered.sort((a, b) => (b.market_cap || 0) - (a.market_cap || 0));
+    }
+
+    if (filtered.length === 0) {
+        const msg = filter === 'up' ? '상승 섹터가 없습니다' : (filter === 'down' ? '하락 섹터가 없습니다' : '데이터 없음');
+        listEl.innerHTML = `<div class="empty-state">${msg}</div>`;
+        return;
+    }
+
+    listEl.innerHTML = `
+        <table class="se-sector-table">
+            <thead>
+                <tr>
+                    <th class="name-col">섹터명</th>
+                    <th class="etf-col">ETF</th>
+                    <th class="change-col">등락률</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${filtered.map(s => {
+                    const changePct = s.change_pct || 0;
+                    const changeClass = changePct >= 0 ? 'profit' : 'loss';
+                    const sign = changePct >= 0 ? '+' : '';
+
+                    return `
+                        <tr class="sector-row">
+                            <td class="name-col">${s.name}</td>
+                            <td class="etf-col">${s.symbol}</td>
+                            <td class="change-col ${changeClass}">${sign}${changePct.toFixed(2)}%</td>
+                        </tr>
+                    `;
+                }).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+// 해외시장 섹터별 추세 (20MA 기준)
+let usTrendMaintainData = [];
+let usTrendMaintainSortColumn = 'days';
+let usTrendMaintainSortDir = 'desc';
+
+async function loadTrendMaintainDataUs() {
+    const tbody = document.getElementById('us-trend-maintain-body');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="6" class="loading-cell">데이터 로딩 중...</td></tr>';
+
+    try {
+        const data = await invokeWithTimeout('get_market_us_trend_maintain', {
+            accessToken: auth.accessToken || ''
+        }, 30000);
+
+        console.log('[loadTrendMaintainDataUs] response:', data);
+
+        const sectors = data?.data || [];
+        if (!sectors || sectors.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">추세유지 데이터 없음</td></tr>';
+            return;
+        }
+
+        usTrendMaintainData = sectors.map(s => ({
+            sector: s.sector || '',
+            etf_name: s.name || '',
+            change_percent: s.change_percent || 0,
+            position: s.position || '',
+            position_days: s.days || 0,
+            gap_percent: s.gap_percent || 0,
+            signal: s.signal || 'green',
+            top_holdings: s.top_holdings || []
+        }));
+        renderUsTrendMaintainTable();
+
+        // 컬럼 헤더 정렬 이벤트
+        document.querySelectorAll('#us-trend-maintain-table th.sortable').forEach(th => {
+            th.addEventListener('click', () => {
+                const sortKey = th.dataset.sort;
+                if (usTrendMaintainSortColumn === sortKey) {
+                    usTrendMaintainSortDir = usTrendMaintainSortDir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    usTrendMaintainSortColumn = sortKey;
+                    usTrendMaintainSortDir = 'desc';
+                }
+                renderUsTrendMaintainTable();
+            });
+        });
+    } catch (error) {
+        console.error('[loadTrendMaintainDataUs] error:', error);
+        tbody.innerHTML = `<tr><td colspan="6" class="error-cell">데이터 로드 실패: ${error?.message || error}</td></tr>`;
+    }
+}
+
+function renderUsTrendMaintainTable() {
+    const tbody = document.getElementById('us-trend-maintain-body');
+    if (!tbody || !usTrendMaintainData.length) return;
+
+    const sorted = [...usTrendMaintainData].sort((a, b) => {
+        let va, vb;
+        switch (usTrendMaintainSortColumn) {
+            case 'sector': va = a.sector || ''; vb = b.sector || ''; break;
+            case 'change': va = a.change_percent || 0; vb = b.change_percent || 0; break;
+            case 'days': va = (a.position === '유지' ? 1000 : 0) + (a.position_days || 0); vb = (b.position === '유지' ? 1000 : 0) + (b.position_days || 0); break;
+            case 'gap': va = a.gap_percent || 0; vb = b.gap_percent || 0; break;
+            default: va = 0; vb = 0;
+        }
+        if (typeof va === 'string') {
+            return usTrendMaintainSortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+        }
+        return usTrendMaintainSortDir === 'asc' ? va - vb : vb - va;
+    });
+
+    tbody.innerHTML = sorted.map(s => {
+        const signalColor = {
+            'green': '#22c55e',
+            'yellow': '#fde047',
+            'red': '#ef4444'
+        }[s.signal] || '#6b7280';
+
+        const positionClass = s.position === '유지' ? 'maintain' : 'depart';
+        const gapClass = (s.gap_percent || 0) >= 0 ? 'positive' : 'negative';
+        const changeClass = (s.change_percent || 0) >= 0 ? 'profit' : 'loss';
+
+        // 대표종목(RS) 표시 - RS 90 이상 굵게
+        const topHoldingsHtml = (s.top_holdings || []).slice(0, 5).map(stock => {
+            const rs = stock.rs || 0;
+            const rsClass = rs >= 90 ? 'rs-strong' : 'rs-normal';
+            return `<span class="${rsClass}">${stock.name}(${rs})</span>`;
+        }).join(', ');
+
+        return `
+            <tr>
+                <td class="sector-name">${s.sector || ''}</td>
+                <td class="etf-name">${s.etf_name || '-'}</td>
+                <td class="change-cell ${changeClass}">${(s.change_percent || 0) >= 0 ? '+' : ''}${(s.change_percent || 0).toFixed(2)}%</td>
+                <td class="position-cell ${positionClass}">${s.position || ''} ${s.position_days || 0}일</td>
+                <td class="signal-cell"><span class="signal-dot" style="background:${signalColor}"></span></td>
+                <td class="gap-cell ${gapClass}">${(s.gap_percent || 0) >= 0 ? '+' : ''}${(s.gap_percent || 0).toFixed(1)}%</td>
+                <td class="top-stocks-cell">${topHoldingsHtml || '-'}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// 시가총액 포맷 (USD)
+function formatMarketCapUsd(value) {
+    if (!value) return '-';
+    if (value >= 1e12) return `$${(value / 1e12).toFixed(1)}T`;
+    if (value >= 1e9) return `$${(value / 1e9).toFixed(1)}B`;
+    if (value >= 1e6) return `$${(value / 1e6).toFixed(1)}M`;
+    return `$${value.toLocaleString()}`;
 }
 
 // 해외시장 게이지 퍼센트 계산
