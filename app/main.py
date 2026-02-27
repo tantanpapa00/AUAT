@@ -219,13 +219,18 @@ async def lifespan(app):
 
     # 2. 스크리너 메모리 캐시 워밍업 (첫 요청 3초 이내 응답 위해)
     try:
-        from app.screener.kr_screener import load_kr_stocks
+        from app.screener.kr_screener import load_kr_stocks, warmup_roe_cache
         from app.screener.us_screener import load_us_stocks
         from app.screener.etf_screener import load_etf_stocks
 
         print("[Screener Warmup] 시작...")
-        await load_kr_stocks()
+        kr_stocks = await load_kr_stocks()
         print("[Screener Warmup] KR 완료")
+
+        # ROE 캐시 초기화 (백그라운드에서 실행)
+        asyncio.create_task(warmup_roe_cache(kr_stocks))
+        print("[Screener Warmup] ROE 캐시 초기화 시작 (백그라운드)")
+
         await load_us_stocks()
         print("[Screener Warmup] US 완료")
         await load_etf_stocks()
