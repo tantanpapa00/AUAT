@@ -12553,9 +12553,33 @@ async def request_ai_analysis(
         )
         cache_row = cache_result.fetchone()
         if cache_row:
-            return {"success": True, "status": "done", "report": cache_row[0], "cached": True}
-    except Exception:
-        pass
+            # 캐시된 리포트도 job_id 생성하여 PDF 다운로드 가능하게 함
+            _cleanup_old_jobs()
+            cache_job_id = str(uuid.uuid4())[:8]
+
+            # 종목명 조회
+            stock_name = request.symbol
+            master = get_master_cache()
+            stock = master.get_stock(request.symbol)
+            if stock and hasattr(stock, 'name'):
+                stock_name = stock.name
+
+            _ai_jobs[cache_job_id] = {
+                "status": "done",
+                "progress": "✅ 캐시 로드 완료",
+                "result": cache_row[0],
+                "created_at": datetime.now(KST),
+                "user_id": current_user.id if current_user else None,
+                "symbol": request.symbol,
+                "exchange": request.exchange,
+                "stock": {"name": stock_name, "code": request.symbol},
+                "charts": {},  # 캐시된 리포트는 차트 없음 (PDF에서 재생성)
+                "cached": True,
+            }
+            print(f"[AI Analyze] 캐시 HIT: {stock_name}({request.symbol}), cache_job_id={cache_job_id}")
+            return {"success": True, "status": "done", "report": cache_row[0], "job_id": cache_job_id, "cached": True}
+    except Exception as e:
+        print(f"[AI Analyze] 캐시 조회 오류: {e}")
 
     # 작업 큐 정리 및 job_id 생성
     _cleanup_old_jobs()
@@ -12744,6 +12768,21 @@ async def download_ai_report_pdf(job_id: str):
             return None
 
     charts = job.get("charts", {})
+
+    # 캐시된 리포트이거나 차트가 없으면 재생성
+    if not charts or job.get("cached"):
+        try:
+            symbol = job.get("symbol", stock_code)
+            exchange = job.get("exchange", "")
+            is_domestic = exchange.lower() in ("kis_kr", "kis_kr_etf", "upbit")
+            market = "kr" if is_domestic else "us"
+            print(f"[PDF] 캐시 리포트 — 차트 재생성: {stock_name}({symbol})")
+            charts = await _generate_ai_charts(symbol, stock_name, market)
+            job["charts"] = charts  # 캐시에 저장
+        except Exception as e:
+            print(f"[PDF] 차트 재생성 실패: {e}")
+            charts = {}
+
     chart_images = []
 
     # 순서 보장: price_chart → trend_chart → momentum_chart
