@@ -462,10 +462,10 @@ async def fetch_sp500_valuation() -> Dict[str, Dict]:
                         ticker = ticker_link.text.strip() if ticker_link else ""
 
                         if ticker:
-                            # v=121 컬럼: No, Ticker, P/E, Fwd P/E, PEG, P/S, P/B, ...
+                            # v=121 컬럼: No, Ticker, MktCap, P/E, Fwd P/E, PEG, P/S, P/B, ...
                             result[ticker] = {
-                                "per": _parse_finviz_float(cols[2].text.strip()),
-                                "pbr": _parse_finviz_float(cols[6].text.strip()),
+                                "per": _parse_finviz_float(cols[3].text.strip()),
+                                "pbr": _parse_finviz_float(cols[7].text.strip()),
                             }
                     except Exception:
                         continue
