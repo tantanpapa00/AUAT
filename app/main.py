@@ -13306,7 +13306,7 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
 
             response = await client.messages.create(
                 model="claude-haiku-4-5-20251001",
-                max_tokens=8000,
+                max_tokens=16000,  # 8000에서 잘림 → 16000
                 tools=[{"type": "web_search_20250305", "name": "web_search"}],
                 messages=[{"role": "user", "content": final_prompt}]
             )
@@ -15573,12 +15573,13 @@ async def _generate_etf_report(name: str, code: str, market: str = "kr", chart_d
 
         response = await client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=8000,  # 잘림 방지: 6000 → 8000
+            max_tokens=16000,  # 8000에서 잘림 → 16000
             messages=[{"role": "user", "content": prompt}]
         )
 
         report_md = response.content[0].text
-        print(f"[ETF Report] Generated report: {len(report_md)} chars")
+        stop_reason = response.stop_reason
+        print(f"[ETF Report] Generated report: {len(report_md)} chars, stop_reason={stop_reason}")
 
         return {
             "success": True,
@@ -15632,7 +15633,7 @@ async def _generate_claude_report(name: str, code: str, market: str = "kr", char
 
         response = await client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=8000,  # 6개 섹션 완전한 리포트 생성 위해 증가
+            max_tokens=16000,  # 8000에서 잘림 발생 → 16000으로 증가
             messages=[{"role": "user", "content": prompt}]
         )
 
