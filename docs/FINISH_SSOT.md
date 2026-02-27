@@ -465,6 +465,52 @@
 
 - Commits: `eca0806`, `5de6a3c`
 
+## Day 32 (2026-02-27) — DONE ✅
+- **명령서 37: 해외시장 백엔드 API 3개 생성**
+  - [x] `/api/market/us/ranking` — 특징주 (상승률/하락률/거래대금 상위)
+  - [x] `/api/market/us/sectors` — GICS 11개 섹터 등락률 (yfinance 연동)
+  - [x] `/api/market/us/trend-maintain` — 섹터별 추세 (20MA 기준)
+
+- **명령서 38: 해외시장 프론트엔드 탭 3개 추가**
+  - [x] 오늘의 특징주 탭 (`us-featured-stocks`)
+  - [x] 오늘의 업종 탭 (`us-sector-data`)
+  - [x] 섹터별 추세 탭 (`us-trend-maintain`)
+  - [x] 서브탭 버튼 5개로 확장 (시장지표, 섹터, 특징주, 업종, 추세)
+
+- **Rust Tauri 커맨드 추가**
+  - [x] `get_market_us_ranking(access_token, sort, order, limit)`
+  - [x] `get_market_us_sectors(access_token)`
+  - [x] main.rs에 커맨드 등록
+
+- **API 키 불일치 수정 (프론트↔백엔드 통일)**
+  | API | 변경 전 | 변경 후 |
+  |-----|---------|---------|
+  | ranking | `current`, `change` | `price`, `change_pct` |
+  | sectors | `etf`, `change_percent` | `symbol`, `change_pct` |
+  | trend-maintain | `change_pct` | `change_percent` |
+
+- **섹터별 대표종목 추가 (11개 GICS 섹터)**
+  - [x] XLK: AAPL, NVDA, MSFT, AVGO, CRM
+  - [x] XLF: JPM, BRK-B, V, MA, BAC
+  - [x] XLV: UNH, LLY, JNJ, ABBV, MRK
+  - [x] XLE: XOM, CVX, COP, EOG, SLB
+  - [x] XLY: AMZN, TSLA, HD, MCD, NKE
+  - [x] XLP: PG, KO, PEP, COST, WMT
+  - [x] XLI: CAT, GE, UNP, RTX, DE
+  - [x] XLB: LIN, APD, SHW, ECL, NEM
+  - [x] XLU: NEE, SO, DUK, CEG, SRE
+  - [x] XLRE: PLD, AMT, EQIX, SPG, PSA
+  - [x] XLC: META, GOOGL, NFLX, DIS, TMUS
+  - [x] RS 점수 포함 (90 이상 굵게 표시)
+
+- **수정된 파일**
+  - `app/main.py` — 해외 API 3개, 키 통일, 대표종목 매핑
+  - `pc-app/ui/src/main.js` — 탭 3개, 로드 함수, 렌더 함수
+  - `pc-app/src-tauri/src/commands.rs` — Rust 커맨드 2개 추가
+  - `pc-app/src-tauri/src/main.rs` — 커맨드 등록
+
+- Commits: `508c2a7`
+
 ---
 
 # 5) 매주 승인(작가님 체크 포인트)
