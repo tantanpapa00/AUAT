@@ -167,7 +167,8 @@ async def fetch_all_us_stocks() -> List[Dict]:
 
     1. Finviz v=111 (Overview): 섹터, 시총, 종목명
     2. Finviz v=161 (Financial): ROE, ROA, Debt/Eq, Margins 등
-    3. Finviz 히트맵 API: 실시간 등락률
+    3. Finviz v=141 (Valuation): PER, PBR
+    4. Finviz 히트맵 API: 실시간 등락률
     """
     # 1. 메타데이터 가져오기 (v=111)
     metadata = await fetch_sp500_metadata()
@@ -175,14 +176,18 @@ async def fetch_all_us_stocks() -> List[Dict]:
     # 2. 재무 데이터 가져오기 (v=161)
     financials = await fetch_sp500_financials()
 
-    # 3. 실시간 등락률 가져오기
+    # 3. Valuation 데이터 가져오기 (v=141) - PER, PBR
+    valuations = await fetch_sp500_valuation()
+
+    # 4. 실시간 등락률 가져오기
     changes = await fetch_finviz_changes()
 
-    # 4. 결합
+    # 5. 결합
     stocks = []
     for symbol, meta in metadata.items():
         change_pct = changes.get(symbol, 0)
         fin = financials.get(symbol, {})
+        val = valuations.get(symbol, {})
 
         stock = {
             "code": symbol,
@@ -196,6 +201,8 @@ async def fetch_all_us_stocks() -> List[Dict]:
         }
         # 재무 데이터 병합
         stock.update(fin)
+        # Valuation 데이터 병합 (PER, PBR)
+        stock.update(val)
         stocks.append(stock)
 
     print(f"[US Screener] {len(stocks)}개 종목 로드 완료")
@@ -412,6 +419,72 @@ async def fetch_sp500_financials() -> Dict[str, Dict]:
     return result
 
 
+async def fetch_sp500_valuation() -> Dict[str, Dict]:
+    """
+    Finviz Valuation 뷰(v=141)에서 PER, PBR 데이터 수집
+    Returns: {"AAPL": {"per": 28.5, "pbr": 45.2}, ...}
+
+    v=141 컬럼 순서:
+    No., Ticker, Market Cap, P/E, Forward P/E, PEG, P/S, P/B, P/Cash, P/FCF,
+    Dividend, Payout, EPS, EPS this Y, EPS next Y, EPS past 5Y, EPS next 5Y, Sales past 5Y, Price, Change, Volume
+    """
+    from bs4 import BeautifulSoup
+
+    result = {}
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            page = 1
+
+            while True:
+                offset = (page - 1) * 20 + 1
+                url = f"https://finviz.com/screener.ashx?v=141&f=idx_sp500&o=-marketcap&r={offset}"
+
+                r = await client.get(url, headers=FINVIZ_HEADERS)
+                if r.status_code != 200:
+                    print(f"[Finviz v=141 Valuation] 페이지 {page} 실패: {r.status_code}")
+                    break
+
+                soup = BeautifulSoup(r.text, 'lxml')
+                rows = soup.select('table.screener-body-table-nw tr[valign="top"]')
+                if not rows:
+                    rows = soup.select('tr.styled-row')
+                if not rows:
+                    break
+
+                for row in rows:
+                    cols = row.find_all('td')
+                    if len(cols) < 10:
+                        continue
+
+                    try:
+                        ticker_link = cols[1].find('a')
+                        ticker = ticker_link.text.strip() if ticker_link else ""
+
+                        if ticker:
+                            # v=141 컬럼: No, Ticker, MktCap, P/E, Fwd P/E, PEG, P/S, P/B, ...
+                            result[ticker] = {
+                                "per": _parse_finviz_float(cols[3].text.strip()),
+                                "pbr": _parse_finviz_float(cols[7].text.strip()),
+                            }
+                    except Exception:
+                        continue
+
+                if len(rows) < 20 or page >= 30:
+                    break
+                page += 1
+                await asyncio.sleep(0.3)
+
+            print(f"[Finviz v=141 Valuation] S&P 500 PER/PBR: {len(result)}개 종목 ({page}페이지)")
+
+    except Exception as e:
+        print(f"[Finviz v=141 Valuation] 오류: {e}")
+        import traceback
+        traceback.print_exc()
+
+    return result
+
+
 async def fetch_finviz_changes() -> Dict[str, float]:
     """
     Finviz 히트맵 API에서 실시간 등락률 수집
@@ -448,10 +521,12 @@ async def fetch_finviz_changes() -> Dict[str, float]:
     return result
 
 
-# 필터 키 정의 (US 전용) - Finviz v=161 기반 재무 필터
+# 필터 키 정의 (US 전용) - Finviz v=141/v=161 기반 재무 필터
 US_FILTER_KEYS = [
     "sector", "market_cap", "change_pct",
-    # 재무 필터 (Finviz v=141 기반)
+    # Valuation 필터 (Finviz v=141)
+    "per", "pbr",
+    # 재무 필터 (Finviz v=161)
     "roe", "roa", "roi",
     "operating_margin", "gross_margin", "profit_margin",
     "debt_ratio", "current_ratio", "dividend_yield",

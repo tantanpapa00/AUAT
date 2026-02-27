@@ -11201,10 +11201,10 @@ PRESET_STRATEGIES = {
         },
         "value": {
             "title": "💰 저평가 가치주",
-            "description": "P/E 15 이하 우량주",
-            "sort": "per",
-            "order": "asc",
-            "filters": {"per": {"min": 1, "max": 15}},
+            "description": "PER 15 이하 + ROE 15% 이상 + PBR 1.5 이하",
+            "sort": "roe",
+            "order": "desc",
+            "filters": {"per": {"min": 0.1, "max": 15}, "roe": {"min": 15}, "pbr": {"min": 0.1, "max": 1.5}},
             "limit": 10
         },
         "large_cap": {
