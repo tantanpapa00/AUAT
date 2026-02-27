@@ -12,7 +12,12 @@ from .cache import screener_cache, CACHE_TTL
 from .filters import apply_screener_filters, sort_screener_results
 from .technicals import compute_all_technicals
 
-# ROE 메모리 캐시 (서버 시작 시 수집, 1시간마다 갱신)
+# 재무 데이터 메모리 캐시 (서버 시작 시 수집, 1시간마다 갱신)
+# code -> {"per": float, "pbr": float, "roe": float, "dividend_yield": float}
+_financial_cache: Dict[str, Dict[str, float]] = {}
+_financial_cache_ts: datetime = None
+
+# ROE 캐시 (레거시 호환)
 _roe_cache: Dict[str, float] = {}
 _roe_cache_ts: datetime = None
 
@@ -480,12 +485,12 @@ async def enrich_financial_data(stocks: List[Dict]) -> List[Dict]:
 
 async def warmup_roe_cache(stocks: List[Dict] = None) -> None:
     """
-    ROE 캐시 초기화 (서버 시작 시 호출)
-    상위 500개 종목의 ROE를 네이버 데스크톱에서 수집
+    재무 데이터 캐시 초기화 (서버 시작 시 호출)
+    상위 500개 종목의 PER/PBR/ROE/배당수익률을 네이버 API에서 수집
     """
-    global _roe_cache, _roe_cache_ts
+    global _roe_cache, _roe_cache_ts, _financial_cache, _financial_cache_ts
 
-    print("[ROE Cache] 캐시 초기화 시작...")
+    print("[Financial Cache] 캐시 초기화 시작...")
 
     if stocks is None:
         stocks = await load_kr_stocks()
@@ -497,45 +502,95 @@ async def warmup_roe_cache(stocks: List[Dict] = None) -> None:
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
     }
 
-    async def fetch_roe(client, code, semaphore):
+    async def fetch_financial(client, code, semaphore):
+        """단일 종목 재무 데이터 조회 (네이버 모바일 integration API)"""
         async with semaphore:
+            result = {"per": None, "pbr": None, "roe": None, "dividend_yield": None}
             try:
-                from bs4 import BeautifulSoup
-                url = f"https://finance.naver.com/item/main.naver?code={code}"
-                r = await client.get(url, headers=headers, timeout=10)
+                url = f"https://m.stock.naver.com/api/stock/{code}/integration"
+                r = await client.get(url, timeout=10)
                 if r.status_code == 200:
-                    r.encoding = "euc-kr"
-                    soup = BeautifulSoup(r.text, "lxml")
-                    roe_th = soup.find("th", class_="th_cop_anal13")
-                    if roe_th:
-                        roe_tr = roe_th.find_parent("tr")
-                        if roe_tr:
-                            tds = roe_tr.find_all("td")
-                            for td in tds:
-                                txt = td.get_text(strip=True)
-                                if txt and txt != "-":
-                                    val = _parse_float(txt.replace(",", ""))
-                                    if val != 0:
-                                        return code, val
+                    data = r.json()
+                    total_infos = data.get("totalInfos", [])
+                    for info in total_infos:
+                        key = info.get("code", "")
+                        value = info.get("value", "")
+                        if key == "per":
+                            result["per"] = _parse_float(value.replace("배", ""))
+                        elif key == "pbr":
+                            result["pbr"] = _parse_float(value.replace("배", ""))
+                        elif key == "roe":
+                            result["roe"] = _parse_float(value.replace("%", ""))
+                        elif key == "dividendYieldRatio":
+                            result["dividend_yield"] = _parse_float(value.replace("%", ""))
             except Exception:
                 pass
-            return code, None
+            return code, result
 
     semaphore = asyncio.Semaphore(20)  # 동시 20개 요청
 
     async with httpx.AsyncClient(headers=headers, timeout=15) as client:
-        tasks = [fetch_roe(client, s.get("code"), semaphore) for s in target_stocks if s.get("code")]
+        tasks = [fetch_financial(client, s.get("code"), semaphore) for s in target_stocks if s.get("code")]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
     # 캐시 업데이트
     count = 0
+    roe_count = 0
     for r in results:
-        if isinstance(r, tuple) and r[1] is not None:
-            _roe_cache[r[0]] = r[1]
-            count += 1
+        if isinstance(r, tuple):
+            code, data = r
+            if any(v is not None for v in data.values()):
+                _financial_cache[code] = data
+                count += 1
+            # ROE 캐시도 업데이트 (레거시 호환)
+            if data.get("roe") is not None:
+                _roe_cache[code] = data["roe"]
+                roe_count += 1
 
+    _financial_cache_ts = datetime.now()
     _roe_cache_ts = datetime.now()
-    print(f"[ROE Cache] 완료: {count}개 종목 ROE 수집")
+    print(f"[Financial Cache] 완료: {count}개 종목 재무데이터 수집 (ROE: {roe_count}개)")
+
+
+def apply_cached_roe(stocks: List[Dict]) -> List[Dict]:
+    """
+    캐시된 ROE 데이터만 적용 (레거시 호환)
+    """
+    return apply_cached_financial(stocks)
+
+
+def apply_cached_financial(stocks: List[Dict]) -> List[Dict]:
+    """
+    캐시된 재무 데이터 적용 (네트워크 호출 없음, 즉시 반환)
+    AI 종목추천 등 빠른 응답이 필요한 곳에서 사용
+    PER, PBR, ROE, dividend_yield 적용
+    """
+    global _financial_cache, _roe_cache
+
+    result = []
+    for stock in stocks:
+        s = dict(stock)
+        code = s.get("code", "")
+
+        # 재무 캐시에서 데이터 적용
+        if code in _financial_cache:
+            cached = _financial_cache[code]
+            if not s.get("per") and cached.get("per") is not None:
+                s["per"] = cached["per"]
+            if not s.get("pbr") and cached.get("pbr") is not None:
+                s["pbr"] = cached["pbr"]
+            if not s.get("roe") and cached.get("roe") is not None:
+                s["roe"] = cached["roe"]
+            if not s.get("dividend_yield") and cached.get("dividend_yield") is not None:
+                s["dividend_yield"] = cached["dividend_yield"]
+
+        # ROE 캐시에서 보충 (레거시 호환)
+        if not s.get("roe") and code in _roe_cache:
+            s["roe"] = _roe_cache[code]
+
+        result.append(s)
+
+    return result
 
 
 async def enrich_with_technicals(stocks: List[Dict], params: Dict = None) -> List[Dict]:

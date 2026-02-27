@@ -11282,15 +11282,12 @@ async def api_ai_recommendations(
             items = []
 
             if market == "kr":
-                from app.screener.kr_screener import load_kr_stocks, enrich_financial_data
+                from app.screener.kr_screener import load_kr_stocks, apply_cached_financial
                 from app.screener.filters import apply_screener_filters, sort_screener_results
                 stocks = await load_kr_stocks()
 
-                # 재무 필터가 있으면 재무 데이터 보강 필요
-                financial_keys = ["per", "pbr", "roe", "dividend_yield", "dividend_growth_5y"]
-                has_financial = any(config.get("filters", {}).get(k) for k in financial_keys)
-                if has_financial or config.get("sort") in ["per", "pbr", "roe", "dividend_yield"]:
-                    stocks = await enrich_financial_data(stocks[:500])
+                # 캐시된 재무 데이터 적용 (네트워크 호출 없음, 즉시 반환)
+                stocks = apply_cached_financial(stocks[:500])
 
                 if config.get("filters"):
                     stocks = apply_screener_filters(stocks, config["filters"])
