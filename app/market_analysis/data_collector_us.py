@@ -756,25 +756,22 @@ async def fetch_sector_etf_daily(symbol: str, days: int = 60) -> List[float]:
     섹터 ETF 일봉 종가 조회 (추세유지 분석용)
     Returns: [close1, close2, ..., closeN] (오래된 것부터)
     """
+    import asyncio
     try:
-        async with httpx.AsyncClient() as client:
-            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range={days}d"
-            resp = await client.get(url, timeout=15)
-            if resp.status_code != 200:
+        # yfinance 사용 (동기 함수이므로 run_in_executor로 실행)
+        import yfinance as yf
+
+        def _fetch():
+            ticker = yf.Ticker(symbol)
+            hist = ticker.history(period=f"{days}d")
+            if hist.empty:
                 return []
+            closes = hist["Close"].tolist()
+            return [c for c in closes if c is not None]
 
-            data = resp.json()
-            result_data = data.get("chart", {}).get("result", [])
-            if not result_data:
-                return []
-
-            indicators = result_data[0].get("indicators", {})
-            quote = indicators.get("quote", [{}])[0]
-            closes = quote.get("close", [])
-
-            # None 제거
-            valid_closes = [c for c in closes if c is not None]
-            return valid_closes
+        loop = asyncio.get_event_loop()
+        closes = await loop.run_in_executor(None, _fetch)
+        return closes
     except Exception as e:
         print(f"[US] fetch_sector_etf_daily error for {symbol}: {e}")
         return []
