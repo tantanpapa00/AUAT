@@ -13,6 +13,31 @@ console.log('[Chart] Chart.js + ChartDataLabels 등록 완료');
 window.invokeCmd = invoke;
 
 // =====================================================
+// Demo Mode (스크린샷/마케팅용)
+// =====================================================
+const urlParams = new URLSearchParams(window.location.search);
+const isDemoMode = urlParams.get('demo') === 'true';
+let demoData = null;
+
+async function loadDemoData() {
+    if (!isDemoMode) return null;
+    try {
+        const res = await fetch('/static/demo_data.json');
+        demoData = await res.json();
+        console.log('[Demo Mode] 데모 데이터 로드됨');
+        return demoData;
+    } catch (e) {
+        console.error('[Demo Mode] 데모 데이터 로드 실패:', e);
+        return null;
+    }
+}
+
+if (isDemoMode) {
+    console.log('[Demo Mode] 데모 모드 활성화됨');
+    loadDemoData();
+}
+
+// =====================================================
 // Authentication State
 // =====================================================
 const auth = {
@@ -740,6 +765,15 @@ function updateUserUI(user) {
     const userName = document.getElementById('user-name');
     const userAvatar = document.getElementById('user-avatar');
 
+    // 데모 모드: Demo User 표시
+    if (isDemoMode) {
+        if (userName) userName.textContent = 'Demo User';
+        if (userAvatar) userAvatar.textContent = '🎯';
+        if (badge) badge.className = 'subscription-badge pro';
+        if (badgeText) badgeText.textContent = 'Pro';
+        return;
+    }
+
     const isAdmin = user.role === 'admin';
 
     // Update user name (admin 표시 포함)
@@ -1078,6 +1112,11 @@ function updateServerStatus(connected) {
 let allocationChart = null;
 
 async function loadHomePage() {
+    // 데모 모드: 데모 데이터 먼저 로드
+    if (isDemoMode && !demoData) {
+        await loadDemoData();
+    }
+
     // Load server status
     try {
         const status = await invoke('get_server_status');
@@ -1095,6 +1134,12 @@ async function loadHomePage() {
 
 async function loadPortfolioSummary() {
     try {
+        // 데모 모드: mock 데이터 사용
+        if (isDemoMode && demoData) {
+            updateSummaryCards(demoData.summary);
+            return;
+        }
+
         if (!auth.accessToken) {
             updateSummaryCards({ total_assets_formatted: '₩0', total_profit_rate: 0, daily_change_formatted: '₩0', daily_change_rate: 0, active_strategies: 0 });
             return;
@@ -1231,7 +1276,12 @@ async function loadHoldings() {
 
     try {
         let holdings = [];
-        if (auth.accessToken) {
+
+        // 데모 모드: mock 데이터 사용
+        if (isDemoMode && demoData) {
+            holdings = demoData.holdings || [];
+            console.log('[Demo Mode] 데모 보유자산 로드:', holdings.length);
+        } else if (auth.accessToken) {
             holdings = await invoke('get_holdings', { accessToken: auth.accessToken });
         }
 
@@ -1558,7 +1608,12 @@ async function loadActiveStrategies() {
 
     try {
         let strategies = [];
-        if (auth.accessToken) {
+
+        // 데모 모드: mock 데이터 사용
+        if (isDemoMode && demoData) {
+            strategies = demoData.active_strategies || [];
+            console.log('[Demo Mode] 데모 전략 로드:', strategies.length);
+        } else if (auth.accessToken) {
             strategies = await invoke('get_active_strategies', { accessToken: auth.accessToken });
         }
         // API가 { strategies: [...] } 또는 [...] 형태일 수 있음
@@ -1657,17 +1712,26 @@ async function loadRecentTrades(append = false) {
 
     try {
         if (!append) tradesOffset = 0;
-        if (!auth.accessToken) return;
 
-        const data = await invoke('get_trade_history', {
-            accessToken: auth.accessToken,
-            exchange: null,
-            symbol: null,
-            limit: TRADES_LIMIT,
-            offset: tradesOffset
-        });
-        const trades = data.trades || [];
-        const total = data.total || trades.length;
+        let trades = [];
+        let total = 0;
+
+        // 데모 모드: mock 데이터 사용
+        if (isDemoMode && demoData) {
+            trades = demoData.recent_trades || [];
+            total = trades.length;
+            console.log('[Demo Mode] 데모 거래내역 로드:', trades.length);
+        } else if (auth.accessToken) {
+            const data = await invoke('get_trade_history', {
+                accessToken: auth.accessToken,
+                exchange: null,
+                symbol: null,
+                limit: TRADES_LIMIT,
+                offset: tradesOffset
+            });
+            trades = data.trades || [];
+            total = data.total || trades.length;
+        }
 
         if (trades.length === 0 && !append) {
             tbody.innerHTML = `

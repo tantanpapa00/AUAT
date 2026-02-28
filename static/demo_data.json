@@ -1,0 +1,243 @@
+{
+  "summary": {
+    "total_assets_formatted": "₩52,847,320",
+    "total_profit_rate": 18.42,
+    "daily_change_formatted": "+₩328,500",
+    "daily_change_rate": 0.63,
+    "active_strategies": 5,
+    "allocation": [32, 28, 22, 18]
+  },
+  "holdings": [
+    {
+      "exchange": "KIS_KR",
+      "symbol": "삼성전자",
+      "name": "삼성전자",
+      "quantity": 50,
+      "avg_price": 68000,
+      "current_price": 72500,
+      "value": 3625000,
+      "pnl": 225000,
+      "pnl_pct": 6.62,
+      "currency": "KRW"
+    },
+    {
+      "exchange": "KIS_KR",
+      "symbol": "SK하이닉스",
+      "name": "SK하이닉스",
+      "quantity": 30,
+      "avg_price": 145000,
+      "current_price": 198000,
+      "value": 5940000,
+      "pnl": 1590000,
+      "pnl_pct": 36.55,
+      "currency": "KRW"
+    },
+    {
+      "exchange": "KIS_KR",
+      "symbol": "NAVER",
+      "name": "NAVER",
+      "quantity": 15,
+      "avg_price": 195000,
+      "current_price": 223000,
+      "value": 3345000,
+      "pnl": 420000,
+      "pnl_pct": 14.36,
+      "currency": "KRW"
+    },
+    {
+      "exchange": "KIS_KR",
+      "symbol": "KRW",
+      "name": "예수금",
+      "quantity": 1,
+      "avg_price": 8500000,
+      "current_price": 8500000,
+      "value": 8500000,
+      "pnl": 0,
+      "pnl_pct": 0,
+      "currency": "KRW",
+      "is_cash": true
+    },
+    {
+      "exchange": "KIS_US",
+      "symbol": "NVDA",
+      "name": "NVIDIA",
+      "quantity": 15,
+      "avg_price": 98.50,
+      "current_price": 131.20,
+      "value": 1968.00,
+      "pnl": 490.50,
+      "pnl_pct": 33.20,
+      "currency": "USD"
+    },
+    {
+      "exchange": "KIS_US",
+      "symbol": "AAPL",
+      "name": "Apple",
+      "quantity": 10,
+      "avg_price": 178.00,
+      "current_price": 198.50,
+      "value": 1985.00,
+      "pnl": 205.00,
+      "pnl_pct": 11.52,
+      "currency": "USD"
+    },
+    {
+      "exchange": "KIS_US",
+      "symbol": "TSLA",
+      "name": "Tesla",
+      "quantity": 8,
+      "avg_price": 185.00,
+      "current_price": 245.00,
+      "value": 1960.00,
+      "pnl": 480.00,
+      "pnl_pct": 32.43,
+      "currency": "USD"
+    },
+    {
+      "exchange": "KIS_US",
+      "symbol": "USD",
+      "name": "USD 현금",
+      "quantity": 1,
+      "avg_price": 2150.00,
+      "current_price": 2150.00,
+      "value": 2150.00,
+      "pnl": 0,
+      "pnl_pct": 0,
+      "currency": "USD",
+      "is_cash": true
+    },
+    {
+      "exchange": "OKX",
+      "symbol": "BTC-USDT",
+      "name": "Bitcoin",
+      "quantity": 0.05,
+      "avg_price": 62500,
+      "current_price": 84200,
+      "value": 4210.00,
+      "pnl": 1085.00,
+      "pnl_pct": 34.72,
+      "currency": "USD"
+    },
+    {
+      "exchange": "OKX",
+      "symbol": "ETH-USDT",
+      "name": "Ethereum",
+      "quantity": 0.8,
+      "avg_price": 2100,
+      "current_price": 3150,
+      "value": 2520.00,
+      "pnl": 840.00,
+      "pnl_pct": 50.00,
+      "currency": "USD"
+    },
+    {
+      "exchange": "OKX",
+      "symbol": "SOL-USDT",
+      "name": "Solana",
+      "quantity": 20,
+      "avg_price": 85.00,
+      "current_price": 142.00,
+      "value": 2840.00,
+      "pnl": 1140.00,
+      "pnl_pct": 67.06,
+      "currency": "USD"
+    },
+    {
+      "exchange": "OKX",
+      "symbol": "USDT",
+      "name": "Tether",
+      "quantity": 3200,
+      "avg_price": 1.00,
+      "current_price": 1.00,
+      "value": 3200.00,
+      "pnl": 0,
+      "pnl_pct": 0,
+      "currency": "USD",
+      "is_cash": true
+    }
+  ],
+  "active_strategies": [
+    {
+      "id": 1,
+      "name": "추세추종 20일",
+      "exchange": "KIS_KR",
+      "symbol": "삼성전자",
+      "status": "active",
+      "signal": "보유 중",
+      "entry_price": 68000,
+      "current_pnl_pct": 6.62
+    },
+    {
+      "id": 2,
+      "name": "추세추종 20일",
+      "exchange": "KIS_US",
+      "symbol": "NVDA",
+      "status": "active",
+      "signal": "보유 중",
+      "entry_price": 98.50,
+      "current_pnl_pct": 33.20
+    },
+    {
+      "id": 3,
+      "name": "역추세 RSI",
+      "exchange": "KIS_KR",
+      "symbol": "SK하이닉스",
+      "status": "active",
+      "signal": "보유 중",
+      "entry_price": 145000,
+      "current_pnl_pct": 36.55
+    },
+    {
+      "id": 4,
+      "name": "추세추종 HTF",
+      "exchange": "OKX",
+      "symbol": "BTC-USDT",
+      "status": "active",
+      "signal": "보유 중",
+      "entry_price": 62500,
+      "current_pnl_pct": 34.72
+    },
+    {
+      "id": 5,
+      "name": "추세추종 20일",
+      "exchange": "OKX",
+      "symbol": "SOL-USDT",
+      "status": "active",
+      "signal": "보유 중",
+      "entry_price": 85.00,
+      "current_pnl_pct": 67.06
+    }
+  ],
+  "recent_trades": [
+    {
+      "id": 1,
+      "timestamp": "2026-02-28T09:30:00Z",
+      "exchange": "KIS_KR",
+      "symbol": "삼성전자",
+      "side": "buy",
+      "quantity": 10,
+      "price": 72000,
+      "status": "filled"
+    },
+    {
+      "id": 2,
+      "timestamp": "2026-02-27T14:20:00Z",
+      "exchange": "OKX",
+      "symbol": "SOL-USDT",
+      "side": "buy",
+      "quantity": 5,
+      "price": 138.50,
+      "status": "filled"
+    },
+    {
+      "id": 3,
+      "timestamp": "2026-02-26T10:15:00Z",
+      "exchange": "KIS_US",
+      "symbol": "NVDA",
+      "side": "buy",
+      "quantity": 3,
+      "price": 128.00,
+      "status": "filled"
+    }
+  ]
+}
