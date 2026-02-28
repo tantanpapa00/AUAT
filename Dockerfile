@@ -41,6 +41,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY app/ ./app/
 
+# Copy static files (demo data, brand assets)
+COPY static/ ./static/
+
 # Create static directory for chart images
 RUN mkdir -p /app/static/charts
 
