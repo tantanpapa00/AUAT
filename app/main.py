@@ -101,6 +101,10 @@ from datetime import datetime, timezone, timedelta
 # KST timezone (Asia/Seoul) for consistent timestamps
 KST = timezone(timedelta(hours=9))
 
+# [UPDATE_SYSTEM_V1] 서버 버전/시작시간 (헬스체크용)
+APP_VERSION = os.environ.get("APP_VERSION", "1.0.0")
+APP_START_TIME = datetime.now(timezone.utc)
+
 import json
 import hashlib
 import math
@@ -1039,13 +1043,32 @@ def ui_home(request: Request):
 
 # ---- Health Check (Docker/Kubernetes) ----
 @app.get("/api/health")
-def api_health():
+def api_health(db: Session = Depends(get_db)):
     """
     Health check endpoint for Docker/Kubernetes.
-    Returns ok=true if server is running.
-    Does NOT check database (use /api/home for full status).
+    Returns version, uptime, db status for monitoring.
     """
-    return {"ok": True, "status": "running"}
+    now = datetime.now(timezone.utc)
+    uptime_seconds = int((now - APP_START_TIME).total_seconds())
+
+    # DB 연결 확인
+    db_ok = False
+    db_msg = "unknown"
+    try:
+        db.execute(text("SELECT 1"))
+        db_ok = True
+        db_msg = "connected"
+    except Exception as e:
+        db_msg = str(e)[:100]
+
+    return {
+        "ok": db_ok,
+        "status": "running" if db_ok else "degraded",
+        "version": APP_VERSION,
+        "started_at": APP_START_TIME.isoformat(),
+        "uptime_seconds": uptime_seconds,
+        "db_status": db_msg
+    }
 
 
 @app.get("/api/debug/master-cache")
