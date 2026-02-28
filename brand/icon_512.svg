@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="iconBg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#0F172A"/><stop offset="100%" style="stop-color:#1A1A2E"/></linearGradient>
+    <linearGradient id="iconRing" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#DC2626"/><stop offset="50%" style="stop-color:#EF4444"/><stop offset="100%" style="stop-color:#FBBF24"/></linearGradient>
+    <linearGradient id="ib1" x1="0%" y1="100%" x2="0%" y2="0%"><stop offset="0%" style="stop-color:#991B1B"/><stop offset="100%" style="stop-color:#DC2626"/></linearGradient>
+    <linearGradient id="ib2" x1="0%" y1="100%" x2="0%" y2="0%"><stop offset="0%" style="stop-color:#B91C1C"/><stop offset="100%" style="stop-color:#EF4444"/></linearGradient>
+    <linearGradient id="ib3" x1="0%" y1="100%" x2="0%" y2="0%"><stop offset="0%" style="stop-color:#DC2626"/><stop offset="100%" style="stop-color:#FBBF24"/></linearGradient>
+    <linearGradient id="iarrow" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:#FBBF24"/><stop offset="100%" style="stop-color:#FEF3C7"/></linearGradient>
+    <filter id="iglow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <!-- Rounded square background -->
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="url(#iconBg)"/>
+  <rect x="24" y="24" width="464" height="464" rx="88" fill="none" stroke="url(#iconRing)" stroke-width="3" opacity="0.6"/>
+  
+  <!-- Background chart line -->
+  <path d="M80 380 Q160 360 210 330 T300 260 T380 190 T460 140" fill="none" stroke="#DC2626" stroke-width="2" opacity="0.12"/>
+  
+  <!-- Three ascending chart bars -->
+  <g filter="url(#iglow)">
+    <rect x="112" y="300" width="64" height="100" rx="10" fill="url(#ib1)" opacity="0.9"/>
+    <rect x="200" y="240" width="64" height="160" rx="10" fill="url(#ib2)" opacity="0.9"/>
+    <rect x="288" y="165" width="64" height="235" rx="10" fill="url(#ib3)" opacity="0.95"/>
+  </g>
+  
+  <!-- Boost arrow -->
+  <g filter="url(#iglow)">
+    <line x1="320" y1="165" x2="395" y2="80" stroke="url(#iarrow)" stroke-width="7" stroke-linecap="round"/>
+    <polygon points="395,80 374,98 392,103" fill="#FEF3C7" opacity="0.95"/>
+    <circle cx="405" cy="70" r="4.5" fill="#FBBF24" opacity="0.7"/>
+    <circle cx="392" cy="62" r="3" fill="#FEF3C7" opacity="0.5"/>
+    <circle cx="412" cy="82" r="2" fill="#FBBF24" opacity="0.4"/>
+  </g>
+</svg>

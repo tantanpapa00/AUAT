@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 60" width="320" height="60">
+  <defs>
+    <linearGradient id="nBg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#0F172A"/><stop offset="100%" style="stop-color:#1A1A2E"/></linearGradient>
+    <linearGradient id="nRing" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#DC2626"/><stop offset="50%" style="stop-color:#EF4444"/><stop offset="100%" style="stop-color:#FBBF24"/></linearGradient>
+    <linearGradient id="nb1" x1="0%" y1="100%" x2="0%" y2="0%"><stop offset="0%" style="stop-color:#991B1B"/><stop offset="100%" style="stop-color:#DC2626"/></linearGradient>
+    <linearGradient id="nb2" x1="0%" y1="100%" x2="0%" y2="0%"><stop offset="0%" style="stop-color:#B91C1C"/><stop offset="100%" style="stop-color:#EF4444"/></linearGradient>
+    <linearGradient id="nb3" x1="0%" y1="100%" x2="0%" y2="0%"><stop offset="0%" style="stop-color:#DC2626"/><stop offset="100%" style="stop-color:#FBBF24"/></linearGradient>
+    <linearGradient id="narrow" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:#FBBF24"/><stop offset="100%" style="stop-color:#FEF3C7"/></linearGradient>
+  </defs>
+  
+  <!-- Mini icon -->
+  <g transform="translate(4, 4)">
+    <rect x="0" y="0" width="52" height="52" rx="12" fill="url(#nBg)"/>
+    <rect x="2" y="2" width="48" height="48" rx="10" fill="none" stroke="url(#nRing)" stroke-width="1.5" opacity="0.6"/>
+    <rect x="9" y="30" width="8" height="14" rx="2" fill="url(#nb1)" opacity="0.9"/>
+    <rect x="20" y="23" width="8" height="21" rx="2" fill="url(#nb2)" opacity="0.9"/>
+    <rect x="31" y="14" width="8" height="30" rx="2" fill="url(#nb3)" opacity="0.95"/>
+    <line x1="35" y1="14" x2="45" y2="5" stroke="url(#narrow)" stroke-width="2" stroke-linecap="round"/>
+    <polygon points="45,5 40,9 44,10.5" fill="#FEF3C7" opacity="0.9"/>
+  </g>
+  
+  <!-- Wordmark -->
+  <text x="68" y="41" font-family="-apple-system,'Helvetica Neue',sans-serif" font-size="32" font-weight="800" letter-spacing="-0.5">
+    <tspan fill="#EF4444">B</tspan><tspan fill="#F1F5F9">Booster</tspan>
+  </text>
+</svg>

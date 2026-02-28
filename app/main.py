@@ -1018,6 +1018,12 @@ def privacy_page(request: Request):
     return templates.TemplateResponse("privacy.html", {"request": request})
 
 
+@app.get("/refund", response_class=HTMLResponse)
+def refund_page(request: Request):
+    """Refund Policy page (환불규정)"""
+    return templates.TemplateResponse("refund.html", {"request": request})
+
+
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request):
     """Web Dashboard - Main app (requires authentication)"""

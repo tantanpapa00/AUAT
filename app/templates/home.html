@@ -4,19 +4,23 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BBooster - 자동매매의 새로운 기준</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/brand/icon_32.png">
+  <link rel="icon" type="image/png" sizes="64x64" href="/static/brand/icon_64.png">
+  <link rel="apple-touch-icon" sizes="128x128" href="/static/brand/icon_128.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
   <style>
     :root {
-      --primary: #3b82f6;
-      --primary-dark: #2563eb;
-      --primary-light: #60a5fa;
+      --primary: #EF4444;
+      --primary-dark: #DC2626;
+      --primary-light: #F87171;
+      --gold: #FBBF24;
+      --gold-light: #FCD34D;
       --secondary: #10b981;
-      --accent: #f59e0b;
-      --danger: #ef4444;
       --bg: #ffffff;
       --bg-alt: #f8fafc;
+      --bg-dark: #0F172A;
       --text: #1e293b;
       --text-muted: #64748b;
       --border: #e2e8f0;
@@ -50,15 +54,19 @@
       align-items: center;
       justify-content: space-between;
     }
-    .header-logo {
+    .logo-link {
       display: flex;
       align-items: center;
       gap: 10px;
-      font-size: 24px;
-      font-weight: 900;
+      text-decoration: none;
     }
-    .header-logo .b { color: var(--primary); }
-    .header-logo .booster { color: var(--danger); }
+    .logo-text {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+    .logo-text .b { color: #EF4444; }
+    .logo-text .booster { color: #111827; }
     .header-nav {
       display: flex;
       gap: 32px;
@@ -96,15 +104,15 @@
       color: var(--primary);
     }
     .btn-primary {
-      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      background: linear-gradient(135deg, var(--primary-dark), var(--primary));
       color: white;
     }
     .btn-primary:hover {
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(59,130,246,0.4);
+      box-shadow: 0 4px 12px rgba(239,68,68,0.4);
     }
     .btn-secondary {
-      background: var(--secondary);
+      background: #111827;
       color: white;
     }
 
@@ -112,7 +120,7 @@
     .hero {
       padding: 160px 24px 100px;
       text-align: center;
-      background: linear-gradient(180deg, #f0f9ff 0%, #ffffff 100%);
+      background: linear-gradient(180deg, #FEF2F2 0%, #ffffff 100%);
     }
     .hero-title {
       font-size: 48px;
@@ -121,10 +129,7 @@
       line-height: 1.2;
     }
     .hero-title .highlight {
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      color: #EF4444;
     }
     .hero-subtitle {
       font-size: 20px;
@@ -167,20 +172,23 @@
       margin-bottom: 60px;
     }
 
-    /* Service Cards */
+    /* Service Cards - 4 columns */
     .service-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 32px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
     }
-    @media (max-width: 900px) {
+    @media (max-width: 1000px) {
+      .service-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 600px) {
       .service-grid { grid-template-columns: 1fr; }
     }
     .service-card {
       background: var(--bg);
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
-      padding: 40px 32px;
+      padding: 32px 24px;
       text-align: center;
       transition: all 0.3s;
     }
@@ -190,159 +198,202 @@
       border-color: var(--primary-light);
     }
     .service-icon {
-      width: 72px;
-      height: 72px;
-      background: linear-gradient(135deg, var(--primary-light), var(--primary));
-      border-radius: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 32px;
-      margin: 0 auto 24px;
+      font-size: 40px;
+      margin-bottom: 16px;
     }
     .service-card h3 {
-      font-size: 22px;
+      font-size: 18px;
       font-weight: 700;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
     .service-card p {
       color: var(--text-muted);
-      font-size: 15px;
+      font-size: 14px;
     }
 
     /* Pricing Section */
     #pricing {
       background: var(--bg-alt);
     }
-    .pricing-grid {
+    .billing-toggle {
       display: flex;
-      gap: 20px;
-      overflow-x: auto;
-      padding: 20px 0;
-      scroll-snap-type: x mandatory;
-      -webkit-overflow-scrolling: touch;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin: 30px 0;
     }
-    .pricing-grid::-webkit-scrollbar {
-      height: 8px;
+    .toggle-label {
+      font-size: 15px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: color 0.2s;
     }
-    .pricing-grid::-webkit-scrollbar-track {
-      background: var(--border);
-      border-radius: 4px;
+    .toggle-label.active {
+      color: var(--text);
+      font-weight: 600;
     }
-    .pricing-grid::-webkit-scrollbar-thumb {
-      background: var(--primary-light);
-      border-radius: 4px;
+    .toggle-switch {
+      position: relative;
+      width: 48px;
+      height: 26px;
     }
-    @media (min-width: 1000px) {
-      .pricing-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        overflow-x: visible;
-      }
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
     }
-    @media (max-width: 1199px) and (min-width: 768px) {
-      .pricing-grid {
-        justify-content: flex-start;
-      }
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: #E5E7EB;
+      border-radius: 26px;
+      transition: 0.3s;
     }
-    @media (max-width: 767px) {
-      .pricing-grid {
-        flex-direction: column;
-        overflow-x: visible;
-      }
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 3px;
+      bottom: 3px;
+      background: white;
+      border-radius: 50%;
+      transition: 0.3s;
+    }
+    .toggle-switch input:checked + .toggle-slider {
+      background: var(--primary);
+    }
+    .toggle-switch input:checked + .toggle-slider:before {
+      transform: translateX(22px);
+    }
+    .discount-badge {
+      background: #FEF3C7;
+      color: #B45309;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      max-width: 1100px;
+      margin: 0 auto;
     }
     .pricing-card {
-      background: var(--bg);
-      border: 2px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 32px 24px;
+      background: #fff;
+      border: 1px solid #E5E7EB;
+      border-radius: 16px;
+      padding: 28px 20px;
       text-align: center;
       position: relative;
-      transition: all 0.3s;
-      min-width: 260px;
-      flex-shrink: 0;
-      scroll-snap-align: start;
-    }
-    @media (min-width: 1200px) {
-      .pricing-card {
-        min-width: auto;
-      }
+      transition: transform 0.2s, box-shadow 0.2s;
     }
     .pricing-card:hover {
       transform: translateY(-4px);
-      box-shadow: var(--shadow-lg);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.08);
     }
-    .pricing-card.popular {
-      border-color: var(--primary);
-      transform: scale(1.05);
+    .pricing-card.featured {
+      border: 2px solid #EF4444;
+      box-shadow: 0 8px 30px rgba(239,68,68,0.15);
     }
-    .pricing-card.popular:hover {
-      transform: scale(1.05) translateY(-4px);
-    }
-    .popular-badge {
+    .recommended-badge {
       position: absolute;
-      top: -14px;
+      top: -12px;
       left: 50%;
       transform: translateX(-50%);
-      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      background: linear-gradient(135deg, #DC2626, #EF4444);
       color: white;
-      padding: 6px 20px;
-      border-radius: 999px;
+      padding: 4px 16px;
+      border-radius: 20px;
       font-size: 13px;
       font-weight: 700;
     }
-    .pricing-name {
-      font-size: 20px;
+    .plan-header h3 {
+      font-size: 18px;
       font-weight: 700;
-      margin-bottom: 8px;
+      margin-bottom: 12px;
     }
-    .pricing-price {
-      font-size: 40px;
-      font-weight: 900;
-      margin-bottom: 8px;
+    .plan-price .price {
+      font-size: 32px;
+      font-weight: 800;
+      color: #111827;
     }
-    .pricing-price .currency { font-size: 20px; }
-    .pricing-price .period {
-      font-size: 16px;
-      color: var(--text-muted);
-      font-weight: 500;
-    }
-    .pricing-features {
-      list-style: none;
-      text-align: left;
-      margin: 24px 0;
-    }
-    .pricing-features li {
-      padding: 10px 0;
-      border-bottom: 1px solid var(--border);
+    .plan-price .period {
       font-size: 14px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
+      color: #6B7280;
     }
-    .pricing-features li:last-child { border-bottom: none; }
-    .pricing-features li.included::before {
-      content: "✓";
-      color: var(--secondary);
-      font-weight: 700;
-    }
-    .pricing-features li.not-included {
-      color: var(--text-muted);
-    }
-    .pricing-features li.not-included::before {
-      content: "—";
-      color: var(--text-muted);
-    }
-    .pricing-btn {
-      width: 100%;
-      padding: 14px;
-      margin-top: 16px;
-    }
-    .pricing-note {
-      text-align: center;
+    .plan-desc {
       font-size: 13px;
-      color: var(--text-muted);
-      margin-top: 24px;
+      color: #6B7280;
+      margin-top: 8px;
+    }
+    .plan-features {
+      list-style: none;
+      padding: 0;
+      text-align: left;
+      margin: 20px 0;
+      min-height: 200px;
+    }
+    .plan-features li {
+      padding: 5px 0;
+      font-size: 13px;
+      color: #374151;
+    }
+    .plan-features li.disabled {
+      color: #9CA3AF;
+    }
+    .plan-btn {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 14px;
+      text-decoration: none;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .plan-btn-free {
+      background: #F3F4F6;
+      color: #374151;
+    }
+    .plan-btn-standard {
+      background: #111827;
+      color: white;
+    }
+    .plan-btn-pro {
+      background: linear-gradient(135deg, #DC2626, #EF4444);
+      color: white;
+    }
+    .plan-btn:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+    .slot-explainer {
+      max-width: 700px;
+      margin: 40px auto 0;
+      padding: 16px 24px;
+      background: #F8FAFC;
+      border-radius: 12px;
+      font-size: 14px;
+      color: #475569;
+      text-align: center;
+    }
+    .promo-banner {
+      max-width: 500px;
+      margin: 20px auto 0;
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #FEF2F2, #FEF3C7);
+      border: 1px solid #FBBF24;
+      border-radius: 12px;
+      text-align: center;
+      font-size: 15px;
     }
 
     /* Download Section */
@@ -381,13 +432,15 @@
     .download-card.disabled {
       opacity: 0.6;
     }
-    .download-card.disabled .btn {
-      cursor: not-allowed;
+    .system-req {
+      font-size: 12px;
+      color: #9CA3AF;
+      margin-top: 8px;
     }
 
     /* Footer */
     .footer {
-      background: var(--text);
+      background: #0F172A;
       color: rgba(255,255,255,0.8);
       padding: 60px 24px 30px;
     }
@@ -400,12 +453,17 @@
       gap: 40px;
     }
     .footer-brand .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
       font-size: 24px;
       font-weight: 900;
       color: white;
       margin-bottom: 12px;
     }
-    .footer-brand .logo .b { color: var(--primary-light); }
+    .footer-brand .logo .b { color: #EF4444; }
+    .footer-brand .logo .booster { color: #F1F5F9; }
+    .footer-brand .qube { color: #FBBF24; font-size: 14px; margin-top: 8px; }
     .footer-brand p {
       font-size: 14px;
       max-width: 300px;
@@ -462,7 +520,7 @@
       transform: translateY(0);
     }
 
-    /* Mobile Menu */
+    /* Mobile */
     .mobile-menu-btn {
       display: none;
       background: none;
@@ -476,8 +534,7 @@
       .hero-title { font-size: 32px; }
       .hero-subtitle { font-size: 16px; }
       .section-title { font-size: 28px; }
-      .pricing-card.popular { transform: none; }
-      .pricing-card.popular:hover { transform: translateY(-4px); }
+      .pricing-grid { grid-template-columns: 1fr; }
     }
 
     /* Toast */
@@ -503,8 +560,25 @@
 <body>
   <!-- Header -->
   <header class="header">
-    <a href="/" class="header-logo">
-      <span class="b">B</span><span class="booster">Booster</span>
+    <a href="/" class="logo-link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="36" height="36">
+        <defs>
+          <linearGradient id="nBg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#0F172A"/><stop offset="100%" style="stop-color:#1A1A2E"/></linearGradient>
+          <linearGradient id="nRing" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#DC2626"/><stop offset="50%" style="stop-color:#EF4444"/><stop offset="100%" style="stop-color:#FBBF24"/></linearGradient>
+          <linearGradient id="nb1" x1="0%" y1="100%" x2="0%" y2="0%"><stop offset="0%" style="stop-color:#991B1B"/><stop offset="100%" style="stop-color:#DC2626"/></linearGradient>
+          <linearGradient id="nb2" x1="0%" y1="100%" x2="0%" y2="0%"><stop offset="0%" style="stop-color:#B91C1C"/><stop offset="100%" style="stop-color:#EF4444"/></linearGradient>
+          <linearGradient id="nb3" x1="0%" y1="100%" x2="0%" y2="0%"><stop offset="0%" style="stop-color:#DC2626"/><stop offset="100%" style="stop-color:#FBBF24"/></linearGradient>
+          <linearGradient id="narrow" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:#FBBF24"/><stop offset="100%" style="stop-color:#FEF3C7"/></linearGradient>
+        </defs>
+        <rect x="16" y="16" width="480" height="480" rx="96" fill="url(#nBg)"/>
+        <rect x="24" y="24" width="464" height="464" rx="88" fill="none" stroke="url(#nRing)" stroke-width="8" opacity="0.6"/>
+        <rect x="112" y="300" width="64" height="100" rx="10" fill="url(#nb1)" opacity="0.9"/>
+        <rect x="200" y="240" width="64" height="160" rx="10" fill="url(#nb2)" opacity="0.9"/>
+        <rect x="288" y="165" width="64" height="235" rx="10" fill="url(#nb3)" opacity="0.95"/>
+        <line x1="320" y1="165" x2="395" y2="80" stroke="url(#narrow)" stroke-width="14" stroke-linecap="round"/>
+        <polygon points="395,80 374,98 392,103" fill="#FEF3C7" opacity="0.95"/>
+      </svg>
+      <span class="logo-text"><span class="b">B</span><span class="booster">Booster</span></span>
     </a>
     <nav class="header-nav">
       <a href="#service">서비스 소개</a>
@@ -521,15 +595,14 @@
   <!-- Hero -->
   <section class="hero">
     <h1 class="hero-title">
-      자동매매의 새로운 기준,<br>
-      <span class="highlight">BBooster</span>
+      자동매매의 새로운 기준, <span class="highlight">BBooster</span>
     </h1>
     <p class="hero-subtitle">
-      트레이딩뷰 연동부터 AI 전략까지,<br>
-      한 곳에서 관리하세요
+      AI 시장 분석부터 자동매매까지,<br>
+      국내주식 · 해외주식 · 암호화폐를 한 곳에서
     </p>
     <div class="hero-cta">
-      <a href="/login?register=true" class="btn btn-primary">무료로 시작하기</a>
+      <a href="/login?register=true" class="btn btn-primary">7일 무료체험 시작</a>
       <a href="#service" class="btn btn-outline">서비스 알아보기</a>
     </div>
   </section>
@@ -537,25 +610,30 @@
   <!-- Service Section -->
   <section class="section" id="service">
     <div class="container">
-      <h2 class="section-title fade-in">강력한 자동매매 솔루션</h2>
+      <h2 class="section-title fade-in">강력한 투자 솔루션</h2>
       <p class="section-subtitle fade-in">
-        복잡한 자동매매를 간단하게. BBooster가 도와드립니다.
+        데이터 기반의 투자 결정을 도와드립니다
       </p>
       <div class="service-grid">
         <div class="service-card fade-in">
           <div class="service-icon">📊</div>
-          <h3>트레이딩뷰 연동</h3>
-          <p>TradingView 알림을 실시간으로 받아 자동으로 주문을 실행합니다. 복잡한 설정 없이 웹훅 URL만 등록하세요.</p>
+          <h3>실시간 시장 분석</h3>
+          <p>국내·해외 시장 대시보드, 특징주, 섹터별 추세를 실시간으로 확인하세요.</p>
         </div>
         <div class="service-card fade-in">
           <div class="service-icon">🤖</div>
-          <h3>AI 프리미엄 전략</h3>
-          <p>추세/역추세/커스텀 전략을 백테스팅하고 자동으로 실행합니다. 데이터 기반의 투자 결정을 내리세요.</p>
+          <h3>AI 종목 분석</h3>
+          <p>AI가 기술적 분석·재무 분석·시나리오 분석을 담은 상세 보고서를 생성합니다.</p>
         </div>
         <div class="service-card fade-in">
-          <div class="service-icon">💼</div>
-          <h3>통합 자산관리</h3>
-          <p>국내주식, 해외주식, 암호화폐를 한 화면에서 관리합니다. 포트폴리오 현황을 실시간으로 확인하세요.</p>
+          <div class="service-icon">⚡</div>
+          <h3>자동매매</h3>
+          <p>국내주식, 해외주식, 암호화폐를 역추세·추세추종·커스텀 전략으로 자동 매매합니다.</p>
+        </div>
+        <div class="service-card fade-in">
+          <div class="service-icon">📈</div>
+          <h3>백테스트 & 전략 검증</h3>
+          <p>과거 데이터로 전략을 검증하고, 최적의 매매 조건을 찾아보세요.</p>
         </div>
       </div>
     </div>
@@ -565,84 +643,142 @@
   <section class="section" id="pricing">
     <div class="container">
       <h2 class="section-title fade-in">합리적인 요금제</h2>
-      <p class="section-subtitle fade-in">
-        나에게 맞는 플랜을 선택하세요
-      </p>
+      <p class="section-subtitle fade-in">나에게 맞는 플랜을 선택하세요</p>
+
+      <!-- 요금제 토글: 월간/연간 -->
+      <div class="billing-toggle">
+        <span class="toggle-label active" id="monthlyLabel">월간</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="billingToggle">
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="toggle-label" id="yearlyLabel">연간 <span class="discount-badge">20% 할인</span></span>
+      </div>
+
       <div class="pricing-grid">
-        <!-- Starter -->
+        <!-- Free -->
         <div class="pricing-card fade-in">
-          <div class="pricing-name">Starter</div>
-          <div class="pricing-price">
-            <span class="currency">₩</span>19,900
-            <span class="period">/월</span>
+          <div class="plan-header">
+            <h3>Free</h3>
+            <div class="plan-price">
+              <span class="price">₩0</span>
+            </div>
+            <p class="plan-desc">기본 시장 분석과 대시보드</p>
           </div>
-          <ul class="pricing-features">
-            <li class="included">심볼 3개</li>
-            <li class="included">일일 거래 20회</li>
-            <li class="included">트레이딩뷰 연결</li>
-            <li class="included">대시보드</li>
-            <li class="included">웹훅 수신</li>
-            <li class="not-included">고급 전략 기능</li>
+          <ul class="plan-features">
+            <li>✅ 국내/해외 대시보드</li>
+            <li>✅ 시장지표 · 특징주 · 업종</li>
+            <li>✅ 기본 스크리너</li>
+            <li>✅ 캔들차트 (기본)</li>
+            <li>✅ AI 종목추천 목록</li>
+            <li class="disabled">❌ AI 분석 보고서</li>
+            <li class="disabled">❌ 자동매매</li>
           </ul>
-          <button class="btn btn-outline pricing-btn" onclick="showToast('결제 시스템 준비 중입니다')">구독하기</button>
+          <a href="/login?register=true" class="plan-btn plan-btn-free">무료로 시작</a>
         </div>
 
         <!-- Standard -->
-        <div class="pricing-card popular fade-in">
-          <div class="popular-badge">추천</div>
-          <div class="pricing-name">Standard</div>
-          <div class="pricing-price">
-            <span class="currency">₩</span>49,000
-            <span class="period">/월</span>
+        <div class="pricing-card fade-in">
+          <div class="plan-header">
+            <h3>Standard</h3>
+            <div class="plan-price">
+              <span class="price monthly-price">₩19,900</span>
+              <span class="price yearly-price" style="display:none">₩15,920</span>
+              <span class="period">/월</span>
+            </div>
+            <p class="plan-desc">리서치 풀패키지</p>
           </div>
-          <ul class="pricing-features">
-            <li class="included">심볼 10개</li>
-            <li class="included">일일 거래 100회</li>
-            <li class="included">트레이딩뷰 연결</li>
-            <li class="included">대시보드</li>
-            <li class="included">웹훅 수신</li>
-            <li class="not-included">고급 전략 기능</li>
+          <ul class="plan-features">
+            <li>✅ Free 전체 포함</li>
+            <li>✅ 섹터별 추세 (20MA 신호등)</li>
+            <li>✅ 고급 스크리너 필터</li>
+            <li>✅ 재무 추이 차트</li>
+            <li>✅ 기술적 지표 (RSI/MACD/ADX)</li>
+            <li>✅ AI 분석 보고서 (월 30회)</li>
+            <li>✅ PDF 다운로드</li>
+            <li class="disabled">❌ 자동매매</li>
           </ul>
-          <button class="btn btn-primary pricing-btn" onclick="showToast('결제 시스템 준비 중입니다')">구독하기</button>
+          <a href="/login?register=true&plan=standard" class="plan-btn plan-btn-standard">구독하기</a>
         </div>
 
-        <!-- Pro -->
-        <div class="pricing-card fade-in">
-          <div class="pricing-name">Pro</div>
-          <div class="pricing-price">
-            <span class="currency">₩</span>99,000
-            <span class="period">/월</span>
+        <!-- Pro (추천) -->
+        <div class="pricing-card featured fade-in">
+          <div class="recommended-badge">추천</div>
+          <div class="plan-header">
+            <h3>Pro</h3>
+            <div class="plan-price">
+              <span class="price monthly-price">₩99,000</span>
+              <span class="price yearly-price" style="display:none">₩79,200</span>
+              <span class="period">/월</span>
+            </div>
+            <p class="plan-desc">자동매매 시작</p>
           </div>
-          <ul class="pricing-features">
-            <li class="included">심볼 30개</li>
-            <li class="included">일일 거래 300회</li>
-            <li class="included">트레이딩뷰 연결</li>
-            <li class="included">대시보드</li>
-            <li class="included">웹훅 수신</li>
-            <li class="not-included">고급 전략 기능</li>
+          <ul class="plan-features">
+            <li>✅ Standard 전체 포함</li>
+            <li>✅ <strong>자동매매 (3 슬롯)</strong></li>
+            <li>✅ 역추세 전략 🟢</li>
+            <li>✅ 추세추종 전략 🟡</li>
+            <li>✅ AI 분석 보고서 (월 100회)</li>
+            <li>✅ 국내주식 · 해외주식 · 코인</li>
+            <li>✅ 우선 고객지원</li>
           </ul>
-          <button class="btn btn-primary pricing-btn" onclick="showToast('결제 시스템 준비 중입니다')">구독하기</button>
+          <a href="/login?register=true&plan=pro" class="plan-btn plan-btn-pro">구독하기</a>
         </div>
 
-        <!-- Premium -->
+        <!-- Pro+ -->
         <div class="pricing-card fade-in">
-          <div class="pricing-name">Premium</div>
-          <div class="pricing-price">
-            <span class="currency">₩</span>249,000
-            <span class="period">/월</span>
+          <div class="plan-header">
+            <h3>Pro+</h3>
+            <div class="plan-price">
+              <span class="price monthly-price">₩149,000</span>
+              <span class="price yearly-price" style="display:none">₩119,200</span>
+              <span class="period">/월</span>
+            </div>
+            <p class="plan-desc">본격 운영</p>
           </div>
-          <ul class="pricing-features">
-            <li class="included">심볼 무제한</li>
-            <li class="included">일일 거래 무제한</li>
-            <li class="included">트레이딩뷰 연결</li>
-            <li class="included">커스텀/추세/역추세 전략</li>
-            <li class="included">백테스팅</li>
-            <li class="included">모든 고급 기능</li>
+          <ul class="plan-features">
+            <li>✅ Pro 전체 포함</li>
+            <li>✅ <strong>자동매매 (10 슬롯)</strong></li>
+            <li>✅ 커스텀 전략 🔴</li>
+            <li>✅ 프리미엄 전략 (HTF 필터)</li>
+            <li>✅ 백테스트</li>
+            <li>✅ AI 분석 보고서 (월 100회)</li>
+            <li>✅ 우선 고객지원</li>
           </ul>
-          <button class="btn btn-primary pricing-btn" onclick="showToast('결제 시스템 준비 중입니다')">구독하기</button>
+          <a href="/login?register=true&plan=proplus" class="plan-btn plan-btn-standard">구독하기</a>
+        </div>
+
+        <!-- Pro Max -->
+        <div class="pricing-card fade-in">
+          <div class="plan-header">
+            <h3>Pro Max</h3>
+            <div class="plan-price">
+              <span class="price monthly-price">₩249,000</span>
+              <span class="price yearly-price" style="display:none">₩199,200</span>
+              <span class="period">/월</span>
+            </div>
+            <p class="plan-desc">헤비 트레이더</p>
+          </div>
+          <ul class="plan-features">
+            <li>✅ Pro+ 전체 포함</li>
+            <li>✅ <strong>자동매매 (30 슬롯)</strong></li>
+            <li>✅ 모든 전략 · 모든 기능</li>
+            <li>✅ AI 분석 보고서 (월 100회)</li>
+            <li>✅ 전담 고객지원</li>
+          </ul>
+          <a href="/login?register=true&plan=promax" class="plan-btn plan-btn-standard">구독하기</a>
         </div>
       </div>
-      <p class="pricing-note fade-in">* 일일 거래는 실제 체결된 거래 기준이며, 웹훅 수신 횟수와는 무관합니다.</p>
+
+      <!-- 활성 전략 슬롯 설명 -->
+      <div class="slot-explainer fade-in">
+        <p>💡 <strong>활성 전략 슬롯이란?</strong> 자동매매 ON 상태인 전략 1개 = 1슬롯. OFF/일시정지는 슬롯 미차감. 백테스트·리포트·스크리너는 슬롯과 무관합니다.</p>
+      </div>
+
+      <!-- 런칭 프로모션 배너 -->
+      <div class="promo-banner fade-in">
+        <p>🎉 <strong>런칭 프로모션</strong> 7일 무료체험 + 첫 결제 30% 할인</p>
+      </div>
     </div>
   </section>
 
@@ -659,6 +795,7 @@
           <h4>Windows PC</h4>
           <p>Windows 10 이상 지원</p>
           <a href="https://github.com/tantanpapa00/AUAT/releases" target="_blank" class="btn btn-primary">다운로드</a>
+          <p class="system-req">Windows 10 이상 | 설치 용량 약 150MB</p>
         </div>
         <div class="download-card disabled fade-in">
           <div class="icon">📱</div>
@@ -674,8 +811,28 @@
   <footer class="footer">
     <div class="footer-content">
       <div class="footer-brand">
-        <div class="logo"><span class="b">B</span>Booster</div>
-        <p>큐브시스템 (QUBE System)<br>자동매매의 새로운 기준</p>
+        <div class="logo">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="32" height="32">
+            <defs>
+              <linearGradient id="fBg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#0F172A"/><stop offset="100%" style="stop-color:#1A1A2E"/></linearGradient>
+              <linearGradient id="fRing" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#DC2626"/><stop offset="50%" style="stop-color:#EF4444"/><stop offset="100%" style="stop-color:#FBBF24"/></linearGradient>
+              <linearGradient id="fb1" x1="0%" y1="100%" x2="0%" y2="0%"><stop offset="0%" style="stop-color:#991B1B"/><stop offset="100%" style="stop-color:#DC2626"/></linearGradient>
+              <linearGradient id="fb2" x1="0%" y1="100%" x2="0%" y2="0%"><stop offset="0%" style="stop-color:#B91C1C"/><stop offset="100%" style="stop-color:#EF4444"/></linearGradient>
+              <linearGradient id="fb3" x1="0%" y1="100%" x2="0%" y2="0%"><stop offset="0%" style="stop-color:#DC2626"/><stop offset="100%" style="stop-color:#FBBF24"/></linearGradient>
+              <linearGradient id="farrow" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:#FBBF24"/><stop offset="100%" style="stop-color:#FEF3C7"/></linearGradient>
+            </defs>
+            <rect x="16" y="16" width="480" height="480" rx="96" fill="url(#fBg)"/>
+            <rect x="24" y="24" width="464" height="464" rx="88" fill="none" stroke="url(#fRing)" stroke-width="8" opacity="0.6"/>
+            <rect x="112" y="300" width="64" height="100" rx="10" fill="url(#fb1)" opacity="0.9"/>
+            <rect x="200" y="240" width="64" height="160" rx="10" fill="url(#fb2)" opacity="0.9"/>
+            <rect x="288" y="165" width="64" height="235" rx="10" fill="url(#fb3)" opacity="0.95"/>
+            <line x1="320" y1="165" x2="395" y2="80" stroke="url(#farrow)" stroke-width="14" stroke-linecap="round"/>
+            <polygon points="395,80 374,98 392,103" fill="#FEF3C7" opacity="0.95"/>
+          </svg>
+          <span class="b">B</span><span class="booster">Booster</span>
+        </div>
+        <p class="qube">QUBE System</p>
+        <p>자동매매의 새로운 기준</p>
       </div>
       <div class="footer-links">
         <h5>서비스</h5>
@@ -687,6 +844,7 @@
         <h5>법적 고지</h5>
         <a href="/terms" target="_blank">이용약관</a>
         <a href="/privacy" target="_blank">개인정보처리방침</a>
+        <a href="/refund" target="_blank">환불규정</a>
       </div>
       <div class="footer-links">
         <h5>고객지원</h5>
@@ -702,17 +860,15 @@
         <span>사업자등록번호: 788-01-03711</span>
       </div>
       <div class="business-info">
-        <span>사업장주소: 인천광역시 부평구 체육관로 111, 408동 402호(삼산동, 주공삼산타운아파트)</span>
+        <span>통신판매업신고번호: [심사 완료 후 기재]</span>
+      </div>
+      <div class="business-info">
+        <span>사업장주소: 인천광역시 부평구 체육관로 111, 408동 402호</span>
       </div>
       <div class="business-info">
         <span>전화번호: 010-5874-3894</span>
         <span class="sep">|</span>
         <span>이메일: support@qube-system.com</span>
-      </div>
-      <div class="business-info">
-        <span>업태: 정보통신업, 협회 및 단체·수리 및 기타 개인서비스업</span>
-        <span class="sep">|</span>
-        <span>종목: 응용 소프트웨어 개발 및 공급업, 1인미디어콘텐츠창작자</span>
       </div>
     </div>
     <div class="footer-bottom">
@@ -722,24 +878,35 @@
   </footer>
 
   <script>
-    // Check login status and update header
+    // Billing toggle
+    const billingToggle = document.getElementById('billingToggle');
+    const monthlyLabel = document.getElementById('monthlyLabel');
+    const yearlyLabel = document.getElementById('yearlyLabel');
+
+    billingToggle.addEventListener('change', function() {
+      const isYearly = this.checked;
+      document.querySelectorAll('.monthly-price').forEach(el => el.style.display = isYearly ? 'none' : 'inline');
+      document.querySelectorAll('.yearly-price').forEach(el => el.style.display = isYearly ? 'inline' : 'none');
+      monthlyLabel.classList.toggle('active', !isYearly);
+      yearlyLabel.classList.toggle('active', isYearly);
+    });
+
+    // Check login status
     function checkLoginStatus() {
       const token = localStorage.getItem('bbooster_access_token');
       const actions = document.getElementById('headerActions');
       if (token) {
-        actions.innerHTML = `
-          <a href="/dashboard" class="btn btn-primary">대시보드</a>
-        `;
+        actions.innerHTML = `<a href="/dashboard" class="btn btn-primary">대시보드</a>`;
       }
     }
 
-    // Mobile menu toggle
+    // Mobile menu
     function toggleMobileMenu() {
       const nav = document.querySelector('.header-nav');
       nav.style.display = nav.style.display === 'flex' ? 'none' : 'flex';
     }
 
-    // Toast notification
+    // Toast
     function showToast(message) {
       const toast = document.createElement('div');
       toast.className = 'toast';
@@ -759,23 +926,14 @@
       });
     });
 
-    // Fade-in animation on scroll
-    const observerOptions = {
-      threshold: 0.1,
-      rootMargin: '0px 0px -50px 0px'
-    };
-
+    // Fade-in animation
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('visible');
-        }
+        if (entry.isIntersecting) entry.target.classList.add('visible');
       });
-    }, observerOptions);
-
+    }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
     document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
 
-    // Initialize
     checkLoginStatus();
   </script>
 </body>
