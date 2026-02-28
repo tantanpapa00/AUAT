@@ -4,9 +4,22 @@
 
 FROM python:3.11-slim
 
+# 빌드 시 버전 전달용 ARG
+ARG APP_VERSION=1.0.0
+ARG BUILD_DATE
+ARG GIT_COMMIT
+
+# 이미지 메타데이터 (OCI 표준)
+LABEL org.opencontainers.image.version="${APP_VERSION}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.revision="${GIT_COMMIT}" \
+      org.opencontainers.image.title="BBooster" \
+      org.opencontainers.image.description="BBooster Trading Automation Server"
+
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV APP_VERSION=${APP_VERSION}
 
 # Set working directory
 WORKDIR /app

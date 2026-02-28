@@ -32,6 +32,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-1.0.0}
+        BUILD_DATE: ${BUILD_DATE:-}
+        GIT_COMMIT: ${GIT_COMMIT:-}
+    image: bbooster-app:${APP_VERSION:-latest}
     container_name: bbooster-app
     restart: unless-stopped
     depends_on:
