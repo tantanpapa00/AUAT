@@ -1864,7 +1864,8 @@ async function loadExchangeSelection() {
             });
         });
     } catch (error) {
-        container.innerHTML = '<p class="empty">계정 로딩 실패</p>';
+        console.error('[loadExchangeSelection] 계정 로딩 실패:', error);
+        container.innerHTML = `<p class="empty">계정 로딩 실패: ${error}</p>`;
     }
 }
 
@@ -4108,7 +4109,8 @@ async function loadAccountsList() {
         });
 
     } catch (error) {
-        list.innerHTML = '<p class="empty">계정 로딩 실패</p>';
+        console.error('[loadAccountsList] 계정 로딩 실패:', error);
+        list.innerHTML = `<p class="empty">계정 로딩 실패: ${error}</p>`;
     }
 }
 
