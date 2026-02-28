@@ -14,23 +14,58 @@ window.invokeCmd = invoke;
 
 // =====================================================
 // Demo Mode (스크린샷/마케팅용)
+// URL: ?demo=true 또는 localStorage: bbooster_demo_mode=true
+// 키보드: Ctrl+Shift+D 로 토글
 // =====================================================
 const urlParams = new URLSearchParams(window.location.search);
-const isDemoMode = urlParams.get('demo') === 'true';
+let isDemoMode = urlParams.get('demo') === 'true' || localStorage.getItem('bbooster_demo_mode') === 'true';
 let demoData = null;
 
 async function loadDemoData() {
     if (!isDemoMode) return null;
     try {
-        const res = await fetch('/static/demo_data.json');
-        demoData = await res.json();
-        console.log('[Demo Mode] 데모 데이터 로드됨');
-        return demoData;
+        // PC앱: 로컬 서버 또는 VPS에서 데모 데이터 가져오기
+        const urls = [
+            '/static/demo_data.json',
+            'https://qube-system.com/static/demo_data.json'
+        ];
+        for (const url of urls) {
+            try {
+                const res = await fetch(url);
+                if (res.ok) {
+                    demoData = await res.json();
+                    console.log('[Demo Mode] 데모 데이터 로드됨:', url);
+                    return demoData;
+                }
+            } catch (e) {
+                continue;
+            }
+        }
+        throw new Error('모든 URL 실패');
     } catch (e) {
         console.error('[Demo Mode] 데모 데이터 로드 실패:', e);
         return null;
     }
 }
+
+// 데모 모드 토글 (Ctrl+Shift+D)
+document.addEventListener('keydown', async (e) => {
+    if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+        isDemoMode = !isDemoMode;
+        localStorage.setItem('bbooster_demo_mode', isDemoMode ? 'true' : 'false');
+        console.log('[Demo Mode]', isDemoMode ? '활성화' : '비활성화');
+        if (isDemoMode) {
+            await loadDemoData();
+        } else {
+            demoData = null;
+        }
+        // 홈 페이지 새로고침
+        if (document.querySelector('[data-page="home"].active')) {
+            loadHomePage();
+        }
+        alert(isDemoMode ? '🎯 데모 모드 활성화\n총 자산: ₩52,847,320' : '❌ 데모 모드 비활성화');
+    }
+});
 
 if (isDemoMode) {
     console.log('[Demo Mode] 데모 모드 활성화됨');
