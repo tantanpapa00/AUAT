@@ -868,7 +868,7 @@
             </div>
             <div class="admin-stat">
               <div class="admin-stat-value" id="adminHubUsers">0</div>
-              <div class="admin-stat-label">허브형</div>
+              <div class="admin-stat-label">Standard</div>
             </div>
             <div class="admin-stat">
               <div class="admin-stat-value" id="adminPremiumUsers">0</div>
@@ -953,49 +953,47 @@
               <button class="btn pricing-btn" disabled>현재 플랜</button>
             </div>
 
-            <!-- Hub Plan -->
-            <div class="pricing-card popular">
-              <div class="popular-badge">인기</div>
+            <!-- Standard Plan -->
+            <div class="pricing-card">
               <div class="pricing-header">
-                <h4>허브형</h4>
+                <h4>Standard</h4>
                 <div class="pricing-price">
-                  <span class="price">₩29,000</span>
+                  <span class="price">₩19,900</span>
                   <span class="period">/월</span>
                 </div>
               </div>
               <ul class="pricing-features">
-                <li class="included">모든 무료 기능</li>
-                <li class="included">무제한 계정 연결</li>
-                <li class="included">개인 서버 운영</li>
-                <li class="included">API 우선 접근</li>
-                <li class="not-included">프리미엄 신호</li>
-                <li class="not-included">클라우드 동기화</li>
+                <li class="included">리서치 풀패키지</li>
+                <li class="included">고급 스크리너 필터</li>
+                <li class="included">기술적 지표</li>
+                <li class="included">AI 분석 보고서 (월 30회)</li>
+                <li class="not-included">자동매매</li>
               </ul>
-              <button class="btn btn-primary pricing-btn" onclick="selectPlan('hub')">업그레이드</button>
+              <button class="btn btn-primary pricing-btn" onclick="selectPlan('standard')">업그레이드</button>
             </div>
 
-            <!-- Premium Plan -->
-            <div class="pricing-card">
+            <!-- Pro Plan -->
+            <div class="pricing-card popular">
+              <div class="popular-badge">추천</div>
               <div class="pricing-header">
-                <h4>프리미엄</h4>
+                <h4>Pro</h4>
                 <div class="pricing-price">
                   <span class="price">₩99,000</span>
                   <span class="period">/월</span>
                 </div>
               </div>
               <ul class="pricing-features">
-                <li class="included">모든 허브 기능</li>
-                <li class="included">프리미엄 신호</li>
-                <li class="included">클라우드 동기화</li>
-                <li class="included">우선 지원</li>
-                <li class="included">전용 서버</li>
-                <li class="included">API 무제한</li>
+                <li class="included">Standard 전체 포함</li>
+                <li class="included">자동매매 (3 슬롯)</li>
+                <li class="included">역추세/추세추종 전략</li>
+                <li class="included">AI 분석 보고서 (월 100회)</li>
+                <li class="included">카카오톡 1:1 문의</li>
               </ul>
-              <button class="btn btn-primary pricing-btn" onclick="selectPlan('premium')">업그레이드</button>
+              <button class="btn btn-primary pricing-btn" onclick="selectPlan('pro')">업그레이드</button>
             </div>
           </div>
           <p style="text-align: center; color: var(--muted); margin-top: 24px; font-size: 12px;">
-            * 결제 시스템은 추후 연동 예정입니다
+            Pro+ (₩149,000/월, 10슬롯) · Pro Max (₩249,000/월, 30슬롯) 플랜은 <a href="/" target="_blank" style="color:var(--primary);">홈페이지</a>에서 확인하세요.
           </p>
         </div>
       </div>
@@ -1174,13 +1172,13 @@
       badge.className = 'user-badge admin';
       document.body.classList.add('is-admin');
     } else if (user.plan === 'premium') {
-      badge.textContent = '프리미엄';
+      badge.textContent = user.plan === 'promax' ? 'Pro Max' : user.plan === 'proplus' ? 'Pro+' : 'Pro';
       badge.className = 'user-badge premium';
-    } else if (user.plan === 'hub') {
-      badge.textContent = '허브형';
+    } else if (user.plan === 'standard' || user.plan === 'hub') {
+      badge.textContent = 'Standard';
       badge.className = 'user-badge premium';
     } else {
-      badge.textContent = '무료';
+      badge.textContent = 'Free';
       badge.className = 'user-badge free';
     }
   }
@@ -1666,7 +1664,8 @@
   }
 
   function selectPlan(plan) {
-    showToast(`${plan === 'hub' ? '허브형' : '프리미엄'} 플랜 선택됨 (결제 시스템 준비 중)`);
+    const planNames = { standard: 'Standard', pro: 'Pro', proplus: 'Pro+', promax: 'Pro Max' };
+    showToast(`${planNames[plan] || plan} 플랜을 선택했습니다. 곧 결제 기능이 오픈됩니다.`);
     hidePricingSection();
   }
 

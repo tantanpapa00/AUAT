@@ -4266,8 +4266,8 @@ document.getElementById('btn-export-logs')?.addEventListener('click', async () =
     }
 });
 
-document.getElementById('btn-upgrade-hub')?.addEventListener('click', () => showToast('결제 시스템 준비 중입니다', 'info'));
-document.getElementById('btn-upgrade-premium')?.addEventListener('click', () => showToast('결제 시스템 준비 중입니다', 'info'));
+document.getElementById('btn-upgrade-hub')?.addEventListener('click', () => showToast('Standard 플랜을 선택했습니다. 곧 결제 기능이 오픈됩니다.', 'info'));
+document.getElementById('btn-upgrade-premium')?.addEventListener('click', () => showToast('Pro 플랜을 선택했습니다. 곧 결제 기능이 오픈됩니다.', 'info'));
 
 // =====================================================
 // Admin Pages (PHASE 7)

@@ -715,12 +715,12 @@
           </div>
           <ul class="plan-features">
             <li>✅ Standard 전체 포함</li>
-            <li>✅ <strong>자동매매 (3 슬롯)</strong></li>
+            <li>✅ <strong>자동매매 (3 슬롯)</strong><br><span style="font-size:11px;color:#6B7280;">예: 국내 1 + 해외 1 + 코인 1</span></li>
             <li>✅ 역추세 전략 🟢</li>
             <li>✅ 추세추종 전략 🟡</li>
             <li>✅ AI 분석 보고서 (월 100회)</li>
             <li>✅ 국내주식 · 해외주식 · 코인</li>
-            <li>✅ 우선 고객지원</li>
+            <li>✅ 카카오톡 1:1 문의</li>
           </ul>
           <a href="/login?register=true&plan=pro" class="plan-btn plan-btn-pro">구독하기</a>
         </div>
@@ -743,7 +743,7 @@
             <li>✅ 프리미엄 전략 (HTF 필터)</li>
             <li>✅ 백테스트</li>
             <li>✅ AI 분석 보고서 (월 100회)</li>
-            <li>✅ 우선 고객지원</li>
+            <li>✅ 카카오톡 1:1 문의</li>
           </ul>
           <a href="/login?register=true&plan=proplus" class="plan-btn plan-btn-standard">구독하기</a>
         </div>
@@ -764,7 +764,9 @@
             <li>✅ <strong>자동매매 (30 슬롯)</strong></li>
             <li>✅ 모든 전략 · 모든 기능</li>
             <li>✅ AI 분석 보고서 (월 100회)</li>
-            <li>✅ 전담 고객지원</li>
+            <li>✅ 카카오톡 1:1 문의</li>
+            <li>✅ 기능 요청 우선 반영</li>
+            <li>✅ 베타 기능 조기 접근</li>
           </ul>
           <a href="/login?register=true&plan=promax" class="plan-btn plan-btn-standard">구독하기</a>
         </div>
@@ -778,6 +780,29 @@
       <!-- 런칭 프로모션 배너 -->
       <div class="promo-banner fade-in">
         <p>🎉 <strong>런칭 프로모션</strong> 7일 무료체험 + 첫 결제 30% 할인</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Security Section -->
+  <section id="security" style="padding:60px 20px;max-width:800px;margin:0 auto;">
+    <h2 style="text-align:center;font-size:24px;font-weight:800;margin-bottom:32px;" class="fade-in">안전한 자동매매</h2>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:20px;">
+      <div style="padding:24px;background:#F8FAFC;border-radius:12px;" class="fade-in">
+        <h4 style="font-size:15px;font-weight:700;margin-bottom:8px;">🔒 API 키 암호화 저장</h4>
+        <p style="font-size:13px;color:#475569;line-height:1.6;">거래소 API 키는 AES-256 암호화되어 사용자 로컬 PC에만 저장됩니다. 서버에 전송되지 않습니다.</p>
+      </div>
+      <div style="padding:24px;background:#F8FAFC;border-radius:12px;" class="fade-in">
+        <h4 style="font-size:15px;font-weight:700;margin-bottom:8px;">⚡ 주문 실행 흐름</h4>
+        <p style="font-size:13px;color:#475569;line-height:1.6;">전략 시그널 → BBooster 검증 → 거래소 API 직접 주문. 중간 과정이 투명합니다.</p>
+      </div>
+      <div style="padding:24px;background:#F8FAFC;border-radius:12px;" class="fade-in">
+        <h4 style="font-size:15px;font-weight:700;margin-bottom:8px;">🛑 긴급 정지 (E-STOP)</h4>
+        <p style="font-size:13px;color:#475569;line-height:1.6;">대시보드에서 원클릭으로 모든 자동매매를 즉시 중지할 수 있습니다.</p>
+      </div>
+      <div style="padding:24px;background:#F8FAFC;border-radius:12px;" class="fade-in">
+        <h4 style="font-size:15px;font-weight:700;margin-bottom:8px;">📊 리스크 관리</h4>
+        <p style="font-size:13px;color:#475569;line-height:1.6;">최대 포지션 크기, 일일 손실 한도, 자동 손절 등 다중 안전장치가 내장되어 있습니다.</p>
       </div>
     </div>
   </section>
@@ -860,7 +885,7 @@
         <span>사업자등록번호: 788-01-03711</span>
       </div>
       <div class="business-info">
-        <span>통신판매업신고번호: [심사 완료 후 기재]</span>
+        <span>통신판매업신고번호: 신고 진행 중</span>
       </div>
       <div class="business-info">
         <span>사업장주소: 인천광역시 부평구 체육관로 111, 408동 402호</span>
@@ -896,8 +921,21 @@
       const token = localStorage.getItem('bbooster_access_token');
       const actions = document.getElementById('headerActions');
       if (token) {
-        actions.innerHTML = `<a href="/dashboard" class="btn btn-primary">대시보드</a>`;
+        actions.innerHTML = `
+          <a href="/dashboard" class="btn btn-outline">대시보드</a>
+          <button onclick="logout()" class="btn btn-primary">로그아웃</button>
+        `;
       }
+    }
+
+    function logout() {
+      localStorage.removeItem('bbooster_access_token');
+      sessionStorage.clear();
+      window.location.href = '/';
+    }
+
+    function openInquiry() {
+      window.open('mailto:support@qube-system.com?subject=[BBooster 문의]', '_blank');
     }
 
     // Mobile menu
@@ -936,5 +974,19 @@
 
     checkLoginStatus();
   </script>
+
+  <!-- 문의 플로팅 버튼 -->
+  <div id="chat-btn" onclick="openInquiry()"
+       style="position:fixed;bottom:24px;right:24px;width:56px;height:56px;background:linear-gradient(135deg,#DC2626,#EF4444);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 20px rgba(220,38,38,0.3);z-index:9999;transition:transform 0.2s;">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
+      <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
+    </svg>
+  </div>
+  <style>
+    #chat-btn:hover { transform: scale(1.1); }
+    @media (max-width: 768px) {
+      #security > div { grid-template-columns: 1fr !important; }
+    }
+  </style>
 </body>
 </html>
