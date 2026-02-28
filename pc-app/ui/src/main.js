@@ -50,7 +50,7 @@ async function loadDemoData() {
 
 // 데모 모드 토글 (Ctrl+Shift+D)
 document.addEventListener('keydown', async (e) => {
-    if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+    if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd' || e.code === 'KeyD')) {
         isDemoMode = !isDemoMode;
         localStorage.setItem('bbooster_demo_mode', isDemoMode ? 'true' : 'false');
         console.log('[Demo Mode]', isDemoMode ? '활성화' : '비활성화');
