@@ -5271,12 +5271,90 @@ body {
     padding: 20px;
 }
 
+/* 관심종목 페이지 - 그룹 탭 */
+.watchlist-container {
+    padding: 20px;
+}
+
+#page-watchlist .watchlist-groups {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.group-tab {
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.group-tab:hover {
+    background: var(--bg-light);
+}
+
+.group-tab.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.group-tab.add-group {
+    background: transparent;
+    border-style: dashed;
+    color: var(--text-muted);
+}
+
+.group-tab.add-group:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.group-delete {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: 1rem;
+    color: rgba(255,255,255,0.6);
+    cursor: pointer;
+}
+
+.group-delete:hover {
+    color: white;
+}
+
+.group-tab:not(.active) .group-delete {
+    color: var(--text-muted);
+}
+
+.group-tab:not(.active) .group-delete:hover {
+    color: var(--danger);
+}
+
+.watchlist-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.watchlist-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
 /* 관심종목 모달 */
 .watchlist-modal {
     width: 400px;
 }
 
-.watchlist-groups {
+.modal-content .watchlist-groups {
     display: flex;
     flex-direction: column;
     gap: 8px;

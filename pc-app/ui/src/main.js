@@ -9112,11 +9112,139 @@ async function loadCryptoData(exchange = 'all') {
 // 관심종목 페이지 로드 (STEP A)
 // =====================================================
 
+let currentWatchlistGroupId = 1;  // 현재 선택된 그룹 ID
+
 async function loadWatchlist() {
+    try {
+        // 1. 그룹 목록 로드
+        await loadWatchlistGroups();
+
+        // 2. 현재 그룹의 종목 로드
+        await loadWatchlistItems(currentWatchlistGroupId);
+
+        // 3. + 그룹 추가 버튼 이벤트 (한 번만 바인딩)
+        const addGroupBtn = document.getElementById('btn-add-watchlist-group');
+        if (addGroupBtn && !addGroupBtn._bound) {
+            addGroupBtn._bound = true;
+            addGroupBtn.addEventListener('click', async () => {
+                const name = prompt('새 그룹 이름을 입력하세요:');
+                if (!name || !name.trim()) return;
+
+                try {
+                    await invoke('create_watchlist_group', {
+                        accessToken: auth.accessToken || '',
+                        name: name.trim()
+                    });
+                    showToast('그룹이 생성되었습니다', 'success');
+                    await loadWatchlistGroups();
+                } catch (err) {
+                    showToast('그룹 생성 실패: ' + err, 'error');
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Watchlist error:', error);
+    }
+}
+
+// 그룹 목록 로드 및 탭 렌더링
+async function loadWatchlistGroups() {
+    try {
+        const result = await invoke('get_watchlist_groups', {
+            accessToken: auth.accessToken || ''
+        });
+
+        const groups = result.groups || [];
+        const container = document.getElementById('watchlist-groups');
+        if (!container) return;
+
+        // 그룹 탭 HTML 생성
+        let html = groups.map(g => {
+            const isActive = g.id === currentWatchlistGroupId ? 'active' : '';
+            const deleteBtn = g.id === 1 ? '' : `<span class="group-delete" data-id="${g.id}">&times;</span>`;
+            return `<button class="group-tab ${isActive}" data-group-id="${g.id}">${g.name}${deleteBtn}</button>`;
+        }).join('');
+
+        // + 그룹 추가 버튼
+        html += `<button class="group-tab add-group" id="btn-add-watchlist-group">+ 그룹 추가</button>`;
+
+        container.innerHTML = html;
+
+        // 그룹 탭 클릭 이벤트
+        container.querySelectorAll('.group-tab[data-group-id]').forEach(tab => {
+            tab.addEventListener('click', async (e) => {
+                // 삭제 버튼 클릭인 경우 무시
+                if (e.target.classList.contains('group-delete')) return;
+
+                const groupId = parseInt(tab.dataset.groupId);
+                currentWatchlistGroupId = groupId;
+
+                // 활성 탭 변경
+                container.querySelectorAll('.group-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+
+                // 해당 그룹 종목 로드
+                await loadWatchlistItems(groupId);
+            });
+        });
+
+        // 그룹 삭제 버튼 이벤트
+        container.querySelectorAll('.group-delete').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const groupId = parseInt(btn.dataset.id);
+
+                if (!confirm('이 그룹을 삭제하시겠습니까? 그룹 내 종목도 함께 삭제됩니다.')) return;
+
+                try {
+                    await invoke('delete_watchlist_group', {
+                        accessToken: auth.accessToken || '',
+                        groupId: groupId
+                    });
+                    showToast('그룹이 삭제되었습니다', 'success');
+
+                    // 삭제된 그룹이 현재 선택된 그룹이면 기본 그룹으로 전환
+                    if (currentWatchlistGroupId === groupId) {
+                        currentWatchlistGroupId = 1;
+                    }
+                    await loadWatchlistGroups();
+                    await loadWatchlistItems(currentWatchlistGroupId);
+                } catch (err) {
+                    showToast('그룹 삭제 실패: ' + err, 'error');
+                }
+            });
+        });
+
+        // + 그룹 추가 버튼 재바인딩
+        const addGroupBtn = document.getElementById('btn-add-watchlist-group');
+        if (addGroupBtn) {
+            addGroupBtn.addEventListener('click', async () => {
+                const name = prompt('새 그룹 이름을 입력하세요:');
+                if (!name || !name.trim()) return;
+
+                try {
+                    await invoke('create_watchlist_group', {
+                        accessToken: auth.accessToken || '',
+                        name: name.trim()
+                    });
+                    showToast('그룹이 생성되었습니다', 'success');
+                    await loadWatchlistGroups();
+                } catch (err) {
+                    showToast('그룹 생성 실패: ' + err, 'error');
+                }
+            });
+        }
+    } catch (err) {
+        console.error('loadWatchlistGroups error:', err);
+    }
+}
+
+// 특정 그룹의 종목 로드
+async function loadWatchlistItems(groupId) {
     try {
         const result = await invoke('get_watchlist_items', {
             accessToken: auth.accessToken || '',
-            groupId: 1  // 기본 그룹 ID (정수)
+            groupId: groupId
         });
 
         const items = result.items || [];
@@ -9158,7 +9286,7 @@ async function loadWatchlist() {
                                 itemId: itemId
                             });
                             showToast('관심종목에서 삭제되었습니다', 'success');
-                            loadWatchlist();  // 새로고침
+                            await loadWatchlistItems(currentWatchlistGroupId);
                         } catch (err) {
                             showToast('삭제 실패: ' + err, 'error');
                         }
@@ -9166,9 +9294,8 @@ async function loadWatchlist() {
                 });
             }
         }
-
     } catch (error) {
-        console.error('Watchlist error:', error);
+        console.error('loadWatchlistItems error:', error);
     }
 }
 
@@ -14330,7 +14457,7 @@ document.getElementById('btn-add-to-watchlist')?.addEventListener('click', async
     try {
         await invoke('add_watchlist_item', {
             accessToken: auth.accessToken || '',
-            groupId: 1,  // 기본 그룹 ID (정수)
+            groupId: currentWatchlistGroupId || 1,  // 현재 선택된 그룹 (기본값 1)
             symbol: currentStockData.symbol,
             exchange: currentStockData.exchange,
             name: currentStockData.name || currentStockData.symbol,
