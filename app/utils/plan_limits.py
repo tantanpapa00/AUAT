@@ -73,3 +73,14 @@ def check_standard_plan(user: "User") -> bool:
     if role == "admin":
         return True
     return plan in ("standard", "pro", "premium")
+
+
+def check_pro_plan(user: "User") -> bool:
+    """Pro 이상 요금제 체크 (시장분석용)"""
+    if not user:
+        return False
+    role = getattr(user, "role", "user")
+    plan = getattr(user, "plan", "free")
+    if role == "admin":
+        return True
+    return plan in ("pro", "premium")
