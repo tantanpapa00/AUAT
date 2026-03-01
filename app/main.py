@@ -13525,15 +13525,15 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
             _ai_jobs[job_id]["progress"] = "🤖 AI가 분석 중..."
 
             # 데이터 기반 프롬프트 생성 (기업 개요 포함, market에 따라 통화 단위 변경)
-            data_prompt = _build_claude_prompt(name, code, tech, fin, news, company_summary, market)
+            system_prompt, user_data_prompt = _build_claude_prompt(name, code, tech, fin, news, company_summary, market)
             t_prompt = time_module.time()
             print(f"[AI 시간] 프롬프트 조립: {t_prompt - t_chart:.1f}초")
 
             # 사용자 질문 추가
-            final_prompt = f"""{data_prompt}
+            final_user_prompt = f"""{user_data_prompt}
 
 ---
-⚠️ 절대 규칙:
+⚠️ 추가 규칙:
 - 즉시 종합 분석 보고서를 작성해라. 질문하지 마라. 의도를 묻지 마라.
 - 사용자에게 되물어보지 말고 바로 보고서를 시작해라.
 - 요청된 종목({name})에 대해서만 분석해라.
@@ -13547,12 +13547,21 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
 
             response = await client.messages.create(
                 model="claude-haiku-4-5-20251001",
-                max_tokens=16000,  # 8000에서 잘림 → 16000
+                max_tokens=16000,
                 tools=[{"type": "web_search_20250305", "name": "web_search"}],
-                messages=[{"role": "user", "content": final_prompt}]
+                system=[{
+                    "type": "text",
+                    "text": system_prompt,
+                    "cache_control": {"type": "ephemeral"}  # 프롬프트 캐싱
+                }],
+                messages=[{"role": "user", "content": final_user_prompt}]
             )
             t_claude = time_module.time()
-            print(f"[AI 시간] Claude API 호출: {t_claude - t_prompt:.1f}초")
+
+            # 캐싱 상태 로그
+            cache_create = getattr(response.usage, 'cache_creation_input_tokens', 0)
+            cache_read = getattr(response.usage, 'cache_read_input_tokens', 0)
+            print(f"[AI 시간] Claude API 호출: {t_claude - t_prompt:.1f}초 (Cache: create={cache_create}, read={cache_read})")
         else:
             # 종목 미인식 → 일반 채팅
             _ai_jobs[job_id]["progress"] = "🤖 AI가 생각 중..."
