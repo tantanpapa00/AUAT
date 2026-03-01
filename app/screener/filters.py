@@ -295,18 +295,33 @@ def apply_screener_filters(stocks: List[Dict], filters: Dict) -> List[Dict]:
             elif condition == "near":
                 result = [s for s in result if s.get(position_key) == "near"]
 
-    # 이평선 교차 필터 (V2 포맷 지원)
+    # 이평선 교차 필터 (V2 포맷 지원 - 동적 기간)
     if filters.get("sma_cross"):
         cross_filter = filters["sma_cross"]
         if isinstance(cross_filter, dict):
-            # V2: {"short_type": "SMA", "short_period": 20, "long_type": "SMA", "long_period": 50, "condition": "golden"}
+            # V2: {"shortType": "SMA", "shortPeriod": 5, "longType": "SMA", "longPeriod": 200, "condition": "golden"}
             cross_val = cross_filter.get("condition", "")
+            short_period = cross_filter.get("shortPeriod", 20)
+            long_period = cross_filter.get("longPeriod", 50)
         else:
             cross_val = cross_filter
+            short_period = 20
+            long_period = 50
+
+        # 동적 필드명 또는 레거시 필드 확인
+        cross_field = f'sma_cross_{short_period}_{long_period}'
+
         if cross_val == "golden":
-            result = [s for s in result if s.get("sma_cross") == "golden"]
+            # 동적 필드 우선, 없으면 레거시 필드 사용
+            result = [s for s in result if s.get(cross_field) == "golden" or
+                      (s.get("sma_cross_short_period") == short_period and
+                       s.get("sma_cross_long_period") == long_period and
+                       s.get("sma_cross") == "golden")]
         elif cross_val == "dead":
-            result = [s for s in result if s.get("sma_cross") == "dead"]
+            result = [s for s in result if s.get(cross_field) == "dead" or
+                      (s.get("sma_cross_short_period") == short_period and
+                       s.get("sma_cross_long_period") == long_period and
+                       s.get("sma_cross") == "dead")]
 
     # RSI 필터 (V2 포맷 지원)
     if filters.get("rsi"):

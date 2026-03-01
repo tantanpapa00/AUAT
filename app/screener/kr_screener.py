@@ -81,7 +81,7 @@ def extract_technical_params(filters: dict) -> dict:
     # 동적 이동평균선 (sma_SMA_20, sma_EMA_7 등)
     sma_list = []
     for key, value in filters.items():
-        if key.startswith("sma_") and "_" in key[4:]:
+        if key.startswith("sma_") and "_" in key[4:] and key != "sma_cross":
             # 예: sma_SMA_20 → type=SMA, period=20
             parts = key.split("_")
             if len(parts) >= 3:
@@ -93,6 +93,14 @@ def extract_technical_params(filters: dict) -> dict:
                     pass
     if sma_list:
         params["sma"] = sma_list
+
+    # SMA 교차 파라미터 (동적 기간 지원)
+    if isinstance(filters.get("sma_cross"), dict):
+        sma_cross = filters["sma_cross"]
+        params["sma_cross"] = {
+            "shortPeriod": sma_cross.get("shortPeriod", 20),
+            "longPeriod": sma_cross.get("longPeriod", 50)
+        }
 
     return params
 

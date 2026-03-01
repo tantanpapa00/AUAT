@@ -18522,6 +18522,9 @@ async function loadScreener() {
     // 이벤트 바인딩 (최초 1회)
     initScreenerEvents();
 
+    // 필터 칩 동적 생성 및 이벤트 바인딩 (초기 로드 시에도 실행)
+    updateScreenerFiltersUI(screenerState.market);
+
     // 통합 검색 초기화 (Phase 11)
     initUnifiedSearch();
 
@@ -18587,13 +18590,16 @@ function initScreenerEvents() {
 
     // 검색 버튼
     document.getElementById('btn-screener-search')?.addEventListener('click', () => {
+        console.log('[Search Button] clicked, activeFilters:', screenerState.activeFilters);
         // 필터가 1개 이상 있어야 검색 실행
         if (Object.keys(screenerState.activeFilters).length === 0) {
+            console.log('[Search Button] No filters set');
             showNotification('필터를 1개 이상 설정해주세요', 'warning');
             return;
         }
         screenerState.page = 1;
         screenerState.hasSearched = true;
+        console.log('[Search Button] calling searchScreener()');
         searchScreener();
     });
 
@@ -18713,15 +18719,25 @@ function initScreenerEvents() {
 
 // 필터 팝오버 표시 (모든 타입 지원)
 function showFilterPopover(filterKey, chipElement) {
+    console.log('[showFilterPopover] filterKey:', filterKey, 'market:', screenerState.market);
+
     const popover = document.getElementById('filter-popover');
     const titleEl = document.getElementById('popover-title');
     const bodyEl = document.getElementById('popover-body');
 
-    if (!popover || !titleEl || !bodyEl) return;
+    if (!popover || !titleEl || !bodyEl) {
+        console.error('[showFilterPopover] DOM elements not found');
+        return;
+    }
 
     const filterDefs = getFilterDefinitions(screenerState.market);
+    console.log('[showFilterPopover] filterDefs keys:', Object.keys(filterDefs));
     const filterDef = filterDefs[filterKey];
-    if (!filterDef) return;
+    if (!filterDef) {
+        console.error('[showFilterPopover] filterDef not found for:', filterKey);
+        return;
+    }
+    console.log('[showFilterPopover] filterDef:', filterDef);
 
     // 현재 필터 키 저장
     popover.dataset.currentFilter = filterKey;
@@ -19167,8 +19183,10 @@ function collectScreenerFilters() {
 }
 
 async function searchScreener() {
+    console.log('[searchScreener] called, hasSearched:', screenerState.hasSearched);
     // 검색 실행 여부 체크 (필터 없이 첫 진입 시 빈 상태 유지)
     if (!screenerState.hasSearched) {
+        console.log('[searchScreener] hasSearched is false, showing empty state');
         showScreenerEmptyState();
         return;
     }
@@ -19278,10 +19296,12 @@ function updateTableHeader(market) {
 
 // 시장별 필터 UI 전환
 function updateScreenerFiltersUI(market) {
+    console.log('[updateScreenerFiltersUI] market:', market);
     const filtersEl = document.querySelector('.screener-filters-v2');
     const actionsEl = document.querySelector('.filter-actions-v2');
     const chipGroups = document.querySelector('.filter-chip-groups');
 
+    console.log('[updateScreenerFiltersUI] filtersEl:', !!filtersEl, 'chipGroups:', !!chipGroups);
     if (!filtersEl) return;
 
     // 필터 컨테이너는 항상 표시
@@ -19291,6 +19311,8 @@ function updateScreenerFiltersUI(market) {
     // 모든 시장: 동적 필터칩 생성 (KR/US/ETF 공통)
     if (chipGroups) {
         const filterDefs = getFilterDefinitions(market);
+        console.log('[updateScreenerFiltersUI] filterDefs keys:', Object.keys(filterDefs));
+        console.log('[updateScreenerFiltersUI] Has psr:', !!filterDefs.psr, 'Has quick_ratio:', !!filterDefs.quick_ratio);
         const categories = {};
 
         // 카테고리별 필터 분류
@@ -19329,10 +19351,13 @@ function updateScreenerFiltersUI(market) {
 
 // 필터 칩 이벤트 바인딩 (시장 전환 시 재호출)
 function rebindFilterChipEvents() {
-    document.querySelectorAll('.filter-chip').forEach(chip => {
+    const chips = document.querySelectorAll('.filter-chip');
+    console.log('[rebindFilterChipEvents] binding', chips.length, 'filter chips');
+    chips.forEach(chip => {
         // 기존 이벤트 제거를 위해 새 이벤트로 덮어쓰기
         chip.onclick = (e) => {
             const filterKey = chip.dataset.filter;
+            console.log('[Filter Chip Clicked] filterKey:', filterKey);
             showFilterPopover(filterKey, chip);
         };
     });

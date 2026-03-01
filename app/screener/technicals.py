@@ -119,29 +119,41 @@ def compute_all_technicals(candles: List[Dict[str, Any]], params: Dict[str, Any]
             else:
                 result[f'{key}_position'] = 'near'
 
-    # 이평선 교차 (20일 vs 50일) - lookback 5일 내 교차 감지
-    if result.get('sma20') and result.get('sma50') and len(closes) > 55:
-        lookback = 5  # 최근 5일 내 교차 감지
-        result['sma_cross'] = 'none'
+    # 이평선 교차 - 동적 기간 지원 (기본: 20일 vs 50일)
+    # params['sma_cross'] = {"shortPeriod": 5, "longPeriod": 200} 형태 지원
+    sma_cross_params = params.get('sma_cross', {})
+    short_period = int(sma_cross_params.get('shortPeriod', 20))
+    long_period = int(sma_cross_params.get('longPeriod', 50))
+    lookback = 5  # 최근 5일 내 교차 감지
 
+    # 동적 SMA 교차 필드명 (period 포함)
+    cross_field = f'sma_cross_{short_period}_{long_period}'
+    result['sma_cross'] = 'none'  # 기본 필드 (레거시 호환)
+    result[cross_field] = 'none'  # 동적 필드
+    result['sma_cross_short_period'] = short_period
+    result['sma_cross_long_period'] = long_period
+
+    if len(closes) > long_period + 5:
         for offset in range(lookback):
-            if offset >= len(closes) - 51:
+            if offset >= len(closes) - long_period - 1:
                 break
 
             # 현재 위치에서 SMA 계산
             idx = len(closes) - offset
-            sma20_now = _calc_sma(closes[:idx], 20)
-            sma50_now = _calc_sma(closes[:idx], 50)
-            sma20_prev = _calc_sma(closes[:idx-1], 20) if idx > 21 else None
-            sma50_prev = _calc_sma(closes[:idx-1], 50) if idx > 51 else None
+            sma_short_now = _calc_sma(closes[:idx], short_period)
+            sma_long_now = _calc_sma(closes[:idx], long_period)
+            sma_short_prev = _calc_sma(closes[:idx-1], short_period) if idx > short_period + 1 else None
+            sma_long_prev = _calc_sma(closes[:idx-1], long_period) if idx > long_period + 1 else None
 
-            if sma20_now and sma50_now and sma20_prev and sma50_prev:
-                if sma20_now > sma50_now and sma20_prev <= sma50_prev:
+            if sma_short_now and sma_long_now and sma_short_prev and sma_long_prev:
+                if sma_short_now > sma_long_now and sma_short_prev <= sma_long_prev:
                     result['sma_cross'] = 'golden'
+                    result[cross_field] = 'golden'
                     result['sma_cross_days_ago'] = offset
                     break
-                elif sma20_now < sma50_now and sma20_prev >= sma50_prev:
+                elif sma_short_now < sma_long_now and sma_short_prev >= sma_long_prev:
                     result['sma_cross'] = 'dead'
+                    result[cross_field] = 'dead'
                     result['sma_cross_days_ago'] = offset
                     break
 
