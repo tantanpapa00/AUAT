@@ -226,11 +226,13 @@ def apply_screener_filters(stocks: List[Dict], filters: Dict) -> List[Dict]:
     if filters.get("dividend_growth_5y"):
         result = [s for s in result if s.get("code") in KR_DIVIDEND_GROWTH_5Y]
 
-    # 추가 재무지표 (V2) - yfinance 기반 13개 필터
+    # 추가 재무지표 (V2) - yfinance 기반 21개 필터
     financial_fields = [
-        "roe", "roa", "operating_margin", "gross_margin", "profit_margin",
-        "debt_ratio", "current_ratio", "revenue_growth", "earnings_growth",
-        "eps_growth", "foreign_ratio"
+        "roe", "roa", "operating_margin", "net_margin", "gross_margin", "profit_margin",
+        "debt_ratio", "current_ratio", "quick_ratio", "reserve_ratio",
+        "dividend_yield", "payout_ratio", "revenue_growth", "sales_growth",
+        "earnings_growth", "op_growth", "eps_growth", "foreign_ratio",
+        "psr", "eps", "bps"
     ]
     for field in financial_fields:
         if filters.get(field):
@@ -613,19 +615,28 @@ def sort_screener_results(stocks: List[Dict], sort: str, order: str) -> List[Dic
         "sector": lambda x: x.get("sector") or "",  # US 섹터
         "issuer": lambda x: x.get("issuer") or "",  # ETF 운용사
         "category": lambda x: x.get("category") or "",  # ETF 카테고리
-        # 재무 (yfinance 기반 13개)
+        # 재무 (yfinance 기반 21개)
         "per": lambda x: x.get("per") or 9999,
         "pbr": lambda x: x.get("pbr") or 9999,
+        "psr": lambda x: x.get("psr") or 9999,
         "roe": lambda x: x.get("roe") or 0,
         "roa": lambda x: x.get("roa") or 0,
         "operating_margin": lambda x: x.get("operating_margin") or 0,
+        "net_margin": lambda x: x.get("net_margin") or 0,
         "gross_margin": lambda x: x.get("gross_margin") or 0,
         "profit_margin": lambda x: x.get("profit_margin") or 0,
         "debt_ratio": lambda x: x.get("debt_ratio") or 9999,
         "current_ratio": lambda x: x.get("current_ratio") or 0,
+        "quick_ratio": lambda x: x.get("quick_ratio") or 0,
+        "reserve_ratio": lambda x: x.get("reserve_ratio") or 0,
         "dividend_yield": lambda x: x.get("dividend_yield") or 0,
+        "payout_ratio": lambda x: x.get("payout_ratio") or 0,
+        "eps": lambda x: x.get("eps") or 0,
+        "bps": lambda x: x.get("bps") or 0,
         "revenue_growth": lambda x: x.get("revenue_growth") or 0,
+        "sales_growth": lambda x: x.get("sales_growth") or 0,
         "earnings_growth": lambda x: x.get("earnings_growth") or 0,
+        "op_growth": lambda x: x.get("op_growth") or 0,
         "eps_growth": lambda x: x.get("eps_growth") or 0,
         "foreign_ratio": lambda x: x.get("foreign_ratio") or 0,
         # 52주

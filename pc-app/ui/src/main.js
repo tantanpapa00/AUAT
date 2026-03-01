@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/tauri';
+import { invoke as originalInvoke } from '@tauri-apps/api/tauri';
 import { open } from '@tauri-apps/api/shell';
 import { createChart, ColorType, CrosshairMode } from 'lightweight-charts';
 import { API_BASE_URL, CONNECTION_TIMEOUT, MAX_RETRIES } from './config.js';
@@ -9,68 +9,88 @@ import ChartDataLabels from 'chartjs-plugin-datalabels';
 Chart.register(...registerables, ChartDataLabels);
 console.log('[Chart] Chart.js + ChartDataLabels 등록 완료');
 
+// =====================================================
+// Demo Mode (스크린샷/마케팅용) - invoke 인터셉트 방식
+// =====================================================
+let isDemoMode = localStorage.getItem('bbooster_demo_mode') === 'true';
+console.log('[Demo Mode] 초기화 - isDemoMode:', isDemoMode, ', localStorage:', localStorage.getItem('bbooster_demo_mode'));
+
+// 데모 데이터 (하드코딩 - 가장 확실)
+const DEMO_DATA = {
+    summary: {
+        total_assets_formatted: '₩52,847,320',
+        total_profit_rate: 18.42,
+        daily_change_formatted: '+₩328,500',
+        daily_change_rate: 0.63,
+        active_strategies: 5,
+        allocation: [32, 28, 22, 18]
+    },
+    holdings: [
+        { exchange: 'KIS_KR', symbol: '삼성전자', name: '삼성전자', quantity: 50, avg_price: 68000, current_price: 72500, value: 3625000, profit_loss: 225000, profit_rate: 6.62, currency: 'KRW' },
+        { exchange: 'KIS_KR', symbol: 'SK하이닉스', name: 'SK하이닉스', quantity: 30, avg_price: 145000, current_price: 198000, value: 5940000, profit_loss: 1590000, profit_rate: 36.55, currency: 'KRW' },
+        { exchange: 'KIS_KR', symbol: 'NAVER', name: 'NAVER', quantity: 15, avg_price: 195000, current_price: 223000, value: 3345000, profit_loss: 420000, profit_rate: 14.36, currency: 'KRW' },
+        { exchange: 'KIS_KR', symbol: 'KRW', name: '예수금', quantity: 8500000, avg_price: 0, current_price: 0, value: 8500000, profit_loss: 0, profit_rate: 0, currency: 'KRW', is_cash: true },
+        { exchange: 'KIS_US', symbol: 'NVDA', name: 'NVIDIA', quantity: 15, avg_price: 98.50, current_price: 131.20, value: 1968.00, profit_loss: 490.50, profit_rate: 33.20, currency: 'USD' },
+        { exchange: 'KIS_US', symbol: 'AAPL', name: 'Apple', quantity: 10, avg_price: 178.00, current_price: 198.50, value: 1985.00, profit_loss: 205.00, profit_rate: 11.52, currency: 'USD' },
+        { exchange: 'KIS_US', symbol: 'TSLA', name: 'Tesla', quantity: 8, avg_price: 185.00, current_price: 245.00, value: 1960.00, profit_loss: 480.00, profit_rate: 32.43, currency: 'USD' },
+        { exchange: 'KIS_US', symbol: 'USD', name: 'USD 현금', quantity: 2150.00, avg_price: 0, current_price: 0, value: 2150.00, profit_loss: 0, profit_rate: 0, currency: 'USD', is_cash: true },
+        { exchange: 'OKX', symbol: 'BTC-USDT', name: 'Bitcoin', quantity: 0.05, avg_price: 62500, current_price: 84200, value: 4210.00, profit_loss: 1085.00, profit_rate: 34.72, currency: 'USD' },
+        { exchange: 'OKX', symbol: 'ETH-USDT', name: 'Ethereum', quantity: 0.8, avg_price: 2100, current_price: 3150, value: 2520.00, profit_loss: 840.00, profit_rate: 50.00, currency: 'USD' },
+        { exchange: 'OKX', symbol: 'SOL-USDT', name: 'Solana', quantity: 20, avg_price: 85.00, current_price: 142.00, value: 2840.00, profit_loss: 1140.00, profit_rate: 67.06, currency: 'USD' },
+        { exchange: 'OKX', symbol: 'USDT', name: 'Tether', quantity: 3200, avg_price: 1.00, current_price: 1.00, value: 3200.00, profit_loss: 0, profit_rate: 0, currency: 'USD', is_cash: true }
+    ],
+    strategies: [
+        { id: 1, name: '추세추종 20일', exchange: 'KIS_KR', symbol: '삼성전자', status: 'running', trades_today: 2, current_pnl_pct: 6.62 },
+        { id: 2, name: '추세추종 20일', exchange: 'KIS_US', symbol: 'NVDA', status: 'running', trades_today: 1, current_pnl_pct: 33.20 },
+        { id: 3, name: '역추세 RSI', exchange: 'KIS_KR', symbol: 'SK하이닉스', status: 'running', trades_today: 0, current_pnl_pct: 36.55 },
+        { id: 4, name: '추세추종 HTF', exchange: 'OKX', symbol: 'BTC-USDT', status: 'running', trades_today: 1, current_pnl_pct: 34.72 },
+        { id: 5, name: '추세추종 20일', exchange: 'OKX', symbol: 'SOL-USDT', status: 'running', trades_today: 3, current_pnl_pct: 67.06 }
+    ],
+    trades: [
+        { id: 1, timestamp: '2026-02-28T09:30:00Z', exchange: 'KIS_KR', symbol: '삼성전자', side: 'buy', quantity: 10, price: 72000, status: 'filled' },
+        { id: 2, timestamp: '2026-02-27T14:20:00Z', exchange: 'OKX', symbol: 'SOL-USDT', side: 'buy', quantity: 5, price: 138.50, status: 'filled' },
+        { id: 3, timestamp: '2026-02-26T10:15:00Z', exchange: 'KIS_US', symbol: 'NVDA', side: 'buy', quantity: 3, price: 128.00, status: 'filled' }
+    ]
+};
+
+// invoke 래퍼 - 데모 모드에서 가짜 데이터 반환
+async function invoke(cmd, args) {
+    console.log('[invoke] cmd:', cmd, ', isDemoMode:', isDemoMode);
+    if (isDemoMode) {
+        console.log('[Demo] invoke intercepted:', cmd, '→ 데모 데이터 반환');
+
+        // 대시보드 관련 API 인터셉트
+        if (cmd === 'get_portfolio_summary') {
+            return DEMO_DATA.summary;
+        }
+        if (cmd === 'get_holdings') {
+            return DEMO_DATA.holdings;
+        }
+        if (cmd === 'get_active_strategies') {
+            return DEMO_DATA.strategies;
+        }
+        if (cmd === 'get_trade_history') {
+            return { trades: DEMO_DATA.trades, total: DEMO_DATA.trades.length };
+        }
+        if (cmd === 'get_user_info') {
+            return { name: 'Demo User', email: 'demo@bbooster.com', role: 'user', subscription: 'pro' };
+        }
+    }
+
+    // 데모 모드 아니거나 해당 없는 API는 원본 호출
+    return originalInvoke(cmd, args);
+}
+
 // 디버깅용 전역 노출
 window.invokeCmd = invoke;
 
-// =====================================================
-// Demo Mode (스크린샷/마케팅용)
-// URL: ?demo=true 또는 localStorage: bbooster_demo_mode=true
-// 키보드: Ctrl+Shift+D 로 토글
-// =====================================================
-const urlParams = new URLSearchParams(window.location.search);
-let isDemoMode = urlParams.get('demo') === 'true' || localStorage.getItem('bbooster_demo_mode') === 'true';
-let demoData = null;
-
-async function loadDemoData() {
-    if (!isDemoMode) return null;
-    try {
-        // PC앱: 로컬 서버 또는 VPS에서 데모 데이터 가져오기
-        const urls = [
-            '/static/demo_data.json',
-            'https://qube-system.com/static/demo_data.json'
-        ];
-        for (const url of urls) {
-            try {
-                const res = await fetch(url);
-                if (res.ok) {
-                    demoData = await res.json();
-                    console.log('[Demo Mode] 데모 데이터 로드됨:', url);
-                    return demoData;
-                }
-            } catch (e) {
-                continue;
-            }
-        }
-        throw new Error('모든 URL 실패');
-    } catch (e) {
-        console.error('[Demo Mode] 데모 데이터 로드 실패:', e);
-        return null;
-    }
-}
-
-// 데모 모드 토글 (Ctrl+Shift+D)
-document.addEventListener('keydown', async (e) => {
-    if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd' || e.code === 'KeyD')) {
-        isDemoMode = !isDemoMode;
-        localStorage.setItem('bbooster_demo_mode', isDemoMode ? 'true' : 'false');
-        console.log('[Demo Mode]', isDemoMode ? '활성화' : '비활성화');
-        if (isDemoMode) {
-            await loadDemoData();
-        } else {
-            demoData = null;
-        }
-        // 홈 페이지 새로고침
-        if (document.querySelector('[data-page="home"].active')) {
-            loadHomePage();
-        }
-        alert(isDemoMode ? '🎯 데모 모드 활성화\n총 자산: ₩52,847,320' : '❌ 데모 모드 비활성화');
-    }
-});
-
-if (isDemoMode) {
-    console.log('[Demo Mode] 데모 모드 활성화됨');
-    loadDemoData();
-}
+// 데모 모드 토글 함수 (콘솔에서 사용: window.toggleDemoMode())
+window.toggleDemoMode = function() {
+    isDemoMode = !isDemoMode;
+    localStorage.setItem('bbooster_demo_mode', isDemoMode ? 'true' : 'false');
+    console.log('[Demo Mode]', isDemoMode ? '활성화됨 - 새로고침 중...' : '비활성화됨 - 새로고침 중...');
+    window.location.reload();
+};
 
 // =====================================================
 // Authentication State
@@ -1147,10 +1167,7 @@ function updateServerStatus(connected) {
 let allocationChart = null;
 
 async function loadHomePage() {
-    // 데모 모드: 데모 데이터 먼저 로드
-    if (isDemoMode && !demoData) {
-        await loadDemoData();
-    }
+    // invoke 래퍼가 데모 모드 자동 처리
 
     // Load server status
     try {
@@ -1169,13 +1186,8 @@ async function loadHomePage() {
 
 async function loadPortfolioSummary() {
     try {
-        // 데모 모드: mock 데이터 사용
-        if (isDemoMode && demoData) {
-            updateSummaryCards(demoData.summary);
-            return;
-        }
-
-        if (!auth.accessToken) {
+        // 데모 모드는 invoke 래퍼에서 자동 처리됨
+        if (!auth.accessToken && !isDemoMode) {
             updateSummaryCards({ total_assets_formatted: '₩0', total_profit_rate: 0, daily_change_formatted: '₩0', daily_change_rate: 0, active_strategies: 0 });
             return;
         }
@@ -1312,11 +1324,8 @@ async function loadHoldings() {
     try {
         let holdings = [];
 
-        // 데모 모드: mock 데이터 사용
-        if (isDemoMode && demoData) {
-            holdings = demoData.holdings || [];
-            console.log('[Demo Mode] 데모 보유자산 로드:', holdings.length);
-        } else if (auth.accessToken) {
+        // invoke 래퍼가 데모 모드 자동 처리
+        if (auth.accessToken || isDemoMode) {
             holdings = await invoke('get_holdings', { accessToken: auth.accessToken });
         }
 
@@ -1644,11 +1653,8 @@ async function loadActiveStrategies() {
     try {
         let strategies = [];
 
-        // 데모 모드: mock 데이터 사용
-        if (isDemoMode && demoData) {
-            strategies = demoData.active_strategies || [];
-            console.log('[Demo Mode] 데모 전략 로드:', strategies.length);
-        } else if (auth.accessToken) {
+        // invoke 래퍼가 데모 모드 자동 처리
+        if (auth.accessToken || isDemoMode) {
             strategies = await invoke('get_active_strategies', { accessToken: auth.accessToken });
         }
         // API가 { strategies: [...] } 또는 [...] 형태일 수 있음
@@ -1751,12 +1757,8 @@ async function loadRecentTrades(append = false) {
         let trades = [];
         let total = 0;
 
-        // 데모 모드: mock 데이터 사용
-        if (isDemoMode && demoData) {
-            trades = demoData.recent_trades || [];
-            total = trades.length;
-            console.log('[Demo Mode] 데모 거래내역 로드:', trades.length);
-        } else if (auth.accessToken) {
+        // invoke 래퍼가 데모 모드 자동 처리
+        if (auth.accessToken || isDemoMode) {
             const data = await invoke('get_trade_history', {
                 accessToken: auth.accessToken,
                 exchange: null,
@@ -17815,6 +17817,107 @@ const FILTER_DEFINITIONS = {
         ]
     },
 
+    // ===== 추가 재무지표 (8개) - 스크리너 필터용 =====
+    psr: {
+        label: 'PSR',
+        type: 'range',
+        unit: '배',
+        presets: [
+            { min: null, max: 1, label: '저평가 (1 미만)' },
+            { min: 1, max: 3, label: '적정 (1~3)' },
+            { min: 3, max: 5, label: '보통 (3~5)' },
+            { min: 5, max: null, label: '고평가 (5+)' }
+        ]
+    },
+    quick_ratio: {
+        label: '당좌비율',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 150, max: null, label: '우량 (150%+)' },
+            { min: 100, max: 150, label: '양호 (100~150%)' },
+            { min: 50, max: 100, label: '보통 (50~100%)' },
+            { min: null, max: 50, label: '주의 (50% 미만)' }
+        ]
+    },
+    reserve_ratio: {
+        label: '유보율',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 1000, max: null, label: '최우량 (1000%+)' },
+            { min: 500, max: 1000, label: '우량 (500~1000%)' },
+            { min: 200, max: 500, label: '양호 (200~500%)' },
+            { min: null, max: 200, label: '주의 (200% 미만)' }
+        ]
+    },
+    eps: {
+        label: 'EPS',
+        type: 'range',
+        unit: '원',
+        presets: [
+            { min: 10000, max: null, label: '고수익 (1만원+)' },
+            { min: 5000, max: 10000, label: '양호 (5천~1만)' },
+            { min: 1000, max: 5000, label: '보통 (1천~5천)' },
+            { min: null, max: 0, label: '적자' }
+        ]
+    },
+    bps: {
+        label: 'BPS',
+        type: 'range',
+        unit: '원',
+        presets: [
+            { min: 50000, max: null, label: '5만원+' },
+            { min: 20000, max: 50000, label: '2~5만원' },
+            { min: 10000, max: 20000, label: '1~2만원' },
+            { min: null, max: 10000, label: '1만원 미만' }
+        ]
+    },
+    sales_growth: {
+        label: '매출성장률',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 50, max: null, label: '고성장 (50%+)' },
+            { min: 20, max: 50, label: '성장 (20~50%)' },
+            { min: 0, max: 20, label: '안정 (0~20%)' },
+            { min: null, max: 0, label: '역성장' }
+        ]
+    },
+    op_growth: {
+        label: '영업익성장률',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 50, max: null, label: '고성장 (50%+)' },
+            { min: 20, max: 50, label: '성장 (20~50%)' },
+            { min: 0, max: 20, label: '안정 (0~20%)' },
+            { min: null, max: 0, label: '역성장' }
+        ]
+    },
+    payout_ratio: {
+        label: '배당성향',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 50, max: null, label: '고배당 (50%+)' },
+            { min: 30, max: 50, label: '적정 (30~50%)' },
+            { min: 10, max: 30, label: '저배당 (10~30%)' },
+            { min: null, max: 10, label: '10% 미만' }
+        ]
+    },
+    net_margin: {
+        label: '순이익률',
+        type: 'range',
+        unit: '%',
+        presets: [
+            { min: 15, max: null, label: '고수익 (15%+)' },
+            { min: 10, max: 15, label: '양호 (10~15%)' },
+            { min: 5, max: 10, label: '보통 (5~10%)' },
+            { min: null, max: 5, label: '5% 미만' }
+        ]
+    },
+
     // ===== 기술적지표 (12개) =====
     rsi: {
         label: 'RSI',
@@ -17958,18 +18061,27 @@ const FILTER_DEFINITIONS = {
     }
 };
 
-// 재무 지표 — KR/US/ETF 공통 (13개) - yfinance 기반
+// 재무 지표 — KR/US/ETF 공통 (21개) - yfinance 기반 + 추가 8개
 const COMMON_FINANCIAL_FILTERS = {
     per: { ...FILTER_DEFINITIONS.per, category: 'financial' },
     pbr: { ...FILTER_DEFINITIONS.pbr, category: 'financial' },
+    psr: { ...FILTER_DEFINITIONS.psr, category: 'financial' },
     roe: { ...FILTER_DEFINITIONS.roe, category: 'financial' },
     roa: { ...FILTER_DEFINITIONS.roa, category: 'financial' },
     operating_margin: { ...FILTER_DEFINITIONS.operating_margin, category: 'financial' },
+    net_margin: { ...FILTER_DEFINITIONS.net_margin, category: 'financial' },
     gross_margin: { ...FILTER_DEFINITIONS.gross_margin, category: 'financial' },
     profit_margin: { ...FILTER_DEFINITIONS.profit_margin, category: 'financial' },
     debt_ratio: { ...FILTER_DEFINITIONS.debt_ratio, category: 'financial' },
     current_ratio: { ...FILTER_DEFINITIONS.current_ratio, category: 'financial' },
+    quick_ratio: { ...FILTER_DEFINITIONS.quick_ratio, category: 'financial' },
+    reserve_ratio: { ...FILTER_DEFINITIONS.reserve_ratio, category: 'financial' },
     dividend_yield: { ...FILTER_DEFINITIONS.dividend_yield, category: 'financial' },
+    payout_ratio: { ...FILTER_DEFINITIONS.payout_ratio, category: 'financial' },
+    eps: { ...FILTER_DEFINITIONS.eps, category: 'financial' },
+    bps: { ...FILTER_DEFINITIONS.bps, category: 'financial' },
+    sales_growth: { ...FILTER_DEFINITIONS.sales_growth, category: 'financial' },
+    op_growth: { ...FILTER_DEFINITIONS.op_growth, category: 'financial' },
     revenue_growth: { ...FILTER_DEFINITIONS.revenue_growth, category: 'financial' },
     earnings_growth: { ...FILTER_DEFINITIONS.earnings_growth, category: 'financial' },
     eps_growth: { ...FILTER_DEFINITIONS.eps_growth, category: 'financial' },
