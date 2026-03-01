@@ -18091,7 +18091,34 @@ const COMMON_FINANCIAL_FILTERS = {
 const KR_FINANCIAL_FILTERS = { ...COMMON_FINANCIAL_FILTERS };
 
 // 재무 지표 — 해외(US) = 공통
-const US_FINANCIAL_FILTERS = { ...COMMON_FINANCIAL_FILTERS };
+const US_FINANCIAL_FILTERS = {
+    ...COMMON_FINANCIAL_FILTERS,
+    // US 전용: EPS/BPS 달러 단위 표시
+    eps: {
+        label: 'EPS',
+        type: 'range',
+        unit: '$',
+        category: 'financial',
+        presets: [
+            { min: 10, max: null, label: '$10+' },
+            { min: 5, max: 10, label: '$5~10' },
+            { min: 1, max: 5, label: '$1~5' },
+            { min: null, max: 0, label: 'Loss' }
+        ]
+    },
+    bps: {
+        label: 'BPS',
+        type: 'range',
+        unit: '$',
+        category: 'financial',
+        presets: [
+            { min: 100, max: null, label: '$100+' },
+            { min: 50, max: 100, label: '$50~100' },
+            { min: 20, max: 50, label: '$20~50' },
+            { min: null, max: 20, label: '<$20' }
+        ]
+    }
+};
 
 // 기술적 지표 — 국내/해외 공통 (16개: 기존 11 + 신규 5)
 const COMMON_TECHNICAL_FILTERS = {
