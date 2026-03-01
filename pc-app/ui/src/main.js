@@ -5,6 +5,9 @@ import { API_BASE_URL, CONNECTION_TIMEOUT, MAX_RETRIES } from './config.js';
 import { Chart, registerables } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 
+// API 유틸리티 (HTTP fetch - Tauri invoke 대체)
+import * as api from './api.js';
+
 // Chart.js + ChartDataLabels 즉시 등록 (ESM 통합)
 Chart.register(...registerables, ChartDataLabels);
 console.log('[Chart] Chart.js + ChartDataLabels 등록 완료');
@@ -53,31 +56,227 @@ const DEMO_DATA = {
     ]
 };
 
-// invoke 래퍼 - 데모 모드에서 가짜 데이터 반환
-async function invoke(cmd, args) {
-    console.log('[invoke] cmd:', cmd, ', isDemoMode:', isDemoMode);
-    if (isDemoMode) {
-        console.log('[Demo] invoke intercepted:', cmd, '→ 데모 데이터 반환');
+// =====================================================
+// invoke 래퍼 - HTTP API는 직접 fetch, 네이티브만 Tauri
+// =====================================================
 
-        // 대시보드 관련 API 인터셉트
-        if (cmd === 'get_portfolio_summary') {
-            return DEMO_DATA.summary;
-        }
-        if (cmd === 'get_holdings') {
-            return DEMO_DATA.holdings;
-        }
-        if (cmd === 'get_active_strategies') {
-            return DEMO_DATA.strategies;
-        }
-        if (cmd === 'get_trade_history') {
-            return { trades: DEMO_DATA.trades, total: DEMO_DATA.trades.length };
-        }
-        if (cmd === 'get_user_info') {
-            return { name: 'Demo User', email: 'demo@bbooster.com', role: 'user', subscription: 'pro' };
+// 네이티브 전용 커맨드 (Tauri invoke 필수 - 파일/키링/브라우저)
+const NATIVE_COMMANDS = new Set([
+    'export_diagnostic',      // ZIP 파일 생성
+    'download_ai_pdf',        // PDF 파일 저장
+    'open_url',               // 브라우저 열기
+    'open_dashboard',         // 대시보드 열기
+    'open_logs_folder',       // 로그 폴더 열기
+    'start_server',           // 서버 연결 확인 (트레이용)
+    'stop_server',            // 서버 연결 해제 (트레이용)
+    'check_server_health',    // 서버 상태 확인 (트레이용)
+    'get_server_status',      // 서버 상태 조회 (트레이용)
+    'set_estop',              // 긴급 정지 (트레이용)
+    'save_api_key',           // OS 키링 저장
+    'get_api_key',            // OS 키링 조회
+    'save_account_keys',      // OS 키링 저장
+    'get_account_keys',       // OS 키링 조회
+    'delete_account_keys',    // OS 키링 삭제
+    'list_local_accounts',    // 로컬 계정 목록
+]);
+
+// HTTP API 커맨드 → api.js 함수 매핑
+const API_COMMAND_MAP = {
+    // Auth
+    'login_with_email': (args) => api.loginWithEmail(args.email, args.password),
+    'register_with_email': (args) => api.registerWithEmail(args.email, args.password, args.name),
+    'get_user_info': (args) => api.getUserInfo(args.access_token),
+    'refresh_auth_token': (args) => api.refreshAuthToken(args.refresh_token),
+    'verify_password': (args) => api.verifyPassword(args.access_token, args.password),
+
+    // Portfolio
+    'get_portfolio_summary': (args) => api.getPortfolioSummary(args.access_token),
+    'get_portfolio_profit_rate': (args) => api.getPortfolioProfitRate(args.access_token, args.period),
+    'get_portfolio_chart': (args) => api.getPortfolioChart(args.access_token, args.period),
+    'get_holdings': (args) => api.getHoldings(args.access_token),
+    'get_trade_history': (args) => api.getTradeHistory(args.access_token, args.limit, args.offset),
+    'get_asset_trades': (args) => api.getAssetTrades(args.access_token, args.asset_id, args.limit),
+    'get_portfolio_history': (args) => api.getPortfolioHistory(args.access_token, args.days),
+
+    // Accounts
+    'get_accounts_list': (args) => api.getAccountsList(args.access_token),
+    'register_api_key': (args) => api.registerApiKey(args.access_token, args.exchange, args.api_key, args.api_secret, args.passphrase, args.account_number),
+    'delete_api_key': (args) => api.deleteApiKey(args.access_token, args.account_id),
+    'test_account_connection': (args) => api.testAccountConnection(args.access_token, args.account_id),
+
+    // Strategies
+    'get_active_strategies': (args) => api.getActiveStrategies(args.access_token),
+    'get_strategies': (args) => api.getStrategies(args.access_token),
+    'save_strategy': (args) => api.saveStrategy(args.access_token, args.strategy),
+    'toggle_strategy': (args) => api.toggleStrategy(args.access_token, args.strategy_id),
+    'delete_strategy': (args) => api.deleteStrategy(args.access_token, args.strategy_id),
+    'toggle_asset': (args) => api.toggleAsset(args.access_token, args.asset_id),
+    'delete_asset': (args) => api.deleteAsset(args.access_token, args.asset_id),
+    'create_strategy_with_params': (args) => api.createStrategyWithParams(args.access_token, args),
+    'save_signal_params': (args) => api.saveSignalParams(args.access_token, args.asset_id, args.params),
+    'create_asset': (args) => api.createAsset(args.access_token, args),
+
+    // Emergency
+    'emergency_stop': (args) => api.emergencyStop(args.access_token),
+
+    // Webhook
+    'get_webhook_logs': (args) => api.getWebhookLogs(args.access_token, args.limit),
+    'get_webhook_url': (args) => api.getWebhookUrl(args.access_token),
+
+    // Symbols
+    'search_symbols': (args) => api.searchSymbols(args.query, args.exchange, args.limit),
+    'get_symbol_detail': (args) => api.getSymbolDetail(args.exchange, args.symbol),
+    'get_popular_symbols': (args) => api.getPopularSymbols(args.exchange),
+    'search_stocks': (args) => api.searchStocks(args.query, args.market),
+    'ai_search_stock': (args) => api.aiSearchStock(args.query),
+
+    // Market Overview
+    'get_market_overview': (args) => api.getMarketOverview(args.access_token),
+    'get_market_us_overview': (args) => api.getMarketUsOverview(args.access_token),
+    'get_market_us_full': (args) => api.getMarketUsFull(args.access_token),
+    'get_market_us_trend_maintain': (args) => api.getMarketUsTrendMaintain(args.access_token),
+    'get_market_us_ranking': (args) => api.getMarketUsRanking(args.access_token, args.sort, args.order, args.limit),
+    'get_market_us_sectors': (args) => api.getMarketUsSectors(args.access_token),
+    'get_market_sectors': (args) => api.getMarketSectors(args.access_token),
+    'get_stock_ranking': (args) => api.getStockRanking(args.access_token, args.market, args.sort_by, args.limit),
+    'get_featured_stocks': (args) => api.getFeaturedStocks(args.access_token),
+    'get_market_events': (args) => api.getMarketEvents(args.access_token, args.days),
+    'get_market_timeline': (args) => api.getMarketTimeline(args.access_token),
+    'get_market_signal': (args) => api.getMarketSignal(args.access_token),
+    'get_market_big_picture': (args) => api.getMarketBigPicture(args.access_token),
+    'get_market_signal_history': (args) => api.getMarketSignalHistory(args.access_token, args.days),
+    'get_market_breadth_data': (args) => api.getMarketBreadthData(args.access_token, args.period),
+    'get_market_breadth_with_index': (args) => api.getMarketBreadthWithIndex(args.access_token, args.period),
+    'get_market_trend_maintain': (args) => api.getMarketTrendMaintain(args.access_token),
+    'get_market_sector_analysis': (args) => api.getMarketSectorAnalysis(args.access_token),
+    'get_market_rs_ranking': (args) => api.getMarketRsRanking(args.access_token, args.market, args.limit),
+    'get_market_sector_stocks': (args) => api.getMarketSectorStocks(args.access_token, args.sector, args.limit),
+    'get_market_investors_data': (args) => api.getMarketInvestorsData(args.access_token, args.period),
+    'get_market_trading_value_data': (args) => api.getMarketTradingValueData(args.access_token, args.period, args.type),
+    'get_market_etf': (args) => api.getMarketEtf(args.access_token, args.sort, args.limit),
+    'get_market_crypto': (args) => api.getMarketCrypto(args.access_token, args.sort, args.limit),
+    'get_analysis_rs': (args) => api.getAnalysisRs(args.access_token, args.market, args.limit),
+    'get_analysis_new_high': (args) => api.getAnalysisNewHigh(args.access_token),
+    'get_analysis_valuation': (args) => api.getAnalysisValuation(args.access_token, args.market, args.sort, args.limit),
+
+    // Screener
+    'get_screener': (args) => api.getScreener(args.access_token, args.filters || args),
+
+    // Stock Detail - KR
+    'get_stock_financial_summary': (args) => api.getStockFinancialSummary(args.code),
+    'get_stock_financial_trend': (args) => api.getStockFinancialTrend(args.code),
+    'get_stock_company': (args) => api.getStockCompany(args.code),
+    'get_stock_financial_statement': (args) => api.getStockFinancialStatement(args.code),
+    'get_stock_news': (args) => api.getStockNews(args.code, args.limit),
+    'get_stock_disclosures': (args) => api.getStockDisclosures(args.code, args.limit),
+    'get_stock_consensus': (args) => api.getStockConsensus(args.code),
+    'get_stock_chart_kr': (args) => api.getStockChartKr(args.code, args.period),
+    'get_stock_summary_kr': (args) => api.getStockSummaryKr(args.code),
+    'get_stock_financials_kr': (args) => api.getStockFinancialsKr(args.code, args.fin_type),
+    'get_stock_news_kr': (args) => api.getStockNewsKr(args.code, args.limit),
+    'get_eps_revision_history': (args) => api.getEpsRevisionHistory(args.code),
+    'get_stock_company_kr': (args) => api.getStockCompanyKr(args.code),
+    'get_stock_statement_kr': (args) => api.getStockStatementKr(args.code, args.period_type),
+    'get_invest_indicators_kr': (args) => api.getInvestIndicatorsKr(args.code),
+
+    // Stock Detail - US
+    'get_stock_summary_us': (args) => api.getStockSummaryUs(args.ticker),
+    'get_stock_chart_us': (args) => api.getStockChartUs(args.ticker, args.period),
+    'get_stock_news_us': (args) => api.getStockNewsUs(args.ticker, args.limit),
+    'get_stock_filings_us': (args) => api.getStockFilingsUs(args.ticker, args.limit),
+    'get_stock_analyst_us': (args) => api.getStockAnalystUs(args.ticker, args.limit),
+    'get_stock_company_us': (args) => api.getStockCompanyUs(args.ticker),
+    'get_stock_financials_us': (args) => api.getStockFinancialsUs(args.ticker),
+    'get_stock_statement_us': (args) => api.getStockStatementUs(args.ticker),
+    'get_invest_indicators_us': (args) => api.getInvestIndicatorsUs(args.ticker),
+
+    // ETF Detail
+    'get_etf_summary': (args) => api.getEtfSummary(args.code),
+    'get_etf_chart': (args) => api.getEtfChart(args.code, args.period),
+    'get_etf_performance': (args) => api.getEtfPerformance(args.code),
+
+    // AI
+    'get_ai_usage': (args) => api.getAiUsage(args.access_token),
+    'request_ai_analysis': (args) => api.requestAiAnalysis(args.access_token, args),
+    'check_ai_status': (args) => api.checkAiStatus(args.access_token, args.job_id),
+    'request_ai_chat': (args) => api.requestAiChat(args.access_token, args),
+    'get_ai_recommendations': (args) => api.getAiRecommendations(args.access_token, args.market),
+
+    // Watchlist
+    'get_watchlist_groups': (args) => api.getWatchlistGroups(args.access_token),
+    'create_watchlist_group': (args) => api.createWatchlistGroup(args.access_token, args.name, args.description),
+    'delete_watchlist_group': (args) => api.deleteWatchlistGroup(args.access_token, args.group_id),
+    'get_watchlist_items': (args) => api.getWatchlistItems(args.access_token, args.group_id),
+    'add_watchlist_item': (args) => api.addWatchlistItem(args.access_token, args.group_id, args.exchange, args.symbol),
+    'remove_watchlist_item': (args) => api.removeWatchlistItem(args.access_token, args.group_id, args.item_id),
+
+    // Backtest
+    'run_backtest': (args) => api.runBacktest(args.access_token, args),
+    'run_mr_backtest': (args) => api.runMrBacktest(args.access_token, args),
+    'run_trend_backtest': (args) => api.runTrendBacktest(args.access_token, args),
+    'run_custom_backtest': (args) => api.runCustomBacktest(args.access_token, args),
+    'preload_candles': (args) => api.preloadCandles(args.access_token, args.exchange, args.symbol, args.timeframe, args.days),
+
+    // Premium Strategy Engine
+    'get_premium_configs': (args) => api.getPremiumConfigs(args.access_token),
+    'get_premium_config': (args) => api.getPremiumConfig(args.access_token, args.asset_id),
+    'create_premium_config': (args) => api.createPremiumConfig(args.access_token, args),
+    'update_premium_config': (args) => api.updatePremiumConfig(args.access_token, args.asset_id, args),
+    'delete_premium_config': (args) => api.deletePremiumConfig(args.access_token, args.asset_id),
+    'get_strategy_state': (args) => api.getStrategyState(args.access_token, args.asset_id),
+    'reset_strategy_state': (args) => api.resetStrategyState(args.access_token, args.asset_id),
+    'get_scheduler_status': (args) => api.getSchedulerStatus(args.access_token),
+    'start_scheduler': (args) => api.startScheduler(args.access_token),
+    'stop_scheduler_premium': (args) => api.stopSchedulerPremium(args.access_token),
+    'register_to_scheduler': (args) => api.registerToScheduler(args.access_token, args.asset_id),
+    'trigger_signal': (args) => api.triggerSignal(args.access_token, args.asset_id),
+    'get_signal_events': (args) => api.getSignalEvents(args.access_token, args.asset_id, args.limit),
+
+    // Admin
+    'admin_get_users': (args) => api.adminGetUsers(args.access_token, args.page, args.limit, args.search),
+    'admin_update_user_plan': (args) => api.adminUpdateUserPlan(args.access_token, args.user_id, args.plan),
+    'admin_get_system_status': (args) => api.adminGetSystemStatus(args.access_token),
+    'admin_get_stats': (args) => api.adminGetStats(args.access_token),
+    'admin_get_recent_users': (args) => api.adminGetRecentUsers(args.access_token),
+
+    // Exchange Rate
+    'get_exchange_rate': () => api.getExchangeRate(),
+
+    // KIS Order Settings
+    'save_kis_order_settings': (args) => api.saveKisOrderSettings(args.access_token, args),
+    'get_kis_order_settings': (args) => api.getKisOrderSettings(args.access_token, args.account_id),
+};
+
+// invoke 래퍼 - 데모 모드 / API / 네이티브 분기
+async function invoke(cmd, args = {}) {
+    // 데모 모드 처리
+    if (isDemoMode) {
+        console.log('[Demo] invoke intercepted:', cmd);
+        if (cmd === 'get_portfolio_summary') return DEMO_DATA.summary;
+        if (cmd === 'get_holdings') return DEMO_DATA.holdings;
+        if (cmd === 'get_active_strategies') return DEMO_DATA.strategies;
+        if (cmd === 'get_trade_history') return { trades: DEMO_DATA.trades, total: DEMO_DATA.trades.length };
+        if (cmd === 'get_user_info') return { name: 'Demo User', email: 'demo@bbooster.com', role: 'user', subscription: 'pro' };
+    }
+
+    // 네이티브 커맨드 → Tauri invoke
+    if (NATIVE_COMMANDS.has(cmd)) {
+        return originalInvoke(cmd, args);
+    }
+
+    // API 커맨드 → HTTP fetch
+    const apiHandler = API_COMMAND_MAP[cmd];
+    if (apiHandler) {
+        try {
+            return await apiHandler(args);
+        } catch (err) {
+            console.error(`[API] ${cmd} 오류:`, err);
+            throw err;
         }
     }
 
-    // 데모 모드 아니거나 해당 없는 API는 원본 호출
+    // 매핑 없는 경우 → 기존 Tauri invoke (fallback)
+    console.warn(`[invoke] 매핑되지 않은 커맨드: ${cmd}, Tauri fallback 사용`);
     return originalInvoke(cmd, args);
 }
 
