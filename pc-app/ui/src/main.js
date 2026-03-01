@@ -9116,7 +9116,7 @@ async function loadWatchlist() {
     try {
         const result = await invoke('get_watchlist_items', {
             accessToken: auth.accessToken || '',
-            groupId: 'default'
+            groupId: 1  // 기본 그룹 ID (정수)
         });
 
         const items = result.items || [];
@@ -14305,7 +14305,7 @@ document.getElementById('btn-add-to-watchlist')?.addEventListener('click', async
     try {
         await invoke('add_watchlist_item', {
             accessToken: auth.accessToken || '',
-            groupId: 'default',
+            groupId: 1,  // 기본 그룹 ID (정수)
             symbol: currentStockData.symbol,
             exchange: currentStockData.exchange
         });
