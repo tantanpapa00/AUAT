@@ -17453,6 +17453,23 @@ async def add_watchlist_item(
     limit = _get_watchlist_limit(current_user)
 
     try:
+        # 그룹 존재 확인 및 자동 생성
+        group_result = db.execute(
+            text("SELECT id FROM watchlist_groups WHERE id = :gid AND user_id = :uid"),
+            {"gid": request.group_id, "uid": current_user.id}
+        )
+        if not group_result.fetchone():
+            # 기본 그룹이 없으면 자동 생성
+            db.execute(
+                text("""
+                    INSERT INTO watchlist_groups (id, user_id, name, sort_order)
+                    VALUES (:gid, :uid, '기본', 0)
+                    ON CONFLICT (id) DO NOTHING
+                """),
+                {"gid": request.group_id, "uid": current_user.id}
+            )
+            db.commit()
+
         # 총 개수 확인
         count_result = db.execute(
             text("SELECT COUNT(*) FROM watchlist_items WHERE user_id = :uid"),
