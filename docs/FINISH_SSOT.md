@@ -1,5 +1,5 @@
 # FINISH_SSOT.md (완성품 전용 SSOT / COPY-PASTE)
-- Last updated: 2026-02-27 KST
+- Last updated: 2026-03-02 KST
 - Owner: 기훈(작가님)
 
 > 이 문서는 "완성품(외관+내관+도로+조경)" 제작만을 위한 SSOT이다.
@@ -510,6 +510,49 @@
   - `pc-app/src-tauri/src/main.rs` — 커맨드 등록
 
 - Commits: `508c2a7`
+
+## Day 33 (2026-03-02) — DONE ✅
+- **명령서61: main.py 모듈 분리 (FastAPI 라우터)**
+  - [x] 9개 라우터 분리 완료
+    - `watchlist.py` — 관심종목 (7개 엔드포인트)
+    - `admin.py` — 관리자 (5개 엔드포인트)
+    - `market_kr.py` — 국내시장 (17개 엔드포인트)
+    - `market_us.py` — 해외시장 (5개 엔드포인트)
+    - `market_misc.py` — ETF/암호화폐 (2개 엔드포인트)
+    - `screener.py` — 종목검색기 (4개 엔드포인트)
+    - `ai_report.py` — AI 분석 (10개 엔드포인트)
+    - `backtest.py` — 백테스트 (7개 엔드포인트)
+    - `webhook.py` — 웹훅 (3개 엔드포인트)
+  - [x] main.py 줄 수: 18,746줄 → 11,082줄 (41% 감소)
+  - [x] VPS 배포 완료
+
+- **명령서62: Tauri 커맨드 정리**
+  - [x] HTTP wrapper 커맨드를 JS fetch로 대체
+  - [x] `api.js` 유틸리티 생성 (직접 HTTP 호출)
+  - [x] 네이티브 필수 기능만 Tauri에 유지
+  - [x] 커맨드 수: 146개 → 16개 (89% 감소)
+  - [x] commands.rs: 5,053줄 → 482줄 (90% 감소)
+  - [x] 유지된 네이티브 커맨드:
+    - 서버 관리: start/stop_server, check_server_health, get_server_status, set_estop
+    - 파일/브라우저: open_dashboard, open_logs_folder, export_diagnostic, open_url, download_ai_pdf
+    - OS keyring: save/get_api_key, save/get/delete_account_keys, list_local_accounts
+
+- **아키텍처 변경 (Tauri)**
+  ```
+  [변경 전] main.js → invoke() → Tauri Rust → HTTP → Server
+  [변경 후] main.js → api.js → HTTP → Server (대부분)
+            main.js → invoke() → Tauri Rust (네이티브만)
+  ```
+
+- **수정된 파일**
+  - `app/routers/*.py` — 9개 라우터 파일 생성
+  - `app/main.py` — 라우터 include + 원본 제거
+  - `pc-app/ui/src/api.js` — HTTP fetch 유틸리티 (신규)
+  - `pc-app/ui/src/main.js` — invoke 래퍼 수정 (API 라우팅)
+  - `pc-app/src-tauri/src/commands.rs` — 네이티브 커맨드만 유지
+  - `pc-app/src-tauri/src/main.rs` — invoke_handler 축소
+
+- Commits: `fa5da35`, `9dd73ac`, `2fe25ca`, `5eb2af4`, `d40d168`
 
 ---
 
