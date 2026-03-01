@@ -10,6 +10,9 @@ import json
 import re
 from bs4 import BeautifulSoup
 
+# kis_api에서 재사용하는 함수 import
+from app.kis_api import get_naver_stock_price
+
 # ===== 캐싱 =====
 _cache = {}
 
