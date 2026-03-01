@@ -10732,9 +10732,15 @@ async function pollAiChatResult(jobId, maxWaitSec = 120) {
                     jobId: jobId
                 };
             } else if (status.status === 'error') {
-                throw new Error(status.error || '응답 실패');
+                // 에러 메시지 사용자 친화적으로 변환
+                let errorMsg = status.error || '응답 실패';
+                if (errorMsg.includes('credit balance is too low')) {
+                    errorMsg = 'AI API 크레딧이 부족합니다. 관리자에게 문의하세요.';
+                }
+                throw new Error('응답 실패: ' + errorMsg);
             }
         } catch (e) {
+            // 서버에서 에러 상태 반환 시 즉시 throw (폴링 중단)
             if (e.message && e.message.includes('응답 실패')) throw e;
             console.warn('[AI Chat Poll] 재시도:', e);
         }
