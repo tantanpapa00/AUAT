@@ -554,6 +554,43 @@
 
 - Commits: `fa5da35`, `9dd73ac`, `2fe25ca`, `5eb2af4`, `d40d168`
 
+- **명령서63: 실시간 알림 시스템 (WebSocket + Notifications)**
+  - [x] PART A: 이벤트 시스템
+    - `app/services/notification.py` — NotificationManager (pub/sub)
+    - NotificationType: ORDER_FILLED, ORDER_FAILED, SIGNAL_RECEIVED, SIGNAL_SKIPPED, REPORT_DONE, REPORT_FAILED, SYSTEM_ALERT, PRICE_ALERT
+    - DB 저장 핸들러 자동 등록
+  - [x] PART B: WebSocket
+    - `app/services/ws_manager.py` — WebSocketManager (다중 연결 관리)
+    - `app/routers/ws.py` — /ws 엔드포인트 (JWT 인증)
+    - `GET /ws/status` — 연결 상태 조회
+  - [x] PART C: PC앱 WebSocket
+    - `pc-app/ui/src/ws.js` — WebSocket 클라이언트 (재연결, ping/pong)
+    - main.js 통합: 로그인/로그아웃 시 연결 관리
+    - 브라우저 알림 지원 (Notification API)
+  - [x] PART D: 알림 API
+    - `app/routers/notifications.py` — 알림 CRUD API
+    - `GET /api/notifications` — 알림 목록 (페이지네이션)
+    - `POST /api/notifications/{id}/read` — 읽음 처리
+    - `POST /api/notifications/read-all` — 전체 읽음
+    - `DELETE /api/notifications/{id}` — 삭제
+    - `DELETE /api/notifications` — 전체 삭제
+  - [x] PART E: FCM 준비 — 구조만 확보 (향후 확장)
+  - [x] VPS 배포 완료
+
+- **수정된 파일 (명령서63)**
+  - `app/services/__init__.py` — 서비스 모듈 (신규)
+  - `app/services/notification.py` — 알림 이벤트 시스템 (신규)
+  - `app/services/ws_manager.py` — WebSocket 연결 관리 (신규)
+  - `app/routers/ws.py` — WebSocket 라우터 (신규)
+  - `app/routers/notifications.py` — 알림 API 라우터 (신규)
+  - `app/routers/__init__.py` — 라우터 export 추가
+  - `app/main.py` — 라우터 등록 추가
+  - `pc-app/ui/src/ws.js` — WebSocket 클라이언트 (신규)
+  - `pc-app/ui/src/api.js` — 알림 API 함수 추가
+  - `pc-app/ui/src/main.js` — WebSocket 통합 + 알림 핸들러
+
+- Commits: `8249cdc`
+
 ---
 
 # 5) 매주 승인(작가님 체크 포인트)
