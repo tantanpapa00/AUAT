@@ -546,3 +546,19 @@ export const adminGetRecentUsers = (token) =>
 // Exchange Rate
 export const getExchangeRate = () =>
     apiGet('/api/exchange-rate');
+
+// Notifications (명령서63)
+export const getNotifications = (token, limit = 50, offset = 0, unreadOnly = false) =>
+    apiGet(`/api/notifications?limit=${limit}&offset=${offset}&unread_only=${unreadOnly}`, token);
+
+export const markNotificationRead = (token, notificationId) =>
+    apiPost(`/api/notifications/${notificationId}/read`, {}, token);
+
+export const markAllNotificationsRead = (token) =>
+    apiPost('/api/notifications/read-all', {}, token);
+
+export const deleteNotification = (token, notificationId) =>
+    apiDelete(`/api/notifications/${notificationId}`, token);
+
+export const deleteAllNotifications = (token) =>
+    apiDelete('/api/notifications', token);

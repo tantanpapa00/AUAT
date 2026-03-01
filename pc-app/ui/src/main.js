@@ -8,6 +8,9 @@ import ChartDataLabels from 'chartjs-plugin-datalabels';
 // API 유틸리티 (HTTP fetch - Tauri invoke 대체)
 import * as api from './api.js';
 
+// WebSocket (실시간 알림)
+import * as ws from './ws.js';
+
 // Chart.js + ChartDataLabels 즉시 등록 (ESM 통합)
 Chart.register(...registerables, ChartDataLabels);
 console.log('[Chart] Chart.js + ChartDataLabels 등록 완료');
@@ -245,6 +248,13 @@ const API_COMMAND_MAP = {
     // KIS Order Settings
     'save_kis_order_settings': (args) => api.saveKisOrderSettings(args.access_token, args),
     'get_kis_order_settings': (args) => api.getKisOrderSettings(args.access_token, args.account_id),
+
+    // Notifications (명령서63)
+    'get_notifications': (args) => api.getNotifications(args.access_token, args.limit, args.offset, args.unread_only),
+    'mark_notification_read': (args) => api.markNotificationRead(args.access_token, args.notification_id),
+    'mark_all_notifications_read': (args) => api.markAllNotificationsRead(args.access_token),
+    'delete_notification': (args) => api.deleteNotification(args.access_token, args.notification_id),
+    'delete_all_notifications': (args) => api.deleteAllNotifications(args.access_token),
 };
 
 // invoke 래퍼 - 데모 모드 / API / 네이티브 분기
@@ -894,6 +904,8 @@ async function handleEmailLogin() {
         hideLoginScreen();
         showToast('로그인 성공', 'success');
         checkServerConnection();
+        // WebSocket 연결
+        ws.connect(data.access_token);
     } catch (error) {
         showLoginError(error || '로그인에 실패했습니다');
     } finally {
@@ -960,6 +972,8 @@ async function handleEmailRegister() {
         hideLoginScreen();
         showToast('회원가입 및 로그인 성공', 'success');
         checkServerConnection();
+        // WebSocket 연결
+        ws.connect(data.access_token);
     } catch (error) {
         showRegisterError(error || '회원가입에 실패했습니다');
     } finally {
@@ -1075,6 +1089,8 @@ function updateUserUI(user) {
 }
 
 function logout() {
+    // WebSocket 연결 해제
+    ws.disconnect();
     localStorage.removeItem('bbooster_access_token');
     localStorage.removeItem('bbooster_refresh_token');
     localStorage.removeItem('bbooster_hub_mode');
@@ -1103,6 +1119,8 @@ async function initAuth() {
             document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
         }
         hideLoginScreen();
+        // 기존 토큰으로 WebSocket 연결
+        ws.connect(auth.accessToken);
         return true;
     } catch (error) {
         const refreshed = await tryRefreshToken();
@@ -1122,6 +1140,9 @@ async function tryRefreshToken() {
         const tokens = await invoke('refresh_auth_token', { refreshToken: auth.refreshToken });
         auth.saveTokens(tokens.access_token, tokens.refresh_token);
         await loadUserInfo();
+        // 새 토큰으로 WebSocket 재연결
+        ws.disconnect();
+        ws.connect(tokens.access_token);
         return true;
     } catch (error) {
         console.error('Token refresh failed:', error);
@@ -1295,6 +1316,35 @@ function showToast(message, type = 'success') {
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
 }
+
+// =====================================================
+// WebSocket 알림 핸들러
+// =====================================================
+ws.onNotification((data) => {
+    console.log('[WS] 알림 수신:', data);
+
+    // 알림 유형별 처리
+    const typeMap = {
+        'order_filled': { type: 'success', prefix: '체결' },
+        'order_failed': { type: 'error', prefix: '주문실패' },
+        'signal_received': { type: 'info', prefix: '시그널' },
+        'signal_skipped': { type: 'warning', prefix: '스킵' },
+        'report_done': { type: 'success', prefix: 'AI 리포트' },
+        'report_failed': { type: 'error', prefix: 'AI 리포트' },
+        'system_alert': { type: 'warning', prefix: '시스템' },
+        'price_alert': { type: 'info', prefix: '가격알림' }
+    };
+
+    const config = typeMap[data.type] || { type: 'info', prefix: '' };
+    const displayMessage = data.title || data.message || '새 알림';
+
+    showToast(displayMessage, config.type);
+});
+
+ws.onConnectionChange((connected) => {
+    console.log('[WS] 연결 상태:', connected ? '연결됨' : '연결 해제됨');
+    // 연결 상태 표시 (향후 UI 추가 가능)
+});
 
 // =====================================================
 // Connection Check

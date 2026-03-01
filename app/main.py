@@ -371,6 +371,14 @@ app.include_router(backtest_router)
 from .routers.webhook import router as webhook_router
 app.include_router(webhook_router)
 
+# WebSocket Router (명령서63 - 실시간 알림)
+from .routers.ws import router as ws_router
+app.include_router(ws_router)
+
+# Notifications Router (명령서63 - 알림 API)
+from .routers.notifications import router as notifications_router
+app.include_router(notifications_router)
+
 
 @app.get("/api/auth/google/login")
 async def auth_google_login(request: Request):
