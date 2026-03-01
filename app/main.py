@@ -321,6 +321,8 @@ from app.data_provider import (
 )
 # Phase 7: 종목검색기 (분리된 모듈)
 from app.screener import screener_kr
+# Phase 8: AI 리포트 재무 데이터 사전수집
+from app.report_data import fetch_report_data, format_financial_data_for_prompt
 
 # 세션 미들웨어 (OAuth 콜백용)
 app.add_middleware(
@@ -15167,7 +15169,7 @@ AI_REPORT_SYSTEM_PROMPT = """당신은 15년 경력의 전문 증권 애널리�
 """
 
 
-def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list, company_summary: str = "", market: str = "kr") -> tuple[str, str]:
+def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list, company_summary: str = "", market: str = "kr", pre_fetched_data: dict = None) -> tuple[str, str]:
     """Claude에게 보낼 분석 프롬프트 구성 - (system_prompt, user_prompt) 튜플 반환"""
     from datetime import datetime, timezone, timedelta
 
@@ -15287,6 +15289,11 @@ def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list
     # 기업 개요 (FnGuide)
     company_text = company_summary if company_summary else "기업 개요 정보 없음"
 
+    # ★ 서버 사전수집 재무 데이터 (명령서56)
+    pre_fetched_text = ""
+    if pre_fetched_data:
+        pre_fetched_text = format_financial_data_for_prompt(pre_fetched_data, market)
+
     # 사용자 프롬프트 (원본 c90e161 구조 - 모든 내용 포함)
     user_prompt = f"""당신은 15년 경력의 전문 증권 애널리스트입니다.
 오늘 날짜: {today}
@@ -15315,6 +15322,8 @@ def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list
 - 찾지 못하면 "실적 전망 컨센서스 미확인"으로 표시하세요.
 
 ---
+
+{pre_fetched_text}
 
 ## 제공 데이터
 
@@ -15544,7 +15553,13 @@ def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list
 - 리포트는 섹션 제목과 분석 내용만으로 구성하라.
 - 바로 본문 내용으로 시작하라.
 
-**[규칙 F] 재무제표 기준 절대 규칙 — 가장 중요**
+**[규칙 F] 서버 제공 데이터 우선 + 재무제표 기준 — 가장 중요**
+0. 서버 제공 데이터 우선 규칙 (📊 섹션이 있는 경우):
+   - "📊 서버 제공 재무 데이터" 섹션이 있으면, 해당 숫자를 테이블에 그대로 사용하라.
+   - 서버 데이터와 웹검색 결과가 다르면, 서버 데이터를 우선한다.
+   - 서버 데이터에 없는 항목만 웹검색으로 보충하라.
+   - 서버 데이터가 없으면(해당 섹션이 없으면) 기존처럼 웹검색으로 데이터를 수집하라.
+
 1. 모든 재무 데이터는 반드시 "연결 재무제표(consolidated)" 기준으로 작성하라.
    - "별도 재무제표(separate/individual)"의 숫자는 절대 사용하지 마라.
    - 연결과 별도의 구분법: 매출액이 크게 다르면 별도일 가능성이 높다.
@@ -15555,7 +15570,7 @@ def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list
    - 전년 대비 매출이 3배 이상 급변하면 → 별도/연결 기준이 바뀌었을 가능성이 있다. 재확인하라.
    - 분기 매출이 연간 매출의 1/4 수준과 크게 다르면 → 기준이 다를 수 있다. 재확인하라.
 
-3. 웹검색에서 재무 데이터를 가져올 때:
+3. 웹검색에서 재무 데이터를 가져올 때 (서버 데이터가 없는 경우):
    - "연결" 또는 "consolidated" 키워드가 포함된 데이터를 우선 사용하라.
    - 네이버 금융, FnGuide 등에서 "연결" 탭의 데이터를 사용하라.
    - 출처가 불분명한 경우, 같은 기업의 다른 출처와 교차 검증하라.
@@ -16209,6 +16224,18 @@ async def _generate_claude_report(name: str, code: str, market: str = "kr", char
         fin = await _collect_financial_data_for_ai(code, market)
         news = await _collect_news_for_ai(code, name, market)
 
+        # ★ 재무 데이터 사전수집 (명령서56: 일관된 숫자 보장)
+        pre_fetched_data = {}
+        try:
+            print(f"[AI Report] Pre-fetching financial data for {code}...")
+            pre_fetched_data = await fetch_report_data(code, market.upper())
+            if pre_fetched_data:
+                print(f"[AI Report] Pre-fetched: annual={len(pre_fetched_data.get('annual', []))}, consensus={len(pre_fetched_data.get('consensus', []))}")
+            else:
+                print(f"[AI Report] Pre-fetch returned empty, will use AI web search")
+        except Exception as e:
+            print(f"[AI Report] Pre-fetch failed ({e}), will use AI web search")
+
         # ★ 차트↔텍스트 지지/저항 통일: 차트 계산값으로 덮어쓰기
         if chart_data:
             if chart_data.get("support_levels"):
@@ -16217,7 +16244,7 @@ async def _generate_claude_report(name: str, code: str, market: str = "kr", char
                 tech["resistance_levels"] = chart_data["resistance_levels"]
 
         # 프롬프트 구성 (market에 따라 통화 단위 변경) - 시스템/사용자 분리
-        system_prompt, user_prompt = _build_claude_prompt(name, code, tech, fin, news, "", market)
+        system_prompt, user_prompt = _build_claude_prompt(name, code, tech, fin, news, "", market, pre_fetched_data)
 
         # Claude API 호출 (재생성 로직 포함, 프롬프트 캐싱 적용)
         client = anthropic.AsyncAnthropic(api_key=api_key, timeout=180.0)
