@@ -15485,19 +15485,46 @@ def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list
 
 ## ⚠️⚠️ 절대 규칙 (위반 시 리포트 무효) ⚠️⚠️
 
-**[규칙 A] 본문 숫자 → 테이블 필수 동기화**
-- 본문에서 "매출액 5,767억원"이라고 썼으면, 연간 실적 테이블의 해당 연도 매출액에 반드시 5,767을 넣어라.
-- 본문과 테이블의 숫자가 다르면 절대 안 됨.
-- 본문에 언급한 모든 재무 숫자(매출, 영업이익, 순이익, ROE, EPS 등)는 테이블에도 동일하게 기재.
+**[규칙 A] 테이블-본문 일관성 규칙 — 가장 중요**
+1. 본문에 언급하는 모든 실적 숫자(매출액, 영업이익, 순이익, 영업이익률, ROE, EPS, PER, PBR)는
+   반드시 연간 실적 테이블에도 동일하게 기재하라.
+2. 테이블을 먼저 채우고, 본문에서 테이블의 숫자를 인용하는 순서로 작성하라.
+   절대로 테이블은 빈칸으로 두고 본문에만 숫자를 쓰지 마라.
+3. 본문에서 "매출액 5,767억원"이라고 썼으면, 연간 실적 테이블에 반드시 5,767을 넣어라.
+4. 본문과 테이블의 숫자가 다르면 절대 안 됨.
 
 **[규칙 B] 테이블 빈칸율 50% 초과 금지**
-- 연간 실적 테이블 24칸(6항목 × 4개년) 중 "미확인"이 12칸 이상이면 안 됨.
+- 연간 실적 테이블 24칸(6항목 × 4개년) 중 "-"가 12칸 이상이면 안 됨.
 - 제공된 재무 데이터, 웹검색 결과, 본문에서 언급한 숫자를 모두 활용하여 최대한 채워라.
-- 정말 어디에서도 찾을 수 없는 항목만 "-"로 표시 ("미확인" 대신 "-" 사용).
+- 데이터가 부족하면 본문/웹검색에서 확인한 숫자라도 반드시 테이블에 넣어라.
+- 정말 어디에서도 찾을 수 없는 항목만 "-"로 표시.
+- "미확인" 사용 금지. 본문에 쓸 수 있는 숫자가 있으면 반드시 테이블에 넣어라.
 
 **[규칙 C] 면책조항 1번만**
 - 리포트 전체에서 면책조항은 맨 마지막 7번 섹션에 1번만 작성.
 - 중간에 면책조항을 넣으면 안 됨.
+
+**[규칙 D] 고객사 매출 비중 규칙**
+1. 고객사 매출 비중 테이블은 반드시 숫자로 채워라.
+2. 정확한 비중을 모르더라도, 본문에서 언급한 정보를 기반으로 추정치라도 기재하라.
+   예: "SK하이닉스 약 60~70%", "마이크론 약 20~25%", "기타 약 10~15%"
+3. "데이터 미확인"으로 전체를 비우는 것은 금지.
+4. 향후 전망 열에는 고객 다변화 방향을 기재하라.
+   예: "SK하이닉스 비중 축소 전망", "마이크론·삼성 비중 확대"
+5. 웹검색으로 확인한 고객사 관련 정보(해외 매출 비중 등)도 테이블에 반영하라.
+
+**[규칙 E] 출력 형식 규칙 — 메타 코멘트 금지**
+- 리포트 본문에 다음과 같은 AI 내부 독백/메타 코멘트를 절대 포함하지 마라:
+  - "이제 보고서를 완성하겠습니다"
+  - "분석을 시작하겠습니다"
+  - "다음으로 넘어가겠습니다"
+  - "이상으로 마치겠습니다"
+  - "보고서를 작성하겠습니다"
+  - "분석해 보겠습니다"
+  - "살펴보겠습니다"
+  - 기타 AI의 사고 과정이나 자기 참조 문구
+- 리포트는 섹션 제목과 분석 내용만으로 구성하라.
+- 바로 본문 내용으로 시작하라.
 
 ---
 
@@ -15958,6 +15985,7 @@ async def _generate_etf_report(name: str, code: str, market: str = "kr", chart_d
         )
 
         report_md = response.content[0].text
+        report_md = _clean_meta_comments(report_md)  # 메타 코멘트 제거
         stop_reason = response.stop_reason
         print(f"[ETF Report] Generated report: {len(report_md)} chars, stop_reason={stop_reason}")
 
@@ -16014,6 +16042,36 @@ def _validate_report_quality(report_md: str) -> tuple[bool, str]:
     return True, "OK"
 
 
+def _clean_meta_comments(report_md: str) -> str:
+    """AI 응답에서 메타 코멘트(내부 독백) 제거"""
+    import re
+
+    meta_patterns = [
+        r"이제 보고서를 완성하겠습니다\.?",
+        r"분석을 시작하겠습니다\.?",
+        r"다음으로 넘어가겠습니다\.?",
+        r"이상으로 마치겠습니다\.?",
+        r"보고서를 작성하겠습니다\.?",
+        r"분석해 보겠습니다\.?",
+        r"살펴보겠습니다\.?",
+        r"작성해 보겠습니다\.?",
+        r"정리하겠습니다\.?",
+        r"시작하겠습니다\.?",
+        r"마무리하겠습니다\.?",
+        r"진행하겠습니다\.?",
+        r"검토해 보겠습니다\.?",
+    ]
+
+    cleaned = report_md
+    for pattern in meta_patterns:
+        cleaned = re.sub(pattern, "", cleaned)
+
+    # 빈 줄 정리 (3개 이상 연속 → 2개로)
+    cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
+
+    return cleaned.strip()
+
+
 async def _generate_claude_report(name: str, code: str, market: str = "kr", chart_data: dict = None) -> dict:
     """Claude API로 종합 분석 리포트 생성 (품질 검증 + 재생성 포함)"""
     import anthropic
@@ -16062,6 +16120,7 @@ async def _generate_claude_report(name: str, code: str, market: str = "kr", char
             )
 
             report_md = response.content[0].text
+            report_md = _clean_meta_comments(report_md)  # 메타 코멘트 제거
             stop_reason = response.stop_reason
             input_tokens = response.usage.input_tokens
             output_tokens = response.usage.output_tokens
