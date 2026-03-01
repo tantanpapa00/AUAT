@@ -14985,25 +14985,46 @@ async def _collect_technical_data_for_ai(code: str, market: str = "kr") -> dict:
 
 
 async def _collect_financial_data_for_ai(code: str, market: str = "kr") -> dict:
-    """AI 분석용 재무 데이터 수집"""
+    """AI 분석용 재무 데이터 수집 (재시도 로직 포함)"""
+    import asyncio
+
     data = {
         "annual": {"revenue": [], "operating_income": [], "net_income": []},
         "quarter": {"revenue": [], "operating_income": [], "net_income": []},
         "ratios": {
             "roe": None, "debt_ratio": None, "operating_margin": None,
-            "per": None, "pbr": None, "eps": None,
+            "per": None, "pbr": None, "eps": None, "market_cap": None,
         },
         "consensus": {"target_price": None, "recommendation": None},
     }
 
+    MAX_RETRIES = 3
+
+    async def fetch_with_retry(fetch_func, *args, **kwargs):
+        """재시도 로직이 포함된 데이터 수집"""
+        for attempt in range(MAX_RETRIES):
+            try:
+                result = await fetch_func(*args, **kwargs)
+                if result and result.get("success"):
+                    return result
+                # 실패 시 잠시 대기 후 재시도
+                if attempt < MAX_RETRIES - 1:
+                    await asyncio.sleep(0.5 * (attempt + 1))
+            except Exception as e:
+                print(f"[AI] Retry {attempt + 1}/{MAX_RETRIES} failed: {e}")
+                if attempt < MAX_RETRIES - 1:
+                    await asyncio.sleep(0.5 * (attempt + 1))
+        return None
+
     try:
         if market == "kr":
-            fin_data = await get_stock_financials_kr(code, "annual")
-            if fin_data and fin_data.get("success"):
+            # 연간 실적 (재시도 포함)
+            fin_data = await fetch_with_retry(get_stock_financials_kr, code, "annual")
+            if fin_data:
                 annual = fin_data.get("annual", {})
-                data["annual"]["revenue"] = annual.get("revenue", [])[:3]
-                data["annual"]["operating_income"] = annual.get("operating_income", [])[:3]
-                data["annual"]["net_income"] = annual.get("net_income", [])[:3]
+                data["annual"]["revenue"] = annual.get("revenue", [])[:4]  # 4개년으로 확장
+                data["annual"]["operating_income"] = annual.get("operating_income", [])[:4]
+                data["annual"]["net_income"] = annual.get("net_income", [])[:4]
 
                 ratios = fin_data.get("ratios", {})
                 data["ratios"]["roe"] = ratios.get("roe")
@@ -15012,17 +15033,24 @@ async def _collect_financial_data_for_ai(code: str, market: str = "kr") -> dict:
                 data["ratios"]["eps"] = ratios.get("eps")
                 data["ratios"]["debt_ratio"] = ratios.get("debt_ratio")
                 data["ratios"]["operating_margin"] = ratios.get("operating_margin")
+                data["ratios"]["market_cap"] = ratios.get("market_cap")
+                print(f"[AI] Financial data OK: ROE={data['ratios']['roe']}, PER={data['ratios']['per']}")
 
-            # 분기 실적
-            q_data = await get_stock_financials_kr(code, "quarter")
-            if q_data and q_data.get("success"):
+            # 분기 실적 (재시도 포함)
+            q_data = await fetch_with_retry(get_stock_financials_kr, code, "quarter")
+            if q_data:
                 quarter = q_data.get("quarter", {})
-                data["quarter"]["revenue"] = quarter.get("revenue", [])[:4]
-                data["quarter"]["operating_income"] = quarter.get("operating_income", [])[:4]
-                data["quarter"]["net_income"] = quarter.get("net_income", [])[:4]
+                data["quarter"]["revenue"] = quarter.get("revenue", [])[:8]  # 8분기로 확장
+                data["quarter"]["operating_income"] = quarter.get("operating_income", [])[:8]
+                data["quarter"]["net_income"] = quarter.get("net_income", [])[:8]
+                print(f"[AI] Quarter data OK: {len(data['quarter']['revenue'])} quarters")
 
     except Exception as e:
         print(f"[AI] Financial data collection error for {code}: {e}")
+
+    # 데이터 수집 결과 요약 로그
+    filled_ratios = sum(1 for v in data["ratios"].values() if v is not None)
+    print(f"[AI] Financial summary: ratios={filled_ratios}/7, annual={len(data['annual']['revenue'])}, quarter={len(data['quarter']['revenue'])}")
 
     return data
 
@@ -15455,13 +15483,31 @@ def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list
 
 ---
 
+## ⚠️⚠️ 절대 규칙 (위반 시 리포트 무효) ⚠️⚠️
+
+**[규칙 A] 본문 숫자 → 테이블 필수 동기화**
+- 본문에서 "매출액 5,767억원"이라고 썼으면, 연간 실적 테이블의 해당 연도 매출액에 반드시 5,767을 넣어라.
+- 본문과 테이블의 숫자가 다르면 절대 안 됨.
+- 본문에 언급한 모든 재무 숫자(매출, 영업이익, 순이익, ROE, EPS 등)는 테이블에도 동일하게 기재.
+
+**[규칙 B] 테이블 빈칸율 50% 초과 금지**
+- 연간 실적 테이블 24칸(6항목 × 4개년) 중 "미확인"이 12칸 이상이면 안 됨.
+- 제공된 재무 데이터, 웹검색 결과, 본문에서 언급한 숫자를 모두 활용하여 최대한 채워라.
+- 정말 어디에서도 찾을 수 없는 항목만 "-"로 표시 ("미확인" 대신 "-" 사용).
+
+**[규칙 C] 면책조항 1번만**
+- 리포트 전체에서 면책조항은 맨 마지막 7번 섹션에 1번만 작성.
+- 중간에 면책조항을 넣으면 안 됨.
+
+---
+
 ## 작성 규칙 (필수)
 
 ### 실적 테이블 규칙 (가장 중요)
 1. **본문에 언급한 숫자는 반드시 테이블에도 포함**할 것
 2. **4개년 필수**: 2023A, 2024A, 2025F, 2026F
 3. **6항목 필수**: 매출액/영업이익/순이익/EPS/영업이익률/ROE
-4. **"미확인"은 전체의 20% 이하**만 허용 (24칸 중 5칸 이하)
+4. **"-"는 정말 데이터가 없을 때만** (전체의 50% 미만)
 5. 테이블과 본문의 숫자가 **모순되면 안 됨**
 
 ### 분기별 실적 규칙
@@ -15931,8 +15977,45 @@ async def _generate_etf_report(name: str, code: str, market: str = "kr", chart_d
         }
 
 
+def _validate_report_quality(report_md: str) -> tuple[bool, str]:
+    """리포트 품질 검증 - 빈칸율, 면책조항 중복 등 체크"""
+    import re
+
+    # 1) 빈칸율 체크 (테이블에서 "미확인", "-", 빈칸 비율)
+    # 테이블 패턴: | 값 | 값 | 값 |
+    table_cells = re.findall(r'\|\s*([^|]+?)\s*\|', report_md)
+    if table_cells:
+        empty_patterns = ['미확인', '-', '—', '']
+        empty_count = sum(1 for cell in table_cells if cell.strip() in empty_patterns or cell.strip() == '')
+        total_cells = len(table_cells)
+        if total_cells > 10:  # 의미 있는 테이블이 있는 경우만
+            empty_ratio = empty_count / total_cells
+            if empty_ratio > 0.5:
+                return False, f"테이블 빈칸율 {empty_ratio:.0%} (50% 초과)"
+
+    # 2) 면책조항 중복 체크
+    disclaimer_patterns = [
+        '투자 참고 자료로만',
+        '매수/매도를 권유하지 않습니다',
+        'AI가 생성한 내용',
+        '본인의 판단과 책임'
+    ]
+    disclaimer_count = 0
+    for pattern in disclaimer_patterns:
+        disclaimer_count += len(re.findall(pattern, report_md))
+
+    if disclaimer_count > 4:  # 1번의 면책조항에서 약 4개 패턴이 등장
+        return False, f"면책조항 중복 (패턴 {disclaimer_count}회 발견)"
+
+    # 3) 최소 길이 체크 (3000자 이상)
+    if len(report_md) < 3000:
+        return False, f"리포트 길이 부족 ({len(report_md)}자 < 3000자)"
+
+    return True, "OK"
+
+
 async def _generate_claude_report(name: str, code: str, market: str = "kr", chart_data: dict = None) -> dict:
-    """Claude API로 종합 분석 리포트 생성"""
+    """Claude API로 종합 분석 리포트 생성 (품질 검증 + 재생성 포함)"""
     import anthropic
 
     api_key = os.getenv("ANTHROPIC_API_KEY")
@@ -15943,6 +16026,8 @@ async def _generate_claude_report(name: str, code: str, market: str = "kr", char
             "report": _generate_simple_report({"name": name, "symbol": code}),
             "fallback": True
         }
+
+    MAX_ATTEMPTS = 2  # 최대 생성 시도 횟수
 
     try:
         # 데이터 수집
@@ -15961,31 +16046,61 @@ async def _generate_claude_report(name: str, code: str, market: str = "kr", char
         # 프롬프트 구성 (market에 따라 통화 단위 변경)
         prompt = _build_claude_prompt(name, code, tech, fin, news, "", market)
 
-        # Claude API 호출 (AsyncAnthropic 사용 - 이벤트 루프 블로킹 방지)
-        print(f"[AI Report] Calling Claude API...")
+        # Claude API 호출 (재생성 로직 포함)
         client = anthropic.AsyncAnthropic(api_key=api_key, timeout=180.0)
 
-        response = await client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=16000,  # 8000에서 잘림 발생 → 16000으로 증가
-            messages=[{"role": "user", "content": prompt}]
-        )
+        best_report = None
+        best_quality = None
 
-        report_md = response.content[0].text
-        stop_reason = response.stop_reason
-        input_tokens = response.usage.input_tokens
-        output_tokens = response.usage.output_tokens
-        print(f"[AI Report] Generated report: {len(report_md)} chars")
-        print(f"[AI Report] stop_reason={stop_reason}, input_tokens={input_tokens}, output_tokens={output_tokens}")
-        if stop_reason == "max_tokens":
-            print(f"[AI Report] ⚠️ WARNING: 출력이 max_tokens에 도달하여 잘림! output_tokens={output_tokens}")
+        for attempt in range(MAX_ATTEMPTS):
+            print(f"[AI Report] Calling Claude API (attempt {attempt + 1}/{MAX_ATTEMPTS})...")
 
+            response = await client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=16000,
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            report_md = response.content[0].text
+            stop_reason = response.stop_reason
+            input_tokens = response.usage.input_tokens
+            output_tokens = response.usage.output_tokens
+
+            print(f"[AI Report] Generated: {len(report_md)} chars, stop={stop_reason}, in={input_tokens}, out={output_tokens}")
+
+            # 품질 검증
+            is_valid, quality_msg = _validate_report_quality(report_md)
+            print(f"[AI Report] Quality check: {quality_msg}")
+
+            if is_valid:
+                # 품질 통과 → 바로 반환
+                return {
+                    "success": True,
+                    "report": report_md,
+                    "technical": tech,
+                    "financial": fin,
+                    "fallback": False,
+                    "attempts": attempt + 1
+                }
+            else:
+                # 품질 실패 → 더 나은 것 저장
+                if best_report is None or len(report_md) > len(best_report):
+                    best_report = report_md
+                    best_quality = quality_msg
+
+                if attempt < MAX_ATTEMPTS - 1:
+                    print(f"[AI Report] ⚠️ 품질 실패, 재생성 시도...")
+
+        # 모든 시도 실패 → 가장 좋은 것 반환
+        print(f"[AI Report] ⚠️ 품질 검증 실패, 최선의 결과 반환: {best_quality}")
         return {
             "success": True,
-            "report": report_md,
+            "report": best_report,
             "technical": tech,
             "financial": fin,
-            "fallback": False
+            "fallback": False,
+            "quality_warning": best_quality,
+            "attempts": MAX_ATTEMPTS
         }
 
     except Exception as e:
