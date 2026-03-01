@@ -334,6 +334,10 @@ app.add_middleware(
 from .premium_routes import router as premium_router
 app.include_router(premium_router)
 
+# Watchlist Router (명령서61 - 모듈 분리)
+from .routers.watchlist import router as watchlist_router
+app.include_router(watchlist_router)
+
 
 @app.get("/api/auth/google/login")
 async def auth_google_login(request: Request):
