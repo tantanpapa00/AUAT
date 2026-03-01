@@ -13512,6 +13512,20 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
             t_company = time_module.time()
             print(f"[AI 시간] 기업 개요 수집: {t_company - t_news:.1f}초")
 
+            # ★ 재무 데이터 사전수집 (명령서56: 일관된 숫자 보장)
+            pre_fetched_data = {}
+            try:
+                print(f"[AI Chat] Pre-fetching financial data for {code}...")
+                pre_fetched_data = await fetch_report_data(code, market.upper())
+                if pre_fetched_data:
+                    print(f"[AI Chat] Pre-fetched: annual={len(pre_fetched_data.get('annual', []))}, consensus={len(pre_fetched_data.get('consensus', []))}")
+                else:
+                    print(f"[AI Chat] Pre-fetch returned empty, will use AI web search")
+            except Exception as e:
+                print(f"[AI Chat] Pre-fetch failed ({e}), will use AI web search")
+            t_prefetch = time_module.time()
+            print(f"[AI 시간] 사전수집: {t_prefetch - t_company:.1f}초")
+
             # 차트 생성
             _ai_jobs[job_id]["progress"] = f"📈 {name} 차트 생성 중..."
             chart_urls = await _generate_ai_charts(code, name, market)
@@ -13526,8 +13540,8 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
 
             _ai_jobs[job_id]["progress"] = "🤖 AI가 분석 중..."
 
-            # 데이터 기반 프롬프트 생성 (기업 개요 포함, market에 따라 통화 단위 변경)
-            system_prompt, user_data_prompt = _build_claude_prompt(name, code, tech, fin, news, company_summary, market)
+            # 데이터 기반 프롬프트 생성 (기업 개요 포함, market에 따라 통화 단위 변경, 사전수집 데이터 포함)
+            system_prompt, user_data_prompt = _build_claude_prompt(name, code, tech, fin, news, company_summary, market, pre_fetched_data)
             t_prompt = time_module.time()
             print(f"[AI 시간] 프롬프트 조립: {t_prompt - t_chart:.1f}초")
 
