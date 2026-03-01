@@ -38,9 +38,36 @@ def _safe_int(value, default=0) -> int:
     try:
         if isinstance(value, str):
             return int(value.replace(",", "").strip())
+        # NaN 체크 (pandas/numpy)
+        import math
+        if isinstance(value, float) and math.isnan(value):
+            return default
         return int(value)
     except (ValueError, TypeError):
         return default
+
+
+def _safe_number_us(value, divisor=1) -> int:
+    """yfinance 숫자 안전 변환 (NaN, None, 0 처리)"""
+    if value is None:
+        return 0
+    try:
+        import math
+        import numpy as np
+        # pandas/numpy NaN 체크
+        if isinstance(value, float):
+            if math.isnan(value) or math.isinf(value):
+                return 0
+        if hasattr(np, 'isnan'):
+            try:
+                if np.isnan(value):
+                    return 0
+            except (TypeError, ValueError):
+                pass
+        result = int(value / divisor) if divisor != 1 else int(value)
+        return result
+    except (ValueError, TypeError, OverflowError):
+        return 0
 
 
 async def fetch_kr_financial_data(ticker: str) -> Dict[str, Any]:
@@ -285,10 +312,10 @@ async def fetch_us_financial_data(ticker: str) -> Dict[str, Any]:
                 op_income = income_stmt.loc["Operating Income", col] if "Operating Income" in income_stmt.index else 0
                 net_income = income_stmt.loc["Net Income", col] if "Net Income" in income_stmt.index else 0
 
-                # 백만 달러 단위로 변환
-                revenue_m = int(revenue / 1_000_000) if revenue else 0
-                op_income_m = int(op_income / 1_000_000) if op_income else 0
-                net_income_m = int(net_income / 1_000_000) if net_income else 0
+                # 백만 달러 단위로 변환 (NaN 안전 처리)
+                revenue_m = _safe_number_us(revenue, 1_000_000)
+                op_income_m = _safe_number_us(op_income, 1_000_000)
+                net_income_m = _safe_number_us(net_income, 1_000_000)
 
                 op_margin = (op_income_m / revenue_m * 100) if revenue_m > 0 else 0
 
@@ -313,8 +340,9 @@ async def fetch_us_financial_data(ticker: str) -> Dict[str, Any]:
                 revenue = quarterly_income.loc["Total Revenue", col] if "Total Revenue" in quarterly_income.index else 0
                 op_income = quarterly_income.loc["Operating Income", col] if "Operating Income" in quarterly_income.index else 0
 
-                revenue_m = int(revenue / 1_000_000) if revenue else 0
-                op_income_m = int(op_income / 1_000_000) if op_income else 0
+                # NaN 안전 처리
+                revenue_m = _safe_number_us(revenue, 1_000_000)
+                op_income_m = _safe_number_us(op_income, 1_000_000)
                 op_margin = (op_income_m / revenue_m * 100) if revenue_m > 0 else 0
 
                 result["quarterly"].append({
@@ -325,41 +353,107 @@ async def fetch_us_financial_data(ticker: str) -> Dict[str, Any]:
                     "is_estimate": False,
                 })
 
-        # 애널리스트 컨센서스
-        recommendations = stock.recommendations
-        if recommendations is not None and not recommendations.empty:
-            # 최근 추천 정보
-            recent = recommendations.tail(5)
-            for _, row in recent.iterrows():
-                firm = row.get("Firm", "")
-                grade = row.get("To Grade", row.get("Action", ""))
+        # 애널리스트 컨센서스 (yfinance 새 형식: 집계 데이터)
+        try:
+            recommendations = stock.recommendations
+            info = stock.info
 
-                if firm:
-                    opinion = "매수"
-                    if any(x in str(grade).lower() for x in ["buy", "outperform", "overweight"]):
-                        opinion = "매수"
-                    elif any(x in str(grade).lower() for x in ["hold", "neutral", "equal"]):
-                        opinion = "중립"
-                    elif any(x in str(grade).lower() for x in ["sell", "underperform", "underweight"]):
-                        opinion = "매도"
+            # 목표가 정보
+            target_mean = info.get("targetMeanPrice", 0) if info else 0
+            target_high = info.get("targetHighPrice", 0) if info else 0
+            target_low = info.get("targetLowPrice", 0) if info else 0
+            num_analysts = info.get("numberOfAnalystOpinions", 0) if info else 0
 
-                    result["consensus"].append({
-                        "broker": firm,
-                        "opinion": opinion,
-                        "target_price": 0,  # yfinance에서 목표가 직접 제공 안 함
-                        "reason": "",
-                    })
+            import math
+            # NaN 체크 함수
+            def safe_price(v):
+                if v is None:
+                    return 0
+                if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+                    return 0
+                return round(v, 2)
 
-        # 목표가는 info에서 가져오기
-        info = stock.info
-        if info:
-            target_mean = info.get("targetMeanPrice", 0)
+            target_mean = safe_price(target_mean)
+            target_high = safe_price(target_high)
+            target_low = safe_price(target_low)
 
-            # 목표가 범위를 consensus에 추가
-            if target_mean and result["consensus"]:
-                for c in result["consensus"]:
-                    if c["target_price"] == 0:
-                        c["target_price"] = target_mean
+            # recommendations가 집계 형식인 경우 (strongBuy, buy, hold, sell 컬럼)
+            if recommendations is not None and not recommendations.empty:
+                cols = list(recommendations.columns)
+
+                if "strongBuy" in cols or "buy" in cols:
+                    # 최신 행 (0m = 이번 달)
+                    latest = recommendations.iloc[0] if len(recommendations) > 0 else None
+
+                    if latest is not None:
+                        strong_buy = int(latest.get("strongBuy", 0) or 0)
+                        buy = int(latest.get("buy", 0) or 0)
+                        hold = int(latest.get("hold", 0) or 0)
+                        sell = int(latest.get("sell", 0) or 0)
+                        strong_sell = int(latest.get("strongSell", 0) or 0)
+
+                        total = strong_buy + buy + hold + sell + strong_sell
+
+                        if total > 0:
+                            # 집계 결과를 단일 consensus로 추가
+                            buy_pct = (strong_buy + buy) / total * 100
+                            if buy_pct >= 60:
+                                overall_opinion = "매수"
+                            elif buy_pct >= 40:
+                                overall_opinion = "중립"
+                            else:
+                                overall_opinion = "매도"
+
+                            result["consensus"].append({
+                                "broker": f"Analyst Consensus ({total}명)",
+                                "opinion": overall_opinion,
+                                "target_price": target_mean,
+                                "reason": f"Strong Buy: {strong_buy}, Buy: {buy}, Hold: {hold}, Sell: {sell}, Strong Sell: {strong_sell}",
+                            })
+
+                            # 추가로 목표가 범위 정보
+                            if target_high > 0 and target_low > 0:
+                                result["consensus"].append({
+                                    "broker": "Target Price Range",
+                                    "opinion": "-",
+                                    "target_price": target_mean,
+                                    "reason": f"High: ${target_high:,.0f}, Low: ${target_low:,.0f}",
+                                })
+
+                elif "Firm" in cols:
+                    # 구 형식 (개별 증권사) - 혹시 모르니 유지
+                    recent = recommendations.tail(5)
+                    for _, row in recent.iterrows():
+                        firm = str(row.get("Firm", "") or "").strip()
+                        grade = str(row.get("To Grade", row.get("Action", "")) or "").strip()
+
+                        if firm:
+                            opinion = "매수"
+                            if any(x in grade.lower() for x in ["buy", "outperform", "overweight"]):
+                                opinion = "매수"
+                            elif any(x in grade.lower() for x in ["hold", "neutral", "equal"]):
+                                opinion = "중립"
+                            elif any(x in grade.lower() for x in ["sell", "underperform", "underweight"]):
+                                opinion = "매도"
+
+                            result["consensus"].append({
+                                "broker": firm,
+                                "opinion": opinion,
+                                "target_price": target_mean,
+                                "reason": "",
+                            })
+
+            # recommendations가 없어도 info에서 목표가 있으면 추가
+            elif target_mean > 0 and num_analysts > 0:
+                result["consensus"].append({
+                    "broker": f"Analyst Consensus ({num_analysts}명)",
+                    "opinion": "매수",  # 기본값
+                    "target_price": target_mean,
+                    "reason": f"Target Range: ${target_low:,.0f} ~ ${target_high:,.0f}",
+                })
+
+        except Exception as e:
+            print(f"[ReportData] US 컨센서스 처리 실패 ({ticker}): {e}")
 
         # 정렬
         result["annual"].sort(key=lambda x: x["period"])
