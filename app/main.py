@@ -13561,6 +13561,9 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
 반드시 실제 수치(현재가, RSI, ADX, MACD 등)를 인용하며 작성하세요.
 """
 
+            # ★ 명령서59: 순수 블록 분리 캐싱 (user_prompt 텍스트 변경 없음)
+            cache_messages = _split_prompt_for_cache(final_user_prompt)
+
             response = await client.messages.create(
                 model="claude-haiku-4-5-20251001",
                 max_tokens=16000,
@@ -13568,16 +13571,18 @@ async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
                 system=[{
                     "type": "text",
                     "text": system_prompt,
-                    "cache_control": {"type": "ephemeral"}  # 프롬프트 캐싱
+                    "cache_control": {"type": "ephemeral"}
                 }],
-                messages=[{"role": "user", "content": final_user_prompt}]
+                messages=cache_messages
             )
             t_claude = time_module.time()
 
-            # 캐싱 상태 로그
-            cache_create = getattr(response.usage, 'cache_creation_input_tokens', 0)
-            cache_read = getattr(response.usage, 'cache_read_input_tokens', 0)
-            print(f"[AI 시간] Claude API 호출: {t_claude - t_prompt:.1f}초 (Cache: create={cache_create}, read={cache_read})")
+            # ★ 캐싱 상태 및 비용 로그 (명령서59)
+            usage = response.usage
+            cache_create = getattr(usage, 'cache_creation_input_tokens', 0)
+            cache_read = getattr(usage, 'cache_read_input_tokens', 0)
+            print(f"[CACHE] tokens: input={usage.input_tokens}, cache_create={cache_create}, cache_read={cache_read}, output={usage.output_tokens}")
+            print(f"[AI 시간] Claude API 호출: {t_claude - t_prompt:.1f}초")
         else:
             # 종목 미인식 → 일반 채팅
             _ai_jobs[job_id]["progress"] = "🤖 AI가 생각 중..."
@@ -15183,6 +15188,53 @@ AI_REPORT_SYSTEM_PROMPT = """당신은 15년 경력의 전문 증권 애널리�
 """
 
 
+def _split_prompt_for_cache(user_prompt: str) -> list:
+    """
+    명령서59: user_prompt를 캐싱용 content 배열로 변환한다.
+
+    핵심 원칙:
+    - user_prompt 텍스트를 한 글자도 변경하지 않는다.
+    - 완성된 문자열을 find()로 잘라서 2조각으로 만들 뿐이다.
+    - 재결합 시 원본과 동일해야 한다.
+    """
+    # 분리 마커 (순서대로 시도)
+    MARKERS = [
+        "📊 서버 제공 재무 데이터",  # 1순위: 서버 데이터 있는 경우
+        "## 제공 데이터",             # 2순위: 서버 데이터 없는 경우
+    ]
+
+    split_idx = -1
+    used_marker = None
+
+    for marker in MARKERS:
+        idx = user_prompt.find(marker)
+        if idx > 0:
+            split_idx = idx
+            used_marker = marker
+            break
+
+    if split_idx > 0:
+        static_part = user_prompt[:split_idx]
+        dynamic_part = user_prompt[split_idx:]
+
+        # 검증: 두 조각을 다시 합치면 원본과 동일해야 함
+        if static_part + dynamic_part != user_prompt:
+            print(f"[CACHE WARNING] 분리 후 재결합 불일치! 캐싱 미적용")
+            return [{"role": "user", "content": user_prompt}]
+
+        print(f"[CACHE] 블록 분리 성공 (marker={used_marker[:20]}...). static={len(static_part)}자, dynamic={len(dynamic_part)}자")
+        return [{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": static_part, "cache_control": {"type": "ephemeral"}},
+                {"type": "text", "text": dynamic_part}
+            ]
+        }]
+    else:
+        print(f"[CACHE] 분리 마커 없음, 캐싱 미적용")
+        return [{"role": "user", "content": user_prompt}]
+
+
 def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list, company_summary: str = "", market: str = "kr", pre_fetched_data: dict = None) -> tuple[str, str]:
     """Claude에게 보낼 분석 프롬프트 구성 - (system_prompt, user_prompt) 튜플 반환"""
     from datetime import datetime, timezone, timedelta
@@ -16266,6 +16318,9 @@ async def _generate_claude_report(name: str, code: str, market: str = "kr", char
         best_report = None
         best_quality = None
 
+        # ★ 명령서59: 순수 블록 분리 캐싱 (user_prompt 텍스트 변경 없음)
+        cache_messages = _split_prompt_for_cache(user_prompt)
+
         for attempt in range(MAX_ATTEMPTS):
             print(f"[AI Report] Calling Claude API (attempt {attempt + 1}/{MAX_ATTEMPTS})...")
 
@@ -16275,15 +16330,16 @@ async def _generate_claude_report(name: str, code: str, market: str = "kr", char
                 system=[{
                     "type": "text",
                     "text": system_prompt,
-                    "cache_control": {"type": "ephemeral"}  # 프롬프트 캐싱
+                    "cache_control": {"type": "ephemeral"}
                 }],
-                messages=[{"role": "user", "content": user_prompt}]
+                messages=cache_messages
             )
 
-            # 캐싱 상태 로그
-            cache_create = getattr(response.usage, 'cache_creation_input_tokens', 0)
-            cache_read = getattr(response.usage, 'cache_read_input_tokens', 0)
-            print(f"[AI Report] Cache: create={cache_create}, read={cache_read}")
+            # ★ 캐싱 상태 로그 (명령서59)
+            usage = response.usage
+            cache_create = getattr(usage, 'cache_creation_input_tokens', 0)
+            cache_read = getattr(usage, 'cache_read_input_tokens', 0)
+            print(f"[CACHE] tokens: input={usage.input_tokens}, cache_create={cache_create}, cache_read={cache_read}, output={usage.output_tokens}")
 
             report_md = response.content[0].text
             report_md = _clean_meta_comments(report_md)  # 메타 코멘트 제거
