@@ -17399,11 +17399,11 @@ async def get_watchlist_items(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """그룹 내 관심종목 조회"""
+    """그룹 내 관심종목 조회 (시세 데이터 보강)"""
     try:
         result = db.execute(
             text("""
-                SELECT id, symbol, exchange, added_at FROM watchlist_items
+                SELECT id, symbol, exchange, added_at, name, memo FROM watchlist_items
                 WHERE group_id = :gid AND user_id = :uid
                 ORDER BY added_at DESC
             """),
@@ -17411,27 +17411,52 @@ async def get_watchlist_items(
         )
         rows = result.fetchall()
 
+        # 스크리너 캐시에서 시세 데이터 가져오기
+        from app.screener.kr_screener import load_kr_stocks
+        kr_stocks = await load_kr_stocks()
+        kr_stock_map = {s.get("code"): s for s in kr_stocks}
+
         items = []
         for row in rows:
+            symbol = row[1]
+            exchange = row[2]
+            db_name = row[4] or ""
+            db_memo = row[5] or ""
+
             item = {
                 "id": row[0],
-                "symbol": row[1],
-                "exchange": row[2],
+                "symbol": symbol,
+                "exchange": exchange,
                 "added_at": row[3].isoformat() if row[3] else "",
-                "name": row[1],
+                "name": db_name or symbol,
+                "memo": db_memo,
                 "price": 0,
-                "change": 0,
+                "change_pct": 0,
+                "volume": 0,
             }
-            # 마스터에서 이름 조회
-            master = get_master_cache()
-            stock = master.get_stock(row[1])
-            if stock:
-                item["name"] = stock.name
+
+            # 시세 데이터 보강
+            if exchange in ["kis_kr", "KIS_KR", "kospi", "kosdaq"]:
+                stock_data = kr_stock_map.get(symbol)
+                if stock_data:
+                    item["name"] = db_name or stock_data.get("name", symbol)
+                    item["price"] = stock_data.get("price", 0)
+                    item["change_pct"] = stock_data.get("change_pct", 0)
+                    item["volume"] = stock_data.get("volume", 0)
+                else:
+                    # 마스터에서 이름만 조회
+                    master = get_master_cache()
+                    stock = master.get_stock(symbol)
+                    if stock:
+                        item["name"] = db_name or stock.name
+
             items.append(item)
 
         return {"items": items}
     except Exception as e:
         print(f"Watchlist items error: {e}")
+        import traceback
+        traceback.print_exc()
         return {"items": []}
 
 
@@ -17439,6 +17464,8 @@ class WatchlistItemRequest(BaseModel):
     group_id: int
     symbol: str
     exchange: str
+    name: str = ""  # 종목명 (선택)
+    memo: str = ""  # 메모 (선택)
 
 
 @app.post("/api/watchlist/items")
@@ -17492,10 +17519,11 @@ async def add_watchlist_item(
 
         db.execute(
             text("""
-                INSERT INTO watchlist_items (group_id, user_id, symbol, exchange)
-                VALUES (:gid, :uid, :sym, :ex)
+                INSERT INTO watchlist_items (group_id, user_id, symbol, exchange, name, memo)
+                VALUES (:gid, :uid, :sym, :ex, :name, :memo)
             """),
-            {"gid": request.group_id, "uid": current_user.id, "sym": request.symbol, "ex": request.exchange}
+            {"gid": request.group_id, "uid": current_user.id, "sym": request.symbol,
+             "ex": request.exchange, "name": request.name, "memo": request.memo}
         )
         db.commit()
 

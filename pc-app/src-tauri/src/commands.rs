@@ -3455,6 +3455,8 @@ pub async fn add_watchlist_item(
     group_id: i64,
     symbol: String,
     exchange: String,
+    name: Option<String>,
+    memo: Option<String>,
 ) -> Result<serde_json::Value, String> {
     let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let url = format!("{}/api/watchlist/items", VPS_SERVER_URL);
@@ -3462,7 +3464,9 @@ pub async fn add_watchlist_item(
     let body = serde_json::json!({
         "group_id": group_id,
         "symbol": symbol,
-        "exchange": exchange
+        "exchange": exchange,
+        "name": name.unwrap_or_default(),
+        "memo": memo.unwrap_or_default()
     });
 
     let resp = client

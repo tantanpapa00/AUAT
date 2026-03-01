@@ -9129,16 +9129,41 @@ async function loadWatchlist() {
             if (items.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">관심종목이 없습니다. 종목분석에서 ⭐ 버튼을 눌러 추가하세요.</td></tr>';
             } else {
-                tbody.innerHTML = items.map(item => `
-                    <tr>
-                        <td>${item.name || item.symbol}</td>
-                        <td>${item.price || '-'}</td>
-                        <td class="${item.change >= 0 ? 'profit' : 'loss'}">${item.change >= 0 ? '+' : ''}${item.change || 0}%</td>
-                        <td>${item.volume || '-'}</td>
-                        <td>${item.memo || '-'}</td>
-                        <td><button class="btn btn-sm btn-danger" data-id="${item.id}">삭제</button></td>
-                    </tr>
-                `).join('');
+                tbody.innerHTML = items.map(item => {
+                    const changePct = item.change_pct || 0;
+                    const changeClass = changePct >= 0 ? 'profit' : 'loss';
+                    const changeSign = changePct >= 0 ? '+' : '';
+                    const priceStr = item.price ? item.price.toLocaleString() + '원' : '-';
+                    const volumeStr = item.volume ? (item.volume >= 10000 ? Math.floor(item.volume / 10000) + '만' : item.volume.toLocaleString()) : '-';
+
+                    return `
+                        <tr data-symbol="${item.symbol}" data-exchange="${item.exchange}">
+                            <td>${item.name || item.symbol}</td>
+                            <td class="align-right">${priceStr}</td>
+                            <td class="align-right ${changeClass}">${changeSign}${changePct.toFixed(2)}%</td>
+                            <td class="align-right">${volumeStr}</td>
+                            <td>${item.memo || '-'}</td>
+                            <td><button class="btn btn-sm btn-danger watchlist-delete-btn" data-id="${item.id}">삭제</button></td>
+                        </tr>
+                    `;
+                }).join('');
+
+                // 삭제 버튼 이벤트 바인딩
+                tbody.querySelectorAll('.watchlist-delete-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const itemId = parseInt(btn.dataset.id);
+                        try {
+                            await invoke('remove_watchlist_item', {
+                                accessToken: auth.accessToken || '',
+                                itemId: itemId
+                            });
+                            showToast('관심종목에서 삭제되었습니다', 'success');
+                            loadWatchlist();  // 새로고침
+                        } catch (err) {
+                            showToast('삭제 실패: ' + err, 'error');
+                        }
+                    });
+                });
             }
         }
 
@@ -14307,7 +14332,9 @@ document.getElementById('btn-add-to-watchlist')?.addEventListener('click', async
             accessToken: auth.accessToken || '',
             groupId: 1,  // 기본 그룹 ID (정수)
             symbol: currentStockData.symbol,
-            exchange: currentStockData.exchange
+            exchange: currentStockData.exchange,
+            name: currentStockData.name || currentStockData.symbol,
+            memo: ''
         });
         showToast('관심종목에 추가되었습니다', 'success');
     } catch (error) {
