@@ -44,6 +44,19 @@ SLOT_LIMITS = {
     "premium": 30,      # legacy alias for promax
 }
 
+# 요금제별 백테스트 월간 제한
+# Pro: 100, Pro+/Pro Max: 무제한(99999)
+BACKTEST_MONTHLY_LIMITS = {
+    "starter": 0,
+    "free": 0,
+    "standard": 0,
+    "hub": 0,
+    "pro": 100,
+    "proplus": 99999,   # 무제한
+    "promax": 99999,    # 무제한
+    "premium": 99999,   # legacy alias for promax
+}
+
 # 요금제별 관심종목 제한
 WATCHLIST_LIMITS = {
     "starter": 10,
@@ -91,6 +104,15 @@ def get_slot_limit(user: "User") -> int:
         return 99999
     plan = getattr(user, "plan", "free")
     return SLOT_LIMITS.get(plan, 0)
+
+
+def get_backtest_monthly_limit(user: "User") -> int:
+    """요금제별 백테스트 월간 제한 (Pro:100, Pro+/Pro Max:무제한)"""
+    role = getattr(user, "role", "user")
+    if role == "admin":
+        return 99999
+    plan = getattr(user, "plan", "free")
+    return BACKTEST_MONTHLY_LIMITS.get(plan, 0)
 
 
 def check_standard_plan(user: "User") -> bool:
