@@ -35,14 +35,14 @@
             <div id="email-register-form" class="auth-form" style="display:none;">
                 <input type="text" class="auth-input" id="register-name" placeholder="이름 (선택)">
                 <input type="email" class="auth-input" id="register-email" placeholder="이메일" required>
-                <input type="password" class="auth-input" id="register-password" placeholder="비밀번호 (8자 이상, 영문+숫자+특수문자)" required minlength="8">
+                <input type="password" class="auth-input" id="register-password" placeholder="비밀번호 (12자 이상, 영문+숫자+특수문자)" required minlength="12">
                 <div class="password-requirements" id="pwd-requirements">
-                    <span id="pwd-length" class="pwd-check">❌ 8자리 이상</span>
+                    <span id="pwd-length" class="pwd-check">❌ 12자리 이상</span>
                     <span id="pwd-letter" class="pwd-check">❌ 영문자 포함</span>
                     <span id="pwd-number" class="pwd-check">❌ 숫자 포함</span>
                     <span id="pwd-special" class="pwd-check">❌ 특수문자 포함</span>
                 </div>
-                <input type="password" class="auth-input" id="register-password-confirm" placeholder="비밀번호 확인" required minlength="8">
+                <input type="password" class="auth-input" id="register-password-confirm" placeholder="비밀번호 확인" required minlength="12">
                 <button type="button" class="auth-submit-btn" id="btn-email-register">회원가입</button>
                 <div class="auth-error" id="register-error"></div>
                 <div class="auth-toggle">
