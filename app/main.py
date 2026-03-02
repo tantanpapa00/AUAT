@@ -903,90 +903,8 @@ async def _startup_candle_preloader():
 templates = Jinja2Templates(directory="app/templates")
 
 
-# ---- Legal Document Helpers ----
-def _parse_legal_markdown(file_path: str) -> dict:
-    """
-    Parse legal markdown file and return HTML content with TOC.
-    Returns: {content, toc, title, effective_date, version}
-    """
-    with open(file_path, 'r', encoding='utf-8') as f:
-        md_text = f.read()
-
-    # Extract metadata from first few lines
-    lines = md_text.split('\n')
-    title = ""
-    effective_date = ""
-    version = ""
-
-    for line in lines[:5]:
-        if line.startswith('# '):
-            title = line[2:].strip()
-        elif '시행일:' in line and '버전:' in line:
-            # Parse "시행일: 2026년 3월 1일 | 버전: 3.0"
-            match = re.search(r'시행일:\s*([^|]+)\|?\s*버전:\s*(\S+)', line)
-            if match:
-                effective_date = match.group(1).strip()
-                version = match.group(2).strip()
-
-    # Convert markdown to HTML
-    md = markdown.Markdown(extensions=['tables', 'fenced_code', 'toc'])
-    html_content = md.convert(md_text)
-
-    # Extract TOC from headings
-    toc = []
-    heading_pattern = re.compile(r'<h([12]).*?id="([^"]+)"[^>]*>(.+?)</h\1>', re.DOTALL)
-
-    # Add IDs to headings if not present and build TOC
-    def add_id_and_toc(match):
-        level = match.group(1)
-        existing_id = match.group(2) if match.group(2) else None
-        text = re.sub(r'<[^>]+>', '', match.group(3))  # Strip HTML tags
-
-        # Generate ID from text
-        heading_id = existing_id or re.sub(r'[^\w가-힣-]', '', text.lower().replace(' ', '-'))
-
-        toc.append({
-            'id': heading_id,
-            'text': text,
-            'depth': int(level)
-        })
-
-        return f'<h{level} id="{heading_id}" class="section-anchor"><a href="#{heading_id}" class="heading-link">{match.group(3)}</a></h{level}>'
-
-    # Process headings to add anchors
-    html_content = re.sub(r'<h([12])(?:\s+id="([^"]*)")?[^>]*>(.+?)</h\1>', add_id_and_toc, html_content, flags=re.DOTALL)
-
-    return {
-        'content': html_content,
-        'toc': toc,
-        'title': title,
-        'effective_date': effective_date,
-        'version': version
-    }
-
-
-LEGAL_DOCS = {
-    'terms': {
-        'file': 'app/data/legal/terms.md',
-        'title_fallback': '이용약관',
-        'canonical': '/terms'
-    },
-    'privacy': {
-        'file': 'app/data/legal/privacy.md',
-        'title_fallback': '개인정보처리방침',
-        'canonical': '/privacy'
-    },
-    'refund': {
-        'file': 'app/data/legal/refund.md',
-        'title_fallback': '환불정책',
-        'canonical': '/refund'
-    },
-    'risk': {
-        'file': 'app/data/legal/investment_risk.md',
-        'title_fallback': '투자위험고지',
-        'canonical': '/risk'
-    }
-}
+# ---- Policy Document Parser (SSOT from data/policies/) ----
+from app.utils.policy_parser import parse_policy
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -1001,76 +919,48 @@ def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
 
+def _render_policy_page(request: Request, policy_type: str, canonical: str):
+    """Common handler for policy pages using SSOT parser."""
+    doc = parse_policy(policy_type)
+    if not doc:
+        raise HTTPException(status_code=404, detail=f"Policy not found: {policy_type}")
+
+    return templates.TemplateResponse("legal.html", {
+        "request": request,
+        "seo_title": doc.title,
+        "title": doc.title,
+        "content": doc.content_html,
+        "toc": doc.toc,
+        "effective_date": doc.effective_date,
+        "version": doc.version,
+        "last_updated": doc.last_updated,
+        "canonical_path": canonical,
+        "doc_type": policy_type
+    })
+
+
 @app.get("/terms", response_class=HTMLResponse)
 def terms_page(request: Request):
     """Terms of Service page (이용약관)"""
-    doc_info = LEGAL_DOCS['terms']
-    parsed = _parse_legal_markdown(doc_info['file'])
-    return templates.TemplateResponse("legal.html", {
-        "request": request,
-        "seo_title": doc_info['title_fallback'],
-        "title": parsed['title'] or doc_info['title_fallback'],
-        "content": parsed['content'],
-        "toc": parsed['toc'],
-        "effective_date": parsed['effective_date'],
-        "version": parsed['version'],
-        "canonical_path": doc_info['canonical'],
-        "doc_type": "terms"
-    })
+    return _render_policy_page(request, "terms", "/terms")
 
 
 @app.get("/privacy", response_class=HTMLResponse)
 def privacy_page(request: Request):
     """Privacy Policy page (개인정보처리방침)"""
-    doc_info = LEGAL_DOCS['privacy']
-    parsed = _parse_legal_markdown(doc_info['file'])
-    return templates.TemplateResponse("legal.html", {
-        "request": request,
-        "seo_title": doc_info['title_fallback'],
-        "title": parsed['title'] or doc_info['title_fallback'],
-        "content": parsed['content'],
-        "toc": parsed['toc'],
-        "effective_date": parsed['effective_date'],
-        "version": parsed['version'],
-        "canonical_path": doc_info['canonical'],
-        "doc_type": "privacy"
-    })
+    return _render_policy_page(request, "privacy", "/privacy")
 
 
 @app.get("/refund", response_class=HTMLResponse)
 def refund_page(request: Request):
     """Refund Policy page (환불규정)"""
-    doc_info = LEGAL_DOCS['refund']
-    parsed = _parse_legal_markdown(doc_info['file'])
-    return templates.TemplateResponse("legal.html", {
-        "request": request,
-        "seo_title": doc_info['title_fallback'],
-        "title": parsed['title'] or doc_info['title_fallback'],
-        "content": parsed['content'],
-        "toc": parsed['toc'],
-        "effective_date": parsed['effective_date'],
-        "version": parsed['version'],
-        "canonical_path": doc_info['canonical'],
-        "doc_type": "refund"
-    })
+    return _render_policy_page(request, "refund", "/refund")
 
 
 @app.get("/risk", response_class=HTMLResponse)
 def risk_page(request: Request):
     """Investment Risk Disclosure page (투자위험고지)"""
-    doc_info = LEGAL_DOCS['risk']
-    parsed = _parse_legal_markdown(doc_info['file'])
-    return templates.TemplateResponse("legal.html", {
-        "request": request,
-        "seo_title": doc_info['title_fallback'],
-        "title": parsed['title'] or doc_info['title_fallback'],
-        "content": parsed['content'],
-        "toc": parsed['toc'],
-        "effective_date": parsed['effective_date'],
-        "version": parsed['version'],
-        "canonical_path": doc_info['canonical'],
-        "doc_type": "risk"
-    })
+    return _render_policy_page(request, "risk", "/risk")
 
 
 @app.get("/dashboard", response_class=HTMLResponse)

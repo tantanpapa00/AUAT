@@ -108,7 +108,84 @@
       gap: 48px;
     }
 
-    /* TOC Sidebar */
+    /* Mobile TOC (dropdown) */
+    .mobile-toc {
+      display: none;
+      margin-bottom: 24px;
+    }
+
+    .mobile-toc-toggle {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--bg-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .mobile-toc-toggle:hover {
+      border-color: var(--primary);
+    }
+
+    .mobile-toc-toggle svg {
+      transition: transform 0.2s;
+    }
+
+    .mobile-toc.open .mobile-toc-toggle svg {
+      transform: rotate(180deg);
+    }
+
+    .mobile-toc-content {
+      display: none;
+      margin-top: 8px;
+      padding: 12px;
+      background: var(--bg-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .mobile-toc.open .mobile-toc-content {
+      display: block;
+    }
+
+    .mobile-toc-list {
+      list-style: none;
+    }
+
+    .mobile-toc-item {
+      margin-bottom: 4px;
+    }
+
+    .mobile-toc-link {
+      display: block;
+      padding: 8px 12px;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+
+    .mobile-toc-link:hover {
+      background: var(--bg);
+      color: var(--primary);
+    }
+
+    .mobile-toc-link.depth-2 {
+      padding-left: 24px;
+      font-size: 13px;
+    }
+
+    /* TOC Sidebar (desktop) */
     .toc-sidebar {
       width: 280px;
       flex-shrink: 0;
@@ -334,6 +411,19 @@
       font-family: 'SF Mono', Consolas, monospace;
     }
 
+    .prose pre {
+      background: var(--bg-alt);
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 16px 0;
+    }
+
+    .prose pre code {
+      padding: 0;
+      background: none;
+    }
+
     /* Section anchors */
     .section-anchor {
       scroll-margin-top: 100px;
@@ -396,6 +486,10 @@
         display: none;
       }
 
+      .mobile-toc {
+        display: block;
+      }
+
       .main-container {
         padding: 24px 20px;
       }
@@ -435,7 +529,7 @@
 
     /* Print */
     @media print {
-      .header, .toc-sidebar, .footer {
+      .header, .toc-sidebar, .mobile-toc, .footer {
         display: none;
       }
 
@@ -482,6 +576,25 @@
     </aside>
 
     <article class="content">
+      <!-- Mobile TOC (dropdown) -->
+      <div class="mobile-toc" id="mobileToc">
+        <button class="mobile-toc-toggle" onclick="toggleMobileToc()">
+          <span>목차 보기</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </button>
+        <div class="mobile-toc-content">
+          <ul class="mobile-toc-list">
+            {% for item in toc %}
+            <li class="mobile-toc-item">
+              <a href="#{{ item.id }}" class="mobile-toc-link depth-{{ item.depth }}" onclick="closeMobileToc()">{{ item.text }}</a>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+
       <header class="document-header">
         <h1 class="document-title">{{ title }}</h1>
         <div class="document-meta">
@@ -501,6 +614,15 @@
             </svg>
             버전: {{ version }}
           </span>
+          {% if last_updated %}
+          <span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+            최종 수정: {{ last_updated }}
+          </span>
+          {% endif %}
         </div>
       </header>
 
@@ -523,14 +645,26 @@
   </footer>
 
   <script>
-    // Highlight current TOC item on scroll
+    // Mobile TOC toggle
+    function toggleMobileToc() {
+      document.getElementById('mobileToc').classList.toggle('open');
+    }
+
+    function closeMobileToc() {
+      document.getElementById('mobileToc').classList.remove('open');
+    }
+
+    // Highlight current TOC item on scroll (desktop)
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         const id = entry.target.getAttribute('id');
         const tocLink = document.querySelector(`.toc-link[href="#${id}"]`);
         if (tocLink) {
           if (entry.isIntersecting) {
-            document.querySelectorAll('.toc-link').forEach(link => link.style.color = '');
+            document.querySelectorAll('.toc-link').forEach(link => {
+              link.style.color = '';
+              link.style.borderLeftColor = '';
+            });
             tocLink.style.color = 'var(--primary)';
             tocLink.style.borderLeftColor = 'var(--primary)';
           }
