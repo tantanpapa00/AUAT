@@ -357,21 +357,21 @@ async def get_terms(term_type: str, full: bool = False):
     terms_meta = {
         "terms": {
             "title": "이용약관",
-            "version": "1.0",
+            "version": "3.0",
             "summary": "BBooster 서비스 이용에 관한 기본 약관입니다.",
             "url": "/legal/terms",
             "file": "terms.md"
         },
         "privacy": {
             "title": "개인정보 처리방침",
-            "version": "1.0",
+            "version": "3.0",
             "summary": "수집하는 개인정보: 이메일, 거래소 API 키(암호화 저장)",
             "url": "/legal/privacy",
             "file": "privacy.md"
         },
         "investment_risk": {
             "title": "투자 위험 고지",
-            "version": "1.0",
+            "version": "3.0",
             "summary": "투자 판단과 결과 책임은 사용자에게 있으며, BBooster는 정보 제공 및 자동 실행 도구입니다.",
             "url": "/legal/investment-risk",
             "file": "investment_risk.md"
