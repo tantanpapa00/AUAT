@@ -78,14 +78,16 @@
     }
 
     .logo {
+      display: flex;
+      align-items: center;
       font-size: 20px;
       font-weight: 700;
       text-decoration: none;
       color: var(--heading);
     }
 
-    .logo span:first-child { color: var(--primary); }
-    .logo span:last-child { color: #ef4444; }
+    .logo span:first-of-type { color: var(--primary); }
+    .logo span:last-of-type { color: #ef4444; }
 
     .back-link {
       color: var(--text-muted);
@@ -552,6 +554,23 @@
   <header class="header">
     <div class="header-inner">
       <a href="/" class="logo">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="28" height="28" style="margin-right:8px;">
+          <defs>
+            <linearGradient id="nBg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#0F172A"/><stop offset="100%" style="stop-color:#1A1A2E"/></linearGradient>
+            <linearGradient id="nRing" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#DC2626"/><stop offset="50%" style="stop-color:#EF4444"/><stop offset="100%" style="stop-color:#FBBF24"/></linearGradient>
+            <linearGradient id="nb1" x1="0%" y1="100%" x2="0%" y2="0%"><stop offset="0%" style="stop-color:#991B1B"/><stop offset="100%" style="stop-color:#DC2626"/></linearGradient>
+            <linearGradient id="nb2" x1="0%" y1="100%" x2="0%" y2="0%"><stop offset="0%" style="stop-color:#B91C1C"/><stop offset="100%" style="stop-color:#EF4444"/></linearGradient>
+            <linearGradient id="nb3" x1="0%" y1="100%" x2="0%" y2="0%"><stop offset="0%" style="stop-color:#DC2626"/><stop offset="100%" style="stop-color:#FBBF24"/></linearGradient>
+            <linearGradient id="narrow" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:#FBBF24"/><stop offset="100%" style="stop-color:#FEF3C7"/></linearGradient>
+          </defs>
+          <rect x="16" y="16" width="480" height="480" rx="96" fill="url(#nBg)"/>
+          <rect x="24" y="24" width="464" height="464" rx="88" fill="none" stroke="url(#nRing)" stroke-width="8" opacity="0.6"/>
+          <rect x="112" y="300" width="64" height="100" rx="10" fill="url(#nb1)" opacity="0.9"/>
+          <rect x="200" y="240" width="64" height="160" rx="10" fill="url(#nb2)" opacity="0.9"/>
+          <rect x="288" y="165" width="64" height="235" rx="10" fill="url(#nb3)" opacity="0.95"/>
+          <line x1="320" y1="165" x2="395" y2="80" stroke="url(#narrow)" stroke-width="14" stroke-linecap="round"/>
+          <polygon points="395,80 374,98 392,103" fill="#FEF3C7" opacity="0.95"/>
+        </svg>
         <span>B</span><span>Booster</span>
       </a>
       <a href="/" class="back-link">
