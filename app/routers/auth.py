@@ -9,7 +9,9 @@ import httpx
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
+import json
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from pydantic import BaseModel
@@ -354,13 +356,28 @@ POLICY_SUMMARIES = {
     "investment_risk": "투자 판단과 결과 책임은 사용자에게 있으며, BBooster는 정보 제공 및 자동 실행 도구입니다.",
 }
 
+# Templates for HTML rendering
+_templates = Jinja2Templates(directory="app/templates")
+
 
 @router.get("/api/auth/terms/{term_type}")
-async def get_terms(term_type: str, full: bool = False):
+async def get_terms(
+    request: Request,
+    term_type: str,
+    full: bool = False,
+    view: Optional[str] = None
+):
     """
     약관 내용 조회 (SSOT: data/policies/*.md).
-    type: terms, privacy, refund, risk, investment_risk
-    full=true면 전문(content_md) 반환.
+
+    Args:
+        term_type: terms, privacy, refund, risk, investment_risk
+        full: true면 전문(content_md) 반환
+        view: html(HTML 렌더링), json(기본), pretty(JSON 포맷팅)
+
+    Content Negotiation:
+        - Accept: text/html → HTML 렌더링
+        - Accept: application/json (또는 기본) → JSON 응답
     """
     # Parse policy from SSOT markdown file
     doc = parse_policy(term_type)
@@ -368,8 +385,31 @@ async def get_terms(term_type: str, full: bool = False):
     if not doc:
         raise HTTPException(status_code=404, detail=f"약관을 찾을 수 없습니다: {term_type}")
 
-    # Base response
-    response = {
+    # Determine response format
+    accept_header = request.headers.get("accept", "")
+    wants_html = (
+        view == "html" or
+        (view is None and "text/html" in accept_header and "application/json" not in accept_header)
+    )
+    wants_pretty = view == "pretty"
+
+    # HTML response (browser view)
+    if wants_html:
+        return _templates.TemplateResponse("legal.html", {
+            "request": request,
+            "seo_title": doc.title,
+            "title": doc.title,
+            "content": doc.content_html,
+            "toc": doc.toc,
+            "effective_date": doc.effective_date,
+            "version": doc.version,
+            "last_updated": doc.last_updated,
+            "canonical_path": f"/{doc.type}",
+            "doc_type": doc.type
+        })
+
+    # Build JSON response
+    response_data = {
         "ok": True,
         "type": doc.type,
         "title": doc.title,
@@ -381,12 +421,20 @@ async def get_terms(term_type: str, full: bool = False):
 
     # Full content if requested
     if full:
-        response["content_md"] = doc.content_md
-        response["content_html"] = doc.content_html
+        response_data["content_md"] = doc.content_md
+        response_data["content_html"] = doc.content_html
     else:
-        response["summary"] = POLICY_SUMMARIES.get(term_type, "")
+        response_data["summary"] = POLICY_SUMMARIES.get(term_type, "")
 
-    return response
+    # Pretty JSON (human-readable)
+    if wants_pretty:
+        return JSONResponse(
+            content=response_data,
+            media_type="application/json",
+            headers={"Content-Type": "application/json; charset=utf-8"}
+        )
+
+    return response_data
 
 
 # =====================================================
