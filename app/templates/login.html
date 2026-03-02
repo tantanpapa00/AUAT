@@ -11,7 +11,9 @@
     :root {
       --primary: #3b82f6;
       --primary-dark: #2563eb;
-      --primary-light: #60a5fa;
+      --kakao: #FEE500;
+      --kakao-text: #000000;
+      --google-border: #dadce0;
       --secondary: #10b981;
       --danger: #ef4444;
       --bg: #f8fafc;
@@ -36,7 +38,7 @@
 
     .login-container {
       width: 100%;
-      max-width: 420px;
+      max-width: 440px;
     }
 
     .back-link {
@@ -60,12 +62,12 @@
 
     .login-logo {
       text-align: center;
-      font-size: 32px;
-      font-weight: 900;
-      margin-bottom: 8px;
+      margin-bottom: 16px;
     }
-    .login-logo .b { color: var(--primary); }
-    .login-logo .booster { color: var(--danger); }
+    .login-logo img {
+      height: 64px;
+      width: auto;
+    }
 
     .login-title {
       text-align: center;
@@ -128,9 +130,6 @@
       border-color: var(--primary);
       box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
     }
-    .form-input::placeholder {
-      color: var(--text-muted);
-    }
 
     .btn {
       width: 100%;
@@ -174,14 +173,38 @@
       padding: 0 16px;
     }
 
+    /* Kakao Button */
+    .btn-kakao {
+      width: 100%;
+      padding: 14px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      background: var(--kakao);
+      color: var(--kakao-text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: all 0.2s;
+      font-family: inherit;
+      margin-bottom: 12px;
+    }
+    .btn-kakao:hover {
+      filter: brightness(0.95);
+    }
+
+    /* Google Button */
     .btn-google {
       width: 100%;
-      padding: 12px;
+      padding: 14px;
       border-radius: 10px;
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 500;
       cursor: pointer;
-      border: 1px solid var(--border);
+      border: 1px solid var(--google-border);
       background: var(--card);
       color: var(--text);
       display: flex;
@@ -229,6 +252,79 @@
       margin-top: 6px;
     }
 
+    .password-requirements {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .pwd-check {
+      font-size: 11px;
+      padding: 4px 8px;
+      background: #f1f5f9;
+      border-radius: 4px;
+      color: var(--text-muted);
+    }
+    .pwd-check.valid {
+      background: #dcfce7;
+      color: #16a34a;
+    }
+
+    /* Terms checkboxes */
+    .terms-section {
+      margin: 20px 0;
+      padding: 16px;
+      background: #f8fafc;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+    .terms-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+    .terms-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      font-size: 13px;
+      color: var(--text);
+    }
+    .terms-item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+    .terms-item label {
+      cursor: pointer;
+      flex: 1;
+    }
+    .terms-item a {
+      color: var(--primary);
+      text-decoration: none;
+      font-size: 12px;
+    }
+    .terms-item a:hover {
+      text-decoration: underline;
+    }
+    .terms-item.required label::before {
+      content: '[필수] ';
+      color: var(--danger);
+    }
+    .terms-item.optional label::before {
+      content: '[선택] ';
+      color: var(--text-muted);
+    }
+    .terms-all {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
     /* Toast */
     .toast {
       position: fixed;
@@ -255,7 +351,7 @@
 
     <div class="login-card">
       <div class="login-logo">
-        <span class="b">B</span><span class="booster">Booster</span>
+        <img src="/static/logo.png" alt="BBooster" onerror="this.outerHTML='<span style=\"font-size:32px;font-weight:900;\"><span style=\"color:#3b82f6\">B</span><span style=\"color:#ef4444\">Booster</span></span>'">
       </div>
       <div class="login-title" id="pageTitle">로그인</div>
       <div class="login-subtitle">자동매매 시스템</div>
@@ -268,6 +364,27 @@
       <!-- Login Form -->
       <div class="form-panel active" id="loginPanel">
         <div class="error-message" id="loginError"></div>
+
+        <!-- Social Login Buttons -->
+        <button class="btn-kakao" onclick="loginWithKakao()">
+          <svg width="20" height="20" viewBox="0 0 24 24">
+            <path fill="#000000" d="M12 3C6.48 3 2 6.48 2 10.8c0 2.76 1.84 5.18 4.6 6.54-.2.76-.74 2.74-.85 3.16-.13.52.19.51.4.37.17-.11 2.62-1.78 3.68-2.5.7.1 1.44.16 2.17.16 5.52 0 10-3.48 10-7.76S17.52 3 12 3z"/>
+          </svg>
+          카카오로 시작하기
+        </button>
+
+        <button class="btn-google" onclick="loginWithGoogle()">
+          <svg width="18" height="18" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+          Google로 시작하기
+        </button>
+
+        <div class="divider"><span>또는 이메일로 로그인</span></div>
+
         <form onsubmit="handleLogin(event)">
           <div class="form-group">
             <label class="form-label">이메일</label>
@@ -275,50 +392,24 @@
           </div>
           <div class="form-group">
             <label class="form-label">비밀번호</label>
-            <input type="password" class="form-input" id="loginPassword" placeholder="비밀번호 입력" required minlength="6">
+            <input type="password" class="form-input" id="loginPassword" placeholder="비밀번호 입력" required minlength="12">
           </div>
           <button type="submit" class="btn btn-primary" id="loginBtn">로그인</button>
         </form>
-
-        <div class="divider"><span>또는</span></div>
-
-        <button class="btn-google" onclick="loginWithGoogle()">
-          <svg width="18" height="18" viewBox="0 0 24 24">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-          </svg>
-          Google로 로그인
-        </button>
       </div>
 
       <!-- Register Form -->
       <div class="form-panel" id="registerPanel">
         <div class="error-message" id="registerError"></div>
         <div class="success-message" id="registerSuccess"></div>
-        <form onsubmit="handleRegister(event)">
-          <div class="form-group">
-            <label class="form-label">이름 (선택)</label>
-            <input type="text" class="form-input" id="registerName" placeholder="홍길동">
-          </div>
-          <div class="form-group">
-            <label class="form-label">이메일</label>
-            <input type="email" class="form-input" id="registerEmail" placeholder="example@email.com" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label">비밀번호</label>
-            <input type="password" class="form-input" id="registerPassword" placeholder="비밀번호 입력" required minlength="6">
-            <p class="password-hint">6자 이상 입력하세요</p>
-          </div>
-          <div class="form-group">
-            <label class="form-label">비밀번호 확인</label>
-            <input type="password" class="form-input" id="registerPasswordConfirm" placeholder="비밀번호 다시 입력" required minlength="6">
-          </div>
-          <button type="submit" class="btn btn-primary" id="registerBtn">회원가입</button>
-        </form>
 
-        <div class="divider"><span>또는</span></div>
+        <!-- Social Login Buttons -->
+        <button class="btn-kakao" onclick="loginWithKakao()">
+          <svg width="20" height="20" viewBox="0 0 24 24">
+            <path fill="#000000" d="M12 3C6.48 3 2 6.48 2 10.8c0 2.76 1.84 5.18 4.6 6.54-.2.76-.74 2.74-.85 3.16-.13.52.19.51.4.37.17-.11 2.62-1.78 3.68-2.5.7.1 1.44.16 2.17.16 5.52 0 10-3.48 10-7.76S17.52 3 12 3z"/>
+          </svg>
+          카카오로 시작하기
+        </button>
 
         <button class="btn-google" onclick="loginWithGoogle()">
           <svg width="18" height="18" viewBox="0 0 24 24">
@@ -327,8 +418,65 @@
             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           </svg>
-          Google로 회원가입
+          Google로 시작하기
         </button>
+
+        <div class="divider"><span>또는 이메일로 가입</span></div>
+
+        <form onsubmit="handleRegister(event)">
+          <div class="form-group">
+            <label class="form-label">이메일</label>
+            <input type="email" class="form-input" id="registerEmail" placeholder="example@email.com" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">비밀번호</label>
+            <input type="password" class="form-input" id="registerPassword" placeholder="12자 이상, 영문+숫자+특수문자 포함" required minlength="12" oninput="checkPassword()">
+            <div class="password-requirements">
+              <span class="pwd-check" id="pwdLength">12자 이상</span>
+              <span class="pwd-check" id="pwdLetter">영문자</span>
+              <span class="pwd-check" id="pwdNumber">숫자</span>
+              <span class="pwd-check" id="pwdSpecial">특수문자</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">비밀번호 확인</label>
+            <input type="password" class="form-input" id="registerPasswordConfirm" placeholder="비밀번호 다시 입력" required minlength="12">
+          </div>
+
+          <!-- Terms Checkboxes -->
+          <div class="terms-section">
+            <div class="terms-title">약관 동의</div>
+            <div class="terms-item terms-all">
+              <input type="checkbox" id="agreeAll" onchange="toggleAllTerms()">
+              <label for="agreeAll">전체 동의</label>
+            </div>
+            <div class="terms-item required">
+              <input type="checkbox" id="agreeTerms" class="required-term" onchange="checkTerms()">
+              <label for="agreeTerms">이용약관 동의</label>
+              <a href="/api/auth/terms/terms?full=true" target="_blank">보기</a>
+            </div>
+            <div class="terms-item required">
+              <input type="checkbox" id="agreePrivacy" class="required-term" onchange="checkTerms()">
+              <label for="agreePrivacy">개인정보 처리방침 동의</label>
+              <a href="/api/auth/terms/privacy?full=true" target="_blank">보기</a>
+            </div>
+            <div class="terms-item required">
+              <input type="checkbox" id="agreeAge" class="required-term" onchange="checkTerms()">
+              <label for="agreeAge">만 14세 이상입니다</label>
+            </div>
+            <div class="terms-item required">
+              <input type="checkbox" id="agreeRisk" class="required-term" onchange="checkTerms()">
+              <label for="agreeRisk">투자 위험 고지 확인</label>
+              <a href="/api/auth/terms/investment_risk?full=true" target="_blank">보기</a>
+            </div>
+            <div class="terms-item optional">
+              <input type="checkbox" id="agreeMarketing" onchange="checkTerms()">
+              <label for="agreeMarketing">마케팅 정보 수신 동의</label>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary" id="registerBtn" disabled>회원가입</button>
+        </form>
       </div>
     </div>
   </div>
@@ -357,6 +505,13 @@
         localStorage.setItem('bbooster_refresh_token', refreshToken);
         window.location.href = '/dashboard';
       }
+
+      // Check for consent redirect (new social signup)
+      if (params.get('signup') === 'consent' && params.get('token')) {
+        // Show consent modal or redirect to consent page
+        switchTab('register');
+        showToast('약관에 동의하고 가입을 완료해주세요');
+      }
     }
 
     // Switch tabs
@@ -372,6 +527,52 @@
       document.getElementById('loginError').classList.remove('show');
       document.getElementById('registerError').classList.remove('show');
       document.getElementById('registerSuccess').classList.remove('show');
+    }
+
+    // Password validation
+    function checkPassword() {
+      const password = document.getElementById('registerPassword').value;
+
+      const checks = {
+        length: password.length >= 12,
+        letter: /[A-Za-z]/.test(password),
+        number: /[0-9]/.test(password),
+        special: /[!@#$%^&*()_+\-=\[\]{}|;:,.<>?/~`]/.test(password)
+      };
+
+      document.getElementById('pwdLength').classList.toggle('valid', checks.length);
+      document.getElementById('pwdLetter').classList.toggle('valid', checks.letter);
+      document.getElementById('pwdNumber').classList.toggle('valid', checks.number);
+      document.getElementById('pwdSpecial').classList.toggle('valid', checks.special);
+
+      checkTerms();
+    }
+
+    // Terms checkbox handling
+    function toggleAllTerms() {
+      const allChecked = document.getElementById('agreeAll').checked;
+      document.querySelectorAll('.terms-item input[type="checkbox"]').forEach(cb => {
+        if (cb.id !== 'agreeAll') cb.checked = allChecked;
+      });
+      checkTerms();
+    }
+
+    function checkTerms() {
+      const requiredTerms = document.querySelectorAll('.required-term');
+      const allRequired = Array.from(requiredTerms).every(cb => cb.checked);
+
+      // Check password validity
+      const password = document.getElementById('registerPassword').value;
+      const passwordValid = password.length >= 12 &&
+        /[A-Za-z]/.test(password) &&
+        /[0-9]/.test(password) &&
+        /[!@#$%^&*()_+\-=\[\]{}|;:,.<>?/~`]/.test(password);
+
+      document.getElementById('registerBtn').disabled = !(allRequired && passwordValid);
+
+      // Update "all" checkbox
+      const allTerms = document.querySelectorAll('.terms-item input[type="checkbox"]:not(#agreeAll)');
+      document.getElementById('agreeAll').checked = Array.from(allTerms).every(cb => cb.checked);
     }
 
     // Login handler
@@ -415,7 +616,6 @@
     // Register handler
     async function handleRegister(e) {
       e.preventDefault();
-      const name = document.getElementById('registerName').value.trim();
       const email = document.getElementById('registerEmail').value.trim();
       const password = document.getElementById('registerPassword').value;
       const passwordConfirm = document.getElementById('registerPasswordConfirm').value;
@@ -430,16 +630,32 @@
         return;
       }
 
+      // Password policy
+      if (password.length < 12) {
+        errorEl.textContent = '비밀번호는 12자 이상이어야 합니다';
+        errorEl.classList.add('show');
+        return;
+      }
+
       btn.disabled = true;
       btn.textContent = '회원가입 중...';
       errorEl.classList.remove('show');
       successEl.classList.remove('show');
 
       try {
-        const res = await fetch('/api/auth/register', {
+        const res = await fetch('/api/auth/register-with-consent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, name: name || null })
+          body: JSON.stringify({
+            email,
+            password,
+            name: null,
+            terms_agreed: document.getElementById('agreeTerms').checked,
+            privacy_agreed: document.getElementById('agreePrivacy').checked,
+            age_confirmed: document.getElementById('agreeAge').checked,
+            investment_risk_agreed: document.getElementById('agreeRisk').checked,
+            marketing_agreed: document.getElementById('agreeMarketing').checked
+          })
         });
 
         const data = await res.json();
@@ -458,10 +674,15 @@
       } finally {
         btn.disabled = false;
         btn.textContent = '회원가입';
+        checkTerms(); // Re-check to enable/disable button
       }
     }
 
-    // Google login
+    // Social logins
+    function loginWithKakao() {
+      window.location.href = '/api/auth/kakao/login';
+    }
+
     function loginWithGoogle() {
       window.location.href = '/api/auth/google/login';
     }
