@@ -591,6 +591,42 @@
 
 - Commits: `8249cdc`
 
+- **명령서64: 회원가입 UX 개선 (카카오 로그인 + 약관 동의)**
+  - [x] PART A: 카카오 OAuth
+    - `app/routers/auth.py` — 카카오 로그인/콜백 엔드포인트
+    - `/api/auth/kakao/login`, `/api/auth/kakao/callback`
+    - users 테이블에 `kakao_id` 컬럼 추가
+    - VPS 환경변수 설정 (KAKAO_CLIENT_ID, KAKAO_CLIENT_SECRET)
+  - [x] PART B: 약관 동의 시스템
+    - `user_consents` 테이블 생성
+    - `/api/auth/complete-signup` — 약관 동의 후 가입 완료
+    - `/api/auth/terms/{type}` — 약관 내용 조회
+    - `/api/auth/register-with-consent` — 이메일 가입 (약관 포함)
+    - 임시 가입 토큰 (10분 만료)
+  - [x] PART C: 프론트엔드 가입 UX
+    - 카카오 로그인 버튼 (노란색 메인 CTA)
+    - 약관 동의 화면 (필수 4개 + 선택 1개)
+    - 전체 동의 체크박스
+    - URL 파라미터 기반 OAuth 콜백 처리
+  - [x] PART D: 로고 교체
+    - `pc-app/ui/src/assets/favicon.ico` 추가
+    - index.html에 favicon 링크 추가
+    - 서버 로고 brand 폴더로 통일
+  - [x] Google OAuth도 신규 사용자는 약관 동의 후 가입하도록 변경
+  - [x] VPS 배포 완료
+
+- **수정된 파일 (명령서64)**
+  - `app/routers/auth.py` — 카카오 OAuth + 약관 시스템 (신규)
+  - `app/auth.py` — PUBLIC_PATHS에 카카오/약관 경로 추가
+  - `app/main.py` — Google 콜백 약관 플로우 + auth 라우터 등록
+  - `app/models.py` — User에 kakao_id 추가
+  - `pc-app/ui/index.html` — 카카오 버튼 + 약관 동의 화면 + favicon
+  - `pc-app/ui/src/main.js` — 카카오 로그인 + 약관 동의 JS
+  - `pc-app/ui/src/style.css` — 카카오 버튼 + 약관 화면 CSS
+  - `pc-app/ui/src/assets/favicon.ico` — 파비콘 (신규)
+
+- Commits: `42233e0`, `bcec82c`
+
 ---
 
 # 5) 매주 승인(작가님 체크 포인트)
