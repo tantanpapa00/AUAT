@@ -20348,3 +20348,60 @@ setInterval(() => {
         updateServerStatus(true);
     }
 }, 5000);
+
+// =============================================================================
+// 업그레이드 모달 함수 (명령서65)
+// =============================================================================
+window.showUpgradeModal = function(message, upgradeUrl) {
+    const modal = document.getElementById('upgrade-modal');
+    const msgEl = document.getElementById('upgrade-message');
+    if (modal && msgEl) {
+        msgEl.textContent = message || '이 기능을 사용하려면 요금제를 업그레이드하세요.';
+        window._upgradeUrl = upgradeUrl || '/pricing';
+        modal.style.display = 'flex';
+    }
+};
+
+window.closeUpgradeModal = function() {
+    const modal = document.getElementById('upgrade-modal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.openPricingPage = function() {
+    const url = window._upgradeUrl || 'https://qube-system.com/pricing';
+    // 외부 브라우저에서 열기
+    if (typeof open !== 'undefined') {
+        open(url);
+    } else {
+        window.open(url, '_blank');
+    }
+    closeUpgradeModal();
+};
+
+// 403 응답 처리 헬퍼
+window.handleApi403 = async function(response) {
+    if (response.status === 403) {
+        try {
+            const data = await response.json();
+            if (data.detail && data.detail.message) {
+                showUpgradeModal(data.detail.message, data.detail.upgrade_url);
+                return null;
+            }
+        } catch (e) {
+            console.error('403 처리 오류:', e);
+        }
+    }
+    return response;
+};
+
+// ESC 키로 모달 닫기
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeUpgradeModal();
+    }
+});
+
+// 모달 배경 클릭시 닫기
+document.getElementById('upgrade-modal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeUpgradeModal();
+});

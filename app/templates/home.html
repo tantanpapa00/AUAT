@@ -1090,5 +1090,54 @@
       #security > div { grid-template-columns: 1fr !important; }
     }
   </style>
+
+  <!-- 업그레이드 모달 (명령서65) -->
+  <div id="upgrade-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;align-items:center;justify-content:center;">
+    <div style="background:white;border-radius:16px;max-width:400px;width:90%;padding:32px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <div style="font-size:48px;margin-bottom:16px;">🔒</div>
+      <h3 id="upgrade-title" style="font-size:20px;font-weight:700;margin-bottom:8px;">요금제 업그레이드 필요</h3>
+      <p id="upgrade-message" style="color:#64748b;margin-bottom:24px;line-height:1.6;">이 기능을 사용하려면 요금제를 업그레이드하세요.</p>
+      <div style="display:flex;gap:12px;justify-content:center;">
+        <button onclick="closeUpgradeModal()" style="padding:12px 24px;border-radius:8px;border:1px solid #e2e8f0;background:white;cursor:pointer;font-weight:500;">닫기</button>
+        <a id="upgrade-link" href="/pricing" style="padding:12px 24px;border-radius:8px;background:linear-gradient(135deg,#DC2626,#EF4444);color:white;font-weight:600;text-decoration:none;">업그레이드</a>
+      </div>
+    </div>
+  </div>
+  <script>
+    // 업그레이드 모달 함수
+    function showUpgradeModal(message, upgradeUrl) {
+      const modal = document.getElementById('upgrade-modal');
+      const msgEl = document.getElementById('upgrade-message');
+      const linkEl = document.getElementById('upgrade-link');
+      if (modal && msgEl && linkEl) {
+        msgEl.textContent = message || '이 기능을 사용하려면 요금제를 업그레이드하세요.';
+        linkEl.href = upgradeUrl || '/pricing';
+        modal.style.display = 'flex';
+      }
+    }
+    function closeUpgradeModal() {
+      const modal = document.getElementById('upgrade-modal');
+      if (modal) modal.style.display = 'none';
+    }
+    // 403 응답 처리 헬퍼
+    async function handleApiResponse(response) {
+      if (response.status === 403) {
+        const data = await response.json();
+        if (data.detail && data.detail.message) {
+          showUpgradeModal(data.detail.message, data.detail.upgrade_url);
+          return null;
+        }
+      }
+      return response;
+    }
+    // ESC 키로 모달 닫기
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeUpgradeModal();
+    });
+    // 모달 배경 클릭시 닫기
+    document.getElementById('upgrade-modal')?.addEventListener('click', function(e) {
+      if (e.target === this) closeUpgradeModal();
+    });
+  </script>
 </body>
 </html>

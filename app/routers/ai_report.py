@@ -31,6 +31,7 @@ from app.models import User
 from app.utils.plan_limits import (
     check_pro_plan, check_standard_plan,
     get_ai_daily_limit, get_ai_monthly_limit,
+    check_feature_allowed, get_plan_limits,
     AI_DAILY_LIMITS, AI_MONTHLY_LIMITS, WATCHLIST_LIMITS
 )
 from app.data_provider import (
@@ -612,6 +613,114 @@ async def get_ai_usage(
 
 
 # =============================================================================
+# /api/usage - 통합 사용량 조회 (명령서65)
+# =============================================================================
+@router.get("/usage")
+async def get_all_usage(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """통합 사용량 조회 (AI, 백테스트, 슬롯, 관심종목)"""
+    _ensure_ai_tables(db)
+
+    limits = get_plan_limits(current_user)
+    plan = getattr(current_user, "plan", "free")
+    today = datetime.now(KST).date()
+    this_month = today.strftime("%Y-%m")
+
+    # AI 사용량
+    ai_daily_used = 0
+    ai_monthly_used = 0
+    try:
+        result = db.execute(
+            text("SELECT ai_usage_count, ai_usage_date, ai_monthly_count, ai_monthly_date FROM users WHERE id = :uid"),
+            {"uid": current_user.id}
+        )
+        row = result.fetchone()
+        if row:
+            if row[1] == today:
+                ai_daily_used = row[0] or 0
+            if (row[3] or "") == this_month:
+                ai_monthly_used = row[2] or 0
+    except Exception as e:
+        print(f"AI usage query error: {e}")
+
+    # 백테스트 사용량
+    backtest_monthly_used = 0
+    try:
+        result = db.execute(
+            text("""
+                SELECT COALESCE(SUM(count), 0) FROM usage_tracking
+                WHERE user_id = :uid AND feature = 'backtest' AND month_key = :month
+            """),
+            {"uid": current_user.id, "month": this_month}
+        )
+        backtest_monthly_used = result.scalar() or 0
+    except Exception as e:
+        print(f"Backtest usage query error: {e}")
+
+    # 슬롯 사용량
+    slots_used = 0
+    try:
+        result = db.execute(
+            text("""
+                SELECT COUNT(*) FROM premium_configs pc
+                JOIN assets a ON a.id = pc.asset_id
+                JOIN accounts acc ON acc.id = a.account_id
+                WHERE acc.owner_id = :uid AND a.is_active = true AND a.soft_deleted = 0
+            """),
+            {"uid": current_user.id}
+        )
+        slots_used = result.scalar() or 0
+    except Exception as e:
+        print(f"Slots usage query error: {e}")
+
+    # 관심종목 사용량
+    watchlist_used = 0
+    try:
+        result = db.execute(
+            text("SELECT COUNT(*) FROM watchlist_items WHERE user_id = :uid"),
+            {"uid": current_user.id}
+        )
+        watchlist_used = result.scalar() or 0
+    except Exception as e:
+        print(f"Watchlist usage query error: {e}")
+
+    return {
+        "plan": plan,
+        "ai": {
+            "daily_used": ai_daily_used,
+            "daily_max": limits["ai_daily"],
+            "daily_remaining": max(0, limits["ai_daily"] - ai_daily_used),
+            "monthly_used": ai_monthly_used,
+            "monthly_max": limits["ai_monthly"],
+            "monthly_remaining": max(0, limits["ai_monthly"] - ai_monthly_used),
+            "can_use": limits["can_ai"],
+        },
+        "backtest": {
+            "monthly_used": backtest_monthly_used,
+            "monthly_max": limits["backtest_monthly"],
+            "monthly_remaining": max(0, limits["backtest_monthly"] - backtest_monthly_used) if limits["backtest_monthly"] < 99999 else 99999,
+            "is_unlimited": limits["backtest_monthly"] >= 99999,
+            "can_use": limits["can_backtest"],
+        },
+        "slots": {
+            "used": slots_used,
+            "max": limits["slots"],
+            "remaining": max(0, limits["slots"] - slots_used),
+            "can_use": limits["can_autotrading"],
+        },
+        "watchlist": {
+            "used": watchlist_used,
+            "max": limits["watchlist"],
+            "remaining": max(0, limits["watchlist"] - watchlist_used) if limits["watchlist"] < 99999 else 99999,
+            "is_unlimited": limits["watchlist"] >= 99999,
+        },
+        "upgrade_url": "/pricing",
+    }
+
+
+# =============================================================================
 # Request/Response Models
 # =============================================================================
 class AIAnalyzeRequest(BaseModel):
@@ -640,57 +749,14 @@ async def request_ai_analysis(
     _ensure_ai_tables(db)
     print(f"[AI Analyze] _ensure_ai_tables: {time_module.time()-t0:.2f}초")
 
-    if current_user and not check_standard_plan(current_user):
-        raise HTTPException(status_code=403, detail="AI 종합분석은 Standard 이상에서 이용 가능합니다")
-
+    # 요금제 제한 체크 (check_feature_allowed 사용)
     if current_user:
-        daily_max = _get_ai_daily_limit(current_user)
-        monthly_max = _get_ai_monthly_limit(current_user)
-        today = datetime.now(KST).date()
-        this_month = today.strftime("%Y-%m")
-
-        daily_count = 0
-        monthly_count = 0
-
-        try:
-            result = db.execute(
-                text("SELECT ai_usage_count, ai_usage_date, ai_monthly_count, ai_monthly_date FROM users WHERE id = :uid"),
-                {"uid": current_user.id}
+        allowed, error_msg, upgrade_url = check_feature_allowed(current_user, "ai", db, increment=False)
+        if not allowed:
+            raise HTTPException(
+                status_code=403,
+                detail={"message": error_msg, "upgrade_url": upgrade_url}
             )
-            row = result.fetchone()
-
-            if row:
-                usage_date = row[1]
-                monthly_date = row[3] or ""
-
-                if usage_date != today:
-                    daily_count = 0
-                    db.execute(
-                        text("UPDATE users SET ai_usage_count = 0, ai_usage_date = :today WHERE id = :uid"),
-                        {"uid": current_user.id, "today": today}
-                    )
-                else:
-                    daily_count = row[0] or 0
-
-                if monthly_date != this_month:
-                    monthly_count = 0
-                    db.execute(
-                        text("UPDATE users SET ai_monthly_count = 0, ai_monthly_date = :month WHERE id = :uid"),
-                        {"uid": current_user.id, "month": this_month}
-                    )
-                else:
-                    monthly_count = row[2] or 0
-
-                db.commit()
-
-            if daily_count >= daily_max:
-                return {"success": False, "error": "오늘의 AI 분석 횟수를 모두 사용했습니다."}
-
-            if monthly_count >= monthly_max:
-                return {"success": False, "error": "이번 달 AI 분석 횟수를 모두 사용했습니다."}
-
-        except Exception as e:
-            print(f"AI usage check error: {e}")
 
     print(f"[AI Analyze] usage check: {time_module.time()-t0:.2f}초")
 
@@ -756,6 +822,10 @@ async def request_ai_analysis(
         "exchange": request.exchange,
         "is_etf": is_etf,
     }
+
+    # 사용량 증가 (캐시 HIT가 아닌 경우만)
+    if current_user:
+        check_feature_allowed(current_user, "ai", db, increment=True)
 
     asyncio.create_task(_run_ai_analysis_job(job_id, request.symbol, market, is_etf))
 
@@ -1122,37 +1192,14 @@ async def request_ai_chat(
     """AI 채팅 요청 -> job_id 즉시 반환 (백그라운드 처리)"""
     _ensure_ai_tables(db)
 
-    if current_user and not check_standard_plan(current_user):
-        return {"success": False, "error": "AI 채팅은 Standard 이상에서 이용 가능합니다"}
-
+    # 요금제 제한 체크 (check_feature_allowed 사용)
     if current_user:
-        daily_max = _get_ai_daily_limit(current_user)
-        today = datetime.now(KST).date()
-        daily_count = 0
-
-        try:
-            result = db.execute(
-                text("SELECT ai_usage_count, ai_usage_date FROM users WHERE id = :uid"),
-                {"uid": current_user.id}
+        allowed, error_msg, upgrade_url = check_feature_allowed(current_user, "ai", db, increment=False)
+        if not allowed:
+            raise HTTPException(
+                status_code=403,
+                detail={"message": error_msg, "upgrade_url": upgrade_url}
             )
-            row = result.fetchone()
-
-            if row:
-                if row[1] != today:
-                    daily_count = 0
-                    db.execute(
-                        text("UPDATE users SET ai_usage_count = 0, ai_usage_date = :today WHERE id = :uid"),
-                        {"uid": current_user.id, "today": today}
-                    )
-                else:
-                    daily_count = row[0] or 0
-                db.commit()
-
-            if daily_count >= daily_max:
-                return {"success": False, "error": "오늘의 AI 채팅 횟수를 모두 사용했습니다."}
-
-        except Exception as e:
-            print(f"AI chat usage check error: {e}")
 
     _cleanup_old_jobs()
     job_id = str(uuid.uuid4())[:8]
@@ -1165,6 +1212,10 @@ async def request_ai_chat(
         "user_id": current_user.id if current_user else None,
         "type": "chat",
     }
+
+    # 사용량 증가
+    if current_user:
+        check_feature_allowed(current_user, "ai", db, increment=True)
 
     asyncio.create_task(_run_ai_chat_job(job_id, request.message, current_user.id if current_user else None))
 

@@ -390,3 +390,27 @@ class CompanySummaryTranslation(Base):
     # 메타
     translated_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class UsageTracking(Base):
+    """
+    요금제별 기능 사용량 추적 (명령서65)
+    - 백테스트, 자동매매 등 월간 사용량 기록
+    - AI 분석은 users 테이블의 ai_usage_count/ai_monthly_count 사용
+    """
+    __tablename__ = "usage_tracking"
+
+    id = Column(BigInteger, primary_key=True)
+    user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
+    feature = Column(Text, nullable=False)  # backtest, slots, etc.
+    month_key = Column(Text, nullable=False)  # "2026-03"
+    count = Column(BigInteger, nullable=False, default=0)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index('ix_usage_tracking_user_feature', 'user_id', 'feature'),
+        Index('ix_usage_tracking_month', 'month_key'),
+        UniqueConstraint('user_id', 'feature', 'month_key', name='uq_usage_tracking'),
+    )

@@ -11,6 +11,7 @@ from sqlalchemy import text
 from app.db import get_db
 from app.auth import get_current_user, get_current_user_optional
 from app.models import User
+from app.utils.plan_limits import check_feature_allowed, check_pro_plan, _ensure_usage_tracking_table
 
 from app.backtest import run_backtest, BacktestRequest, BacktestResult
 from app.strategy_engine.backtest_engine_trend import run_trend_backtest as run_trend_v8
@@ -72,18 +73,32 @@ class StrategyCreateRequest(BaseModel):
 @router.post("/backtest")
 async def api_run_backtest(
     request: BacktestRequestBody,
-    current_user: User = Depends(get_current_user_optional)
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
 ):
     """백테스팅 실행 (trend는 v8 엔진 사용)"""
+    # 요금제 제한 체크 (Pro 이상 + 월간 사용량)
     if current_user:
-        plan = getattr(current_user, "plan", "free")
-        role = getattr(current_user, "role", "user")
-        if plan != "premium" and role != "admin":
-            raise HTTPException(status_code=403, detail="프리미엄 요금제에서 이용 가능합니다")
+        # usage_tracking 테이블 확인
+        try:
+            _ensure_usage_tracking_table(db)
+        except:
+            pass
+
+        allowed, error_msg, upgrade_url = check_feature_allowed(current_user, "backtest", db, increment=False)
+        if not allowed:
+            raise HTTPException(
+                status_code=403,
+                detail={"message": error_msg, "upgrade_url": upgrade_url}
+            )
 
     try:
         if request.strategy_type == "trend":
-            return await _run_trend_v8_backtest(request)
+            result = await _run_trend_v8_backtest(request)
+            # 백테스트 성공 시 사용량 증가
+            if current_user and result.get("success", True):
+                check_feature_allowed(current_user, "backtest", db, increment=True)
+            return result
 
         backtest_request = BacktestRequest(
             strategy_type=request.strategy_type,
@@ -97,6 +112,9 @@ async def api_run_backtest(
         )
 
         result = run_backtest(backtest_request)
+        # 백테스트 성공 시 사용량 증가
+        if current_user:
+            check_feature_allowed(current_user, "backtest", db, increment=True)
         return result.dict()
 
     except Exception as e:
@@ -206,14 +224,23 @@ async def api_get_indicators():
 @router.post("/backtest/custom")
 async def api_run_custom_backtest(
     request: CustomBacktestRequest,
-    current_user: User = Depends(get_current_user_optional)
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
 ):
     """커스텀 전략 백테스트 실행"""
+    # 요금제 제한 체크 (Pro 이상 + 월간 사용량)
     if current_user:
-        plan = getattr(current_user, "plan", "free")
-        role = getattr(current_user, "role", "user")
-        if plan != "premium" and role != "admin":
-            raise HTTPException(status_code=403, detail="프리미엄 요금제에서 이용 가능합니다")
+        try:
+            _ensure_usage_tracking_table(db)
+        except:
+            pass
+
+        allowed, error_msg, upgrade_url = check_feature_allowed(current_user, "backtest", db, increment=False)
+        if not allowed:
+            raise HTTPException(
+                status_code=403,
+                detail={"message": error_msg, "upgrade_url": upgrade_url}
+            )
 
     try:
         candles = await fetch_candles_for_backtest(
@@ -234,6 +261,10 @@ async def api_run_custom_backtest(
             config=request.strategy,
             initial_capital=request.initial_capital,
         )
+
+        # 백테스트 성공 시 사용량 증가
+        if current_user and result.get("success", True):
+            check_feature_allowed(current_user, "backtest", db, increment=True)
 
         return result
 

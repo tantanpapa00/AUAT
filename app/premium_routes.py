@@ -23,6 +23,10 @@ import logging
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
+from app.auth import get_current_user_optional
+from app.models import User
+from app.utils.plan_limits import check_feature_allowed, check_pro_plan
+
 logger = logging.getLogger(__name__)
 
 
@@ -306,6 +310,7 @@ async def get_premium_config(
 async def create_premium_config(
     config: PremiumConfigCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_optional),
 ):
     """Create premium config for an asset.
 
@@ -313,6 +318,21 @@ async def create_premium_config(
     exchange+symbol이 제공되면 자동으로 asset을 찾거나 생성함.
     """
     import json
+
+    # 요금제 제한 체크 (Pro 이상 + 슬롯 개수)
+    if current_user:
+        allowed, error_msg, upgrade_url = check_feature_allowed(current_user, "slots", db, increment=False)
+        if not allowed:
+            raise HTTPException(
+                status_code=403,
+                detail={"message": error_msg, "upgrade_url": upgrade_url}
+            )
+    else:
+        # 비로그인 사용자는 자동매매 설정 불가
+        raise HTTPException(
+            status_code=401,
+            detail={"message": "로그인이 필요합니다.", "upgrade_url": "/login"}
+        )
 
     asset_id = config.asset_id
 

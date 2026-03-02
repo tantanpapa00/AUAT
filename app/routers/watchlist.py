@@ -10,7 +10,7 @@ from app.db import get_db
 from app.auth import get_current_user
 from app.models import User
 from app.kis_api import get_master_cache
-from app.utils.plan_limits import get_watchlist_limit
+from app.utils.plan_limits import get_watchlist_limit, check_feature_allowed
 from app.utils.db_init import ensure_ai_tables
 
 router = APIRouter(prefix="/api/watchlist", tags=["watchlist"])
@@ -228,6 +228,14 @@ async def add_watchlist_item(
 
     limit = get_watchlist_limit(current_user)
 
+    # 요금제 제한 체크 (check_feature_allowed 사용)
+    allowed, error_msg, upgrade_url = check_feature_allowed(current_user, "watchlist", db, increment=False)
+    if not allowed:
+        raise HTTPException(
+            status_code=403,
+            detail={"message": error_msg, "upgrade_url": upgrade_url}
+        )
+
     try:
         # 그룹 존재 확인 및 자동 생성
         group_result = db.execute(
@@ -245,15 +253,6 @@ async def add_watchlist_item(
                 {"gid": request.group_id, "uid": current_user.id}
             )
             db.commit()
-
-        # 총 개수 확인
-        count_result = db.execute(
-            text("SELECT COUNT(*) FROM watchlist_items WHERE user_id = :uid"),
-            {"uid": current_user.id}
-        )
-        count = count_result.scalar() or 0
-        if count >= limit:
-            raise HTTPException(status_code=400, detail=f"관심종목은 최대 {limit}개까지 추가 가능합니다")
 
         # 중복 확인
         dup_result = db.execute(
