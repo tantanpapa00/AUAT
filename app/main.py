@@ -1008,6 +1008,7 @@ def terms_page(request: Request):
     parsed = _parse_legal_markdown(doc_info['file'])
     return templates.TemplateResponse("legal.html", {
         "request": request,
+        "seo_title": doc_info['title_fallback'],
         "title": parsed['title'] or doc_info['title_fallback'],
         "content": parsed['content'],
         "toc": parsed['toc'],
@@ -1025,6 +1026,7 @@ def privacy_page(request: Request):
     parsed = _parse_legal_markdown(doc_info['file'])
     return templates.TemplateResponse("legal.html", {
         "request": request,
+        "seo_title": doc_info['title_fallback'],
         "title": parsed['title'] or doc_info['title_fallback'],
         "content": parsed['content'],
         "toc": parsed['toc'],
@@ -1042,6 +1044,7 @@ def refund_page(request: Request):
     parsed = _parse_legal_markdown(doc_info['file'])
     return templates.TemplateResponse("legal.html", {
         "request": request,
+        "seo_title": doc_info['title_fallback'],
         "title": parsed['title'] or doc_info['title_fallback'],
         "content": parsed['content'],
         "toc": parsed['toc'],
@@ -1059,6 +1062,7 @@ def risk_page(request: Request):
     parsed = _parse_legal_markdown(doc_info['file'])
     return templates.TemplateResponse("legal.html", {
         "request": request,
+        "seo_title": doc_info['title_fallback'],
         "title": parsed['title'] or doc_info['title_fallback'],
         "content": parsed['content'],
         "toc": parsed['toc'],
