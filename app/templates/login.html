@@ -68,6 +68,12 @@
       height: 64px;
       width: auto;
     }
+    .logo-fallback {
+      font-size: 32px;
+      font-weight: 900;
+    }
+    .logo-fallback .b { color: #3b82f6; }
+    .logo-fallback .booster { color: #ef4444; }
 
     .login-title {
       text-align: center;
@@ -351,7 +357,8 @@
 
     <div class="login-card">
       <div class="login-logo">
-        <img src="/static/logo.png" alt="BBooster" onerror="this.outerHTML='<span style=\"font-size:32px;font-weight:900;\"><span style=\"color:#3b82f6\">B</span><span style=\"color:#ef4444\">Booster</span></span>'">
+        <img src="/static/logo_v3.png" alt="BBooster" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+        <span class="logo-fallback" style="display:none;"><span class="b">B</span><span class="booster">Booster</span></span>
       </div>
       <div class="login-title" id="pageTitle">로그인</div>
       <div class="login-subtitle">자동매매 시스템</div>
