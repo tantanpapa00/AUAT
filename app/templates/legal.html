@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title }} | Qube System</title>
+  <meta name="description" content="{{ title }} - BBooster 자동매매 서비스">
+  <link rel="canonical" href="https://qube-system.com{{ canonical_path }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #3b82f6;
+      --primary-dark: #2563eb;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --bg: #ffffff;
+      --bg-alt: #f8fafc;
+      --border: #e2e8f0;
+      --heading: #0f172a;
+      --link: #2563eb;
+      --warning-bg: #fef3c7;
+      --warning-border: #f59e0b;
+      --warning-text: #92400e;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --text: #e2e8f0;
+        --text-muted: #94a3b8;
+        --bg: #0f172a;
+        --bg-alt: #1e293b;
+        --border: #334155;
+        --heading: #f1f5f9;
+        --link: #60a5fa;
+        --warning-bg: #422006;
+        --warning-border: #d97706;
+        --warning-text: #fde68a;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.8;
+      font-size: 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Header */
+    .header {
+      background: var(--bg-alt);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo {
+      font-size: 20px;
+      font-weight: 700;
+      text-decoration: none;
+      color: var(--heading);
+    }
+
+    .logo span:first-child { color: var(--primary); }
+    .logo span:last-child { color: #ef4444; }
+
+    .back-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.2s;
+    }
+
+    .back-link:hover { color: var(--primary); }
+
+    /* Main Layout */
+    .main-container {
+      display: flex;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 24px;
+      gap: 48px;
+    }
+
+    /* TOC Sidebar */
+    .toc-sidebar {
+      width: 280px;
+      flex-shrink: 0;
+      position: sticky;
+      top: 100px;
+      align-self: flex-start;
+      max-height: calc(100vh - 140px);
+      overflow-y: auto;
+    }
+
+    .toc-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    .toc-list {
+      list-style: none;
+    }
+
+    .toc-item {
+      margin-bottom: 8px;
+    }
+
+    .toc-link {
+      display: block;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      padding: 6px 12px;
+      border-left: 2px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .toc-link:hover {
+      color: var(--primary);
+      border-left-color: var(--primary);
+      background: var(--bg-alt);
+    }
+
+    .toc-link.depth-2 {
+      padding-left: 24px;
+      font-size: 13px;
+    }
+
+    /* Content */
+    .content {
+      flex: 1;
+      max-width: 800px;
+      min-width: 0;
+    }
+
+    .document-header {
+      margin-bottom: 40px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .document-title {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--heading);
+      margin-bottom: 12px;
+      line-height: 1.3;
+    }
+
+    .document-meta {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .document-meta span {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Typography - Prose */
+    .prose {
+      color: var(--text);
+    }
+
+    .prose h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--heading);
+      margin: 48px 0 24px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      line-height: 1.3;
+    }
+
+    .prose h1:first-child {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: none;
+    }
+
+    .prose h2 {
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--heading);
+      margin: 36px 0 16px;
+      line-height: 1.4;
+    }
+
+    .prose h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--heading);
+      margin: 28px 0 12px;
+    }
+
+    .prose p {
+      margin-bottom: 16px;
+    }
+
+    .prose strong {
+      font-weight: 600;
+      color: var(--heading);
+    }
+
+    .prose a {
+      color: var(--link);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .prose a:hover {
+      text-decoration: none;
+    }
+
+    .prose ul, .prose ol {
+      margin: 16px 0;
+      padding-left: 24px;
+    }
+
+    .prose li {
+      margin-bottom: 8px;
+    }
+
+    .prose li::marker {
+      color: var(--text-muted);
+    }
+
+    .prose blockquote {
+      border-left: 4px solid var(--primary);
+      padding: 12px 20px;
+      margin: 24px 0;
+      background: var(--bg-alt);
+      border-radius: 0 8px 8px 0;
+    }
+
+    .prose blockquote p {
+      margin: 0;
+    }
+
+    .prose hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 32px 0;
+    }
+
+    /* Warning box */
+    .prose .warning {
+      background: var(--warning-bg);
+      border: 1px solid var(--warning-border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 24px 0;
+      color: var(--warning-text);
+    }
+
+    /* Tables */
+    .prose table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 24px 0;
+      font-size: 14px;
+    }
+
+    .table-wrapper {
+      overflow-x: auto;
+      margin: 24px 0;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .prose table th,
+    .prose table td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .prose table th {
+      background: var(--bg-alt);
+      font-weight: 600;
+      color: var(--heading);
+      white-space: nowrap;
+    }
+
+    .prose table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .prose table tr:hover td {
+      background: var(--bg-alt);
+    }
+
+    /* Code */
+    .prose code {
+      background: var(--bg-alt);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-family: 'SF Mono', Consolas, monospace;
+    }
+
+    /* Section anchors */
+    .section-anchor {
+      scroll-margin-top: 100px;
+    }
+
+    .heading-link {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .heading-link:hover {
+      color: var(--primary);
+    }
+
+    /* Footer */
+    .footer {
+      background: var(--bg-alt);
+      border-top: 1px solid var(--border);
+      padding: 32px 24px;
+      margin-top: 64px;
+    }
+
+    .footer-inner {
+      max-width: 800px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .footer-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+    }
+
+    .footer-links a:hover {
+      color: var(--primary);
+    }
+
+    .footer-links a.active {
+      color: var(--primary);
+      font-weight: 500;
+    }
+
+    .footer-copy {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* Mobile */
+    @media (max-width: 1024px) {
+      .toc-sidebar {
+        display: none;
+      }
+
+      .main-container {
+        padding: 24px 20px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      body {
+        font-size: 15px;
+        line-height: 1.75;
+      }
+
+      .document-title {
+        font-size: 24px;
+      }
+
+      .prose h1 {
+        font-size: 22px;
+      }
+
+      .prose h2 {
+        font-size: 18px;
+      }
+
+      .prose h3 {
+        font-size: 16px;
+      }
+
+      .prose table {
+        font-size: 13px;
+      }
+
+      .prose table th,
+      .prose table td {
+        padding: 10px 12px;
+      }
+    }
+
+    /* Print */
+    @media print {
+      .header, .toc-sidebar, .footer {
+        display: none;
+      }
+
+      .main-container {
+        max-width: none;
+        padding: 0;
+      }
+
+      .prose h1 {
+        page-break-before: always;
+      }
+
+      .prose h1:first-child {
+        page-break-before: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <a href="/" class="logo">
+        <span>B</span><span>Booster</span>
+      </a>
+      <a href="/" class="back-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        홈으로
+      </a>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <aside class="toc-sidebar">
+      <div class="toc-title">목차</div>
+      <ul class="toc-list">
+        {% for item in toc %}
+        <li class="toc-item">
+          <a href="#{{ item.id }}" class="toc-link depth-{{ item.depth }}">{{ item.text }}</a>
+        </li>
+        {% endfor %}
+      </ul>
+    </aside>
+
+    <article class="content">
+      <header class="document-header">
+        <h1 class="document-title">{{ title }}</h1>
+        <div class="document-meta">
+          <span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            시행일: {{ effective_date }}
+          </span>
+          <span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            버전: {{ version }}
+          </span>
+        </div>
+      </header>
+
+      <div class="prose">
+        {{ content | safe }}
+      </div>
+    </article>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-links">
+        <a href="/terms" {% if doc_type == 'terms' %}class="active"{% endif %}>이용약관</a>
+        <a href="/privacy" {% if doc_type == 'privacy' %}class="active"{% endif %}>개인정보처리방침</a>
+        <a href="/refund" {% if doc_type == 'refund' %}class="active"{% endif %}>환불정책</a>
+        <a href="/risk" {% if doc_type == 'risk' %}class="active"{% endif %}>투자위험고지</a>
+      </div>
+      <p class="footer-copy">&copy; 2024 BBooster. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    // Highlight current TOC item on scroll
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        const id = entry.target.getAttribute('id');
+        const tocLink = document.querySelector(`.toc-link[href="#${id}"]`);
+        if (tocLink) {
+          if (entry.isIntersecting) {
+            document.querySelectorAll('.toc-link').forEach(link => link.style.color = '');
+            tocLink.style.color = 'var(--primary)';
+            tocLink.style.borderLeftColor = 'var(--primary)';
+          }
+        }
+      });
+    }, { rootMargin: '-100px 0px -80% 0px' });
+
+    document.querySelectorAll('.section-anchor').forEach(section => {
+      observer.observe(section);
+    });
+  </script>
+</body>
+</html>
