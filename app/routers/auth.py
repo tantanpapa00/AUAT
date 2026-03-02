@@ -342,34 +342,67 @@ async def complete_signup(
 # =====================================================
 # 약관 내용 API
 # =====================================================
+LEGAL_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "legal")
+
+class TermsFullResponse(BaseModel):
+    """약관 전문 응답"""
+    title: str
+    version: str
+    content: str
+
+
 @router.get("/api/auth/terms/{term_type}")
-async def get_terms(term_type: str):
-    """약관 내용 조회. type: terms, privacy, investment_risk"""
-    terms_content = {
-        "terms": TermsResponse(
-            title="이용약관",
-            version="1.0",
-            summary="BBooster 서비스 이용에 관한 기본 약관입니다.",
-            url="/legal/terms"
-        ),
-        "privacy": TermsResponse(
-            title="개인정보 처리방침",
-            version="1.0",
-            summary="수집하는 개인정보: 이메일, 거래소 API 키(암호화 저장)",
-            url="/legal/privacy"
-        ),
-        "investment_risk": TermsResponse(
-            title="투자 리스크 고지",
-            version="1.0",
-            summary="투자 판단과 결과 책임은 사용자에게 있으며, BBooster는 정보 제공 및 자동 실행 도구입니다.",
-            url="/legal/investment-risk"
-        )
+async def get_terms(term_type: str, full: bool = False):
+    """약관 내용 조회. type: terms, privacy, investment_risk. full=true면 전문 반환."""
+    terms_meta = {
+        "terms": {
+            "title": "이용약관",
+            "version": "1.0",
+            "summary": "BBooster 서비스 이용에 관한 기본 약관입니다.",
+            "url": "/legal/terms",
+            "file": "terms.md"
+        },
+        "privacy": {
+            "title": "개인정보 처리방침",
+            "version": "1.0",
+            "summary": "수집하는 개인정보: 이메일, 거래소 API 키(암호화 저장)",
+            "url": "/legal/privacy",
+            "file": "privacy.md"
+        },
+        "investment_risk": {
+            "title": "투자 위험 고지",
+            "version": "1.0",
+            "summary": "투자 판단과 결과 책임은 사용자에게 있으며, BBooster는 정보 제공 및 자동 실행 도구입니다.",
+            "url": "/legal/investment-risk",
+            "file": "investment_risk.md"
+        }
     }
 
-    if term_type not in terms_content:
+    if term_type not in terms_meta:
         raise HTTPException(status_code=404, detail="약관을 찾을 수 없습니다")
 
-    return terms_content[term_type]
+    meta = terms_meta[term_type]
+
+    # 전문 요청 시 파일에서 읽기
+    if full:
+        file_path = os.path.join(LEGAL_DIR, meta["file"])
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            return TermsFullResponse(
+                title=meta["title"],
+                version=meta["version"],
+                content=content
+            )
+        except FileNotFoundError:
+            raise HTTPException(status_code=404, detail=f"약관 파일을 찾을 수 없습니다: {meta['file']}")
+
+    return TermsResponse(
+        title=meta["title"],
+        version=meta["version"],
+        summary=meta["summary"],
+        url=meta["url"]
+    )
 
 
 # =====================================================
@@ -410,8 +443,8 @@ async def register_with_consent(
 
     # 3. 비밀번호 정책 확인
     password = request.password
-    if len(password) < 12:
-        raise HTTPException(status_code=400, detail="비밀번호는 12자리 이상이어야 합니다")
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="비밀번호는 8자리 이상이어야 합니다")
 
     import re
     if not re.search(r'[A-Za-z]', password):

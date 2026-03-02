@@ -1047,10 +1047,10 @@ async function handleEmailLogin() {
     }
 }
 
-// 비밀번호 검증 함수 (Day14: 12자리 + 특수문자 필수)
+// 비밀번호 검증 함수 (8자리 + 특수문자 필수)
 function validatePassword(password) {
     return {
-        length: password.length >= 12,
+        length: password.length >= 8,
         letter: /[A-Za-z]/.test(password),
         number: /[0-9]/.test(password),
         special: /[!@#$%^&*()_+\-=\[\]{}|;:,.<>?/~`]/.test(password)
@@ -1060,7 +1060,7 @@ function validatePassword(password) {
 function getPasswordErrors(password) {
     const checks = validatePassword(password);
     const errors = [];
-    if (!checks.length) errors.push('12자리 이상');
+    if (!checks.length) errors.push('8자리 이상');
     if (!checks.letter) errors.push('영문자 포함');
     if (!checks.number) errors.push('숫자 포함');
     if (!checks.special) errors.push('특수문자 포함 (!@#$%^&* 등)');
@@ -1126,7 +1126,7 @@ document.getElementById('register-password-confirm')?.addEventListener('keypress
 document.getElementById('register-password')?.addEventListener('input', (e) => {
     const password = e.target.value;
     const checks = validatePassword(password);
-    document.getElementById('pwd-length').textContent = (checks.length ? '✅' : '❌') + ' 12자리 이상';
+    document.getElementById('pwd-length').textContent = (checks.length ? '✅' : '❌') + ' 8자리 이상';
     document.getElementById('pwd-letter').textContent = (checks.letter ? '✅' : '❌') + ' 영문자 포함';
     document.getElementById('pwd-number').textContent = (checks.number ? '✅' : '❌') + ' 숫자 포함';
     document.getElementById('pwd-special').textContent = (checks.special ? '✅' : '❌') + ' 특수문자 포함';

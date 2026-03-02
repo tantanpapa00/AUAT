@@ -115,13 +115,13 @@ class RegisterRequest(BaseModel):
     def validate_password(cls, v):
         """
         비밀번호 정책:
-        - 12자리 이상
+        - 8자리 이상
         - 영문자 포함
         - 숫자 포함
         - 특수문자 포함 (!@#$%^&*()_+-=[]{}|;:,.<>?/~`)
         """
-        if len(v) < 12:
-            raise ValueError('비밀번호는 12자리 이상이어야 합니다')
+        if len(v) < 8:
+            raise ValueError('비밀번호는 8자리 이상이어야 합니다')
         if not re.search(r'[A-Za-z]', v):
             raise ValueError('비밀번호에 영문자를 포함해야 합니다')
         if not re.search(r'[0-9]', v):
