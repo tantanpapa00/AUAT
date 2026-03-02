@@ -11,19 +11,37 @@ AI_DAILY_LIMITS = {
     "starter": 0,
     "free": 0,
     "standard": 3,
-    "hub": 3,
+    "hub": 3,          # legacy alias for standard
     "pro": 7,
-    "premium": 15,
+    "proplus": 10,
+    "promax": 15,
+    "premium": 15,     # legacy alias for promax
 }
 
 # 요금제별 AI 사용 제한 (월간)
+# Standard: 30, Pro: 100, Pro+: 150, Pro Max: 200
 AI_MONTHLY_LIMITS = {
     "starter": 0,
     "free": 0,
     "standard": 30,
-    "hub": 30,
+    "hub": 30,          # legacy alias for standard
     "pro": 100,
-    "premium": 200,
+    "proplus": 150,
+    "promax": 200,
+    "premium": 200,     # legacy alias for promax
+}
+
+# 요금제별 자동매매 슬롯 제한
+# Pro: 3, Pro+: 10, Pro Max: 30
+SLOT_LIMITS = {
+    "starter": 0,
+    "free": 0,
+    "standard": 0,
+    "hub": 0,
+    "pro": 3,
+    "proplus": 10,
+    "promax": 30,
+    "premium": 30,      # legacy alias for promax
 }
 
 # 요금제별 관심종목 제한
@@ -33,6 +51,8 @@ WATCHLIST_LIMITS = {
     "standard": 50,
     "hub": 50,
     "pro": 200,
+    "proplus": 500,
+    "promax": 99999,
     "premium": 99999,
 }
 
@@ -64,23 +84,32 @@ def get_ai_monthly_limit(user: "User") -> int:
     return AI_MONTHLY_LIMITS.get(plan, 0)
 
 
+def get_slot_limit(user: "User") -> int:
+    """요금제별 자동매매 슬롯 제한 (Pro:3, Pro+:10, Pro Max:30)"""
+    role = getattr(user, "role", "user")
+    if role == "admin":
+        return 99999
+    plan = getattr(user, "plan", "free")
+    return SLOT_LIMITS.get(plan, 0)
+
+
 def check_standard_plan(user: "User") -> bool:
-    """Standard 이상 요금제 체크 (AI 분석용)"""
+    """Standard 이상 요금제 체크 (종목분석/AI 분석용)"""
     if not user:
         return False
     role = getattr(user, "role", "user")
     plan = getattr(user, "plan", "free")
     if role == "admin":
         return True
-    return plan in ("standard", "pro", "premium")
+    return plan in ("standard", "hub", "pro", "proplus", "promax", "premium")
 
 
 def check_pro_plan(user: "User") -> bool:
-    """Pro 이상 요금제 체크 (시장분석용)"""
+    """Pro 이상 요금제 체크 (자동매매/백테스트용)"""
     if not user:
         return False
     role = getattr(user, "role", "user")
     plan = getattr(user, "plan", "free")
     if role == "admin":
         return True
-    return plan in ("pro", "premium")
+    return plan in ("pro", "proplus", "promax", "premium")
