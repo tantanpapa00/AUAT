@@ -775,7 +775,20 @@ function createSymbolAutocomplete(inputElement, onSelect, options = {}) {
 const loginScreen = document.getElementById('login-screen');
 const appElement = document.getElementById('app');
 const btnGoogleLogin = document.getElementById('btn-google-login');
+const btnKakaoLogin = document.getElementById('btn-kakao-login');
 const btnSkipLogin = document.getElementById('btn-skip-login');
+
+// 약관 동의 화면 요소
+const loginCard = document.querySelector('.login-card');
+const consentCard = document.getElementById('consent-card');
+const consentAll = document.getElementById('consent-all');
+const consentTerms = document.getElementById('consent-terms');
+const consentPrivacy = document.getElementById('consent-privacy');
+const consentAge = document.getElementById('consent-age');
+const consentRisk = document.getElementById('consent-risk');
+const consentMarketing = document.getElementById('consent-marketing');
+const btnConsentSubmit = document.getElementById('btn-consent-submit');
+let signupTempToken = null;  // 약관 동의용 임시 토큰
 
 // =====================================================
 // Login Screen Functions
@@ -807,6 +820,124 @@ async function loginWithGoogle() {
         showToast('로그인 페이지를 열 수 없습니다', 'error');
     }
 }
+
+// Kakao Login
+async function loginWithKakao() {
+    try {
+        await open(`${API_BASE_URL}/api/auth/kakao/login`);
+        showToast('브라우저에서 로그인을 완료해주세요', 'info');
+        startLoginPolling();
+    } catch (error) {
+        showToast('로그인 페이지를 열 수 없습니다', 'error');
+    }
+}
+
+// 약관 동의 화면 표시
+function showConsentScreen(tempToken) {
+    signupTempToken = tempToken;
+    if (loginCard) loginCard.style.display = 'none';
+    if (consentCard) consentCard.style.display = 'block';
+    updateConsentButton();
+}
+
+// 로그인 화면으로 돌아가기
+function showLoginCard() {
+    signupTempToken = null;
+    if (consentCard) consentCard.style.display = 'none';
+    if (loginCard) loginCard.style.display = 'block';
+}
+
+// 동의 버튼 상태 업데이트
+function updateConsentButton() {
+    const requiredCheckboxes = document.querySelectorAll('.consent-required');
+    const allChecked = Array.from(requiredCheckboxes).every(cb => cb.checked);
+    if (btnConsentSubmit) {
+        btnConsentSubmit.disabled = !allChecked;
+    }
+}
+
+// 전체 동의 체크박스 처리
+function handleConsentAll(checked) {
+    [consentTerms, consentPrivacy, consentAge, consentRisk, consentMarketing].forEach(cb => {
+        if (cb) cb.checked = checked;
+    });
+    updateConsentButton();
+}
+
+// 개별 체크박스 변경 시 전체 동의 상태 업데이트
+function updateConsentAllState() {
+    const allCheckboxes = [consentTerms, consentPrivacy, consentAge, consentRisk, consentMarketing];
+    const allChecked = allCheckboxes.every(cb => cb && cb.checked);
+    if (consentAll) consentAll.checked = allChecked;
+    updateConsentButton();
+}
+
+// 약관 동의 제출
+async function submitConsent() {
+    if (!signupTempToken) {
+        showToast('세션이 만료되었습니다. 다시 로그인해주세요.', 'error');
+        showLoginCard();
+        return;
+    }
+
+    try {
+        const result = await api.apiPost('/api/auth/complete-signup', {
+            token: signupTempToken,
+            terms_agreed: consentTerms?.checked || false,
+            privacy_agreed: consentPrivacy?.checked || false,
+            age_confirmed: consentAge?.checked || false,
+            investment_risk_agreed: consentRisk?.checked || false,
+            marketing_agreed: consentMarketing?.checked || false
+        });
+
+        if (result.success) {
+            auth.saveTokens(result.access_token, result.refresh_token);
+            signupTempToken = null;
+            await loadUserInfo();
+            hideLoginScreen();
+            showToast('회원가입 및 로그인 성공', 'success');
+            checkServerConnection();
+            ws.connect(result.access_token);
+        } else {
+            showToast(result.detail || '가입에 실패했습니다', 'error');
+        }
+    } catch (error) {
+        showToast(error.message || '가입에 실패했습니다', 'error');
+    }
+}
+
+// URL 파라미터에서 로그인/가입 처리
+function handleAuthCallback() {
+    const params = new URLSearchParams(window.location.search);
+
+    // 약관 동의 필요 (신규 가입)
+    if (params.get('signup') === 'consent' && params.get('token')) {
+        showConsentScreen(params.get('token'));
+        // URL 정리
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return true;
+    }
+
+    // 기존 사용자 로그인 (토큰 직접 전달)
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    if (accessToken && refreshToken) {
+        auth.saveTokens(accessToken, refreshToken);
+        // URL 정리
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return true;
+    }
+
+    return false;
+}
+
+// 이벤트 리스너 등록 (약관 동의)
+consentAll?.addEventListener('change', (e) => handleConsentAll(e.target.checked));
+[consentTerms, consentPrivacy, consentAge, consentRisk, consentMarketing].forEach(cb => {
+    cb?.addEventListener('change', updateConsentAllState);
+});
+btnConsentSubmit?.addEventListener('click', submitConsent);
+btnKakaoLogin?.addEventListener('click', loginWithKakao);
 
 let loginPollingInterval = null;
 function startLoginPolling() {
@@ -20189,10 +20320,21 @@ function addToWatchlistFromScreener() {
     console.log('BBooster PC App 시작');
     console.log('API 서버:', API_BASE_URL);
 
+    // URL 파라미터에서 OAuth 콜백 처리
+    const hadCallback = handleAuthCallback();
+
     const isAuthenticated = await initAuth();
 
     if (isAuthenticated) {
         checkServerConnection();
+    } else if (hadCallback) {
+        // 콜백 처리 후 로그인 시도
+        auth.loadTokens();
+        if (auth.accessToken) {
+            await loadUserInfo();
+            hideLoginScreen();
+            checkServerConnection();
+        }
     }
 
     // 자동완성 초기화

@@ -12,5 +12,6 @@ from .backtest import router as backtest_router
 from .webhook import router as webhook_router
 from .ws import router as ws_router
 from .notifications import router as notifications_router
+from .auth import router as auth_router
 
-__all__ = ["watchlist_router", "admin_router", "market_kr_router", "market_us_router", "market_misc_router", "screener_router", "ai_report_router", "backtest_router", "webhook_router", "ws_router", "notifications_router"]
+__all__ = ["watchlist_router", "admin_router", "market_kr_router", "market_us_router", "market_misc_router", "screener_router", "ai_report_router", "backtest_router", "webhook_router", "ws_router", "notifications_router", "auth_router"]

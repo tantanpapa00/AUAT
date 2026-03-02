@@ -352,6 +352,141 @@ body {
     box-shadow: 0 4px 16px rgba(0,0,0,.15);
 }
 
+/* 카카오 로그인 버튼 */
+.kakao-login-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    padding: 14px 28px;
+    background: #FEE500;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #000000;
+    cursor: pointer;
+    transition: all .2s;
+    margin-bottom: 12px;
+}
+
+.kakao-login-btn:hover {
+    background: #F5DC00;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(254, 229, 0, 0.4);
+}
+
+/* 약관 동의 화면 */
+.consent-card {
+    background: var(--card);
+    border-radius: 20px;
+    padding: 40px;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(0,0,0,.3);
+}
+
+.consent-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text);
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+.consent-subtitle {
+    font-size: 14px;
+    color: var(--text-muted);
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.consent-form {
+    margin-bottom: 24px;
+}
+
+.consent-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    cursor: pointer;
+    color: var(--text);
+    font-size: 14px;
+}
+
+.consent-item.consent-all {
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.consent-item input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.consent-label {
+    flex: 1;
+}
+
+.consent-link {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 13px;
+}
+
+.consent-link:hover {
+    text-decoration: underline;
+}
+
+.consent-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 8px 0;
+}
+
+.consent-risk-text {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: -8px 0 12px 32px;
+    line-height: 1.5;
+}
+
+.consent-submit-btn {
+    width: 100%;
+    padding: 14px 28px;
+    background: var(--accent);
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    color: white;
+    cursor: pointer;
+    transition: all .2s;
+}
+
+.consent-submit-btn:hover:not(:disabled) {
+    background: var(--accent-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+}
+
+.consent-submit-btn:disabled {
+    background: var(--border);
+    color: var(--text-muted);
+    cursor: not-allowed;
+}
+
+.consent-note {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: center;
+    margin-top: 16px;
+}
+
 .login-divider {
     display: flex;
     align-items: center;

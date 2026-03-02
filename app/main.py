@@ -379,6 +379,10 @@ app.include_router(ws_router)
 from .routers.notifications import router as notifications_router
 app.include_router(notifications_router)
 
+# Auth Router (명령서64 - 카카오 OAuth, 약관 동의)
+from .routers.auth import router as auth_router
+app.include_router(auth_router)
+
 
 @app.get("/api/auth/google/login")
 async def auth_google_login(request: Request):
@@ -398,7 +402,7 @@ async def auth_google_login(request: Request):
 
 @app.get("/api/auth/google/callback")
 async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
-    """구글 OAuth 콜백 처리"""
+    """구글 OAuth 콜백 처리 (약관 동의 플로우 포함)"""
     if not GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=500, detail="Google OAuth가 설정되지 않았습니다")
 
@@ -409,20 +413,44 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
         if not user_info:
             raise HTTPException(status_code=400, detail="사용자 정보를 가져올 수 없습니다")
 
-        # 사용자 생성 또는 조회
-        user = get_or_create_user_from_google(
-            db=db,
-            google_id=user_info.get("sub"),
-            email=user_info.get("email"),
-            name=user_info.get("name"),
-            picture=user_info.get("picture"),
-        )
-
-        # JWT 토큰 생성
-        tokens = create_tokens_for_user(user)
-
-        # 클라이언트로 리다이렉트 (토큰 포함)
+        google_id = user_info.get("sub")
+        email = user_info.get("email", "")
+        name = user_info.get("name", "")
+        picture = user_info.get("picture", "")
         frontend_url = os.getenv("FRONTEND_URL", "/")
+
+        # 기존 사용자 확인 (google_id 또는 email로)
+        user = db.query(User).filter(User.google_id == google_id).first()
+        if not user and email:
+            user = db.query(User).filter(User.email == email.lower()).first()
+            if user:
+                # 기존 사용자에 google_id 연결
+                user.google_id = google_id
+                if name and not user.name:
+                    user.name = name
+                if picture and not user.picture:
+                    user.picture = picture
+                user.last_login_at = datetime.now(timezone.utc)
+                db.commit()
+                db.refresh(user)
+
+        # 신규 사용자 → 약관 동의 페이지로 리다이렉트
+        if not user:
+            from app.routers.auth import create_temp_signup_token
+            temp_token = create_temp_signup_token({
+                "provider": "google",
+                "provider_id": google_id,
+                "email": email,
+                "nickname": name,
+                "picture": picture
+            })
+            return RedirectResponse(url=f"{frontend_url}?signup=consent&token={temp_token}")
+
+        # 기존 사용자 → 바로 로그인
+        user.last_login_at = datetime.now(timezone.utc)
+        db.commit()
+
+        tokens = create_tokens_for_user(user)
         redirect_url = f"{frontend_url}?access_token={tokens.access_token}&refresh_token={tokens.refresh_token}"
 
         return RedirectResponse(url=redirect_url)

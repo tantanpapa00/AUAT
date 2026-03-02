@@ -70,6 +70,9 @@ class User(Base):
     # Google OAuth
     google_id = Column(Text, nullable=True, unique=True)
 
+    # Kakao OAuth
+    kakao_id = Column(Text, nullable=True, unique=True)
+
     # 구독 정보
     plan = Column(Text, nullable=False, default="free")  # free, hub, premium
     plan_expires_at = Column(DateTime(timezone=True), nullable=True)

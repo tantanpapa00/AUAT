@@ -444,9 +444,17 @@ PUBLIC_PATHS = [
     "/openapi.json",
     "/api/health",
     "/api/auth/register",      # 자체 회원가입
+    "/api/auth/register-with-consent",  # 약관 동의 포함 회원가입
     "/api/auth/login",         # 자체 로그인
     "/api/auth/google/login",
     "/api/auth/google/callback",
+    "/api/auth/kakao/login",   # 카카오 로그인
+    "/api/auth/kakao/callback", # 카카오 콜백
+    "/api/auth/complete-signup", # 약관 동의 후 가입 완료
+    "/api/auth/terms/terms",   # 약관 조회
+    "/api/auth/terms/privacy", # 개인정보 조회
+    "/api/auth/terms/investment_risk", # 투자 리스크 조회
+    "/api/auth/providers",     # 인증 방식 조회
     "/api/auth/refresh",
     "/tv",  # TradingView webhook은 별도 인증 (TV_SECRET)
     "/landing",
