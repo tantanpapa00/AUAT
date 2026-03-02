@@ -94,9 +94,9 @@ def extract_toc(html_content: str) -> tuple[str, List[Dict[str, str]]]:
 
         return f'<h{level} id="{heading_id}" class="section-anchor"><a href="#{heading_id}" class="heading-link">{inner_html}</a></h{level}>'
 
-    # Process h1 and h2 headings
+    # Process h2 headings only (h1 is rendered by template)
     modified_html = re.sub(
-        r'<h([12])(?:\s+id="([^"]*)")?[^>]*>(.+?)</h\1>',
+        r'<h(2)(?:\s+id="([^"]*)")?[^>]*>(.+?)</h\1>',
         add_id_and_toc,
         html_content,
         flags=re.DOTALL
