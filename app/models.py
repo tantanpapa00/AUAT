@@ -414,3 +414,59 @@ class UsageTracking(Base):
         Index('ix_usage_tracking_month', 'month_key'),
         UniqueConstraint('user_id', 'feature', 'month_key', name='uq_usage_tracking'),
     )
+
+
+class Subscription(Base):
+    """
+    토스페이먼츠 정기결제 구독 정보 (명령서66)
+    - 사용자별 1개 구독 (UNIQUE user_id)
+    - 빌링키로 자동결제
+    """
+    __tablename__ = "subscriptions"
+
+    id = Column(BigInteger, primary_key=True)
+    user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, unique=True)
+    plan = Column(Text, nullable=False, default="free")  # free, standard, pro, proplus, promax
+    billing_key = Column(Text, nullable=True)  # 토스 빌링키
+    customer_key = Column(Text, nullable=True)  # 토스 고객키
+    status = Column(Text, nullable=False, default="active")  # active, cancelled, expired, past_due
+    card_last4 = Column(Text, nullable=True)  # 카드 마지막 4자리
+    card_company = Column(Text, nullable=True)  # 카드사
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)  # 다음 결제일까지 이용 가능
+    next_billing_at = Column(DateTime(timezone=True), nullable=True)  # 다음 자동결제일
+    cancelled_at = Column(DateTime(timezone=True), nullable=True)  # 해지 신청일
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index('ix_subscriptions_user', 'user_id'),
+        Index('ix_subscriptions_status', 'status'),
+        Index('ix_subscriptions_next_billing', 'next_billing_at'),
+    )
+
+
+class PaymentHistory(Base):
+    """
+    결제 내역 (명령서66)
+    - 성공/실패 모든 결제 시도 기록
+    """
+    __tablename__ = "payment_history"
+
+    id = Column(BigInteger, primary_key=True)
+    user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
+    subscription_id = Column(BigInteger, ForeignKey("subscriptions.id"), nullable=True)
+    order_id = Column(Text, nullable=False, unique=True)  # 주문번호 (UUID)
+    payment_key = Column(Text, nullable=True)  # 토스 결제키
+    amount = Column(BigInteger, nullable=False)  # 결제 금액
+    plan = Column(Text, nullable=False)  # 결제 시점 플랜
+    status = Column(Text, nullable=False, default="pending")  # pending, paid, failed, refunded
+    failure_reason = Column(Text, nullable=True)  # 실패 사유
+    paid_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index('ix_payment_history_user', 'user_id'),
+        Index('ix_payment_history_order', 'order_id'),
+        Index('ix_payment_history_status', 'status'),
+    )
