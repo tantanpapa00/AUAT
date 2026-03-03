@@ -963,6 +963,12 @@ def ui_home(request: Request):
     return templates.TemplateResponse("dashboard.html", {"request": request})
 
 
+@app.get("/pricing", response_class=HTMLResponse)
+def pricing_page(request: Request):
+    """Pricing page - Plan comparison and subscription"""
+    return templates.TemplateResponse("pricing.html", {"request": request})
+
+
 # @app.get("/db-check")
 # def db_check(db: Session = Depends(get_db)):
 #     v = db.execute(text("select version()")).scalar()
