@@ -387,6 +387,10 @@ app.include_router(notifications_router)
 from .routers.auth import router as auth_router
 app.include_router(auth_router)
 
+# Billing Router (명령서66 - 토스페이먼츠 정기결제)
+from .routers.billing import router as billing_router
+app.include_router(billing_router)
+
 
 @app.get("/api/auth/google/login")
 async def auth_google_login(request: Request):
