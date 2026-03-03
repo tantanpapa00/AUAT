@@ -467,8 +467,7 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
         error_msg = str(e)
         # CSRF state 에러 시 재시도 안내
         if "state" in error_msg.lower() or "csrf" in error_msg.lower():
-            frontend_url = os.getenv("FRONTEND_URL", "/")
-            return RedirectResponse(url=f"{frontend_url}/login?error=session_expired")
+            return RedirectResponse(url="/login?error=session_expired")
         raise HTTPException(status_code=400, detail=f"OAuth 인증 실패: {error_msg}")
 
 
