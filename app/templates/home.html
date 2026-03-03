@@ -1110,9 +1110,11 @@
         if (refreshToken) {
           localStorage.setItem('bbooster_refresh_token', refreshToken);
         }
+        // 로그인 성공 시 데모 모드 즉시 해제
+        localStorage.removeItem('bbooster_demo_mode');
         // URL에서 토큰 파라미터 제거 (보안)
         window.history.replaceState({}, document.title, window.location.pathname);
-        console.log('[OAuth] 토큰 저장 완료');
+        console.log('[OAuth] 토큰 저장 완료 + 데모 모드 해제');
       }
     }
 

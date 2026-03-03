@@ -513,6 +513,8 @@
       if (accessToken && refreshToken) {
         localStorage.setItem('bbooster_access_token', accessToken);
         localStorage.setItem('bbooster_refresh_token', refreshToken);
+        // 로그인 성공 시 데모 모드 즉시 해제
+        localStorage.removeItem('bbooster_demo_mode');
         window.location.href = '/dashboard';
       }
 
@@ -634,6 +636,8 @@
         if (res.ok && data.access_token) {
           localStorage.setItem('bbooster_access_token', data.access_token);
           localStorage.setItem('bbooster_refresh_token', data.refresh_token);
+          // 로그인 성공 시 데모 모드 즉시 해제
+          localStorage.removeItem('bbooster_demo_mode');
           window.location.href = '/dashboard';
         } else {
           errorEl.textContent = data.detail || '로그인에 실패했습니다';
@@ -724,6 +728,8 @@
         if (res.ok && data.access_token) {
           localStorage.setItem('bbooster_access_token', data.access_token);
           localStorage.setItem('bbooster_refresh_token', data.refresh_token);
+          // 가입 완료 시 데모 모드 즉시 해제
+          localStorage.removeItem('bbooster_demo_mode');
           window.location.href = '/dashboard';
         } else {
           errorEl.textContent = data.detail || '회원가입에 실패했습니다';
