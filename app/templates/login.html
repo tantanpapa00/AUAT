@@ -524,6 +524,10 @@
         // 소셜 로그인 신규 가입 모드: 이메일/비밀번호 필드 숨김
         document.querySelectorAll('#registerPanel .form-group').forEach(el => el.style.display = 'none');
         document.querySelectorAll('#registerPanel .btn-kakao, #registerPanel .btn-google, #registerPanel .divider').forEach(el => el.style.display = 'none');
+        // 숨겨진 필드의 required 속성 제거 (form validation 에러 방지)
+        document.getElementById('registerEmail').removeAttribute('required');
+        document.getElementById('registerPassword').removeAttribute('required');
+        document.getElementById('registerPasswordConfirm').removeAttribute('required');
         document.getElementById('pageTitle').textContent = '약관 동의';
         document.getElementById('registerBtn').textContent = '가입 완료';
         // 약관 체크 상태 초기화
