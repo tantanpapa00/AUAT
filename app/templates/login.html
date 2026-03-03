@@ -519,6 +519,7 @@
       // Check for consent redirect (new social signup)
       if (params.get('signup') === 'consent' && params.get('token')) {
         socialSignupToken = params.get('token');
+        console.log('[Consent] Social signup mode, token length:', socialSignupToken.length);
         switchTab('register');
         // 소셜 로그인 신규 가입 모드: 이메일/비밀번호 필드 숨김
         document.querySelectorAll('#registerPanel .form-group').forEach(el => el.style.display = 'none');
@@ -527,6 +528,7 @@
         document.getElementById('registerBtn').textContent = '가입 완료';
         // 약관 체크 상태 초기화
         checkTerms();
+        console.log('[Consent] Button disabled:', document.getElementById('registerBtn').disabled);
         showToast('약관에 동의하고 가입을 완료해주세요');
       }
     }
@@ -588,7 +590,9 @@
           /[!@#$%^&*()_+\-=\[\]{}|;:,.<>?/~`]/.test(password);
       }
 
-      document.getElementById('registerBtn').disabled = !(allRequired && passwordValid);
+      const shouldEnable = allRequired && passwordValid;
+      console.log('[checkTerms] allRequired:', allRequired, 'passwordValid:', passwordValid, 'socialToken:', !!socialSignupToken, '-> enable:', shouldEnable);
+      document.getElementById('registerBtn').disabled = !shouldEnable;
 
       // Update "all" checkbox
       const allTerms = document.querySelectorAll('.terms-item input[type="checkbox"]:not(#agreeAll)');
@@ -636,6 +640,8 @@
     // Register handler
     async function handleRegister(e) {
       e.preventDefault();
+      console.log('[Register] handleRegister called, socialSignupToken:', !!socialSignupToken);
+
       const btn = document.getElementById('registerBtn');
       const errorEl = document.getElementById('registerError');
       const successEl = document.getElementById('registerSuccess');
