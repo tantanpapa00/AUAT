@@ -497,6 +497,9 @@
       }
     }
 
+    // Social signup token (for consent flow)
+    let socialSignupToken = null;
+
     // Check URL params for register tab
     function checkUrlParams() {
       const params = new URLSearchParams(window.location.search);
@@ -515,8 +518,15 @@
 
       // Check for consent redirect (new social signup)
       if (params.get('signup') === 'consent' && params.get('token')) {
-        // Show consent modal or redirect to consent page
+        socialSignupToken = params.get('token');
         switchTab('register');
+        // 소셜 로그인 신규 가입 모드: 이메일/비밀번호 필드 숨김
+        document.querySelectorAll('#registerPanel .form-group').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('#registerPanel .btn-kakao, #registerPanel .btn-google, #registerPanel .divider').forEach(el => el.style.display = 'none');
+        document.getElementById('pageTitle').textContent = '약관 동의';
+        document.getElementById('registerBtn').textContent = '가입 완료';
+        // 약관 체크 상태 초기화
+        checkTerms();
         showToast('약관에 동의하고 가입을 완료해주세요');
       }
     }
@@ -568,12 +578,15 @@
       const requiredTerms = document.querySelectorAll('.required-term');
       const allRequired = Array.from(requiredTerms).every(cb => cb.checked);
 
-      // Check password validity
-      const password = document.getElementById('registerPassword').value;
-      const passwordValid = password.length >= 12 &&
-        /[A-Za-z]/.test(password) &&
-        /[0-9]/.test(password) &&
-        /[!@#$%^&*()_+\-=\[\]{}|;:,.<>?/~`]/.test(password);
+      // 소셜 로그인 신규 사용자는 비밀번호 검증 불필요
+      let passwordValid = true;
+      if (!socialSignupToken) {
+        const password = document.getElementById('registerPassword').value;
+        passwordValid = password.length >= 12 &&
+          /[A-Za-z]/.test(password) &&
+          /[0-9]/.test(password) &&
+          /[!@#$%^&*()_+\-=\[\]{}|;:,.<>?/~`]/.test(password);
+      }
 
       document.getElementById('registerBtn').disabled = !(allRequired && passwordValid);
 
@@ -623,49 +636,73 @@
     // Register handler
     async function handleRegister(e) {
       e.preventDefault();
-      const email = document.getElementById('registerEmail').value.trim();
-      const password = document.getElementById('registerPassword').value;
-      const passwordConfirm = document.getElementById('registerPasswordConfirm').value;
       const btn = document.getElementById('registerBtn');
       const errorEl = document.getElementById('registerError');
       const successEl = document.getElementById('registerSuccess');
 
-      // Validation
-      if (password !== passwordConfirm) {
-        errorEl.textContent = '비밀번호가 일치하지 않습니다';
-        errorEl.classList.add('show');
-        return;
-      }
-
-      // Password policy
-      if (password.length < 12) {
-        errorEl.textContent = '비밀번호는 12자 이상이어야 합니다';
-        errorEl.classList.add('show');
-        return;
-      }
-
       btn.disabled = true;
-      btn.textContent = '회원가입 중...';
+      btn.textContent = '가입 중...';
       errorEl.classList.remove('show');
       successEl.classList.remove('show');
 
       try {
-        const res = await fetch('/api/auth/register-with-consent', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email,
-            password,
-            name: null,
-            terms_agreed: document.getElementById('agreeTerms').checked,
-            privacy_agreed: document.getElementById('agreePrivacy').checked,
-            age_confirmed: document.getElementById('agreeAge').checked,
-            investment_risk_agreed: document.getElementById('agreeRisk').checked,
-            marketing_agreed: document.getElementById('agreeMarketing').checked
-          })
-        });
+        let res, data;
 
-        const data = await res.json();
+        // 소셜 로그인 신규 사용자 (약관 동의만 필요)
+        if (socialSignupToken) {
+          res = await fetch('/api/auth/complete-signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              token: socialSignupToken,
+              terms_agreed: document.getElementById('agreeTerms').checked,
+              privacy_agreed: document.getElementById('agreePrivacy').checked,
+              age_confirmed: document.getElementById('agreeAge').checked,
+              investment_risk_agreed: document.getElementById('agreeRisk').checked,
+              marketing_agreed: document.getElementById('agreeMarketing').checked
+            })
+          });
+        } else {
+          // 일반 이메일 회원가입
+          const email = document.getElementById('registerEmail').value.trim();
+          const password = document.getElementById('registerPassword').value;
+          const passwordConfirm = document.getElementById('registerPasswordConfirm').value;
+
+          // Validation
+          if (password !== passwordConfirm) {
+            errorEl.textContent = '비밀번호가 일치하지 않습니다';
+            errorEl.classList.add('show');
+            btn.disabled = false;
+            btn.textContent = '회원가입';
+            return;
+          }
+
+          // Password policy
+          if (password.length < 12) {
+            errorEl.textContent = '비밀번호는 12자 이상이어야 합니다';
+            errorEl.classList.add('show');
+            btn.disabled = false;
+            btn.textContent = '회원가입';
+            return;
+          }
+
+          res = await fetch('/api/auth/register-with-consent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email,
+              password,
+              name: null,
+              terms_agreed: document.getElementById('agreeTerms').checked,
+              privacy_agreed: document.getElementById('agreePrivacy').checked,
+              age_confirmed: document.getElementById('agreeAge').checked,
+              investment_risk_agreed: document.getElementById('agreeRisk').checked,
+              marketing_agreed: document.getElementById('agreeMarketing').checked
+            })
+          });
+        }
+
+        data = await res.json();
 
         if (res.ok && data.access_token) {
           localStorage.setItem('bbooster_access_token', data.access_token);
@@ -680,7 +717,7 @@
         errorEl.classList.add('show');
       } finally {
         btn.disabled = false;
-        btn.textContent = '회원가입';
+        btn.textContent = socialSignupToken ? '가입 완료' : '회원가입';
         checkTerms(); // Re-check to enable/disable button
       }
     }
