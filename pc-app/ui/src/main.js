@@ -259,8 +259,8 @@ const API_COMMAND_MAP = {
 
 // invoke 래퍼 - 데모 모드 / API / 네이티브 분기
 async function invoke(cmd, args = {}) {
-    // 데모 모드 처리
-    if (isDemoMode) {
+    // 데모 모드 처리 (로그인 상태에서는 무시)
+    if (isDemoMode && !auth.accessToken) {
         console.log('[Demo] invoke intercepted:', cmd);
         if (cmd === 'get_portfolio_summary') return DEMO_DATA.summary;
         if (cmd === 'get_holdings') return DEMO_DATA.holdings;
@@ -342,9 +342,9 @@ const auth = {
         localStorage.removeItem('bbooster_access_token');
         localStorage.removeItem('bbooster_refresh_token');
         localStorage.removeItem('bbooster_hub_mode');
-        // 로그아웃 시 데모 모드도 해제
-        isDemoMode = false;
-        localStorage.removeItem('bbooster_demo_mode');
+        // 로그아웃 시 데모 모드 활성화 (비로그인 상태에서 데모 표시)
+        isDemoMode = true;
+        localStorage.setItem('bbooster_demo_mode', 'true');
     },
 
     setHubMode(enabled) {
