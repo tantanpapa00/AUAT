@@ -575,10 +575,13 @@ async def dashboard_summary(
 ):
     """대시보드 요약 데이터 (총 자산, 수익률, 오늘 수익)"""
     try:
-        # 활성 자산 수
-        active_assets = db.execute(text(
-            "SELECT COUNT(*) FROM assets WHERE is_active = true AND COALESCE(soft_deleted, 0) = 0"
-        )).scalar() or 0
+        # 활성 자산 수 (현재 사용자의 계정에 속한 자산만)
+        active_assets = db.execute(text("""
+            SELECT COUNT(*) FROM assets a
+            JOIN accounts acc ON acc.id = a.account_id
+            WHERE a.is_active = true AND COALESCE(a.soft_deleted, 0) = 0
+            AND acc.owner_id = :user_id
+        """), {"user_id": current_user.id}).scalar() or 0
     except Exception:
         active_assets = 0
 
@@ -628,15 +631,16 @@ async def dashboard_assets(
     assets = []
 
     try:
-        # assets 테이블에서 활성 자산 조회
+        # assets 테이블에서 활성 자산 조회 (현재 사용자의 계정에 속한 자산만)
         rows = db.execute(text("""
             SELECT a.id, a.symbol, a.market, acc.exchange
             FROM assets a
             JOIN accounts acc ON acc.id = a.account_id
             WHERE a.is_active = true AND COALESCE(a.soft_deleted, 0) = 0
+            AND acc.owner_id = :user_id
             ORDER BY a.id
             LIMIT 20
-        """)).mappings().all()
+        """), {"user_id": current_user.id}).mappings().all()
 
         for row in rows:
             # 실제 거래 데이터가 없으므로 더미 수익률 생성

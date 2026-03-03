@@ -315,6 +315,12 @@ const auth = {
         this.refreshToken = refresh;
         localStorage.setItem('bbooster_access_token', access || '');
         localStorage.setItem('bbooster_refresh_token', refresh || '');
+        // 로그인 성공 시 데모 모드 자동 해제
+        if (access) {
+            isDemoMode = false;
+            localStorage.setItem('bbooster_demo_mode', 'false');
+            console.log('[Auth] 로그인 성공 - 데모 모드 해제됨');
+        }
     },
 
     loadTokens() {
@@ -331,6 +337,9 @@ const auth = {
         localStorage.removeItem('bbooster_access_token');
         localStorage.removeItem('bbooster_refresh_token');
         localStorage.removeItem('bbooster_hub_mode');
+        // 로그아웃 시 데모 모드도 해제
+        isDemoMode = false;
+        localStorage.removeItem('bbooster_demo_mode');
     },
 
     setHubMode(enabled) {
