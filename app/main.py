@@ -972,6 +972,18 @@ def pricing_page(request: Request):
     return templates.TemplateResponse("pricing.html", {"request": request})
 
 
+@app.get("/billing/success", response_class=HTMLResponse)
+def billing_success_page(request: Request):
+    """Billing success page - Process payment after card auth"""
+    return templates.TemplateResponse("billing_success.html", {"request": request})
+
+
+@app.get("/billing/fail", response_class=HTMLResponse)
+def billing_fail_page(request: Request):
+    """Billing fail page - Show error and retry option"""
+    return templates.TemplateResponse("billing_fail.html", {"request": request})
+
+
 # @app.get("/db-check")
 # def db_check(db: Session = Depends(get_db)):
 #     v = db.execute(text("select version()")).scalar()
