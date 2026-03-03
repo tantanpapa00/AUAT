@@ -951,7 +951,7 @@
 
     async function selectPlan(plan, price) {
       if (!token) {
-        window.location.href = '/login?register=true&plan=' + plan;
+        window.location.href = '/login?next=/pricing&plan=' + plan;
         return;
       }
 
