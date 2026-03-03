@@ -516,6 +516,13 @@
         window.location.href = '/dashboard';
       }
 
+      // 세션 만료 에러 처리
+      if (params.get('error') === 'session_expired') {
+        showToast('세션이 만료되었습니다. 다시 로그인해주세요.');
+        // URL에서 에러 파라미터 제거
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+
       // Check for consent redirect (new social signup)
       if (params.get('signup') === 'consent' && params.get('token')) {
         socialSignupToken = params.get('token');

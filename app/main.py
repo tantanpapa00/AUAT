@@ -331,6 +331,8 @@ from app.report_data import fetch_report_data, format_financial_data_for_prompt
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("JWT_SECRET_KEY", "bbooster-secret-key-change-in-production"),
+    same_site="lax",  # GET 리다이렉트에서 쿠키 전송 허용
+    max_age=3600,  # 1시간 유효
 )
 
 # Premium Strategy Router (Phase 3)
@@ -458,7 +460,12 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse(url=redirect_url)
 
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"OAuth 인증 실패: {str(e)}")
+        error_msg = str(e)
+        # CSRF state 에러 시 재시도 안내
+        if "state" in error_msg.lower() or "csrf" in error_msg.lower():
+            frontend_url = os.getenv("FRONTEND_URL", "/")
+            return RedirectResponse(url=f"{frontend_url}/login?error=session_expired")
+        raise HTTPException(status_code=400, detail=f"OAuth 인증 실패: {error_msg}")
 
 
 # =========================
