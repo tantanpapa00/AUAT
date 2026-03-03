@@ -489,7 +489,7 @@
   </div>
 
   <script>
-    // Get redirect URL from next parameter (or default to /dashboard)
+    // Get redirect URL from next parameter (or default to /)
     function getRedirectUrl() {
       const params = new URLSearchParams(window.location.search);
       const next = params.get('next');
@@ -497,7 +497,7 @@
       if (next && next.startsWith('/') && !next.startsWith('//')) {
         return next;
       }
-      return '/dashboard';
+      return '/';
     }
 
     // Check if already logged in
@@ -527,9 +527,9 @@
         // 로그인 성공 시 데모 모드 즉시 해제
         localStorage.removeItem('bbooster_demo_mode');
         // OAuth 콜백에서 next 파라미터 확인
-        const oauthNext = params.get('next') || sessionStorage.getItem('login_next') || '/dashboard';
+        const oauthNext = params.get('next') || sessionStorage.getItem('login_next') || '/';
         sessionStorage.removeItem('login_next');
-        window.location.href = oauthNext.startsWith('/') && !oauthNext.startsWith('//') ? oauthNext : '/dashboard';
+        window.location.href = oauthNext.startsWith('/') && !oauthNext.startsWith('//') ? oauthNext : '/';
       }
 
       // 세션 만료 에러 처리
@@ -763,7 +763,7 @@
     function loginWithKakao() {
       // next 파라미터를 sessionStorage에 저장 (OAuth 콜백 후 사용)
       const nextUrl = getRedirectUrl();
-      if (nextUrl !== '/dashboard') {
+      if (nextUrl !== '/') {
         sessionStorage.setItem('login_next', nextUrl);
       }
       window.location.href = '/api/auth/kakao/login';
@@ -772,7 +772,7 @@
     function loginWithGoogle() {
       // next 파라미터를 sessionStorage에 저장 (OAuth 콜백 후 사용)
       const nextUrl = getRedirectUrl();
-      if (nextUrl !== '/dashboard') {
+      if (nextUrl !== '/') {
         sessionStorage.setItem('login_next', nextUrl);
       }
       window.location.href = '/api/auth/google/login';
