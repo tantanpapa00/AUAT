@@ -1133,32 +1133,33 @@
 
   async function loadSummary() {
     try {
-      const data = await api('/api/dashboard/summary');
+      // PC앱과 동일한 /api/portfolio/summary 호출
+      const data = await api('/api/portfolio/summary');
 
       // 총 자산
       document.getElementById('totalAssets').textContent =
-        formatCurrency(data.total_assets || 0);
+        data.total_assets_formatted || formatCurrency(data.total_assets || 0);
 
-      // 총 수익률
-      const totalProfit = data.total_profit_pct || 0;
+      // 총 수익률 (portfolio API는 total_profit_rate)
+      const totalProfit = data.total_profit_rate || 0;
       const profitEl = document.getElementById('totalProfit');
       profitEl.textContent = (totalProfit >= 0 ? '+' : '') + totalProfit.toFixed(2) + '%';
       profitEl.className = 'summary-value ' + (totalProfit >= 0 ? 'positive' : 'negative');
 
-      // 전일 대비
-      const dailyChange = data.daily_change_pct || 0;
+      // 전일 대비 (portfolio API는 daily_change_rate)
+      const dailyChange = data.daily_change_rate || 0;
       const changeEl = document.getElementById('profitChange');
       changeEl.textContent = `전일 대비 ${dailyChange >= 0 ? '+' : ''}${dailyChange.toFixed(2)}%`;
       changeEl.className = 'summary-change ' + (dailyChange >= 0 ? 'up' : 'down');
 
-      // 오늘 수익
-      const todayProfit = data.today_profit || 0;
+      // 오늘 수익 (portfolio API는 daily_change)
+      const todayProfit = data.daily_change || 0;
       const todayEl = document.getElementById('todayProfit');
-      todayEl.textContent = formatCurrency(todayProfit);
+      todayEl.textContent = data.daily_change_formatted || formatCurrency(todayProfit);
       todayEl.className = 'summary-value ' + (todayProfit >= 0 ? 'positive' : 'negative');
 
-      // 활성 자산
-      document.getElementById('activeAssets').textContent = data.active_assets || 0;
+      // 활성 자산 (portfolio API는 holdings_count)
+      document.getElementById('activeAssets').textContent = data.holdings_count || 0;
     } catch (e) {
       console.error('요약 로드 실패:', e);
     }
@@ -1173,7 +1174,17 @@
     });
 
     try {
-      const data = await api(`/api/dashboard/chart?period=${period}`);
+      // period 변환: daily → 1d, weekly → 1w, monthly → 1m
+      const periodMap = { daily: '1d', weekly: '1w', monthly: '1m' };
+      const apiPeriod = periodMap[period] || '1w';
+
+      // PC앱과 동일한 /api/portfolio/chart 호출
+      const data = await api(`/api/portfolio/chart?period=${apiPeriod}`);
+
+      // portfolio API 응답 형식 변환: data.data[{date, value}] → labels, values
+      const chartData = data.data || [];
+      const labels = chartData.map(d => d.date);
+      const values = chartData.map(d => d.value);
 
       const ctx = document.getElementById('profitChart').getContext('2d');
 
@@ -1182,10 +1193,10 @@
       profitChart = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: data.labels || [],
+          labels: labels,
           datasets: [{
             label: '수익률 (%)',
-            data: data.values || [],
+            data: values,
             borderColor: '#3b82f6',
             backgroundColor: 'rgba(59, 130, 246, 0.1)',
             fill: true,
@@ -1215,20 +1226,31 @@
 
   async function loadAssets() {
     try {
-      const data = await api('/api/dashboard/assets');
-      const assets = data.assets || [];
+      // PC앱과 동일한 /api/portfolio/holdings 호출
+      const data = await api('/api/portfolio/holdings');
+      const holdings = data.holdings || [];
 
       const grid = document.getElementById('assetsGrid');
 
-      if (assets.length === 0) {
+      if (holdings.length === 0) {
         grid.innerHTML = `
           <div class="empty-state">
             <div class="empty-state-icon">📊</div>
             <div>등록된 자산이 없습니다</div>
+            <div style="margin-top: 8px; font-size: 13px; color: var(--muted);">설정 → 계정관리에서 거래소를 연결하세요</div>
           </div>
         `;
         return;
       }
+
+      // holdings를 assets 형식으로 변환 (profit_rate → profit_pct, current_price*quantity → value)
+      const assets = holdings.map(h => ({
+        symbol: h.symbol || h.name || '-',
+        exchange: h.exchange || '-',
+        profit_pct: h.profit_rate || 0,
+        quantity: h.quantity || 0,
+        value: (h.current_price || 0) * (h.quantity || 0)
+      }));
 
       // 수익률 순 정렬
       assets.sort((a, b) => (b.profit_pct || 0) - (a.profit_pct || 0));
