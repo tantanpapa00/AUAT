@@ -375,6 +375,7 @@ async def get_market_signal(
                     trading_value_prev = rows[1].trading_value
 
             rt = realtime_data.get(market.lower(), {})
+            print(f"[SIGNAL DEBUG] {market}: rt={bool(rt)}, rt_keys={list(rt.keys()) if rt else []}, change_pct={rt.get('change_percent')}")
 
             if row:
                 status = row.status or 'confirmed_uptrend'
@@ -383,6 +384,7 @@ async def get_market_signal(
                 # DB 데이터가 오래된 경우 (오늘 날짜가 아님) 실시간 신호 계산
                 db_date = row.date.date() if hasattr(row.date, 'date') else row.date
                 is_stale = db_date != today.date() if db_date else True
+                print(f"[SIGNAL DEBUG] {market}: db_date={db_date}, today={today.date()}, is_stale={is_stale}, rt_has_data={bool(rt)}")
 
                 if is_stale and rt:
                     # 실시간 데이터로 신호 재계산
