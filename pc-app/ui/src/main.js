@@ -6994,7 +6994,13 @@ function renderSectorList(sectors, sortBy = 'change', filter = 'all') {
 
     // 정렬 적용
     if (sortBy === 'change') {
-        filtered.sort((a, b) => Math.abs(b.change_percent || 0) - Math.abs(a.change_percent || 0));
+        if (filter === 'down') {
+            // 하락: 오름차순 (하락폭 큰 순, -17% → -5% → -1%)
+            filtered.sort((a, b) => (a.change_percent || 0) - (b.change_percent || 0));
+        } else {
+            // 전체/상승: 내림차순 (+10% → +5% → 0% → -5% → -10%)
+            filtered.sort((a, b) => (b.change_percent || 0) - (a.change_percent || 0));
+        }
     } else if (sortBy === 'volume') {
         filtered.sort((a, b) => (b.trading_value || 0) - (a.trading_value || 0));
     }
