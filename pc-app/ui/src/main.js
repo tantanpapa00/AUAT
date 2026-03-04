@@ -16,50 +16,6 @@ Chart.register(...registerables, ChartDataLabels);
 console.log('[Chart] Chart.js + ChartDataLabels 등록 완료');
 
 // =====================================================
-// Demo Mode (스크린샷/마케팅용) - invoke 인터셉트 방식
-// =====================================================
-let isDemoMode = localStorage.getItem('bbooster_demo_mode') === 'true';
-console.log('[Demo Mode] 초기화 - isDemoMode:', isDemoMode, ', localStorage:', localStorage.getItem('bbooster_demo_mode'));
-
-// 데모 데이터 (하드코딩 - 가장 확실)
-const DEMO_DATA = {
-    summary: {
-        total_assets_formatted: '₩52,847,320',
-        total_profit_rate: 18.42,
-        daily_change_formatted: '+₩328,500',
-        daily_change_rate: 0.63,
-        active_strategies: 5,
-        allocation: [32, 28, 22, 18]
-    },
-    holdings: [
-        { exchange: 'KIS_KR', symbol: '삼성전자', name: '삼성전자', quantity: 50, avg_price: 68000, current_price: 72500, value: 3625000, profit_loss: 225000, profit_rate: 6.62, currency: 'KRW' },
-        { exchange: 'KIS_KR', symbol: 'SK하이닉스', name: 'SK하이닉스', quantity: 30, avg_price: 145000, current_price: 198000, value: 5940000, profit_loss: 1590000, profit_rate: 36.55, currency: 'KRW' },
-        { exchange: 'KIS_KR', symbol: 'NAVER', name: 'NAVER', quantity: 15, avg_price: 195000, current_price: 223000, value: 3345000, profit_loss: 420000, profit_rate: 14.36, currency: 'KRW' },
-        { exchange: 'KIS_KR', symbol: 'KRW', name: '예수금', quantity: 8500000, avg_price: 0, current_price: 0, value: 8500000, profit_loss: 0, profit_rate: 0, currency: 'KRW', is_cash: true },
-        { exchange: 'KIS_US', symbol: 'NVDA', name: 'NVIDIA', quantity: 15, avg_price: 98.50, current_price: 131.20, value: 1968.00, profit_loss: 490.50, profit_rate: 33.20, currency: 'USD' },
-        { exchange: 'KIS_US', symbol: 'AAPL', name: 'Apple', quantity: 10, avg_price: 178.00, current_price: 198.50, value: 1985.00, profit_loss: 205.00, profit_rate: 11.52, currency: 'USD' },
-        { exchange: 'KIS_US', symbol: 'TSLA', name: 'Tesla', quantity: 8, avg_price: 185.00, current_price: 245.00, value: 1960.00, profit_loss: 480.00, profit_rate: 32.43, currency: 'USD' },
-        { exchange: 'KIS_US', symbol: 'USD', name: 'USD 현금', quantity: 2150.00, avg_price: 0, current_price: 0, value: 2150.00, profit_loss: 0, profit_rate: 0, currency: 'USD', is_cash: true },
-        { exchange: 'OKX', symbol: 'BTC-USDT', name: 'Bitcoin', quantity: 0.05, avg_price: 62500, current_price: 84200, value: 4210.00, profit_loss: 1085.00, profit_rate: 34.72, currency: 'USD' },
-        { exchange: 'OKX', symbol: 'ETH-USDT', name: 'Ethereum', quantity: 0.8, avg_price: 2100, current_price: 3150, value: 2520.00, profit_loss: 840.00, profit_rate: 50.00, currency: 'USD' },
-        { exchange: 'OKX', symbol: 'SOL-USDT', name: 'Solana', quantity: 20, avg_price: 85.00, current_price: 142.00, value: 2840.00, profit_loss: 1140.00, profit_rate: 67.06, currency: 'USD' },
-        { exchange: 'OKX', symbol: 'USDT', name: 'Tether', quantity: 3200, avg_price: 1.00, current_price: 1.00, value: 3200.00, profit_loss: 0, profit_rate: 0, currency: 'USD', is_cash: true }
-    ],
-    strategies: [
-        { id: 1, name: '추세추종 20일', exchange: 'KIS_KR', symbol: '삼성전자', status: 'running', trades_today: 2, current_pnl_pct: 6.62 },
-        { id: 2, name: '추세추종 20일', exchange: 'KIS_US', symbol: 'NVDA', status: 'running', trades_today: 1, current_pnl_pct: 33.20 },
-        { id: 3, name: '역추세 RSI', exchange: 'KIS_KR', symbol: 'SK하이닉스', status: 'running', trades_today: 0, current_pnl_pct: 36.55 },
-        { id: 4, name: '추세추종 HTF', exchange: 'OKX', symbol: 'BTC-USDT', status: 'running', trades_today: 1, current_pnl_pct: 34.72 },
-        { id: 5, name: '추세추종 20일', exchange: 'OKX', symbol: 'SOL-USDT', status: 'running', trades_today: 3, current_pnl_pct: 67.06 }
-    ],
-    trades: [
-        { id: 1, timestamp: '2026-02-28T09:30:00Z', exchange: 'KIS_KR', symbol: '삼성전자', side: 'buy', quantity: 10, price: 72000, status: 'filled' },
-        { id: 2, timestamp: '2026-02-27T14:20:00Z', exchange: 'OKX', symbol: 'SOL-USDT', side: 'buy', quantity: 5, price: 138.50, status: 'filled' },
-        { id: 3, timestamp: '2026-02-26T10:15:00Z', exchange: 'KIS_US', symbol: 'NVDA', side: 'buy', quantity: 3, price: 128.00, status: 'filled' }
-    ]
-};
-
-// =====================================================
 // invoke 래퍼 - HTTP API는 직접 fetch, 네이티브만 Tauri
 // =====================================================
 
@@ -257,23 +213,8 @@ const API_COMMAND_MAP = {
     'delete_all_notifications': (args) => api.deleteAllNotifications(args.access_token),
 };
 
-// 데모 모드에서 바이패스할 명령 (인증/서버 관련은 실제 API 호출)
-const DEMO_BYPASS_COMMANDS = new Set([
-    'login_with_email', 'register_with_email', 'refresh_auth_token',
-    'get_user_info', 'logout', 'check_server_health', 'get_server_status'
-]);
-
-// invoke 래퍼 - 데모 모드 / API / 네이티브 분기
+// invoke 래퍼 - API / 네이티브 분기
 async function invoke(cmd, args = {}) {
-    // 데모 모드 처리 (로그인 상태에서는 무시, 바이패스 명령은 실제 API 호출)
-    if (isDemoMode && !auth.accessToken && !DEMO_BYPASS_COMMANDS.has(cmd)) {
-        console.log('[Demo] invoke intercepted:', cmd);
-        if (cmd === 'get_portfolio_summary') return DEMO_DATA.summary;
-        if (cmd === 'get_holdings') return DEMO_DATA.holdings;
-        if (cmd === 'get_active_strategies') return DEMO_DATA.strategies;
-        if (cmd === 'get_trade_history') return { trades: DEMO_DATA.trades, total: DEMO_DATA.trades.length };
-    }
-
     // 네이티브 커맨드 → Tauri invoke
     if (NATIVE_COMMANDS.has(cmd)) {
         return originalInvoke(cmd, args);
@@ -298,14 +239,6 @@ async function invoke(cmd, args = {}) {
 // 디버깅용 전역 노출
 window.invokeCmd = invoke;
 
-// 데모 모드 토글 함수 (콘솔에서 사용: window.toggleDemoMode())
-window.toggleDemoMode = function() {
-    isDemoMode = !isDemoMode;
-    localStorage.setItem('bbooster_demo_mode', isDemoMode ? 'true' : 'false');
-    console.log('[Demo Mode]', isDemoMode ? '활성화됨 - 새로고침 중...' : '비활성화됨 - 새로고침 중...');
-    window.location.reload();
-};
-
 // =====================================================
 // Authentication State
 // =====================================================
@@ -320,23 +253,12 @@ const auth = {
         this.refreshToken = refresh;
         localStorage.setItem('bbooster_access_token', access || '');
         localStorage.setItem('bbooster_refresh_token', refresh || '');
-        // 로그인 성공 시 데모 모드 즉시 해제
-        if (access) {
-            isDemoMode = false;
-            localStorage.removeItem('bbooster_demo_mode');
-            console.log('[Auth] 로그인 성공 - 데모 모드 해제됨');
-        }
     },
 
     loadTokens() {
         this.accessToken = localStorage.getItem('bbooster_access_token') || null;
         this.refreshToken = localStorage.getItem('bbooster_refresh_token') || null;
         this.isHubMode = localStorage.getItem('bbooster_hub_mode') === 'true';
-        // 토큰이 있으면 데모 모드 강제 해제
-        if (this.accessToken) {
-            isDemoMode = false;
-            localStorage.removeItem('bbooster_demo_mode');
-        }
     },
 
     clearTokens() {
@@ -347,9 +269,6 @@ const auth = {
         localStorage.removeItem('bbooster_access_token');
         localStorage.removeItem('bbooster_refresh_token');
         localStorage.removeItem('bbooster_hub_mode');
-        // 로그아웃 시 데모 모드 활성화 (비로그인 상태에서 데모 표시)
-        isDemoMode = true;
-        localStorage.setItem('bbooster_demo_mode', 'true');
     },
 
     setHubMode(enabled) {
@@ -1183,15 +1102,6 @@ function updateUserUI(user) {
     const userName = document.getElementById('user-name');
     const userAvatar = document.getElementById('user-avatar');
 
-    // 데모 모드: Demo User 표시
-    if (isDemoMode) {
-        if (userName) userName.textContent = 'Demo User';
-        if (userAvatar) userAvatar.textContent = '🎯';
-        if (badge) badge.className = 'subscription-badge pro';
-        if (badgeText) badgeText.textContent = 'Pro';
-        return;
-    }
-
     const isAdmin = user.role === 'admin';
 
     // Update user name (admin 표시 포함)
@@ -1585,8 +1495,7 @@ async function loadHomePage() {
 
 async function loadPortfolioSummary() {
     try {
-        // 데모 모드는 invoke 래퍼에서 자동 처리됨
-        if (!auth.accessToken && !isDemoMode) {
+        if (!auth.accessToken) {
             updateSummaryCards({ total_assets_formatted: '₩0', total_profit_rate: 0, daily_change_formatted: '₩0', daily_change_rate: 0, active_strategies: 0 });
             return;
         }
@@ -1723,8 +1632,7 @@ async function loadHoldings() {
     try {
         let holdings = [];
 
-        // invoke 래퍼가 데모 모드 자동 처리
-        if (auth.accessToken || isDemoMode) {
+        if (auth.accessToken) {
             holdings = await invoke('get_holdings', { accessToken: auth.accessToken });
         }
 
@@ -2052,8 +1960,7 @@ async function loadActiveStrategies() {
     try {
         let strategies = [];
 
-        // invoke 래퍼가 데모 모드 자동 처리
-        if (auth.accessToken || isDemoMode) {
+        if (auth.accessToken) {
             strategies = await invoke('get_active_strategies', { accessToken: auth.accessToken });
         }
         // API가 { strategies: [...] } 또는 [...] 형태일 수 있음
@@ -2156,8 +2063,7 @@ async function loadRecentTrades(append = false) {
         let trades = [];
         let total = 0;
 
-        // invoke 래퍼가 데모 모드 자동 처리
-        if (auth.accessToken || isDemoMode) {
+        if (auth.accessToken) {
             const data = await invoke('get_trade_history', {
                 accessToken: auth.accessToken,
                 exchange: null,
