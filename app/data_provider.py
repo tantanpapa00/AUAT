@@ -859,87 +859,136 @@ async def get_etf_overview():
 
 # ===== 해외 시장 =====
 
-async def get_us_market_overview():
-    """해외 시장 개요 - Yahoo Finance 직접 API"""
-    cached = _cached("us_overview", 600)
-    if cached:
-        return cached
+# US 캐시 상태 (stale-while-revalidate용)
+_us_cache_refreshing = False
+
+async def _fetch_yahoo_quote(client: httpx.AsyncClient, symbol: str, is_index: bool = False, name: str = None):
+    """Yahoo Finance 단일 종목 조회 (병렬 호출용)"""
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=2d"
+    try:
+        r = await client.get(url)
+        if r.status_code == 200:
+            data = r.json()
+            chart_result = data.get("chart", {}).get("result", [])
+            if chart_result:
+                meta = chart_result[0].get("meta", {})
+                price = meta.get("regularMarketPrice", 0)
+                prev = meta.get("chartPreviousClose", 0)
+                change = price - prev if prev else 0
+                change_pct = (change / prev * 100) if prev else 0
+
+                if is_index:
+                    return {
+                        "name": name,
+                        "current": round(price, 2),
+                        "change": round(change, 2),
+                        "change_percent": round(change_pct, 2)
+                    }
+                else:
+                    return {
+                        "symbol": symbol,
+                        "name": meta.get("shortName", symbol),
+                        "price": round(price, 2),
+                        "change_percent": round(change_pct, 2),
+                        "volume": meta.get("regularMarketVolume", 0)
+                    }
+    except Exception as e:
+        print(f"[DataProvider] Yahoo {symbol} error: {e}")
+
+    # 실패 시 기본값
+    if is_index:
+        return {"name": name, "current": 0, "change": 0, "change_percent": 0}
+    return {"symbol": symbol, "price": 0, "change_percent": 0, "volume": 0}
+
+
+async def _refresh_us_overview():
+    """US 시장 데이터 갱신 (병렬 호출)"""
+    global _us_cache_refreshing
+    _us_cache_refreshing = True
 
     result = {"indices": [], "stocks": [], "success": True}
-    
+
     YAHOO_HEADERS = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     }
-    
+
     indices_info = [("^GSPC", "S&P 500"), ("^IXIC", "나스닥"), ("^DJI", "다우존스"), ("^RUT", "러셀2000")]
     top_symbols = ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "BRK-B", "JPM", "V",
                    "UNH", "MA", "HD", "PG", "COST", "ABBV", "CRM", "AVGO", "NFLX", "AMD"]
-    
+
     try:
-        async with httpx.AsyncClient(timeout=15, headers=YAHOO_HEADERS) as client:
-            # 지수 데이터
-            for symbol, name in indices_info:
-                try:
-                    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=2d"
-                    r = await client.get(url)
-                    if r.status_code == 200:
-                        data = r.json()
-                        chart_result = data.get("chart", {}).get("result", [])
-                        if chart_result:
-                            meta = chart_result[0].get("meta", {})
-                            price = meta.get("regularMarketPrice", 0)
-                            prev = meta.get("chartPreviousClose", 0)
-                            change = price - prev if prev else 0
-                            change_pct = (change / prev * 100) if prev else 0
-                            result["indices"].append({
-                                "name": name,
-                                "current": round(price, 2),
-                                "change": round(change, 2),
-                                "change_percent": round(change_pct, 2)
-                            })
-                        else:
-                            result["indices"].append({"name": name, "current": 0, "change": 0, "change_percent": 0})
-                    else:
-                        result["indices"].append({"name": name, "current": 0, "change": 0, "change_percent": 0})
-                except Exception as e:
-                    print(f"[DataProvider] US index {symbol} error: {e}")
-                    result["indices"].append({"name": name, "current": 0, "change": 0, "change_percent": 0})
-            
-            # 주요 종목 데이터
-            for symbol in top_symbols:
-                try:
-                    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=2d"
-                    r = await client.get(url)
-                    if r.status_code == 200:
-                        data = r.json()
-                        chart_result = data.get("chart", {}).get("result", [])
-                        if chart_result:
-                            meta = chart_result[0].get("meta", {})
-                            price = meta.get("regularMarketPrice", 0)
-                            prev = meta.get("chartPreviousClose", 0)
-                            volume = meta.get("regularMarketVolume", 0)
-                            change_pct = ((price - prev) / prev * 100) if prev else 0
-                            result["stocks"].append({
-                                "symbol": symbol,
-                                "name": meta.get("shortName", symbol),
-                                "price": round(price, 2),
-                                "change_percent": round(change_pct, 2),
-                                "volume": volume
-                            })
-                        else:
-                            result["stocks"].append({"symbol": symbol, "price": 0, "change_percent": 0, "volume": 0})
-                    else:
-                        result["stocks"].append({"symbol": symbol, "price": 0, "change_percent": 0, "volume": 0})
-                except Exception as e:
-                    print(f"[DataProvider] US stock {symbol} error: {e}")
-                    result["stocks"].append({"symbol": symbol, "price": 0, "change_percent": 0, "volume": 0})
-                    
+        # 타임아웃 5초로 축소
+        async with httpx.AsyncClient(timeout=5, headers=YAHOO_HEADERS) as client:
+            # 모든 요청을 병렬로 실행
+            index_tasks = [
+                _fetch_yahoo_quote(client, symbol, is_index=True, name=name)
+                for symbol, name in indices_info
+            ]
+            stock_tasks = [
+                _fetch_yahoo_quote(client, symbol, is_index=False)
+                for symbol in top_symbols
+            ]
+
+            # 병렬 실행 (return_exceptions=True로 일부 실패해도 계속)
+            all_results = await asyncio.gather(*index_tasks, *stock_tasks, return_exceptions=True)
+
+            # 결과 분리
+            index_results = all_results[:len(indices_info)]
+            stock_results = all_results[len(indices_info):]
+
+            # 지수 결과 처리
+            for i, res in enumerate(index_results):
+                if isinstance(res, Exception):
+                    result["indices"].append({"name": indices_info[i][1], "current": 0, "change": 0, "change_percent": 0})
+                else:
+                    result["indices"].append(res)
+
+            # 종목 결과 처리
+            for i, res in enumerate(stock_results):
+                if isinstance(res, Exception):
+                    result["stocks"].append({"symbol": top_symbols[i], "price": 0, "change_percent": 0, "volume": 0})
+                else:
+                    result["stocks"].append(res)
+
     except Exception as e:
         print(f"[DataProvider] US overview error: {e}")
         result["success"] = False
+    finally:
+        _us_cache_refreshing = False
 
     _set_cache("us_overview", result)
     return result
+
+
+async def get_us_market_overview():
+    """해외 시장 개요 - Yahoo Finance (병렬 + stale-while-revalidate)"""
+    global _us_cache_refreshing
+
+    # 캐시 확인
+    cached = _cached("us_overview", 600)  # 10분 TTL
+    if cached:
+        return cached
+
+    # 만료된 캐시가 있으면 stale-while-revalidate
+    if "us_overview" in _cache:
+        stale_data, _ = _cache["us_overview"]
+        if not _us_cache_refreshing:
+            # 백그라운드에서 갱신, 이전 데이터 즉시 반환
+            asyncio.create_task(_refresh_us_overview())
+            print("[US] Stale cache returned, refreshing in background")
+        return stale_data
+
+    # 캐시 없음 = 첫 요청, 동기 갱신
+    return await _refresh_us_overview()
+
+
+async def warmup_us_market():
+    """서버 시작 시 US 시장 데이터 미리 캐싱"""
+    try:
+        await _refresh_us_overview()
+        print("[US] 시장 데이터 워밍업 완료")
+    except Exception as e:
+        print(f"[US] 워밍업 실패: {e}")
 
 # ===== 코인 =====
 

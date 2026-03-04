@@ -246,6 +246,14 @@ async def lifespan(app):
     except Exception as e:
         print(f"[Screener Warmup] 경고: {e}")
 
+    # 3. US 시장 데이터 워밍업 (Yahoo Finance 병렬 캐싱)
+    try:
+        from app.data_provider import warmup_us_market
+        asyncio.create_task(warmup_us_market())
+        print("[US Market Warmup] 백그라운드 시작")
+    except Exception as e:
+        print(f"[US Market Warmup] 경고: {e}")
+
     yield
 
 
