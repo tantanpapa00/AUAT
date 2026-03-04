@@ -291,7 +291,7 @@ async def get_market_signal(
     - Distribution Day 정보
     - 실시간 데이터 (index_value, rising_stocks, falling_stocks)
     """
-    from app.market_analysis.signal_engine import BIG_PICTURE_CONFIG
+    from app.market_analysis.signal_engine import BIG_PICTURE_CONFIG, calc_short_term_signal, calc_long_term_signal, MarketData
     from app.market_analysis.data_collector import get_market_summary
 
     result = {
@@ -305,6 +305,33 @@ async def get_market_signal(
         realtime_data = await get_market_summary()
     except Exception as e:
         print(f"[API] 실시간 데이터 조회 오류: {e}")
+
+    def calc_realtime_signal(rt_data: dict, db_status: str = None) -> tuple:
+        """실시간 데이터로 신호 계산 (DB 데이터가 오래된 경우)"""
+        if not rt_data:
+            return ('yellow', 'yellow')
+
+        # MarketData 객체 생성
+        today_data = MarketData(
+            date=datetime.now().date(),
+            market=rt_data.get('market', 'KOSPI'),
+            index_value=rt_data.get('index_value', 0),
+            change_amount=rt_data.get('change_amount', 0),
+            change_percent=rt_data.get('change_percent', 0),
+            trading_volume=rt_data.get('trading_volume', 0),
+            trading_value=rt_data.get('trading_value', 0),
+            rising_stocks=rt_data.get('rising_stocks', 0),
+            falling_stocks=rt_data.get('falling_stocks', 0),
+            unchanged_stocks=rt_data.get('unchanged_stocks', 0),
+            upper_limit_stocks=rt_data.get('upper_limit_stocks', 0),
+            lower_limit_stocks=rt_data.get('lower_limit_stocks', 0),
+            listed_stocks=rt_data.get('listed_stocks', 0),
+        )
+
+        short_signal = calc_short_term_signal(today_data, db_status)
+        long_signal = calc_long_term_signal(db_status) if db_status else 'yellow'
+
+        return (short_signal, long_signal)
 
     try:
         for market in ["KOSPI", "KOSDAQ"]:
@@ -345,6 +372,18 @@ async def get_market_signal(
                 status = row.status or 'confirmed_uptrend'
                 config = BIG_PICTURE_CONFIG.get(status, BIG_PICTURE_CONFIG['confirmed_uptrend'])
 
+                # DB 데이터가 오래된 경우 (오늘 날짜가 아님) 실시간 신호 계산
+                db_date = row.date.date() if hasattr(row.date, 'date') else row.date
+                is_stale = db_date != today.date() if db_date else True
+
+                if is_stale and rt:
+                    # 실시간 데이터로 신호 재계산
+                    rt['market'] = market
+                    short_signal, long_signal = calc_realtime_signal(rt, status)
+                else:
+                    short_signal = row.short_term_signal
+                    long_signal = row.long_term_signal
+
                 result[market.lower()] = {
                     "date": row.date.strftime("%Y-%m-%d") if row.date else None,
                     "index_value": rt.get("index_value") or row.index_value,
@@ -369,8 +408,8 @@ async def get_market_signal(
                     "rally_start_date": row.rally_start_date.strftime("%Y-%m-%d") if row.rally_start_date else None,
                     "rally_day_count": row.rally_day_count,
                     "last_ftd_date": row.last_ftd_date.strftime("%Y-%m-%d") if row.last_ftd_date else None,
-                    "short_term_signal": row.short_term_signal,
-                    "long_term_signal": row.long_term_signal,
+                    "short_term_signal": short_signal,
+                    "long_term_signal": long_signal,
                     "foreign_net": rt.get("foreign_net") or row.foreign_net,
                     "institution_net": rt.get("institution_net") or row.institution_net,
                     "individual_net": rt.get("individual_net") or row.individual_net,

@@ -94,46 +94,86 @@ async def api_market_us_full(
         # 1. 미국시장 전체 요약 수집 (병렬)
         summary = await get_us_market_summary()
 
+        def calc_us_signal_from_indices(indices: dict, market_key: str) -> tuple:
+            """US 지수 데이터로 신호 계산"""
+            idx_data = indices.get(market_key, {})
+            change_pct = idx_data.get("change_percent", 0)
+
+            # 단순 변동률 기반 신호 (데이터 없을 때 fallback)
+            if change_pct <= -3.0:
+                return ("red", "red")
+            elif change_pct <= -1.0:
+                return ("yellow", "yellow")
+            elif change_pct >= 1.0:
+                return ("green", "green")
+            else:
+                return ("yellow", "yellow")
+
         # 2. 시장신호 조회 (SP500/NASDAQ)
         signal_result = {}
         try:
             from app.models import MarketSignal
+            indices = summary.get("indices", {})
+
             for market in ["SP500", "NASDAQ"]:
                 signal_row = db.query(MarketSignal).filter(MarketSignal.market == market).first()
                 if signal_row and signal_row.signal_data:
                     sd = signal_row.signal_data
                     status = sd.get("status", "confirmed_uptrend")
                     cfg = BIG_PICTURE_CONFIG.get(status, BIG_PICTURE_CONFIG["confirmed_uptrend"])
+
+                    # DB에서 신호 가져오되, 실시간 데이터로 검증
+                    db_short = sd.get("short_term_signal", "yellow")
+                    db_long = sd.get("long_term_signal", "yellow")
+
+                    # 실시간 지수 데이터로 신호 보정 (급락 시 즉시 반영)
+                    idx_key = "sp500" if market == "SP500" else "nasdaq"
+                    idx_data = indices.get(idx_key, {})
+                    change_pct = idx_data.get("change_percent", 0)
+
+                    # 급락 시 DB 신호 무시하고 실시간 반영
+                    if change_pct <= -3.0:
+                        short_signal, long_signal = "red", "red"
+                    elif change_pct <= -1.5:
+                        short_signal, long_signal = "yellow", db_long
+                    else:
+                        short_signal, long_signal = db_short, db_long
+
                     signal_result[market.lower()] = {
                         "status": status,
                         "status_label": cfg["label"],
                         "exposure": cfg["exposure"],
                         "active_dd_count": sd.get("active_dd_count", 0),
                         "rally_day_count": sd.get("rally_day_count", 0),
-                        "short_term_signal": sd.get("short_term_signal", "green"),
-                        "long_term_signal": sd.get("long_term_signal", "green"),
+                        "short_term_signal": short_signal,
+                        "long_term_signal": long_signal,
                     }
                 else:
+                    # DB 데이터 없음 → 실시간 지수로 계산, 기본값은 "yellow" (불확실)
+                    idx_key = "sp500" if market == "SP500" else "nasdaq"
+                    short_signal, long_signal = calc_us_signal_from_indices(indices, idx_key)
+
                     signal_result[market.lower()] = {
-                        "status": "confirmed_uptrend",
-                        "status_label": "확인된 상승세",
-                        "exposure": "80-100%",
+                        "status": "unknown",
+                        "status_label": "데이터 수집 중",
+                        "exposure": "0-20%",
                         "active_dd_count": 0,
                         "rally_day_count": 0,
-                        "short_term_signal": "green",
-                        "long_term_signal": "green",
+                        "short_term_signal": short_signal,
+                        "long_term_signal": long_signal,
                     }
         except Exception as sig_err:
             print(f"[US] signal query error: {sig_err}")
+            # 에러 시 "yellow" (불확실) 반환, 절대 "green" 아님
             for market in ["sp500", "nasdaq"]:
                 signal_result[market] = {
-                    "status": "confirmed_uptrend",
-                    "status_label": "확인된 상승세",
-                    "exposure": "80-100%",
+                    "status": "unknown",
+                    "status_label": "조회 실패",
+                    "exposure": "0-20%",
                     "active_dd_count": 0,
                     "rally_day_count": 0,
-                    "short_term_signal": "green",
-                    "long_term_signal": "green",
+                    "short_term_signal": "yellow",
+                    "long_term_signal": "yellow",
                 }
 
         return {
