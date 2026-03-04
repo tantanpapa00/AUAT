@@ -455,14 +455,14 @@ import json
 _breadth_calculating = False  # 백그라운드 계산 진행 중 플래그
 
 
-async def get_us_breadth_from_db() -> Optional[Dict]:
-    """DB에서 브레드스 데이터 읽기 (가장 최신)"""
+def _get_breadth_from_db_sync() -> Optional[Dict]:
+    """DB에서 브레드스 데이터 읽기 (동기)"""
     try:
         from app.db import engine
         from sqlalchemy import text
 
-        async with engine.connect() as conn:
-            result = await conn.execute(
+        with engine.connect() as conn:
+            result = conn.execute(
                 text("SELECT calc_date, data FROM us_breadth_cache ORDER BY calc_date DESC LIMIT 1")
             )
             row = result.fetchone()
@@ -476,14 +476,20 @@ async def get_us_breadth_from_db() -> Optional[Dict]:
     return None
 
 
-async def save_breadth_to_db(calc_date: date, data: Dict):
-    """브레드스 결과를 DB에 저장 (UPSERT)"""
+async def get_us_breadth_from_db() -> Optional[Dict]:
+    """DB에서 브레드스 데이터 읽기 (비동기 래퍼)"""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, _get_breadth_from_db_sync)
+
+
+def _save_breadth_to_db_sync(calc_date: date, data: Dict):
+    """브레드스 결과를 DB에 저장 (동기)"""
     try:
         from app.db import engine
         from sqlalchemy import text
 
-        async with engine.begin() as conn:
-            await conn.execute(
+        with engine.begin() as conn:
+            conn.execute(
                 text("""
                     INSERT INTO us_breadth_cache (calc_date, data)
                     VALUES (:calc_date, :data)
@@ -494,6 +500,12 @@ async def save_breadth_to_db(calc_date: date, data: Dict):
         print(f"[US Breadth DB] {calc_date} 저장 완료")
     except Exception as e:
         print(f"[US Breadth DB] 저장 실패: {e}")
+
+
+async def save_breadth_to_db(calc_date: date, data: Dict):
+    """브레드스 결과를 DB에 저장 (비동기 래퍼)"""
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _save_breadth_to_db_sync, calc_date, data)
 
 
 async def calculate_and_save_breadth(calc_date: date = None):
