@@ -446,6 +446,26 @@ class Subscription(Base):
     )
 
 
+class UsBreadthCache(Base):
+    """
+    미국 시장 브레드스 캐시 (방안 B)
+    - SMA50/SMA200/52주 신고가 계산 결과만 DB에 저장
+    - 히스토리 다운로드는 백그라운드에서만
+    - 서버 재시작해도 데이터 유지
+    """
+    __tablename__ = "us_breadth_cache"
+
+    id = Column(BigInteger, primary_key=True)
+    calc_date = Column(DateTime(timezone=True), nullable=False)  # 계산 날짜
+    data = Column(JSONB, nullable=False)  # {new_high, new_low, above_sma50, below_sma50, above_sma200, below_sma200, rising, falling, unchanged}
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index('ix_us_breadth_cache_date', 'calc_date'),
+        UniqueConstraint('calc_date', name='uq_us_breadth_cache_date'),
+    )
+
+
 class PaymentHistory(Base):
     """
     결제 내역 (명령서66)

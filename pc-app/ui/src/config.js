@@ -3,7 +3,7 @@
 // =====================================================
 
 // API 서버 URL 설정
-export const API_BASE_URL = "http://76.13.180.30";
+export const API_BASE_URL = "https://qube-system.com";
 
 // 연결 설정
 export const CONNECTION_TIMEOUT = 5000; // 5초

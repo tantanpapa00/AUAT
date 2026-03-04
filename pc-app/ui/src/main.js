@@ -2327,7 +2327,7 @@ async function loadUserWebhookUrl() {
             const urlInfo = await invoke('get_webhook_url', { accessToken: auth.accessToken });
             webhookUrlEl.textContent = urlInfo.webhook_url;
         } else if (auth.user && auth.user.id) {
-            webhookUrlEl.textContent = `http://76.13.180.30/api/webhook/${auth.user.id}`;
+            webhookUrlEl.textContent = `${API_BASE_URL}/api/webhook/${auth.user.id}`;
         }
     } catch (error) {
         console.error('Failed to load webhook URL:', error);
@@ -4668,8 +4668,8 @@ async function loadAppInfoPage() {
     }
 }
 
-document.getElementById('btn-open-terms')?.addEventListener('click', () => open('http://76.13.180.30/terms'));
-document.getElementById('btn-open-privacy')?.addEventListener('click', () => open('http://76.13.180.30/privacy'));
+document.getElementById('btn-open-terms')?.addEventListener('click', () => open(`${API_BASE_URL}/terms`));
+document.getElementById('btn-open-privacy')?.addEventListener('click', () => open(`${API_BASE_URL}/privacy`));
 document.getElementById('btn-export-logs')?.addEventListener('click', async () => {
     try {
         const path = await invoke('export_diagnostic');

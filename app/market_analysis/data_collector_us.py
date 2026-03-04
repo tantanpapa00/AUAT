@@ -286,7 +286,7 @@ async def collect_fear_greed_index() -> Dict:
 async def get_us_market_summary() -> Dict[str, Any]:
     """
     미국 시장 요약 데이터 전체 수집
-    Stale-while-revalidate 패턴: 캐시 miss 시 기본 데이터만 즉시 반환
+    방안 B: 브레드스는 DB에서 읽기 (즉시 응답)
     """
     indices_task = collect_us_indices()
     sectors_task = collect_us_sectors()
@@ -318,22 +318,33 @@ async def get_us_market_summary() -> Dict[str, Any]:
     unchanged = sum(1 for s in heatmap if s.get("change_pct", 0) == 0)
     total = rising + falling + unchanged
 
-    # 브레드스 계산 - Stale-while-revalidate 패턴
-    # 히스토리 캐시가 있으면 정상 계산, 없으면 기본값 + 백그라운드 워밍업
-    if is_history_cache_ready():
-        # 캐시 HIT - 정상 계산
-        try:
-            breadth_extra = await calculate_us_breadth(heatmap)
-        except Exception as e:
-            print(f"[US DataCollector] breadth calculation error: {e}")
-            breadth_extra = {
-                "new_high": 0, "new_low": 0,
-                "above_sma50": 0, "below_sma50": 0,
-                "above_sma200": 0, "below_sma200": 0,
-            }
+    # 브레드스 - DB에서 읽기 (즉시 응답)
+    cached = await get_us_breadth_from_db()
+    today = date.today()
+
+    if cached:
+        cached_date = cached["calc_date"]
+        if hasattr(cached_date, 'date'):
+            cached_date = cached_date.date()
+
+        breadth_data = cached["data"]
+
+        # 오늘 데이터 아니면 백그라운드 계산 시작
+        if cached_date < today and not _breadth_calculating:
+            print(f"[US DataCollector] 어제 데이터 사용 ({cached_date}), 오늘 계산 시작")
+            asyncio.create_task(calculate_and_save_breadth(today))
+
+        breadth_extra = {
+            "new_high": breadth_data.get("new_high", 0),
+            "new_low": breadth_data.get("new_low", 0),
+            "above_sma50": breadth_data.get("above_sma50", 0),
+            "below_sma50": breadth_data.get("below_sma50", 0),
+            "above_sma200": breadth_data.get("above_sma200", 0),
+            "below_sma200": breadth_data.get("below_sma200", 0),
+        }
     else:
-        # 캐시 MISS - 기본값 반환 + 백그라운드에서 워밍업 시작
-        print("[US DataCollector] 히스토리 캐시 없음 → 기본 브레드스 반환, 백그라운드 워밍업 시작")
+        # DB에 데이터 없음 - 기본값 반환 + 백그라운드 계산
+        print("[US DataCollector] DB 캐시 없음 → 기본값 반환, 백그라운드 계산 시작")
         breadth_extra = {
             "new_high": -1,      # -1 = 계산 중
             "new_low": -1,
@@ -342,9 +353,8 @@ async def get_us_market_summary() -> Dict[str, Any]:
             "above_sma200": -1,
             "below_sma200": -1,
         }
-        # 백그라운드에서 히스토리 캐시 워밍업 (이미 진행 중이 아니면)
-        if not _history_warming_up:
-            asyncio.create_task(warmup_us_history_cache())
+        if not _breadth_calculating:
+            asyncio.create_task(calculate_and_save_breadth(today))
 
     breadth = {
         "advancing": rising,
@@ -434,47 +444,168 @@ async def fetch_sector_etf_daily(symbol: str, days: int = 60) -> List[float]:
 
 
 # ========== 브레드스 계산 (52주 신고가/신저가, SMA50/200) ==========
+# 방안 B: 히스토리가 아닌 계산 결과만 DB에 저장
+# - 서버 재시작해도 데이터 유지
+# - API 응답은 항상 즉시 (DB에서 읽기)
+# - 132초 계산은 백그라운드에서만
 
-# 히스토리 캐시 (1시간)
-_history_cache: Dict[str, Any] = {"data": {}, "ts": 0}
-_HISTORY_CACHE_TTL = 3600  # 1시간
-_history_warming_up = False  # 워밍업 진행 중 플래그
+from datetime import date
+import json
+
+_breadth_calculating = False  # 백그라운드 계산 진행 중 플래그
 
 
-def is_history_cache_ready() -> bool:
-    """히스토리 캐시가 준비되었는지 확인"""
-    return bool(_history_cache["data"])
+async def get_us_breadth_from_db() -> Optional[Dict]:
+    """DB에서 브레드스 데이터 읽기 (가장 최신)"""
+    try:
+        from app.db import engine
+        from sqlalchemy import text
+
+        async with engine.connect() as conn:
+            result = await conn.execute(
+                text("SELECT calc_date, data FROM us_breadth_cache ORDER BY calc_date DESC LIMIT 1")
+            )
+            row = result.fetchone()
+            if row:
+                return {
+                    "calc_date": row[0],
+                    "data": row[1] if isinstance(row[1], dict) else json.loads(row[1])
+                }
+    except Exception as e:
+        print(f"[US Breadth DB] 읽기 실패: {e}")
+    return None
 
 
-async def warmup_us_history_cache():
-    """서버 시작 시 히스토리 캐시 워밍업 (백그라운드)"""
-    global _history_warming_up
-    if _history_warming_up:
+async def save_breadth_to_db(calc_date: date, data: Dict):
+    """브레드스 결과를 DB에 저장 (UPSERT)"""
+    try:
+        from app.db import engine
+        from sqlalchemy import text
+
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("""
+                    INSERT INTO us_breadth_cache (calc_date, data)
+                    VALUES (:calc_date, :data)
+                    ON CONFLICT (calc_date) DO UPDATE SET data = :data, created_at = NOW()
+                """),
+                {"calc_date": calc_date, "data": json.dumps(data)}
+            )
+        print(f"[US Breadth DB] {calc_date} 저장 완료")
+    except Exception as e:
+        print(f"[US Breadth DB] 저장 실패: {e}")
+
+
+async def calculate_and_save_breadth(calc_date: date = None):
+    """백그라운드에서 전체 브레드스 계산 후 DB 저장"""
+    global _breadth_calculating
+
+    if _breadth_calculating:
+        print("[US Breadth] 이미 계산 중 - 스킵")
         return
-    _history_warming_up = True
+
+    _breadth_calculating = True
+    calc_date = calc_date or date.today()
 
     try:
+        print(f"[US Breadth] {calc_date} 계산 시작...")
+
         from app.screener.us_screener import get_sp500_list
         stocks = await get_sp500_list()
         symbols = [s.get("symbol") for s in stocks if s.get("symbol")]
-        if symbols:
-            print(f"[US History Warmup] 시작: {len(symbols)}개 종목")
-            await get_us_stock_history_batch(symbols)
-            print(f"[US History Warmup] 완료: {len(_history_cache.get('data', {}))}개 종목")
+
+        if not symbols:
+            print("[US Breadth] 종목 리스트 없음")
+            return
+
+        # 히스토리 다운로드 (132초 소요 - 백그라운드이므로 OK)
+        history = await _fetch_history_batch(symbols)
+        print(f"[US Breadth] 히스토리 로드 완료: {len(history)}개 종목")
+
+        # 히트맵에서 현재가 조회
+        from app.screener.us_screener import get_us_heatmap
+        heatmap_data = await get_us_heatmap()
+        heatmap = heatmap_data.get("stocks", [])
+        price_map = {s.get("symbol"): s.get("price", 0) for s in heatmap}
+
+        # 브레드스 계산
+        new_high = 0
+        new_low = 0
+        above_sma50 = 0
+        below_sma50 = 0
+        above_sma200 = 0
+        below_sma200 = 0
+        rising = 0
+        falling = 0
+        unchanged = 0
+
+        for sym in symbols:
+            closes = history.get(sym, [])
+            current_price = price_map.get(sym, 0)
+
+            if not closes or not current_price:
+                continue
+
+            # 등락
+            if len(closes) >= 2:
+                prev = closes[-2]
+                if current_price > prev:
+                    rising += 1
+                elif current_price < prev:
+                    falling += 1
+                else:
+                    unchanged += 1
+
+            # 52주 신고가/신저가
+            high_52w = max(closes) if closes else 0
+            low_52w = min(closes) if closes else 0
+            if high_52w > 0 and current_price >= high_52w * 0.98:
+                new_high += 1
+            if low_52w > 0 and current_price <= low_52w * 1.02:
+                new_low += 1
+
+            # SMA50
+            if len(closes) >= 50:
+                sma50 = sum(closes[-50:]) / 50
+                if current_price > sma50:
+                    above_sma50 += 1
+                else:
+                    below_sma50 += 1
+
+            # SMA200
+            if len(closes) >= 200:
+                sma200 = sum(closes[-200:]) / 200
+                if current_price > sma200:
+                    above_sma200 += 1
+                else:
+                    below_sma200 += 1
+
+        breadth_data = {
+            "new_high": new_high,
+            "new_low": new_low,
+            "above_sma50": above_sma50,
+            "below_sma50": below_sma50,
+            "above_sma200": above_sma200,
+            "below_sma200": below_sma200,
+            "rising": rising,
+            "falling": falling,
+            "unchanged": unchanged,
+        }
+
+        # DB 저장
+        await save_breadth_to_db(calc_date, breadth_data)
+        print(f"[US Breadth] {calc_date} 계산 완료: {breadth_data}")
+
     except Exception as e:
-        print(f"[US History Warmup] 실패: {e}")
+        print(f"[US Breadth] 계산 실패: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
-        _history_warming_up = False
+        _breadth_calculating = False
 
 
-async def get_us_stock_history_batch(symbols: List[str]) -> Dict[str, List[float]]:
-    """S&P500 종목 1년 히스토리 조회 (1시간 캐싱)"""
-    global _history_cache
-    now = _time.time()
-
-    if _history_cache["data"] and (now - _history_cache["ts"]) < _HISTORY_CACHE_TTL:
-        return _history_cache["data"]
-
+async def _fetch_history_batch(symbols: List[str]) -> Dict[str, List[float]]:
+    """S&P500 종목 1년 히스토리 조회 (DB 저장용 - 인메모리 캐시 없음)"""
     results = {}
 
     def _fetch_batch(batch_symbols):
@@ -513,75 +644,37 @@ async def get_us_stock_history_batch(symbols: List[str]) -> Dict[str, List[float
         if i + 50 < len(symbols):
             await asyncio.sleep(0.5)  # rate limit 방지
 
-    if results:
-        _history_cache = {"data": results, "ts": now}
-        print(f"[US Breadth] 히스토리 캐시 갱신: {len(results)}개 종목")
-
     return results
 
 
-async def calculate_us_breadth(heatmap: List[Dict]) -> Dict[str, int]:
-    """52주 신고가/신저가, SMA50/SMA200 위/아래 계산"""
-    symbols = [s.get("symbol") for s in heatmap if s.get("symbol")]
-    if not symbols:
-        return {
-            "new_high": 0, "new_low": 0,
-            "above_sma50": 0, "below_sma50": 0,
-            "above_sma200": 0, "below_sma200": 0,
-        }
+async def warmup_us_breadth_db():
+    """서버 시작 시 브레드스 DB 워밍업"""
+    try:
+        await asyncio.sleep(3)  # DB 연결 대기
 
-    # 히스토리 조회 (캐시)
-    history = await get_us_stock_history_batch(symbols)
+        # DB에 데이터 있는지 확인
+        cached = await get_us_breadth_from_db()
 
-    # 현재가 맵
-    price_map = {s.get("symbol"): s.get("price", 0) for s in heatmap}
+        if cached:
+            cached_date = cached["calc_date"]
+            today = date.today()
 
-    new_high = 0
-    new_low = 0
-    above_sma50 = 0
-    below_sma50 = 0
-    above_sma200 = 0
-    below_sma200 = 0
+            # date 타입 변환
+            if hasattr(cached_date, 'date'):
+                cached_date = cached_date.date()
 
-    for sym in symbols:
-        closes = history.get(sym, [])
-        current_price = price_map.get(sym, 0)
+            print(f"[US Breadth DB] 캐시 있음: {cached_date}")
 
-        if not closes or not current_price:
-            continue
+            # 오늘 데이터 없으면 백그라운드 계산
+            if cached_date < today:
+                print(f"[US Breadth DB] 오늘 데이터 없음 → 백그라운드 계산 시작")
+                asyncio.create_task(calculate_and_save_breadth(today))
+        else:
+            print("[US Breadth DB] 캐시 없음 → 백그라운드 계산 시작")
+            asyncio.create_task(calculate_and_save_breadth(date.today()))
 
-        # 52주 신고가/신저가 (약 252거래일)
-        high_52w = max(closes) if closes else 0
-        low_52w = min(closes) if closes else 0
-        if high_52w > 0 and current_price >= high_52w * 0.98:  # 2% 이내면 신고가
-            new_high += 1
-        if low_52w > 0 and current_price <= low_52w * 1.02:  # 2% 이내면 신저가
-            new_low += 1
-
-        # SMA50
-        if len(closes) >= 50:
-            sma50 = sum(closes[-50:]) / 50
-            if current_price > sma50:
-                above_sma50 += 1
-            else:
-                below_sma50 += 1
-
-        # SMA200
-        if len(closes) >= 200:
-            sma200 = sum(closes[-200:]) / 200
-            if current_price > sma200:
-                above_sma200 += 1
-            else:
-                below_sma200 += 1
-
-    return {
-        "new_high": new_high,
-        "new_low": new_low,
-        "above_sma50": above_sma50,
-        "below_sma50": below_sma50,
-        "above_sma200": above_sma200,
-        "below_sma200": below_sma200,
-    }
+    except Exception as e:
+        print(f"[US Breadth DB] 워밍업 실패: {e}")
 
 
 async def calculate_us_signal(index_symbol: str = "^GSPC") -> Dict[str, Any]:
