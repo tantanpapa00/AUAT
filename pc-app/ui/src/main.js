@@ -8224,7 +8224,7 @@ function getBreadthBarPercent(high, low, type) {
     return ((low || 0) / total * 100).toFixed(1);
 }
 
-// 섹터 바 차트 렌더링
+// 섹터 바 차트 렌더링 (중앙 기준선에서 좌우로 확장)
 function renderUsSectorBars(sectors) {
     const container = document.getElementById('us-sector-bars');
     if (!container) return;
@@ -8236,19 +8236,29 @@ function renderUsSectorBars(sectors) {
 
     // 등락률 기준 정렬 (내림차순)
     const sorted = [...sectors].sort((a, b) => (b.change_pct || 0) - (a.change_pct || 0));
-    const maxAbs = Math.max(...sorted.map(s => Math.abs(s.change_pct || 0)), 1);
+    const maxAbs = Math.max(...sorted.map(s => Math.abs(s.change_pct || 0)), 0.1);
 
     container.innerHTML = sorted.map(sector => {
         const pct = sector.change_pct || 0;
-        const barWidth = Math.abs(pct) / maxAbs * 100;
+        // 바 너비: 전체 트랙의 50%를 기준으로 계산 (좌우 각각 50%)
+        const barWidthPercent = (Math.abs(pct) / maxAbs) * 50;
         const barColor = pct >= 0 ? '#22c55e' : '#ef4444';
-        const direction = pct >= 0 ? 'right' : 'left';
+
+        // 양수: 중앙(50%)에서 시작하여 오른쪽으로 확장
+        // 음수: 중앙(50%)에서 왼쪽으로 확장 (right 속성 사용)
+        let barStyle;
+        if (pct >= 0) {
+            barStyle = `left: 50%; width: ${barWidthPercent}%; background: ${barColor};`;
+        } else {
+            barStyle = `right: 50%; width: ${barWidthPercent}%; background: ${barColor};`;
+        }
 
         return `
             <div class="us-sector-bar-item">
                 <div class="us-sector-bar-name">${sector.name} (${sector.symbol})</div>
                 <div class="us-sector-bar-track">
-                    <div class="us-sector-bar-fill ${direction}" style="width: ${barWidth}%; background: ${barColor};"></div>
+                    <div class="us-sector-bar-center"></div>
+                    <div class="us-sector-bar-fill" style="${barStyle}"></div>
                 </div>
                 <div class="us-sector-bar-pct ${pct >= 0 ? 'up' : 'down'}">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</div>
             </div>

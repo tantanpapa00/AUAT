@@ -2143,9 +2143,12 @@ async def get_naver_fluctuation_rank(is_rise: bool = True, limit: int = 50, mark
             if market.upper() != "ALL":
                 all_stocks = [s for s in all_stocks if s.get("exchange", "").upper() == market.upper()]
 
+            # 상승률: change_pct > 0 인 종목만, 하락률: change_pct < 0 인 종목만
             if is_rise:
+                all_stocks = [s for s in all_stocks if (s.get("change_pct") or 0) > 0]
                 all_stocks.sort(key=lambda x: x.get("change_pct", 0) or 0, reverse=True)
             else:
+                all_stocks = [s for s in all_stocks if (s.get("change_pct") or 0) < 0]
                 all_stocks.sort(key=lambda x: x.get("change_pct", 0) or 0)
 
             results = []

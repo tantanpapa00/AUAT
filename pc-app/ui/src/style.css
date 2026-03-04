@@ -10528,19 +10528,22 @@ body {
     justify-content: center;
 }
 
+.us-sector-bar-center {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--border-color);
+    z-index: 1;
+}
+
 .us-sector-bar-fill {
     height: 100%;
     border-radius: 3px;
     position: absolute;
     top: 0;
-}
-
-.us-sector-bar-fill.right {
-    left: 50%;
-}
-
-.us-sector-bar-fill.left {
-    right: 50%;
+    z-index: 2;
 }
 
 .us-sector-bar-pct {

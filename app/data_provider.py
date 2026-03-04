@@ -132,9 +132,17 @@ async def get_kr_market_overview():
                                 name = name_el.get_text(strip=True)
                                 # 등락률 파싱: +, - 부호 유지
                                 change_pct_str = cells[1].get_text(strip=True).replace("%", "").replace("+", "").strip()
+                                # 거래대금 파싱 (마지막 컬럼)
+                                trading_value_str = cells[-1].get_text(strip=True).replace(",", "").strip()
                                 try:
                                     change_val = float(change_pct_str) if change_pct_str else 0
-                                    sectors.append({"name": name, "change_percent": change_val, "volume": 0})
+                                    trading_value = int(trading_value_str) if trading_value_str.isdigit() else 0
+                                    sectors.append({
+                                        "name": name,
+                                        "change_percent": change_val,
+                                        "trading_value": trading_value,
+                                        "volume": trading_value  # 호환성을 위해 volume도 설정
+                                    })
                                 except:
                                     pass
                     # 전체 섹터 반환 (등락률 순 정렬)
