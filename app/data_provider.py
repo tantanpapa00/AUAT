@@ -117,6 +117,7 @@ async def get_kr_market_overview():
                 print(f"[DataProvider] Investor error: {e}")
 
             # 업종별 현황 (HTML 파싱) - 전체 섹터 반환 (상승+하락 모두)
+            # 참고: 네이버 업종 테이블에는 거래대금 컬럼이 없음
             try:
                 r = await client.get("https://finance.naver.com/sise/sise_group.naver?type=upjong")
                 if r.status_code == 200:
@@ -132,16 +133,11 @@ async def get_kr_market_overview():
                                 name = name_el.get_text(strip=True)
                                 # 등락률 파싱: +, - 부호 유지
                                 change_pct_str = cells[1].get_text(strip=True).replace("%", "").replace("+", "").strip()
-                                # 거래대금 파싱 (마지막 컬럼)
-                                trading_value_str = cells[-1].get_text(strip=True).replace(",", "").strip()
                                 try:
                                     change_val = float(change_pct_str) if change_pct_str else 0
-                                    trading_value = int(trading_value_str) if trading_value_str.isdigit() else 0
                                     sectors.append({
                                         "name": name,
                                         "change_percent": change_val,
-                                        "trading_value": trading_value,
-                                        "volume": trading_value  # 호환성을 위해 volume도 설정
                                     })
                                 except:
                                     pass

@@ -5104,7 +5104,7 @@ async function loadStockRanking(rankingType = 'volume', market = 'all') {
     try {
         const data = await invoke('get_stock_ranking', {
             accessToken: auth.accessToken || '',
-            rankingType: rankingType,
+            sortBy: rankingType,
             market: market
         });
 
@@ -6857,7 +6857,7 @@ async function loadFeaturedStocksKr(type = 'gainers', market = 'ALL') {
 
         const data = await invokeWithTimeout('get_stock_ranking', {
             accessToken: auth.accessToken || '',
-            rankingType: rankingType,
+            sortBy: rankingType,
             market: marketParam
         }, 15000);
 
@@ -6880,7 +6880,7 @@ async function loadFeaturedStocksKr(type = 'gainers', market = 'ALL') {
                         <th class="name-col">종목명</th>
                         <th class="price-col">현재가</th>
                         <th class="change-col">등락률</th>
-                        ${type === 'trading_value' ? '<th class="volume-col">거래대금</th>' : ''}
+                        <th class="volume-col">거래대금</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -6888,7 +6888,9 @@ async function loadFeaturedStocksKr(type = 'gainers', market = 'ALL') {
                         const changeClass = (s.change || 0) >= 0 ? 'profit' : 'loss';
                         const sign = (s.change || 0) >= 0 ? '+' : '';
                         const priceStr = (s.current || 0).toLocaleString();
-                        const valueStr = type === 'trading_value' ? formatTradingValue(s.value) : '';
+                        // 거래대금: API에서 value 있으면 사용, 없으면 거래량 × 현재가
+                        const tradingValue = s.value || ((s.volume || 0) * (s.current || 0));
+                        const valueStr = formatTradingValue(tradingValue);
 
                         return `
                             <tr class="stock-row" data-code="${s.code}" data-name="${s.name}">
@@ -6900,7 +6902,7 @@ async function loadFeaturedStocksKr(type = 'gainers', market = 'ALL') {
                                 </td>
                                 <td class="price-col">${priceStr}</td>
                                 <td class="change-col ${changeClass}">${sign}${(s.change || 0).toFixed(2)}%</td>
-                                ${type === 'trading_value' ? `<td class="volume-col">${valueStr}</td>` : ''}
+                                <td class="volume-col">${valueStr}</td>
                             </tr>
                         `;
                     }).join('')}

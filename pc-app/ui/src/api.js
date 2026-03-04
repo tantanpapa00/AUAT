@@ -301,8 +301,8 @@ export const getMarketUsSectors = (token) =>
 export const getMarketSectors = (token) =>
     apiGet('/api/market/sectors', token);
 
-export const getStockRanking = (token, market = 'KOSPI', sortBy = 'change', limit = 50) =>
-    apiGet(`/api/market/ranking?market=${market}&sort=${sortBy}&limit=${limit}`, token);
+export const getStockRanking = (token, market = 'KOSPI', sortBy = 'volume', limit = 50) =>
+    apiGet(`/api/market/ranking?market=${market}&ranking_type=${sortBy}&limit=${limit}`, token);
 
 export const getFeaturedStocks = (token) =>
     apiGet('/api/market/featured', token);
