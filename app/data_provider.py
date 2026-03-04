@@ -747,14 +747,62 @@ async def get_etf_overview():
     themes_up = sorted([t for t in themes if t["avg_change"] > 0], key=lambda x: x["avg_change"], reverse=True)[:10]
     themes_down = sorted([t for t in themes if t["avg_change"] < 0], key=lambda x: x["avg_change"])[:10]
 
-    # 해외(미국) 테마 ETF (별도 섹션용)
-    US_THEME_KEYWORDS = ["S&P", "나스닥", "미국", "다우", "Russell", "필라델피아", "SOX"]
-    def is_us_etf(name):
-        return any(kw in name for kw in US_THEME_KEYWORDS)
+    # === 해외(미국) 테마 ETF (테마별 그룹) ===
+    US_THEME_KEYWORDS = {
+        "미국지수": ["S&P500", "S&P 500", "나스닥100", "나스닥 100", "다우존스", "다우 존스", "러셀"],
+        "미국반도체": ["반도체", "필라델피아", "SOX", "semiconductor"],
+        "미국AI": ["AI", "인공지능", "ChatGPT", "빅테크"],
+        "원유": ["원유", "WTI", "크루드", "오일"],
+        "천연가스": ["천연가스", "LNG", "가스"],
+        "VIX": ["VIX", "변동성", "공포지수"],
+        "금/은": ["골드", "금", "은", "실버", "귀금속"],
+        "유럽": ["유럽", "유로", "EURO", "독일", "영국"],
+        "일본": ["일본", "닛케이", "니케이", "TOPIX"],
+        "중국": ["중국", "차이나", "항셍", "CSI", "상해", "심천"],
+    }
 
-    us_etfs = [e for e in all_etfs if is_us_etf(e["name"])]
-    themes_us_up = unique_by_code(sorted([e for e in us_etfs if e["change_pct"] > 0], key=lambda x: x["change_pct"], reverse=True))[:10]
-    themes_us_down = unique_by_code(sorted([e for e in us_etfs if e["change_pct"] < 0], key=lambda x: x["change_pct"]))[:10]
+    def classify_us_theme(name):
+        """해외 ETF 이름으로 해외 테마 분류"""
+        for theme, keywords in US_THEME_KEYWORDS.items():
+            for kw in keywords:
+                if kw in name:
+                    return theme
+        return None  # 해외 테마 아님
+
+    # 해외 ETF 테마별 집계
+    us_theme_map = {}
+    for etf in all_etfs:
+        us_theme = classify_us_theme(etf["name"])
+        if not us_theme:
+            continue
+        if us_theme not in us_theme_map:
+            us_theme_map[us_theme] = {"name": us_theme, "etfs": [], "up": 0, "down": 0, "total_change": 0}
+        us_theme_map[us_theme]["etfs"].append(etf)
+        if etf["change_pct"] > 0:
+            us_theme_map[us_theme]["up"] += 1
+        elif etf["change_pct"] < 0:
+            us_theme_map[us_theme]["down"] += 1
+        us_theme_map[us_theme]["total_change"] += etf["change_pct"]
+
+    us_themes = []
+    for t in us_theme_map.values():
+        count = len(t["etfs"])
+        if count == 0:
+            continue
+        avg_change = round(t["total_change"] / count, 2)
+        top_etf = max(t["etfs"], key=lambda x: x["volume"]) if t["etfs"] else None
+        us_themes.append({
+            "name": t["name"],
+            "avg_change": avg_change,
+            "count": count,
+            "up": t["up"],
+            "down": t["down"],
+            "top_etf_name": top_etf["name"] if top_etf else "",
+            "top_etf_change": top_etf["change_pct"] if top_etf else 0,
+        })
+
+    themes_us_up = sorted([t for t in us_themes if t["avg_change"] > 0], key=lambda x: x["avg_change"], reverse=True)[:10]
+    themes_us_down = sorted([t for t in us_themes if t["avg_change"] < 0], key=lambda x: x["avg_change"])[:10]
 
     top_by_return = unique_by_code(sorted(all_etfs, key=lambda x: x["change_pct"], reverse=True))[:10]
     bottom_by_return = unique_by_code(sorted(all_etfs, key=lambda x: x["change_pct"]))[:10]

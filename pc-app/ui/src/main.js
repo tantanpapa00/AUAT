@@ -8407,7 +8407,7 @@ function renderEtfDashboard(data, container) {
                     <button class="etf-toggle-btn" data-mode="down">하락</button>
                 </div>
             </div>
-            <div class="etf-us-theme-list" id="etf-us-theme-list"></div>
+            <div class="etf-theme-scroll" id="etf-us-theme-cards"></div>
         </div>
 
         <!-- 2. 상승하락 (ETFCheck: 상승하락 | TOP3거래량) -->
@@ -8508,35 +8508,47 @@ function renderEtfDashboard(data, container) {
         });
     });
 
-    // ========== 1-2. 해외(미국) HOT 테마 ==========
-    function renderUsThemeList(mode) {
-        const el = document.getElementById('etf-us-theme-list');
-        const etfs = mode === 'up' ? (data.themes_us_up || []) : (data.themes_us_down || []);
+    // ========== 1-2. 해외(미국) HOT 테마 (국내와 동일한 카드 UI) ==========
+    function renderUsThemeCards(mode) {
+        const el = document.getElementById('etf-us-theme-cards');
+        const themes = mode === 'up' ? (data.themes_us_up || []) : (data.themes_us_down || []);
         if (!el) return;
-        if (!etfs.length) { el.innerHTML = '<div class="empty-cell">해외 ETF 데이터 없음</div>'; return; }
+        if (!themes.length) { el.innerHTML = '<div class="empty-cell">해외 테마 데이터 없음</div>'; return; }
 
-        el.innerHTML = etfs.slice(0, 10).map((e, i) => {
-            const isUp = (e.change_pct || 0) >= 0;
+        el.innerHTML = themes.slice(0, 10).map((t, i) => {
+            const isUp = t.avg_change >= 0;
             const color = isUp ? '#ef4444' : '#3b82f6';
+            const rankColors = ['#ef4444', '#f59e0b', '#22c55e', '#06b6d4', '#8b5cf6', '#ec4899', '#f97316', '#14b8a6'];
             return `
-                <div class="etf-us-item">
-                    <span class="etf-us-rank">${i + 1}</span>
-                    <div class="etf-us-info">
-                        <strong>${e.name || '-'}</strong>
-                        <span style="color:var(--text-muted);font-size:0.82em">현재가 ${(e.price || 0).toLocaleString()}</span>
+                <div class="etf-theme-card">
+                    <div class="etf-theme-card-header">
+                        <span class="etf-theme-name">${t.name}</span>
+                        <span class="etf-theme-rank" style="background:${rankColors[i % rankColors.length]}">${i + 1}</span>
                     </div>
-                    <span class="etf-us-change" style="color:${color};font-weight:700">${isUp ? '+' : ''}${(e.change_pct || 0).toFixed(2)}%</span>
+                    <div class="etf-theme-change" style="color:${color}">${isUp ? '+' : ''}${t.avg_change.toFixed(2)}%</div>
+                    <div class="etf-theme-top">
+                        <span class="etf-theme-top-name">${t.top_etf_name || '-'}</span>
+                        <span style="color:${color}">${(t.top_etf_change || 0) >= 0 ? '+' : ''}${(t.top_etf_change || 0).toFixed(2)}%</span>
+                    </div>
+                    <div class="etf-theme-bar">
+                        <div style="flex:${t.down || 1};background:#3b82f6;height:100%"></div>
+                        <div style="flex:${t.up || 1};background:#ef4444;height:100%"></div>
+                    </div>
+                    <div class="etf-theme-counts">
+                        <span style="color:#3b82f6">하락/${t.down || 0}</span>
+                        <span style="color:#ef4444">${t.up || 0}/상승</span>
+                    </div>
                 </div>
             `;
         }).join('');
     }
-    renderUsThemeList('up');
+    renderUsThemeCards('up');
 
     document.querySelectorAll('#etf-us-theme-toggle .etf-toggle-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('#etf-us-theme-toggle .etf-toggle-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            renderUsThemeList(btn.dataset.mode);
+            renderUsThemeCards(btn.dataset.mode);
         });
     });
 
