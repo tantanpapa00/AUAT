@@ -254,6 +254,14 @@ async def lifespan(app):
     except Exception as e:
         print(f"[US Market Warmup] 경고: {e}")
 
+    # 4. ETF 시장 데이터 워밍업 (네이버 API 병렬 캐싱)
+    try:
+        from app.data_provider import warmup_etf_market
+        asyncio.create_task(warmup_etf_market())
+        print("[ETF Market Warmup] 백그라운드 시작")
+    except Exception as e:
+        print(f"[ETF Market Warmup] 경고: {e}")
+
     yield
 
 

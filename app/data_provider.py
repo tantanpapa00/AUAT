@@ -818,32 +818,44 @@ async def get_etf_overview():
         top = unique_by_code(sorted(pool, key=lambda x: x["market_sum"], reverse=True))[:10]
         major_by_asset[asset_name] = top
 
-    # sparkline 데이터 수집 — major_by_asset의 모든 고유 ETF에 대해
+    # sparkline 데이터 수집 — major_by_asset의 모든 고유 ETF에 대해 (병렬)
     all_major_etfs = {}
     for asset_name, items in major_by_asset.items():
         for e in items:
             if e["code"] not in all_major_etfs:
                 all_major_etfs[e["code"]] = e
 
+    async def fetch_sparkline(client, code):
+        """단일 ETF 스파크라인 조회 (병렬용)"""
+        try:
+            url = f"https://api.stock.naver.com/chart/domestic/item/{code}/minute?range=1"
+            r = await client.get(url)
+            if r.status_code == 200:
+                minutes = r.json()
+                prices = [m.get("currentPrice", 0) for m in minutes if m.get("currentPrice")]
+                if len(prices) > 40:
+                    step = len(prices) // 40
+                    prices = prices[::step]
+                return code, prices
+        except:
+            pass
+        return code, []
+
     try:
-        async with httpx.AsyncClient(timeout=10, headers=NAVER_HEADERS) as client:
-            for code, etf in all_major_etfs.items():
-                try:
-                    url = f"https://api.stock.naver.com/chart/domestic/item/{code}/minute?range=1"
-                    r = await client.get(url)
-                    if r.status_code == 200:
-                        minutes = r.json()
-                        prices = [m.get("currentPrice", 0) for m in minutes if m.get("currentPrice")]
-                        if len(prices) > 40:
-                            step = len(prices) // 40
-                            prices = prices[::step]
-                        etf["sparkline"] = prices
-                    else:
-                        etf["sparkline"] = []
-                except:
-                    etf["sparkline"] = []
+        async with httpx.AsyncClient(timeout=5, headers=NAVER_HEADERS) as client:
+            # 병렬 호출
+            tasks = [fetch_sparkline(client, code) for code in all_major_etfs.keys()]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for res in results:
+                if isinstance(res, tuple):
+                    code, prices = res
+                    if code in all_major_etfs:
+                        all_major_etfs[code]["sparkline"] = prices
     except:
-        for etf in all_major_etfs.values():
+        pass
+    # 누락된 sparkline 초기화
+    for etf in all_major_etfs.values():
+        if "sparkline" not in etf:
             etf["sparkline"] = []
 
     result = {
@@ -1005,6 +1017,15 @@ async def warmup_us_market():
         print("[US] 시장 데이터 워밍업 완료")
     except Exception as e:
         print(f"[US] 워밍업 실패: {e}")
+
+
+async def warmup_etf_market():
+    """서버 시작 시 ETF 시장 데이터 미리 캐싱"""
+    try:
+        await get_etf_overview()
+        print("[ETF] 시장 데이터 워밍업 완료")
+    except Exception as e:
+        print(f"[ETF] 워밍업 실패: {e}")
 
 # ===== 코인 =====
 
