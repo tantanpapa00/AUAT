@@ -307,15 +307,25 @@ async def get_market_signal(
         print(f"[API] 실시간 데이터 조회 오류: {e}")
 
     def calc_realtime_signal(rt_data: dict, db_status: str = None) -> tuple:
-        """실시간 데이터로 신호 계산 (DB 데이터가 오래된 경우)"""
+        """실시간 데이터로 신호 계산 (DB 데이터가 오래된 경우)
+
+        단기 신호: 당일 등락률 기준 (최근 5~10거래일 반영)
+        - -4% 이하 → red (즉시 경고)
+        - -1.5% ~ -4% → yellow (주의)
+
+        장기 신호: 50~200거래일 추세 기준
+        - 하루 폭락만으로 red 안 됨 (복합 조건 필요)
+        - -4% 이하여도 yellow (주의) 유지
+        """
         if not rt_data:
             return ('yellow', 'yellow')
 
         change_pct = rt_data.get('change_percent', 0)
 
-        # 극단적 하락 시 Big Picture 상태 무시하고 즉시 반영
-        if change_pct <= -3.0:
-            return ('red', 'red')
+        # 단기 신호: 당일 등락률 기준
+        if change_pct <= -4.0:
+            # 극단적 하락: 단기 red, 장기는 yellow (하루만으로 장기 red 안 됨)
+            return ('red', 'yellow')
         elif change_pct <= -1.5:
             return ('yellow', 'yellow')
 
