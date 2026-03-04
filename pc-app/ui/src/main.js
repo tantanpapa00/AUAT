@@ -540,7 +540,8 @@ function createSymbolAutocomplete(inputElement, onSelect, options = {}) {
                 return;
             }
 
-            const symbols = result?.symbols || result || [];
+            // API 응답이 {symbols: [...]} 또는 {results: [...]} 형태일 수 있음
+            const symbols = result?.symbols || result?.results || (Array.isArray(result) ? result : []);
 
             if (symbols.length === 0) {
                 showNoResults();

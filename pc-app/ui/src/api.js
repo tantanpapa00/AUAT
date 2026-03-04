@@ -167,7 +167,7 @@ export const getHoldings = (token) =>
     apiGet('/api/portfolio/holdings', token);
 
 export const getTradeHistory = (token, limit = 50, offset = 0) =>
-    apiGet(`/api/portfolio/trades?limit=${limit}&offset=${offset}`, token);
+    apiGet(`/api/trades?limit=${limit}&offset=${offset}`, token);
 
 export const getAssetTrades = (token, assetId, limit = 50) =>
     apiGet(`/api/portfolio/assets/${assetId}/trades?limit=${limit}`, token);

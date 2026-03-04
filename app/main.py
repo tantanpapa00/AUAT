@@ -251,10 +251,20 @@ async def lifespan(app):
 
 app = FastAPI(title="BBooster API v1.0", lifespan=lifespan)
 
-# CORS 설정 — Tauri webview에서 외부 이미지 로딩 허용
+# CORS 설정 — Tauri webview + 로컬 개발 + 프로덕션
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",      # Vite dev server
+    "http://localhost:1420",      # Tauri dev
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:1420",
+    "https://qube-system.com",    # Production
+    "https://www.qube-system.com",
+    "tauri://localhost",          # Tauri production
+    "https://tauri.localhost",
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Tauri는 tauri://localhost 또는 https://tauri.localhost 사용
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
