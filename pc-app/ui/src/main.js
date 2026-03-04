@@ -257,16 +257,21 @@ const API_COMMAND_MAP = {
     'delete_all_notifications': (args) => api.deleteAllNotifications(args.access_token),
 };
 
+// 데모 모드에서 바이패스할 명령 (인증/서버 관련은 실제 API 호출)
+const DEMO_BYPASS_COMMANDS = new Set([
+    'login_with_email', 'register_with_email', 'refresh_auth_token',
+    'get_user_info', 'logout', 'check_server_health', 'get_server_status'
+]);
+
 // invoke 래퍼 - 데모 모드 / API / 네이티브 분기
 async function invoke(cmd, args = {}) {
-    // 데모 모드 처리 (로그인 상태에서는 무시)
-    if (isDemoMode && !auth.accessToken) {
+    // 데모 모드 처리 (로그인 상태에서는 무시, 바이패스 명령은 실제 API 호출)
+    if (isDemoMode && !auth.accessToken && !DEMO_BYPASS_COMMANDS.has(cmd)) {
         console.log('[Demo] invoke intercepted:', cmd);
         if (cmd === 'get_portfolio_summary') return DEMO_DATA.summary;
         if (cmd === 'get_holdings') return DEMO_DATA.holdings;
         if (cmd === 'get_active_strategies') return DEMO_DATA.strategies;
         if (cmd === 'get_trade_history') return { trades: DEMO_DATA.trades, total: DEMO_DATA.trades.length };
-        if (cmd === 'get_user_info') return { name: 'Demo User', email: 'demo@bbooster.com', role: 'user', subscription: 'pro' };
     }
 
     // 네이티브 커맨드 → Tauri invoke
