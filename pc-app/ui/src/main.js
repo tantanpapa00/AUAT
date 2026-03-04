@@ -7380,34 +7380,34 @@ async function loadMarketUs() {
                         <div class="se-breadth-item">
                             <span class="se-breadth-label">신고가 / 신저가</span>
                             <div class="se-breadth-bar">
-                                <span class="up">${breadth.new_high || 0}</span>
+                                <span class="up">${formatBreadthValue(breadth.new_high)}</span>
                                 <div class="se-breadth-bar-track">
                                     <div class="se-breadth-bar-up" style="width: ${getBreadthBarPercent(breadth.new_high, breadth.new_low, 'up')}%"></div>
                                     <div class="se-breadth-bar-down" style="width: ${getBreadthBarPercent(breadth.new_high, breadth.new_low, 'down')}%"></div>
                                 </div>
-                                <span class="down">${breadth.new_low || 0}</span>
+                                <span class="down">${formatBreadthValue(breadth.new_low)}</span>
                             </div>
                         </div>
                         <div class="se-breadth-item">
                             <span class="se-breadth-label">SMA50 위 / 아래</span>
                             <div class="se-breadth-bar">
-                                <span class="up">${breadth.above_sma50 || 0}</span>
+                                <span class="up">${formatBreadthValue(breadth.above_sma50)}</span>
                                 <div class="se-breadth-bar-track">
                                     <div class="se-breadth-bar-up" style="width: ${getBreadthBarPercent(breadth.above_sma50, breadth.below_sma50, 'up')}%"></div>
                                     <div class="se-breadth-bar-down" style="width: ${getBreadthBarPercent(breadth.above_sma50, breadth.below_sma50, 'down')}%"></div>
                                 </div>
-                                <span class="down">${breadth.below_sma50 || 0}</span>
+                                <span class="down">${formatBreadthValue(breadth.below_sma50)}</span>
                             </div>
                         </div>
                         <div class="se-breadth-item">
                             <span class="se-breadth-label">SMA200 위 / 아래</span>
                             <div class="se-breadth-bar">
-                                <span class="up">${breadth.above_sma200 || 0}</span>
+                                <span class="up">${formatBreadthValue(breadth.above_sma200)}</span>
                                 <div class="se-breadth-bar-track">
                                     <div class="se-breadth-bar-up" style="width: ${getBreadthBarPercent(breadth.above_sma200, breadth.below_sma200, 'up')}%"></div>
                                     <div class="se-breadth-bar-down" style="width: ${getBreadthBarPercent(breadth.above_sma200, breadth.below_sma200, 'down')}%"></div>
                                 </div>
-                                <span class="down">${breadth.below_sma200 || 0}</span>
+                                <span class="down">${formatBreadthValue(breadth.below_sma200)}</span>
                             </div>
                         </div>
                     </div>
@@ -8224,8 +8224,16 @@ function getVixLabel(val) {
     return '극도 불안';
 }
 
+// 브레드스 값 포맷팅 (-1이면 "계산 중")
+function formatBreadthValue(value) {
+    if (value === -1 || value === null || value === undefined) return '<span class="calculating">···</span>';
+    return value;
+}
+
 // 브레드스 바 퍼센트 (신고가/신저가 비율)
 function getBreadthBarPercent(high, low, type) {
+    // -1은 계산 중 상태이므로 50%로 표시
+    if (high === -1 || low === -1) return 50;
     const total = (high || 0) + (low || 0);
     if (total === 0) return 50;
     if (type === 'up') return ((high || 0) / total * 100).toFixed(1);

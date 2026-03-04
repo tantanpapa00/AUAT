@@ -10426,6 +10426,18 @@ body {
     height: 100%;
 }
 
+/* 계산 중 상태 표시 */
+.calculating {
+    color: var(--text-muted);
+    font-style: italic;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+}
+
 .se-breadth-pct {
     display: flex;
     align-items: center;

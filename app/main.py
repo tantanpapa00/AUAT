@@ -254,6 +254,15 @@ async def lifespan(app):
     except Exception as e:
         print(f"[US Market Warmup] 경고: {e}")
 
+    # 3-1. US 히스토리 캐시 워밍업 (브레드스용 - 503개 종목 1년 히스토리)
+    # 이건 132초 걸리므로 백그라운드에서 실행, 서버는 즉시 시작
+    try:
+        from app.market_analysis.data_collector_us import warmup_us_history_cache
+        asyncio.create_task(warmup_us_history_cache())
+        print("[US History Warmup] 백그라운드 시작 (132초 소요 예상)")
+    except Exception as e:
+        print(f"[US History Warmup] 경고: {e}")
+
     # 4. ETF 시장 데이터 워밍업 (네이버 API 병렬 캐싱)
     try:
         from app.data_provider import warmup_etf_market

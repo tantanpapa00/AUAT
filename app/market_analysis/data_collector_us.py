@@ -284,7 +284,10 @@ async def collect_fear_greed_index() -> Dict:
 
 
 async def get_us_market_summary() -> Dict[str, Any]:
-    """미국 시장 요약 데이터 전체 수집"""
+    """
+    미국 시장 요약 데이터 전체 수집
+    Stale-while-revalidate 패턴: 캐시 miss 시 기본 데이터만 즉시 반환
+    """
     indices_task = collect_us_indices()
     sectors_task = collect_us_sectors()
     heatmap_task = collect_us_heatmap()
@@ -315,16 +318,33 @@ async def get_us_market_summary() -> Dict[str, Any]:
     unchanged = sum(1 for s in heatmap if s.get("change_pct", 0) == 0)
     total = rising + falling + unchanged
 
-    # 브레드스 계산 (52주 신고가/신저가, SMA50/200) - 캐시 사용
-    try:
-        breadth_extra = await calculate_us_breadth(heatmap)
-    except Exception as e:
-        print(f"[US DataCollector] breadth calculation error: {e}")
+    # 브레드스 계산 - Stale-while-revalidate 패턴
+    # 히스토리 캐시가 있으면 정상 계산, 없으면 기본값 + 백그라운드 워밍업
+    if is_history_cache_ready():
+        # 캐시 HIT - 정상 계산
+        try:
+            breadth_extra = await calculate_us_breadth(heatmap)
+        except Exception as e:
+            print(f"[US DataCollector] breadth calculation error: {e}")
+            breadth_extra = {
+                "new_high": 0, "new_low": 0,
+                "above_sma50": 0, "below_sma50": 0,
+                "above_sma200": 0, "below_sma200": 0,
+            }
+    else:
+        # 캐시 MISS - 기본값 반환 + 백그라운드에서 워밍업 시작
+        print("[US DataCollector] 히스토리 캐시 없음 → 기본 브레드스 반환, 백그라운드 워밍업 시작")
         breadth_extra = {
-            "new_high": 0, "new_low": 0,
-            "above_sma50": 0, "below_sma50": 0,
-            "above_sma200": 0, "below_sma200": 0,
+            "new_high": -1,      # -1 = 계산 중
+            "new_low": -1,
+            "above_sma50": -1,
+            "below_sma50": -1,
+            "above_sma200": -1,
+            "below_sma200": -1,
         }
+        # 백그라운드에서 히스토리 캐시 워밍업 (이미 진행 중이 아니면)
+        if not _history_warming_up:
+            asyncio.create_task(warmup_us_history_cache())
 
     breadth = {
         "advancing": rising,
@@ -418,6 +438,33 @@ async def fetch_sector_etf_daily(symbol: str, days: int = 60) -> List[float]:
 # 히스토리 캐시 (1시간)
 _history_cache: Dict[str, Any] = {"data": {}, "ts": 0}
 _HISTORY_CACHE_TTL = 3600  # 1시간
+_history_warming_up = False  # 워밍업 진행 중 플래그
+
+
+def is_history_cache_ready() -> bool:
+    """히스토리 캐시가 준비되었는지 확인"""
+    return bool(_history_cache["data"])
+
+
+async def warmup_us_history_cache():
+    """서버 시작 시 히스토리 캐시 워밍업 (백그라운드)"""
+    global _history_warming_up
+    if _history_warming_up:
+        return
+    _history_warming_up = True
+
+    try:
+        from app.screener.us_screener import get_sp500_list
+        stocks = await get_sp500_list()
+        symbols = [s.get("symbol") for s in stocks if s.get("symbol")]
+        if symbols:
+            print(f"[US History Warmup] 시작: {len(symbols)}개 종목")
+            await get_us_stock_history_batch(symbols)
+            print(f"[US History Warmup] 완료: {len(_history_cache.get('data', {}))}개 종목")
+    except Exception as e:
+        print(f"[US History Warmup] 실패: {e}")
+    finally:
+        _history_warming_up = False
 
 
 async def get_us_stock_history_batch(symbols: List[str]) -> Dict[str, List[float]]:
