@@ -15124,7 +15124,7 @@ function updateMrTimeframeOptions(exchange) {
 // MR UI 리디자인 - 아코디언/탭/트랜치 동적생성
 // =====================================================
 
-const DEFAULT_BUY_TRANCHES = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5];
+const DEFAULT_BUY_TRANCHES = [5, 5.44, 6.06, 8.26, 10.24, 13.8, 17.28, 21.44, 24];
 const DEFAULT_SELL_TRANCHES = [10, 20, 30, 5, 2.5, 1];
 
 // 아코디언 초기화
@@ -15283,7 +15283,7 @@ function collectMrConfig() {
         // ③ 기본 설정
         signal_tf: document.getElementById('mr-signal-tf')?.value || '30m',
         htf_tf: document.getElementById('mr-htf')?.value || '1D',
-        osc_smooth_len: parseInt(document.getElementById('mr-osc-smooth')?.value) || 20,
+        osc_smooth_len: parseInt(document.getElementById('mr-osc-smooth')?.value) || 4,
         osc_threshold: parseFloat(document.getElementById('mr-osc-threshold')?.value) || 1.0,
         min_profit_pct: parseFloat(document.getElementById('mr-min-profit-pct')?.value) || 0.1,
         fee_buffer_pct: parseFloat(document.getElementById('mr-fee-buffer-pct')?.value) || 0.2,

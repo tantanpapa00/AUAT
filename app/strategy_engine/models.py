@@ -171,8 +171,8 @@ class MRConfig:
     one_trade_per_bar: bool = True
 
     # Buy tranches
-    buy_tranches: List[float] = field(default_factory=lambda: [5.0] * 10)
-    max_buy_tranches: int = 10
+    buy_tranches: List[float] = field(default_factory=lambda: [5.0, 5.44, 6.06, 8.26, 10.24, 13.8, 17.28, 21.44, 24.0])
+    max_buy_tranches: int = 9
     after_max_buy: str = "extend"   # "extend", "cycle", "stop"
 
     # Sell tranches
