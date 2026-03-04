@@ -8,6 +8,27 @@ import { API_BASE_URL } from './config.js';
 const DEFAULT_TIMEOUT = 120000; // 120초 (Tauri와 동일)
 
 /**
+ * camelCase → snake_case 변환 (재귀적)
+ * 백엔드 Pydantic 모델이 snake_case를 기대하므로 자동 변환
+ */
+function toSnakeCase(obj) {
+    if (obj === null || obj === undefined) return obj;
+    if (Array.isArray(obj)) {
+        return obj.map(item => toSnakeCase(item));
+    }
+    if (typeof obj !== 'object') return obj;
+
+    const result = {};
+    for (const [key, value] of Object.entries(obj)) {
+        // camelCase → snake_case 변환
+        const snakeKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+        // 중첩 객체도 재귀 변환
+        result[snakeKey] = toSnakeCase(value);
+    }
+    return result;
+}
+
+/**
  * Fetch with timeout support
  */
 async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_TIMEOUT) {
@@ -51,7 +72,7 @@ export async function apiGet(path, token = null, timeoutMs = DEFAULT_TIMEOUT) {
 }
 
 /**
- * POST request
+ * POST request (camelCase → snake_case 자동 변환)
  */
 export async function apiPost(path, body = {}, token = null, timeoutMs = DEFAULT_TIMEOUT) {
     const headers = {
@@ -61,12 +82,15 @@ export async function apiPost(path, body = {}, token = null, timeoutMs = DEFAULT
         headers['Authorization'] = `Bearer ${token}`;
     }
 
+    // camelCase → snake_case 변환 (백엔드 Pydantic 호환)
+    const snakeBody = toSnakeCase(body);
+
     const response = await fetchWithTimeout(
         `${API_BASE_URL}${path}`,
         {
             method: 'POST',
             headers,
-            body: JSON.stringify(body)
+            body: JSON.stringify(snakeBody)
         },
         timeoutMs
     );
@@ -80,7 +104,7 @@ export async function apiPost(path, body = {}, token = null, timeoutMs = DEFAULT
 }
 
 /**
- * PUT request
+ * PUT request (camelCase → snake_case 자동 변환)
  */
 export async function apiPut(path, body = {}, token = null, timeoutMs = DEFAULT_TIMEOUT) {
     const headers = {
@@ -90,12 +114,15 @@ export async function apiPut(path, body = {}, token = null, timeoutMs = DEFAULT_
         headers['Authorization'] = `Bearer ${token}`;
     }
 
+    // camelCase → snake_case 변환 (백엔드 Pydantic 호환)
+    const snakeBody = toSnakeCase(body);
+
     const response = await fetchWithTimeout(
         `${API_BASE_URL}${path}`,
         {
             method: 'PUT',
             headers,
-            body: JSON.stringify(body)
+            body: JSON.stringify(snakeBody)
         },
         timeoutMs
     );
