@@ -8398,6 +8398,18 @@ function renderEtfDashboard(data, container) {
             <div class="etf-theme-scroll" id="etf-theme-cards"></div>
         </div>
 
+        <!-- 1-2. 해외(미국) HOT 테마 -->
+        <div class="card" id="etf-us-hot-section">
+            <div class="etf-section-header">
+                <h3>해외 HOT 테마</h3>
+                <div class="etf-toggle-btns" id="etf-us-theme-toggle">
+                    <button class="etf-toggle-btn active" data-mode="up">상승</button>
+                    <button class="etf-toggle-btn" data-mode="down">하락</button>
+                </div>
+            </div>
+            <div class="etf-us-theme-list" id="etf-us-theme-list"></div>
+        </div>
+
         <!-- 2. 상승하락 (ETFCheck: 상승하락 | TOP3거래량) -->
         <div class="card">
             <div class="etf-main-tabs" id="etf-dist-main-tabs">
@@ -8459,7 +8471,7 @@ function renderEtfDashboard(data, container) {
         if (!el) return;
         if (!themes.length) { el.innerHTML = '<div class="empty-cell">테마 데이터 없음</div>'; return; }
 
-        el.innerHTML = themes.slice(0, 15).map((t, i) => {
+        el.innerHTML = themes.slice(0, 10).map((t, i) => {
             const isUp = t.avg_change >= 0;
             const color = isUp ? '#ef4444' : '#3b82f6';  // 상승=빨강, 하락=파랑
             const rankColors = ['#ef4444', '#f59e0b', '#22c55e', '#06b6d4', '#8b5cf6', '#ec4899', '#f97316', '#14b8a6'];
@@ -8493,6 +8505,38 @@ function renderEtfDashboard(data, container) {
             document.querySelectorAll('#etf-theme-toggle .etf-toggle-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             renderThemeCards(btn.dataset.mode);
+        });
+    });
+
+    // ========== 1-2. 해외(미국) HOT 테마 ==========
+    function renderUsThemeList(mode) {
+        const el = document.getElementById('etf-us-theme-list');
+        const etfs = mode === 'up' ? (data.themes_us_up || []) : (data.themes_us_down || []);
+        if (!el) return;
+        if (!etfs.length) { el.innerHTML = '<div class="empty-cell">해외 ETF 데이터 없음</div>'; return; }
+
+        el.innerHTML = etfs.slice(0, 10).map((e, i) => {
+            const isUp = (e.change_pct || 0) >= 0;
+            const color = isUp ? '#ef4444' : '#3b82f6';
+            return `
+                <div class="etf-us-item">
+                    <span class="etf-us-rank">${i + 1}</span>
+                    <div class="etf-us-info">
+                        <strong>${e.name || '-'}</strong>
+                        <span style="color:var(--text-muted);font-size:0.82em">현재가 ${(e.price || 0).toLocaleString()}</span>
+                    </div>
+                    <span class="etf-us-change" style="color:${color};font-weight:700">${isUp ? '+' : ''}${(e.change_pct || 0).toFixed(2)}%</span>
+                </div>
+            `;
+        }).join('');
+    }
+    renderUsThemeList('up');
+
+    document.querySelectorAll('#etf-us-theme-toggle .etf-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#etf-us-theme-toggle .etf-toggle-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderUsThemeList(btn.dataset.mode);
         });
     });
 
@@ -8545,11 +8589,13 @@ function renderEtfDashboard(data, container) {
                 </div>
             `;
         } else if (distMainTab === 'top3vol') {
-            const top3 = data.top3_volume || [];
+            // 카테고리별 TOP3 거래량
+            const top3ByAsset = data.top3_volume_by_asset || {};
+            const top3 = top3ByAsset[distAsset] || data.top3_volume || [];
             const colors = ['#4ade80', '#60a5fa', '#fbbf24'];
             contentEl.innerHTML = `
                 <div style="font-size:0.82em;color:var(--text-muted);margin-bottom:12px">
-                    거래량 증가 TOP3 종목의 현황입니다.
+                    ${distAsset === '전체' ? '' : `[${distAsset}] `}거래량 증가 TOP3 종목의 현황입니다.
                 </div>
                 <div class="etf-top3-list">
                     ${top3.map((e, i) => {

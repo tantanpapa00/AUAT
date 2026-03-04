@@ -10890,6 +10890,40 @@ body {
     border-radius: 6px;
 }
 
+/* 해외 HOT 테마 리스트 */
+.etf-us-theme-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.etf-us-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.etf-us-item:last-child {
+    border-bottom: none;
+}
+.etf-us-rank {
+    font-size: 0.9em;
+    font-weight: 700;
+    color: #6b7280;
+    min-width: 24px;
+    text-align: center;
+}
+.etf-us-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.etf-us-change {
+    min-width: 70px;
+    text-align: right;
+}
+
 /* 랭킹 리스트 (ETFCheck 스타일) */
 .etf-rank-item {
     display: flex;

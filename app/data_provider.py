@@ -744,8 +744,18 @@ async def get_etf_overview():
                 result.append(e)
         return result
 
-    themes_up = sorted([t for t in themes if t["avg_change"] > 0], key=lambda x: x["avg_change"], reverse=True)
-    themes_down = sorted([t for t in themes if t["avg_change"] <= 0], key=lambda x: x["avg_change"])
+    themes_up = sorted([t for t in themes if t["avg_change"] > 0], key=lambda x: x["avg_change"], reverse=True)[:10]
+    themes_down = sorted([t for t in themes if t["avg_change"] < 0], key=lambda x: x["avg_change"])[:10]
+
+    # 해외(미국) 테마 ETF (별도 섹션용)
+    US_THEME_KEYWORDS = ["S&P", "나스닥", "미국", "다우", "Russell", "필라델피아", "SOX"]
+    def is_us_etf(name):
+        return any(kw in name for kw in US_THEME_KEYWORDS)
+
+    us_etfs = [e for e in all_etfs if is_us_etf(e["name"])]
+    themes_us_up = unique_by_code(sorted([e for e in us_etfs if e["change_pct"] > 0], key=lambda x: x["change_pct"], reverse=True))[:10]
+    themes_us_down = unique_by_code(sorted([e for e in us_etfs if e["change_pct"] < 0], key=lambda x: x["change_pct"]))[:10]
+
     top_by_return = unique_by_code(sorted(all_etfs, key=lambda x: x["change_pct"], reverse=True))[:10]
     bottom_by_return = unique_by_code(sorted(all_etfs, key=lambda x: x["change_pct"]))[:10]
     top_by_volume = unique_by_code(sorted(all_etfs, key=lambda x: x["volume"], reverse=True))[:10]
@@ -792,8 +802,11 @@ async def get_etf_overview():
         top_volume_by_asset[asset_name] = unique_by_code(sorted(asset_etfs, key=lambda x: x["volume"], reverse=True))[:10]
         top_market_by_asset[asset_name] = unique_by_code(sorted(asset_etfs, key=lambda x: x["market_sum"], reverse=True))[:10]
 
-    # 거래량 TOP3 (상승하락 섹션의 TOP3거래량 탭용)
+    # 거래량 TOP3 (상승하락 섹션의 TOP3거래량 탭용) - 카테고리별
     top3_volume = unique_by_code(sorted(all_etfs, key=lambda x: x["volume"], reverse=True))[:3]
+    top3_volume_by_asset = {}
+    for asset_name, asset_etfs in by_asset.items():
+        top3_volume_by_asset[asset_name] = unique_by_code(sorted(asset_etfs, key=lambda x: x["volume"], reverse=True))[:3]
 
     # 주요 종목 — 자산유형별 거래량 상위 10개씩
     major_by_asset = {}
@@ -839,6 +852,8 @@ async def get_etf_overview():
         "total_down": total_down,
         "themes_up": themes_up,
         "themes_down": themes_down,
+        "themes_us_up": themes_us_up,
+        "themes_us_down": themes_us_down,
         "distribution": distribution,
         "dist_by_asset": dist_by_asset,
         "top_by_return": top_by_return,
@@ -850,6 +865,7 @@ async def get_etf_overview():
         "top_volume_by_asset": top_volume_by_asset,
         "top_market_by_asset": top_market_by_asset,
         "top3_volume": top3_volume,
+        "top3_volume_by_asset": top3_volume_by_asset,
         "major_etfs": major_etfs,
         "major_by_asset": major_by_asset,
         "success": True,
