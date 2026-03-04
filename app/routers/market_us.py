@@ -109,31 +109,33 @@ async def api_market_us_full(
             else:
                 return ("yellow", "yellow")
 
-        # 2. 시장신호 조회 (SP500/NASDAQ)
+        # 2. 시장신호 조회 (SP500/NASDAQ) - 실시간 계산 사용
         signal_result = {}
         try:
             from app.models import MarketSignal
+            from app.market_analysis.data_collector_us import calculate_us_signal
             indices = summary.get("indices", {})
 
             for market in ["SP500", "NASDAQ"]:
+                # DB에서 조회
                 signal_row = db.query(MarketSignal).filter(MarketSignal.market == market).first()
-                if signal_row and signal_row.signal_data:
-                    sd = signal_row.signal_data
-                    status = sd.get("status", "confirmed_uptrend")
-                    cfg = BIG_PICTURE_CONFIG.get(status, BIG_PICTURE_CONFIG["confirmed_uptrend"])
 
-                    # DB에서 신호 가져오되, 실시간 데이터로 검증
-                    db_short = sd.get("short_term_signal", "yellow")
-                    db_long = sd.get("long_term_signal", "yellow")
+                # DB 데이터가 있으면 사용 (개별 컬럼 참조)
+                if signal_row and signal_row.status:
+                    status = signal_row.status
+                    cfg = BIG_PICTURE_CONFIG.get(status, BIG_PICTURE_CONFIG["confirmed_uptrend"])
+                    db_short = signal_row.short_term_signal or "yellow"
+                    db_long = signal_row.long_term_signal or "yellow"
+                    active_dd = signal_row.active_dd_count or 0
 
                     # 실시간 지수 데이터로 신호 보정 (급락 시 즉시 반영)
                     idx_key = "sp500" if market == "SP500" else "nasdaq"
                     idx_data = indices.get(idx_key, {})
-                    change_pct = idx_data.get("change_percent", 0)
+                    change_pct = idx_data.get("change_pct", 0)
 
                     # 급락 시 DB 신호 무시하고 실시간 반영
-                    if change_pct <= -3.0:
-                        short_signal, long_signal = "red", "red"
+                    if change_pct <= -4.0:
+                        short_signal, long_signal = "red", "yellow"
                     elif change_pct <= -1.5:
                         short_signal, long_signal = "yellow", db_long
                     else:
@@ -143,25 +145,42 @@ async def api_market_us_full(
                         "status": status,
                         "status_label": cfg["label"],
                         "exposure": cfg["exposure"],
-                        "active_dd_count": sd.get("active_dd_count", 0),
-                        "rally_day_count": sd.get("rally_day_count", 0),
+                        "active_dd_count": active_dd,
+                        "rally_day_count": signal_row.rally_day_count or 0,
                         "short_term_signal": short_signal,
                         "long_term_signal": long_signal,
                     }
                 else:
-                    # DB 데이터 없음 → 실시간 지수로 계산, 기본값은 "yellow" (불확실)
-                    idx_key = "sp500" if market == "SP500" else "nasdaq"
-                    short_signal, long_signal = calc_us_signal_from_indices(indices, idx_key)
+                    # DB 데이터 없음 → 실시간 계산 (yfinance)
+                    idx_symbol = "^GSPC" if market == "SP500" else "^IXIC"
+                    try:
+                        sig = await calculate_us_signal(idx_symbol)
+                        status = sig.get("status", "unknown")
+                        cfg = BIG_PICTURE_CONFIG.get(status, BIG_PICTURE_CONFIG.get("confirmed_uptrend", {}))
 
-                    signal_result[market.lower()] = {
-                        "status": "unknown",
-                        "status_label": "데이터 수집 중",
-                        "exposure": "0-20%",
-                        "active_dd_count": 0,
-                        "rally_day_count": 0,
-                        "short_term_signal": short_signal,
-                        "long_term_signal": long_signal,
-                    }
+                        signal_result[market.lower()] = {
+                            "status": status,
+                            "status_label": sig.get("status_label", cfg.get("label", "알 수 없음")),
+                            "exposure": cfg.get("exposure", "0-20%"),
+                            "active_dd_count": sig.get("active_dd_count", 0),
+                            "rally_day_count": 0,
+                            "short_term_signal": sig.get("short_term_signal", "yellow"),
+                            "long_term_signal": sig.get("long_term_signal", "yellow"),
+                            "distribution_days": sig.get("distribution_days", []),
+                        }
+                    except Exception as calc_err:
+                        print(f"[US] calculate_us_signal error for {market}: {calc_err}")
+                        idx_key = "sp500" if market == "SP500" else "nasdaq"
+                        short_signal, long_signal = calc_us_signal_from_indices(indices, idx_key)
+                        signal_result[market.lower()] = {
+                            "status": "unknown",
+                            "status_label": "계산 중",
+                            "exposure": "0-20%",
+                            "active_dd_count": 0,
+                            "rally_day_count": 0,
+                            "short_term_signal": short_signal,
+                            "long_term_signal": long_signal,
+                        }
         except Exception as sig_err:
             print(f"[US] signal query error: {sig_err}")
             # 에러 시 "yellow" (불확실) 반환, 절대 "green" 아님

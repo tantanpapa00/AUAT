@@ -313,21 +313,26 @@ async def get_us_market_summary() -> Dict[str, Any]:
     rising = sum(1 for s in heatmap if s.get("change_pct", 0) > 0)
     falling = sum(1 for s in heatmap if s.get("change_pct", 0) < 0)
     unchanged = sum(1 for s in heatmap if s.get("change_pct", 0) == 0)
-
-    # breadth 데이터 (히트맵 기반 계산)
     total = rising + falling + unchanged
+
+    # 브레드스 계산 (52주 신고가/신저가, SMA50/200) - 캐시 사용
+    try:
+        breadth_extra = await calculate_us_breadth(heatmap)
+    except Exception as e:
+        print(f"[US DataCollector] breadth calculation error: {e}")
+        breadth_extra = {
+            "new_high": 0, "new_low": 0,
+            "above_sma50": 0, "below_sma50": 0,
+            "above_sma200": 0, "below_sma200": 0,
+        }
+
     breadth = {
         "advancing": rising,
         "declining": falling,
         "unchanged": unchanged,
         "advancing_pct": round(rising / total * 100, 1) if total > 0 else 0,
         "declining_pct": round(falling / total * 100, 1) if total > 0 else 0,
-        "new_high": 0,
-        "new_low": 0,
-        "above_sma50": 0,
-        "below_sma50": 0,
-        "above_sma200": 0,
-        "below_sma200": 0,
+        **breadth_extra,
     }
 
     return {
@@ -406,3 +411,242 @@ async def fetch_sector_etf_daily(symbol: str, days: int = 60) -> List[float]:
     except Exception as e:
         print(f"[US] fetch_sector_etf_daily error for {symbol}: {e}")
         return []
+
+
+# ========== 브레드스 계산 (52주 신고가/신저가, SMA50/200) ==========
+
+# 히스토리 캐시 (1시간)
+_history_cache: Dict[str, Any] = {"data": {}, "ts": 0}
+_HISTORY_CACHE_TTL = 3600  # 1시간
+
+
+async def get_us_stock_history_batch(symbols: List[str]) -> Dict[str, List[float]]:
+    """S&P500 종목 1년 히스토리 조회 (1시간 캐싱)"""
+    global _history_cache
+    now = _time.time()
+
+    if _history_cache["data"] and (now - _history_cache["ts"]) < _HISTORY_CACHE_TTL:
+        return _history_cache["data"]
+
+    results = {}
+
+    def _fetch_batch(batch_symbols):
+        """동기 함수: yfinance로 배치 다운로드"""
+        import yfinance as yf
+        batch_results = {}
+        try:
+            data = yf.download(
+                batch_symbols, period="1y", interval="1d",
+                group_by="ticker", progress=False, threads=True
+            )
+            for sym in batch_symbols:
+                try:
+                    if len(batch_symbols) == 1:
+                        closes = data["Close"].dropna().tolist()
+                    else:
+                        closes = data[sym]["Close"].dropna().tolist()
+                    if len(closes) >= 2:
+                        batch_results[sym] = closes
+                except Exception:
+                    pass
+        except Exception as e:
+            print(f"[US Breadth] batch download error: {e}")
+        return batch_results
+
+    # 50개씩 배치 처리
+    loop = asyncio.get_event_loop()
+    for i in range(0, len(symbols), 50):
+        batch = symbols[i:i+50]
+        try:
+            batch_result = await loop.run_in_executor(None, _fetch_batch, batch)
+            results.update(batch_result)
+        except Exception as e:
+            print(f"[US Breadth] batch {i//50} error: {e}")
+
+        if i + 50 < len(symbols):
+            await asyncio.sleep(0.5)  # rate limit 방지
+
+    if results:
+        _history_cache = {"data": results, "ts": now}
+        print(f"[US Breadth] 히스토리 캐시 갱신: {len(results)}개 종목")
+
+    return results
+
+
+async def calculate_us_breadth(heatmap: List[Dict]) -> Dict[str, int]:
+    """52주 신고가/신저가, SMA50/SMA200 위/아래 계산"""
+    symbols = [s.get("symbol") for s in heatmap if s.get("symbol")]
+    if not symbols:
+        return {
+            "new_high": 0, "new_low": 0,
+            "above_sma50": 0, "below_sma50": 0,
+            "above_sma200": 0, "below_sma200": 0,
+        }
+
+    # 히스토리 조회 (캐시)
+    history = await get_us_stock_history_batch(symbols)
+
+    # 현재가 맵
+    price_map = {s.get("symbol"): s.get("price", 0) for s in heatmap}
+
+    new_high = 0
+    new_low = 0
+    above_sma50 = 0
+    below_sma50 = 0
+    above_sma200 = 0
+    below_sma200 = 0
+
+    for sym in symbols:
+        closes = history.get(sym, [])
+        current_price = price_map.get(sym, 0)
+
+        if not closes or not current_price:
+            continue
+
+        # 52주 신고가/신저가 (약 252거래일)
+        high_52w = max(closes) if closes else 0
+        low_52w = min(closes) if closes else 0
+        if high_52w > 0 and current_price >= high_52w * 0.98:  # 2% 이내면 신고가
+            new_high += 1
+        if low_52w > 0 and current_price <= low_52w * 1.02:  # 2% 이내면 신저가
+            new_low += 1
+
+        # SMA50
+        if len(closes) >= 50:
+            sma50 = sum(closes[-50:]) / 50
+            if current_price > sma50:
+                above_sma50 += 1
+            else:
+                below_sma50 += 1
+
+        # SMA200
+        if len(closes) >= 200:
+            sma200 = sum(closes[-200:]) / 200
+            if current_price > sma200:
+                above_sma200 += 1
+            else:
+                below_sma200 += 1
+
+    return {
+        "new_high": new_high,
+        "new_low": new_low,
+        "above_sma50": above_sma50,
+        "below_sma50": below_sma50,
+        "above_sma200": above_sma200,
+        "below_sma200": below_sma200,
+    }
+
+
+async def calculate_us_signal(index_symbol: str = "^GSPC") -> Dict[str, Any]:
+    """S&P500/NASDAQ 지수 기반 Distribution Day + 시그널 계산"""
+    try:
+        import yfinance as yf
+
+        def _fetch_index():
+            ticker = yf.Ticker(index_symbol)
+            hist = ticker.history(period="3mo")  # 약 60거래일
+            if hist.empty:
+                return None, None, None
+            closes = hist["Close"].tolist()
+            volumes = hist["Volume"].tolist()
+            dates = hist.index.strftime("%Y-%m-%d").tolist()
+            return closes, volumes, dates
+
+        loop = asyncio.get_event_loop()
+        closes, volumes, dates = await loop.run_in_executor(None, _fetch_index)
+
+        if not closes or len(closes) < 2:
+            return {
+                "status": "unknown",
+                "status_label": "데이터 부족",
+                "short_term_signal": "yellow",
+                "long_term_signal": "yellow",
+                "active_dd_count": 0,
+                "distribution_days": [],
+            }
+
+        # Distribution Day 카운트 (최근 25거래일)
+        dd_list = []
+        lookback = min(25, len(closes) - 1)
+        for i in range(len(closes) - lookback, len(closes)):
+            if i < 1:
+                continue
+            change_pct = (closes[i] - closes[i-1]) / closes[i-1] * 100
+            vol_increase = volumes[i] > volumes[i-1] if i < len(volumes) and i-1 < len(volumes) else False
+            # DD 조건: 지수 -0.2% 이상 하락 + 거래량 전일 대비 증가
+            if change_pct <= -0.2 and vol_increase:
+                dd_list.append({
+                    "date": dates[i] if i < len(dates) else "",
+                    "change_pct": round(change_pct, 2),
+                })
+
+        active_dd = len(dd_list)
+
+        # 오늘 변동률
+        today_change = (closes[-1] - closes[-2]) / closes[-2] * 100 if len(closes) >= 2 else 0
+
+        # SMA 계산
+        sma50 = sum(closes[-50:]) / 50 if len(closes) >= 50 else None
+        sma200 = sum(closes[-200:]) / 200 if len(closes) >= 200 else None
+        current = closes[-1]
+
+        # === 단기 신호 ===
+        if today_change <= -4:
+            short_signal = "red"
+        elif today_change <= -1.5:
+            short_signal = "yellow"
+        elif active_dd >= 5:
+            short_signal = "red"
+        elif active_dd >= 3:
+            short_signal = "yellow"
+        else:
+            short_signal = "green"
+
+        # === 장기 신호 ===
+        # 하루 폭락만으로 red 안 됨
+        if sma200 and current < sma200 * 0.9:
+            # 200일선 대비 -10% 이하
+            long_signal = "red"
+        elif today_change <= -4:
+            # 하루 -4% 이상 폭락 → 장기는 yellow (red 아님)
+            long_signal = "yellow"
+        elif sma200 and current < sma200:
+            # 200일선 아래
+            long_signal = "yellow"
+        elif sma50 and current < sma50:
+            # 50일선 아래
+            long_signal = "yellow"
+        else:
+            long_signal = "green"
+
+        # 상태 메시지
+        if short_signal == "red":
+            status = "market_in_correction"
+            status_label = "시장 조정"
+        elif short_signal == "yellow":
+            status = "uptrend_under_pressure"
+            status_label = "상승 둔화"
+        else:
+            status = "confirmed_uptrend"
+            status_label = "상승 추세"
+
+        return {
+            "status": status,
+            "status_label": status_label,
+            "short_term_signal": short_signal,
+            "long_term_signal": long_signal,
+            "active_dd_count": active_dd,
+            "distribution_days": dd_list[-5:],  # 최근 5개만
+            "today_change_pct": round(today_change, 2),
+        }
+
+    except Exception as e:
+        print(f"[US Signal] calculate_us_signal error: {e}")
+        return {
+            "status": "unknown",
+            "status_label": "계산 오류",
+            "short_term_signal": "yellow",
+            "long_term_signal": "yellow",
+            "active_dd_count": 0,
+            "distribution_days": [],
+        }
