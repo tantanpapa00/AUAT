@@ -15533,7 +15533,29 @@ function initTrendDynamicUI() {
     renderTrendPyrWeights(maxPyr);
     renderTrendSellTranches(maxSell);
 
-    // 이벤트 리스너는 한 번만 등록
+    // 아코디언 토글 (매수/매도/백테스트) — 매번 재바인딩 (중복 방지 위해 cloneNode 사용)
+    document.querySelectorAll('#strategy-tab-trend .mr-accordion-header').forEach(header => {
+        // 기존 이벤트 제거를 위해 cloneNode 사용
+        const newHeader = header.cloneNode(true);
+        header.parentNode.replaceChild(newHeader, header);
+        newHeader.addEventListener('click', () => {
+            const section = newHeader.closest('.mr-accordion');
+            if (!section) return;
+            const body = section.querySelector('.mr-accordion-body');
+            const icon = newHeader.querySelector('.mr-accordion-icon');
+            if (section.classList.contains('open')) {
+                section.classList.remove('open');
+                if (body) body.style.display = 'none';
+                if (icon) icon.textContent = '▶';
+            } else {
+                section.classList.add('open');
+                if (body) body.style.display = 'block';
+                if (icon) icon.textContent = '▼';
+            }
+        });
+    });
+
+    // 이벤트 리스너는 한 번만 등록 (아코디언 제외)
     if (_trendDynamicUIInitialized) return;
     _trendDynamicUIInitialized = true;
 
@@ -15576,25 +15598,6 @@ function initTrendDynamicUI() {
             if (fixedSettings) fixedSettings.style.display = 'none';
             if (atrSettings) atrSettings.style.display = 'block';
         }
-    });
-
-    // 아코디언 토글 (매수/매도/백테스트)
-    document.querySelectorAll('#strategy-tab-trend .mr-accordion-header').forEach(header => {
-        header.addEventListener('click', () => {
-            const section = header.closest('.mr-accordion');
-            if (!section) return;
-            const body = section.querySelector('.mr-accordion-body');
-            const icon = header.querySelector('.mr-accordion-icon');
-            if (section.classList.contains('open')) {
-                section.classList.remove('open');
-                if (body) body.style.display = 'none';
-                if (icon) icon.textContent = '▶';
-            } else {
-                section.classList.add('open');
-                if (body) body.style.display = 'block';
-                if (icon) icon.textContent = '▼';
-            }
-        });
     });
 }
 
