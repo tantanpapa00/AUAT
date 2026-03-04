@@ -478,7 +478,7 @@ export const runCustomBacktest = (token, params) =>
     apiPost('/api/premium/backtest/custom', params, token);
 
 export const preloadCandles = (token, exchange, symbol, timeframe, days) =>
-    apiPost('/api/candles/preload', { exchange, symbol, timeframe, days }, token);
+    apiPost('/api/premium/backtest/preload', { exchange, symbol, timeframe, days }, token);
 
 // Premium Strategy Engine
 export const getPremiumConfigs = (token) =>
