@@ -1633,7 +1633,9 @@ async function loadHoldings() {
         let holdings = [];
 
         if (auth.accessToken) {
-            holdings = await invoke('get_holdings', { accessToken: auth.accessToken });
+            const response = await invoke('get_holdings', { accessToken: auth.accessToken });
+            // API가 { holdings: [...], usd_krw_rate: ... } 또는 [...] 형태일 수 있음
+            holdings = response.holdings || response || [];
         }
 
         console.log('[Holdings DEBUG] Raw holdings count:', holdings?.length);
@@ -2282,7 +2284,9 @@ async function loadWebhookLogs() {
     try {
         let logs = [];
         if (auth.accessToken) {
-            logs = await invoke('get_webhook_logs', { accessToken: auth.accessToken, limit: 20 });
+            const response = await invoke('get_webhook_logs', { accessToken: auth.accessToken, limit: 20 });
+            // API가 { logs: [...] } 또는 [...] 형태일 수 있음
+            logs = response.logs || response || [];
         }
 
         if (!logs || logs.length === 0) {
