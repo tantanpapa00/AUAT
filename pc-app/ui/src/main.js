@@ -16313,161 +16313,163 @@ function renderMrTradesTable(trades, currency) {
 }
 
 function drawMrBacktestChart(equityCurve, initialCapital = 10000000, currency = 'USDT') {
-    const canvas = document.getElementById('mr-backtest-chart');
-    if (!canvas || !window.Chart) return;
+    const container = document.getElementById('mr-backtest-chart');
+    if (!container || typeof LightweightCharts === 'undefined') return;
 
-    const ctx = canvas.getContext('2d');
-
-    // 기존 차트 완전 제거 (instanceof Chart 체크)
-    if (window.mrBacktestChart instanceof Chart) {
-        window.mrBacktestChart.destroy();
+    // 기존 차트 제거
+    if (window.mrBacktestChart) {
+        window.mrBacktestChart.remove();
         window.mrBacktestChart = null;
     }
 
     if (!equityCurve || equityCurve.length === 0) return;
 
-    // canvas 크기 리셋 (무한 확장 방지)
-    canvas.style.height = '100%';
-    canvas.style.width = '100%';
-
-    // 초기자본 추출 (첫 데이터 또는 전달된 값)
+    // 초기자본 추출
     const initCap = equityCurve[0]?.equity || initialCapital;
 
-    // 날짜 라벨 생성
-    const labels = equityCurve.map(p => {
+    // 수익률 데이터 생성 (time은 Unix timestamp 초 단위)
+    const chartData = equityCurve.map(p => {
+        const pct = p.pct !== undefined ? p.pct : (initCap > 0 ? ((p.equity - initCap) / initCap) * 100 : 0);
+        let time;
         if (p.timestamp) {
-            const d = new Date(p.timestamp);
-            return `${d.getMonth() + 1}/${d.getDate()}`;
+            time = Math.floor(new Date(p.timestamp).getTime() / 1000);
+        } else if (p.bar_index !== undefined) {
+            // bar_index만 있는 경우 임의의 시간 생성 (2024-01-01부터)
+            time = 1704067200 + p.bar_index * 86400;
+        } else {
+            time = 1704067200;
         }
-        return '';
+        return { time, value: pct, equity: p.equity };
     });
 
-    // Y축 데이터: 수익률 % (백엔드에서 pct 필드 제공, 없으면 직접 계산)
-    const data = equityCurve.map(p => {
-        if (p.pct !== undefined) return p.pct;
-        return initCap > 0 ? ((p.equity - initCap) / initCap) * 100 : 0;
-    });
-
-    // 최종 수익률 기준으로 전체 색상 결정
-    const finalPct = data[data.length - 1] || 0;
+    // 최종 수익률로 색상 결정
+    const finalPct = chartData[chartData.length - 1]?.value || 0;
     const isProfitable = finalPct >= 0;
-    const mainColor = isProfitable ? '#22C55E' : '#EF4444';
-    const fillGradient = ctx.createLinearGradient(0, 0, 0, 300);
-    fillGradient.addColorStop(0, isProfitable ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)');
-    fillGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    const lineColor = isProfitable ? '#22C55E' : '#EF4444';
+    const topColor = isProfitable ? 'rgba(34, 197, 94, 0.4)' : 'rgba(239, 68, 68, 0.4)';
+    const bottomColor = isProfitable ? 'rgba(34, 197, 94, 0.0)' : 'rgba(239, 68, 68, 0.0)';
 
-    window.mrBacktestChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [
-                // 0% 기준선
-                {
-                    label: '기준선',
-                    data: Array(data.length).fill(0),
-                    borderColor: 'rgba(156, 163, 175, 0.5)',
-                    borderDash: [5, 5],
-                    borderWidth: 1,
-                    pointRadius: 0,
-                    fill: false,
-                },
-                // 수익률 추이
-                {
-                    label: '수익률',
-                    data: data,
-                    borderColor: mainColor,
-                    backgroundColor: fillGradient,
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.2,
-                    pointRadius: 0,
-                    pointHoverRadius: 4,
-                    pointHoverBackgroundColor: mainColor,
-                    segment: {
-                        borderColor: ctx => {
-                            const y = ctx.p0?.parsed?.y;
-                            return y >= 0 ? '#22C55E' : '#EF4444';
-                        }
-                    }
-                }
-            ]
+    // 컨테이너 크기
+    const width = container.clientWidth || 600;
+    const height = container.clientHeight || 300;
+
+    // 차트 생성
+    window.mrBacktestChart = LightweightCharts.createChart(container, {
+        width: width,
+        height: height,
+        layout: {
+            background: { type: 'solid', color: 'transparent' },
+            textColor: '#9CA3AF',
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                intersect: false,
-                mode: 'index'
+        grid: {
+            vertLines: { color: 'rgba(255, 255, 255, 0.05)' },
+            horzLines: { color: 'rgba(255, 255, 255, 0.05)' },
+        },
+        crosshair: {
+            mode: LightweightCharts.CrosshairMode.Normal,
+            vertLine: { color: 'rgba(255, 255, 255, 0.2)', width: 1, style: 2 },
+            horzLine: { color: 'rgba(255, 255, 255, 0.2)', width: 1, style: 2 },
+        },
+        rightPriceScale: {
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+            scaleMargins: { top: 0.1, bottom: 0.1 },
+        },
+        timeScale: {
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+            timeVisible: true,
+            secondsVisible: false,
+        },
+        localization: {
+            priceFormatter: (price) => {
+                const sign = price >= 0 ? '+' : '';
+                return `${sign}${price.toFixed(2)}%`;
             },
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    backgroundColor: 'rgba(17, 24, 39, 0.95)',
-                    titleColor: '#E5E7EB',
-                    bodyColor: '#D1D5DB',
-                    borderColor: 'rgba(255, 255, 255, 0.1)',
-                    borderWidth: 1,
-                    padding: 12,
-                    displayColors: false,
-                    callbacks: {
-                        title: (items) => {
-                            const idx = items[0]?.dataIndex;
-                            if (idx !== undefined && equityCurve[idx]?.timestamp) {
-                                const d = new Date(equityCurve[idx].timestamp);
-                                return d.toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
-                            }
-                            return '';
-                        },
-                        label: (item) => {
-                            if (item.datasetIndex === 0) return null; // 기준선은 숨김
-                            const idx = item.dataIndex;
-                            const pct = item.raw;
-                            const equity = equityCurve[idx]?.equity || 0;
-                            const pnl = equity - initCap;
-                            const sign = pct >= 0 ? '+' : '';
+        },
+    });
 
-                            // 만원/억 단위 절대 사용 금지 — 원본 금액 그대로 표시
-                            return [
-                                `수익률: ${sign}${pct.toFixed(2)}%`,
-                                `손익: ${formatMrAmountSigned(pnl, currency)}`,
-                                `자산: ${formatMrAmount(equity, currency)}`
-                            ];
-                        }
-                    }
-                }
+    // 에어리어 시리즈 추가
+    const areaSeries = window.mrBacktestChart.addAreaSeries({
+        lineColor: lineColor,
+        topColor: topColor,
+        bottomColor: bottomColor,
+        lineWidth: 2,
+        crosshairMarkerVisible: true,
+        crosshairMarkerRadius: 4,
+        crosshairMarkerBackgroundColor: lineColor,
+        priceFormat: {
+            type: 'custom',
+            formatter: (price) => {
+                const sign = price >= 0 ? '+' : '';
+                return `${sign}${price.toFixed(2)}%`;
             },
-            scales: {
-                x: {
-                    display: true,
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.05)',
-                        drawBorder: false,
-                    },
-                    ticks: {
-                        color: '#6B7280',
-                        font: { size: 10 },
-                        maxTicksLimit: 8,
-                        maxRotation: 0,
-                    }
-                },
-                y: {
-                    display: true,
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.05)',
-                        drawBorder: false,
-                    },
-                    ticks: {
-                        color: '#6B7280',
-                        font: { size: 10 },
-                        callback: function(value) {
-                            const sign = value >= 0 ? '+' : '';
-                            return `${sign}${value.toFixed(1)}%`;
-                        }
-                    }
-                }
+        },
+    });
+
+    // 0% 기준선 추가
+    const baselineSeries = window.mrBacktestChart.addLineSeries({
+        color: 'rgba(156, 163, 175, 0.5)',
+        lineWidth: 1,
+        lineStyle: LightweightCharts.LineStyle.Dashed,
+        crosshairMarkerVisible: false,
+        priceLineVisible: false,
+        lastValueVisible: false,
+    });
+    baselineSeries.setData(chartData.map(d => ({ time: d.time, value: 0 })));
+
+    areaSeries.setData(chartData);
+    window.mrBacktestChart.timeScale().fitContent();
+
+    // 툴팁 (커스텀)
+    const toolTipWidth = 180;
+    const toolTip = document.createElement('div');
+    toolTip.style.cssText = `
+        position: absolute; display: none; padding: 10px; box-sizing: border-box;
+        font-size: 12px; text-align: left; z-index: 1000; top: 12px; left: 12px;
+        pointer-events: none; border-radius: 6px;
+        background: rgba(17, 24, 39, 0.95); color: #D1D5DB;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    `;
+    container.style.position = 'relative';
+    container.appendChild(toolTip);
+
+    window.mrBacktestChart.subscribeCrosshairMove((param) => {
+        if (!param.time || param.point === undefined || param.point.x < 0 || param.point.y < 0) {
+            toolTip.style.display = 'none';
+            return;
+        }
+        const data = param.seriesData.get(areaSeries);
+        if (!data) {
+            toolTip.style.display = 'none';
+            return;
+        }
+        const pct = data.value;
+        const dataPoint = chartData.find(d => d.time === param.time);
+        const equity = dataPoint?.equity || 0;
+        const pnl = equity - initCap;
+        const dateStr = new Date(param.time * 1000).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
+        const sign = pct >= 0 ? '+' : '';
+
+        toolTip.innerHTML = `
+            <div style="color: #E5E7EB; font-weight: 600; margin-bottom: 6px;">${dateStr}</div>
+            <div>수익률: <span style="color: ${pct >= 0 ? '#22C55E' : '#EF4444'};">${sign}${pct.toFixed(2)}%</span></div>
+            <div>손익: ${formatMrAmountSigned(pnl, currency)}</div>
+            <div>자산: ${formatMrAmount(equity, currency)}</div>
+        `;
+        toolTip.style.display = 'block';
+    });
+
+    // 리사이즈 핸들러
+    const resizeObserver = new ResizeObserver(entries => {
+        if (window.mrBacktestChart && entries[0]) {
+            const newWidth = entries[0].contentRect.width;
+            const newHeight = entries[0].contentRect.height;
+            if (newWidth > 0 && newHeight > 0) {
+                window.mrBacktestChart.applyOptions({ width: newWidth, height: newHeight });
             }
         }
     });
+    resizeObserver.observe(container);
 }
 
 // =====================================================
@@ -17971,85 +17973,157 @@ function renderTrendTradesTable(trades, currency) {
 }
 
 function drawTrendBacktestChart(equityCurve, initialCapital = 10000000, currency = 'USDT') {
-    const canvas = document.getElementById('trend-backtest-chart');
-    if (!canvas || !window.Chart) return;
-
-    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('trend-backtest-chart');
+    if (!container || typeof LightweightCharts === 'undefined') return;
 
     // 기존 차트 제거
-    if (window.trendBacktestChart instanceof Chart) {
-        window.trendBacktestChart.destroy();
+    if (window.trendBacktestChart) {
+        window.trendBacktestChart.remove();
+        window.trendBacktestChart = null;
     }
 
-    // 수익률(%) 데이터 생성
-    const pctData = equityCurve.map(p => {
+    if (!equityCurve || equityCurve.length === 0) return;
+
+    // 수익률 데이터 생성
+    const chartData = equityCurve.map((p, idx) => {
         const pct = ((p.equity - initialCapital) / initialCapital) * 100;
-        return { x: p.bar_index || 0, y: pct, equity: p.equity };
+        let time;
+        if (p.timestamp) {
+            time = Math.floor(new Date(p.timestamp).getTime() / 1000);
+        } else {
+            // bar_index 기반으로 시간 생성 (2024-01-01부터)
+            time = 1704067200 + (p.bar_index || idx) * 86400;
+        }
+        return { time, value: pct, equity: p.equity };
     });
 
-    // gradient fill (수익=초록, 손실=빨강)
-    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    const lastPct = pctData.length > 0 ? pctData[pctData.length - 1].y : 0;
-    if (lastPct >= 0) {
-        gradient.addColorStop(0, 'rgba(34, 197, 94, 0.3)');
-        gradient.addColorStop(1, 'rgba(34, 197, 94, 0)');
-    } else {
-        gradient.addColorStop(0, 'rgba(239, 68, 68, 0.3)');
-        gradient.addColorStop(1, 'rgba(239, 68, 68, 0)');
-    }
+    // 최종 수익률로 색상 결정
+    const finalPct = chartData[chartData.length - 1]?.value || 0;
+    const isProfitable = finalPct >= 0;
+    const lineColor = isProfitable ? '#22C55E' : '#EF4444';
+    const topColor = isProfitable ? 'rgba(34, 197, 94, 0.4)' : 'rgba(239, 68, 68, 0.4)';
+    const bottomColor = isProfitable ? 'rgba(34, 197, 94, 0.0)' : 'rgba(239, 68, 68, 0.0)';
 
-    window.trendBacktestChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            datasets: [{
-                label: '수익률',
-                data: pctData,
-                borderColor: lastPct >= 0 ? '#22C55E' : '#EF4444',
-                backgroundColor: gradient,
-                fill: true,
-                tension: 0.1,
-                pointRadius: 0,
-                borderWidth: 2,
-            }]
+    // 컨테이너 크기
+    const width = container.clientWidth || 600;
+    const height = container.clientHeight || 300;
+
+    // 차트 생성
+    window.trendBacktestChart = LightweightCharts.createChart(container, {
+        width: width,
+        height: height,
+        layout: {
+            background: { type: 'solid', color: 'transparent' },
+            textColor: '#9CA3AF',
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const pct = context.parsed.y;
-                            const equity = context.raw.equity;
-                            const pnl = equity - initialCapital;
-                            return [
-                                `수익률: ${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`,
-                                `손익: ${formatMrAmountSigned(pnl, currency)}`,
-                                `자산: ${formatMrAmount(equity, currency)}`
-                            ];
-                        }
-                    }
-                }
+        grid: {
+            vertLines: { color: 'rgba(255, 255, 255, 0.05)' },
+            horzLines: { color: 'rgba(255, 255, 255, 0.05)' },
+        },
+        crosshair: {
+            mode: LightweightCharts.CrosshairMode.Normal,
+            vertLine: { color: 'rgba(255, 255, 255, 0.2)', width: 1, style: 2 },
+            horzLine: { color: 'rgba(255, 255, 255, 0.2)', width: 1, style: 2 },
+        },
+        rightPriceScale: {
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+            scaleMargins: { top: 0.1, bottom: 0.1 },
+        },
+        timeScale: {
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+            timeVisible: true,
+            secondsVisible: false,
+        },
+        localization: {
+            priceFormatter: (price) => {
+                const sign = price >= 0 ? '+' : '';
+                return `${sign}${price.toFixed(2)}%`;
             },
-            scales: {
-                x: {
-                    type: 'linear',
-                    display: true,
-                    grid: { color: 'rgba(255,255,255,0.05)' },
-                    ticks: { color: '#6B7280', maxTicksLimit: 10 }
-                },
-                y: {
-                    display: true,
-                    grid: { color: 'rgba(255,255,255,0.05)' },
-                    ticks: {
-                        color: '#6B7280',
-                        callback: (v) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`
-                    }
-                }
+        },
+    });
+
+    // 에어리어 시리즈 추가
+    const areaSeries = window.trendBacktestChart.addAreaSeries({
+        lineColor: lineColor,
+        topColor: topColor,
+        bottomColor: bottomColor,
+        lineWidth: 2,
+        crosshairMarkerVisible: true,
+        crosshairMarkerRadius: 4,
+        crosshairMarkerBackgroundColor: lineColor,
+        priceFormat: {
+            type: 'custom',
+            formatter: (price) => {
+                const sign = price >= 0 ? '+' : '';
+                return `${sign}${price.toFixed(2)}%`;
+            },
+        },
+    });
+
+    // 0% 기준선 추가
+    const baselineSeries = window.trendBacktestChart.addLineSeries({
+        color: 'rgba(156, 163, 175, 0.5)',
+        lineWidth: 1,
+        lineStyle: LightweightCharts.LineStyle.Dashed,
+        crosshairMarkerVisible: false,
+        priceLineVisible: false,
+        lastValueVisible: false,
+    });
+    baselineSeries.setData(chartData.map(d => ({ time: d.time, value: 0 })));
+
+    areaSeries.setData(chartData);
+    window.trendBacktestChart.timeScale().fitContent();
+
+    // 툴팁 (커스텀)
+    const toolTip = document.createElement('div');
+    toolTip.style.cssText = `
+        position: absolute; display: none; padding: 10px; box-sizing: border-box;
+        font-size: 12px; text-align: left; z-index: 1000; top: 12px; left: 12px;
+        pointer-events: none; border-radius: 6px;
+        background: rgba(17, 24, 39, 0.95); color: #D1D5DB;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    `;
+    container.style.position = 'relative';
+    container.appendChild(toolTip);
+
+    window.trendBacktestChart.subscribeCrosshairMove((param) => {
+        if (!param.time || param.point === undefined || param.point.x < 0 || param.point.y < 0) {
+            toolTip.style.display = 'none';
+            return;
+        }
+        const data = param.seriesData.get(areaSeries);
+        if (!data) {
+            toolTip.style.display = 'none';
+            return;
+        }
+        const pct = data.value;
+        const dataPoint = chartData.find(d => d.time === param.time);
+        const equity = dataPoint?.equity || 0;
+        const pnl = equity - initialCapital;
+        const dateStr = new Date(param.time * 1000).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
+        const sign = pct >= 0 ? '+' : '';
+
+        toolTip.innerHTML = `
+            <div style="color: #E5E7EB; font-weight: 600; margin-bottom: 6px;">${dateStr}</div>
+            <div>수익률: <span style="color: ${pct >= 0 ? '#22C55E' : '#EF4444'};">${sign}${pct.toFixed(2)}%</span></div>
+            <div>손익: ${formatMrAmountSigned(pnl, currency)}</div>
+            <div>자산: ${formatMrAmount(equity, currency)}</div>
+        `;
+        toolTip.style.display = 'block';
+    });
+
+    // 리사이즈 핸들러
+    const resizeObserver = new ResizeObserver(entries => {
+        if (window.trendBacktestChart && entries[0]) {
+            const newWidth = entries[0].contentRect.width;
+            const newHeight = entries[0].contentRect.height;
+            if (newWidth > 0 && newHeight > 0) {
+                window.trendBacktestChart.applyOptions({ width: newWidth, height: newHeight });
             }
         }
     });
+    resizeObserver.observe(container);
 }
 
 // =====================================================
