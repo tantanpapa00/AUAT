@@ -311,13 +311,21 @@ async def get_market_signal(
         if not rt_data:
             return ('yellow', 'yellow')
 
+        change_pct = rt_data.get('change_percent', 0)
+
+        # 극단적 하락 시 Big Picture 상태 무시하고 즉시 반영
+        if change_pct <= -3.0:
+            return ('red', 'red')
+        elif change_pct <= -1.5:
+            return ('yellow', 'yellow')
+
         # MarketData 객체 생성
         today_data = MarketData(
             date=datetime.now().date(),
             market=rt_data.get('market', 'KOSPI'),
             index_value=rt_data.get('index_value', 0),
             change_amount=rt_data.get('change_amount', 0),
-            change_percent=rt_data.get('change_percent', 0),
+            change_percent=change_pct,
             trading_volume=rt_data.get('trading_volume', 0),
             trading_value=rt_data.get('trading_value', 0),
             rising_stocks=rt_data.get('rising_stocks', 0),
