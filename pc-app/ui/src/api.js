@@ -464,18 +464,18 @@ export const addWatchlistItem = (token, groupId, exchange, symbol) =>
 export const removeWatchlistItem = (token, groupId, itemId) =>
     apiDelete(`/api/watchlist/groups/${groupId}/items/${itemId}`, token);
 
-// Backtest
+// Backtest - 백엔드: /api/premium/backtest/*
 export const runBacktest = (token, params) =>
-    apiPost('/api/backtest', params, token);
+    apiPost('/api/premium/backtest/mr', params, token);
 
 export const runMrBacktest = (token, params) =>
-    apiPost('/api/backtest', { ...params, strategy_type: 'mr' }, token);
+    apiPost('/api/premium/backtest/mr', params, token);
 
 export const runTrendBacktest = (token, params) =>
-    apiPost('/api/backtest', { ...params, strategy_type: 'trend' }, token);
+    apiPost('/api/premium/backtest/trend', params, token);
 
 export const runCustomBacktest = (token, params) =>
-    apiPost('/api/backtest/custom', params, token);
+    apiPost('/api/premium/backtest/custom', params, token);
 
 export const preloadCandles = (token, exchange, symbol, timeframe, days) =>
     apiPost('/api/candles/preload', { exchange, symbol, timeframe, days }, token);
