@@ -197,7 +197,7 @@ export const getTradeHistory = (token, limit = 50, offset = 0) =>
     apiGet(`/api/trades?limit=${limit}&offset=${offset}`, token);
 
 export const getAssetTrades = (token, assetId, limit = 50) =>
-    apiGet(`/api/portfolio/assets/${assetId}/trades?limit=${limit}`, token);
+    apiGet(`/api/asset/trades?asset_id=${assetId}&limit=${limit}`, token);
 
 export const getPortfolioHistory = (token, days = 30) =>
     apiGet(`/api/portfolio/history?days=${days}`, token);
@@ -207,13 +207,13 @@ export const getAccountsList = (token) =>
     apiGet('/api/accounts', token);
 
 export const registerApiKey = (token, exchange, apiKey, apiSecret, passphrase = null, accountNumber = null) =>
-    apiPost('/api/accounts/register', { exchange, api_key: apiKey, api_secret: apiSecret, passphrase, account_number: accountNumber }, token);
+    apiPost('/api/user/accounts', { exchange, api_key: apiKey, api_secret: apiSecret, passphrase, account_number: accountNumber }, token);
 
 export const deleteApiKey = (token, accountId) =>
-    apiDelete(`/api/accounts/${accountId}`, token);
+    apiDelete(`/api/user/accounts/${accountId}`, token);
 
 export const testAccountConnection = (token, accountId) =>
-    apiGet(`/api/accounts/${accountId}/test`, token);
+    apiGet(`/api/accounts/test?account_id=${accountId}`, token);
 
 // Strategies
 export const getActiveStrategies = (token) =>
@@ -299,13 +299,13 @@ export const getMarketUsSectors = (token) =>
     apiGet('/api/market/us/sectors', token);
 
 export const getMarketSectors = (token) =>
-    apiGet('/api/market/kr/sectors', token);
+    apiGet('/api/market/sectors', token);
 
 export const getStockRanking = (token, market = 'KOSPI', sortBy = 'change', limit = 50) =>
-    apiGet(`/api/market/kr/ranking?market=${market}&sort=${sortBy}&limit=${limit}`, token);
+    apiGet(`/api/market/ranking?market=${market}&sort=${sortBy}&limit=${limit}`, token);
 
 export const getFeaturedStocks = (token) =>
-    apiGet('/api/market/kr/featured', token);
+    apiGet('/api/market/featured', token);
 
 export const getMarketEvents = (token, days = 7) =>
     apiGet(`/api/market/events?days=${days}`, token);
@@ -372,27 +372,27 @@ export const getScreener = (token, filters = {}) => {
     return apiGet(`/api/screener?${params.toString()}`, token);
 };
 
-// Stock Detail - KR
+// Stock Detail - KR (generic endpoints without /kr/)
 export const getStockFinancialSummary = (code) =>
-    apiGet(`/api/stock/kr/${code}/financial-summary`);
+    apiGet(`/api/stock/${code}/financial-summary`);
 
 export const getStockFinancialTrend = (code) =>
-    apiGet(`/api/stock/kr/${code}/financial-trend`);
+    apiGet(`/api/stock/${code}/financial-trend`);
 
 export const getStockCompany = (code) =>
-    apiGet(`/api/stock/kr/${code}/company`);
+    apiGet(`/api/stock/${code}/company`);
 
 export const getStockFinancialStatement = (code) =>
-    apiGet(`/api/stock/kr/${code}/financial-statement`);
+    apiGet(`/api/stock/${code}/financial-statement`);
 
 export const getStockNews = (code, limit = 20) =>
-    apiGet(`/api/stock/kr/${code}/news?limit=${limit}`);
+    apiGet(`/api/stock/${code}/news?limit=${limit}`);
 
 export const getStockDisclosures = (code, limit = 20) =>
-    apiGet(`/api/stock/kr/${code}/disclosures?limit=${limit}`);
+    apiGet(`/api/stock/${code}/disclosures?limit=${limit}`);
 
 export const getStockConsensus = (code) =>
-    apiGet(`/api/stock/kr/${code}/consensus`);
+    apiGet(`/api/stock/${code}/consensus`);
 
 export const getStockChartKr = (code, period = '3m') =>
     apiGet(`/api/stock/kr/${code}/chart?period=${period}`);
@@ -486,10 +486,10 @@ export const getWatchlistItems = (token, groupId) =>
     apiGet(`/api/watchlist/groups/${groupId}/items`, token);
 
 export const addWatchlistItem = (token, groupId, exchange, symbol) =>
-    apiPost(`/api/watchlist/groups/${groupId}/items`, { exchange, symbol }, token);
+    apiPost('/api/watchlist/items', { group_id: groupId, exchange, symbol }, token);
 
 export const removeWatchlistItem = (token, groupId, itemId) =>
-    apiDelete(`/api/watchlist/groups/${groupId}/items/${itemId}`, token);
+    apiDelete(`/api/watchlist/items/${itemId}`, token);
 
 // Backtest - 백엔드: /api/premium/backtest/*
 export const runBacktest = (token, params) =>
@@ -524,10 +524,10 @@ export const deletePremiumConfig = (token, assetId) =>
     apiDelete(`/api/premium/configs/${assetId}`, token);
 
 export const getStrategyState = (token, assetId) =>
-    apiGet(`/api/premium/strategy-state/${assetId}`, token);
+    apiGet(`/api/premium/states/${assetId}`, token);
 
 export const resetStrategyState = (token, assetId) =>
-    apiPost(`/api/premium/strategy-state/${assetId}/reset`, {}, token);
+    apiPost(`/api/premium/states/${assetId}/reset`, {}, token);
 
 export const getSchedulerStatus = (token) =>
     apiGet('/api/premium/scheduler/status', token);
@@ -542,10 +542,10 @@ export const registerToScheduler = (token, assetId) =>
     apiPost(`/api/premium/scheduler/register/${assetId}`, {}, token);
 
 export const triggerSignal = (token, assetId) =>
-    apiPost(`/api/premium/trigger/${assetId}`, {}, token);
+    apiPost('/api/premium/signal/trigger', { asset_id: assetId }, token);
 
 export const getSignalEvents = (token, assetId, limit = 50) =>
-    apiGet(`/api/premium/events/${assetId}?limit=${limit}`, token);
+    apiGet(`/api/premium/signals?asset_id=${assetId}&limit=${limit}`, token);
 
 // KIS Order Settings
 export const saveKisOrderSettings = (token, settings) =>
@@ -562,7 +562,7 @@ export const adminUpdateUserPlan = (token, userId, plan) =>
     apiPut(`/api/admin/users/${userId}/plan`, { plan }, token);
 
 export const adminGetSystemStatus = (token) =>
-    apiGet('/api/admin/system-status', token);
+    apiGet('/api/admin/system', token);
 
 export const adminGetStats = (token) =>
     apiGet('/api/admin/stats', token);
