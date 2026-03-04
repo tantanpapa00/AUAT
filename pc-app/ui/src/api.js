@@ -311,40 +311,40 @@ export const getMarketEvents = (token, days = 7) =>
     apiGet(`/api/market/events?days=${days}`, token);
 
 export const getMarketTimeline = (token) =>
-    apiGet('/api/market/kr/timeline', token);
+    apiGet('/api/market/timeline', token);
 
 export const getMarketSignal = (token) =>
-    apiGet('/api/market/kr/signal', token);
+    apiGet('/api/market/signal', token);
 
 export const getMarketBigPicture = (token) =>
-    apiGet('/api/market/kr/big-picture', token);
+    apiGet('/api/market/big-picture', token);
 
 export const getMarketSignalHistory = (token, days = 30) =>
-    apiGet(`/api/market/kr/signal/history?days=${days}`, token);
+    apiGet(`/api/market/signal/history?days=${days}`, token);
 
 export const getMarketBreadthData = (token, period = '3m') =>
-    apiGet(`/api/market/kr/breadth?period=${period}`, token);
+    apiGet(`/api/market/breadth?period=${period}`, token);
 
 export const getMarketBreadthWithIndex = (token, period = '3m') =>
-    apiGet(`/api/market/kr/breadth-index?period=${period}`, token);
+    apiGet(`/api/market/breadth-with-index?period=${period}`, token);
 
 export const getMarketTrendMaintain = (token) =>
-    apiGet('/api/market/kr/trend-maintain', token);
+    apiGet('/api/market/trend-maintain', token);
 
 export const getMarketSectorAnalysis = (token) =>
-    apiGet('/api/market/kr/sector-analysis', token);
+    apiGet('/api/market/sector-analysis', token);
 
 export const getMarketRsRanking = (token, market = 'ALL', limit = 100) =>
     apiGet(`/api/analysis/rs?market=${market}&limit=${limit}`, token);
 
 export const getMarketSectorStocks = (token, sector, limit = 20) =>
-    apiGet(`/api/market/kr/sector/${encodeURIComponent(sector)}/stocks?limit=${limit}`, token);
+    apiGet(`/api/market/sector/${encodeURIComponent(sector)}/stocks?limit=${limit}`, token);
 
 export const getMarketInvestorsData = (token, period = '1m') =>
-    apiGet(`/api/market/kr/investors?period=${period}`, token);
+    apiGet(`/api/market/investors?period=${period}`, token);
 
 export const getMarketTradingValueData = (token, period = '1m', type = 'foreign') =>
-    apiGet(`/api/market/kr/trading-value?period=${period}&type=${type}`, token);
+    apiGet(`/api/market/trading-value?period=${period}&type=${type}`, token);
 
 export const getMarketEtf = (token, sort = 'volume', limit = 50) =>
     apiGet(`/api/market/etf?sort=${sort}&limit=${limit}`, token);
