@@ -767,80 +767,9 @@ async def get_etf_overview():
     themes_up = sorted([t for t in themes if t["avg_change"] > 0], key=lambda x: x["avg_change"], reverse=True)[:10]
     themes_down = sorted([t for t in themes if t["avg_change"] < 0], key=lambda x: x["avg_change"])[:10]
 
-    # === 해외(미국) 테마 ETF (테마별 그룹) ===
-    # 해외 관련 키워드를 포함하는 ETF만 해외 테마로 분류
-    US_THEME_KEYWORDS = {
-        "미국지수": ["S&P", "나스닥", "NASDAQ", "다우", "Russell", "러셀", "미국대형", "미국중형", "미국소형"],
-        "미국반도체": ["필라델피아", "SOX", "미국반도체"],
-        "미국AI": ["미국AI", "미국빅테크", "FANG", "매그니피센트"],
-        "원유": ["원유", "WTI", "크루드", "오일", "Crude"],
-        "천연가스": ["천연가스", "LNG", "Natural Gas"],
-        "VIX": ["VIX", "변동성", "공포지수", "Volatility"],
-        "금/은": ["골드", "Gold", "금선물", "은선물", "실버", "Silver"],
-        "달러": ["달러", "USD", "Dollar", "미국달러"],
-        "엔화": ["엔화", "JPY", "엔선물", "일본엔"],
-        "유럽": ["유럽", "유로", "EURO", "독일", "DAX", "영국", "STOXX"],
-        "일본": ["일본", "닛케이", "니케이", "TOPIX", "도쿄"],
-        "중국": ["중국", "차이나", "항셍", "CSI", "상해", "심천", "HSCEI"],
-        "인도": ["인도", "NIFTY", "뭄바이"],
-        "신흥국": ["신흥", "이머징", "Emerging", "브라질", "멕시코"],
-        "탄소배출권": ["탄소배출권", "탄소", "Carbon"],
-    }
-
-    # 해외 ETF 판별 (미국/해외 관련 키워드 포함 여부)
-    US_ETF_INDICATORS = ["S&P", "나스닥", "NASDAQ", "다우", "미국", "Russell", "필라델피아",
-                         "중국", "일본", "유럽", "인도", "VIX", "WTI", "원유", "천연가스",
-                         "달러", "엔화", "골드", "Gold", "신흥", "탄소배출권", "해외"]
-
-    def is_us_related_etf(name):
-        """해외 관련 ETF인지 판별"""
-        return any(kw in name for kw in US_ETF_INDICATORS)
-
-    def classify_us_theme(name):
-        """해외 ETF 이름으로 해외 테마 분류"""
-        # 먼저 해외 관련 ETF인지 확인
-        if not is_us_related_etf(name):
-            return None
-        for theme, keywords in US_THEME_KEYWORDS.items():
-            for kw in keywords:
-                if kw in name:
-                    return theme
-        return "해외기타"  # 해외 관련이지만 특정 테마에 안 맞으면 기타
-
-    # 해외 ETF 테마별 집계
-    us_theme_map = {}
-    for etf in all_etfs:
-        us_theme = classify_us_theme(etf["name"])
-        if not us_theme:
-            continue
-        if us_theme not in us_theme_map:
-            us_theme_map[us_theme] = {"name": us_theme, "etfs": [], "up": 0, "down": 0, "total_change": 0}
-        us_theme_map[us_theme]["etfs"].append(etf)
-        if etf["change_pct"] > 0:
-            us_theme_map[us_theme]["up"] += 1
-        elif etf["change_pct"] < 0:
-            us_theme_map[us_theme]["down"] += 1
-        us_theme_map[us_theme]["total_change"] += etf["change_pct"]
-
-    us_themes = []
-    for t in us_theme_map.values():
-        count = len(t["etfs"])
-        if count == 0:
-            continue
-        avg_change = round(t["total_change"] / count, 2)
-        top_etf = max(t["etfs"], key=lambda x: x["volume"]) if t["etfs"] else None
-        us_themes.append({
-            "name": t["name"],
-            "avg_change": avg_change,
-            "count": count,
-            "up": t["up"],
-            "down": t["down"],
-            "top_etf_name": top_etf["name"] if top_etf else "",
-            "top_etf_change": top_etf["change_pct"] if top_etf else 0,
-        })
-
-    themes_us_up = sorted([t for t in us_themes if t["avg_change"] > 0], key=lambda x: x["avg_change"], reverse=True)[:10]
-    themes_us_down = sorted([t for t in us_themes if t["avg_change"] < 0], key=lambda x: x["avg_change"])[:10]
+    # === US ETF 테마 (미국 상장 ETF - yfinance) ===
+    # get_us_etf_themes()를 별도 호출하여 사용 (캐시됨)
+    # themes_us_up, themes_us_down은 API 응답 시 병합
 
     top_by_return = unique_by_code(sorted(all_etfs, key=lambda x: x["change_pct"], reverse=True))[:10]
     bottom_by_return = unique_by_code(sorted(all_etfs, key=lambda x: x["change_pct"]))[:10]
@@ -943,6 +872,11 @@ async def get_etf_overview():
     for etf in all_major_etfs.values():
         if "sparkline" not in etf:
             etf["sparkline"] = []
+
+    # US ETF 테마 데이터 가져오기 (별도 캐시)
+    us_etf_data = await get_us_etf_themes()
+    themes_us_up = us_etf_data.get("themes_up", [])
+    themes_us_down = us_etf_data.get("themes_down", [])
 
     result = {
         "total_count": len(all_etfs),
@@ -1112,6 +1046,128 @@ async def warmup_etf_market():
         print("[ETF] 시장 데이터 워밍업 완료")
     except Exception as e:
         print(f"[ETF] 워밍업 실패: {e}")
+
+
+# ===== US ETF 테마 (미국 상장 ETF) =====
+
+# US ETF 테마별 티커 목록
+US_ETF_THEMES = {
+    "VIX/변동성": ["VIXY", "UVXY", "VXX", "SVXY"],
+    "원유": ["USO", "UCO", "SCO", "BNO"],
+    "천연가스": ["UNG", "BOIL", "KOLD"],
+    "금": ["GLD", "IAU", "GDX", "GDXJ"],
+    "은": ["SLV", "SILJ"],
+    "반도체": ["SMH", "SOXX", "SOXL", "SOXS"],
+    "AI/기술": ["ARKK", "ARKW", "BOTZ", "ROBO"],
+    "S&P500": ["SPY", "VOO", "IVV", "SPXL", "SPXS"],
+    "나스닥": ["QQQ", "TQQQ", "SQQQ"],
+    "다우": ["DIA", "DDM"],
+    "러셀": ["IWM", "TNA"],
+    "채권": ["TLT", "TBT", "BND", "AGG"],
+    "신흥국": ["EEM", "VWO", "IEMG"],
+    "중국": ["FXI", "KWEB", "MCHI"],
+    "일본": ["EWJ", "DXJ"],
+}
+
+async def _fetch_us_etf_quote(client: httpx.AsyncClient, symbol: str):
+    """US ETF 단일 종목 조회"""
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=2d"
+    try:
+        r = await client.get(url)
+        if r.status_code == 200:
+            data = r.json()
+            chart_result = data.get("chart", {}).get("result", [])
+            if chart_result:
+                meta = chart_result[0].get("meta", {})
+                price = meta.get("regularMarketPrice", 0)
+                prev_close = meta.get("chartPreviousClose", 0) or meta.get("previousClose", 0)
+                change_pct = round(((price - prev_close) / prev_close) * 100, 2) if prev_close else 0
+                return {
+                    "symbol": symbol,
+                    "price": price,
+                    "change_pct": change_pct,
+                    "prev_close": prev_close,
+                }
+    except Exception as e:
+        pass
+    return {"symbol": symbol, "price": 0, "change_pct": 0, "prev_close": 0}
+
+
+async def get_us_etf_themes():
+    """US 상장 ETF 테마별 데이터 조회 (yfinance)"""
+    cached = _cached("us_etf_themes", 300)  # 5분 캐시
+    if cached:
+        return cached
+
+    result = {"themes_up": [], "themes_down": [], "success": True}
+
+    try:
+        # 모든 ETF 티커 수집
+        all_tickers = []
+        ticker_theme_map = {}
+        for theme, tickers in US_ETF_THEMES.items():
+            for ticker in tickers:
+                all_tickers.append(ticker)
+                ticker_theme_map[ticker] = theme
+
+        # 병렬로 모든 ETF 조회
+        async with httpx.AsyncClient(timeout=10, headers={"User-Agent": "Mozilla/5.0"}) as client:
+            tasks = [_fetch_us_etf_quote(client, ticker) for ticker in all_tickers]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # 테마별 집계
+        theme_data = {}
+        for i, res in enumerate(results):
+            if isinstance(res, Exception) or not res.get("price"):
+                continue
+            ticker = all_tickers[i]
+            theme = ticker_theme_map.get(ticker, "기타")
+            if theme not in theme_data:
+                theme_data[theme] = {"etfs": [], "total_change": 0, "up": 0, "down": 0}
+            theme_data[theme]["etfs"].append(res)
+            theme_data[theme]["total_change"] += res["change_pct"]
+            if res["change_pct"] > 0:
+                theme_data[theme]["up"] += 1
+            elif res["change_pct"] < 0:
+                theme_data[theme]["down"] += 1
+
+        # 테마 그룹 생성
+        themes = []
+        for theme_name, data in theme_data.items():
+            count = len(data["etfs"])
+            if count == 0:
+                continue
+            avg_change = round(data["total_change"] / count, 2)
+            # 거래량 대신 변동률 상위 ETF를 대표로
+            top_etf = max(data["etfs"], key=lambda x: abs(x["change_pct"])) if data["etfs"] else None
+            themes.append({
+                "name": theme_name,
+                "avg_change": avg_change,
+                "count": count,
+                "up": data["up"],
+                "down": data["down"],
+                "top_etf_name": top_etf["symbol"] if top_etf else "",
+                "top_etf_change": top_etf["change_pct"] if top_etf else 0,
+            })
+
+        result["themes_up"] = sorted([t for t in themes if t["avg_change"] > 0], key=lambda x: x["avg_change"], reverse=True)[:10]
+        result["themes_down"] = sorted([t for t in themes if t["avg_change"] < 0], key=lambda x: x["avg_change"])[:10]
+
+    except Exception as e:
+        print(f"[US ETF Themes] 오류: {e}")
+        result["success"] = False
+
+    _set_cache("us_etf_themes", result)
+    return result
+
+
+async def warmup_us_etf_themes():
+    """서버 시작 시 US ETF 테마 데이터 미리 캐싱"""
+    try:
+        await get_us_etf_themes()
+        print("[US ETF] 테마 데이터 워밍업 완료")
+    except Exception as e:
+        print(f"[US ETF] 워밍업 실패: {e}")
 
 # ===== 코인 =====
 
