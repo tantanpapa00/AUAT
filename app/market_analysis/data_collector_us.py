@@ -79,15 +79,65 @@ FG_LABELS = {
 
 
 YAHOO_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept": "application/json",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
     "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Cache-Control": "max-age=0",
+    "Sec-Ch-Ua": '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+    "Sec-Ch-Ua-Mobile": "?0",
+    "Sec-Ch-Ua-Platform": '"Windows"',
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
 }
+
+# US 시장 데이터 캐시 (5분)
+import time as _time
+_us_indices_cache: Dict[str, Any] = {"data": {}, "ts": 0}
+_us_sectors_cache: Dict[str, Any] = {"data": [], "ts": 0}
+_US_CACHE_TTL = 300  # 5분
+
+
+def _fetch_yfinance_quote(symbol: str) -> Optional[Dict]:
+    """yfinance로 종목 시세 조회 (동기)"""
+    try:
+        import yfinance as yf
+        ticker = yf.Ticker(symbol)
+        info = ticker.fast_info
+        price = getattr(info, 'last_price', 0) or 0
+        prev_close = getattr(info, 'previous_close', 0) or getattr(info, 'regularMarketPreviousClose', 0) or 0
+
+        if not price and hasattr(ticker, 'history'):
+            hist = ticker.history(period="2d")
+            if not hist.empty:
+                price = float(hist['Close'].iloc[-1])
+                if len(hist) > 1:
+                    prev_close = float(hist['Close'].iloc[-2])
+
+        change = price - prev_close if prev_close else 0
+        change_pct = (change / prev_close * 100) if prev_close else 0
+
+        return {
+            "price": price,
+            "prev_close": prev_close,
+            "change": round(change, 2),
+            "change_pct": round(change_pct, 2),
+            "volume": getattr(info, 'last_volume', 0) or 0,
+            "name": symbol,
+        }
+    except Exception as e:
+        print(f"[US] yfinance error for {symbol}: {e}")
+        return None
 
 
 async def fetch_yahoo_quote(client: httpx.AsyncClient, symbol: str, retries: int = 2) -> Optional[Dict]:
     """
     Yahoo Finance에서 단일 종목 시세 조회
+    1순위: Yahoo Finance API
+    2순위: yfinance 라이브러리 fallback
     Returns: {price, prev_close, change, change_pct, volume, name} or None
     """
     for attempt in range(retries + 1):
@@ -99,15 +149,26 @@ async def fetch_yahoo_quote(client: httpx.AsyncClient, symbol: str, retries: int
                 if attempt < retries:
                     await asyncio.sleep(1 + attempt)
                     continue
-            if resp.status_code != 200:
+            if resp.status_code not in (200, 401):
                 print(f"[US] Yahoo API error for {symbol}: {resp.status_code}")
-                return None
+                if attempt < retries:
+                    await asyncio.sleep(1)
+                    continue
+
+            if resp.status_code == 401:
+                # Yahoo API 차단 - yfinance fallback
+                print(f"[US] Yahoo API blocked, trying yfinance for {symbol}")
+                loop = asyncio.get_event_loop()
+                result = await loop.run_in_executor(None, _fetch_yfinance_quote, symbol)
+                return result
 
             data = resp.json()
             chart = data.get("chart", {})
             result = chart.get("result", [])
             if not result:
-                return None
+                # No data - try yfinance
+                loop = asyncio.get_event_loop()
+                return await loop.run_in_executor(None, _fetch_yfinance_quote, symbol)
 
             meta = result[0].get("meta", {})
             price = meta.get("regularMarketPrice", 0)
@@ -131,15 +192,27 @@ async def fetch_yahoo_quote(client: httpx.AsyncClient, symbol: str, retries: int
             if attempt < retries:
                 await asyncio.sleep(1)
                 continue
-            return None
+            # Final fallback to yfinance
+            try:
+                loop = asyncio.get_event_loop()
+                return await loop.run_in_executor(None, _fetch_yfinance_quote, symbol)
+            except:
+                return None
     return None
 
 
 async def collect_us_indices() -> Dict[str, Dict]:
     """
-    미국 지수 4개 + VIX 수집
+    미국 지수 4개 + VIX 수집 (5분 캐시)
     Returns: {"sp500": {...}, "nasdaq": {...}, "dow": {...}, "russell": {...}, "vix": {...}}
     """
+    global _us_indices_cache
+    now = _time.time()
+
+    # 캐시 체크
+    if _us_indices_cache["data"] and (now - _us_indices_cache["ts"]) < _US_CACHE_TTL:
+        return _us_indices_cache["data"]
+
     result = {}
     async with httpx.AsyncClient() as client:
         tasks = []
@@ -161,14 +234,26 @@ async def collect_us_indices() -> Dict[str, Dict]:
                     "change_pct": resp["change_pct"],
                     "volume": resp["volume"],
                 }
+
+    # 캐시 저장
+    if any(v.get("value", 0) > 0 for v in result.values()):
+        _us_indices_cache = {"data": result, "ts": now}
+
     return result
 
 
 async def collect_us_sectors() -> List[Dict]:
     """
-    S&P 500 GICS 11개 섹터 ETF 수집
+    S&P 500 GICS 11개 섹터 ETF 수집 (5분 캐시)
     Returns: [{"symbol": "XLK", "name": "기술", "name_en": "Technology", "price": ..., "change_pct": ..., "volume": ...}, ...]
     """
+    global _us_sectors_cache
+    now = _time.time()
+
+    # 캐시 체크
+    if _us_sectors_cache["data"] and (now - _us_sectors_cache["ts"]) < _US_CACHE_TTL:
+        return _us_sectors_cache["data"]
+
     result = []
     async with httpx.AsyncClient() as client:
         tasks = [fetch_yahoo_quote(client, etf["symbol"]) for etf in US_SECTOR_ETFS]
@@ -197,6 +282,11 @@ async def collect_us_sectors() -> List[Dict]:
 
     # 등락률 기준 정렬
     result.sort(key=lambda x: x["change_pct"], reverse=True)
+
+    # 캐시 저장 (유효한 데이터가 있을 때만)
+    if any(s.get("price", 0) > 0 for s in result):
+        _us_sectors_cache = {"data": result, "ts": now}
+
     return result
 
 

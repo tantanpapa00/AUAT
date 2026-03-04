@@ -18,6 +18,9 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, List, Any
 from dataclasses import dataclass, field
 
+# Screener cache import (for volume ranking)
+from app.screener.kr_screener import load_kr_stocks
+
 # KIS API 환경 설정
 KIS_REAL_URL = "https://openapi.koreainvestment.com:9443"
 KIS_MOCK_URL = "https://openapivts.koreainvestment.com:29443"
@@ -2024,35 +2027,32 @@ async def get_naver_sector_list() -> List[Dict[str, Any]]:
 
 
 async def get_naver_volume_rank(limit: int = 50, market: str = "ALL") -> List[Dict[str, Any]]:
-    """네이버 금융에서 거래량 순위 (공개) - market: ALL, KOSPI, KOSDAQ"""
+    """네이버 금융에서 거래량 순위 - 스크리너 캐시 사용 (market: ALL, KOSPI, KOSDAQ)"""
     try:
+        # 스크리너 캐시에서 전종목 데이터 로드
+        all_stocks = await load_kr_stocks()
+
+        # 시장 필터링
+        if market.upper() != "ALL":
+            all_stocks = [s for s in all_stocks if s.get("exchange", "").upper() == market.upper()]
+
+        # 거래량 순 정렬
+        all_stocks.sort(key=lambda x: x.get("volume", 0) or 0, reverse=True)
+
+        # 결과 변환
         results = []
-        markets = ["KOSPI", "KOSDAQ"] if market == "ALL" else [market.upper()]
+        for i, stock in enumerate(all_stocks[:limit]):
+            results.append({
+                "rank": i + 1,
+                "code": stock.get("code", ""),
+                "name": stock.get("name", ""),
+                "current": stock.get("price", 0),
+                "change": stock.get("change_pct", 0),
+                "volume": stock.get("volume", 0),
+                "market": stock.get("exchange", ""),
+            })
 
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            for mkt in markets:
-                resp = await client.get(
-                    f"https://m.stock.naver.com/api/stocks/volume/{mkt}?page=1&pageSize=50",
-                    headers={"User-Agent": "Mozilla/5.0"}
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    stocks = data.get("stocks", [])
-                    for stock in stocks:
-                        results.append({
-                            "code": stock.get("itemCode", ""),
-                            "name": stock.get("stockName", ""),
-                            "current": int(stock.get("closePrice", "0").replace(",", "")),
-                            "change": float(stock.get("fluctuationsRatio", 0)),
-                            "volume": int(stock.get("accumulatedTradingVolume", "0").replace(",", "") if stock.get("accumulatedTradingVolume") else 0),
-                            "market": mkt,
-                        })
-
-        # 거래량 순 정렬 후 상위 limit개
-        results.sort(key=lambda x: x.get("volume", 0), reverse=True)
-        for i, r in enumerate(results[:limit]):
-            r["rank"] = i + 1
-        return results[:limit]
+        return results
     except Exception as e:
         print(f"[Naver] Volume rank error: {e}")
 
@@ -2060,40 +2060,107 @@ async def get_naver_volume_rank(limit: int = 50, market: str = "ALL") -> List[Di
 
 
 async def get_naver_fluctuation_rank(is_rise: bool = True, limit: int = 50, market: str = "ALL") -> List[Dict[str, Any]]:
-    """네이버 금융에서 등락률 순위 (공개) - market: ALL, KOSPI, KOSDAQ"""
+    """네이버 금융에서 등락률 순위 - /api/stocks/up, /api/stocks/down 사용 (market: ALL, KOSPI, KOSDAQ)"""
     try:
-        endpoint = "rise" if is_rise else "fall"
+        # 새 API 엔드포인트: /api/stocks/up (상승), /api/stocks/down (하락)
+        endpoint = "up" if is_rise else "down"
         results = []
-        markets = ["KOSPI", "KOSDAQ"] if market == "ALL" else [market.upper()]
 
         async with httpx.AsyncClient(timeout=10.0) as client:
-            for mkt in markets:
-                resp = await client.get(
-                    f"https://m.stock.naver.com/api/stocks/{endpoint}/{mkt}?page=1&pageSize=50",
-                    headers={"User-Agent": "Mozilla/5.0"}
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    stocks = data.get("stocks", [])
-                    for stock in stocks:
-                        results.append({
-                            "code": stock.get("itemCode", ""),
-                            "name": stock.get("stockName", ""),
-                            "current": int(stock.get("closePrice", "0").replace(",", "")),
-                            "change": float(stock.get("fluctuationsRatio", 0)),
-                            "volume": int(stock.get("accumulatedTradingVolume", "0").replace(",", "") if stock.get("accumulatedTradingVolume") else 0),
-                            "market": mkt,
-                        })
+            # 새 엔드포인트는 마켓 구분 없이 전체 반환
+            resp = await client.get(
+                f"https://m.stock.naver.com/api/stocks/{endpoint}?page=1&pageSize=100",
+                headers={"User-Agent": "Mozilla/5.0"}
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                stocks = data.get("stocks", [])
+                for stock in stocks:
+                    # ETF, ETN 등 제외
+                    stock_end_type = stock.get("stockEndType", "")
+                    if stock_end_type != "stock":
+                        continue
 
-        # 등락률 순 정렬 후 상위 limit개
+                    stock_name = stock.get("stockName", "")
+                    etf_keywords = ["TIGER", "KODEX", "ARIRANG", "KBSTAR", "HANARO", "SOL", "ACE",
+                                    "ETF", "ETN", "스팩", "리츠", "인프라"]
+                    if any(kw in stock_name for kw in etf_keywords):
+                        continue
+
+                    # 시장 필터링
+                    stock_market = stock.get("sospiYn", "Y")  # Y=KOSPI, N=KOSDAQ
+                    mkt = "KOSPI" if stock_market == "Y" else "KOSDAQ"
+                    if market.upper() != "ALL" and mkt != market.upper():
+                        continue
+
+                    # 가격 파싱
+                    close_price = stock.get("closePrice", "0")
+                    if isinstance(close_price, str):
+                        close_price = close_price.replace(",", "").replace("-", "").strip()
+                        close_price = int(close_price) if close_price.isdigit() else 0
+
+                    # 등락률 파싱
+                    change_pct = stock.get("fluctuationsRatio", 0)
+                    if isinstance(change_pct, str):
+                        try:
+                            if change_pct.strip() == "-":
+                                change_pct = 0.0
+                            else:
+                                change_pct = float(change_pct.replace(",", "") or 0)
+                        except:
+                            change_pct = 0
+
+                    # 거래량 파싱
+                    volume = stock.get("accumulatedTradingVolume", "0")
+                    if isinstance(volume, str):
+                        volume = volume.replace(",", "").replace("-", "").strip()
+                        volume = int(volume) if volume.isdigit() else 0
+
+                    results.append({
+                        "code": stock.get("itemCode", ""),
+                        "name": stock_name,
+                        "current": close_price,
+                        "change": change_pct,
+                        "volume": volume,
+                        "market": mkt,
+                    })
+
+        # 이미 정렬된 상태로 오지만, 확실히 정렬
         if is_rise:
             results.sort(key=lambda x: x.get("change", 0), reverse=True)
         else:
             results.sort(key=lambda x: x.get("change", 0))
+
         for i, r in enumerate(results[:limit]):
             r["rank"] = i + 1
         return results[:limit]
+
     except Exception as e:
         print(f"[Naver] Fluctuation rank error: {e}")
+        # Fallback: 스크리너 캐시에서 등락률 정렬
+        try:
+            all_stocks = await load_kr_stocks()
+            if market.upper() != "ALL":
+                all_stocks = [s for s in all_stocks if s.get("exchange", "").upper() == market.upper()]
+
+            if is_rise:
+                all_stocks.sort(key=lambda x: x.get("change_pct", 0) or 0, reverse=True)
+            else:
+                all_stocks.sort(key=lambda x: x.get("change_pct", 0) or 0)
+
+            results = []
+            for i, stock in enumerate(all_stocks[:limit]):
+                results.append({
+                    "rank": i + 1,
+                    "code": stock.get("code", ""),
+                    "name": stock.get("name", ""),
+                    "current": stock.get("price", 0),
+                    "change": stock.get("change_pct", 0),
+                    "volume": stock.get("volume", 0),
+                    "market": stock.get("exchange", ""),
+                })
+            return results
+        except:
+            pass
 
     return []
