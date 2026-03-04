@@ -201,7 +201,7 @@ async def get_us_stock_ranking(
         if sort == "change":
             stocks.sort(key=lambda x: x.get("change_pct") or 0, reverse=reverse)
         elif sort == "volume":
-            # Finviz 데이터에는 volume이 없으므로 market_cap으로 대체
+            # yfinance fast_info에서 volume 미제공 → market_cap으로 대체
             stocks.sort(key=lambda x: x.get("market_cap") or 0, reverse=reverse)
 
         # 상위 limit개 추출

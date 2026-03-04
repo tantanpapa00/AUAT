@@ -2,7 +2,7 @@
 AI 리포트용 재무 데이터 수집 모듈
 
 - KR: 네이버 금융 API
-- US: yfinance + Finviz
+- US: yfinance
 """
 
 import httpx

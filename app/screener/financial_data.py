@@ -2,7 +2,7 @@
 [삭제됨] yfinance 기반 재무 데이터 모듈
 
 KR: 네이버 integration API에서 모든 재무 데이터 제공
-US: Finviz v=141에서 모든 재무 데이터 제공
+US: yfinance에서 재무 데이터 제공
 
 이 파일은 호환성을 위해 stub만 남김
 """

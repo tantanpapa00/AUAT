@@ -322,7 +322,7 @@ from app.data_provider import (
     get_stock_summary_kr, get_stock_financials_kr, get_stock_news_kr, get_eps_revision_history,
     # Phase 8-3: 기업 탭 + 재무제표 + 투자지표
     get_stock_company_kr, get_stock_statement_kr, get_invest_indicators_kr,
-    # Phase 9: 해외 종목 상세 (Finviz + Yahoo Finance)
+    # Phase 9: 해외 종목 상세 (yfinance)
     get_stock_summary_us, get_stock_chart_us, get_stock_news_us,
     get_stock_company_us, get_stock_financials_us,
     get_stock_filings_us, get_stock_analyst_us,
@@ -10434,7 +10434,7 @@ async def api_stock_invest_indicators_kr(
 
 
 # =============================================================================
-# Phase 9: 해외 종목 상세 API (Finviz + Yahoo Finance)
+# Phase 9: 해외 종목 상세 API (yfinance)
 # =============================================================================
 
 @app.get("/api/stock/us/{ticker}/summary")
@@ -10444,7 +10444,7 @@ async def api_stock_summary_us(
 ):
     """
     해외 종목 요약 정보
-    - 데이터 소스: Finviz snapshot
+    - 데이터 소스: yfinance
     - 누구나 접근 가능
     """
     data = await get_stock_summary_us(ticker)
@@ -10476,7 +10476,7 @@ async def api_stock_news_us(
 ):
     """
     해외 종목 뉴스
-    - 데이터 소스: Finviz news-table
+    - 데이터 소스: yfinance
     - 누구나 접근 가능
     """
     data = await get_stock_news_us(ticker, limit)
@@ -10520,7 +10520,7 @@ async def api_stock_company_us(
 ):
     """
     해외 종목 기업 정보
-    - 데이터 소스: Finviz
+    - 데이터 소스: yfinance
     - 누구나 접근 가능
     """
     data = await get_stock_company_us(ticker)

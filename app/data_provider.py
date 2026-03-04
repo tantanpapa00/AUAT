@@ -4025,20 +4025,85 @@ async def get_stock_statement_kr(code: str, period_type: str = "annual") -> dict
 
 
 # =============================================================================
-# Phase 9: 해외 종목 상세 (Finviz + Yahoo Finance)
+# Phase 9: 해외 종목 상세 (yfinance 기반 - Finviz 완전 제거)
 # =============================================================================
 
-FINVIZ_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-    "Accept": "text/html,application/xhtml+xml",
-    "Accept-Language": "en-US,en;q=0.9",
-}
+
+def _fetch_yfinance_stock_info(ticker: str) -> dict:
+    """yfinance로 종목 상세 정보 조회 (동기)"""
+    import yfinance as yf
+
+    data = {}
+    try:
+        stock = yf.Ticker(ticker)
+        info = stock.info
+
+        # 기본 정보
+        data["name"] = info.get("shortName", info.get("longName", ticker))
+        data["sector"] = info.get("sector", "")
+        data["industry"] = info.get("industry", "")
+        data["country"] = info.get("country", "")
+        data["exchange"] = info.get("exchange", "")
+
+        # 가격 정보
+        data["price"] = info.get("currentPrice", info.get("regularMarketPrice", 0)) or 0
+        prev_close = info.get("previousClose", info.get("regularMarketPreviousClose", 0)) or 0
+        data["prev_close"] = prev_close
+        if prev_close > 0 and data["price"] > 0:
+            change = data["price"] - prev_close
+            change_pct = (change / prev_close) * 100
+            data["change"] = round(change, 2)
+            data["change_pct"] = round(change_pct, 2)
+        else:
+            data["change"] = 0
+            data["change_pct"] = 0
+
+        # 시가총액
+        market_cap = info.get("marketCap", 0)
+        data["market_cap_raw"] = market_cap
+        if market_cap >= 1e12:
+            data["market_cap"] = f"{market_cap / 1e12:.2f}T"
+        elif market_cap >= 1e9:
+            data["market_cap"] = f"{market_cap / 1e9:.2f}B"
+        elif market_cap >= 1e6:
+            data["market_cap"] = f"{market_cap / 1e6:.2f}M"
+        else:
+            data["market_cap"] = str(market_cap)
+
+        # 재무 지표
+        data["per"] = info.get("trailingPE", 0) or 0
+        data["forward_per"] = info.get("forwardPE", 0) or 0
+        data["pbr"] = info.get("priceToBook", 0) or 0
+        data["eps"] = info.get("trailingEps", 0) or 0
+        data["roe"] = (info.get("returnOnEquity", 0) or 0) * 100  # 비율 → %
+        data["roa"] = (info.get("returnOnAssets", 0) or 0) * 100
+        data["dividend_yield"] = (info.get("dividendYield", 0) or 0) * 100
+        data["debt_equity"] = info.get("debtToEquity", 0) or 0
+        data["operating_margin"] = (info.get("operatingMargins", 0) or 0) * 100
+        data["profit_margin"] = (info.get("profitMargins", 0) or 0) * 100
+
+        # 52주 고저
+        data["high_52w"] = info.get("fiftyTwoWeekHigh", 0) or 0
+        data["low_52w"] = info.get("fiftyTwoWeekLow", 0) or 0
+
+        # 거래량
+        data["volume"] = info.get("volume", info.get("regularMarketVolume", 0)) or 0
+        data["avg_volume"] = info.get("averageVolume", info.get("averageVolume10days", 0)) or 0
+
+        # 애널리스트
+        data["target_price"] = info.get("targetMeanPrice", 0) or 0
+        data["recommendation"] = info.get("recommendationKey", "")
+
+    except Exception as e:
+        print(f"[yfinance] Stock info error for {ticker}: {e}")
+
+    return data
 
 
 async def get_stock_summary_us(ticker: str) -> dict:
     """
     해외 종목 요약 정보
-    데이터 소스: Finviz snapshot 테이블
+    데이터 소스: yfinance
     """
     ticker = ticker.upper()
     cache_key = f"stock_summary_us_{ticker}"
@@ -4077,124 +4142,16 @@ async def get_stock_summary_us(ticker: str) -> dict:
     }
 
     try:
-        async with httpx.AsyncClient(timeout=15, headers=FINVIZ_HEADERS) as client:
-            url = f"https://finviz.com/quote.ashx?t={ticker}&ty=c&ta=1&p=d"
-            r = await client.get(url)
-
-            if r.status_code == 200:
-                html = r.text
-                data = _parse_finviz_snapshot(html)
-                result.update(data)
-                result["ticker"] = ticker
-
+        loop = asyncio.get_event_loop()
+        data = await loop.run_in_executor(None, _fetch_yfinance_stock_info, ticker)
+        result.update(data)
+        result["ticker"] = ticker
         _set_cache(cache_key, result)
     except Exception as e:
         print(f"[DataProvider] get_stock_summary_us error for {ticker}: {e}")
         traceback.print_exc()
 
     return result
-
-
-def _parse_finviz_snapshot(html: str) -> dict:
-    """Finviz snapshot 테이블 파싱 (BeautifulSoup 사용)"""
-    data = {}
-
-    try:
-        soup = BeautifulSoup(html, 'lxml')
-
-        # 종목명 추출 (title 태그에서)
-        title_tag = soup.find('title')
-        if title_tag:
-            title_text = title_tag.get_text()
-            # "NVDA - NVIDIA Corp Stock Price and Quote" → "NVIDIA Corp"
-            if ' - ' in title_text:
-                name_part = title_text.split(' - ', 1)[1]
-                # "NVIDIA Corp Stock Price..." → "NVIDIA Corp"
-                name_part = name_part.replace('Stock Price and Quote', '').strip()
-                data["name"] = name_part
-
-        # 현재가 추출 (quote-price_wrapper_price 클래스)
-        price_el = soup.find(class_='quote-price_wrapper_price')
-        if price_el:
-            data["price"] = _parse_float(price_el.get_text(strip=True))
-
-        # 섹터/인더스트리 추출 (링크에서)
-        sector_link = soup.find('a', href=lambda x: x and 'sec_' in x)
-        if sector_link:
-            data["sector"] = sector_link.get_text(strip=True)
-        industry_link = soup.find('a', href=lambda x: x and 'ind_' in x)
-        if industry_link:
-            data["industry"] = industry_link.get_text(strip=True)
-
-        # snapshot-table2 파싱
-        table = soup.find('table', class_='snapshot-table2')
-        if table:
-            cells = table.find_all('td', class_='snapshot-td2')
-
-            # 셀은 key, value 쌍으로 나옴 (BeautifulSoup get_text 사용)
-            snapshot = {}
-            for i in range(0, len(cells) - 1, 2):
-                key = cells[i].get_text(strip=True)
-                value = cells[i + 1].get_text(strip=True) if i + 1 < len(cells) else ""
-                snapshot[key] = value
-
-            # 값 매핑 (링크에서 이미 추출된 sector/industry 유지)
-            if not data.get("sector"):
-                data["sector"] = snapshot.get("Sector", "")
-            if not data.get("industry"):
-                data["industry"] = snapshot.get("Industry", "")
-            data["country"] = snapshot.get("Country", "")
-
-            # 변동률 (Perf Week 등에서 추출하거나 Prev Close로 계산)
-            prev_close = _parse_float(snapshot.get("Prev Close", "0"))
-            if prev_close > 0 and data.get("price", 0) > 0:
-                change = data["price"] - prev_close
-                change_pct = (change / prev_close) * 100
-                data["change"] = round(change, 2)
-                data["change_pct"] = round(change_pct, 2)
-            else:
-                data["change"] = 0
-                data["change_pct"] = 0
-
-            # 시가총액
-            mcap = snapshot.get("Market Cap", "")
-            data["market_cap"] = mcap
-            data["market_cap_raw"] = _parse_market_cap_us(mcap)
-
-            # 재무 지표
-            data["per"] = _parse_float(snapshot.get("P/E", "0"))
-            data["forward_per"] = _parse_float(snapshot.get("Forward P/E", "0"))
-            data["pbr"] = _parse_float(snapshot.get("P/B", "0"))
-            data["eps"] = _parse_float(snapshot.get("EPS (ttm)", "0"))
-            data["roe"] = _parse_float(snapshot.get("ROE", "0%").replace("%", ""))
-            data["roa"] = _parse_float(snapshot.get("ROA", "0%").replace("%", ""))
-            data["dividend_yield"] = _parse_float(snapshot.get("Dividend TTM", "0%").split("(")[-1].replace("%)", ""))
-            data["debt_equity"] = _parse_float(snapshot.get("Debt/Eq", "0"))
-            data["operating_margin"] = _parse_float(snapshot.get("Oper. Margin", "0%").replace("%", ""))
-            data["profit_margin"] = _parse_float(snapshot.get("Profit Margin", "0%").replace("%", ""))
-
-            # 52주 고저 (값이 "212.19-10.54%" 또는 "86.62119.14%" 형식)
-            # 주가는 소수점 2자리까지이므로 \d+\.\d{1,2} 패턴 사용
-            high_52w_str = snapshot.get("52W High", "0")
-            low_52w_str = snapshot.get("52W Low", "0")
-            high_match = re.match(r'(\d+(?:\.\d{1,2})?)', high_52w_str)
-            low_match = re.match(r'(\d+(?:\.\d{1,2})?)', low_52w_str)
-            data["high_52w"] = _parse_float(high_match.group(1)) if high_match else 0
-            data["low_52w"] = _parse_float(low_match.group(1)) if low_match else 0
-
-            # 거래량
-            data["volume"] = _parse_volume_us(snapshot.get("Volume", "0"))
-            data["avg_volume"] = _parse_volume_us(snapshot.get("Avg Volume", "0"))
-
-            # 애널리스트
-            data["target_price"] = _parse_float(snapshot.get("Target Price", "0"))
-            data["recommendation"] = snapshot.get("Recom", "")
-
-    except Exception as e:
-        print(f"[Finviz] Parse error: {e}")
-        traceback.print_exc()
-
-    return data
 
 
 def _parse_market_cap_us(mcap_str: str) -> float:
@@ -4538,10 +4495,45 @@ async def get_stock_financials_us(ticker: str) -> dict:
     return result
 
 
+def _fetch_yfinance_news(ticker: str, limit: int = 20) -> list:
+    """yfinance로 종목 뉴스 조회 (동기)"""
+    import yfinance as yf
+    from datetime import datetime
+
+    news = []
+    try:
+        stock = yf.Ticker(ticker)
+        news_data = stock.news
+
+        for item in news_data[:limit]:
+            # 타임스탬프 변환
+            pub_time = item.get("providerPublishTime", 0)
+            if pub_time:
+                dt = datetime.fromtimestamp(pub_time)
+                date_str = dt.strftime("%b-%d-%y")
+                time_str = dt.strftime("%I:%M%p")
+            else:
+                date_str = "Today"
+                time_str = ""
+
+            news.append({
+                "title": item.get("title", ""),
+                "source": item.get("publisher", ""),
+                "url": item.get("link", ""),
+                "date": date_str,
+                "time": time_str
+            })
+
+    except Exception as e:
+        print(f"[yfinance] News error for {ticker}: {e}")
+
+    return news
+
+
 async def get_stock_news_us(ticker: str, limit: int = 20) -> dict:
     """
     해외 종목 뉴스
-    데이터 소스: Finviz news-table
+    데이터 소스: yfinance
     """
     ticker = ticker.upper()
     cache_key = f"stock_news_us_{ticker}_{limit}"
@@ -4555,72 +4547,15 @@ async def get_stock_news_us(ticker: str, limit: int = 20) -> dict:
     }
 
     try:
-        async with httpx.AsyncClient(timeout=15, headers=FINVIZ_HEADERS) as client:
-            url = f"https://finviz.com/quote.ashx?t={ticker}"
-            r = await client.get(url)
-
-            if r.status_code == 200:
-                html = r.text
-                news_items = _parse_finviz_news(html, limit)
-                result["items"] = news_items
-
+        loop = asyncio.get_event_loop()
+        news_items = await loop.run_in_executor(None, _fetch_yfinance_news, ticker, limit)
+        result["items"] = news_items
         _set_cache(cache_key, result)
     except Exception as e:
         print(f"[DataProvider] get_stock_news_us error for {ticker}: {e}")
         traceback.print_exc()
 
     return result
-
-
-def _parse_finviz_news(html: str, limit: int = 20) -> list:
-    """Finviz 뉴스 테이블 파싱 (2026년 새 HTML 구조)"""
-    news = []
-
-    try:
-        # news-table 찾기
-        table_match = re.search(r'id="news-table"[^>]*>(.*?)</table>', html, re.DOTALL)
-        if table_match:
-            table_html = table_match.group(1)
-            # 각 뉴스 행 파싱
-            rows = re.findall(r'<tr[^>]*>(.*?)</tr>', table_html, re.DOTALL)
-
-            current_date = ""
-            for row in rows:
-                # 시간/날짜 추출 (예: Feb-22-26 10:53PM 또는 10:53PM)
-                time_match = re.search(r'<td[^>]*>\s*([A-Za-z]{3}-\d{2}-\d{2}\s+\d+:\d+[AP]M|\d+:\d+[AP]M)\s*</td>', row)
-                time_str = ""
-                if time_match:
-                    time_str = time_match.group(1).strip()
-                    # 날짜가 포함된 경우 current_date 업데이트
-                    if '-' in time_str:
-                        current_date = time_str.split()[0]
-
-                # 새 HTML 구조: class="tab-link-news" href="URL">Title</a>
-                link_match = re.search(r'class="tab-link-news"[^>]*href="([^"]+)"[^>]*>([^<]+)</a>', row)
-                if link_match:
-                    url = link_match.group(1)
-                    title = link_match.group(2).strip()
-
-                    # 출처 추출 (news-link-right 내의 span)
-                    source_match = re.search(r'class="news-link-right"[^>]*>.*?<span[^>]*>([^<]+)</span>', row, re.DOTALL)
-                    source = source_match.group(1).strip() if source_match else ""
-
-                    if title:
-                        news.append({
-                            "title": title,
-                            "source": source,
-                            "url": url,
-                            "date": current_date or "Today",
-                            "time": time_str
-                        })
-
-                if len(news) >= limit:
-                    break
-
-    except Exception as e:
-        print(f"[Finviz] News parse error: {e}")
-
-    return news
 
 
 async def get_stock_filings_us(ticker: str, limit: int = 30) -> dict:

@@ -24,7 +24,7 @@ async def api_screener(
     current_user: User = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """종목검색기 - Finviz 스타일 스크리너"""
+    """종목검색기 - 스크리너"""
     # Pro 이상 체크
     if current_user and current_user.role == "admin":
         pass

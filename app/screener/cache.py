@@ -13,7 +13,7 @@ CACHE_TTL = {
     "kr_financial": 3600,       # 재무 데이터: 1시간
     "kr_stock_detail": 3600,    # 개별 종목 상세: 1시간
     "us_screener": 900,         # 해외: 15분
-    "us_all_stocks": 3600,      # US 전종목: 1시간 (Finviz 스크래핑)
+    "us_all_stocks": 3600,      # US 전종목: 1시간 (GitHub CSV + yfinance)
     "etf_screener": 300,        # ETF: 5분
     "etf_all_stocks": 600,      # ETF 전종목: 10분
 }

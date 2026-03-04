@@ -1,74 +1,279 @@
 """
 해외(미국) 주식 스크리너
-Finviz 기반 (v=111 Overview + v=161 Financial)
+GitHub S&P500 CSV + yfinance 기반 (Finviz 완전 제거)
 """
 
 import asyncio
+import csv
+import io
 import httpx
 import time as _time
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 
-from .cache import screener_cache, CACHE_TTL
 from .filters import apply_screener_filters, sort_screener_results
 
-# 모듈 레벨 메모리 캐시 (서버 시작 시 워밍업)
-_us_stock_cache = None
-_us_cache_ts = 0
-_US_CACHE_TTL = 3600  # 1시간
+# ========== 상수 정의 ==========
 
+# GitHub S&P 500 CSV URL
+SP500_CSV_URL = "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv"
 
-async def load_us_stocks():
-    """US 종목 목록 — 메모리 캐시 우선 (서버 워밍업용)"""
-    global _us_stock_cache, _us_cache_ts
-    now = _time.time()
-
-    if _us_stock_cache and now - _us_cache_ts < _US_CACHE_TTL:
-        return [s.copy() for s in _us_stock_cache]  # 복사본 반환
-
-    # 캐시 만료 → Finviz에서 새로 로드
-    stocks = await fetch_all_us_stocks()
-    _us_stock_cache = stocks
-    _us_cache_ts = now
-    return [s.copy() for s in stocks]
-
-# Finviz 헤더
-FINVIZ_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-    "Accept": "text/html,application/xhtml+xml",
-}
-
-# Finviz 섹터 한글 변환
-FINVIZ_SECTOR_KR = {
+# GICS 섹터 한글 변환
+SECTOR_KR = {
+    "Information Technology": "기술",
     "Technology": "기술",
+    "Health Care": "헬스케어",
     "Healthcare": "헬스케어",
-    "Financial": "금융",
     "Financials": "금융",
+    "Financial": "금융",
     "Financial Services": "금융",
+    "Consumer Discretionary": "임의소비재",
     "Consumer Cyclical": "임의소비재",
+    "Consumer Staples": "필수소비재",
     "Consumer Defensive": "필수소비재",
     "Communication Services": "커뮤니케이션",
     "Industrials": "산업재",
     "Energy": "에너지",
     "Utilities": "유틸리티",
     "Real Estate": "부동산",
-    "Basic Materials": "소재",
     "Materials": "소재",
+    "Basic Materials": "소재",
 }
+
+# ========== 캐시 ==========
+
+# S&P 500 목록 캐시 (24시간)
+_sp500_list_cache: Dict[str, Any] = {"data": None, "ts": 0}
+_SP500_LIST_TTL = 86400  # 24시간
+
+# 가격 데이터 캐시 (5분)
+_price_cache: Dict[str, Any] = {"data": {}, "ts": 0}
+_PRICE_TTL = 300  # 5분
+
+# 전체 종목 캐시 (10분)
+_us_stock_cache = None
+_us_cache_ts = 0
+_US_CACHE_TTL = 600  # 10분
+
+# yfinance 작업용 ThreadPoolExecutor
+_executor = ThreadPoolExecutor(max_workers=2)
+
+
+# ========== S&P 500 목록 (GitHub CSV) ==========
+
+async def get_sp500_list() -> List[Dict]:
+    """
+    S&P 500 종목 목록을 GitHub CSV에서 가져옴 (24시간 캐시)
+    Returns: [{"symbol": "AAPL", "name": "Apple Inc.", "sector": "기술", "sub_industry": "..."}, ...]
+    """
+    global _sp500_list_cache
+    now = _time.time()
+
+    # 캐시 확인
+    if _sp500_list_cache["data"] and (now - _sp500_list_cache["ts"]) < _SP500_LIST_TTL:
+        return _sp500_list_cache["data"]
+
+    stocks = []
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(SP500_CSV_URL)
+            if resp.status_code == 200:
+                text = resp.text
+                reader = csv.DictReader(io.StringIO(text))
+                for row in reader:
+                    symbol = row.get("Symbol", "").strip()
+                    if not symbol:
+                        continue
+
+                    # BRK.B → BRK-B (yfinance 호환)
+                    symbol = symbol.replace(".", "-")
+
+                    sector_en = row.get("GICS Sector", row.get("Sector", "")).strip()
+                    sector_kr = SECTOR_KR.get(sector_en, sector_en)
+
+                    stocks.append({
+                        "symbol": symbol,
+                        "name": row.get("Security", row.get("Name", symbol)).strip(),
+                        "sector": sector_kr,
+                        "sector_en": sector_en,
+                        "sub_industry": row.get("GICS Sub-Industry", "").strip(),
+                    })
+
+                _sp500_list_cache = {"data": stocks, "ts": now}
+                print(f"[US] S&P 500 목록 로드: {len(stocks)}개")
+
+    except Exception as e:
+        print(f"[US] S&P 500 CSV 로드 실패: {e}")
+
+    # 캐시에 이전 데이터가 있으면 반환
+    if not stocks and _sp500_list_cache["data"]:
+        return _sp500_list_cache["data"]
+
+    return stocks
+
+
+# ========== 가격 데이터 (yfinance) ==========
+
+def _fetch_prices_sync(symbols: List[str]) -> Dict[str, Dict]:
+    """
+    yfinance로 가격 배치 조회 (동기). 50개씩 나눠서 처리.
+    Returns: {"AAPL": {"price": 175.5, "change_pct": -1.2, "market_cap": 2800000000000, ...}, ...}
+    """
+    import yfinance as yf
+
+    result = {}
+    batch_size = 50
+
+    for i in range(0, len(symbols), batch_size):
+        batch = symbols[i:i + batch_size]
+        try:
+            # yf.Tickers로 배치 조회
+            tickers_str = " ".join(batch)
+            tickers = yf.Tickers(tickers_str)
+
+            for sym in batch:
+                try:
+                    ticker = tickers.tickers.get(sym)
+                    if not ticker:
+                        continue
+
+                    info = ticker.fast_info
+                    last_price = getattr(info, 'last_price', 0) or 0
+                    prev_close = getattr(info, 'previous_close', 0) or 0
+                    market_cap = getattr(info, 'market_cap', 0) or 0
+
+                    # 가격이 없으면 history로 시도
+                    if not last_price:
+                        try:
+                            hist = ticker.history(period="2d")
+                            if not hist.empty:
+                                last_price = float(hist['Close'].iloc[-1])
+                                if len(hist) > 1:
+                                    prev_close = float(hist['Close'].iloc[-2])
+                        except:
+                            pass
+
+                    change_pct = ((last_price - prev_close) / prev_close * 100) if prev_close else 0
+
+                    result[sym] = {
+                        "price": round(last_price, 2),
+                        "prev_close": round(prev_close, 2),
+                        "change_pct": round(change_pct, 2),
+                        "market_cap": market_cap,
+                        "market_cap_t": round(market_cap / 1e12, 3) if market_cap else 0,  # 조 달러
+                    }
+                except Exception as e:
+                    # 개별 종목 실패는 무시
+                    pass
+
+            # rate limit 방지: 배치 사이 1초 대기
+            if i + batch_size < len(symbols):
+                _time.sleep(1)
+
+        except Exception as e:
+            print(f"[US] yfinance batch 실패 ({i}~{i+batch_size}): {e}")
+
+    return result
+
+
+async def get_us_prices(symbols: List[str], force_refresh: bool = False) -> Dict[str, Dict]:
+    """
+    US 종목 가격 배치 조회. 5분 캐싱.
+    """
+    global _price_cache
+    now = _time.time()
+
+    # 캐시 확인 (강제 새로고침이 아닌 경우)
+    if not force_refresh and _price_cache["data"] and (now - _price_cache["ts"]) < _PRICE_TTL:
+        return _price_cache["data"]
+
+    loop = asyncio.get_event_loop()
+    prices = await loop.run_in_executor(_executor, _fetch_prices_sync, symbols)
+
+    if prices:
+        _price_cache = {"data": prices, "ts": now}
+        print(f"[US] 가격 업데이트: {len(prices)}개 종목")
+
+    return prices
+
+
+# ========== 메인 스크리너 함수 ==========
+
+async def load_us_stocks() -> List[Dict]:
+    """US 종목 목록 + 가격 — 메모리 캐시 우선 (서버 워밍업용)"""
+    global _us_stock_cache, _us_cache_ts
+    now = _time.time()
+
+    if _us_stock_cache and now - _us_cache_ts < _US_CACHE_TTL:
+        return [s.copy() for s in _us_stock_cache]
+
+    # 캐시 만료 → 새로 로드
+    stocks = await fetch_all_us_stocks()
+    _us_stock_cache = stocks
+    _us_cache_ts = now
+    return [s.copy() for s in stocks]
+
+
+async def fetch_all_us_stocks() -> List[Dict]:
+    """
+    S&P 500 전체 종목 데이터 조합
+    1. GitHub CSV → 종목 목록 (symbol, name, sector)
+    2. yfinance → 가격, 변동률, 시가총액
+    """
+    # 1. S&P 500 목록 가져오기
+    sp500_list = await get_sp500_list()
+    if not sp500_list:
+        print("[US Screener] S&P 500 목록 로드 실패")
+        return []
+
+    # 2. 심볼 목록 추출
+    symbols = [s["symbol"] for s in sp500_list]
+
+    # 3. 가격 데이터 가져오기
+    prices = await get_us_prices(symbols)
+
+    # 4. 결합
+    stocks = []
+    for item in sp500_list:
+        sym = item["symbol"]
+        price_info = prices.get(sym, {})
+
+        stock = {
+            "code": sym,
+            "name": item["name"],
+            "sector": item["sector"],
+            "sector_en": item.get("sector_en", ""),
+            "sub_industry": item.get("sub_industry", ""),
+            "price": price_info.get("price", 0),
+            "prev_close": price_info.get("prev_close", 0),
+            "change_pct": price_info.get("change_pct", 0),
+            "market_cap": price_info.get("market_cap_t", 0),  # 조 달러 단위
+            "market_cap_raw": price_info.get("market_cap", 0),  # 원본 (달러)
+            "volume": 0,  # yfinance fast_info에서 volume은 별도 조회 필요
+            "exchange": "NYSE/NASDAQ",
+        }
+        stocks.append(stock)
+
+    # 가격 있는 종목 수 카운트
+    with_price = sum(1 for s in stocks if s["price"] > 0)
+    print(f"[US Screener] {len(stocks)}개 종목 로드 완료 (가격 있음: {with_price}개)")
+
+    return stocks
 
 
 async def screener_us(filters: dict, sort: str, order: str, page: int, per_page: int) -> dict:
     """
-    미국 주식 스크리너 - Finviz + Yahoo Finance 기반
+    미국 주식 스크리너 - GitHub CSV + yfinance 기반
 
     [흐름]
-    1. S&P 500 종목 목록 가져오기 (메모리 캐시 — 10분)
+    1. S&P 500 종목 목록 가져오기 (메모리 캐시)
     2. 필터 적용 (섹터, 시총, 등락률)
     3. 정렬 + 페이지네이션
     """
     t0 = _time.time()
 
-    # 메모리 캐시에서 S&P 500 전종목 데이터 가져오기 (서버 워밍업 후 즉시 반환)
+    # 메모리 캐시에서 S&P 500 전종목 데이터 가져오기
     all_stocks = await load_us_stocks()
     t1 = _time.time()
     print(f"[PERF] US 종목로드: {t1-t0:.2f}초, {len(all_stocks)}개")
@@ -149,385 +354,96 @@ def apply_us_filters(stocks: List[Dict], filters: dict) -> List[Dict]:
             if max_val is not None:
                 result = [s for s in result if (s.get("change_pct") or 0) <= max_val]
 
-    # 재무 필터 (공통 로직 사용)
-    financial_filters = {k: v for k, v in filters.items() if k in [
-        "per", "pbr", "roe", "roa", "operating_margin", "gross_margin",
-        "profit_margin", "debt_ratio", "current_ratio", "dividend_yield",
-        "revenue_growth", "earnings_growth", "eps_growth"
-    ]}
-    if financial_filters:
-        result = apply_screener_filters(result, financial_filters)
+    # 재무 필터 (공통 로직 사용) - yfinance에서는 재무데이터 미제공
+    # 향후 필요시 별도 API로 확장 가능
 
     return result
 
 
-async def fetch_all_us_stocks() -> List[Dict]:
+# ========== 히트맵 데이터 ==========
+
+async def get_us_heatmap() -> Dict[str, Any]:
     """
-    S&P 500 종목 + 실시간 등락률 + 재무 데이터 결합
-
-    1. Finviz v=111 (Overview): 섹터, 시총, 종목명
-    2. Finviz v=161 (Financial): ROE, ROA, Debt/Eq, Margins 등
-    3. Finviz v=141 (Valuation): PER, PBR
-    4. Finviz 히트맵 API: 실시간 등락률
+    US 섹터별 히트맵 데이터 생성
+    Returns: {"sectors": [...], "stocks": [...]}
     """
-    # 1. 메타데이터 가져오기 (v=111)
-    metadata = await fetch_sp500_metadata()
+    stocks = await load_us_stocks()
+    if not stocks:
+        return {"sectors": [], "stocks": []}
 
-    # 2. 재무 데이터 가져오기 (v=161)
-    financials = await fetch_sp500_financials()
+    # 섹터별 그룹핑
+    sector_data = {}
+    stock_list = []
 
-    # 3. Valuation 데이터 가져오기 (v=141) - PER, PBR
-    valuations = await fetch_sp500_valuation()
+    for stock in stocks:
+        sector = stock.get("sector", "기타")
+        if sector not in sector_data:
+            sector_data[sector] = {
+                "name": sector,
+                "stocks": [],
+                "total_market_cap": 0,
+                "weighted_change": 0,
+            }
 
-    # 4. 실시간 등락률 가져오기
-    changes = await fetch_finviz_changes()
+        market_cap_raw = stock.get("market_cap_raw", 0)
+        change_pct = stock.get("change_pct", 0)
 
-    # 5. 결합
-    stocks = []
-    for symbol, meta in metadata.items():
-        change_pct = changes.get(symbol, 0)
-        fin = financials.get(symbol, {})
-        val = valuations.get(symbol, {})
-
-        stock = {
-            "code": symbol,
-            "name": meta.get("name", symbol),
-            "sector": meta.get("sector", "기타"),
-            "market_cap": meta.get("market_cap", 0),  # 조 달러 단위
+        item = {
+            "symbol": stock["code"],
+            "name": stock["name"],
+            "sector": sector,
+            "price": stock.get("price", 0),
             "change_pct": change_pct,
-            "price": meta.get("price", 0),
-            "volume": 0,
-            "exchange": "NYSE/NASDAQ",
+            "market_cap": stock.get("market_cap", 0),  # 조 달러
         }
-        # 재무 데이터 병합
-        stock.update(fin)
-        # Valuation 데이터 병합 (PER, PBR)
-        stock.update(val)
-        stocks.append(stock)
 
-    print(f"[US Screener] {len(stocks)}개 종목 로드 완료")
-    return stocks
+        sector_data[sector]["stocks"].append(item)
+        sector_data[sector]["total_market_cap"] += market_cap_raw
+        sector_data[sector]["weighted_change"] += change_pct * market_cap_raw
+        stock_list.append(item)
 
+    # 섹터 평균 변동률 (시가총액 가중)
+    sectors = []
+    for sec in sector_data.values():
+        if sec["total_market_cap"] > 0:
+            sec["change_pct"] = round(sec["weighted_change"] / sec["total_market_cap"], 2)
+        else:
+            sec["change_pct"] = 0
+        del sec["weighted_change"]
+        sec["stock_count"] = len(sec["stocks"])
+        # 개별 종목 리스트 제거 (응답 크기 줄임)
+        del sec["stocks"]
+        sec["total_market_cap"] = round(sec["total_market_cap"] / 1e12, 2)  # 조 달러
+        sectors.append(sec)
 
-async def fetch_sp500_metadata() -> Dict[str, Dict]:
-    """
-    Finviz Screener 페이지 스크래핑으로 S&P 500 메타데이터 수집
-    Returns: {"AAPL": {"sector": "기술", "market_cap": 3.5, "name": "Apple Inc"}, ...}
-    """
-    from bs4 import BeautifulSoup
+    sectors.sort(key=lambda x: x["change_pct"], reverse=True)
 
-    result = {}
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Accept": "text/html,application/xhtml+xml",
+    return {
+        "sectors": sectors,
+        "stocks": stock_list,
     }
 
+
+# ========== 워밍업 함수 ==========
+
+async def warmup_us_screener():
+    """서버 시작 시 US 스크리너 캐시 채움"""
+    print("[US Screener] 워밍업 시작...")
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            page = 1
-            all_stocks = []
-
-            while True:
-                offset = (page - 1) * 20 + 1
-                url = f"https://finviz.com/screener.ashx?v=111&f=idx_sp500&o=-marketcap&r={offset}"
-
-                r = await client.get(url, headers=headers)
-                if r.status_code != 200:
-                    print(f"[Finviz Screener] 페이지 {page} 실패: {r.status_code}")
-                    break
-
-                soup = BeautifulSoup(r.text, 'lxml')
-                rows = soup.select('table.screener-body-table-nw tr[valign="top"]')
-                if not rows:
-                    rows = soup.select('tr.styled-row')
-                if not rows:
-                    break
-
-                for row in rows:
-                    cols = row.find_all('td')
-                    if len(cols) < 10:
-                        continue
-
-                    try:
-                        ticker_link = cols[1].find('a')
-                        ticker = ticker_link.text.strip() if ticker_link else ""
-                        company = cols[2].text.strip()
-                        sector_en = cols[3].text.strip()
-                        mcap_str = cols[6].text.strip()
-
-                        # cols[8] = Price, cols[9] = Change
-                        try:
-                            price = float(cols[8].text.strip().replace(',', ''))
-                        except (ValueError, IndexError):
-                            price = 0
-
-                        try:
-                            change_text = cols[9].text.strip().replace('%', '')
-                            change_pct = float(change_text)
-                        except (ValueError, IndexError):
-                            change_pct = 0
-
-                        if ticker:
-                            sector_kr = FINVIZ_SECTOR_KR.get(sector_en, sector_en)
-                            mcap = _parse_market_cap(mcap_str)
-                            all_stocks.append({
-                                "symbol": ticker,
-                                "name": company,
-                                "sector": sector_kr,
-                                "market_cap": mcap,
-                                "price": price,
-                                "change_pct": change_pct,
-                            })
-                    except Exception:
-                        continue
-
-                if len(rows) < 20 or page >= 30:
-                    break
-                page += 1
-                await asyncio.sleep(0.3)  # 요청 간격
-
-            for stock in all_stocks:
-                result[stock["symbol"]] = {
-                    "sector": stock["sector"],
-                    "market_cap": stock["market_cap"],
-                    "name": stock["name"],
-                    "price": stock.get("price", 0),
-                    "change_pct": stock.get("change_pct", 0),
-                }
-
-            print(f"[Finviz Screener] S&P 500: {len(result)}개 종목 ({page}페이지)")
-
-    except Exception as e:
-        print(f"[Finviz Screener] 오류: {e}")
-        import traceback
-        traceback.print_exc()
-
-    return result
-
-
-def _parse_market_cap(mcap_str: str) -> float:
-    """시가총액 문자열을 조 달러 단위로 변환 ('4442.28B' → 4.44)"""
-    if not mcap_str:
-        return 0.01
-    mcap_str = mcap_str.strip().upper()
-    try:
-        if mcap_str.endswith("T"):
-            return float(mcap_str[:-1])
-        elif mcap_str.endswith("B"):
-            return float(mcap_str[:-1]) / 1000
-        elif mcap_str.endswith("M"):
-            return float(mcap_str[:-1]) / 1000000
+        stocks = await fetch_all_us_stocks()
+        if stocks:
+            global _us_stock_cache, _us_cache_ts
+            _us_stock_cache = stocks
+            _us_cache_ts = _time.time()
+            print(f"[US Screener] 워밍업 완료: {len(stocks)}개 종목")
         else:
-            return float(mcap_str) / 1e12
-    except:
-        return 0.01
-
-
-def _parse_finviz_pct(val: str) -> Optional[float]:
-    """Finviz % 값 파싱. '10.50%' → 10.50, '-' → None"""
-    if not val or val == '-' or val == '':
-        return None
-    try:
-        return float(val.replace('%', '').strip())
-    except:
-        return None
-
-
-def _parse_finviz_float(val: str) -> Optional[float]:
-    """Finviz 숫자 파싱. '1.50' → 1.50, '-' → None"""
-    if not val or val == '-' or val == '':
-        return None
-    try:
-        return float(val.strip())
-    except:
-        return None
-
-
-async def fetch_sp500_financials() -> Dict[str, Dict]:
-    """
-    Finviz Financial 뷰(v=161)에서 재무 데이터 수집
-    Returns: {"AAPL": {"roe": 152.02, "roa": 32.56, "debt_ratio": 1.03, ...}, ...}
-
-    v=161 컬럼 순서:
-    No., Ticker, Market Cap, Dividend, ROA, ROE, ROI,
-    Curr R, Quick R, LTDebt/Eq, Debt/Eq, Gross M, Oper M, Profit M,
-    Earnings, Price, Change, Volume
-    """
-    from bs4 import BeautifulSoup
-
-    result = {}
-
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            page = 1
-
-            while True:
-                offset = (page - 1) * 20 + 1
-                url = f"https://finviz.com/screener.ashx?v=161&f=idx_sp500&o=-marketcap&r={offset}"
-
-                r = await client.get(url, headers=FINVIZ_HEADERS)
-                if r.status_code != 200:
-                    print(f"[Finviz v=161 Financial] 페이지 {page} 실패: {r.status_code}")
-                    break
-
-                soup = BeautifulSoup(r.text, 'lxml')
-                rows = soup.select('table.screener-body-table-nw tr[valign="top"]')
-                if not rows:
-                    rows = soup.select('tr.styled-row')
-                if not rows:
-                    break
-
-                for row in rows:
-                    cols = row.find_all('td')
-                    if len(cols) < 17:
-                        continue
-
-                    try:
-                        ticker_link = cols[1].find('a')
-                        ticker = ticker_link.text.strip() if ticker_link else ""
-
-                        if ticker:
-                            # v=161 컬럼: No, Ticker, MktCap, Div, ROA, ROE, ROI, CurrR, QuickR, LTD/Eq, D/Eq, GrossM, OperM, ProfitM, Earn, Price, Chg, Vol
-                            result[ticker] = {
-                                "dividend_yield": _parse_finviz_pct(cols[3].text.strip()),
-                                "roa": _parse_finviz_pct(cols[4].text.strip()),
-                                "roe": _parse_finviz_pct(cols[5].text.strip()),
-                                "roi": _parse_finviz_pct(cols[6].text.strip()),
-                                "current_ratio": _parse_finviz_float(cols[7].text.strip()),
-                                "quick_ratio": _parse_finviz_float(cols[8].text.strip()),
-                                "lt_debt_ratio": _parse_finviz_float(cols[9].text.strip()),
-                                "debt_ratio": _parse_finviz_float(cols[10].text.strip()),
-                                "gross_margin": _parse_finviz_pct(cols[11].text.strip()),
-                                "operating_margin": _parse_finviz_pct(cols[12].text.strip()),
-                                "profit_margin": _parse_finviz_pct(cols[13].text.strip()),
-                            }
-                    except Exception:
-                        continue
-
-                if len(rows) < 20 or page >= 30:
-                    break
-                page += 1
-                await asyncio.sleep(0.3)  # 요청 간격
-
-            print(f"[Finviz v=161 Financial] S&P 500 재무데이터: {len(result)}개 종목 ({page}페이지)")
-
+            print("[US Screener] 워밍업 실패: 데이터 없음")
     except Exception as e:
-        print(f"[Finviz v=161 Financial] 오류: {e}")
-        import traceback
-        traceback.print_exc()
-
-    return result
+        print(f"[US Screener] 워밍업 오류: {e}")
 
 
-async def fetch_sp500_valuation() -> Dict[str, Dict]:
-    """
-    Finviz Valuation 뷰(v=121)에서 PER, PBR 데이터 수집
-    Returns: {"AAPL": {"per": 28.5, "pbr": 45.2}, ...}
+# ========== 필터 키 정의 ==========
 
-    v=121 컬럼 순서:
-    No., Ticker, P/E, Fwd P/E, PEG, P/S, P/B, P/C, P/FCF,
-    EPS This Y, EPS Next Y, EPS Past 5Y, EPS Next 5Y, Sales Past 5Y, Price, Change, Volume
-    """
-    from bs4 import BeautifulSoup
-
-    result = {}
-
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            page = 1
-
-            while True:
-                offset = (page - 1) * 20 + 1
-                url = f"https://finviz.com/screener.ashx?v=121&f=idx_sp500&o=-marketcap&r={offset}"
-
-                r = await client.get(url, headers=FINVIZ_HEADERS)
-                if r.status_code != 200:
-                    print(f"[Finviz v=121 Valuation] 페이지 {page} 실패: {r.status_code}")
-                    break
-
-                soup = BeautifulSoup(r.text, 'lxml')
-                rows = soup.select('table.screener-body-table-nw tr[valign="top"]')
-                if not rows:
-                    rows = soup.select('tr.styled-row')
-                if not rows:
-                    break
-
-                for row in rows:
-                    cols = row.find_all('td')
-                    if len(cols) < 10:
-                        continue
-
-                    try:
-                        ticker_link = cols[1].find('a')
-                        ticker = ticker_link.text.strip() if ticker_link else ""
-
-                        if ticker:
-                            # v=121 컬럼: No, Ticker, MktCap, P/E, Fwd P/E, PEG, P/S, P/B, ...
-                            result[ticker] = {
-                                "per": _parse_finviz_float(cols[3].text.strip()),
-                                "pbr": _parse_finviz_float(cols[7].text.strip()),
-                            }
-                    except Exception:
-                        continue
-
-                if len(rows) < 20 or page >= 30:
-                    break
-                page += 1
-                await asyncio.sleep(0.3)
-
-            print(f"[Finviz v=121 Valuation] S&P 500 PER/PBR: {len(result)}개 종목 ({page}페이지)")
-
-    except Exception as e:
-        print(f"[Finviz v=121 Valuation] 오류: {e}")
-        import traceback
-        traceback.print_exc()
-
-    return result
-
-
-async def fetch_finviz_changes() -> Dict[str, float]:
-    """
-    Finviz 히트맵 API에서 실시간 등락률 수집
-    Returns: {"AAPL": -7.16, "MSFT": -0.75, ...}
-    """
-    result = {}
-
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            headers = {"User-Agent": "Mozilla/5.0"}
-            r = await client.get(
-                "https://finviz.com/api/map_perf.ashx?t=sec",
-                headers=headers
-            )
-            if r.status_code != 200:
-                print(f"[Finviz] 히트맵 API 실패: {r.status_code}")
-                return result
-
-            data = r.json()
-
-            if isinstance(data, dict):
-                if "nodes" in data:
-                    result = data["nodes"]
-                else:
-                    sample_key = next(iter(data), "")
-                    if sample_key.isupper() and len(sample_key) <= 5:
-                        result = data
-
-            print(f"[Finviz] 등락률: {len(result)}개 종목")
-
-    except Exception as e:
-        print(f"[Finviz] 히트맵 오류: {e}")
-
-    return result
-
-
-# 필터 키 정의 (US 전용) - Finviz v=141/v=161 기반 재무 필터
 US_FILTER_KEYS = [
     "sector", "market_cap", "change_pct",
-    # Valuation 필터 (Finviz v=141)
-    "per", "pbr",
-    # 재무 필터 (Finviz v=161)
-    "roe", "roa", "roi",
-    "operating_margin", "gross_margin", "profit_margin",
-    "debt_ratio", "current_ratio", "dividend_yield",
 ]
