@@ -5,6 +5,7 @@
 - 외국인/기관/개인 순매수
 """
 
+import asyncio
 import httpx
 from datetime import datetime, date
 from typing import Dict, Any, Optional
@@ -19,10 +20,26 @@ NAVER_HEADERS = {
     "Referer": "https://m.stock.naver.com/",
 }
 
+# 캐시 (60초 TTL)
+_market_summary_cache = {"data": None, "ts": 0}
+_CACHE_TTL = 60
+
+
+async def _fetch_index_basic(client: httpx.AsyncClient, market: str) -> Optional[Dict]:
+    """지수 기본 정보 조회 (병렬용)"""
+    try:
+        url = f"https://m.stock.naver.com/api/index/{market}/basic"
+        r = await client.get(url)
+        if r.status_code == 200:
+            return r.json()
+    except Exception as e:
+        print(f"[DataCollector] {market} basic API 오류: {e}")
+    return None
+
 
 async def collect_daily_market_data(market: str) -> Optional[MarketData]:
     """
-    네이버 API에서 일별 시장 데이터 수집
+    네이버 API에서 일별 시장 데이터 수집 (병렬화)
 
     Args:
         market: 'KOSPI' | 'KOSDAQ'
@@ -30,15 +47,22 @@ async def collect_daily_market_data(market: str) -> Optional[MarketData]:
     Returns: MarketData 또는 None
     """
     try:
-        async with httpx.AsyncClient(timeout=30.0, headers=NAVER_HEADERS) as client:
-            # 1. 지수 기본 정보
-            url = f"https://m.stock.naver.com/api/index/{market}/basic"
-            r = await client.get(url)
-            if r.status_code != 200:
-                print(f"[DataCollector] {market} basic API 실패: {r.status_code}")
-                return None
+        async with httpx.AsyncClient(timeout=10.0, headers=NAVER_HEADERS) as client:
+            # 3개 API 병렬 호출
+            basic_task = _fetch_index_basic(client, market)
+            stock_count_task = get_stock_count_from_naver(market)
+            investor_task = get_investor_trend_from_naver(market)
 
-            data = r.json()
+            results = await asyncio.gather(
+                basic_task, stock_count_task, investor_task,
+                return_exceptions=True
+            )
+
+            # 1. 지수 기본 정보
+            data = results[0] if not isinstance(results[0], Exception) else None
+            if not data:
+                print(f"[DataCollector] {market} basic API 실패")
+                return None
 
             index_value = float(data.get("closePrice", "0").replace(",", ""))
             change_str = data.get("compareToPreviousClosePrice", "0").replace(",", "")
@@ -50,16 +74,18 @@ async def collect_daily_market_data(market: str) -> Optional[MarketData]:
             trading_volume = int(data.get("accumulatedTradingVolume", "0").replace(",", ""))
             trading_value = int(data.get("accumulatedTradingValue", "0").replace(",", ""))
 
-            # 2. 상승/하락 종목수 + 거래대금 (네이버 HTML 파싱)
+            # 2. 상승/하락 종목수 + 거래대금
             rising = falling = unchanged = upper = lower = listed = 0
             html_trading_value = 0
-            rising, falling, unchanged, upper, lower, listed, html_trading_value = await get_stock_count_from_naver(market)
-            # HTML에서 파싱한 거래대금 사용 (API에서 제공하지 않음)
+            if not isinstance(results[1], Exception):
+                rising, falling, unchanged, upper, lower, listed, html_trading_value = results[1]
             if html_trading_value > 0:
                 trading_value = html_trading_value
 
             # 3. 투자자 동향
-            foreign_net, institution_net, individual_net = await get_investor_trend_from_naver(market)
+            foreign_net = institution_net = individual_net = 0
+            if not isinstance(results[2], Exception):
+                foreign_net, institution_net, individual_net = results[2]
 
             return MarketData(
                 date=date.today(),
@@ -96,7 +122,7 @@ async def get_investor_trend_from_naver(market: str) -> tuple:
     individual_net = 0
 
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             # KOSPI/KOSDAQ 지수 페이지에서 투자자별 매매 동향 파싱
             code = "KOSPI" if market == "KOSPI" else "KOSDAQ"
             url = f"https://finance.naver.com/sise/sise_index.naver?code={code}"
@@ -164,7 +190,7 @@ async def get_stock_count_from_naver(market: str) -> tuple:
     trading_value = 0
 
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             # 네이버 증시 페이지에서 상승/하락 종목수 파싱
             if market == "KOSPI":
                 url = "https://finance.naver.com/sise/sise_index.naver?code=KOSPI"
@@ -230,48 +256,64 @@ async def get_stock_count_from_naver(market: str) -> tuple:
 
 async def get_market_summary() -> Dict[str, Any]:
     """
-    KOSPI/KOSDAQ 시장 요약 데이터 조회
+    KOSPI/KOSDAQ 시장 요약 데이터 조회 (병렬 + 캐시)
 
     Returns: {
         kospi: {index_value, change_percent, rising, falling, ...},
         kosdaq: {index_value, change_percent, rising, falling, ...}
     }
     """
+    global _market_summary_cache
+    import time
+
+    # 캐시 확인 (60초 TTL)
+    now = time.time()
+    if _market_summary_cache["data"] and (now - _market_summary_cache["ts"]) < _CACHE_TTL:
+        return _market_summary_cache["data"]
+
     result = {
         "kospi": None,
         "kosdaq": None,
         "investors": {"foreign": 0, "institution": 0, "individual": 0}
     }
 
-    for market in ["KOSPI", "KOSDAQ"]:
-        data = await collect_daily_market_data(market)
-        if data:
-            result[market.lower()] = {
-                "index_value": data.index_value,
-                "change_amount": data.change_amount,
-                "change_percent": data.change_percent,
-                "trading_volume": data.trading_volume,
-                "trading_value": data.trading_value,
-                "rising_stocks": data.rising_stocks,
-                "falling_stocks": data.falling_stocks,
-                "unchanged_stocks": data.unchanged_stocks,
-                "upper_limit_stocks": data.upper_limit_stocks,
-                "lower_limit_stocks": data.lower_limit_stocks,
-                "listed_stocks": data.listed_stocks,
-                # 투자자 동향 (각 시장별로 저장)
-                "foreign_net": data.foreign_net,
-                "institution_net": data.institution_net,
-                "individual_net": data.individual_net,
+    # KOSPI, KOSDAQ 병렬 조회
+    kospi_task = collect_daily_market_data("KOSPI")
+    kosdaq_task = collect_daily_market_data("KOSDAQ")
+    market_data = await asyncio.gather(kospi_task, kosdaq_task, return_exceptions=True)
+
+    for i, market in enumerate(["KOSPI", "KOSDAQ"]):
+        data = market_data[i]
+        if isinstance(data, Exception) or not data:
+            continue
+
+        result[market.lower()] = {
+            "index_value": data.index_value,
+            "change_amount": data.change_amount,
+            "change_percent": data.change_percent,
+            "trading_volume": data.trading_volume,
+            "trading_value": data.trading_value,
+            "rising_stocks": data.rising_stocks,
+            "falling_stocks": data.falling_stocks,
+            "unchanged_stocks": data.unchanged_stocks,
+            "upper_limit_stocks": data.upper_limit_stocks,
+            "lower_limit_stocks": data.lower_limit_stocks,
+            "listed_stocks": data.listed_stocks,
+            "foreign_net": data.foreign_net,
+            "institution_net": data.institution_net,
+            "individual_net": data.individual_net,
+        }
+
+        # 투자자 동향 (KOSPI 기준 - 레거시 호환용)
+        if market == "KOSPI":
+            result["investors"] = {
+                "foreign": data.foreign_net,
+                "institution": data.institution_net,
+                "individual": data.individual_net
             }
 
-            # 투자자 동향 (KOSPI 기준 - 레거시 호환용)
-            if market == "KOSPI":
-                result["investors"] = {
-                    "foreign": data.foreign_net,
-                    "institution": data.institution_net,
-                    "individual": data.individual_net
-                }
-
+    # 캐시 저장
+    _market_summary_cache = {"data": result, "ts": now}
     return result
 
 
@@ -292,7 +334,7 @@ async def fetch_index_history(market: str, days: int = 365) -> list:
         code = "KOSPI" if market == "KOSPI" else "KOSDAQ"
         url = f"https://fchart.stock.naver.com/sise.nhn?symbol={code}&timeframe=day&count={days}&requestType=0"
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             r = await client.get(url)
             if r.status_code != 200:
                 return []
