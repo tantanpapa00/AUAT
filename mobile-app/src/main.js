@@ -20670,20 +20670,22 @@ document.addEventListener('DOMContentLoaded', () => {
     initMobileTabBar();
 });
 
-// Capacitor 플러그인 초기화
-if (typeof window.Capacitor !== 'undefined') {
-    console.log('[Capacitor] Running in Capacitor environment');
-    
+// Capacitor 플러그인 초기화 (네이티브 앱에서만)
+if (typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform()) {
+    console.log('[Capacitor] Running in native Capacitor environment');
+
     // 상태바 설정
     import('@capacitor/status-bar').then(({ StatusBar, Style }) => {
         StatusBar.setStyle({ style: Style.Dark });
         StatusBar.setBackgroundColor({ color: '#0f1419' });
-    }).catch(e => console.log('StatusBar not available'));
+    }).catch(e => console.log('StatusBar not available:', e.message));
 
     // 스플래시 숨기기
     import('@capacitor/splash-screen').then(({ SplashScreen }) => {
         SplashScreen.hide();
-    }).catch(e => console.log('SplashScreen not available'));
+    }).catch(e => console.log('SplashScreen not available:', e.message));
+} else if (typeof window.Capacitor !== 'undefined') {
+    console.log('[Capacitor] Running in web browser (native plugins disabled)');
 }
 
 console.log('[Mobile] BBooster Mobile App initialized');
@@ -20693,9 +20695,9 @@ console.log('[Mobile] BBooster Mobile App initialized');
 // =====================================================
 
 async function initPushNotifications() {
-    // Capacitor 환경인지 확인
-    if (typeof window.Capacitor === 'undefined') {
-        console.log('[Push] Not running in Capacitor, skipping push init');
+    // 네이티브 Capacitor 환경인지 확인
+    if (typeof window.Capacitor === 'undefined' || !window.Capacitor.isNativePlatform()) {
+        console.log('[Push] Not running in native app, skipping push init');
         return;
     }
 

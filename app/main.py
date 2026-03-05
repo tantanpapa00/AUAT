@@ -291,16 +291,21 @@ async def lifespan(app):
 
 app = FastAPI(title="BBooster API v1.0", lifespan=lifespan)
 
-# CORS 설정 — Tauri webview + 로컬 개발 + 프로덕션
+# CORS 설정 — Tauri webview + 로컬 개발 + 프로덕션 + 모바일
 ALLOWED_ORIGINS = [
-    "http://localhost:5173",      # Vite dev server
+    "http://localhost:5173",      # Vite dev server (PC)
+    "http://localhost:5174",      # Vite dev server (Mobile)
     "http://localhost:1420",      # Tauri dev
     "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
     "http://127.0.0.1:1420",
+    "http://192.168.200.105:5174",  # LAN mobile test
     "https://qube-system.com",    # Production
     "https://www.qube-system.com",
     "tauri://localhost",          # Tauri production
     "https://tauri.localhost",
+    "capacitor://localhost",      # Capacitor iOS
+    "http://localhost",           # Capacitor Android
 ]
 app.add_middleware(
     CORSMiddleware,
