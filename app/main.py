@@ -279,6 +279,13 @@ async def lifespan(app):
     except Exception as e:
         print(f"[US ETF Themes Warmup] 경고: {e}")
 
+    # 6. US 가격 스케줄러 (yfinance rate limit 대응)
+    try:
+        asyncio.create_task(_us_price_scheduler_loop())
+        print("[US Price] 스케줄러 등록 완료")
+    except Exception as e:
+        print(f"[US Price] 스케줄러 등록 실패: {e}")
+
     yield
 
 
@@ -934,42 +941,33 @@ async def _startup_candle_preloader():
 
 
 # US 가격 스케줄러 (yfinance rate limit 대응)
-@app.on_event("startup")
-async def _startup_us_price_scheduler():
+async def _us_price_scheduler_loop():
     """5분마다 yfinance로 S&P500 가격 업데이트 → DB 저장"""
-    import sys
-    print("[US Price] 스케줄러 등록 중...", flush=True)
+    # 첫 실행 60초 대기 (서버 안정화)
+    await asyncio.sleep(60)
+    print("[US Price] 스케줄러 시작", flush=True)
 
-    async def us_price_scheduler():
-        import time as _time
+    while True:
+        try:
+            # S&P 500 목록 가져오기
+            from app.screener.us_screener import get_sp500_list
+            sp500_list = await get_sp500_list()
+            symbols = [s["symbol"] for s in sp500_list]
 
-        # 첫 실행 60초 대기 (서버 안정화)
-        await asyncio.sleep(60)
-        print("[US Price] 스케줄러 시작", flush=True)
+            if not symbols:
+                print("[US Price] S&P 500 목록 없음", flush=True)
+                await asyncio.sleep(300)
+                continue
 
-        while True:
-            try:
-                # S&P 500 목록 가져오기
-                from app.screener.us_screener import get_sp500_list
-                sp500_list = await get_sp500_list()
-                symbols = [s["symbol"] for s in sp500_list]
+            # yfinance 배치 호출 → DB 저장
+            updated = await _update_us_prices_to_db(symbols)
+            print(f"[US Price] 업데이트 완료: {updated}개 종목", flush=True)
 
-                if not symbols:
-                    print("[US Price] S&P 500 목록 없음", flush=True)
-                    await asyncio.sleep(300)
-                    continue
+        except Exception as e:
+            print(f"[US Price] 스케줄러 오류: {e}", flush=True)
 
-                # yfinance 배치 호출 → DB 저장
-                updated = await _update_us_prices_to_db(symbols)
-                print(f"[US Price] 업데이트 완료: {updated}개 종목", flush=True)
-
-            except Exception as e:
-                print(f"[US Price] 스케줄러 오류: {e}", flush=True)
-
-            # 5분 대기
-            await asyncio.sleep(300)
-
-    asyncio.create_task(us_price_scheduler())
+        # 5분 대기
+        await asyncio.sleep(300)
 
 
 async def _update_us_prices_to_db(symbols: list) -> int:
