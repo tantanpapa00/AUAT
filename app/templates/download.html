@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>다운로드 - BBooster</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/brand/icon_32.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #EF4444;
+      --primary-dark: #DC2626;
+      --bg: #ffffff;
+      --bg-alt: #f8fafc;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Noto Sans KR', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+    a { color: inherit; text-decoration: none; }
+
+    /* Header */
+    .header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      z-index: 1000;
+      padding: 0 24px;
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo-link { display: flex; align-items: center; gap: 10px; }
+    .logo-text { font-size: 24px; font-weight: 800; }
+    .logo-text .b { color: #EF4444; }
+    .logo-text .booster { color: #111827; }
+    .header-nav { display: flex; gap: 28px; }
+    .header-nav a { font-weight: 500; color: var(--text-muted); font-size: 15px; }
+    .header-nav a:hover, .header-nav a.active { color: var(--primary); }
+    .header-actions { display: flex; gap: 12px; }
+    .btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-primary { background: linear-gradient(135deg, var(--primary-dark), var(--primary)); color: white; }
+    .btn-lg { padding: 16px 32px; font-size: 16px; }
+    .mobile-menu-btn { display: none; background: none; border: none; font-size: 24px; cursor: pointer; }
+
+    /* Main */
+    .download-hero {
+      padding: 140px 24px 80px;
+      text-align: center;
+      background: linear-gradient(180deg, var(--bg) 0%, var(--bg-alt) 100%);
+    }
+    .download-hero h1 {
+      font-size: 42px;
+      font-weight: 800;
+      margin-bottom: 16px;
+    }
+    .download-hero p {
+      font-size: 18px;
+      color: var(--text-muted);
+      margin-bottom: 48px;
+    }
+
+    .download-cards {
+      display: flex;
+      gap: 32px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 64px;
+    }
+    .download-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 40px;
+      width: 320px;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    }
+    .download-icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+    }
+    .download-card h3 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .download-card .specs {
+      color: var(--text-muted);
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+    .download-card .coming-soon {
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    .app-preview {
+      max-width: 900px;
+      margin: 0 auto 64px;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.12);
+    }
+    .app-preview img {
+      width: 100%;
+      display: block;
+    }
+
+    .guide-links {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+    .guide-links h2 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+    .guide-link {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 20px;
+      background: var(--bg-alt);
+      border-radius: 12px;
+      margin-bottom: 12px;
+      transition: background 0.2s;
+    }
+    .guide-link:hover {
+      background: var(--border);
+    }
+    .guide-link-icon {
+      font-size: 24px;
+    }
+    .guide-link-text {
+      flex: 1;
+    }
+    .guide-link-text strong {
+      display: block;
+      font-size: 15px;
+    }
+    .guide-link-text span {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .guide-link-arrow {
+      color: var(--text-muted);
+    }
+
+    /* Footer */
+    .footer {
+      background: #0F172A;
+      color: rgba(255,255,255,0.7);
+      padding: 48px 24px;
+      text-align: center;
+      font-size: 13px;
+    }
+    .footer-links { margin-bottom: 24px; }
+    .footer-links a { margin: 0 12px; color: rgba(255,255,255,0.7); }
+
+    @media (max-width: 768px) {
+      .header-nav, .header-actions { display: none; }
+      .mobile-menu-btn { display: block; }
+      .download-hero h1 { font-size: 32px; }
+      .download-cards { flex-direction: column; align-items: center; }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <a href="/" class="logo-link">
+      <span class="logo-text"><span class="b">B</span><span class="booster">Booster</span></span>
+    </a>
+    <nav class="header-nav">
+      <a href="/">제품</a>
+      <a href="/pricing">요금제</a>
+      <a href="/guide">시작 가이드</a>
+      <a href="/download" class="active">다운로드</a>
+      <a href="/updates">공지/업데이트</a>
+    </nav>
+    <div class="header-actions">
+      <a href="/login" class="btn btn-outline">로그인</a>
+      <a href="/login?register=true" class="btn btn-primary">7일 무료체험 시작</a>
+    </div>
+    <button class="mobile-menu-btn">☰</button>
+  </header>
+
+  <section class="download-hero">
+    <h1>BBooster 다운로드</h1>
+    <p>PC 앱을 설치하고 자동매매를 시작하세요</p>
+
+    <div class="download-cards">
+      <div class="download-card">
+        <div class="download-icon">🖥️</div>
+        <h3>Windows PC</h3>
+        <div class="specs">Windows 10 이상 | 설치 용량 약 150MB</div>
+        <a href="https://github.com/tantanpapa00/AUAT/releases/latest" class="btn btn-primary btn-lg" target="_blank">
+          다운로드 (v1.0.0)
+        </a>
+      </div>
+      <div class="download-card">
+        <div class="download-icon">📱</div>
+        <h3>모바일 앱</h3>
+        <div class="specs">Android / iOS</div>
+        <div class="coming-soon">준비 중</div>
+      </div>
+    </div>
+
+    <div class="app-preview">
+      <img src="/static/screenshots/home_dashboard_kr.jpg" alt="BBooster 앱 미리보기" loading="lazy">
+    </div>
+  </section>
+
+  <section class="guide-links">
+    <h2>연동 가이드</h2>
+    <a href="/guide#connect" class="guide-link">
+      <span class="guide-link-icon">📡</span>
+      <span class="guide-link-text">
+        <strong>TradingView 얼럿 설정 방법</strong>
+        <span>Pine Script 전략과 BBooster 연결하기</span>
+      </span>
+      <span class="guide-link-arrow">→</span>
+    </a>
+    <a href="/guide#connect" class="guide-link">
+      <span class="guide-link-icon">🔑</span>
+      <span class="guide-link-text">
+        <strong>거래소 API 키 생성 가이드</strong>
+        <span>OKX, 한국투자증권 API 키 발급 방법</span>
+      </span>
+      <span class="guide-link-arrow">→</span>
+    </a>
+    <a href="/guide" class="guide-link">
+      <span class="guide-link-icon">🚀</span>
+      <span class="guide-link-text">
+        <strong>시작 가이드</strong>
+        <span>처음 사용자를 위한 단계별 안내</span>
+      </span>
+      <span class="guide-link-arrow">→</span>
+    </a>
+  </section>
+
+  <footer class="footer">
+    <div class="footer-links">
+      <a href="/terms">이용약관</a>
+      <a href="/privacy">개인정보처리방침</a>
+      <a href="/refund">환불정책</a>
+    </div>
+    <div>&copy; 2026 QUBE System. All rights reserved.</div>
+  </footer>
+</body>
+</html>

@@ -1150,6 +1150,24 @@ def pricing_page(request: Request):
     return templates.TemplateResponse("pricing.html", {"request": request})
 
 
+@app.get("/guide", response_class=HTMLResponse)
+def guide_page(request: Request):
+    """Guide page - Getting started guide"""
+    return templates.TemplateResponse("guide.html", {"request": request})
+
+
+@app.get("/download", response_class=HTMLResponse)
+def download_page(request: Request):
+    """Download page - PC app download"""
+    return templates.TemplateResponse("download.html", {"request": request})
+
+
+@app.get("/updates", response_class=HTMLResponse)
+def updates_page(request: Request):
+    """Updates page - Announcements and release notes"""
+    return templates.TemplateResponse("updates.html", {"request": request})
+
+
 @app.get("/billing/success", response_class=HTMLResponse)
 def billing_success_page(request: Request):
     """Billing success page - Process payment after card auth"""
