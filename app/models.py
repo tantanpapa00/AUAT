@@ -466,6 +466,27 @@ class UsBreadthCache(Base):
     )
 
 
+class UsPriceCache(Base):
+    """
+    미국 주식 가격 캐시 (yfinance rate limit 대응)
+    - 5분마다 스케줄러가 업데이트
+    - API는 DB에서만 읽기 (yfinance 직접 호출 X)
+    """
+    __tablename__ = "us_price_cache"
+
+    symbol = Column(Text, primary_key=True)  # AAPL, MSFT, ...
+    price = Column(Float, nullable=False, default=0)
+    prev_close = Column(Float, nullable=False, default=0)
+    change_pct = Column(Float, nullable=False, default=0)
+    market_cap = Column(BigInteger, nullable=True)  # 원본 (달러)
+    volume = Column(BigInteger, nullable=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index('ix_us_price_cache_updated', 'updated_at'),
+    )
+
+
 class PaymentHistory(Base):
     """
     결제 내역 (명령서66)

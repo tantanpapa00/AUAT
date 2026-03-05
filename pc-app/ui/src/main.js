@@ -5346,7 +5346,7 @@ document.getElementById('btn-ai-analysis')?.addEventListener('click', async () =
 });
 
 // AI 작업 결과 폴링 (차트 포함 전체 status 반환)
-async function pollAiJobResult(jobId, maxWaitSec = 120) {
+async function pollAiJobResult(jobId, maxWaitSec = 200) {
     const startTime = Date.now();
     const progressEl = document.getElementById('ai-progress-text');
 
@@ -5379,7 +5379,7 @@ async function pollAiJobResult(jobId, maxWaitSec = 120) {
             console.warn('[AI Poll] 재시도:', e);
         }
     }
-    throw new Error('시간 초과 (2분). 다시 시도해주세요.');
+    throw new Error('시간 초과 (3분). 다시 시도해주세요.');
 }
 
 // 간단한 마크다운 변환
@@ -10987,8 +10987,8 @@ async function sendAiQuestion(text) {
         const jobId = reqResult.job_id;
         if (!jobId) throw new Error('작업 ID가 없습니다');
 
-        // 2) 폴링 (2초마다, 최대 120초)
-        const result = await pollAiChatResult(jobId, 120);
+        // 2) 폴링 (2초마다, 최대 200초)
+        const result = await pollAiChatResult(jobId, 200);
         const answer = result.report;
         const charts = result.charts;
         const stock = result.stock;
@@ -11103,7 +11103,7 @@ async function shareAiReport(stockName, stockCode) {
 window.shareAiReport = shareAiReport;
 
 // AI 채팅 결과 폴링 (차트/종목 정보 포함)
-async function pollAiChatResult(jobId, maxWaitSec = 120) {
+async function pollAiChatResult(jobId, maxWaitSec = 200) {
     const startTime = Date.now();
     const progressEl = document.getElementById('ai-chat-progress');
 
@@ -11139,7 +11139,7 @@ async function pollAiChatResult(jobId, maxWaitSec = 120) {
             console.warn('[AI Chat Poll] 재시도:', e);
         }
     }
-    throw new Error('시간 초과 (2분). 다시 시도해주세요.');
+    throw new Error('시간 초과 (3분). 다시 시도해주세요.');
 }
 
 async function loadAiRecommendations(market) {
@@ -14933,7 +14933,7 @@ document.getElementById('btn-ai-analysis-modal')?.addEventListener('click', asyn
 });
 
 // AI 작업 결과 폴링 (모달용 - 차트 포함)
-async function pollAiJobResult2(jobId, maxWaitSec = 120) {
+async function pollAiJobResult2(jobId, maxWaitSec = 200) {
     const startTime = Date.now();
     const progressEl = document.getElementById('ai-progress-text2');
 

@@ -933,6 +933,141 @@ async def _startup_candle_preloader():
     asyncio.create_task(delayed_start())
 
 
+# US 가격 스케줄러 (yfinance rate limit 대응)
+@app.on_event("startup")
+async def _startup_us_price_scheduler():
+    """5분마다 yfinance로 S&P500 가격 업데이트 → DB 저장"""
+
+    async def us_price_scheduler():
+        import time as _time
+
+        # 첫 실행 60초 대기 (서버 안정화)
+        await asyncio.sleep(60)
+        print("[US Price] 스케줄러 시작")
+
+        while True:
+            try:
+                # S&P 500 목록 가져오기
+                from app.screener.us_screener import get_sp500_list
+                sp500_list = await get_sp500_list()
+                symbols = [s["symbol"] for s in sp500_list]
+
+                if not symbols:
+                    print("[US Price] S&P 500 목록 없음")
+                    await asyncio.sleep(300)
+                    continue
+
+                # yfinance 배치 호출 → DB 저장
+                updated = await _update_us_prices_to_db(symbols)
+                print(f"[US Price] 업데이트 완료: {updated}개 종목")
+
+            except Exception as e:
+                print(f"[US Price] 스케줄러 오류: {e}")
+
+            # 5분 대기
+            await asyncio.sleep(300)
+
+    asyncio.create_task(us_price_scheduler())
+
+
+async def _update_us_prices_to_db(symbols: list) -> int:
+    """yfinance로 가격 조회 후 DB에 저장 (50개씩 배치, 3초 대기)"""
+    import time as _time
+    from concurrent.futures import ThreadPoolExecutor
+
+    def fetch_and_save_batch(batch_symbols: list) -> int:
+        """동기 함수: yfinance 호출 + DB 저장"""
+        import yfinance as yf
+        from app.db import engine
+        from sqlalchemy import text
+
+        saved = 0
+        try:
+            tickers_str = " ".join(batch_symbols)
+            tickers = yf.Tickers(tickers_str)
+
+            updates = []
+            for sym in batch_symbols:
+                try:
+                    ticker = tickers.tickers.get(sym)
+                    if not ticker:
+                        continue
+
+                    info = ticker.fast_info
+                    last_price = getattr(info, 'last_price', 0) or 0
+                    prev_close = getattr(info, 'previous_close', 0) or 0
+                    market_cap = getattr(info, 'market_cap', 0) or 0
+
+                    # 가격이 없으면 history로 시도
+                    if not last_price:
+                        try:
+                            hist = ticker.history(period="2d")
+                            if not hist.empty:
+                                last_price = float(hist['Close'].iloc[-1])
+                                if len(hist) > 1:
+                                    prev_close = float(hist['Close'].iloc[-2])
+                        except:
+                            pass
+
+                    change_pct = ((last_price - prev_close) / prev_close * 100) if prev_close else 0
+
+                    updates.append({
+                        "symbol": sym,
+                        "price": round(last_price, 2),
+                        "prev_close": round(prev_close, 2),
+                        "change_pct": round(change_pct, 2),
+                        "market_cap": int(market_cap) if market_cap else None,
+                        "volume": None,  # fast_info에서 미제공
+                    })
+                except:
+                    pass
+
+            # DB 일괄 저장 (UPSERT)
+            if updates:
+                with engine.connect() as conn:
+                    for u in updates:
+                        conn.execute(text("""
+                            INSERT INTO us_price_cache (symbol, price, prev_close, change_pct, market_cap, volume, updated_at)
+                            VALUES (:symbol, :price, :prev_close, :change_pct, :market_cap, :volume, NOW())
+                            ON CONFLICT (symbol) DO UPDATE SET
+                                price = EXCLUDED.price,
+                                prev_close = EXCLUDED.prev_close,
+                                change_pct = EXCLUDED.change_pct,
+                                market_cap = EXCLUDED.market_cap,
+                                volume = EXCLUDED.volume,
+                                updated_at = NOW()
+                        """), u)
+                    conn.commit()
+                    saved = len(updates)
+
+        except Exception as e:
+            print(f"[US Price] 배치 실패: {e}")
+
+        return saved
+
+    # ThreadPool 실행
+    loop = asyncio.get_event_loop()
+    executor = ThreadPoolExecutor(max_workers=1)
+
+    total_saved = 0
+    batch_size = 50
+
+    for i in range(0, len(symbols), batch_size):
+        batch = symbols[i:i + batch_size]
+        try:
+            saved = await loop.run_in_executor(executor, fetch_and_save_batch, batch)
+            total_saved += saved
+        except Exception as e:
+            print(f"[US Price] 배치 {i}~{i+batch_size} 오류: {e}")
+
+        # 배치 사이 3초 대기 (rate limit 방지)
+        if i + batch_size < len(symbols):
+            await asyncio.sleep(3)
+
+    executor.shutdown(wait=False)
+    return total_saved
+
+
 # ---- Web Dashboard Templates ----
 templates = Jinja2Templates(directory="app/templates")
 

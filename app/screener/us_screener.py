@@ -113,87 +113,65 @@ async def get_sp500_list() -> List[Dict]:
     return stocks
 
 
-# ========== 가격 데이터 (yfinance) ==========
+# ========== 가격 데이터 (DB에서 읽기) ==========
 
-def _fetch_prices_sync(symbols: List[str]) -> Dict[str, Dict]:
+def _get_prices_from_db_sync(symbols: List[str]) -> Dict[str, Dict]:
     """
-    yfinance로 가격 배치 조회 (동기). 50개씩 나눠서 처리.
-    Returns: {"AAPL": {"price": 175.5, "change_pct": -1.2, "market_cap": 2800000000000, ...}, ...}
+    DB에서 가격 데이터 읽기 (동기).
+    스케줄러가 5분마다 yfinance → DB 업데이트.
     """
-    import yfinance as yf
+    from app.db import engine
+    from sqlalchemy import text
 
     result = {}
-    batch_size = 50
+    try:
+        with engine.connect() as conn:
+            # IN 절로 일괄 조회
+            placeholders = ", ".join([f":s{i}" for i in range(len(symbols))])
+            params = {f"s{i}": sym for i, sym in enumerate(symbols)}
 
-    for i in range(0, len(symbols), batch_size):
-        batch = symbols[i:i + batch_size]
-        try:
-            # yf.Tickers로 배치 조회
-            tickers_str = " ".join(batch)
-            tickers = yf.Tickers(tickers_str)
+            query = text(f"""
+                SELECT symbol, price, prev_close, change_pct, market_cap, volume
+                FROM us_price_cache
+                WHERE symbol IN ({placeholders})
+            """)
 
-            for sym in batch:
-                try:
-                    ticker = tickers.tickers.get(sym)
-                    if not ticker:
-                        continue
+            rows = conn.execute(query, params).fetchall()
 
-                    info = ticker.fast_info
-                    last_price = getattr(info, 'last_price', 0) or 0
-                    prev_close = getattr(info, 'previous_close', 0) or 0
-                    market_cap = getattr(info, 'market_cap', 0) or 0
-
-                    # 가격이 없으면 history로 시도
-                    if not last_price:
-                        try:
-                            hist = ticker.history(period="2d")
-                            if not hist.empty:
-                                last_price = float(hist['Close'].iloc[-1])
-                                if len(hist) > 1:
-                                    prev_close = float(hist['Close'].iloc[-2])
-                        except:
-                            pass
-
-                    change_pct = ((last_price - prev_close) / prev_close * 100) if prev_close else 0
-
-                    result[sym] = {
-                        "price": round(last_price, 2),
-                        "prev_close": round(prev_close, 2),
-                        "change_pct": round(change_pct, 2),
-                        "market_cap": market_cap,
-                        "market_cap_t": round(market_cap / 1e12, 3) if market_cap else 0,  # 조 달러
-                    }
-                except Exception as e:
-                    # 개별 종목 실패는 무시
-                    pass
-
-            # rate limit 방지: 배치 사이 1초 대기
-            if i + batch_size < len(symbols):
-                _time.sleep(1)
-
-        except Exception as e:
-            print(f"[US] yfinance batch 실패 ({i}~{i+batch_size}): {e}")
+            for row in rows:
+                symbol, price, prev_close, change_pct, market_cap, volume = row
+                result[symbol] = {
+                    "price": round(float(price or 0), 2),
+                    "prev_close": round(float(prev_close or 0), 2),
+                    "change_pct": round(float(change_pct or 0), 2),
+                    "market_cap": market_cap or 0,
+                    "market_cap_t": round((market_cap or 0) / 1e12, 3),  # 조 달러
+                    "volume": volume or 0,
+                }
+    except Exception as e:
+        print(f"[US] DB 가격 조회 실패: {e}")
 
     return result
 
 
 async def get_us_prices(symbols: List[str], force_refresh: bool = False) -> Dict[str, Dict]:
     """
-    US 종목 가격 배치 조회. 5분 캐싱.
+    US 종목 가격 조회 - DB에서 읽기 (yfinance 직접 호출 X).
+    스케줄러가 5분마다 DB 업데이트.
     """
     global _price_cache
     now = _time.time()
 
-    # 캐시 확인 (강제 새로고침이 아닌 경우)
-    if not force_refresh and _price_cache["data"] and (now - _price_cache["ts"]) < _PRICE_TTL:
+    # 메모리 캐시 확인 (30초 TTL - DB 부하 줄이기)
+    if not force_refresh and _price_cache["data"] and (now - _price_cache["ts"]) < 30:
         return _price_cache["data"]
 
     loop = asyncio.get_event_loop()
-    prices = await loop.run_in_executor(_executor, _fetch_prices_sync, symbols)
+    prices = await loop.run_in_executor(_executor, _get_prices_from_db_sync, symbols)
 
     if prices:
         _price_cache = {"data": prices, "ts": now}
-        print(f"[US] 가격 업데이트: {len(prices)}개 종목")
+        print(f"[US] DB 가격 로드: {len(prices)}개 종목")
 
     return prices
 
