@@ -10,6 +10,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+  <!-- Swiper.js CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
   <style>
     :root {
       --primary: #EF4444;
@@ -158,16 +160,71 @@
       justify-content: center;
       margin-bottom: 48px;
     }
-    .hero-screenshot {
+    /* Hero Slider */
+    .hero-slider-container {
       max-width: 1000px;
       margin: 0 auto;
+      position: relative;
+    }
+    .hero-slider {
       border-radius: 16px;
       box-shadow: 0 20px 60px rgba(0,0,0,0.15);
       overflow: hidden;
     }
-    .hero-screenshot img {
+    .hero-slide {
+      position: relative;
+    }
+    .hero-slide img {
       width: 100%;
       display: block;
+    }
+    .slide-caption {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(transparent, rgba(0,0,0,0.7));
+      color: white;
+      padding: 40px 24px 20px;
+      font-size: 18px;
+      font-weight: 600;
+      text-align: center;
+    }
+    /* Swiper Navigation */
+    .hero-slider-container .swiper-button-prev,
+    .hero-slider-container .swiper-button-next {
+      color: white;
+      background: rgba(0,0,0,0.4);
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      transition: background 0.2s;
+    }
+    .hero-slider-container .swiper-button-prev:hover,
+    .hero-slider-container .swiper-button-next:hover {
+      background: rgba(0,0,0,0.6);
+    }
+    .hero-slider-container .swiper-button-prev::after,
+    .hero-slider-container .swiper-button-next::after {
+      font-size: 18px;
+      font-weight: bold;
+    }
+    /* Swiper Pagination */
+    .hero-slider-container .swiper-pagination {
+      position: relative;
+      margin-top: 20px;
+    }
+    .hero-slider-container .swiper-pagination-bullet {
+      width: 10px;
+      height: 10px;
+      background: var(--border);
+      opacity: 1;
+      transition: all 0.3s;
+    }
+    .hero-slider-container .swiper-pagination-bullet-active {
+      background: var(--primary);
+      width: 28px;
+      border-radius: 5px;
     }
 
     /* Section Common */
@@ -564,8 +621,34 @@
       <a href="/login?register=true" class="btn btn-primary btn-lg">7일 무료체험 시작</a>
       <a href="/pricing" class="btn btn-outline btn-lg">요금제 보기</a>
     </div>
-    <div class="hero-screenshot fade-in">
-      <img src="/static/screenshots/home_dashboard_kr.jpg" alt="BBooster 대시보드" loading="lazy">
+    <div class="hero-slider-container fade-in">
+      <div class="swiper hero-slider">
+        <div class="swiper-wrapper">
+          <div class="swiper-slide hero-slide">
+            <img src="/static/screenshots/home_dashboard_kr.jpg" alt="통합 대시보드" loading="lazy">
+            <div class="slide-caption">통합 대시보드</div>
+          </div>
+          <div class="swiper-slide hero-slide">
+            <img src="/static/screenshots/market_us_heatmap.jpg" alt="실시간 시장 분석" loading="lazy">
+            <div class="slide-caption">실시간 시장 분석</div>
+          </div>
+          <div class="swiper-slide hero-slide">
+            <img src="/static/screenshots/ai_recommend_input.jpg" alt="AI 종목 분석" loading="lazy">
+            <div class="slide-caption">AI 종목 분석</div>
+          </div>
+          <div class="swiper-slide hero-slide">
+            <img src="/static/screenshots/backtest_chart_samsung.jpg" alt="백테스트 & 전략 검증" loading="lazy">
+            <div class="slide-caption">백테스트 &amp; 전략 검증</div>
+          </div>
+          <div class="swiper-slide hero-slide">
+            <img src="/static/screenshots/market_kr_overview.jpg" alt="시장 신호등 & 투자자 동향" loading="lazy">
+            <div class="slide-caption">시장 신호등 &amp; 투자자 동향</div>
+          </div>
+        </div>
+        <div class="swiper-button-prev"></div>
+        <div class="swiper-button-next"></div>
+      </div>
+      <div class="swiper-pagination"></div>
     </div>
   </section>
 
@@ -817,6 +900,32 @@
         }
       } catch (e) {}
     })();
+  </script>
+
+  <!-- Swiper.js -->
+  <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+  <script>
+    // Hero Slider
+    const heroSwiper = new Swiper('.hero-slider', {
+      loop: true,
+      autoplay: {
+        delay: 4000,
+        disableOnInteraction: false,
+      },
+      effect: 'fade',
+      fadeEffect: {
+        crossFade: true
+      },
+      speed: 600,
+      pagination: {
+        el: '.swiper-pagination',
+        clickable: true,
+      },
+      navigation: {
+        nextEl: '.swiper-button-next',
+        prevEl: '.swiper-button-prev',
+      },
+    });
   </script>
 </body>
 </html>
