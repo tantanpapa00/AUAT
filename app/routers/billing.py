@@ -1,24 +1,27 @@
 """
-토스페이먼츠 빌링 API 라우터 (명령서66)
-- 카드 등록, 구독, 상태조회, 해지, 웹훅
+포트원 V2 + NHN KCP 빌링 API 라우터
+- 기존 토스페이먼츠 코드 교체
+- 카드 등록(빌링키), 구독, 상태조회, 해지, 웹훅
 """
 import os
 import logging
 from datetime import datetime, timezone
 from typing import Optional
-from fastapi import APIRouter, Request, HTTPException, Depends
+from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel
 import asyncpg
 
-from app.services.billing import (
-    issue_billing_key,
-    charge_billing,
-    generate_order_id,
-    generate_customer_key,
+from app.services.portone import (
+    pay_with_billing_key,
+    get_billing_key_info,
+    delete_billing_key,
+    generate_payment_id,
     calculate_subscription_amount,
     get_next_billing_date,
     PLAN_PRICES,
     PLAN_NAMES,
+    PORTONE_STORE_ID,
+    PORTONE_CHANNEL_KEY,
 )
 
 logger = logging.getLogger(__name__)
@@ -46,19 +49,10 @@ async def get_current_user(request: Request):
 
 # === Request/Response Models ===
 
-class CardRegisterRequest(BaseModel):
-    auth_key: str  # 토스 SDK에서 받은 인증키
-
-
 class SubscribeRequest(BaseModel):
+    """구독 요청 (포트원 SDK에서 빌링키 발급 후)"""
+    billing_key: str  # 포트원 SDK에서 발급받은 빌링키
     plan: str  # standard, pro, proplus, promax
-
-
-class CardRegisterResponse(BaseModel):
-    success: bool
-    card_last4: Optional[str] = None
-    card_company: Optional[str] = None
-    message: Optional[str] = None
 
 
 class SubscribeResponse(BaseModel):
@@ -87,76 +81,26 @@ class CancelResponse(BaseModel):
     message: Optional[str] = None
 
 
-class ConfirmRequest(BaseModel):
-    auth_key: str  # 토스 빌링 인증 후 받은 authKey
-    customer_key: str  # 고객 키
-    plan: str  # 구독할 플랜
+class PaymentHistoryItem(BaseModel):
+    date: str
+    amount: int
+    plan: str
+    status: str
 
 
-class ConfirmResponse(BaseModel):
-    success: bool
-    plan: Optional[str] = None
-    amount: Optional[int] = None
-    next_billing_at: Optional[str] = None
-    message: Optional[str] = None
+class PaymentHistoryResponse(BaseModel):
+    payments: list[PaymentHistoryItem]
 
 
 # === Endpoints ===
 
-@router.post("/card-register", response_model=CardRegisterResponse)
-async def register_card(
-    body: CardRegisterRequest,
-    request: Request,
-):
-    """
-    카드 등록 + 빌링키 발급
-    1. 프론트에서 토스 SDK로 카드 인증 → authKey 발급
-    2. authKey로 빌링키 발급
-    3. DB에 빌링키 저장
-    """
-    user = await get_current_user(request)
-    user_id = user.get("id")
-
-    customer_key = generate_customer_key(user_id)
-
-    # 토스 빌링키 발급
-    result = await issue_billing_key(body.auth_key, customer_key)
-
-    if result.get("error"):
-        logger.error(f"카드 등록 실패 (user {user_id}): {result}")
-        return CardRegisterResponse(
-            success=False,
-            message=result.get("message", "카드 등록에 실패했습니다")
-        )
-
-    billing_key = result.get("billingKey")
-    card_number = result.get("cardNumber", "")
-    card_last4 = card_number[-4:] if card_number else ""
-    card_company = result.get("cardCompany", "")
-
-    # DB에 저장 (subscriptions 테이블 upsert)
-    conn = await asyncpg.connect(DATABASE_URL)
-    try:
-        await conn.execute("""
-            INSERT INTO subscriptions (user_id, billing_key, customer_key, card_last4, card_company)
-            VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (user_id) DO UPDATE SET
-                billing_key = $2,
-                customer_key = $3,
-                card_last4 = $4,
-                card_company = $5,
-                updated_at = NOW()
-        """, user_id, billing_key, customer_key, card_last4, card_company)
-    finally:
-        await conn.close()
-
-    logger.info(f"카드 등록 성공 (user {user_id}): {card_company} ****{card_last4}")
-
-    return CardRegisterResponse(
-        success=True,
-        card_last4=card_last4,
-        card_company=card_company,
-    )
+@router.get("/config")
+async def get_billing_config():
+    """포트원 SDK 설정 정보 (프론트에서 사용)"""
+    return {
+        "storeId": PORTONE_STORE_ID,
+        "channelKey": PORTONE_CHANNEL_KEY,
+    }
 
 
 @router.post("/subscribe", response_model=SubscribeResponse)
@@ -165,9 +109,10 @@ async def subscribe(
     request: Request,
 ):
     """
-    플랜 구독 (첫 결제 실행)
-    1. 등록된 빌링키로 결제
-    2. 성공 시 users.plan 업데이트 + subscriptions 업데이트
+    구독 시작 (포트원 SDK에서 빌링키 발급 후 호출)
+    1. 프론트에서 포트원 SDK로 빌링키 발급
+    2. 빌링키로 첫 결제 실행
+    3. 성공 시 users.plan 업데이트 + subscriptions 저장
     """
     user = await get_current_user(request)
     user_id = user.get("id")
@@ -176,22 +121,32 @@ async def subscribe(
     if plan not in PLAN_PRICES or plan == "free":
         raise HTTPException(status_code=400, detail="유효하지 않은 플랜입니다")
 
-    conn = await asyncpg.connect(DATABASE_URL)
-    try:
-        # 빌링키 조회
-        sub = await conn.fetchrow(
-            "SELECT billing_key, customer_key FROM subscriptions WHERE user_id = $1",
-            user_id
+    billing_key = body.billing_key
+    if not billing_key:
+        return SubscribeResponse(
+            success=False,
+            message="빌링키가 없습니다. 카드를 다시 등록해주세요."
         )
 
-        if not sub or not sub["billing_key"]:
-            return SubscribeResponse(
-                success=False,
-                message="등록된 카드가 없습니다. 먼저 카드를 등록해주세요."
-            )
-
-        billing_key = sub["billing_key"]
-        customer_key = sub["customer_key"]
+    conn = await asyncpg.connect(DATABASE_URL)
+    try:
+        # 빌링키 정보 조회 (카드 정보 추출)
+        billing_info = await get_billing_key_info(billing_key)
+        if billing_info.get("error"):
+            logger.warning(f"빌링키 조회 실패, 계속 진행: {billing_info}")
+            card_last4 = ""
+            card_company = ""
+        else:
+            # 포트원 빌링키 응답에서 카드 정보 추출
+            methods = billing_info.get("methods", [])
+            if methods and len(methods) > 0:
+                card_info = methods[0].get("card", {})
+                card_number = card_info.get("number", "")
+                card_last4 = card_number[-4:] if card_number else ""
+                card_company = card_info.get("issuer", {}).get("name", "") or card_info.get("publisher", {}).get("name", "")
+            else:
+                card_last4 = ""
+                card_company = ""
 
         # 첫 결제 여부 확인
         existing_payment = await conn.fetchval(
@@ -202,24 +157,39 @@ async def subscribe(
 
         # 결제 금액 계산
         amount = calculate_subscription_amount(plan, is_first_payment=is_first)
-        order_id = generate_order_id()
+        payment_id = generate_payment_id()
         order_name = f"QUBE System {PLAN_NAMES.get(plan, plan)} 구독"
+
+        # 사용자 정보 조회
+        user_info = await conn.fetchrow(
+            "SELECT email, name FROM users WHERE id = $1", user_id
+        )
+        customer_email = user_info["email"] if user_info else ""
+        customer_name = user_info["name"] if user_info else "BBooster사용자"
 
         # payment_history 레코드 생성 (pending)
         await conn.execute("""
             INSERT INTO payment_history (user_id, order_id, amount, plan, status)
             VALUES ($1, $2, $3, $4, 'pending')
-        """, user_id, order_id, amount, plan)
+        """, user_id, payment_id, amount, plan)
 
-        # 토스 결제 실행
-        result = await charge_billing(billing_key, customer_key, amount, order_id, order_name)
+        # 포트원 결제 실행
+        result = await pay_with_billing_key(
+            billing_key=billing_key,
+            payment_id=payment_id,
+            amount=amount,
+            order_name=order_name,
+            customer_id=str(user_id),
+            customer_name=customer_name,
+            customer_email=customer_email
+        )
 
         if result.get("error"):
             # 결제 실패
             await conn.execute("""
                 UPDATE payment_history SET status = 'failed', failure_reason = $2
                 WHERE order_id = $1
-            """, order_id, result.get("message", "결제 실패"))
+            """, payment_id, result.get("message", "결제 실패"))
 
             return SubscribeResponse(
                 success=False,
@@ -227,7 +197,6 @@ async def subscribe(
             )
 
         # 결제 성공
-        payment_key = result.get("paymentKey", "")
         now = datetime.now(timezone.utc)
         next_billing = get_next_billing_date(now)
 
@@ -235,29 +204,32 @@ async def subscribe(
         await conn.execute("""
             UPDATE payment_history SET status = 'paid', payment_key = $2, paid_at = $3
             WHERE order_id = $1
-        """, order_id, payment_key, now)
+        """, payment_id, payment_id, now)
 
-        # subscription 업데이트
+        # subscription upsert
+        await conn.execute("""
+            INSERT INTO subscriptions (user_id, billing_key, customer_key, card_last4, card_company, plan, status, started_at, expires_at, next_billing_at)
+            VALUES ($1, $2, $3, $4, $5, $6, 'active', $7, $8, $8)
+            ON CONFLICT (user_id) DO UPDATE SET
+                billing_key = $2,
+                card_last4 = $4,
+                card_company = $5,
+                plan = $6,
+                status = 'active',
+                started_at = COALESCE(subscriptions.started_at, $7),
+                expires_at = $8,
+                next_billing_at = $8,
+                cancelled_at = NULL,
+                updated_at = NOW()
+        """, user_id, billing_key, f"QUBE_USER_{user_id}", card_last4, card_company, plan, now, next_billing)
+
+        # subscription_id 조회 후 payment_history 연결
         subscription_id = await conn.fetchval(
             "SELECT id FROM subscriptions WHERE user_id = $1", user_id
         )
-
-        await conn.execute("""
-            UPDATE subscriptions SET
-                plan = $2,
-                status = 'active',
-                started_at = COALESCE(started_at, $3),
-                expires_at = $4,
-                next_billing_at = $4,
-                cancelled_at = NULL,
-                updated_at = NOW()
-            WHERE user_id = $1
-        """, user_id, plan, now, next_billing)
-
-        # payment_history에 subscription_id 연결
         await conn.execute("""
             UPDATE payment_history SET subscription_id = $2 WHERE order_id = $1
-        """, order_id, subscription_id)
+        """, payment_id, subscription_id)
 
         # users.plan 업데이트
         await conn.execute("""
@@ -301,8 +273,8 @@ async def get_subscription_status(request: Request):
 
         return SubscriptionStatusResponse(
             has_subscription=True,
-            plan=sub["plan"],
-            status=sub["status"],
+            plan=sub["plan"] or "free",
+            status=sub["status"] or "none",
             card_last4=sub["card_last4"],
             card_company=sub["card_company"],
             started_at=sub["started_at"].isoformat() if sub["started_at"] else None,
@@ -321,6 +293,7 @@ async def cancel_subscription(request: Request):
     구독 해지 (즉시 해지 아님)
     - expires_at까지 서비스 이용 가능
     - next_billing_at에 자동결제 안 함
+    - 빌링키 삭제
     """
     user = await get_current_user(request)
     user_id = user.get("id")
@@ -328,7 +301,7 @@ async def cancel_subscription(request: Request):
     conn = await asyncpg.connect(DATABASE_URL)
     try:
         sub = await conn.fetchrow(
-            "SELECT status, expires_at FROM subscriptions WHERE user_id = $1",
+            "SELECT status, expires_at, billing_key FROM subscriptions WHERE user_id = $1",
             user_id
         )
 
@@ -340,11 +313,19 @@ async def cancel_subscription(request: Request):
 
         now = datetime.now(timezone.utc)
 
+        # 빌링키 삭제 (포트원)
+        if sub["billing_key"]:
+            try:
+                await delete_billing_key(sub["billing_key"])
+            except Exception as e:
+                logger.warning(f"빌링키 삭제 실패 (계속 진행): {e}")
+
         await conn.execute("""
             UPDATE subscriptions SET
                 status = 'cancelled',
                 cancelled_at = $2,
                 next_billing_at = NULL,
+                billing_key = NULL,
                 updated_at = NOW()
             WHERE user_id = $1
         """, user_id, now)
@@ -362,49 +343,78 @@ async def cancel_subscription(request: Request):
         await conn.close()
 
 
+@router.get("/history", response_model=PaymentHistoryResponse)
+async def get_payment_history(request: Request):
+    """결제 내역 조회"""
+    user = await get_current_user(request)
+    user_id = user.get("id")
+
+    conn = await asyncpg.connect(DATABASE_URL)
+    try:
+        rows = await conn.fetch("""
+            SELECT paid_at, amount, plan, status
+            FROM payment_history
+            WHERE user_id = $1
+            ORDER BY created_at DESC
+            LIMIT 50
+        """, user_id)
+
+        payments = []
+        for row in rows:
+            payments.append(PaymentHistoryItem(
+                date=row["paid_at"].isoformat() if row["paid_at"] else "",
+                amount=row["amount"] or 0,
+                plan=row["plan"] or "",
+                status=row["status"] or ""
+            ))
+
+        return PaymentHistoryResponse(payments=payments)
+
+    finally:
+        await conn.close()
+
+
 @router.post("/webhook")
-async def toss_webhook(request: Request):
+async def portone_webhook(request: Request):
     """
-    토스 웹훅 수신
+    포트원 웹훅 수신
     - 자동결제 성공/실패 알림
     """
     body = await request.json()
-    event_type = body.get("eventType", "")
+    event_type = body.get("type", "")
     data = body.get("data", {})
 
-    logger.info(f"토스 웹훅 수신: {event_type}")
+    logger.info(f"포트원 웹훅 수신: {event_type}")
 
-    if event_type == "BILLING_PAYMENT_COMPLETED":
-        # 자동결제 성공
-        order_id = data.get("orderId", "")
-        payment_key = data.get("paymentKey", "")
+    if event_type == "Transaction.Paid":
+        # 결제 성공
+        payment_id = data.get("paymentId", "")
 
         conn = await asyncpg.connect(DATABASE_URL)
         try:
             await conn.execute("""
-                UPDATE payment_history SET status = 'paid', payment_key = $2, paid_at = NOW()
+                UPDATE payment_history SET status = 'paid', paid_at = NOW()
                 WHERE order_id = $1
-            """, order_id, payment_key)
+            """, payment_id)
         finally:
             await conn.close()
 
-    elif event_type == "BILLING_PAYMENT_FAILED":
-        # 자동결제 실패
-        order_id = data.get("orderId", "")
-        message = data.get("message", "결제 실패")
+    elif event_type == "Transaction.Failed":
+        # 결제 실패
+        payment_id = data.get("paymentId", "")
+        message = data.get("failure", {}).get("message", "결제 실패")
 
         conn = await asyncpg.connect(DATABASE_URL)
         try:
-            # 결제 실패 기록
             ph = await conn.fetchrow(
-                "SELECT user_id FROM payment_history WHERE order_id = $1", order_id
+                "SELECT user_id FROM payment_history WHERE order_id = $1", payment_id
             )
 
             if ph:
                 await conn.execute("""
                     UPDATE payment_history SET status = 'failed', failure_reason = $2
                     WHERE order_id = $1
-                """, order_id, message)
+                """, payment_id, message)
 
                 # 구독 상태 past_due로 변경
                 await conn.execute("""
@@ -415,139 +425,20 @@ async def toss_webhook(request: Request):
         finally:
             await conn.close()
 
-    return {"status": "ok"}
+    elif event_type == "Transaction.Cancelled":
+        # 결제 취소
+        payment_id = data.get("paymentId", "")
 
-
-@router.post("/confirm", response_model=ConfirmResponse)
-async def confirm_billing(
-    body: ConfirmRequest,
-    request: Request,
-):
-    """
-    빌링 인증 완료 후 결제 확정
-    1. authKey로 빌링키 발급
-    2. 빌링키로 첫 결제 실행
-    3. 성공 시 구독 활성화
-    """
-    user = await get_current_user(request)
-    user_id = user.get("id")
-    plan = body.plan.lower()
-
-    if plan not in PLAN_PRICES or plan == "free":
-        return ConfirmResponse(success=False, message="유효하지 않은 플랜입니다")
-
-    # 1. 빌링키 발급
-    billing_result = await issue_billing_key(body.auth_key, body.customer_key)
-
-    if billing_result.get("error"):
-        logger.error(f"빌링키 발급 실패 (user {user_id}): {billing_result}")
-        return ConfirmResponse(
-            success=False,
-            message=billing_result.get("message", "카드 등록에 실패했습니다")
-        )
-
-    billing_key = billing_result.get("billingKey")
-    card_number = billing_result.get("cardNumber", "")
-    card_last4 = card_number[-4:] if card_number else ""
-    card_company = billing_result.get("cardCompany", "")
-
-    conn = await asyncpg.connect(DATABASE_URL)
-    try:
-        # 2. subscriptions 테이블에 빌링키 저장
-        await conn.execute("""
-            INSERT INTO subscriptions (user_id, billing_key, customer_key, card_last4, card_company, plan)
-            VALUES ($1, $2, $3, $4, $5, $6)
-            ON CONFLICT (user_id) DO UPDATE SET
-                billing_key = $2,
-                customer_key = $3,
-                card_last4 = $4,
-                card_company = $5,
-                updated_at = NOW()
-        """, user_id, billing_key, body.customer_key, card_last4, card_company, plan)
-
-        # 3. 첫 결제 여부 확인
-        existing_payment = await conn.fetchval(
-            "SELECT COUNT(*) FROM payment_history WHERE user_id = $1 AND status = 'paid'",
-            user_id
-        )
-        is_first = existing_payment == 0
-
-        # 4. 결제 금액 계산
-        amount = calculate_subscription_amount(plan, is_first_payment=is_first)
-        order_id = generate_order_id()
-        order_name = f"QUBE System {PLAN_NAMES.get(plan, plan)} 구독"
-
-        # 5. payment_history 레코드 생성
-        await conn.execute("""
-            INSERT INTO payment_history (user_id, order_id, amount, plan, status)
-            VALUES ($1, $2, $3, $4, 'pending')
-        """, user_id, order_id, amount, plan)
-
-        # 6. 토스 결제 실행
-        charge_result = await charge_billing(billing_key, body.customer_key, amount, order_id, order_name)
-
-        if charge_result.get("error"):
-            # 결제 실패
+        conn = await asyncpg.connect(DATABASE_URL)
+        try:
             await conn.execute("""
-                UPDATE payment_history SET status = 'failed', failure_reason = $2
+                UPDATE payment_history SET status = 'cancelled'
                 WHERE order_id = $1
-            """, order_id, charge_result.get("message", "결제 실패"))
+            """, payment_id)
+        finally:
+            await conn.close()
 
-            return ConfirmResponse(
-                success=False,
-                message=charge_result.get("message", "결제에 실패했습니다")
-            )
-
-        # 7. 결제 성공 처리
-        payment_key = charge_result.get("paymentKey", "")
-        now = datetime.now(timezone.utc)
-        next_billing = get_next_billing_date(now)
-
-        # payment_history 업데이트
-        await conn.execute("""
-            UPDATE payment_history SET status = 'paid', payment_key = $2, paid_at = $3
-            WHERE order_id = $1
-        """, order_id, payment_key, now)
-
-        # subscription 업데이트
-        subscription_id = await conn.fetchval(
-            "SELECT id FROM subscriptions WHERE user_id = $1", user_id
-        )
-
-        await conn.execute("""
-            UPDATE subscriptions SET
-                plan = $2,
-                status = 'active',
-                started_at = COALESCE(started_at, $3),
-                expires_at = $4,
-                next_billing_at = $4,
-                cancelled_at = NULL,
-                updated_at = NOW()
-            WHERE user_id = $1
-        """, user_id, plan, now, next_billing)
-
-        # payment_history에 subscription_id 연결
-        await conn.execute("""
-            UPDATE payment_history SET subscription_id = $2 WHERE order_id = $1
-        """, order_id, subscription_id)
-
-        # users.plan 업데이트
-        await conn.execute("""
-            UPDATE users SET plan = $2, plan_expires_at = $3, updated_at = NOW()
-            WHERE id = $1
-        """, user_id, plan, next_billing)
-
-        logger.info(f"빌링 확정 성공 (user {user_id}): {plan}, {amount}원")
-
-        return ConfirmResponse(
-            success=True,
-            plan=plan,
-            amount=amount,
-            next_billing_at=next_billing.isoformat(),
-        )
-
-    finally:
-        await conn.close()
+    return {"status": "ok"}
 
 
 @router.get("/prices")
