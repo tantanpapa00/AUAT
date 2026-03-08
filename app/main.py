@@ -446,6 +446,10 @@ app.include_router(auth_router)
 from .routers.billing import router as billing_router
 app.include_router(billing_router)
 
+# Strategies Router
+from .routers.strategies import router as strategies_router
+app.include_router(strategies_router)
+
 
 @app.get("/api/auth/google/login")
 async def auth_google_login(request: Request):
