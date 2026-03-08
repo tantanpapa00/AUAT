@@ -277,7 +277,7 @@ async def api_run_custom_backtest(
         ).model_dump()
 
 
-@router.post("/strategies")
+@router.post("/user/strategies")
 async def create_strategy(
     request: StrategyCreateRequest,
     current_user: User = Depends(get_current_user),
@@ -317,7 +317,7 @@ async def create_strategy(
         raise HTTPException(status_code=500, detail=f"전략 저장 오류: {str(e)}")
 
 
-@router.get("/strategies")
+@router.get("/user/strategies")
 async def get_strategies(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
