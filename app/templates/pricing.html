@@ -856,8 +856,9 @@
     }
 
     async function selectPlan(plan, price) {
-      if (!token) {
-        window.location.href = '/login?next=/pricing&plan=' + plan;
+      // 로그인 안 된 상태면 로그인 페이지로 이동
+      if (!token || !currentUser) {
+        window.location.href = '/login?next=/pricing';
         return;
       }
 
