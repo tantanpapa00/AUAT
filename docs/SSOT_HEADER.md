@@ -3359,3 +3359,36 @@ def get_osc_data_at_index(spo_arrays, sig_arrays, closes, idx) -> OscillatorData
 
 ## Scope Exclusions
 - SMC strategy/files, MFT candle, Futures
+
+---
+
+## 2026-03-09: main.py 라우터 분리
+
+### 개요
+- main.py 엔드포인트 128개 → 95개로 축소 (-33개)
+- 3개 라우터 신규 생성
+
+### 분리된 라우터
+
+| 라우터 | 엔드포인트 | 파일 |
+|--------|-----------|------|
+| strategies.py | 3개 (CRUD) | `app/routers/strategies.py` |
+| stock.py | 24개 (종목상세 국내/해외) | `app/routers/stock.py` |
+| assets.py | 9개 (자산관리) | `app/routers/assets.py` |
+
+### 커밋
+- `2c4a841` fix: strategies.py f-string 문법 오류 수정
+- `f796fa6` feat: strategies.py 라우터를 main.py에 등록
+- `1758227` fix: backtest.py의 /strategies를 /user/strategies로 변경하여 라우트 충돌 해결
+- `0ea626f` refactor: main.py에서 strategies 중복 라우트 주석 처리
+- `ce490c8` feat: stock.py 라우터 분리 (24개 종목상세 엔드포인트)
+- `b8416d1` feat: assets.py 라우터 분리 (9개 자산관리 엔드포인트)
+
+### 남은 작업
+- diag 라우터 (15개) - 내부 헬퍼 함수 의존성으로 복잡
+- auth 라우터 (9개) - Google OAuth 의존성으로 복잡
+- 기타 엔드포인트 정리
+
+### 현재 main.py 상태
+- 라인 수: 11,290줄
+- 활성 엔드포인트: 95개
