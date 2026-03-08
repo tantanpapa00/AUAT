@@ -399,7 +399,7 @@
           </div>
           <div class="form-group">
             <label class="form-label">비밀번호</label>
-            <input type="password" class="form-input" id="loginPassword" placeholder="비밀번호 입력" required minlength="12">
+            <input type="password" class="form-input" id="loginPassword" placeholder="비밀번호 입력" required minlength="8">
           </div>
           <button type="submit" class="btn btn-primary" id="loginBtn">로그인</button>
         </form>
@@ -437,9 +437,9 @@
           </div>
           <div class="form-group">
             <label class="form-label">비밀번호</label>
-            <input type="password" class="form-input" id="registerPassword" placeholder="12자 이상, 영문+숫자+특수문자 포함" required minlength="12" oninput="checkPassword()">
+            <input type="password" class="form-input" id="registerPassword" placeholder="8자 이상, 영문+숫자+특수문자 포함" required minlength="8" oninput="checkPassword()">
             <div class="password-requirements">
-              <span class="pwd-check" id="pwdLength">12자 이상</span>
+              <span class="pwd-check" id="pwdLength">8자 이상</span>
               <span class="pwd-check" id="pwdLetter">영문자</span>
               <span class="pwd-check" id="pwdNumber">숫자</span>
               <span class="pwd-check" id="pwdSpecial">특수문자</span>
@@ -447,7 +447,7 @@
           </div>
           <div class="form-group">
             <label class="form-label">비밀번호 확인</label>
-            <input type="password" class="form-input" id="registerPasswordConfirm" placeholder="비밀번호 다시 입력" required minlength="12">
+            <input type="password" class="form-input" id="registerPasswordConfirm" placeholder="비밀번호 다시 입력" required minlength="8">
           </div>
 
           <!-- Terms Checkboxes -->
@@ -595,7 +595,7 @@
       const password = document.getElementById('registerPassword').value;
 
       const checks = {
-        length: password.length >= 12,
+        length: password.length >= 8,
         letter: /[A-Za-z]/.test(password),
         number: /[0-9]/.test(password),
         special: /[!@#$%^&*()_+\-=\[\]{}|;:,.<>?/~`]/.test(password)
@@ -626,7 +626,7 @@
       let passwordValid = true;
       if (!socialSignupToken) {
         const password = document.getElementById('registerPassword').value;
-        passwordValid = password.length >= 12 &&
+        passwordValid = password.length >= 8 &&
           /[A-Za-z]/.test(password) &&
           /[0-9]/.test(password) &&
           /[!@#$%^&*()_+\-=\[\]{}|;:,.<>?/~`]/.test(password);
@@ -728,8 +728,8 @@
           }
 
           // Password policy
-          if (password.length < 12) {
-            errorEl.textContent = '비밀번호는 12자 이상이어야 합니다';
+          if (password.length < 8) {
+            errorEl.textContent = '비밀번호는 8자 이상이어야 합니다';
             errorEl.classList.add('show');
             btn.disabled = false;
             btn.textContent = '회원가입';

@@ -475,8 +475,8 @@ async def register_with_consent(
 
     # 3. 비밀번호 정책 확인
     password = request.password
-    if len(password) < 12:
-        raise HTTPException(status_code=400, detail="비밀번호는 12자리 이상이어야 합니다")
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="비밀번호는 8자리 이상이어야 합니다")
 
     import re
     if not re.search(r'[A-Za-z]', password):
