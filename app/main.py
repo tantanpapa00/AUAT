@@ -1993,100 +1993,27 @@ async def api_test_account_connection(
 
 
 # # ---- Strategies API ----
-@app.get("/api/strategies")
-def api_list_strategies(db: Session = Depends(get_db)):
-    rows = db.execute(text("""
-        select id, name, tv_secret, is_active, created_at, updated_at
-        from strategies
-        order by id asc
-    """)).mappings().all()
-    return [dict(r) for r in rows]
+# [MOVED TO app/routers/strategies.py]
+# @app.get("/api/strategies")
+# def api_list_strategies(db: Session = Depends(get_db)):
+#     rows = db.execute(text("""
+#         select id, name, tv_secret, is_active, created_at, updated_at
+#         from strategies
+#         order by id asc
+#     """)).mappings().all()
+#     return [dict(r) for r in rows]
 
 
-@app.post("/api/strategies")
-def api_create_strategy(payload: dict, db: Session = Depends(get_db)):
-    if not payload.get("name"):
-        raise HTTPException(status_code=400, detail="missing: name")
-    if not payload.get("tv_secret"):
-        raise HTTPException(status_code=400, detail="missing: tv_secret")
-
-    signal_params = payload.get("signal_params")
-
-    try:
-        if signal_params:
-            # signal_params 포함하여 저장
-            row = db.execute(
-                text("""
-                    insert into strategies(name, tv_secret, is_active, signal_params)
-                    values (:name, :tv_secret, :is_active, CAST(:signal_params AS jsonb))
-                    returning id
-                """),
-                {
-                    "name": payload["name"],
-                    "tv_secret": payload["tv_secret"],
-                    "is_active": bool(payload.get("is_active", False)),
-                    "signal_params": _safe_dumps(signal_params),
-                }
-            ).mappings().first()
-        else:
-            row = db.execute(
-                text("""
-                    insert into strategies(name, tv_secret, is_active)
-                    values (:name, :tv_secret, :is_active)
-                    returning id
-                """),
-                {
-                    "name": payload["name"],
-                    "tv_secret": payload["tv_secret"],
-                    "is_active": bool(payload.get("is_active", False)),
-                }
-            ).mappings().first()
-        db.commit()
-        return {"ok": True, "id": row["id"]}
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+# [MOVED TO app/routers/strategies.py]
+# @app.post("/api/strategies")
+# def api_create_strategy(payload: dict, db: Session = Depends(get_db)):
+#     ... (see app/routers/strategies.py)
 
 
-@app.put("/api/strategies/{strategy_id}")
-async def api_update_strategy(
-    strategy_id: int,
-    request: Request,
-    current_user: User = Depends(get_current_user_optional),
-    db: Session = Depends(get_db)
-):
-    """전략 수정 API"""
-    payload = await request.json()
-    allowed = {"name", "tv_secret", "is_active"}
-    payload = {k: v for k, v in payload.items() if k in allowed}
-
-    if not payload:
-        return {"ok": True, "strategy_id": strategy_id}
-
-    sets = []
-    params = {"id": strategy_id}
-    for k, v in payload.items():
-        sets.append(f"{k} = :{k}")
-        params[k] = v
-
-    q = f"""
-        update strategies
-        set {", ".join(sets)}, updated_at = now()
-        where id = :id
-        returning id
-    """
-    try:
-        row = db.execute(text(q), params).mappings().first()
-        if not row:
-            db.rollback()
-            raise HTTPException(status_code=404, detail="Strategy not found")
-        db.commit()
-        return {"ok": True, "strategy_id": strategy_id}
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+# [MOVED TO app/routers/strategies.py]
+# @app.put("/api/strategies/{strategy_id}")
+# async def api_update_strategy(...):
+#     ... (see app/routers/strategies.py)
 
 
 # @app.delete("/api/strategies/{strategy_id}")
