@@ -454,6 +454,10 @@ app.include_router(strategies_router)
 from .routers.stock import router as stock_router
 app.include_router(stock_router)
 
+# Assets Router (자산 관리)
+from .routers.assets import router as assets_router
+app.include_router(assets_router)
+
 
 @app.get("/api/auth/google/login")
 async def auth_google_login(request: Request):
@@ -2067,7 +2071,7 @@ async def api_test_account_connection(
 
 
 # # ---- Assets API ----
-@app.get("/api/assets")
+# [MOVED TO assets.py] @app.get("/api/assets")
 def api_list_assets(db: Session = Depends(get_db)):
     # best-effort: ensure dashboard columns exist (avoid 500 on older DBs)
     try:
@@ -2114,7 +2118,7 @@ def api_list_assets(db: Session = Depends(get_db)):
     return [dict(r) for r in rows]
 
 
-@app.post("/api/assets")
+# [MOVED TO assets.py] @app.post("/api/assets")
 def api_create_asset(payload: dict, db: Session = Depends(get_db)):
     required = ["account_id", "strategy_id", "symbol"]
     for k in required:
@@ -2491,7 +2495,7 @@ def api_put_strategy_signal_params(
         raise HTTPException(status_code=400, detail=f"저장 실패: {str(e)}")
 
 
-@app.get("/api/assets/{asset_id}/signal-params-override")
+# [MOVED TO assets.py] @app.get("/api/assets/{asset_id}/signal-params-override")
 def api_get_asset_signal_params_override(asset_id: int, db: Session = Depends(get_db)):
     """종목의 signal_params_override 조회"""
     row = db.execute(
@@ -2510,7 +2514,7 @@ def api_get_asset_signal_params_override(asset_id: int, db: Session = Depends(ge
     }
 
 
-@app.put("/api/assets/{asset_id}/signal-params-override")
+# [MOVED TO assets.py] @app.put("/api/assets/{asset_id}/signal-params-override")
 def api_put_asset_signal_params_override(
     asset_id: int,
     req: SignalParamsOverrideRequest,
@@ -2547,7 +2551,7 @@ def api_put_asset_signal_params_override(
         raise HTTPException(status_code=400, detail=f"저장 실패: {str(e)}")
 
 
-@app.delete("/api/assets/{asset_id}/signal-params-override")
+# [MOVED TO assets.py] @app.delete("/api/assets/{asset_id}/signal-params-override")
 def api_delete_asset_signal_params_override(asset_id: int, db: Session = Depends(get_db)):
     """종목의 signal_params_override 초기화 (전략 기본값으로 복귀)"""
     row = db.execute(
@@ -2579,7 +2583,7 @@ def api_delete_asset_signal_params_override(asset_id: int, db: Session = Depends
         raise HTTPException(status_code=400, detail=f"초기화 실패: {str(e)}")
 
 
-@app.get("/api/assets/{asset_id}/effective-params")
+# [MOVED TO assets.py] @app.get("/api/assets/{asset_id}/effective-params")
 def api_get_asset_effective_params(asset_id: int, db: Session = Depends(get_db)):
     """
     종목의 최종 적용값 조회 (merged).
@@ -2797,7 +2801,7 @@ def api_template_options(db: Session = Depends(get_db)):
     return {"ok": True, "count": len(options), "options": options}
 
 
-@app.get("/api/assets/{asset_id}/template/tradingview")
+# [MOVED TO assets.py] @app.get("/api/assets/{asset_id}/template/tradingview")
 def api_asset_template_tradingview(
     asset_id: int,
     side: str = Query("buy", description="buy 또는 sell"),
@@ -9105,7 +9109,7 @@ async def get_active_strategies(
     return {"strategies": strategies}
 
 
-@app.put("/api/assets/{asset_id}/toggle")
+# [MOVED TO assets.py] @app.put("/api/assets/{asset_id}/toggle")
 async def toggle_asset_active(
     asset_id: int,
     current_user: User = Depends(get_current_user_optional),
@@ -9134,7 +9138,7 @@ async def toggle_asset_active(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.delete("/api/assets/{asset_id}")
+# [MOVED TO assets.py] @app.delete("/api/assets/{asset_id}")
 async def delete_asset(
     asset_id: int,
     current_user: User = Depends(get_current_user_optional),
