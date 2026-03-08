@@ -1,7 +1,7 @@
 """
-포트원 V2 + NHN KCP 빌링 API 서비스
-- 기존 토스페이먼츠 코드 교체
-- 빌링키 발급, 자동결제, 결제 취소
+포트원 V2 빌링 API 서비스
+- 빌링키 발급 (프론트 SDK) → 자동결제 (백엔드 API)
+- KCP 테스트 채널은 빌링 미지원 → 카카오페이 테스트 채널 사용
 """
 import httpx
 import os
@@ -13,10 +13,12 @@ from typing import Optional, Dict, Any
 logger = logging.getLogger(__name__)
 
 # 포트원 API 설정
+# ※ PORTONE_CHANNEL_KEY는 카카오페이 테스트 채널로 설정 필요
+#   포트원 대시보드 → 결제 연동 → 테스트 → 채널 추가 → 카카오페이
 PORTONE_API_URL = "https://api.portone.io"
 PORTONE_API_SECRET = os.getenv("PORTONE_API_SECRET", "")
 PORTONE_STORE_ID = os.getenv("PORTONE_STORE_ID", "store-c7371fef-c966-442e-a7f4-7ff3f568b3f9")
-PORTONE_CHANNEL_KEY = os.getenv("PORTONE_CHANNEL_KEY", "channel-key-56bec8c5-8208-4612-8239-f595c1fd8844")
+PORTONE_CHANNEL_KEY = os.getenv("PORTONE_CHANNEL_KEY", "")
 
 # 플랜별 가격 (원) - 기존 코드와 호환
 PLAN_PRICES = {
