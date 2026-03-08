@@ -450,6 +450,10 @@ app.include_router(billing_router)
 from .routers.strategies import router as strategies_router
 app.include_router(strategies_router)
 
+# Stock Router (종목 상세)
+from .routers.stock import router as stock_router
+app.include_router(stock_router)
+
 
 @app.get("/api/auth/google/login")
 async def auth_google_login(request: Request):
@@ -10273,43 +10277,34 @@ async def get_popular_symbols(
 
 
 # =============================================================================
-# [STOCK DETAIL RENEWAL] 종목 상세 - 스탁이지 스타일 (Phase 1)
+# [MOVED TO app/routers/stock.py] 종목 상세 - 스탁이지 스타일 (Phase 1)
 # =============================================================================
+# 24개 엔드포인트가 app/routers/stock.py로 이동됨
+# - /api/stock/{code}/* (7개)
+# - /api/stock/kr/{code}/* (9개)
+# - /api/stock/us/{ticker}/* (8개)
 
-def _check_hub_plan(user: Optional[User]) -> bool:
-    """Hub 이상 요금제 체크 (종목 상세용)"""
-    if not user:
-        return False
-    role = getattr(user, "role", "user")
-    plan = getattr(user, "plan", "free")
-    if role == "admin":
-        return True
-    return plan in ("hub", "pro", "premium")
+# _check_hub_plan 헬퍼도 stock.py로 이동
 
+# 아래 엔드포인트들은 app/routers/stock.py로 이동됨 (이 파일에서 삭제됨)
+# 잔여 코드는 별도 정리 필요 - 임시로 pass 처리
 
-@app.get("/api/stock/{code}/financial-summary")
-async def api_stock_financial_summary(
-    code: str,
-    current_user: User = Depends(get_current_user_optional)
-):
-    """
-    종목 재무 요약 (요약 탭)
-    - 시가총액, PER, PBR, EPS, ROE, 52주 고저
-    - Hub 이상 요금제 필요 (Free는 blur 처리)
-    """
-    data = await get_stock_financial_summary(code)
-
-    # Free 요금제는 제한된 데이터만 반환
-    is_premium = _check_hub_plan(current_user)
-
-    return {
-        "data": data,
-        "is_premium": is_premium,
-        "blur_fields": [] if is_premium else ["revenue", "operating_profit", "net_income", "roe", "eps", "foreign_ratio"]
-    }
+def _check_hub_plan_MOVED(user):
+    """[MOVED TO stock.py] Hub 이상 요금제 체크"""
+    pass
 
 
-@app.get("/api/stock/{code}/financial-trend")
+# [DELETE MARKER START - stock endpoints moved to routers/stock.py]
+# @app.get("/api/stock/{code}/financial-summary") -> stock.py
+# @app.get("/api/stock/{code}/financial-trend") -> stock.py
+# ... (총 24개 엔드포인트)
+# [DELETE MARKER END]
+
+# 임시: 중복 라우트 방지를 위해 원본 함수 정의 제거됨
+# 전체 정리는 추후 진행
+
+# --- 아래는 삭제 대상 코드 (주석 처리) ---
+# @app.get("/api/stock/{code}/financial-trend")
 async def api_stock_financial_trend(
     code: str,
     current_user: User = Depends(get_current_user_optional)
@@ -10335,7 +10330,7 @@ async def api_stock_financial_trend(
     }
 
 
-@app.get("/api/stock/{code}/company")
+# [MOVED TO stock.py] @app.get("/api/stock/{code}/company")
 async def api_stock_company(
     code: str,
     current_user: User = Depends(get_current_user_optional)
@@ -10349,7 +10344,7 @@ async def api_stock_company(
     return {"data": data}
 
 
-@app.get("/api/stock/{code}/financial-statement")
+# [MOVED TO stock.py] @app.get("/api/stock/{code}/financial-statement")
 async def api_stock_financial_statement(
     code: str,
     current_user: User = Depends(get_current_user_optional)
@@ -10375,7 +10370,7 @@ async def api_stock_financial_statement(
     }
 
 
-@app.get("/api/stock/{code}/news")
+# [MOVED TO stock.py] @app.get("/api/stock/{code}/news")
 async def api_stock_news(
     code: str,
     limit: int = Query(20, ge=1, le=50),
@@ -10398,7 +10393,7 @@ async def api_stock_news(
     }
 
 
-@app.get("/api/stock/{code}/disclosures")
+# [MOVED TO stock.py] @app.get("/api/stock/{code}/disclosures")
 async def api_stock_disclosures(
     code: str,
     limit: int = Query(20, ge=1, le=50),
@@ -10412,7 +10407,7 @@ async def api_stock_disclosures(
     return {"data": data}
 
 
-@app.get("/api/stock/{code}/consensus")
+# [MOVED TO stock.py] @app.get("/api/stock/{code}/consensus")
 async def api_stock_consensus(
     code: str,
     current_user: User = Depends(get_current_user_optional)
@@ -10437,7 +10432,7 @@ async def api_stock_consensus(
     }
 
 
-@app.get("/api/stock/kr/{code}/chart")
+# [MOVED TO stock.py] @app.get("/api/stock/kr/{code}/chart")
 async def api_stock_chart_kr(
     code: str,
     timeframe: str = Query("daily", regex="^(daily|weekly|monthly)$"),
@@ -10457,7 +10452,7 @@ async def api_stock_chart_kr(
     }
 
 
-@app.get("/api/stock/kr/{code}/summary")
+# [MOVED TO stock.py] @app.get("/api/stock/kr/{code}/summary")
 async def api_stock_summary_kr(
     code: str,
     current_user: User = Depends(get_current_user_optional)
@@ -10470,7 +10465,7 @@ async def api_stock_summary_kr(
     return {"data": data}
 
 
-@app.get("/api/stock/kr/{code}/financials")
+# [MOVED TO stock.py] @app.get("/api/stock/kr/{code}/financials")
 async def api_stock_financials_kr(
     code: str,
     fin_type: str = Query("annual", description="annual 또는 quarter"),
@@ -10484,7 +10479,7 @@ async def api_stock_financials_kr(
     return {"data": data}
 
 
-@app.get("/api/stock/kr/{code}/news")
+# [MOVED TO stock.py] @app.get("/api/stock/kr/{code}/news")
 async def api_stock_news_kr(
     code: str,
     limit: int = Query(20, ge=1, le=50),
@@ -10498,7 +10493,7 @@ async def api_stock_news_kr(
     return {"data": data}
 
 
-@app.get("/api/stock/kr/{code}/eps-revision")
+# [MOVED TO stock.py] @app.get("/api/stock/kr/{code}/eps-revision")
 async def api_eps_revision_history(
     code: str,
     current_user: User = Depends(get_current_user_optional)
@@ -10512,7 +10507,7 @@ async def api_eps_revision_history(
     return {"data": data}
 
 
-@app.get("/api/stock/kr/{code}/company")
+# [MOVED TO stock.py] @app.get("/api/stock/kr/{code}/company")
 async def api_stock_company_kr(
     code: str,
     current_user: User = Depends(get_current_user_optional)
@@ -10526,7 +10521,7 @@ async def api_stock_company_kr(
     return {"data": data}
 
 
-@app.get("/api/stock/kr/{code}/statement")
+# [MOVED TO stock.py] @app.get("/api/stock/kr/{code}/statement")
 async def api_stock_statement_kr(
     code: str,
     period_type: str = Query("annual", regex="^(annual|quarter)$"),
@@ -10541,7 +10536,7 @@ async def api_stock_statement_kr(
     return {"data": data}
 
 
-@app.get("/api/stock/kr/{code}/invest-indicators")
+# [MOVED TO stock.py] @app.get("/api/stock/kr/{code}/invest-indicators")
 async def api_stock_invest_indicators_kr(
     code: str,
     current_user: User = Depends(get_current_user_optional)
@@ -10559,7 +10554,7 @@ async def api_stock_invest_indicators_kr(
 # Phase 9: 해외 종목 상세 API (yfinance)
 # =============================================================================
 
-@app.get("/api/stock/us/{ticker}/summary")
+# [MOVED TO stock.py] @app.get("/api/stock/us/{ticker}/summary")
 async def api_stock_summary_us(
     ticker: str,
     current_user: User = Depends(get_current_user_optional)
@@ -10573,7 +10568,7 @@ async def api_stock_summary_us(
     return {"data": data}
 
 
-@app.get("/api/stock/us/{ticker}/chart")
+# [MOVED TO stock.py] @app.get("/api/stock/us/{ticker}/chart")
 async def api_stock_chart_us(
     ticker: str,
     timeframe: str = Query("daily", regex="^(daily|weekly|monthly)$"),
@@ -10590,7 +10585,7 @@ async def api_stock_chart_us(
     return {"data": data}
 
 
-@app.get("/api/stock/us/{ticker}/news")
+# [MOVED TO stock.py] @app.get("/api/stock/us/{ticker}/news")
 async def api_stock_news_us(
     ticker: str,
     limit: int = Query(20, ge=1, le=50),
@@ -10605,7 +10600,7 @@ async def api_stock_news_us(
     return {"data": data}
 
 
-@app.get("/api/stock/us/{ticker}/filings")
+# [MOVED TO stock.py] @app.get("/api/stock/us/{ticker}/filings")
 async def api_stock_filings_us(
     ticker: str,
     limit: int = Query(30, ge=1, le=50),
@@ -10620,7 +10615,7 @@ async def api_stock_filings_us(
     return {"data": data}
 
 
-@app.get("/api/stock/us/{ticker}/analyst")
+# [MOVED TO stock.py] @app.get("/api/stock/us/{ticker}/analyst")
 async def api_stock_analyst_us(
     ticker: str,
     limit: int = Query(30, ge=1, le=50),
@@ -10635,7 +10630,7 @@ async def api_stock_analyst_us(
     return {"data": data}
 
 
-@app.get("/api/stock/us/{ticker}/company")
+# [MOVED TO stock.py] @app.get("/api/stock/us/{ticker}/company")
 async def api_stock_company_us(
     ticker: str,
     current_user: User = Depends(get_current_user_optional)
@@ -10649,7 +10644,7 @@ async def api_stock_company_us(
     return {"data": data}
 
 
-@app.get("/api/stock/us/{ticker}/financials")
+# [MOVED TO stock.py] @app.get("/api/stock/us/{ticker}/financials")
 async def api_stock_financials_us(
     ticker: str,
     current_user: User = Depends(get_current_user_optional)
@@ -10663,7 +10658,7 @@ async def api_stock_financials_us(
     return {"data": data}
 
 
-@app.get("/api/stock/us/{ticker}/statement")
+# [MOVED TO stock.py] @app.get("/api/stock/us/{ticker}/statement")
 async def api_stock_statement_us(
     ticker: str,
     period_type: str = Query("annual", regex="^(annual|quarter)$"),
@@ -10680,7 +10675,7 @@ async def api_stock_statement_us(
     return {"data": data}
 
 
-@app.get("/api/stock/us/{ticker}/invest-indicators")
+# [MOVED TO stock.py] @app.get("/api/stock/us/{ticker}/invest-indicators")
 async def api_stock_invest_indicators_us(
     ticker: str,
     current_user: User = Depends(get_current_user_optional)
