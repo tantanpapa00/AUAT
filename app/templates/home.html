@@ -955,6 +955,42 @@
 
     document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
 
+    // OAuth 콜백 토큰 처리 (URL 파라미터에서 토큰 저장)
+    (function handleOAuthCallback() {
+      const params = new URLSearchParams(window.location.search);
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+
+      if (accessToken && refreshToken) {
+        localStorage.setItem('bbooster_access_token', accessToken);
+        localStorage.setItem('bbooster_refresh_token', refreshToken);
+        // 로그인 성공 시 데모 모드 해제
+        localStorage.removeItem('bbooster_demo_mode');
+
+        // next 파라미터 확인 후 리다이렉트
+        const nextUrl = params.get('next') || sessionStorage.getItem('login_next') || '/';
+        sessionStorage.removeItem('login_next');
+
+        // URL 파라미터 정리 후 리다이렉트
+        const cleanNext = nextUrl.startsWith('/') && !nextUrl.startsWith('//') ? nextUrl : '/';
+        if (cleanNext !== '/' || window.location.search) {
+          window.history.replaceState({}, document.title, cleanNext);
+          if (cleanNext !== '/') {
+            window.location.href = cleanNext;
+            return;
+          }
+        }
+      }
+
+      // 약관 동의 리다이렉트 (신규 소셜 가입)
+      if (params.get('signup') === 'consent' && params.get('token')) {
+        const token = params.get('token');
+        const next = params.get('next') || '/';
+        window.location.href = `/login?signup=consent&token=${token}&next=${encodeURIComponent(next)}`;
+        return;
+      }
+    })();
+
     // Auth State Check (localStorage 토큰 기반)
     (async function checkAuth() {
       const token = localStorage.getItem('bbooster_access_token');

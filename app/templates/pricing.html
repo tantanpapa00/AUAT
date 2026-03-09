@@ -713,6 +713,33 @@
   <div class="toast" id="toast"></div>
 
   <script>
+    // OAuth 콜백 토큰 처리 (URL 파라미터에서 토큰 저장)
+    (function handleOAuthCallback() {
+      const params = new URLSearchParams(window.location.search);
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+
+      if (accessToken && refreshToken) {
+        localStorage.setItem('bbooster_access_token', accessToken);
+        localStorage.setItem('bbooster_refresh_token', refreshToken);
+        localStorage.removeItem('bbooster_demo_mode');
+
+        // next 파라미터 확인
+        const nextUrl = params.get('next') || sessionStorage.getItem('login_next') || '/pricing';
+        sessionStorage.removeItem('login_next');
+
+        // URL 파라미터 정리
+        window.history.replaceState({}, document.title, '/pricing');
+      }
+
+      // 약관 동의 리다이렉트
+      if (params.get('signup') === 'consent' && params.get('token')) {
+        const token = params.get('token');
+        window.location.href = `/login?signup=consent&token=${token}&next=/pricing`;
+        return;
+      }
+    })();
+
     // 포트원 설정 - API에서 동적으로 가져옴
     let PORTONE_STORE_ID = '';
     let PORTONE_CHANNEL_KEY = '';
