@@ -61,6 +61,7 @@ class User(Base):
     id = Column(BigInteger, primary_key=True)
     email = Column(Text, nullable=False, unique=True, index=True)
     name = Column(Text, nullable=True)
+    phone = Column(Text, nullable=True)  # 휴대폰 번호
     picture = Column(Text, nullable=True)  # Google 프로필 사진 URL
     role = Column(Text, nullable=False, default="user")  # admin, user
 

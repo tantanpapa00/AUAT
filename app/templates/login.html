@@ -449,6 +449,10 @@
             <label class="form-label">비밀번호 확인</label>
             <input type="password" class="form-input" id="registerPasswordConfirm" placeholder="비밀번호 다시 입력" required minlength="8">
           </div>
+          <div class="form-group">
+            <label class="form-label">휴대폰 번호</label>
+            <input type="tel" class="form-input" id="registerPhone" placeholder="010-0000-0000" required pattern="[0-9\-]+" oninput="formatPhone(this)">
+          </div>
 
           <!-- Terms Checkboxes -->
           <div class="terms-section">
@@ -609,6 +613,19 @@
       checkTerms();
     }
 
+    // Phone number formatting (010-0000-0000)
+    function formatPhone(input) {
+      let value = input.value.replace(/[^0-9]/g, '');
+      if (value.length > 11) value = value.slice(0, 11);
+      if (value.length > 7) {
+        input.value = value.slice(0, 3) + '-' + value.slice(3, 7) + '-' + value.slice(7);
+      } else if (value.length > 3) {
+        input.value = value.slice(0, 3) + '-' + value.slice(3);
+      } else {
+        input.value = value;
+      }
+    }
+
     // Terms checkbox handling
     function toggleAllTerms() {
       const allChecked = document.getElementById('agreeAll').checked;
@@ -717,6 +734,7 @@
           const email = document.getElementById('registerEmail').value.trim();
           const password = document.getElementById('registerPassword').value;
           const passwordConfirm = document.getElementById('registerPasswordConfirm').value;
+          const phone = document.getElementById('registerPhone').value.replace(/[^0-9]/g, '');
 
           // Validation
           if (password !== passwordConfirm) {
@@ -736,12 +754,22 @@
             return;
           }
 
+          // Phone validation
+          if (phone.length < 10 || phone.length > 11) {
+            errorEl.textContent = '올바른 휴대폰 번호를 입력해주세요';
+            errorEl.classList.add('show');
+            btn.disabled = false;
+            btn.textContent = '회원가입';
+            return;
+          }
+
           res = await fetch('/api/auth/register-with-consent', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               email,
               password,
+              phone,
               name: null,
               terms_agreed: document.getElementById('agreeTerms').checked,
               privacy_agreed: document.getElementById('agreePrivacy').checked,

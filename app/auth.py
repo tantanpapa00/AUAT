@@ -79,6 +79,7 @@ class UserResponse(BaseModel):
     id: int
     email: str
     name: Optional[str]
+    phone: Optional[str]
     picture: Optional[str]
     role: str
     plan: str

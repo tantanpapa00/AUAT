@@ -901,6 +901,12 @@
         return;
       }
 
+      // 휴대폰 번호 필수 체크 (기존 유저 처리)
+      if (!currentUser.phone) {
+        showToast('결제를 위해 휴대폰 번호 등록이 필요합니다. 마이페이지에서 등록해주세요.', 'error');
+        return;
+      }
+
       try {
         // 포트원 빌링키 발급 (카드 등록 UI)
         const billingKeyId = `bk_${currentUser.id}_${Date.now()}`;

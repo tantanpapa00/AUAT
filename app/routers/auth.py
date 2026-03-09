@@ -445,6 +445,7 @@ class EmailRegisterRequest(BaseModel):
     email: str
     password: str
     name: Optional[str] = None
+    phone: str  # 휴대폰 번호 (필수)
     terms_agreed: bool
     privacy_agreed: bool
     age_confirmed: bool
@@ -486,6 +487,11 @@ async def register_with_consent(
     if not re.search(r'[!@#$%^&*()_+\-=\[\]{}|;:,.<>?/~`]', password):
         raise HTTPException(status_code=400, detail="비밀번호에 특수문자를 포함해야 합니다")
 
+    # 3-2. 휴대폰 번호 검증 (숫자만 추출하여 10-11자리 확인)
+    phone = re.sub(r'[^0-9]', '', request.phone or '')
+    if len(phone) < 10 or len(phone) > 11:
+        raise HTTPException(status_code=400, detail="올바른 휴대폰 번호를 입력해주세요")
+
     # 4. 관리자 확인
     role = "admin" if email in ADMIN_EMAILS else "user"
 
@@ -493,6 +499,7 @@ async def register_with_consent(
     new_user = User(
         email=email,
         name=request.name or email.split("@")[0],
+        phone=phone,
         password_hash=hash_password(password),
         role=role,
         plan="free",
@@ -524,7 +531,8 @@ async def register_with_consent(
         "user": {
             "id": new_user.id,
             "email": new_user.email,
-            "name": new_user.name
+            "name": new_user.name,
+            "phone": new_user.phone
         }
     }
 

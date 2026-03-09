@@ -616,6 +616,7 @@ async def auth_me(current_user: User = Depends(get_current_user)):
         id=current_user.id,
         email=current_user.email,
         name=current_user.name,
+        phone=current_user.phone,
         picture=current_user.picture,
         role=current_user.role,
         plan=current_user.plan,
