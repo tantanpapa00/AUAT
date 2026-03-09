@@ -804,21 +804,25 @@
 
     // Social logins
     function loginWithKakao() {
-      // next 파라미터를 sessionStorage에 저장 (OAuth 콜백 후 사용)
       const nextUrl = getRedirectUrl();
-      if (nextUrl !== '/') {
-        sessionStorage.setItem('login_next', nextUrl);
+      // next 파라미터를 URL로 전달 (백엔드에서 state로 처리)
+      let loginUrl = '/api/auth/kakao/login';
+      if (nextUrl && nextUrl !== '/') {
+        loginUrl += '?next=' + encodeURIComponent(nextUrl);
+        sessionStorage.setItem('login_next', nextUrl); // 백업용
       }
-      window.location.href = '/api/auth/kakao/login';
+      window.location.href = loginUrl;
     }
 
     function loginWithGoogle() {
-      // next 파라미터를 sessionStorage에 저장 (OAuth 콜백 후 사용)
       const nextUrl = getRedirectUrl();
-      if (nextUrl !== '/') {
-        sessionStorage.setItem('login_next', nextUrl);
+      // next 파라미터를 URL로 전달 (백엔드에서 session으로 처리)
+      let loginUrl = '/api/auth/google/login';
+      if (nextUrl && nextUrl !== '/') {
+        loginUrl += '?next=' + encodeURIComponent(nextUrl);
+        sessionStorage.setItem('login_next', nextUrl); // 백업용
       }
-      window.location.href = '/api/auth/google/login';
+      window.location.href = loginUrl;
     }
 
     // Toast

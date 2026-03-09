@@ -460,7 +460,7 @@ app.include_router(assets_router)
 
 
 @app.get("/api/auth/google/login")
-async def auth_google_login(request: Request):
+async def auth_google_login(request: Request, next: str = Query(default="")):
     """구글 로그인 URL 반환"""
     if not GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=500, detail="Google OAuth가 설정되지 않았습니다")
@@ -471,6 +471,10 @@ async def auth_google_login(request: Request):
     base_url = os.getenv("BASE_URL", "")
     if base_url:
         redirect_uri = f"{base_url}/api/auth/google/callback"
+
+    # next URL을 세션에 저장
+    if next:
+        request.session["oauth_next"] = next
 
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
@@ -493,6 +497,9 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
         name = user_info.get("name", "")
         picture = user_info.get("picture", "")
         frontend_url = os.getenv("FRONTEND_URL", "/")
+
+        # 세션에서 next URL 가져오기
+        next_url = request.session.pop("oauth_next", "")
 
         # 기존 사용자 확인 (google_id 또는 email로)
         user = db.query(User).filter(User.google_id == google_id).first()
@@ -519,7 +526,10 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
                 "nickname": name,
                 "picture": picture
             })
-            return RedirectResponse(url=f"{frontend_url}?signup=consent&token={temp_token}")
+            consent_url = f"{frontend_url}?signup=consent&token={temp_token}"
+            if next_url:
+                consent_url += f"&next={next_url}"
+            return RedirectResponse(url=consent_url)
 
         # 기존 사용자 → 바로 로그인
         user.last_login_at = datetime.now(timezone.utc)
@@ -527,6 +537,8 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
 
         tokens = create_tokens_for_user(user)
         redirect_url = f"{frontend_url}?access_token={tokens.access_token}&refresh_token={tokens.refresh_token}"
+        if next_url:
+            redirect_url += f"&next={next_url}"
 
         return RedirectResponse(url=redirect_url)
 

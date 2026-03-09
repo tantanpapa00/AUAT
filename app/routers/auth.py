@@ -135,7 +135,7 @@ async def save_user_consent(
 # 카카오 OAuth
 # =====================================================
 @router.get("/api/auth/kakao/login")
-async def kakao_login():
+async def kakao_login(next: str = Query(default="")):
     """카카오 로그인 페이지로 리다이렉트."""
     if not KAKAO_CLIENT_ID:
         raise HTTPException(status_code=500, detail="카카오 OAuth가 설정되지 않았습니다")
@@ -148,17 +148,26 @@ async def kakao_login():
         f"&response_type=code"
         f"&scope=profile_nickname,account_email"
     )
+    # next URL을 state 파라미터로 전달
+    if next:
+        import urllib.parse
+        kakao_auth_url += f"&state={urllib.parse.quote(next)}"
     return RedirectResponse(url=kakao_auth_url)
 
 
 @router.get("/api/auth/kakao/callback")
 async def kakao_callback(
     code: str = Query(...),
+    state: str = Query(default=""),
     db: Session = Depends(get_db)
 ):
     """카카오 인증 코드 → 토큰 교환 → 사용자 처리."""
     if not KAKAO_CLIENT_ID:
         raise HTTPException(status_code=500, detail="카카오 OAuth가 설정되지 않았습니다")
+
+    # state에서 next URL 추출
+    import urllib.parse
+    next_url = urllib.parse.unquote(state) if state else ""
 
     redirect_uri = f"{BASE_URL}/api/auth/kakao/callback"
 
@@ -238,16 +247,20 @@ async def kakao_callback(
                 "picture": picture
             })
             # 약관 동의 페이지로 리다이렉트
-            return RedirectResponse(url=f"{FRONTEND_URL}?signup=consent&token={temp_token}")
+            consent_url = f"{FRONTEND_URL}?signup=consent&token={temp_token}"
+            if next_url:
+                consent_url += f"&next={urllib.parse.quote(next_url)}"
+            return RedirectResponse(url=consent_url)
 
         # 6. 기존 사용자 → 바로 로그인
         user.last_login_at = datetime.now(timezone.utc)
         db.commit()
 
         tokens = create_tokens_for_user(user)
-        return RedirectResponse(
-            url=f"{FRONTEND_URL}?access_token={tokens.access_token}&refresh_token={tokens.refresh_token}"
-        )
+        redirect_url = f"{FRONTEND_URL}?access_token={tokens.access_token}&refresh_token={tokens.refresh_token}"
+        if next_url:
+            redirect_url += f"&next={urllib.parse.quote(next_url)}"
+        return RedirectResponse(url=redirect_url)
 
     except HTTPException:
         raise
