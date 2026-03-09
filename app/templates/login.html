@@ -562,6 +562,13 @@
       if (params.get('signup') === 'consent' && params.get('token')) {
         socialSignupToken = params.get('token');
         console.log('[Consent] Social signup mode, token length:', socialSignupToken.length);
+
+        // next 파라미터 저장 (회원가입 완료 후 리다이렉트용)
+        const signupNext = params.get('next');
+        if (signupNext) {
+          sessionStorage.setItem('signup_next', signupNext);
+        }
+
         switchTab('register');
         // 소셜 로그인 신규 가입 모드: 이메일/비밀번호 필드 숨김
         document.querySelectorAll('#registerPanel .form-group').forEach(el => el.style.display = 'none');
@@ -787,7 +794,11 @@
           localStorage.setItem('bbooster_refresh_token', data.refresh_token);
           // 가입 완료 시 데모 모드 즉시 해제
           localStorage.removeItem('bbooster_demo_mode');
-          window.location.href = getRedirectUrl();
+          // 소셜 회원가입 시 저장된 next URL 사용
+          const signupNext = sessionStorage.getItem('signup_next');
+          sessionStorage.removeItem('signup_next');
+          const redirectUrl = signupNext || getRedirectUrl();
+          window.location.href = redirectUrl.startsWith('/') && !redirectUrl.startsWith('//') ? redirectUrl : '/';
         } else {
           errorEl.textContent = data.detail || '회원가입에 실패했습니다';
           errorEl.classList.add('show');
