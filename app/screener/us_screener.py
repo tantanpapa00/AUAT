@@ -334,32 +334,55 @@ async def load_us_stocks() -> List[Dict]:
 
 async def fetch_all_us_stocks() -> List[Dict]:
     """
-    S&P 500 전체 종목 데이터 조합
-    1. GitHub CSV → 종목 목록 (symbol, name, sector)
-    2. yfinance → 가격, 변동률, 시가총액
+    미국 전체 종목 데이터 조합
+    1. Alpaca API → 8,000개+ 종목 (우선)
+    2. S&P 500 CSV → fallback (Alpaca 실패 시)
+    3. DB → 가격, 변동률, 시가총액
     """
-    # 1. S&P 500 목록 가져오기
-    sp500_list = await get_sp500_list()
-    if not sp500_list:
-        print("[US Screener] S&P 500 목록 로드 실패")
-        return []
+    # 1. Alpaca에서 전체 종목 가져오기 (우선)
+    alpaca_assets = await get_alpaca_assets(tradable_only=True)
+
+    if alpaca_assets and len(alpaca_assets) > 500:
+        # Alpaca 성공 - 전체 종목 사용
+        stock_list = alpaca_assets
+        source = "Alpaca"
+        print(f"[US Screener] Alpaca에서 {len(stock_list)}개 종목 로드")
+    else:
+        # Alpaca 실패 - S&P 500 fallback
+        sp500_list = await get_sp500_list()
+        if not sp500_list:
+            print("[US Screener] S&P 500 목록 로드 실패")
+            return []
+        stock_list = [
+            {
+                "symbol": s["symbol"],
+                "name": s["name"],
+                "exchange": "NYSE/NASDAQ",
+                "sector": s.get("sector", ""),
+                "sector_en": s.get("sector_en", ""),
+                "sub_industry": s.get("sub_industry", ""),
+            }
+            for s in sp500_list
+        ]
+        source = "S&P500 CSV"
+        print(f"[US Screener] S&P 500 fallback 사용: {len(stock_list)}개")
 
     # 2. 심볼 목록 추출
-    symbols = [s["symbol"] for s in sp500_list]
+    symbols = [s["symbol"] for s in stock_list]
 
-    # 3. 가격 데이터 가져오기
+    # 3. 가격 데이터 가져오기 (DB에서)
     prices = await get_us_prices(symbols)
 
     # 4. 결합
     stocks = []
-    for item in sp500_list:
+    for item in stock_list:
         sym = item["symbol"]
         price_info = prices.get(sym, {})
 
         stock = {
             "code": sym,
-            "name": item["name"],
-            "sector": item["sector"],
+            "name": item.get("name", sym),
+            "sector": item.get("sector", ""),
             "sector_en": item.get("sector_en", ""),
             "sub_industry": item.get("sub_industry", ""),
             "price": price_info.get("price", 0),
@@ -367,14 +390,14 @@ async def fetch_all_us_stocks() -> List[Dict]:
             "change_pct": price_info.get("change_pct", 0),
             "market_cap": price_info.get("market_cap_t", 0),  # 조 달러 단위
             "market_cap_raw": price_info.get("market_cap", 0),  # 원본 (달러)
-            "volume": 0,  # yfinance fast_info에서 volume은 별도 조회 필요
-            "exchange": "NYSE/NASDAQ",
+            "volume": 0,
+            "exchange": item.get("exchange", "NYSE/NASDAQ"),
         }
         stocks.append(stock)
 
     # 가격 있는 종목 수 카운트
     with_price = sum(1 for s in stocks if s["price"] > 0)
-    print(f"[US Screener] {len(stocks)}개 종목 로드 완료 (가격 있음: {with_price}개)")
+    print(f"[US Screener] {len(stocks)}개 종목 로드 완료 ({source}, 가격 있음: {with_price}개)")
 
     return stocks
 
