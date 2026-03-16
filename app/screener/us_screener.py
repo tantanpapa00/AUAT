@@ -1,13 +1,18 @@
 """
 해외(미국) 주식 스크리너
-GitHub S&P500 CSV + yfinance 기반 (Finviz 완전 제거)
+Alpaca API + GitHub S&P500 CSV(fallback) + yfinance 기반
 """
 
 import asyncio
 import csv
 import io
+import os
 import httpx
 import time as _time
+import json
+import urllib.request
+import urllib.error
+import urllib.parse
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
@@ -16,8 +21,11 @@ from .filters import apply_screener_filters, sort_screener_results
 
 # ========== 상수 정의 ==========
 
-# GitHub S&P 500 CSV URL
+# GitHub S&P 500 CSV URL (fallback)
 SP500_CSV_URL = "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv"
+
+# Alpaca API URLs
+ALPACA_ASSETS_URL = "https://paper-api.alpaca.markets/v2/assets"
 
 # GICS 섹터 한글 변환
 SECTOR_KR = {
@@ -111,6 +119,137 @@ async def get_sp500_list() -> List[Dict]:
         return _sp500_list_cache["data"]
 
     return stocks
+
+
+# ========== Alpaca 종목 목록 ==========
+
+# Alpaca 종목 캐시 (1시간)
+_alpaca_assets_cache: Dict[str, Any] = {"data": None, "ts": 0}
+_ALPACA_ASSETS_TTL = 3600  # 1시간
+
+
+async def get_alpaca_assets(
+    exchanges: Optional[List[str]] = None,
+    tradable_only: bool = True,
+) -> List[Dict]:
+    """
+    Alpaca API에서 거래 가능한 미국 전체 종목 가져오기 (1시간 캐시)
+
+    GET https://paper-api.alpaca.markets/v2/assets
+    파라미터: status=active&asset_class=us_equity
+
+    Args:
+        exchanges: 거래소 필터 (예: ["NYSE", "NASDAQ", "AMEX"])
+        tradable_only: tradable=true인 종목만 반환
+
+    Returns: [{"symbol": "AAPL", "name": "Apple Inc.", "exchange": "NASDAQ", "tradable": True, "fractionable": True}, ...]
+    """
+    global _alpaca_assets_cache
+    now = _time.time()
+
+    # 캐시 확인
+    if _alpaca_assets_cache["data"] and (now - _alpaca_assets_cache["ts"]) < _ALPACA_ASSETS_TTL:
+        cached = _alpaca_assets_cache["data"]
+        # 필터링 적용
+        return _filter_alpaca_assets(cached, exchanges, tradable_only)
+
+    # Alpaca API 키 확인
+    api_key = os.getenv("ALPACA_API_KEY", "").strip()
+    api_secret = os.getenv("ALPACA_API_SECRET", "").strip()
+    base_url = os.getenv("ALPACA_BASE_URL", "https://paper-api.alpaca.markets").rstrip("/")
+
+    if not api_key or not api_secret:
+        print("[US] Alpaca API 키 없음 - S&P 500 fallback 사용")
+        return await _get_alpaca_fallback_sp500()
+
+    # API 호출
+    url = f"{base_url}/v2/assets"
+    params = {
+        "status": "active",
+        "asset_class": "us_equity",
+    }
+    full_url = f"{url}?{urllib.parse.urlencode(params)}"
+
+    headers = {
+        "APCA-API-KEY-ID": api_key,
+        "APCA-API-SECRET-KEY": api_secret,
+        "Accept": "application/json",
+    }
+
+    req = urllib.request.Request(full_url, headers=headers)
+
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        print(f"[US] Alpaca API HTTP 에러: {e.code}")
+        return await _get_alpaca_fallback_sp500()
+    except Exception as e:
+        print(f"[US] Alpaca API 에러: {e}")
+        return await _get_alpaca_fallback_sp500()
+
+    if not isinstance(data, list):
+        print("[US] Alpaca API 응답 형식 오류")
+        return await _get_alpaca_fallback_sp500()
+
+    # 데이터 변환
+    assets = []
+    for asset in data:
+        assets.append({
+            "symbol": asset.get("symbol", ""),
+            "name": asset.get("name", ""),
+            "exchange": asset.get("exchange", ""),
+            "tradable": asset.get("tradable", False),
+            "fractionable": asset.get("fractionable", False),
+            "shortable": asset.get("shortable", False),
+            "easy_to_borrow": asset.get("easy_to_borrow", False),
+            "marginable": asset.get("marginable", False),
+        })
+
+    _alpaca_assets_cache = {"data": assets, "ts": now}
+    print(f"[US] Alpaca 종목 목록 로드: {len(assets)}개")
+
+    return _filter_alpaca_assets(assets, exchanges, tradable_only)
+
+
+def _filter_alpaca_assets(
+    assets: List[Dict],
+    exchanges: Optional[List[str]] = None,
+    tradable_only: bool = True,
+) -> List[Dict]:
+    """Alpaca 종목 필터링"""
+    result = assets
+
+    # tradable 필터
+    if tradable_only:
+        result = [a for a in result if a.get("tradable")]
+
+    # 거래소 필터
+    if exchanges:
+        target = set(ex.upper() for ex in exchanges)
+        result = [a for a in result if a.get("exchange", "").upper() in target]
+
+    return result
+
+
+async def _get_alpaca_fallback_sp500() -> List[Dict]:
+    """Alpaca 실패 시 S&P 500을 Alpaca 형식으로 변환"""
+    sp500 = await get_sp500_list()
+    return [
+        {
+            "symbol": s["symbol"],
+            "name": s["name"],
+            "exchange": "NYSE/NASDAQ",
+            "tradable": True,
+            "fractionable": False,
+            "shortable": False,
+            "easy_to_borrow": False,
+            "marginable": False,
+            "sector": s.get("sector", ""),
+            "sector_en": s.get("sector_en", ""),
+        }
+        for s in sp500
+    ]
 
 
 # ========== 가격 데이터 (DB에서 읽기) ==========

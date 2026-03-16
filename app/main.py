@@ -5841,6 +5841,69 @@ def api_diag_connector_all(db: Session = Depends(get_db)):
     return results
 
 
+@app.get("/api/diag/alpaca-balance")
+def api_diag_alpaca_balance():
+    """
+    Alpaca balance diagnostic endpoint.
+    GET /v2/account 호출 테스트.
+    """
+    try:
+        from app.connectors.alpaca import AlpacaConnector
+        conn = AlpacaConnector()
+        balance = conn.get_balance()
+        return {
+            "ok": "error" not in balance or balance.get("cash", 0) > 0,
+            "balance": balance,
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.get("/api/diag/alpaca-quote")
+def api_diag_alpaca_quote(symbol: str = "AAPL"):
+    """
+    Alpaca quote diagnostic endpoint.
+    GET /v2/stocks/{symbol}/quotes/latest 호출 테스트.
+    """
+    try:
+        from app.connectors.alpaca import AlpacaConnector
+        conn = AlpacaConnector()
+        price = conn.get_current_price(symbol)
+        ticker = conn.get_ticker(symbol)
+        return {
+            "ok": price > 0,
+            "symbol": symbol,
+            "price": price,
+            "ticker": {
+                "ok": ticker.ok,
+                "last": ticker.last,
+                "bid": ticker.bid,
+                "ask": ticker.ask,
+            } if ticker else None,
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.get("/api/diag/alpaca-assets")
+def api_diag_alpaca_assets(limit: int = 20):
+    """
+    Alpaca assets diagnostic endpoint.
+    GET /v2/assets 호출 테스트.
+    """
+    try:
+        from app.connectors.alpaca import AlpacaConnector
+        conn = AlpacaConnector()
+        assets = conn.get_all_assets(exchanges=["NYSE", "NASDAQ", "AMEX"])
+        return {
+            "ok": len(assets) > 0,
+            "total": len(assets),
+            "sample": assets[:limit],
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 def okx_avail_ccy_split2(ccy: str = "USDT"):
     # Returns BalanceSplit from connector
     conn = _get_okx_conn()

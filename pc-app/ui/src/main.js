@@ -311,6 +311,101 @@ function loadTheme() {
     setTheme(saved);
 }
 
+// =====================================================
+// App Mode System (KR/US 지역 모드)
+// =====================================================
+
+/**
+ * 앱 모드 불러오기 (기본값: 'KR')
+ */
+function getAppMode() {
+    return localStorage.getItem('bbooster_app_mode') || 'KR';
+}
+
+/**
+ * 앱 모드 저장 및 적용
+ * @param {string} mode - 'KR' 또는 'US'
+ */
+function setAppMode(mode) {
+    localStorage.setItem('bbooster_app_mode', mode);
+    applyAppMode(mode);
+}
+
+/**
+ * 모드에 따라 UI 전체 적용
+ * @param {string} mode - 'KR' 또는 'US'
+ */
+function applyAppMode(mode) {
+    document.body.setAttribute('data-mode', mode);
+    updateNavVisibility(mode);
+    filterAccountExchangeDropdown();
+    // 전략 페이지가 로드된 상태라면 거래소 드롭다운도 갱신
+    if (document.getElementById('custom-exchange')) {
+        loadExchangeDropdowns();
+    }
+}
+
+/**
+ * 네비게이션 메뉴 모드별 표시/숨김
+ * @param {string} mode - 'KR' 또는 'US'
+ */
+function updateNavVisibility(mode) {
+    // KR 전용 메뉴 (US 모드에서 숨김)
+    const krOnlyMenus = [
+        'nav-screener-kr',   // 국내 스크리너
+    ];
+    // US 전용 메뉴 (KR 모드에서 숨김)
+    const usOnlyMenus = [
+        'nav-screener-us',   // 미국 스크리너
+    ];
+
+    krOnlyMenus.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = (mode === 'KR') ? '' : 'none';
+    });
+    usOnlyMenus.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = (mode === 'US') ? '' : 'none';
+    });
+
+    // 모드 설명 텍스트 업데이트
+    const desc = document.getElementById('mode-description');
+    if (desc) {
+        desc.textContent = mode === 'US'
+            ? 'Alpaca를 통해 미국 주식 거래를 사용합니다.'
+            : 'KIS 국내/해외 주식 거래를 사용합니다.';
+    }
+
+    // 모드 버튼 활성화 상태 업데이트
+    document.getElementById('mode-btn-kr')?.classList.toggle('active', mode === 'KR');
+    document.getElementById('mode-btn-us')?.classList.toggle('active', mode === 'US');
+}
+
+/**
+ * 계정 등록 거래소 드롭다운 모드별 필터링
+ * KR 모드: KIS_KR, KIS_US, OKX, BINANCE, BYBIT, UPBIT
+ * US 모드: ALPACA, OKX, BINANCE, BYBIT (Upbit/KIS 제외)
+ */
+function filterAccountExchangeDropdown() {
+    const mode = getAppMode();
+    const select = document.getElementById('account-exchange');
+    if (!select) return;
+
+    Array.from(select.options).forEach(option => {
+        const optModes = option.getAttribute('data-mode');
+        if (!optModes) return; // "거래소 선택" 기본 옵션은 유지
+        // data-mode="KR,US" 형태 지원 (comma-separated)
+        const modes = optModes.split(',').map(m => m.trim());
+        option.style.display = modes.includes(mode) ? '' : 'none';
+    });
+
+    // 현재 선택이 숨겨진 옵션이면 초기화
+    const selectedOption = select.options[select.selectedIndex];
+    if (selectedOption && selectedOption.style.display === 'none') {
+        select.selectedIndex = 0;
+    }
+}
+
 /**
  * 차트 테마 색상 반환
  */
@@ -351,6 +446,10 @@ function updateChartTheme(theme) {
 
 // 앱 시작 시 테마 로드
 loadTheme();
+
+// 앱 시작 시 저장된 모드 적용
+const savedAppMode = getAppMode();
+applyAppMode(savedAppMode);
 
 // 테마 버튼 이벤트 리스너 (이벤트 위임)
 document.addEventListener('click', (e) => {
@@ -3831,6 +3930,13 @@ async function loadStrategies() {
 
 async function loadExchangeDropdowns() {
     const selects = ['custom-exchange', 'reversal-exchange', 'trend-exchange'];
+    const mode = getAppMode();
+
+    // 모드별 허용 거래소 정의
+    // KR 모드: KIS_KR, KIS_US, OKX, BINANCE, BYBIT, UPBIT
+    // US 모드: ALPACA, OKX, BINANCE, BYBIT (Upbit/KIS 제외)
+    const KR_EXCHANGES = ['KIS_KR', 'KIS_US', 'OKX', 'BINANCE', 'BYBIT', 'UPBIT'];
+    const US_EXCHANGES = ['ALPACA', 'OKX', 'BINANCE', 'BYBIT'];
 
     try {
         let accounts = [];
@@ -3838,15 +3944,27 @@ async function loadExchangeDropdowns() {
             accounts = await invoke('get_accounts_list', { accessToken: auth.accessToken });
         }
 
+        // 모드에 따라 거래소 필터링
+        const allowedExchanges = mode === 'US' ? US_EXCHANGES : KR_EXCHANGES;
+        const filteredAccounts = accounts.filter(acc => {
+            const ex = (acc.exchange || '').toUpperCase();
+            return allowedExchanges.includes(ex);
+        });
+
         selects.forEach(id => {
             const select = document.getElementById(id);
             if (select) {
-                select.innerHTML = '<option value="">선택하세요</option>';
-                accounts.forEach(acc => {
-                    select.innerHTML += `<option value="${acc.exchange}">${acc.name} (${acc.exchange})</option>`;
+                // 기존 이벤트 리스너 제거 후 재등록을 위해 clone 사용
+                const newSelect = select.cloneNode(false);
+                select.parentNode.replaceChild(newSelect, select);
+
+                newSelect.innerHTML = '<option value="">선택하세요</option>';
+                filteredAccounts.forEach(acc => {
+                    const displayName = EXCHANGE_DISPLAY[acc.exchange] || acc.exchange;
+                    newSelect.innerHTML += `<option value="${acc.exchange}">${acc.name} (${displayName})</option>`;
                 });
                 // KIS 거래소 선택 시 설정 모달 표시
-                select.addEventListener('change', handleExchangeChange);
+                newSelect.addEventListener('change', handleExchangeChange);
             }
         });
     } catch (e) {
@@ -4545,7 +4663,8 @@ document.getElementById('account-exchange')?.addEventListener('change', (e) => {
         'BYBIT': 'bybit-form',
         'UPBIT': 'upbit-form',
         'KIS_KR': 'kis-kr-form',
-        'KIS_US': 'kis-us-form'
+        'KIS_US': 'kis-us-form',
+        'ALPACA': 'alpaca-form'
     };
     const formId = formMap[exchange];
     if (formId) {
@@ -4614,6 +4733,16 @@ document.getElementById('btn-save-account')?.addEventListener('click', async () 
             showToast('모든 필드를 입력하세요', 'error');
             return;
         }
+    } else if (exchange === 'ALPACA') {
+        name = document.getElementById('alpaca-alias').value;
+        apiKey = document.getElementById('alpaca-api-key').value;
+        apiSecret = document.getElementById('alpaca-secret').value;
+        const isPaper = document.getElementById('alpaca-paper')?.checked;
+        accountType = isPaper ? 'paper' : 'live';
+        if (!name || !apiKey || !apiSecret) {
+            showToast('모든 필드를 입력하세요', 'error');
+            return;
+        }
     }
 
     try {
@@ -4624,7 +4753,8 @@ document.getElementById('btn-save-account')?.addEventListener('click', async () 
             apiKey: apiKey,
             apiSecret: apiSecret,
             apiPassphrase: passphrase || null,
-            accountNumber: accountNumber || null
+            accountNumber: accountNumber || null,
+            accountType: accountType || null
         });
 
         showToast('계정이 등록되었습니다', 'success');
@@ -15101,9 +15231,11 @@ async function loadMrExchangeDropdown() {
     const select = document.getElementById('mr-exchange');
     if (!select) return;
 
-    // 기본 거래소 목록 (v4 명령서 순서: KIS_KR → KIS_US → UPBIT → Binance → BYBIT → OKX)
-    // ETF는 KIS_KR/KIS_US에 통합되므로 별도 옵션 없음
-    const defaultExchanges = ['KIS_KR', 'KIS_US', 'UPBIT', 'BINANCE', 'BYBIT', 'OKX'];
+    // 모드별 거래소 목록
+    const mode = getAppMode();
+    const KR_EXCHANGES = ['KIS_KR', 'KIS_US', 'UPBIT', 'BINANCE', 'BYBIT', 'OKX'];
+    const US_EXCHANGES = ['ALPACA', 'OKX', 'BINANCE', 'BYBIT'];
+    const defaultExchanges = mode === 'US' ? US_EXCHANGES : KR_EXCHANGES;
 
     try {
         let accounts = [];
@@ -15117,11 +15249,13 @@ async function loadMrExchangeDropdown() {
             } catch { }
         }
 
-        // 등록된 계정의 거래소 추출
+        // 등록된 계정의 거래소 추출 (모드에 맞는 것만)
         const registeredExchanges = new Set();
         (accounts || []).forEach(acc => {
             const exName = acc.exchange?.toUpperCase() || acc.exchange_name?.toUpperCase();
-            if (exName) registeredExchanges.add(exName);
+            if (exName && defaultExchanges.includes(exName)) {
+                registeredExchanges.add(exName);
+            }
         });
 
         // 기본 + 등록된 거래소 합치기 (중복 제거)
@@ -16036,6 +16170,7 @@ const EXCHANGE_DISPLAY = {
     'BINANCE': 'Binance',
     'BYBIT': 'BYBIT',
     'OKX': 'OKX',
+    'ALPACA': 'Alpaca (US Stocks)',
 };
 function getExchangeDisplay(exchange) {
     return EXCHANGE_DISPLAY[(exchange || '').toUpperCase()] || exchange;
@@ -16574,8 +16709,11 @@ async function loadTrendExchangeDropdown() {
     const select = document.getElementById('trend-exchange');
     if (!select) return;
 
-    // 기본 거래소 목록 (v4 명령서 순서: KIS_KR → KIS_US → UPBIT → Binance → BYBIT → OKX)
-    const defaultExchanges = ['KIS_KR', 'KIS_US', 'UPBIT', 'BINANCE', 'BYBIT', 'OKX'];
+    // 모드별 거래소 목록
+    const mode = getAppMode();
+    const KR_EXCHANGES = ['KIS_KR', 'KIS_US', 'UPBIT', 'BINANCE', 'BYBIT', 'OKX'];
+    const US_EXCHANGES = ['ALPACA', 'OKX', 'BINANCE', 'BYBIT'];
+    const defaultExchanges = mode === 'US' ? US_EXCHANGES : KR_EXCHANGES;
 
     try {
         let accounts = [];
@@ -16589,11 +16727,13 @@ async function loadTrendExchangeDropdown() {
             } catch { }
         }
 
-        // 등록된 계정의 거래소 추출
+        // 등록된 계정의 거래소 추출 (모드에 맞는 것만)
         const registeredExchanges = new Set();
         (accounts || []).forEach(acc => {
             const exName = acc.exchange?.toUpperCase() || acc.exchange_name?.toUpperCase();
-            if (exName) registeredExchanges.add(exName);
+            if (exName && defaultExchanges.includes(exName)) {
+                registeredExchanges.add(exName);
+            }
         });
 
         // 기본 + 등록된 거래소 합치기 (중복 제거)
@@ -16633,8 +16773,11 @@ async function loadCustomExchangeDropdown() {
     const select = document.getElementById('custom-exchange');
     if (!select) return;
 
-    // 기본 거래소 목록 (v4 명령서 순서: KIS_KR → KIS_US → UPBIT → Binance → BYBIT → OKX)
-    const defaultExchanges = ['KIS_KR', 'KIS_US', 'UPBIT', 'BINANCE', 'BYBIT', 'OKX'];
+    // 모드별 거래소 목록
+    const mode = getAppMode();
+    const KR_EXCHANGES = ['KIS_KR', 'KIS_US', 'UPBIT', 'BINANCE', 'BYBIT', 'OKX'];
+    const US_EXCHANGES = ['ALPACA', 'OKX', 'BINANCE', 'BYBIT'];
+    const defaultExchanges = mode === 'US' ? US_EXCHANGES : KR_EXCHANGES;
 
     try {
         let accounts = [];
@@ -16648,10 +16791,13 @@ async function loadCustomExchangeDropdown() {
             } catch { }
         }
 
+        // 등록된 계정의 거래소 추출 (모드에 맞는 것만)
         const registeredExchanges = new Set();
         (accounts || []).forEach(acc => {
             const exName = acc.exchange?.toUpperCase() || acc.exchange_name?.toUpperCase();
-            if (exName) registeredExchanges.add(exName);
+            if (exName && defaultExchanges.includes(exName)) {
+                registeredExchanges.add(exName);
+            }
         });
 
         const allExchanges = [...new Set([...defaultExchanges, ...registeredExchanges])];

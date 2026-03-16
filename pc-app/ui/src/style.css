@@ -8748,6 +8748,48 @@ body {
     border-color: var(--text-muted);
 }
 
+/* ========== 앱 모드 선택 (KR/US) ========== */
+.mode-setting-section {
+    margin-bottom: 16px;
+}
+
+.mode-selector {
+    display: flex;
+    gap: 12px;
+    margin: 12px 0;
+}
+
+.mode-btn {
+    padding: 12px 24px;
+    border-radius: 8px;
+    border: 2px solid var(--border, #444);
+    background: transparent;
+    color: var(--text-primary, #fff);
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.mode-btn.active {
+    border-color: #4CAF50;
+    background: rgba(76, 175, 80, 0.15);
+    color: #4CAF50;
+}
+
+.mode-btn:hover:not(.active) {
+    border-color: #888;
+    background: var(--bg-hover, rgba(255,255,255,0.05));
+}
+
+.mode-desc {
+    color: var(--text-secondary, #9CA3AF);
+    font-size: 13px;
+    margin-top: 8px;
+}
+
 /* Limit with Toggle (v2) */
 .limit-with-toggle {
     display: flex;

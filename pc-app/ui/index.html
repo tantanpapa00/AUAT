@@ -2532,12 +2532,16 @@
                             <label>거래소</label>
                             <select id="account-exchange" class="form-select">
                                 <option value="">거래소 선택</option>
-                                <option value="OKX">OKX</option>
-                                <option value="BINANCE">Binance</option>
-                                <option value="BYBIT">Bybit</option>
-                                <option value="UPBIT">Upbit</option>
-                                <option value="KIS_KR">KIS 국내주식</option>
-                                <option value="KIS_US">KIS 해외주식</option>
+                                <!-- KR+US 공통 (암호화폐 거래소) -->
+                                <option value="OKX" data-mode="KR,US">OKX</option>
+                                <option value="BINANCE" data-mode="KR,US">Binance</option>
+                                <option value="BYBIT" data-mode="KR,US">Bybit</option>
+                                <!-- KR 모드 전용 -->
+                                <option value="UPBIT" data-mode="KR">Upbit</option>
+                                <option value="KIS_KR" data-mode="KR">KIS 국내주식</option>
+                                <option value="KIS_US" data-mode="KR">KIS 해외주식</option>
+                                <!-- US 모드 전용 -->
+                                <option value="ALPACA" data-mode="US">Alpaca (US Stocks)</option>
                             </select>
                         </div>
 
@@ -2649,6 +2653,28 @@
                             </div>
                         </div>
 
+                        <!-- Alpaca 폼 (API Key + Secret Key) -->
+                        <div id="alpaca-form" class="exchange-form" style="display: none;">
+                            <div class="form-group">
+                                <label>계정 별칭</label>
+                                <input type="text" id="alpaca-alias" class="form-input" placeholder="예: Alpaca Paper">
+                            </div>
+                            <div class="form-group">
+                                <label>API Key ID</label>
+                                <input type="password" id="alpaca-api-key" class="form-input" placeholder="APCA-API-KEY-ID">
+                            </div>
+                            <div class="form-group">
+                                <label>API Secret Key</label>
+                                <input type="password" id="alpaca-secret" class="form-input" placeholder="APCA-API-SECRET-KEY">
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="alpaca-paper" checked>
+                                    Paper Trading (모의투자)
+                                </label>
+                            </div>
+                        </div>
+
                         <div class="form-actions">
                             <button class="btn btn-secondary" id="btn-cancel-account">취소</button>
                             <button class="btn btn-primary" id="btn-save-account">저장</button>
@@ -2733,6 +2759,22 @@
                             <button class="btn btn-secondary" id="btn-open-privacy">개인정보처리방침</button>
                             <button class="btn btn-secondary" id="btn-export-logs">로그 내보내기</button>
                         </div>
+                    </section>
+
+                    <!-- 서비스 지역 설정 섹션 -->
+                    <section class="card mode-setting-section">
+                        <h2>🌍 서비스 지역 설정</h2>
+                        <div class="mode-selector">
+                            <button id="mode-btn-kr" class="mode-btn active" onclick="setAppMode('KR')">
+                                🇰🇷 한국 (KIS)
+                            </button>
+                            <button id="mode-btn-us" class="mode-btn" onclick="setAppMode('US')">
+                                🇺🇸 미국 (Alpaca)
+                            </button>
+                        </div>
+                        <p class="mode-desc" id="mode-description">
+                            KIS 국내/해외 주식 거래를 사용합니다.
+                        </p>
                     </section>
 
                     <!-- 테마 설정 섹션 -->

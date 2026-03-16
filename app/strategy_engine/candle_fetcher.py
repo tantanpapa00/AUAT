@@ -102,6 +102,11 @@ EXCHANGE_TF_MAP: Dict[str, Dict[str, str]] = {
     "KIS_US": {
         "1D": "0", "1W": "1", "1M": "2",  # GUBN 파라미터 값
     },
+    "ALPACA": {
+        "1m": "1Min", "5m": "5Min", "15m": "15Min", "30m": "30Min",
+        "1h": "1Hour", "1H": "1Hour", "4h": "4Hour", "4H": "4Hour",
+        "1D": "1Day", "1W": "1Week",
+    },
 }
 
 # KIS 토큰 캐시 (모듈 레벨)
@@ -190,6 +195,8 @@ async def fetch_candles_from_exchange(
         return await _fetch_kis_kr_candles(symbol, timeframe, limit, end_time)
     elif exchange == "KIS_US":
         return await _fetch_kis_us_candles(symbol, timeframe, limit, end_time)
+    elif exchange == "ALPACA":
+        return await _fetch_alpaca_candles(symbol, timeframe, limit, end_time)
     else:
         raise ValueError(f"Unsupported exchange: {exchange}")
 
@@ -824,6 +831,128 @@ def _empty_candle_data(exchange: str, symbol: str, timeframe: str) -> CandleData
     )
 
 
+async def _fetch_alpaca_candles(
+    symbol: str,
+    timeframe: str,
+    limit: int,
+    end_time: Optional[int] = None,
+) -> CandleData:
+    """
+    Fetch candles from Alpaca Data API.
+
+    GET https://data.alpaca.markets/v2/stocks/{symbol}/bars
+
+    Args:
+        symbol: Stock symbol (e.g., AAPL)
+        timeframe: Internal timeframe (1m, 5m, 1D, etc.)
+        limit: Number of candles
+        end_time: End timestamp in ms
+    """
+    import os
+    import urllib.request
+    import urllib.parse
+
+    api_key = os.getenv("ALPACA_API_KEY", "").strip()
+    api_secret = os.getenv("ALPACA_API_SECRET", "").strip()
+    data_url = os.getenv("ALPACA_DATA_URL", "https://data.alpaca.markets").rstrip("/")
+
+    if not api_key or not api_secret:
+        logger.error("ALPACA API 키 없음")
+        return _empty_candle_data("ALPACA", symbol, timeframe)
+
+    # Convert timeframe to Alpaca format
+    alpaca_tf = get_exchange_tf("ALPACA", timeframe)
+    if not alpaca_tf:
+        alpaca_tf = "1Day"
+
+    # Build URL
+    symbol = symbol.upper().strip()
+    url = f"{data_url}/v2/stocks/{symbol}/bars"
+
+    params: Dict[str, Any] = {
+        "timeframe": alpaca_tf,
+        "limit": min(limit, 10000),
+    }
+
+    # Calculate start/end dates
+    if end_time:
+        end_dt = datetime.fromtimestamp(end_time / 1000, tz=timezone.utc)
+        params["end"] = end_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    # Start date: go back enough to get 'limit' candles
+    tf_ms = get_tf_ms(timeframe)
+    duration_ms = tf_ms * limit * 2  # Double for safety (weekends, holidays)
+    start_ts = (end_time or int(datetime.now(timezone.utc).timestamp() * 1000)) - duration_ms
+    start_dt = datetime.fromtimestamp(start_ts / 1000, tz=timezone.utc)
+    params["start"] = start_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    full_url = f"{url}?{urllib.parse.urlencode(params)}"
+
+    headers = {
+        "APCA-API-KEY-ID": api_key,
+        "APCA-API-SECRET-KEY": api_secret,
+        "Accept": "application/json",
+    }
+
+    req = urllib.request.Request(full_url, headers=headers)
+
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        logger.error(f"ALPACA 캔들 조회 HTTP 에러: {e.code} - {e.read().decode('utf-8', errors='replace')}")
+        return _empty_candle_data("ALPACA", symbol, timeframe)
+    except Exception as e:
+        logger.error(f"ALPACA 캔들 조회 에러: {e}")
+        return _empty_candle_data("ALPACA", symbol, timeframe)
+
+    bars = data.get("bars", [])
+    if not bars:
+        logger.warning(f"ALPACA 캔들 데이터 없음: {symbol}")
+        return _empty_candle_data("ALPACA", symbol, timeframe)
+
+    # Limit to requested count
+    bars = bars[-limit:] if len(bars) > limit else bars
+
+    n = len(bars)
+    timestamps = np.zeros(n)
+    opens = np.zeros(n)
+    highs = np.zeros(n)
+    lows = np.zeros(n)
+    closes = np.zeros(n)
+    volumes = np.zeros(n)
+
+    for i, bar in enumerate(bars):
+        # Parse timestamp (ISO format)
+        t_str = bar.get("t", "")
+        if t_str:
+            try:
+                dt = datetime.fromisoformat(t_str.replace("Z", "+00:00"))
+                timestamps[i] = dt.timestamp() * 1000
+            except:
+                timestamps[i] = 0
+
+        opens[i] = float(bar.get("o", 0) or 0)
+        highs[i] = float(bar.get("h", 0) or 0)
+        lows[i] = float(bar.get("l", 0) or 0)
+        closes[i] = float(bar.get("c", 0) or 0)
+        volumes[i] = float(bar.get("v", 0) or 0)
+
+    logger.info(f"ALPACA 캔들 조회 완료: {symbol} {timeframe} {n}봉")
+
+    return CandleData(
+        exchange="ALPACA",
+        symbol=symbol,
+        timeframe=timeframe,
+        timestamps=timestamps,
+        opens=opens,
+        highs=highs,
+        lows=lows,
+        closes=closes,
+        volumes=volumes,
+    )
+
+
 class CandleCache:
     """
     Candle cache manager with DB persistence.
@@ -1020,7 +1149,7 @@ async def fetch_candles_for_backtest(
     symbol = symbol.upper()
 
     # 지원 거래소 확인
-    supported_exchanges = ["OKX", "BINANCE", "BYBIT", "UPBIT", "KIS_KR", "KIS_US"]
+    supported_exchanges = ["OKX", "BINANCE", "BYBIT", "UPBIT", "KIS_KR", "KIS_US", "ALPACA"]
     if exchange not in supported_exchanges:
         raise ValueError(
             f"{exchange} 거래소의 백테스트는 아직 지원되지 않습니다. "
@@ -1126,6 +1255,8 @@ async def fetch_candles_for_backtest(
         all_candles = await _fetch_kis_kr_paginated(symbol, timeframe, needed, timeout)
     elif exchange == "KIS_US":
         all_candles = await _fetch_kis_us_paginated(symbol, timeframe, needed, timeout)
+    elif exchange == "ALPACA":
+        all_candles = await _fetch_alpaca_paginated(symbol, timeframe, needed, timeout)
 
     # 결과 검증
     if len(all_candles) < 50:
@@ -1216,6 +1347,8 @@ async def _fetch_incremental(
             return await _fetch_kis_kr_paginated(symbol, timeframe, needed, timeout)
         elif exchange == "KIS_US":
             return await _fetch_kis_us_paginated(symbol, timeframe, needed, timeout)
+        elif exchange == "ALPACA":
+            return await _fetch_alpaca_paginated(symbol, timeframe, needed, timeout)
     except Exception as e:
         logger.warning(f"증분 조회 실패: {e}")
         return []
@@ -1530,6 +1663,137 @@ async def _fetch_kis_us_paginated(
 
     # 시간순 정렬 (과거 → 최신)
     all_candles.sort(key=lambda c: c.ts)
+
+    return all_candles
+
+
+async def _fetch_alpaca_paginated(
+    symbol: str,
+    timeframe: str,
+    needed: int,
+    timeout: int,
+) -> List[Candle]:
+    """
+    Alpaca 페이지네이션 조회 (next_page_token 기반)
+
+    GET https://data.alpaca.markets/v2/stocks/{symbol}/bars
+    """
+    import os
+    import urllib.request
+    import urllib.parse
+    import asyncio
+
+    api_key = os.getenv("ALPACA_API_KEY", "").strip()
+    api_secret = os.getenv("ALPACA_API_SECRET", "").strip()
+    data_url = os.getenv("ALPACA_DATA_URL", "https://data.alpaca.markets").rstrip("/")
+
+    if not api_key or not api_secret:
+        logger.error("ALPACA API 키 없음 - 백테스트 캔들 조회 불가")
+        return []
+
+    # 타임프레임 변환
+    alpaca_tf = get_exchange_tf("ALPACA", timeframe)
+    if not alpaca_tf:
+        alpaca_tf = "1Day"
+
+    all_candles: List[Candle] = []
+    start_time_check = time.time()
+
+    # 시작/종료 날짜 계산 (needed 봉수 기준)
+    tf_ms = TF_TO_MS.get(timeframe, 24 * 60 * 60 * 1000)
+    now_ms = int(time.time() * 1000)
+
+    # 충분한 과거 데이터 조회 (주말/공휴일 감안 2배)
+    duration_ms = tf_ms * needed * 2
+    start_ts = now_ms - duration_ms
+
+    start_dt = datetime.fromtimestamp(start_ts / 1000, tz=timezone.utc)
+    end_dt = datetime.fromtimestamp(now_ms / 1000, tz=timezone.utc)
+
+    start_str = start_dt.strftime("%Y-%m-%dT00:00:00Z")
+    end_str = end_dt.strftime("%Y-%m-%dT23:59:59Z")
+
+    headers = {
+        "APCA-API-KEY-ID": api_key,
+        "APCA-API-SECRET-KEY": api_secret,
+        "Accept": "application/json",
+    }
+
+    next_page_token = None
+    symbol = symbol.upper().strip()
+
+    while len(all_candles) < needed:
+        if time.time() - start_time_check > timeout:
+            logger.warning(f"ALPACA 백테스트 타임아웃 ({timeout}초)")
+            break
+
+        # URL 구성
+        params: Dict[str, Any] = {
+            "timeframe": alpaca_tf,
+            "start": start_str,
+            "end": end_str,
+            "limit": 1000,
+            "adjustment": "all",  # 수정주가
+            "feed": "iex",        # 무료 데이터 피드
+        }
+
+        if next_page_token:
+            params["page_token"] = next_page_token
+
+        url = f"{data_url}/v2/stocks/{symbol}/bars?{urllib.parse.urlencode(params)}"
+        req = urllib.request.Request(url, headers=headers)
+
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode("utf-8", errors="replace")
+            logger.error(f"ALPACA 백테스트 HTTP 에러: {e.code} - {error_body}")
+            if "not found" in error_body.lower() or e.code == 404:
+                raise ValueError(f"종목을 찾을 수 없습니다: {symbol}. 미국 주식 심볼을 확인해주세요 (예: AAPL, MSFT)")
+            break
+        except Exception as e:
+            logger.error(f"ALPACA 백테스트 조회 에러: {e}")
+            break
+
+        bars = data.get("bars", [])
+        if not bars:
+            logger.info(f"ALPACA 더 이상 데이터 없음: {symbol}")
+            break
+
+        for bar in bars:
+            # Alpaca 타임스탬프: RFC3339 → Unix ms
+            t_str = bar.get("t", "")
+            if t_str:
+                try:
+                    dt = datetime.fromisoformat(t_str.replace("Z", "+00:00"))
+                    ts = int(dt.timestamp() * 1000)
+                except:
+                    ts = 0
+            else:
+                ts = 0
+
+            all_candles.append(Candle(
+                ts=ts,
+                o=float(bar.get("o", 0) or 0),
+                h=float(bar.get("h", 0) or 0),
+                l=float(bar.get("l", 0) or 0),
+                c=float(bar.get("c", 0) or 0),
+                v=float(bar.get("v", 0) or 0),
+            ))
+
+        # 다음 페이지 토큰 확인
+        next_page_token = data.get("next_page_token")
+        if not next_page_token:
+            break
+
+        # Rate limit 방지
+        await asyncio.sleep(0.2)
+
+    # 시간순 정렬 (과거 → 최신)
+    all_candles.sort(key=lambda c: c.ts)
+
+    logger.info(f"ALPACA 백테스트 캔들 조회 완료: {symbol} {timeframe} {len(all_candles)}봉")
 
     return all_candles
 
