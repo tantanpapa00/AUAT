@@ -6205,9 +6205,10 @@ def _okx_extract_ids(okx_res: object) -> tuple[str | None, str | None, dict | No
 
 def _maybe_send_to_broker(db, order_id: int):
     """
-    전 거래소 주문 실행 (OKX, Binance, Bybit, Upbit, KIS_KR, KIS_US)
+    전 거래소 주문 실행 (OKX, Binance, Bybit, Upbit, KIS_KR, KIS_US, ALPACA)
     - ORDER_SUBMIT_ENABLE / DRY_RUN 환경변수 존중
     - 거래소별 connector.place_order() 호출
+    - ALPACA: 미국장 시간 체크 포함 (EST 09:30~16:00)
     """
     # 주문 + 계정 정보 조회 (exchange 포함)
     o = db.execute(_sql_text("""
@@ -6334,6 +6335,48 @@ def _maybe_send_to_broker(db, order_id: int):
                 exchange_code=exchange_code,
                 payload={"source": "tv", "order_id": int(order_id)},
             )
+            return _handle_connector_response(db, order_id, exchange, res)
+
+        elif exchange == "ALPACA":
+            # ALPACA US Stocks: 미국장 시간 체크 → 시장가 주문
+            from zoneinfo import ZoneInfo
+            from app.utils.trading import is_us_market_open
+
+            # 1. 미국장 시간 체크
+            if not is_us_market_open():
+                now_et = datetime.now(ZoneInfo("America/New_York"))
+                logger.info(f"ALPACA 장 외 시간 - 주문 건너뜀: {now_et.strftime('%Y-%m-%d %H:%M:%S ET')}")
+                db.execute(_sql_text("""
+                    UPDATE orders SET status='skipped', reason='market_closed', updated_at=:u WHERE id=:id
+                """), {"u": _now_kst_iso(), "id": order_id})
+                db.commit()
+                return {"ok": True, "skipped": True, "reason": "market_closed", "exchange": exchange}
+
+            # 2. 커넥터 초기화
+            conn = get_connector("ALPACA")
+            if not conn:
+                raise ValueError("ALPACA 커넥터 초기화 실패 (API 키 확인 필요)")
+
+            # 3. 현재가 조회 (sizing 계산용)
+            current_price = conn.get_current_price(symbol)
+            if not current_price or current_price <= 0:
+                raise ValueError(f"ALPACA 현재가 조회 실패: {symbol}")
+
+            # 4. 시장가 주문 실행
+            res = conn.place_order(
+                symbol=symbol,
+                side=side,
+                qty=qty,
+                order_type="market",
+                payload={"source": "tv", "order_id": int(order_id)},
+            )
+
+            # 5. 결과 로깅
+            if res.ok:
+                logger.info(f"ALPACA 주문 성공: {symbol} {side} {qty}주 @ ${current_price:.2f}")
+            else:
+                logger.warning(f"ALPACA 주문 실패: {res.err_msg}")
+
             return _handle_connector_response(db, order_id, exchange, res)
 
         else:

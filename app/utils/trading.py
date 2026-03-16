@@ -1,11 +1,77 @@
 """
 BBooster Trading Utilities
-Hub 매매 로직 - Limits 체크, Sizing 계산
+Hub 매매 로직 - Limits 체크, Sizing 계산, 시장 시간 체크
 """
 from datetime import datetime, timezone, timedelta
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+
+
+# =====================
+# US Market Hours Check
+# =====================
+
+def is_us_market_open() -> bool:
+    """
+    미국 정규장 운영 시간 체크 (EST 09:30~16:00, 월~금)
+
+    Returns:
+        True if US market is open, False otherwise
+    """
+    from zoneinfo import ZoneInfo
+    now_et = datetime.now(ZoneInfo("America/New_York"))
+
+    # 주말 체크
+    if now_et.weekday() >= 5:  # 5=토요일, 6=일요일
+        return False
+
+    # 정규장 시간 체크 (09:30 ~ 16:00 ET)
+    market_open = now_et.replace(hour=9, minute=30, second=0, microsecond=0)
+    market_close = now_et.replace(hour=16, minute=0, second=0, microsecond=0)
+
+    return market_open <= now_et <= market_close
+
+
+def get_us_market_status() -> Dict[str, Any]:
+    """
+    미국장 상태 반환
+
+    Returns:
+        {
+            "is_open": bool,
+            "current_time_et": str,
+            "weekday": str,
+            "next_open": str (장 마감 시)
+        }
+    """
+    from zoneinfo import ZoneInfo
+    now_et = datetime.now(ZoneInfo("America/New_York"))
+
+    is_open = is_us_market_open()
+
+    result = {
+        "is_open": is_open,
+        "current_time_et": now_et.strftime("%Y-%m-%d %H:%M:%S ET"),
+        "weekday": now_et.strftime("%A"),
+    }
+
+    # 장 마감 시 다음 개장 시간 계산
+    if not is_open:
+        # 현재 시간 기준으로 다음 개장일 계산
+        next_open = now_et.replace(hour=9, minute=30, second=0, microsecond=0)
+
+        # 오늘 이미 장이 마감됐으면 내일로
+        if now_et.hour >= 16:
+            next_open += timedelta(days=1)
+
+        # 주말이면 월요일로
+        while next_open.weekday() >= 5:
+            next_open += timedelta(days=1)
+
+        result["next_open"] = next_open.strftime("%Y-%m-%d %H:%M:%S ET")
+
+    return result
 
 
 async def check_limits(
