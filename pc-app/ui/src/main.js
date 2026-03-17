@@ -343,6 +343,22 @@ function applyAppMode(mode) {
     if (document.getElementById('custom-exchange')) {
         loadExchangeDropdowns();
     }
+
+    // 스크리너 탭 제어 (US 모드에서는 해외 탭만 표시)
+    const krTab = document.querySelector('.screener-tab[data-market="kr"]');
+    const etfTab = document.querySelector('.screener-tab[data-market="etf"]');
+    const usTab = document.querySelector('.screener-tab[data-market="us"]');
+    if (mode === 'US') {
+        if (krTab) krTab.style.display = 'none';
+        if (etfTab) etfTab.style.display = 'none';
+        // US 모드 진입 시 해외 탭 자동 활성화 (스크리너 탭이 존재하는 경우)
+        if (usTab && !usTab.classList.contains('active')) {
+            usTab.click();
+        }
+    } else {
+        if (krTab) krTab.style.display = '';
+        if (etfTab) etfTab.style.display = '';
+    }
 }
 
 /**
@@ -3339,7 +3355,17 @@ async function searchSymbols(query) {
         }
 
         // result.symbols 또는 result 자체가 배열인 경우 처리
-        const symbols = result.symbols || result || [];
+        let symbols = result.symbols || result || [];
+
+        // US 모드일 때 KR 종목 제외, Alpaca/암호화폐 거래소만 표시
+        const appMode = getAppMode();
+        if (appMode === 'US') {
+            symbols = symbols.filter(s => {
+                const ex = (s.exchange || '').toUpperCase();
+                return ex === 'ALPACA' || ['OKX', 'BINANCE', 'BYBIT'].includes(ex);
+            });
+        }
+
         symbolsData = symbols;
         renderSymbolsTable(symbols);
     } catch (error) {
@@ -10212,6 +10238,7 @@ async function openStockDetail(symbol, exchange) {
                           exchange?.toLowerCase() === 'kospi' ||
                           exchange?.toLowerCase() === 'kosdaq');
     const isUsStock = exchange?.toLowerCase() === 'kis_us' ||
+                      exchange?.toLowerCase() === 'alpaca' ||
                       exchange?.toLowerCase() === 'us' ||
                       exchange?.toLowerCase() === 'nasdaq' ||
                       exchange?.toLowerCase() === 'nyse';
@@ -14368,6 +14395,7 @@ function activateStockTab(tabName) {
                          exchange.toLowerCase() === 'kospi' ||
                          exchange.toLowerCase() === 'kosdaq');
         const isUs = exchange.toLowerCase() === 'kis_us' ||
+                     exchange.toLowerCase() === 'alpaca' ||
                      exchange.toLowerCase() === 'us' ||
                      exchange.toLowerCase() === 'nasdaq' ||
                      exchange.toLowerCase() === 'nyse';
@@ -20309,7 +20337,9 @@ function onScreenerRowClick(idx) {
     // 마켓에 따른 exchange 결정
     let exchange = 'kis_kr';
     if (screenerState.market === 'us') {
-        exchange = 'kis_us';
+        // US 모드에 따라 거래소 결정
+        const appMode = getAppMode();
+        exchange = appMode === 'US' ? 'ALPACA' : 'kis_us';
     } else if (screenerState.market === 'etf') {
         exchange = 'etf';  // ETF 전용 exchange
     }
