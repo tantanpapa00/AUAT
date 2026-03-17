@@ -35,14 +35,14 @@
 
             <!-- 회원가입 폼 -->
             <div id="email-register-form" class="auth-form" style="display:none;">
-                <input type="text" class="auth-input" id="register-name" placeholder="이름 (선택)">
+                <input type="text" class="auth-input" id="register-name" placeholder="이름 (선택)" data-i18n="name_optional" data-i18n-attr="placeholder">
                 <input type="email" class="auth-input" id="register-email" placeholder="이메일" data-i18n="email" data-i18n-attr="placeholder" required>
-                <input type="password" class="auth-input" id="register-password" placeholder="비밀번호 (12자 이상, 영문+숫자+특수문자)" required minlength="12">
+                <input type="password" class="auth-input" id="register-password" placeholder="비밀번호 (12자 이상, 영문+숫자+특수문자)" data-i18n="password_hint" data-i18n-attr="placeholder" required minlength="12">
                 <div class="password-requirements" id="pwd-requirements">
-                    <span id="pwd-length" class="pwd-check">❌ 12자리 이상</span>
-                    <span id="pwd-letter" class="pwd-check">❌ 영문자 포함</span>
-                    <span id="pwd-number" class="pwd-check">❌ 숫자 포함</span>
-                    <span id="pwd-special" class="pwd-check">❌ 특수문자 포함</span>
+                    <span id="pwd-length" class="pwd-check" data-i18n="pw_rule_length">❌ 12자리 이상</span>
+                    <span id="pwd-letter" class="pwd-check" data-i18n="pw_rule_letters">❌ 영문자 포함</span>
+                    <span id="pwd-number" class="pwd-check" data-i18n="pw_rule_numbers">❌ 숫자 포함</span>
+                    <span id="pwd-special" class="pwd-check" data-i18n="pw_rule_symbols">❌ 특수문자 포함</span>
                 </div>
                 <input type="password" class="auth-input" id="register-password-confirm" placeholder="비밀번호 확인" data-i18n="password_confirm" data-i18n-attr="placeholder" required minlength="12">
                 <button type="button" class="auth-submit-btn" id="btn-email-register" data-i18n="signup">회원가입</button>
@@ -52,7 +52,7 @@
                 </div>
             </div>
 
-            <div class="login-divider"><span>또는</span></div>
+            <div class="login-divider"><span data-i18n="or">또는</span></div>
 
             <!-- 카카오 로그인 (메인 CTA) -->
             <button class="kakao-login-btn" id="btn-kakao-login">
@@ -72,7 +72,7 @@
                 <span data-i18n="continue_google">Google로 시작하기</span>
             </button>
 
-            <div class="login-divider"><span>또는</span></div>
+            <div class="login-divider"><span data-i18n="or">또는</span></div>
 
             <button class="skip-login-btn" id="btn-skip-login" data-i18n="continue_local">
                 로그인 없이 계속 (로컬 모드)
@@ -83,41 +83,41 @@
 
         <!-- 약관 동의 화면 (소셜 로그인 신규 가입) -->
         <div class="consent-card" id="consent-card" style="display:none;">
-            <h2 class="consent-title">서비스 이용 동의</h2>
+            <h2 class="consent-title" data-i18n="terms_title">서비스 이용 동의</h2>
             <p class="consent-subtitle">BBooster 서비스 이용을 위해 아래 약관에 동의해주세요.</p>
 
             <div class="consent-form">
                 <label class="consent-item consent-all">
                     <input type="checkbox" id="consent-all">
-                    <span class="consent-label">전체 동의</span>
+                    <span class="consent-label" data-i18n="agree_all">전체 동의</span>
                 </label>
                 <hr class="consent-divider">
                 <label class="consent-item">
                     <input type="checkbox" id="consent-terms" class="consent-required">
-                    <span class="consent-label">[필수] 이용약관 동의</span>
+                    <span class="consent-label" data-i18n="terms_required">[필수] 이용약관 동의</span>
                     <a href="/legal/terms" target="_blank" class="consent-link">보기</a>
                 </label>
                 <label class="consent-item">
                     <input type="checkbox" id="consent-privacy" class="consent-required">
-                    <span class="consent-label">[필수] 개인정보 처리방침</span>
+                    <span class="consent-label" data-i18n="privacy_required">[필수] 개인정보 처리방침</span>
                     <a href="/legal/privacy" target="_blank" class="consent-link">보기</a>
                 </label>
                 <label class="consent-item">
                     <input type="checkbox" id="consent-age" class="consent-required">
-                    <span class="consent-label">[필수] 만 14세 이상입니다</span>
+                    <span class="consent-label" data-i18n="age_required">[필수] 만 14세 이상입니다</span>
                 </label>
                 <label class="consent-item consent-risk">
                     <input type="checkbox" id="consent-risk" class="consent-required">
-                    <span class="consent-label">[필수] 투자 리스크를 이해합니다</span>
+                    <span class="consent-label" data-i18n="risk_required">[필수] 투자 리스크를 이해합니다</span>
                 </label>
                 <p class="consent-risk-text">"투자 판단과 결과 책임은 사용자에게 있으며, BBooster는 정보 제공 및 자동 실행 도구입니다."</p>
                 <label class="consent-item">
                     <input type="checkbox" id="consent-marketing">
-                    <span class="consent-label">[선택] 마케팅 정보 수신 동의</span>
+                    <span class="consent-label" data-i18n="marketing_optional">[선택] 마케팅 정보 수신 동의</span>
                 </label>
             </div>
 
-            <button class="consent-submit-btn" id="btn-consent-submit" disabled>동의하고 시작하기</button>
+            <button class="consent-submit-btn" id="btn-consent-submit" disabled data-i18n="agree_start">동의하고 시작하기</button>
             <p class="consent-note">약관이 변경되면 재동의를 요청드릴 수 있습니다.</p>
         </div>
     </div>
@@ -127,7 +127,7 @@
         <div class="loading-content">
             <div class="loading-spinner"></div>
             <div id="loading-message" class="loading-message">서버 연결 중...</div>
-            <button id="btn-retry-connection" class="btn btn-primary" style="display: none;">재시도</button>
+            <button id="btn-retry-connection" class="btn btn-primary" style="display: none;" data-i18n="retry">재시도</button>
         </div>
     </div>
 
@@ -260,9 +260,9 @@
                 <div class="user-info-section">
                     <div class="user-avatar" id="user-avatar">👤</div>
                     <div class="user-details">
-                        <span class="user-name" id="user-name">사용자</span>
+                        <span class="user-name" id="user-name" data-i18n="user">사용자</span>
                         <span class="subscription-badge free" id="subscription-badge">
-                            <span id="subscription-text">무료</span>
+                            <span id="subscription-text" data-i18n="free">무료</span>
                         </span>
                     </div>
                 </div>
@@ -337,27 +337,27 @@
                             <div class="allocation-legend" id="allocation-legend">
                                 <div class="legend-item">
                                     <span class="legend-color" style="background:#3B82F6"></span>
-                                    <span class="legend-label">국내주식</span>
+                                    <span class="legend-label" data-i18n="domestic_stocks">국내주식</span>
                                     <span class="legend-value" id="alloc-domestic">0%</span>
                                 </div>
                                 <div class="legend-item">
                                     <span class="legend-color" style="background:#8B5CF6"></span>
-                                    <span class="legend-label">해외주식</span>
+                                    <span class="legend-label" data-i18n="foreign_stocks">해외주식</span>
                                     <span class="legend-value" id="alloc-foreign">0%</span>
                                 </div>
                                 <div class="legend-item">
                                     <span class="legend-color" style="background:#F59E0B"></span>
-                                    <span class="legend-label">암호화폐</span>
+                                    <span class="legend-label" data-i18n="crypto">암호화폐</span>
                                     <span class="legend-value" id="alloc-crypto">0%</span>
                                 </div>
                                 <div class="legend-item">
                                     <span class="legend-color" style="background:#6B7280"></span>
-                                    <span class="legend-label">현금(원화)</span>
+                                    <span class="legend-label" data-i18n="cash_krw">현금(원화)</span>
                                     <span class="legend-value" id="alloc-cash-krw">0%</span>
                                 </div>
                                 <div class="legend-item">
                                     <span class="legend-color" style="background:#9CA3AF"></span>
-                                    <span class="legend-label">현금(달러)</span>
+                                    <span class="legend-label" data-i18n="cash_usd">현금(달러)</span>
                                     <span class="legend-value" id="alloc-cash-usd">0%</span>
                                 </div>
                             </div>
@@ -367,10 +367,10 @@
                             <table class="allocation-table">
                                 <thead>
                                     <tr>
-                                        <th>자산유형</th>
-                                        <th>평가금액</th>
-                                        <th>비중</th>
-                                        <th>수익률</th>
+                                        <th data-i18n="asset_type">자산유형</th>
+                                        <th data-i18n="value">평가금액</th>
+                                        <th data-i18n="weight">비중</th>
+                                        <th data-i18n="return">수익률</th>
                                     </tr>
                                 </thead>
                                 <tbody id="allocation-tbody">
@@ -445,7 +445,7 @@
                                         <td colspan="8">
                                             <div class="empty-state">
                                                 <p data-i18n="no_account_connected">연결된 계정이 없습니다.</p>
-                                                <p>설정 → 계정관리에서 거래소를 연결하세요.</p>
+                                                <p data-i18n="go_to_account">설정 → 계정관리에서 거래소를 연결하세요.</p>
                                                 <button class="btn btn-primary" onclick="navigateTo('accounts')" data-i18n="connect_account">계정 연결하기</button>
                                             </div>
                                         </td>
@@ -468,7 +468,7 @@
                                         <th data-i18n="strategy">전략명</th>
                                         <th data-i18n="symbol">종목</th>
                                         <th data-i18n="exchange">거래소</th>
-                                        <th>오늘거래</th>
+                                        <th data-i18n="today_trades">오늘거래</th>
                                         <th data-i18n="status">상태</th>
                                         <th data-i18n="action">액션</th>
                                     </tr>
@@ -478,7 +478,7 @@
                                         <td colspan="6">
                                             <div class="empty-state">
                                                 <p data-i18n="no_active_strategy">활성 전략이 없습니다.</p>
-                                                <p>전략설정에서 전략을 추가하세요.</p>
+                                                <p data-i18n="go_to_strategy">전략설정에서 전략을 추가하세요.</p>
                                                 <button class="btn btn-primary" onclick="navigateTo('tv-connect')" data-i18n="add_strategy">전략 추가하기</button>
                                             </div>
                                         </td>
@@ -510,7 +510,7 @@
                                     <tr class="empty-row">
                                         <td colspan="6">
                                             <div class="empty-state">
-                                                <p>거래 내역이 없습니다.</p>
+                                                <p data-i18n="no_trade_history">거래 내역이 없습니다.</p>
                                             </div>
                                         </td>
                                     </tr>
@@ -518,7 +518,7 @@
                             </table>
                         </div>
                         <div class="trades-more" id="trades-more" style="display: none;">
-                            <button class="btn btn-secondary btn-sm" id="btn-load-more-trades">더보기</button>
+                            <button class="btn btn-secondary btn-sm" id="btn-load-more-trades" data-i18n="load_more">더보기</button>
                         </div>
                     </section>
                 </div>
@@ -536,22 +536,22 @@
                     <div class="wizard-progress">
                         <div class="wizard-step active" data-step="1">
                             <div class="step-number">1</div>
-                            <div class="step-label">거래소 선택</div>
+                            <div class="step-label" data-i18n="select_exchange">거래소 선택</div>
                         </div>
                         <div class="wizard-connector"></div>
                         <div class="wizard-step" data-step="2">
                             <div class="step-number">2</div>
-                            <div class="step-label">자산 선택</div>
+                            <div class="step-label" data-i18n="select_asset">자산 선택</div>
                         </div>
                         <div class="wizard-connector"></div>
                         <div class="wizard-step" data-step="3">
                             <div class="step-number">3</div>
-                            <div class="step-label">매매 설정</div>
+                            <div class="step-label" data-i18n="trading_settings">매매 설정</div>
                         </div>
                         <div class="wizard-connector"></div>
                         <div class="wizard-step" data-step="4">
                             <div class="step-number">4</div>
-                            <div class="step-label">템플릿 확인</div>
+                            <div class="step-label" data-i18n="confirm_template">템플릿 확인</div>
                         </div>
                     </div>
 

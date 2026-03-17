@@ -333,6 +333,8 @@ function setAppMode(mode) {
 }
 // inline onclick에서 호출 가능하도록 전역 등록
 window.setAppMode = setAppMode;
+window.getAppMode = getAppMode;
+window.applyTranslations = applyTranslations;
 
 /**
  * 모드에 따라 UI 전체 적용
@@ -1084,7 +1086,7 @@ async function handleEmailLogin() {
 
     if (btnEmailLogin) {
         btnEmailLogin.disabled = true;
-        btnEmailLogin.textContent = '로그인 중...';
+        btnEmailLogin.textContent = t('signing_in');
     }
     clearAuthErrors();
 
@@ -1102,7 +1104,7 @@ async function handleEmailLogin() {
     } finally {
         if (btnEmailLogin) {
             btnEmailLogin.disabled = false;
-            btnEmailLogin.textContent = '로그인';
+            btnEmailLogin.textContent = t('login');
         }
     }
 }
@@ -1152,7 +1154,7 @@ async function handleEmailRegister() {
 
     if (btnEmailRegister) {
         btnEmailRegister.disabled = true;
-        btnEmailRegister.textContent = '회원가입 중...';
+        btnEmailRegister.textContent = t('signing_up');
     }
     clearAuthErrors();
 
@@ -1170,7 +1172,7 @@ async function handleEmailRegister() {
     } finally {
         if (btnEmailRegister) {
             btnEmailRegister.disabled = false;
-            btnEmailRegister.textContent = '회원가입';
+            btnEmailRegister.textContent = t('signup');
         }
     }
 }
@@ -1560,13 +1562,13 @@ async function checkServerConnection() {
         retryCount++;
 
         if (loadingMessage) {
-            loadingMessage.textContent = '서버에 연결할 수 없습니다.\n네트워크를 확인해주세요.';
+            loadingMessage.textContent = t('cannot_connect');
         }
         if (retryBtn) retryBtn.style.display = 'block';
 
         if (retryCount < MAX_RETRIES) {
             if (loadingMessage) {
-                loadingMessage.textContent = `연결 재시도 중... (${retryCount}/${MAX_RETRIES})`;
+                loadingMessage.textContent = `${t('retrying')} (${retryCount}/${MAX_RETRIES})`;
             }
             setTimeout(checkServerConnection, 3000);
         }
@@ -1997,7 +1999,7 @@ async function showAssetTradesModal(symbol, exchange, name) {
 
     if (!modal) return;
 
-    title.textContent = `${name || symbol} 거래내역`;
+    title.textContent = `${name || symbol} ${t('trade_history')}`;
     exchangeBadge.textContent = exchange;
     exchangeBadge.className = `exchange-badge ${exchange.toLowerCase()}`;
 
@@ -2799,21 +2801,21 @@ function updateSignalParamsConditionalFields() {
     const sizingMinGroup = document.getElementById('sizing-min-notional-group');
 
     if (sizingMode === 'balance_pct') {
-        if (sizingValueLabel) sizingValueLabel.textContent = '비율';
+        if (sizingValueLabel) sizingValueLabel.textContent = t('percentage');
         if (sizingValueSuffix) sizingValueSuffix.textContent = '%';
         if (sizingBaseGroup) sizingBaseGroup.style.display = '';
         if (sizingMaxGroup) sizingMaxGroup.style.display = '';
         if (sizingMinGroup) sizingMinGroup.style.display = '';
     } else if (sizingMode === 'fixed_amount') {
-        if (sizingValueLabel) sizingValueLabel.textContent = '금액';
+        if (sizingValueLabel) sizingValueLabel.textContent = t('amount');
         const currency = document.getElementById('sizing-currency')?.value || 'USDT';
         if (sizingValueSuffix) sizingValueSuffix.textContent = currency;
         if (sizingBaseGroup) sizingBaseGroup.style.display = 'none';
         if (sizingMaxGroup) sizingMaxGroup.style.display = '';
         if (sizingMinGroup) sizingMinGroup.style.display = '';
     } else if (sizingMode === 'fixed_qty') {
-        if (sizingValueLabel) sizingValueLabel.textContent = '수량';
-        if (sizingValueSuffix) sizingValueSuffix.textContent = '개';
+        if (sizingValueLabel) sizingValueLabel.textContent = t('quantity');
+        if (sizingValueSuffix) sizingValueSuffix.textContent = t('units');
         if (sizingBaseGroup) sizingBaseGroup.style.display = 'none';
         if (sizingMaxGroup) sizingMaxGroup.style.display = 'none';
         if (sizingMinGroup) sizingMinGroup.style.display = 'none';
@@ -2906,7 +2908,7 @@ document.getElementById('btn-tv-next-3')?.addEventListener('click', async () => 
     } finally {
         if (btn) {
             btn.disabled = false;
-            btn.textContent = '템플릿 생성';
+            btn.textContent = t('generate_template');
         }
     }
 });
@@ -4569,7 +4571,7 @@ async function loadAccountsPage() {
 document.getElementById('btn-verify-password')?.addEventListener('click', async () => {
     const password = document.getElementById('verify-password')?.value;
     if (!password) {
-        document.getElementById('verify-error').textContent = '비밀번호를 입력하세요';
+        document.getElementById('verify-error').textContent = t('enter_password');
         return;
     }
 
@@ -4585,7 +4587,7 @@ document.getElementById('btn-verify-password')?.addEventListener('click', async 
         let seconds = 300;
         verifyTimer = setInterval(() => {
             seconds--;
-            if (timerEl) timerEl.textContent = `접근 만료까지: ${Math.floor(seconds/60)}:${(seconds%60).toString().padStart(2,'0')}`;
+            if (timerEl) timerEl.textContent = `${t('access_expires')} ${Math.floor(seconds/60)}:${(seconds%60).toString().padStart(2,'0')}`;
             if (seconds <= 0) {
                 clearInterval(verifyTimer);
                 accountVerified = false;
@@ -4593,7 +4595,7 @@ document.getElementById('btn-verify-password')?.addEventListener('click', async 
         }, 1000);
 
     } catch (error) {
-        document.getElementById('verify-error').textContent = '비밀번호가 올바르지 않습니다';
+        document.getElementById('verify-error').textContent = t('wrong_password');
     }
 });
 
@@ -4809,7 +4811,7 @@ async function loadAppInfoPage() {
         document.getElementById('app-server-status').textContent = result.ok ? '정상 연결' : '연결 오류';
         document.getElementById('app-last-connection').textContent = new Date().toLocaleString('ko-KR');
     } catch (e) {
-        document.getElementById('app-server-status').textContent = '연결 실패';
+        document.getElementById('app-server-status').textContent = t('connection_failed');
     }
 
     // Update current plan
@@ -5102,7 +5104,7 @@ async function loadAdminSystemPage() {
 
     } catch (e) {
         console.error('Failed to load system status:', e);
-        document.getElementById('sys-status').textContent = '확인 불가';
+        document.getElementById('sys-status').textContent = t('unable_verify');
     }
 }
 
@@ -11208,7 +11210,7 @@ async function sendAiQuestion(text) {
 async function downloadAiReportPdf(jobId, stockName, stockCode) {
     const btn = event?.target;
     if (btn) {
-        btn.textContent = '⏳ 생성 중...';
+        btn.textContent = t('generating_icon');
         btn.disabled = true;
     }
 
@@ -11224,7 +11226,7 @@ async function downloadAiReportPdf(jobId, stockName, stockCode) {
     }
 
     if (btn) {
-        btn.innerHTML = '<span>📄</span> PDF 다운로드';
+        btn.innerHTML = `<span>📄</span> ${t('pdf_download')}`;
         btn.disabled = false;
     }
 }
@@ -11338,7 +11340,7 @@ async function loadAiRecommendations(market) {
         // 업데이트 시간
         if (updatedEl && response.updated_at) {
             const date = new Date(response.updated_at);
-            updatedEl.textContent = `마지막 업데이트: ${date.toLocaleString('ko-KR')}`;
+            updatedEl.textContent = `${t('last_updated')} ${date.toLocaleString('ko-KR')}`;
         }
 
         // 카테고리 렌더링
@@ -15370,10 +15372,10 @@ function updateMrTimeframeOptions(exchange) {
     const exchangeHelpEl = document.querySelector('#mr-section-target .mr-help');
     if (exchangeHelpEl) {
         if (isKIS) {
-            exchangeHelpEl.textContent = '한국투자증권: 일봉/주봉만 지원 (분봉 불가)';
+            exchangeHelpEl.textContent = t('kis_daily_only');
             exchangeHelpEl.style.color = 'var(--warning)';
         } else {
-            exchangeHelpEl.textContent = '백테스트할 거래소를 선택하세요';
+            exchangeHelpEl.textContent = t('select_exchange_backtest');
             exchangeHelpEl.style.color = '';
         }
     }
@@ -15752,7 +15754,7 @@ function updateTrendPyrWeightSum() {
     });
     const el = document.getElementById('trend-pyr-weights-sum');
     if (el) {
-        el.textContent = `합계: ${sum}%`;
+        el.textContent = `${t('subtotal')} ${sum}%`;
         el.style.color = Math.abs(sum - 100) < 0.01 ? '#9CA3AF' : '#EF4444';
     }
 }
@@ -15993,7 +15995,7 @@ document.getElementById('btn-mr-run-backtest')?.addEventListener('click', async 
 
     if (btn) {
         btn.disabled = true;
-        btn.textContent = '준비 중...';
+        btn.textContent = t('preparing');
         btn.classList.add('btn-loading');
     }
     if (loadingEl) loadingEl.style.display = 'block';
@@ -16021,7 +16023,7 @@ document.getElementById('btn-mr-run-backtest')?.addEventListener('click', async 
 
         // 2단계: 백테스트 실행
         setLoadingMsg('전략 분석 중...');
-        if (btn) btn.textContent = '분석 중...';
+        if (btn) btn.textContent = t('analyzing');
         console.log('[MR 백테스트] invoke 호출');
 
         const result = await invoke('run_mr_backtest', {
@@ -16524,7 +16526,7 @@ function renderMrTradesTable(trades, currency) {
     const countEl = document.getElementById('mr-bt-trade-count');
     if (!tbody) return;
 
-    if (countEl) countEl.textContent = `총 ${trades.length}건`;
+    if (countEl) countEl.textContent = `${t('total_count')} ${trades.length}${t('count_unit')}`;
 
     if (trades.length === 0) {
         tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px; color:var(--text-muted);">거래 내역이 없습니다</td></tr>';
@@ -17099,7 +17101,7 @@ function updateGroupLabels(type) {
 
     container.querySelectorAll('.condition-group').forEach((group, idx) => {
         const label = group.querySelector('.group-label');
-        if (label) label.textContent = `그룹 ${idx + 1}`;
+        if (label) label.textContent = `${t('group')} ${idx + 1}`;
 
         const logicLabel = group.querySelector('.group-logic-label');
         if (idx === 0 && logicLabel) {
@@ -17660,7 +17662,7 @@ async function runCustomBacktest() {
 
     if (btn) {
         btn.disabled = true;
-        btn.textContent = '분석 중...';
+        btn.textContent = t('analyzing');
         btn.classList.add('btn-loading');
     }
     if (loadingEl) loadingEl.style.display = 'block';
@@ -17694,7 +17696,7 @@ async function runCustomBacktest() {
     } catch (e) {
         console.error('커스텀 백테스트 오류:', e);
         if (errorEl) {
-            errorEl.textContent = '서버 연결 오류: ' + (e.message || e);
+            errorEl.textContent = t('server_error') + ' ' + (e.message || e);
             errorEl.style.display = 'block';
         }
         showToast('서버 연결 오류', 'error');
@@ -17948,7 +17950,7 @@ document.getElementById('btn-trend-run-backtest')?.addEventListener('click', asy
 
     if (btn) {
         btn.disabled = true;
-        btn.textContent = '준비 중...';
+        btn.textContent = t('preparing');
         btn.classList.add('btn-loading');
     }
     if (loadingEl) loadingEl.style.display = 'block';
@@ -17976,7 +17978,7 @@ document.getElementById('btn-trend-run-backtest')?.addEventListener('click', asy
 
         // 2단계: 백테스트 실행
         setLoadingMsg('전략 분석 중...');
-        if (btn) btn.textContent = '분석 중...';
+        if (btn) btn.textContent = t('analyzing');
         console.log('[Trend 백테스트] invoke 호출');
 
         const result = await invoke('run_trend_backtest', {
@@ -18195,7 +18197,7 @@ function renderTrendTradesTable(trades, currency) {
     const countEl = document.getElementById('trend-bt-trade-count');
     if (!tbody) return;
 
-    if (countEl) countEl.textContent = `총 ${trades.length}건`;
+    if (countEl) countEl.textContent = `${t('total_count')} ${trades.length}${t('count_unit')}`;
 
     if (trades.length === 0) {
         tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px; color:var(--text-muted);">거래 내역이 없습니다</td></tr>';
@@ -20038,12 +20040,12 @@ async function searchScreener() {
             if (tbody) {
                 tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">${data.message}</td></tr>`;
             }
-            if (countEl) countEl.textContent = '결과: 0건';
+            if (countEl) countEl.textContent = t('results_zero');
             return;
         }
 
         screenerState.total = data.total || 0;
-        if (countEl) countEl.textContent = `결과: ${screenerState.total.toLocaleString()}건`;
+        if (countEl) countEl.textContent = `${t('results')}: ${screenerState.total.toLocaleString()}`;
 
         renderScreenerTable(data.items || []);
         updatePagination();
