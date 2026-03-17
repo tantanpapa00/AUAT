@@ -4,6 +4,7 @@ import { createChart, ColorType, CrosshairMode } from 'lightweight-charts';
 import { API_BASE_URL, CONNECTION_TIMEOUT, MAX_RETRIES } from './config.js';
 import { Chart, registerables } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
+import { LANG, t, applyTranslations } from './lang.js';
 
 // API 유틸리티 (HTTP fetch - Tauri invoke 대체)
 import * as api from './api.js';
@@ -330,6 +331,8 @@ function setAppMode(mode) {
     localStorage.setItem('bbooster_app_mode', mode);
     applyAppMode(mode);
 }
+// inline onclick에서 호출 가능하도록 전역 등록
+window.setAppMode = setAppMode;
 
 /**
  * 모드에 따라 UI 전체 적용
@@ -359,6 +362,9 @@ function applyAppMode(mode) {
         if (krTab) krTab.style.display = '';
         if (etfTab) etfTab.style.display = '';
     }
+
+    // i18n: 언어 전환 적용
+    applyTranslations();
 }
 
 /**
@@ -1039,14 +1045,14 @@ const btnEmailRegister = document.getElementById('btn-email-register');
 function showEmailLoginForm() {
     if (emailLoginForm) emailLoginForm.style.display = 'flex';
     if (emailRegisterForm) emailRegisterForm.style.display = 'none';
-    if (loginTitle) loginTitle.textContent = '로그인';
+    if (loginTitle) loginTitle.textContent = t('login');
     clearAuthErrors();
 }
 
 function showEmailRegisterForm() {
     if (emailLoginForm) emailLoginForm.style.display = 'none';
     if (emailRegisterForm) emailRegisterForm.style.display = 'flex';
-    if (loginTitle) loginTitle.textContent = '회원가입';
+    if (loginTitle) loginTitle.textContent = t('signup');
     clearAuthErrors();
 }
 
@@ -1534,7 +1540,7 @@ async function checkServerConnection() {
     const retryBtn = document.getElementById('btn-retry-connection');
 
     if (loadingOverlay) loadingOverlay.style.display = 'flex';
-    if (loadingMessage) loadingMessage.textContent = '서버 연결 중...';
+    if (loadingMessage) loadingMessage.textContent = t('connecting');
     if (retryBtn) retryBtn.style.display = 'none';
 
     try {
@@ -1578,10 +1584,10 @@ function updateServerStatus(connected) {
     const lightServer = document.getElementById('light-server');
 
     if (connected) {
-        if (serverStatus) serverStatus.textContent = '서버: 연결됨';
+        if (serverStatus) serverStatus.textContent = t('connected');
         if (lightServer) lightServer.className = 'status-light green';
     } else {
-        if (serverStatus) serverStatus.textContent = '서버: 오프라인';
+        if (serverStatus) serverStatus.textContent = t('offline');
         if (lightServer) lightServer.className = 'status-light red';
     }
 }
@@ -2865,7 +2871,7 @@ document.getElementById('btn-tv-next-3')?.addEventListener('click', async () => 
     const btn = document.getElementById('btn-tv-next-3');
     if (btn) {
         btn.disabled = true;
-        btn.textContent = '저장 중...';
+        btn.textContent = t('saving');
     }
 
     try {
@@ -3454,7 +3460,7 @@ async function showSymbolDetail(symbol, exchange) {
     panel.style.display = 'block';
 
     // 로딩 상태 표시
-    document.getElementById('detail-price').textContent = '로딩...';
+    document.getElementById('detail-price').textContent = t('loading');
     document.getElementById('detail-change').textContent = '-';
     document.getElementById('detail-high').textContent = '-';
     document.getElementById('detail-low').textContent = '-';
@@ -3575,7 +3581,7 @@ async function showSymbolDetail(symbol, exchange) {
 
     } catch (error) {
         console.error('Failed to load symbol detail:', error);
-        document.getElementById('detail-price').textContent = '조회 실패';
+        document.getElementById('detail-price').textContent = t('load_failed');
     }
 }
 
@@ -4638,7 +4644,7 @@ async function loadAccountsList() {
         list.querySelectorAll('.btn-test').forEach(btn => {
             btn.addEventListener('click', async () => {
                 btn.disabled = true;
-                btn.textContent = '테스트 중...';
+                btn.textContent = t('testing');
                 try {
                     await invoke('test_account_connection', { exchange: btn.dataset.exchange, accountName: btn.dataset.name });
                     showToast('연결 성공', 'success');
@@ -4646,7 +4652,7 @@ async function loadAccountsList() {
                     showToast('연결 실패: ' + e, 'error');
                 }
                 btn.disabled = false;
-                btn.textContent = '연결 테스트';
+                btn.textContent = t('test_connection');
             });
         });
 
@@ -16087,7 +16093,7 @@ document.getElementById('btn-mr-run-backtest')?.addEventListener('click', async 
         // 로딩 해제
         if (btn) {
             btn.disabled = false;
-            btn.textContent = '백테스트 실행';
+            btn.textContent = t('run_backtest');
             btn.classList.remove('btn-loading');
         }
         if (loadingEl) loadingEl.style.display = 'none';
@@ -17695,7 +17701,7 @@ async function runCustomBacktest() {
     } finally {
         if (btn) {
             btn.disabled = false;
-            btn.textContent = '백테스트 실행';
+            btn.textContent = t('run_backtest');
             btn.classList.remove('btn-loading');
         }
         if (loadingEl) loadingEl.style.display = 'none';
@@ -18038,7 +18044,7 @@ document.getElementById('btn-trend-run-backtest')?.addEventListener('click', asy
         // 로딩 해제
         if (btn) {
             btn.disabled = false;
-            btn.textContent = '백테스트 실행';
+            btn.textContent = t('run_backtest');
             btn.classList.remove('btn-loading');
         }
         if (loadingEl) loadingEl.style.display = 'none';
