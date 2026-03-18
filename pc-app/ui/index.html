@@ -708,7 +708,7 @@
                                         </select>
                                     </div>
                                     <div class="param-group sl-field" style="display: none;">
-                                        <label for="risk-sl-value">손절값 <span class="help-icon" title="진입가 대비 손절 발동 %">ℹ️</span></label>
+                                        <label for="risk-sl-value" data-i18n="sl_value">손절값</label>
                                         <div class="input-with-suffix">
                                             <input type="number" id="risk-sl-value" value="2" min="0" step="0.1">
                                             <span class="suffix" id="risk-sl-suffix">%</span>
@@ -718,18 +718,18 @@
                                 <div class="signal-params-grid">
                                     <div class="param-group">
                                         <label class="checkbox-label">
-                                            <input type="checkbox" id="risk-tp-enabled"> 익절 (TP) 활성화
+                                            <input type="checkbox" id="risk-tp-enabled"> <span data-i18n="tp_enable">익절 활성화</span>
                                         </label>
                                     </div>
                                     <div class="param-group tp-field" style="display: none;">
-                                        <label for="risk-tp-type">방식</label>
+                                        <label for="risk-tp-type" data-i18n="method">방식</label>
                                         <select id="risk-tp-type" class="param-select">
-                                            <option value="pct">퍼센트</option>
-                                            <option value="price">가격</option>
+                                            <option value="pct" data-i18n="percent">퍼센트</option>
+                                            <option value="price" data-i18n="price_type">가격</option>
                                         </select>
                                     </div>
                                     <div class="param-group tp-field" style="display: none;">
-                                        <label for="risk-tp-value">익절값 <span class="help-icon" title="진입가 대비 익절 발동 %">ℹ️</span></label>
+                                        <label for="risk-tp-value" data-i18n="tp_value">익절값</label>
                                         <div class="input-with-suffix">
                                             <input type="number" id="risk-tp-value" value="5" min="0" step="0.1">
                                             <span class="suffix" id="risk-tp-suffix">%</span>
@@ -739,11 +739,11 @@
                                 <div class="signal-params-grid">
                                     <div class="param-group">
                                         <label class="checkbox-label">
-                                            <input type="checkbox" id="risk-trailing-enabled"> 트레일링 스탑 활성화
+                                            <input type="checkbox" id="risk-trailing-enabled"> <span data-i18n="trailing_enable">트레일링 스탑 활성화</span>
                                         </label>
                                     </div>
                                     <div class="param-group trailing-field" style="display: none;">
-                                        <label for="risk-trailing-value">트레일링 값 <span class="help-icon" title="고점 대비 하락 시 청산 발동 %">ℹ️</span></label>
+                                        <label for="risk-trailing-value" data-i18n="trailing_value">트레일링 값</label>
                                         <div class="input-with-suffix">
                                             <input type="number" id="risk-trailing-value" value="1" min="0" step="0.1">
                                             <span class="suffix">%</span>
@@ -754,8 +754,7 @@
 
                             <div class="param-group futures-only" id="risk-reduce-only-group" style="display: none; margin-top: 12px;">
                                 <label class="checkbox-label">
-                                    <input type="checkbox" id="risk-reduce-only" checked> 청산주문 reduceOnly 사용
-                                    <span class="help-icon" title="선물 거래에서 청산 주문 시 포지션 증가 방지">ℹ️</span>
+                                    <input type="checkbox" id="risk-reduce-only" checked> <span data-i18n="close_order_use">청산주문 사용</span>
                                 </label>
                             </div>
                         </div>
@@ -763,18 +762,16 @@
                         <!-- 리밋 카드 -->
                         <div class="signal-params-card card">
                             <div class="card-header">
-                                <h3>리밋 (Limits)</h3>
-                                <span class="help-icon" title="사고 방지를 위한 가드레일 설정">ℹ️</span>
+                                <h3 data-i18n="limits">리밋 (Limits)</h3>
                             </div>
                             <div class="signal-params-grid">
                                 <div class="param-group">
                                     <label class="checkbox-label">
-                                        <input type="checkbox" id="limits-idempotency-enabled" checked> 중복신호 방지
-                                        <span class="help-icon" title="같은 alert_id로 중복 주문 방지 (24시간 내)">ℹ️</span>
+                                        <input type="checkbox" id="limits-idempotency-enabled" checked> <span data-i18n="duplicate_prevention">중복신호 방지</span>
                                     </label>
                                 </div>
                                 <div class="param-group">
-                                    <label for="limits-cooldown">쿨다운 <span class="help-icon" title="마지막 주문 후 다음 주문까지 대기 시간 (0=비활성)">ℹ️</span></label>
+                                    <label for="limits-cooldown" data-i18n="cooldown">쿨다운</label>
                                     <div class="input-with-suffix">
                                         <input type="number" id="limits-cooldown" value="0" min="0" step="1" placeholder="0=비활성">
                                         <span class="suffix">초</span>
@@ -782,18 +779,18 @@
                                 </div>
                                 <div class="param-group">
                                     <label class="checkbox-label">
-                                        <input type="checkbox" id="limits-one-trade-per-bar"> 1봉 1회 제한
-                                        <span class="help-icon" title="같은 봉(캔들) 내에서 1회만 거래">ℹ️</span>
+                                        <input type="checkbox" id="limits-one-trade-per-bar"> <span data-i18n="bar_limit">1봉 1회 제한</span>
+                                        <span class="help-icon" data-i18n-attr="title:bar_limit_help" title="같은 봉(캔들) 내에서 1회만 거래">ℹ️</span>
                                     </label>
                                 </div>
                             </div>
 
                             <div class="section-divider"></div>
-                            <h4 class="subsection-title">일일 한도</h4>
+                            <h4 class="subsection-title" data-i18n="daily_limit">일일 한도</h4>
                             <div class="signal-params-grid">
                                 <div class="param-group limit-with-toggle">
                                     <label class="checkbox-label">
-                                        <input type="checkbox" id="limits-daily-trades-enabled"> 일일 최대 거래 횟수
+                                        <input type="checkbox" id="limits-daily-trades-enabled"> <span data-i18n="daily_max_trades">일일 최대 거래 횟수</span>
                                     </label>
                                     <div class="limit-value-group" id="limits-daily-trades-value-group" style="display: none;">
                                         <div class="input-with-suffix">
@@ -804,7 +801,7 @@
                                 </div>
                                 <div class="param-group limit-with-toggle">
                                     <label class="checkbox-label">
-                                        <input type="checkbox" id="limits-daily-notional-enabled"> 일일 최대 거래 금액
+                                        <input type="checkbox" id="limits-daily-notional-enabled"> <span data-i18n="daily_max_amount">일일 최대 거래 금액</span>
                                     </label>
                                     <div class="limit-value-group" id="limits-daily-notional-value-group" style="display: none;">
                                         <div class="input-with-suffix">
@@ -816,11 +813,11 @@
                             </div>
 
                             <div class="section-divider"></div>
-                            <h4 class="subsection-title">포지션 한도</h4>
+                            <h4 class="subsection-title" data-i18n="position_limit">포지션 한도</h4>
                             <div class="signal-params-grid">
                                 <div class="param-group limit-with-toggle">
                                     <label class="checkbox-label">
-                                        <input type="checkbox" id="limits-max-positions-enabled"> 최대 동시 포지션
+                                        <input type="checkbox" id="limits-max-positions-enabled"> <span data-i18n="max_positions">최대 동시 포지션</span>
                                     </label>
                                     <div class="limit-value-group" id="limits-max-positions-value-group" style="display: none;">
                                         <div class="input-with-suffix">
@@ -831,79 +828,79 @@
                                 </div>
                                 <div class="param-group">
                                     <label class="checkbox-label">
-                                        <input type="checkbox" id="limits-allow-same-side-add" checked> 같은 방향 추가 진입 허용
-                                        <span class="help-icon" title="이미 롱 포지션이 있을 때 추가 롱 진입 허용 여부">ℹ️</span>
+                                        <input type="checkbox" id="limits-allow-same-side-add" checked> <span data-i18n="allow_same_direction">같은 방향 추가 진입 허용</span>
+                                        <span class="help-icon" data-i18n-attr="title:allow_same_direction_help" title="이미 롱 포지션이 있을 때 추가 롱 진입 허용 여부">ℹ️</span>
                                     </label>
                                 </div>
                             </div>
                         </div>
 
                         <div class="wizard-actions">
-                            <button class="btn btn-secondary" id="btn-tv-prev-3">이전</button>
-                            <button class="btn btn-primary" id="btn-tv-next-3">템플릿 생성</button>
+                            <button class="btn btn-secondary" id="btn-tv-prev-3" data-i18n="prev">이전</button>
+                            <button class="btn btn-primary" id="btn-tv-next-3" data-i18n="generate_template">템플릿 생성</button>
                         </div>
                     </section>
 
                     <!-- Step 4: 템플릿 확인 -->
                     <section class="wizard-content card" id="tv-step-4" style="display: none;">
-                        <h2>단계 4. 템플릿 확인</h2>
-                        <p class="step-description">생성된 JSON을 TradingView 웹훅 메시지에 붙여넣으세요.</p>
+                        <h2 data-i18n="step4">단계 4. 템플릿 확인</h2>
+                        <p class="step-description" data-i18n="step4_desc">생성된 JSON을 TradingView 웹훅 메시지에 붙여넣으세요.</p>
 
                         <div class="settings-notice">
                             <span class="notice-icon">💾</span>
-                            <span>사이징/리스크/리밋 설정은 서버에 저장됩니다. 웹훅 JSON에는 필수 필드만 포함됩니다.</span>
+                            <span data-i18n="settings_saved_notice">사이징/리스크/리밋 설정은 서버에 저장됩니다. 웹훅 JSON에는 필수 필드만 포함됩니다.</span>
                         </div>
 
                         <div class="template-preview">
                             <div class="template-header">
-                                <span>JSON 템플릿</span>
-                                <button class="btn btn-secondary btn-sm" id="btn-copy-template">복사</button>
+                                <span data-i18n="json_template">JSON 템플릿</span>
+                                <button class="btn btn-secondary btn-sm" id="btn-copy-template" data-i18n="copy">복사</button>
                             </div>
                             <pre class="template-code" id="template-code"></pre>
                         </div>
 
                         <div class="webhook-info card">
-                            <h4>웹훅 URL</h4>
+                            <h4 data-i18n="webhook_url">웹훅 URL</h4>
                             <div class="webhook-url-display">
                                 <code id="webhook-url">https://qube-system.com/api/webhook/USER_ID</code>
-                                <button class="btn btn-sm btn-secondary" id="btn-copy-webhook-url">복사</button>
+                                <button class="btn btn-sm btn-secondary" id="btn-copy-webhook-url" data-i18n="copy">복사</button>
                             </div>
                             <div class="webhook-guide">
-                                <h4>TradingView 설정 방법</h4>
+                                <h4 data-i18n="tv_setup_guide">TradingView 설정 방법</h4>
                                 <ol>
-                                    <li>TradingView에서 전략 또는 알림 설정</li>
-                                    <li>웹훅 URL에 위 주소 입력</li>
-                                    <li>메시지에 위 JSON 붙여넣기</li>
-                                    <li>알림 저장</li>
+                                    <li data-i18n="tv_guide_1">TradingView에서 전략 또는 알림 설정</li>
+                                    <li data-i18n="tv_guide_2">웹훅 URL에 위 주소 입력</li>
+                                    <li data-i18n="tv_guide_3">메시지에 위 JSON 붙여넣기</li>
+                                    <li data-i18n="tv_guide_4">알림 저장</li>
                                 </ol>
                             </div>
                         </div>
 
                         <div class="wizard-actions">
-                            <button class="btn btn-secondary" id="btn-tv-prev-4">이전</button>
-                            <button class="btn btn-primary" id="btn-tv-restart">처음부터 다시</button>
+                            <button class="btn btn-secondary" id="btn-tv-prev-4" data-i18n="prev">이전</button>
+                            <button class="btn btn-primary" id="btn-tv-restart" data-i18n="restart_wizard">처음부터 다시</button>
                         </div>
                     </section>
 
                     <!-- 웹훅 수신 로그 -->
                     <section class="card webhook-logs-section">
                         <div class="card-header">
-                            <h2>최근 수신 웹훅</h2>
-                            <button class="btn btn-secondary btn-sm" id="btn-refresh-webhook-logs">새로고침</button>
+                            <h2 data-i18n="recent_webhooks">최근 수신 웹훅</h2>
+                            <button class="btn btn-secondary btn-sm" id="btn-refresh-webhook-logs" data-i18n="refresh">새로고침</button>
                         </div>
                         <div class="webhook-logs-table" id="webhook-logs">
                             <table>
                                 <thead>
                                     <tr>
-                                        <th>시간</th>
-                                        <th>상태</th>
-                                        <th>거래소</th>
-                                        <th>자산</th>
-                                        <th>내용</th>
+                                        <th data-i18n="time">시간</th>
+                                        <th data-i18n="status">상태</th>
+                                        <th data-i18n="exchange">거래소</th>
+                                        <th data-i18n="asset">자산</th>
+                                        <th data-i18n="content">내용</th>
                                     </tr>
                                 </thead>
                                 <tbody id="webhook-logs-tbody">
-                                    <tr><td colspan="5" class="empty-cell">로그 없음</td></tr>
+                                    <tr><td colspan="5" class="empty-cell" data-i18n="no_logs">로그 없음</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -917,22 +914,22 @@
                     <!-- 검색 영역 -->
                     <section class="card search-section">
                         <div class="search-bar">
-                            <input type="text" id="symbol-search" class="search-input" placeholder="종목명 또는 종목코드 검색..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-                            <button class="btn btn-primary" id="btn-symbol-search">검색</button>
+                            <input type="text" id="symbol-search" class="search-input" data-i18n-attr="placeholder:search_symbol_placeholder" placeholder="종목명 또는 종목코드 검색..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                            <button class="btn btn-primary" id="btn-symbol-search" data-i18n="search">검색</button>
                         </div>
                         <div class="exchange-filter-tabs">
-                            <button class="filter-tab active" data-exchange="all">전체</button>
+                            <button class="filter-tab active" data-exchange="all" data-i18n="all">전체</button>
                             <button class="filter-tab" data-exchange="okx">OKX</button>
                             <button class="filter-tab" data-exchange="binance">Binance</button>
                             <button class="filter-tab" data-exchange="bybit">Bybit</button>
                             <button class="filter-tab" data-exchange="upbit">Upbit</button>
-                            <button class="filter-tab" data-exchange="kis_kr">국내주식</button>
-                            <button class="filter-tab" data-exchange="kis_kr_etf">국내ETF</button>
-                            <button class="filter-tab" data-exchange="kis_us">해외주식</button>
-                            <button class="filter-tab" data-exchange="kis_us_etf">해외ETF</button>
+                            <button class="filter-tab" data-exchange="kis_kr" data-i18n="domestic_stocks">국내주식</button>
+                            <button class="filter-tab" data-exchange="kis_kr_etf" data-i18n="domestic_etf">국내ETF</button>
+                            <button class="filter-tab" data-exchange="kis_us" data-i18n="foreign_stocks">해외주식</button>
+                            <button class="filter-tab" data-exchange="kis_us_etf" data-i18n="foreign_etf">해외ETF</button>
                         </div>
                         <div class="popular-symbols">
-                            <span class="label">인기 종목:</span>
+                            <span class="label" data-i18n="popular_symbols">인기 종목:</span>
                             <button class="symbol-tag" data-symbol="BTC">BTC</button>
                             <button class="symbol-tag" data-symbol="ETH">ETH</button>
                             <button class="symbol-tag" data-symbol="AAPL">AAPL</button>
@@ -945,16 +942,16 @@
                         <table class="symbols-table" id="symbols-table">
                             <thead>
                                 <tr>
-                                    <th>종목코드</th>
-                                    <th>이름</th>
-                                    <th>거래소</th>
-                                    <th>현재가</th>
-                                    <th>24h 변동</th>
-                                    <th>거래량</th>
+                                    <th data-i18n="symbol_code">종목코드</th>
+                                    <th data-i18n="name">이름</th>
+                                    <th data-i18n="exchange">거래소</th>
+                                    <th data-i18n="current_price">현재가</th>
+                                    <th data-i18n="change_24h">24h 변동</th>
+                                    <th data-i18n="volume">거래량</th>
                                 </tr>
                             </thead>
                             <tbody id="symbols-tbody">
-                                <tr><td colspan="6" class="empty-cell">종목을 검색하세요</td></tr>
+                                <tr><td colspan="6" class="empty-cell" data-i18n="search_symbol_prompt">종목을 검색하세요</td></tr>
                             </tbody>
                         </table>
                     </section>
@@ -971,9 +968,9 @@
                                 </div>
                             </div>
                             <div class="detail-actions">
-                                <button class="btn btn-icon" id="btn-add-watchlist" title="관심종목 추가">★</button>
-                                <button class="btn btn-icon ai-btn" id="btn-ai-analysis" title="AI 종합분석">🤖</button>
-                                <button class="btn btn-secondary" id="btn-close-detail">닫기</button>
+                                <button class="btn btn-icon" id="btn-add-watchlist" data-i18n-attr="title:add_watchlist" title="관심종목 추가">★</button>
+                                <button class="btn btn-icon ai-btn" id="btn-ai-analysis" data-i18n-attr="title:ai_analysis" title="AI 종합분석">🤖</button>
+                                <button class="btn btn-secondary" id="btn-close-detail" data-i18n="close">닫기</button>
                             </div>
                         </div>
 
@@ -986,54 +983,54 @@
 
                         <!-- 상세 탭 -->
                         <div class="detail-tabs">
-                            <button class="detail-tab active" data-tab="price">시세</button>
-                            <button class="detail-tab" data-tab="financial">재무</button>
-                            <button class="detail-tab" data-tab="opinion">투자의견</button>
+                            <button class="detail-tab active" data-tab="price" data-i18n="price_tab">시세</button>
+                            <button class="detail-tab" data-tab="financial" data-i18n="financial_tab">재무</button>
+                            <button class="detail-tab" data-tab="opinion" data-i18n="opinion_tab">투자의견</button>
                         </div>
 
                         <!-- 시세 탭 -->
                         <div class="detail-tab-content" id="detail-tab-price">
                             <div class="detail-stats">
                                 <div class="stat-item">
-                                    <span class="stat-label">고가</span>
+                                    <span class="stat-label" data-i18n="high_price">고가</span>
                                     <span class="stat-value" id="detail-high">-</span>
                                 </div>
                                 <div class="stat-item">
-                                    <span class="stat-label">저가</span>
+                                    <span class="stat-label" data-i18n="low_price">저가</span>
                                     <span class="stat-value" id="detail-low">-</span>
                                 </div>
                                 <div class="stat-item">
-                                    <span class="stat-label">거래량</span>
+                                    <span class="stat-label" data-i18n="volume">거래량</span>
                                     <span class="stat-value" id="detail-volume">-</span>
                                 </div>
                                 <div class="stat-item">
-                                    <span class="stat-label">시가총액</span>
+                                    <span class="stat-label" data-i18n="market_cap">시가총액</span>
                                     <span class="stat-value" id="detail-market-cap">-</span>
                                 </div>
                             </div>
                             <div class="mini-chart-container">
                                 <div class="chart-controls">
                                     <div class="chart-period-btns">
-                                        <button class="chart-period-btn" data-period="1w">1주</button>
-                                        <button class="chart-period-btn active" data-period="1m">1개월</button>
-                                        <button class="chart-period-btn" data-period="3m">3개월</button>
-                                        <button class="chart-period-btn" data-period="6m">6개월</button>
-                                        <button class="chart-period-btn" data-period="1y">1년</button>
+                                        <button class="chart-period-btn" data-period="1w" data-i18n="period_1w">1주</button>
+                                        <button class="chart-period-btn active" data-period="1m" data-i18n="period_1m">1개월</button>
+                                        <button class="chart-period-btn" data-period="3m" data-i18n="period_3m">3개월</button>
+                                        <button class="chart-period-btn" data-period="6m" data-i18n="period_6m">6개월</button>
+                                        <button class="chart-period-btn" data-period="1y" data-i18n="period_1y">1년</button>
                                     </div>
                                     <div class="chart-type-btns">
-                                        <button class="chart-type-btn active" data-type="line">라인</button>
-                                        <button class="chart-type-btn" data-type="candle">캔들</button>
+                                        <button class="chart-type-btn active" data-type="line" data-i18n="chart_line">라인</button>
+                                        <button class="chart-type-btn" data-type="candle" data-i18n="chart_candle">캔들</button>
                                     </div>
                                 </div>
                                 <canvas id="mini-chart" width="400" height="200"></canvas>
                                 <div class="ma-toggles">
-                                    <label><input type="checkbox" id="ma5-toggle"> 5일선</label>
-                                    <label><input type="checkbox" id="ma20-toggle"> 20일선</label>
-                                    <label><input type="checkbox" id="ma60-toggle"> 60일선</label>
+                                    <label><input type="checkbox" id="ma5-toggle"> <span data-i18n="ma5">5일선</span></label>
+                                    <label><input type="checkbox" id="ma20-toggle"> <span data-i18n="ma20">20일선</span></label>
+                                    <label><input type="checkbox" id="ma60-toggle"> <span data-i18n="ma60">60일선</span></label>
                                 </div>
                             </div>
                             <div class="investor-trend" id="investor-trend-section" style="display: none;">
-                                <h4>투자자별 순매수 (최근 5일)</h4>
+                                <h4 data-i18n="investor_trend">투자자별 순매수 (최근 5일)</h4>
                                 <canvas id="investor-chart" width="400" height="150"></canvas>
                             </div>
                         </div>
@@ -1041,8 +1038,8 @@
                         <!-- 재무 탭 -->
                         <div class="detail-tab-content" id="detail-tab-financial" style="display: none;">
                             <div class="kis-notice" id="financial-notice" style="display: none;">
-                                <p>KIS 계정을 등록하면 재무제표를 확인할 수 있습니다.</p>
-                                <button class="btn btn-primary btn-sm" onclick="navigateTo('account-manage')">계정 등록하기</button>
+                                <p data-i18n="kis_financial_notice">KIS 계정을 등록하면 재무제표를 확인할 수 있습니다.</p>
+                                <button class="btn btn-primary btn-sm" onclick="navigateTo('account-manage')" data-i18n="register_account">계정 등록하기</button>
                             </div>
                             <div class="financial-content" id="financial-content">
                                 <div class="financial-cards">
@@ -1059,12 +1056,12 @@
                                         <span class="fin-value" id="fin-roe">-</span>
                                     </div>
                                     <div class="fin-card">
-                                        <span class="fin-label">부채비율</span>
+                                        <span class="fin-label" data-i18n="debt_ratio">부채비율</span>
                                         <span class="fin-value" id="fin-debt">-</span>
                                     </div>
                                 </div>
                                 <div class="income-chart-container">
-                                    <h4>손익 추이 (최근 4분기)</h4>
+                                    <h4 data-i18n="income_trend">손익 추이 (최근 4분기)</h4>
                                     <canvas id="income-chart" width="400" height="180"></canvas>
                                 </div>
                             </div>
@@ -1073,42 +1070,42 @@
                         <!-- 투자의견 탭 -->
                         <div class="detail-tab-content" id="detail-tab-opinion" style="display: none;">
                             <div class="kis-notice" id="opinion-notice" style="display: none;">
-                                <p>KIS 계정을 등록하면 투자의견을 확인할 수 있습니다.</p>
-                                <button class="btn btn-primary btn-sm" onclick="navigateTo('account-manage')">계정 등록하기</button>
+                                <p data-i18n="kis_opinion_notice">KIS 계정을 등록하면 투자의견을 확인할 수 있습니다.</p>
+                                <button class="btn btn-primary btn-sm" onclick="navigateTo('account-manage')" data-i18n="register_account">계정 등록하기</button>
                             </div>
                             <div class="opinion-content" id="opinion-content">
                                 <div class="consensus-section">
-                                    <div class="consensus-badge" id="consensus-badge">매수</div>
+                                    <div class="consensus-badge" id="consensus-badge" data-i18n="buy">매수</div>
                                     <div class="target-price">
-                                        <span class="label">목표가</span>
+                                        <span class="label" data-i18n="target_price">목표가</span>
                                         <span class="value" id="target-price">₩0</span>
                                     </div>
                                     <div class="analyst-count">
-                                        <span>분석가 <strong id="analyst-count">0</strong>명</span>
+                                        <span data-i18n="analyst_count">분석가 <strong id="analyst-count">0</strong>명</span>
                                     </div>
                                 </div>
                                 <div class="opinion-chart-container">
-                                    <h4>투자의견 분포</h4>
+                                    <h4 data-i18n="opinion_distribution">투자의견 분포</h4>
                                     <canvas id="opinion-chart" width="200" height="200"></canvas>
                                 </div>
                                 <div class="opinion-breakdown">
-                                    <div class="opinion-item buy"><span>매수</span><span id="buy-count">0</span></div>
-                                    <div class="opinion-item hold"><span>중립</span><span id="hold-count">0</span></div>
-                                    <div class="opinion-item sell"><span>매도</span><span id="sell-count">0</span></div>
+                                    <div class="opinion-item buy"><span data-i18n="buy">매수</span><span id="buy-count">0</span></div>
+                                    <div class="opinion-item hold"><span data-i18n="hold">중립</span><span id="hold-count">0</span></div>
+                                    <div class="opinion-item sell"><span data-i18n="sell">매도</span><span id="sell-count">0</span></div>
                                 </div>
                             </div>
                         </div>
 
-                        <button class="btn btn-primary" id="btn-set-strategy-symbol">이 종목으로 전략 설정</button>
+                        <button class="btn btn-primary" id="btn-set-strategy-symbol" data-i18n="set_strategy_symbol">이 종목으로 전략 설정</button>
                     </section>
 
                     <!-- 접근 제한 안내 -->
                     <div class="access-restriction" id="symbols-restriction" style="display: none;">
                         <div class="restriction-content">
                             <span class="restriction-icon">🔒</span>
-                            <h3>종목분석는 허브 이상 요금제에서 이용 가능합니다</h3>
-                            <p>허브 또는 프리미엄 요금제로 업그레이드하여 모든 기능을 이용하세요.</p>
-                            <button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 확인</button>
+                            <h3 data-i18n="symbols_restriction_title">종목분석는 허브 이상 요금제에서 이용 가능합니다</h3>
+                            <p data-i18n="symbols_restriction_desc">허브 또는 프리미엄 요금제로 업그레이드하여 모든 기능을 이용하세요.</p>
+                            <button class="btn btn-primary" onclick="navigateTo('app-info')" data-i18n="check_plans">요금제 확인</button>
                         </div>
                     </div>
                 </div>
@@ -1121,8 +1118,8 @@
                     <div class="access-restriction" id="market-restriction" style="display: none;">
                         <div class="restriction-content">
                             <span class="restriction-icon">🔒</span>
-                            <h3>시장분석은 Pro 이상 요금제에서 이용 가능합니다</h3>
-                            <button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 업그레이드</button>
+                            <h3 data-i18n="market_restriction_title">시장분석은 Pro 이상 요금제에서 이용 가능합니다</h3>
+                            <button class="btn btn-primary" onclick="navigateTo('app-info')" data-i18n="upgrade_plan">요금제 업그레이드</button>
                         </div>
                     </div>
 
@@ -1130,17 +1127,17 @@
                         <!-- 지수 카드 -->
                         <section class="index-cards">
                             <div class="index-card" id="index-kospi">
-                                <div class="index-name">코스피</div>
+                                <div class="index-name" data-i18n="kospi">코스피</div>
                                 <div class="index-value">-</div>
                                 <div class="index-change">-</div>
                             </div>
                             <div class="index-card" id="index-kosdaq">
-                                <div class="index-name">코스닥</div>
+                                <div class="index-name" data-i18n="kosdaq">코스닥</div>
                                 <div class="index-value">-</div>
                                 <div class="index-change">-</div>
                             </div>
                             <div class="index-card" id="index-nasdaq">
-                                <div class="index-name">나스닥</div>
+                                <div class="index-name" data-i18n="nasdaq">나스닥</div>
                                 <div class="index-value">-</div>
                                 <div class="index-change">-</div>
                             </div>
@@ -1150,7 +1147,7 @@
                                 <div class="index-change">-</div>
                             </div>
                             <div class="index-card" id="index-dow">
-                                <div class="index-name">다우존스</div>
+                                <div class="index-name" data-i18n="dow">다우존스</div>
                                 <div class="index-value">-</div>
                                 <div class="index-change">-</div>
                             </div>
@@ -1158,37 +1155,37 @@
 
                         <!-- 시황 요약 -->
                         <section class="card market-summary">
-                            <h3><span id="market-status-emoji">🟡</span> 시장 상태: <span id="market-status-text">-</span></h3>
-                            <p id="market-summary-text">데이터를 불러오는 중...</p>
+                            <h3><span id="market-status-emoji">🟡</span> <span data-i18n="market_status">시장 상태:</span> <span id="market-status-text">-</span></h3>
+                            <p id="market-summary-text" data-i18n="loading_data">데이터를 불러오는 중...</p>
                         </section>
 
                         <!-- 투자자 동향 -->
                         <section class="card investor-section">
-                            <h3>투자자별 매매동향</h3>
+                            <h3 data-i18n="investor_trading">투자자별 매매동향</h3>
                             <div class="investor-bars" id="investor-bars">
                                 <div class="investor-bar-item">
-                                    <span class="label">외국인</span>
+                                    <span class="label" data-i18n="foreign">외국인</span>
                                     <div class="bar-container">
                                         <div class="bar foreign" id="bar-foreign"></div>
                                     </div>
                                     <span class="value" id="investor-foreign">-</span>
                                 </div>
                                 <div class="investor-bar-item">
-                                    <span class="label">기관</span>
+                                    <span class="label" data-i18n="institution">기관</span>
                                     <div class="bar-container">
                                         <div class="bar institution" id="bar-institution"></div>
                                     </div>
                                     <span class="value" id="investor-institution">-</span>
                                 </div>
                                 <div class="investor-bar-item">
-                                    <span class="label">개인</span>
+                                    <span class="label" data-i18n="individual">개인</span>
                                     <div class="bar-container">
                                         <div class="bar individual" id="bar-individual"></div>
                                     </div>
                                     <span class="value" id="investor-individual">-</span>
                                 </div>
                             </div>
-                            <p class="kis-hint" id="investor-kis-hint" style="display: none;">KIS 계정을 등록하면 상세 데이터를 볼 수 있습니다.</p>
+                            <p class="kis-hint" id="investor-kis-hint" style="display: none;" data-i18n="kis_data_hint">KIS 계정을 등록하면 상세 데이터를 볼 수 있습니다.</p>
                         </section>
                     </div>
                 </div>
@@ -1200,33 +1197,33 @@
                     <div class="access-restriction" id="sector-restriction" style="display: none;">
                         <div class="restriction-content">
                             <span class="restriction-icon">🔒</span>
-                            <h3>시장분석은 Pro 이상 요금제에서 이용 가능합니다</h3>
-                            <button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 업그레이드</button>
+                            <h3 data-i18n="market_restriction_title">시장분석은 Pro 이상 요금제에서 이용 가능합니다</h3>
+                            <button class="btn btn-primary" onclick="navigateTo('app-info')" data-i18n="upgrade_plan">요금제 업그레이드</button>
                         </div>
                     </div>
 
                     <section class="card">
-                        <h3>업종별 현황</h3>
+                        <h3 data-i18n="sector_status">업종별 현황</h3>
                         <div class="sector-leaders">
                             <div class="leader-section">
-                                <span class="leader-label">주도 업종</span>
+                                <span class="leader-label" data-i18n="leading_sectors">주도 업종</span>
                                 <div id="leading-sectors"></div>
                             </div>
                             <div class="leader-section">
-                                <span class="leader-label lagging">부진 업종</span>
+                                <span class="leader-label lagging" data-i18n="lagging_sectors">부진 업종</span>
                                 <div id="lagging-sectors"></div>
                             </div>
                         </div>
                         <table class="data-table" id="sector-table">
                             <thead>
                                 <tr>
-                                    <th>업종명</th>
-                                    <th>현재</th>
-                                    <th>등락률</th>
+                                    <th data-i18n="sector_name">업종명</th>
+                                    <th data-i18n="current">현재</th>
+                                    <th data-i18n="change_rate">등락률</th>
                                 </tr>
                             </thead>
                             <tbody id="sector-tbody">
-                                <tr><td colspan="3" class="empty-cell">데이터 로딩 중...</td></tr>
+                                <tr><td colspan="3" class="empty-cell" data-i18n="loading_data">데이터 로딩 중...</td></tr>
                             </tbody>
                         </table>
                     </section>
@@ -1239,39 +1236,39 @@
                     <div class="access-restriction" id="ranking-restriction" style="display: none;">
                         <div class="restriction-content">
                             <span class="restriction-icon">🔒</span>
-                            <h3>시장분석은 Pro 이상 요금제에서 이용 가능합니다</h3>
-                            <button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 업그레이드</button>
+                            <h3 data-i18n="market_restriction_title">시장분석은 Pro 이상 요금제에서 이용 가능합니다</h3>
+                            <button class="btn btn-primary" onclick="navigateTo('app-info')" data-i18n="upgrade_plan">요금제 업그레이드</button>
                         </div>
                     </div>
 
                     <section class="card">
                         <div class="ranking-tabs">
-                            <button class="ranking-tab active" data-type="volume">거래량</button>
-                            <button class="ranking-tab" data-type="rise">상승률</button>
-                            <button class="ranking-tab" data-type="fall">하락률</button>
-                            <button class="ranking-tab" data-type="market_cap">시가총액</button>
-                            <button class="ranking-tab" data-type="foreign_buy">외인순매수</button>
-                            <button class="ranking-tab" data-type="institution_buy">기관순매수</button>
+                            <button class="ranking-tab active" data-type="volume" data-i18n="volume">거래량</button>
+                            <button class="ranking-tab" data-type="rise" data-i18n="rise_rate">상승률</button>
+                            <button class="ranking-tab" data-type="fall" data-i18n="fall_rate">하락률</button>
+                            <button class="ranking-tab" data-type="market_cap" data-i18n="market_cap">시가총액</button>
+                            <button class="ranking-tab" data-type="foreign_buy" data-i18n="foreign_net_buy">외인순매수</button>
+                            <button class="ranking-tab" data-type="institution_buy" data-i18n="institution_net_buy">기관순매수</button>
                         </div>
                         <div class="market-filter">
                             <select id="ranking-market-filter">
-                                <option value="all">전체</option>
-                                <option value="kospi">코스피</option>
-                                <option value="kosdaq">코스닥</option>
+                                <option value="all" data-i18n="all">전체</option>
+                                <option value="kospi" data-i18n="kospi">코스피</option>
+                                <option value="kosdaq" data-i18n="kosdaq">코스닥</option>
                             </select>
                         </div>
                         <table class="data-table" id="ranking-table">
                             <thead>
                                 <tr>
-                                    <th>순위</th>
-                                    <th>종목명</th>
-                                    <th>현재가</th>
-                                    <th>등락률</th>
-                                    <th id="ranking-extra-header">거래량</th>
+                                    <th data-i18n="rank">순위</th>
+                                    <th data-i18n="stock_name">종목명</th>
+                                    <th data-i18n="current_price">현재가</th>
+                                    <th data-i18n="change_rate">등락률</th>
+                                    <th id="ranking-extra-header" data-i18n="volume">거래량</th>
                                 </tr>
                             </thead>
                             <tbody id="ranking-tbody">
-                                <tr><td colspan="5" class="empty-cell">데이터 로딩 중...</td></tr>
+                                <tr><td colspan="5" class="empty-cell" data-i18n="loading_data">데이터 로딩 중...</td></tr>
                             </tbody>
                         </table>
                     </section>
@@ -1284,45 +1281,45 @@
                     <div class="access-restriction" id="featured-restriction" style="display: none;">
                         <div class="restriction-content">
                             <span class="restriction-icon">🔒</span>
-                            <h3>시장분석은 Pro 이상 요금제에서 이용 가능합니다</h3>
-                            <button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 업그레이드</button>
+                            <h3 data-i18n="market_restriction_title">시장분석은 Pro 이상 요금제에서 이용 가능합니다</h3>
+                            <button class="btn btn-primary" onclick="navigateTo('app-info')" data-i18n="upgrade_plan">요금제 업그레이드</button>
                         </div>
                     </div>
 
                     <div class="featured-grid">
                         <section class="card featured-section">
-                            <h3>🔺 상한가</h3>
+                            <h3 data-i18n="upper_limit">🔺 상한가</h3>
                             <div class="featured-list" id="upper-limit-list">-</div>
                         </section>
                         <section class="card featured-section">
-                            <h3>🔻 하한가</h3>
+                            <h3 data-i18n="lower_limit">🔻 하한가</h3>
                             <div class="featured-list" id="lower-limit-list">-</div>
                         </section>
                         <section class="card featured-section">
-                            <h3>🚀 급등주</h3>
+                            <h3 data-i18n="surge_stocks">🚀 급등주</h3>
                             <div class="featured-list" id="surge-list">-</div>
                         </section>
                         <section class="card featured-section">
-                            <h3>📉 급락주</h3>
+                            <h3 data-i18n="plunge_stocks">📉 급락주</h3>
                             <div class="featured-list" id="plunge-list">-</div>
                         </section>
                     </div>
 
                     <section class="card">
-                        <h3>상승률 TOP 10</h3>
+                        <h3 data-i18n="rise_top10">상승률 TOP 10</h3>
                         <table class="data-table">
                             <thead>
-                                <tr><th>순위</th><th>종목명</th><th>현재가</th><th>등락률</th></tr>
+                                <tr><th data-i18n="rank">순위</th><th data-i18n="stock_name">종목명</th><th data-i18n="current_price">현재가</th><th data-i18n="change_rate">등락률</th></tr>
                             </thead>
                             <tbody id="rise-top-tbody"></tbody>
                         </table>
                     </section>
 
                     <section class="card">
-                        <h3>하락률 TOP 10</h3>
+                        <h3 data-i18n="fall_top10">하락률 TOP 10</h3>
                         <table class="data-table">
                             <thead>
-                                <tr><th>순위</th><th>종목명</th><th>현재가</th><th>등락률</th></tr>
+                                <tr><th data-i18n="rank">순위</th><th data-i18n="stock_name">종목명</th><th data-i18n="current_price">현재가</th><th data-i18n="change_rate">등락률</th></tr>
                             </thead>
                             <tbody id="fall-top-tbody"></tbody>
                         </table>
@@ -1336,34 +1333,34 @@
                     <div class="access-restriction" id="events-restriction" style="display: none;">
                         <div class="restriction-content">
                             <span class="restriction-icon">🔒</span>
-                            <h3>시장분석은 Pro 이상 요금제에서 이용 가능합니다</h3>
-                            <button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 업그레이드</button>
+                            <h3 data-i18n="market_restriction_title">시장분석은 Pro 이상 요금제에서 이용 가능합니다</h3>
+                            <button class="btn btn-primary" onclick="navigateTo('app-info')" data-i18n="upgrade_plan">요금제 업그레이드</button>
                         </div>
                     </div>
 
                     <section class="card">
                         <div class="event-tabs">
-                            <button class="event-tab active" data-type="all">전체</button>
-                            <button class="event-tab" data-type="dividend">배당</button>
-                            <button class="event-tab" data-type="ipo">공모주</button>
-                            <button class="event-tab" data-type="rights">유상증자</button>
-                            <button class="event-tab" data-type="bonus">무상증자</button>
+                            <button class="event-tab active" data-type="all" data-i18n="all">전체</button>
+                            <button class="event-tab" data-type="dividend" data-i18n="dividend">배당</button>
+                            <button class="event-tab" data-type="ipo" data-i18n="ipo">공모주</button>
+                            <button class="event-tab" data-type="rights" data-i18n="rights_offering">유상증자</button>
+                            <button class="event-tab" data-type="bonus" data-i18n="bonus_issue">무상증자</button>
                         </div>
                         <div class="kis-notice" id="events-kis-notice" style="display: none;">
-                            <p>이벤트 일정은 KIS 계정 등록 시 이용 가능합니다.</p>
-                            <button class="btn btn-primary btn-sm" onclick="navigateTo('accounts')">계정 등록하기</button>
+                            <p data-i18n="events_kis_notice">이벤트 일정은 KIS 계정 등록 시 이용 가능합니다.</p>
+                            <button class="btn btn-primary btn-sm" onclick="navigateTo('accounts')" data-i18n="register_account">계정 등록하기</button>
                         </div>
                         <table class="data-table" id="events-table">
                             <thead>
                                 <tr>
-                                    <th>유형</th>
-                                    <th>종목명</th>
-                                    <th>일자</th>
-                                    <th>상세</th>
+                                    <th data-i18n="type">유형</th>
+                                    <th data-i18n="stock_name">종목명</th>
+                                    <th data-i18n="date">일자</th>
+                                    <th data-i18n="details">상세</th>
                                 </tr>
                             </thead>
                             <tbody id="events-tbody">
-                                <tr><td colspan="4" class="empty-cell">데이터 로딩 중...</td></tr>
+                                <tr><td colspan="4" class="empty-cell" data-i18n="loading_data">데이터 로딩 중...</td></tr>
                             </tbody>
                         </table>
                     </section>
@@ -1375,35 +1372,35 @@
                 <div class="premium-strategy-container">
                     <!-- 탭 메뉴 -->
                     <div class="strategy-tabs">
-                        <button class="strategy-tab active" data-tab="status">전략현황</button>
-                        <button class="strategy-tab" data-tab="reversal">역추세매매</button>
-                        <button class="strategy-tab" data-tab="trend">추세매매</button>
-                        <button class="strategy-tab" data-tab="custom">커스텀</button>
+                        <button class="strategy-tab active" data-tab="status" data-i18n="strategy_status">전략현황</button>
+                        <button class="strategy-tab" data-tab="reversal" data-i18n="reversal_trading">역추세매매</button>
+                        <button class="strategy-tab" data-tab="trend" data-i18n="trend_trading">추세매매</button>
+                        <button class="strategy-tab" data-tab="custom" data-i18n="custom">커스텀</button>
                     </div>
 
                     <!-- 전략현황 탭 -->
                     <section class="strategy-content card" id="strategy-tab-status">
-                        <h2>활성화된 전략</h2>
+                        <h2 data-i18n="active_strategies">활성화된 전략</h2>
                         <div class="strategies-list" id="strategies-list">
                             <div class="empty-state">
-                                <p>설정된 전략이 없습니다.</p>
-                                <p>커스텀/역추세매매/추세매매 탭에서 전략을 추가하세요.</p>
+                                <p data-i18n="no_strategies">설정된 전략이 없습니다.</p>
+                                <p data-i18n="add_strategy_hint">커스텀/역추세매매/추세매매 탭에서 전략을 추가하세요.</p>
                             </div>
                         </div>
                     </section>
 
                     <!-- 커스텀 전략 탭 -->
                     <section class="strategy-content card" id="strategy-tab-custom" style="display: none;">
-                        <h2>커스텀 전략 설정 <span class="difficulty-badge advanced">🔴 고급</span></h2>
-                        <p class="strategy-description">🛠️ 나만의 조건으로 직접 만드는 전략</p>
-                        <p class="strategy-subdesc">매수/매도 조건을 원하는 대로 조합하여 자신만의 전략을 구성합니다. 자동매매 경험이 있는 분에게 추천합니다.</p>
+                        <h2><span data-i18n="custom_strategy_setup">커스텀 전략 설정</span> <span class="difficulty-badge advanced" data-i18n="advanced">🔴 고급</span></h2>
+                        <p class="strategy-description" data-i18n="custom_strategy_desc">🛠️ 나만의 조건으로 직접 만드는 전략</p>
+                        <p class="strategy-subdesc" data-i18n="custom_strategy_subdesc">매수/매도 조건을 원하는 대로 조합하여 자신만의 전략을 구성합니다. 자동매매 경험이 있는 분에게 추천합니다.</p>
 
                         <!-- 거래소 + 종목 + 타임프레임 -->
                         <div class="custom-section">
-                            <h3>거래소 + 종목</h3>
+                            <h3 data-i18n="exchange_symbol">거래소 + 종목</h3>
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label>거래소</label>
+                                    <label data-i18n="exchange">거래소</label>
                                     <select id="custom-exchange" class="form-select">
                                         <option value="KIS_KR" selected>KIS_KR(한국투자증권)</option>
                                         <option value="KIS_US">KIS_US(한국투자증권)</option>
@@ -1414,19 +1411,19 @@
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label>종목</label>
-                                    <input type="text" id="custom-symbol" class="form-input" placeholder="예: BTC-USDT" autocomplete="off">
+                                    <label data-i18n="symbol">종목</label>
+                                    <input type="text" id="custom-symbol" class="form-input" data-i18n-attr="placeholder:symbol_placeholder" placeholder="예: BTC-USDT" autocomplete="off">
                                 </div>
                                 <div class="form-group">
-                                    <label>타임프레임</label>
+                                    <label data-i18n="timeframe">타임프레임</label>
                                     <select id="custom-timeframe" class="form-select">
-                                        <option value="1D">일봉 (1D)</option>
-                                        <option value="4H">4시간 (4H)</option>
-                                        <option value="1H">1시간 (1H)</option>
-                                        <option value="30m">30분 (30m)</option>
-                                        <option value="15m">15분 (15m)</option>
-                                        <option value="5m">5분 (5m)</option>
-                                        <option value="1W">주봉 (1W)</option>
+                                        <option value="1D" data-i18n="tf_1d">일봉 (1D)</option>
+                                        <option value="4H" data-i18n="tf_4h">4시간 (4H)</option>
+                                        <option value="1H" data-i18n="tf_1h">1시간 (1H)</option>
+                                        <option value="30m" data-i18n="tf_30m">30분 (30m)</option>
+                                        <option value="15m" data-i18n="tf_15m">15분 (15m)</option>
+                                        <option value="5m" data-i18n="tf_5m">5분 (5m)</option>
+                                        <option value="1W" data-i18n="tf_1w">주봉 (1W)</option>
                                     </select>
                                 </div>
                             </div>
@@ -1434,38 +1431,38 @@
 
                         <!-- 진입 조건 (매수) -->
                         <div class="custom-section condition-builder">
-                            <h3>진입 조건 (매수)</h3>
-                            <p class="section-hint">각 그룹 내 조건은 AND로 연결, 그룹 간은 OR로 연결됩니다</p>
+                            <h3 data-i18n="entry_conditions">진입 조건 (매수)</h3>
+                            <p class="section-hint" data-i18n="condition_logic_hint">각 그룹 내 조건은 AND로 연결, 그룹 간은 OR로 연결됩니다</p>
                             <div id="entry-condition-groups" class="condition-groups"></div>
-                            <button type="button" class="btn btn-secondary btn-sm" id="btn-add-entry-group">+ 조건 그룹 추가 (OR)</button>
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-add-entry-group" data-i18n="add_condition_group">+ 조건 그룹 추가 (OR)</button>
                         </div>
 
                         <!-- 청산 조건 (매도) -->
                         <div class="custom-section condition-builder">
-                            <h3>청산 조건 (매도)</h3>
-                            <p class="section-hint">각 그룹 내 조건은 AND로 연결, 그룹 간은 OR로 연결됩니다</p>
+                            <h3 data-i18n="exit_conditions">청산 조건 (매도)</h3>
+                            <p class="section-hint" data-i18n="condition_logic_hint">각 그룹 내 조건은 AND로 연결, 그룹 간은 OR로 연결됩니다</p>
                             <div id="exit-condition-groups" class="condition-groups"></div>
-                            <button type="button" class="btn btn-secondary btn-sm" id="btn-add-exit-group">+ 조건 그룹 추가 (OR)</button>
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-add-exit-group" data-i18n="add_condition_group">+ 조건 그룹 추가 (OR)</button>
                         </div>
 
                         <!-- 위험관리 -->
                         <div class="custom-section">
-                            <h3>위험관리</h3>
+                            <h3 data-i18n="risk_management">위험관리</h3>
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label>포지션 비중 (%)</label>
+                                    <label data-i18n="position_size_pct">포지션 비중 (%)</label>
                                     <input type="number" id="custom-position-size" class="form-input" value="100" min="1" max="100">
                                 </div>
                                 <div class="form-group">
-                                    <label>손절 (%)</label>
-                                    <input type="number" id="custom-stop-loss" class="form-input" placeholder="선택" step="0.1">
+                                    <label data-i18n="stop_loss_pct">손절 (%)</label>
+                                    <input type="number" id="custom-stop-loss" class="form-input" data-i18n-attr="placeholder:optional" placeholder="선택" step="0.1">
                                 </div>
                                 <div class="form-group">
-                                    <label>익절 (%)</label>
-                                    <input type="number" id="custom-take-profit" class="form-input" placeholder="선택" step="0.1">
+                                    <label data-i18n="take_profit_pct">익절 (%)</label>
+                                    <input type="number" id="custom-take-profit" class="form-input" data-i18n-attr="placeholder:optional" placeholder="선택" step="0.1">
                                 </div>
                                 <div class="form-group">
-                                    <label>수수료 (%)</label>
+                                    <label data-i18n="commission_pct">수수료 (%)</label>
                                     <input type="number" id="custom-commission" class="form-input" value="0.015" step="0.001">
                                 </div>
                             </div>
@@ -1473,30 +1470,30 @@
 
                         <!-- 백테스트 설정 및 실행 -->
                         <div class="custom-section">
-                            <h3>백테스트</h3>
+                            <h3 data-i18n="backtest">백테스트</h3>
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label>전략 이름</label>
-                                    <input type="text" id="custom-strategy-name" class="form-input" value="내 전략" placeholder="전략 이름">
+                                    <label data-i18n="strategy_name">전략 이름</label>
+                                    <input type="text" id="custom-strategy-name" class="form-input" value="내 전략" data-i18n-attr="placeholder:strategy_name" placeholder="전략 이름">
                                 </div>
                                 <div class="form-group">
-                                    <label>테스트 기간 (일)</label>
+                                    <label data-i18n="test_period_days">테스트 기간 (일)</label>
                                     <input type="number" id="custom-days" class="form-input" value="365" min="30" max="3650">
                                 </div>
                                 <div class="form-group">
-                                    <label>초기 자본</label>
+                                    <label data-i18n="initial_capital">초기 자본</label>
                                     <input type="number" id="custom-initial-capital" class="form-input" value="10000000">
                                 </div>
                                 <div class="form-group" style="align-self: flex-end;">
-                                    <button class="btn btn-primary" id="btn-custom-run-backtest">백테스트 실행</button>
+                                    <button class="btn btn-primary" id="btn-custom-run-backtest" data-i18n="run_backtest">백테스트 실행</button>
                                 </div>
                             </div>
 
                             <!-- 로딩 표시 -->
                             <div id="custom-backtest-loading" style="display:none; text-align:center; padding:40px;">
                                 <div style="display:inline-block; width:32px; height:32px; border:3px solid var(--border); border-top-color:#3B82F6; border-radius:50%; animation:spin 1s linear infinite;"></div>
-                                <div id="custom-backtest-loading-msg" style="font-size:14px; color:var(--text-muted); margin-top:12px;">시세 데이터 준비 중...</div>
-                                <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">첫 조회 시 다소 시간이 걸릴 수 있습니다</div>
+                                <div id="custom-backtest-loading-msg" style="font-size:14px; color:var(--text-muted); margin-top:12px;" data-i18n="loading_price_data">시세 데이터 준비 중...</div>
+                                <div style="font-size:12px; color:var(--text-muted); margin-top:4px;" data-i18n="first_load_slow">첫 조회 시 다소 시간이 걸릴 수 있습니다</div>
                             </div>
 
                             <!-- 에러 표시 -->
@@ -1507,43 +1504,43 @@
                                 <!-- 5카드 요약 -->
                                 <div class="bt-summary-cards">
                                     <div class="bt-card">
-                                        <div class="bt-card-label">순손익</div>
+                                        <div class="bt-card-label" data-i18n="net_profit">순손익</div>
                                         <div class="bt-card-value" id="custom-stat-net-profit">-</div>
                                     </div>
                                     <div class="bt-card">
-                                        <div class="bt-card-label">총 거래</div>
+                                        <div class="bt-card-label" data-i18n="total_trades">총 거래</div>
                                         <div class="bt-card-value" id="custom-stat-trades">0</div>
                                     </div>
                                     <div class="bt-card">
-                                        <div class="bt-card-label">승률</div>
+                                        <div class="bt-card-label" data-i18n="win_rate">승률</div>
                                         <div class="bt-card-value" id="custom-stat-winrate">0%</div>
                                     </div>
                                     <div class="bt-card">
-                                        <div class="bt-card-label">수익지수</div>
+                                        <div class="bt-card-label" data-i18n="profit_factor">수익지수</div>
                                         <div class="bt-card-value" id="custom-stat-pf">0</div>
                                     </div>
                                     <div class="bt-card">
-                                        <div class="bt-card-label">최대낙폭</div>
+                                        <div class="bt-card-label" data-i18n="max_drawdown">최대낙폭</div>
                                         <div class="bt-card-value" id="custom-stat-mdd">0%</div>
                                     </div>
                                 </div>
 
                                 <!-- 캔들 차트 -->
                                 <div class="bt-chart-section">
-                                    <h4>캔들 차트</h4>
+                                    <h4 data-i18n="candle_chart">캔들 차트</h4>
                                     <div id="custom-chart-container" class="chart-container" style="height: 400px;"></div>
                                 </div>
 
                                 <!-- 수익률 테이블 -->
                                 <div class="bt-table-section">
-                                    <h4>수익률</h4>
+                                    <h4 data-i18n="returns">수익률</h4>
                                     <table class="bt-performance-table" id="custom-performance-table">
                                         <thead>
                                             <tr>
-                                                <th>항목</th>
-                                                <th>전체</th>
-                                                <th>매수</th>
-                                                <th>매도</th>
+                                                <th data-i18n="item">항목</th>
+                                                <th data-i18n="total">전체</th>
+                                                <th data-i18n="buy">매수</th>
+                                                <th data-i18n="sell">매도</th>
                                             </tr>
                                         </thead>
                                         <tbody></tbody>
@@ -1552,19 +1549,19 @@
 
                                 <!-- 거래 내역 -->
                                 <div class="bt-table-section">
-                                    <h4>거래 내역</h4>
+                                    <h4 data-i18n="trade_history">거래 내역</h4>
                                     <div class="trades-table-wrapper">
                                         <table class="bt-trades-table" id="custom-trades-table">
                                             <thead>
                                                 <tr>
-                                                    <th>번호</th>
-                                                    <th>유형</th>
-                                                    <th>날짜</th>
-                                                    <th>가격</th>
-                                                    <th>수량</th>
-                                                    <th>구분</th>
-                                                    <th>손익</th>
-                                                    <th>수익률</th>
+                                                    <th data-i18n="number">번호</th>
+                                                    <th data-i18n="type">유형</th>
+                                                    <th data-i18n="date">날짜</th>
+                                                    <th data-i18n="price">가격</th>
+                                                    <th data-i18n="quantity">수량</th>
+                                                    <th data-i18n="category">구분</th>
+                                                    <th data-i18n="pnl">손익</th>
+                                                    <th data-i18n="return_rate">수익률</th>
                                                 </tr>
                                             </thead>
                                             <tbody></tbody>
@@ -1577,17 +1574,17 @@
 
                     <!-- 역추세매매 탭 (MR 프리미엄 엔진) - 리디자인 -->
                     <section class="strategy-content card" id="strategy-tab-reversal" style="display: none;">
-                        <h2>역추세매매 설정 <span class="difficulty-badge beginner">🟢 초보 추천</span></h2>
-                        <p class="strategy-description">📉 과하게 떨어진 종목의 반등을 노리는 전략</p>
-                        <p class="strategy-subdesc">평균보다 많이 떨어진 종목을 매수하고, 가격이 회복되면 매도합니다. 비중 조절과 운용 방식에 따라 수익률이 크게 달라질 수 있습니다.</p>
+                        <h2><span data-i18n="reversal_setup">역추세매매 설정</span> <span class="difficulty-badge beginner" data-i18n="beginner_recommended">🟢 초보 추천</span></h2>
+                        <p class="strategy-description" data-i18n="reversal_desc">📉 과하게 떨어진 종목의 반등을 노리는 전략</p>
+                        <p class="strategy-subdesc" data-i18n="reversal_subdesc">평균보다 많이 떨어진 종목을 매수하고, 가격이 회복되면 매도합니다. 비중 조절과 운용 방식에 따라 수익률이 크게 달라질 수 있습니다.</p>
 
                         <!-- ① 거래소 + 종목 (항상 열림) -->
                         <div class="mr-section" id="mr-section-basic">
-                            <h3 class="mr-section-header">거래소 + 종목</h3>
+                            <h3 class="mr-section-header" data-i18n="exchange_symbol">거래소 + 종목</h3>
                             <div class="mr-section-body">
                                 <div class="mr-row">
                                     <div class="mr-field">
-                                        <label>거래소</label>
+                                        <label data-i18n="exchange">거래소</label>
                                         <select id="mr-exchange" class="form-select">
                                             <option value="KIS_KR" selected>KIS_KR(한국투자증권)</option>
                                             <option value="KIS_US">KIS_US(한국투자증권)</option>
@@ -1598,8 +1595,8 @@
                                         </select>
                                     </div>
                                     <div class="mr-field">
-                                        <label>종목</label>
-                                        <input type="text" id="mr-symbol" class="form-input" placeholder="예: BTC-USDT" autocomplete="off">
+                                        <label data-i18n="symbol">종목</label>
+                                        <input type="text" id="mr-symbol" class="form-input" data-i18n-attr="placeholder:symbol_placeholder" placeholder="예: BTC-USDT" autocomplete="off">
                                     </div>
                                 </div>
                             </div>
@@ -1607,18 +1604,18 @@
 
                         <!-- ② 가용자금 (항상 열림) -->
                         <div class="mr-section" id="mr-section-capital">
-                            <h3 class="mr-section-header">가용자금</h3>
+                            <h3 class="mr-section-header" data-i18n="available_capital">가용자금</h3>
                             <div class="mr-section-body">
                                 <div class="mr-row">
                                     <div class="mr-field">
-                                        <label>가용자금 사용률 (%)</label>
+                                        <label data-i18n="cash_use_pct">가용자금 사용률 (%)</label>
                                         <input type="number" id="mr-cash-use-pct" class="form-input" value="55" min="1" max="100" step="1">
-                                        <span class="mr-help">해당 계좌 가용자금 중 투입할 비율</span>
+                                        <span class="mr-help" data-i18n="cash_use_help">해당 계좌 가용자금 중 투입할 비율</span>
                                     </div>
                                     <div class="mr-field">
-                                        <label>절대 노출 상한 (%)</label>
+                                        <label data-i18n="hard_cap_pct">절대 노출 상한 (%)</label>
                                         <input type="number" id="mr-hard-cap-pct" class="form-input" value="100" min="1" max="100" step="1">
-                                        <span class="mr-help">자산 대비 최대 노출 상한 (안전장치)</span>
+                                        <span class="mr-help" data-i18n="hard_cap_help">자산 대비 최대 노출 상한 (안전장치)</span>
                                     </div>
                                 </div>
                             </div>
@@ -1627,13 +1624,13 @@
                         <!-- ③ 기본 설정 (아코디언, 기본 접힘) -->
                         <div class="mr-section mr-accordion" id="mr-section-settings">
                             <h3 class="mr-accordion-header">
-                                <span class="mr-accordion-icon">▶</span> 기본 설정
+                                <span class="mr-accordion-icon">▶</span> <span data-i18n="basic_settings">기본 설정</span>
                             </h3>
                             <div class="mr-accordion-body" style="display: none;">
                                 <!-- 타임프레임 -->
                                 <div class="mr-row">
                                     <div class="mr-field">
-                                        <label>시그널 TF</label>
+                                        <label data-i18n="signal_tf">시그널 TF</label>
                                         <select id="mr-signal-tf" class="form-select">
                                             <option value="15m">15분</option>
                                             <option value="30m" selected>30분</option>
@@ -1641,44 +1638,44 @@
                                             <option value="4h">4시간</option>
                                             <option value="1D">일봉</option>
                                         </select>
-                                        <span class="mr-help">오실레이터 신호를 계산할 타임프레임</span>
+                                        <span class="mr-help" data-i18n="signal_tf_help">오실레이터 신호를 계산할 타임프레임</span>
                                     </div>
                                     <div class="mr-field">
-                                        <label>HTF (국면 판별)</label>
+                                        <label data-i18n="htf_regime">HTF (국면 판별)</label>
                                         <select id="mr-htf" class="form-select">
                                             <option value="4h">4시간</option>
                                             <option value="1D" selected>일봉</option>
                                             <option value="1W">주봉</option>
                                         </select>
-                                        <span class="mr-help">VWMA50/200, Supertrend 등 국면 지표 계산용</span>
+                                        <span class="mr-help" data-i18n="htf_help">VWMA50/200, Supertrend 등 국면 지표 계산용</span>
                                     </div>
                                 </div>
 
                                 <!-- 오실레이터 -->
                                 <div class="mr-row">
                                     <div class="mr-field">
-                                        <label>오실레이터 스무딩</label>
+                                        <label data-i18n="osc_smooth">오실레이터 스무딩</label>
                                         <input type="number" id="mr-osc-smooth" class="form-input" value="4" min="2" max="50" step="1">
-                                        <span class="mr-help">smoother 길이 (기본: 4)</span>
+                                        <span class="mr-help" data-i18n="osc_smooth_help">smoother 길이 (기본: 4)</span>
                                     </div>
                                     <div class="mr-field">
-                                        <label>오실레이터 임계값</label>
+                                        <label data-i18n="osc_threshold">오실레이터 임계값</label>
                                         <input type="number" id="mr-osc-threshold" class="form-input" value="1.0" min="0.1" max="5.0" step="0.1">
-                                        <span class="mr-help">신호 발생 기준 (기본: 1.0)</span>
+                                        <span class="mr-help" data-i18n="osc_threshold_help">신호 발생 기준 (기본: 1.0)</span>
                                     </div>
                                 </div>
 
                                 <!-- 매도 게이트 -->
                                 <div class="mr-row">
                                     <div class="mr-field">
-                                        <label>매도허용 최소수익 (%)</label>
+                                        <label data-i18n="min_profit_pct">매도허용 최소수익 (%)</label>
                                         <input type="number" id="mr-min-profit-pct" class="form-input" value="0.1" min="0" max="10" step="0.01">
-                                        <span class="mr-help">이 수익률 이상일 때만 매도 실행</span>
+                                        <span class="mr-help" data-i18n="min_profit_help">이 수익률 이상일 때만 매도 실행</span>
                                     </div>
                                     <div class="mr-field">
-                                        <label>매도게이트 버퍼 (%)</label>
+                                        <label data-i18n="fee_buffer_pct">매도게이트 버퍼 (%)</label>
                                         <input type="number" id="mr-fee-buffer-pct" class="form-input" value="0.2" min="0" max="5" step="0.01">
-                                        <span class="mr-help">백테스트 시 최소수익에 합산되는 버퍼</span>
+                                        <span class="mr-help" data-i18n="fee_buffer_help">백테스트 시 최소수익에 합산되는 버퍼</span>
                                     </div>
                                 </div>
 
@@ -1687,16 +1684,16 @@
                                     <div class="mr-field">
                                         <label class="checkbox-label">
                                             <input type="checkbox" id="mr-st-reversal-fix" checked>
-                                            HTF 반전보정
+                                            <span data-i18n="htf_reversal_fix">HTF 반전보정</span>
                                         </label>
-                                        <span class="mr-help">HTF 뒤집힐 때 튀는 값 보정</span>
+                                        <span class="mr-help" data-i18n="htf_reversal_fix_help">HTF 뒤집힐 때 튀는 값 보정</span>
                                     </div>
                                     <div class="mr-field">
                                         <label class="checkbox-label">
                                             <input type="checkbox" id="mr-one-trade-per-bar" checked>
-                                            1봉 1주문 락
+                                            <span data-i18n="one_trade_per_bar">1봉 1주문 락</span>
                                         </label>
-                                        <span class="mr-help">같은 봉에서 중복 주문 방지</span>
+                                        <span class="mr-help" data-i18n="one_trade_per_bar_help">같은 봉에서 중복 주문 방지</span>
                                     </div>
                                 </div>
                             </div>
@@ -1705,17 +1702,17 @@
                         <!-- ④ 매수/매도 차수 + 비중 (아코디언, 기본 접힘) -->
                         <div class="mr-section mr-accordion" id="mr-section-tranches">
                             <h3 class="mr-accordion-header">
-                                <span class="mr-accordion-icon">▶</span> 매수/매도 차수 + 비중
+                                <span class="mr-accordion-icon">▶</span> <span data-i18n="buy_sell_tranches">매수/매도 차수 + 비중</span>
                             </h3>
                             <div class="mr-accordion-body" style="display: none;">
                                 <!-- 매수 비중 -->
                                 <div class="mr-subsection">
-                                    <h4>매수 비중</h4>
+                                    <h4 data-i18n="buy_weight">매수 비중</h4>
                                     <div class="mr-row">
                                         <div class="mr-field">
-                                            <label>매수 차수</label>
+                                            <label data-i18n="buy_tranches">매수 차수</label>
                                             <input type="number" id="mr-buy-tranche-count" class="form-input" value="9" min="1" max="50" step="1">
-                                            <span class="mr-help">차수를 변경하면 비중 입력 칸이 자동 생성됩니다</span>
+                                            <span class="mr-help" data-i18n="tranche_auto_help">차수를 변경하면 비중 입력 칸이 자동 생성됩니다</span>
                                         </div>
                                     </div>
                                     <div id="mr-buy-tranches-container" class="mr-tranches-grid">
@@ -1723,16 +1720,16 @@
                                     </div>
                                     <div class="mr-row" style="margin-top: 8px;">
                                         <div class="mr-field">
-                                            <label>합계: <span id="mr-buy-total-pct">50</span>%</label>
+                                            <label><span data-i18n="total_sum">합계:</span> <span id="mr-buy-total-pct">50</span>%</label>
                                         </div>
                                     </div>
                                     <div class="mr-row">
                                         <div class="mr-field">
-                                            <label>최대 차수 초과 시</label>
+                                            <label data-i18n="after_max_tranche">최대 차수 초과 시</label>
                                             <div class="mr-radio-group">
-                                                <label><input type="radio" name="mr-after-max-buy" value="extend" checked> 반복 (마지막 비중)</label>
-                                                <label><input type="radio" name="mr-after-max-buy" value="cycle"> 처음부터</label>
-                                                <label><input type="radio" name="mr-after-max-buy" value="stop"> 중단</label>
+                                                <label><input type="radio" name="mr-after-max-buy" value="extend" checked> <span data-i18n="repeat_last">반복 (마지막 비중)</span></label>
+                                                <label><input type="radio" name="mr-after-max-buy" value="cycle"> <span data-i18n="from_start">처음부터</span></label>
+                                                <label><input type="radio" name="mr-after-max-buy" value="stop"> <span data-i18n="stop">중단</span></label>
                                             </div>
                                         </div>
                                     </div>
@@ -1742,10 +1739,10 @@
 
                                 <!-- 매도 비중 -->
                                 <div class="mr-subsection">
-                                    <h4>매도 비중</h4>
+                                    <h4 data-i18n="sell_weight">매도 비중</h4>
                                     <div class="mr-row">
                                         <div class="mr-field">
-                                            <label>매도 차수</label>
+                                            <label data-i18n="sell_tranches">매도 차수</label>
                                             <input type="number" id="mr-sell-tranche-count" class="form-input" value="6" min="1" max="20" step="1">
                                         </div>
                                     </div>
@@ -1754,17 +1751,17 @@
                                     </div>
                                     <div class="mr-row" style="margin-top: 8px;">
                                         <div class="mr-field">
-                                            <label>합계: <span id="mr-sell-total-pct">68.5</span>%</label>
-                                            <span class="mr-help">보유수량 대비 % (100% 이하 권장)</span>
+                                            <label><span data-i18n="total_sum">합계:</span> <span id="mr-sell-total-pct">68.5</span>%</label>
+                                            <span class="mr-help" data-i18n="sell_weight_help">보유수량 대비 % (100% 이하 권장)</span>
                                         </div>
                                     </div>
                                     <div class="mr-row">
                                         <div class="mr-field">
-                                            <label>최대 차수 초과 시</label>
+                                            <label data-i18n="after_max_tranche">최대 차수 초과 시</label>
                                             <div class="mr-radio-group">
-                                                <label><input type="radio" name="mr-after-max-sell" value="cycle" checked> 처음부터</label>
-                                                <label><input type="radio" name="mr-after-max-sell" value="extend"> 반복</label>
-                                                <label><input type="radio" name="mr-after-max-sell" value="stop"> 중단</label>
+                                                <label><input type="radio" name="mr-after-max-sell" value="cycle" checked> <span data-i18n="from_start">처음부터</span></label>
+                                                <label><input type="radio" name="mr-after-max-sell" value="extend"> <span data-i18n="repeat">반복</span></label>
+                                                <label><input type="radio" name="mr-after-max-sell" value="stop"> <span data-i18n="stop">중단</span></label>
                                             </div>
                                         </div>
                                     </div>
@@ -1775,34 +1772,34 @@
                         <!-- ⑤ 국면별 설정 (아코디언 + 내부 탭) -->
                         <div class="mr-section mr-accordion" id="mr-section-regime">
                             <h3 class="mr-accordion-header">
-                                <span class="mr-accordion-icon">▶</span> 국면별 설정
+                                <span class="mr-accordion-icon">▶</span> <span data-i18n="regime_settings">국면별 설정</span>
                             </h3>
                             <div class="mr-accordion-body" style="display: none;">
                                 <!-- 4-Regime 사용 토글 -->
                                 <div class="mr-row" style="margin-bottom: 12px;">
                                     <label class="checkbox-label">
                                         <input type="checkbox" id="mr-use-4regime" checked>
-                                        4국면 자동 판별 사용
+                                        <span data-i18n="use_4regime">4국면 자동 판별 사용</span>
                                     </label>
-                                    <span class="mr-help">OFF 시 단일 국면으로 동작 (국면 무시)</span>
+                                    <span class="mr-help" data-i18n="use_4regime_help">OFF 시 단일 국면으로 동작 (국면 무시)</span>
                                 </div>
 
                                 <!-- R1~R4 탭 -->
                                 <div class="mr-regime-tabs">
-                                    <button class="mr-regime-tab active" data-regime="r1">R1 상승장</button>
-                                    <button class="mr-regime-tab" data-regime="r2">R2 조정장</button>
-                                    <button class="mr-regime-tab" data-regime="r3">R3 반등장</button>
-                                    <button class="mr-regime-tab" data-regime="r4">R4 하락장</button>
+                                    <button class="mr-regime-tab active" data-regime="r1" data-i18n="r1_bull">R1 상승장</button>
+                                    <button class="mr-regime-tab" data-regime="r2" data-i18n="r2_correction">R2 조정장</button>
+                                    <button class="mr-regime-tab" data-regime="r3" data-i18n="r3_recovery">R3 반등장</button>
+                                    <button class="mr-regime-tab" data-regime="r4" data-i18n="r4_bear">R4 하락장</button>
                                 </div>
 
                                 <!-- R1 상승장 -->
                                 <div class="mr-regime-content active" id="mr-regime-r1">
-                                    <p class="mr-regime-desc">정배열(VWMA50&gt;=200) + Supertrend 상승</p>
+                                    <p class="mr-regime-desc" data-i18n="r1_desc">정배열(VWMA50&gt;=200) + Supertrend 상승</p>
                                     <div class="mr-row">
                                         <div class="mr-field">
-                                            <label>매수 배수</label>
+                                            <label data-i18n="buy_multiplier">매수 배수</label>
                                             <input type="number" id="mr-r1-buy-mult" class="form-input" value="1.0" min="0" max="5" step="0.1">
-                                            <span class="mr-help">기본 매수금액 x 이 배수</span>
+                                            <span class="mr-help" data-i18n="buy_mult_help">기본 매수금액 x 이 배수</span>
                                         </div>
                                         <div class="mr-field">
                                             <label>매도 배수</label>
@@ -2504,15 +2501,15 @@
                 <div id="password-verify-modal" class="modal" style="display: none;">
                     <div class="modal-content modal-small">
                         <div class="modal-header">
-                            <h3>🔒 보안 확인</h3>
+                            <h3 data-i18n="security_check">🔒 보안 확인</h3>
                         </div>
                         <div class="modal-body">
-                            <p>보안을 위해 비밀번호를 다시 입력해주세요.</p>
-                            <input type="password" id="verify-password" class="form-input" placeholder="비밀번호">
+                            <p data-i18n="reenter_password">보안을 위해 비밀번호를 다시 입력해주세요.</p>
+                            <input type="password" id="verify-password" class="form-input" data-i18n-attr="placeholder:password" placeholder="비밀번호">
                             <div class="verify-error" id="verify-error"></div>
                         </div>
                         <div class="modal-actions">
-                            <button class="btn btn-primary" id="btn-verify-password">확인</button>
+                            <button class="btn btn-primary" id="btn-verify-password" data-i18n="confirm">확인</button>
                         </div>
                         <div class="verify-timer" id="verify-timer"></div>
                     </div>
@@ -2520,17 +2517,17 @@
 
                 <div class="accounts-container">
                     <div class="accounts-header">
-                        <h2>거래소 계정 관리</h2>
-                        <button id="btn-add-account" class="btn btn-primary">+ 계정 추가</button>
+                        <h2 data-i18n="exchange_account_manage">거래소 계정 관리</h2>
+                        <button id="btn-add-account" class="btn btn-primary" data-i18n="add_account">+ 계정 추가</button>
                     </div>
 
                     <!-- 거래소 선택 폼 -->
                     <div id="account-form-section" class="card" style="display: none;">
-                        <h3 id="account-form-title">계정 추가</h3>
+                        <h3 id="account-form-title" data-i18n="add_account">계정 추가</h3>
                         <div class="form-group">
-                            <label>거래소</label>
+                            <label data-i18n="exchange">거래소</label>
                             <select id="account-exchange" class="form-select">
-                                <option value="">거래소 선택</option>
+                                <option value="" data-i18n="select_exchange">거래소 선택</option>
                                 <!-- KR+US 공통 (암호화폐 거래소) -->
                                 <option value="OKX" data-mode="KR,US">OKX</option>
                                 <option value="BINANCE" data-mode="KR,US">Binance</option>
@@ -2547,115 +2544,115 @@
                         <!-- OKX 폼 (API Key + Secret Key + Passphrase) -->
                         <div id="okx-form" class="exchange-form" style="display: none;">
                             <div class="form-group">
-                                <label>계정 별칭</label>
-                                <input type="text" id="okx-alias" class="form-input" placeholder="예: 내 OKX 메인">
+                                <label data-i18n="account_alias">계정 별칭</label>
+                                <input type="text" id="okx-alias" class="form-input" data-i18n-attr="placeholder:okx_alias_placeholder" placeholder="예: 내 OKX 메인">
                             </div>
                             <div class="form-group">
                                 <label>API Key</label>
-                                <input type="password" id="okx-api-key" class="form-input" placeholder="API 키를 입력하세요">
+                                <input type="password" id="okx-api-key" class="form-input" data-i18n-attr="placeholder:enter_api_key" placeholder="API 키를 입력하세요">
                             </div>
                             <div class="form-group">
                                 <label>Secret Key</label>
-                                <input type="password" id="okx-secret" class="form-input" placeholder="Secret 키를 입력하세요">
+                                <input type="password" id="okx-secret" class="form-input" data-i18n-attr="placeholder:enter_secret_key" placeholder="Secret 키를 입력하세요">
                             </div>
                             <div class="form-group">
                                 <label>Passphrase</label>
-                                <input type="password" id="okx-passphrase" class="form-input" placeholder="Passphrase를 입력하세요">
+                                <input type="password" id="okx-passphrase" class="form-input" data-i18n-attr="placeholder:enter_passphrase" placeholder="Passphrase를 입력하세요">
                             </div>
                         </div>
 
                         <!-- Binance 폼 (API Key + Secret Key) -->
                         <div id="binance-form" class="exchange-form" style="display: none;">
                             <div class="form-group">
-                                <label>계정 별칭</label>
-                                <input type="text" id="binance-alias" class="form-input" placeholder="예: 내 Binance 메인">
+                                <label data-i18n="account_alias">계정 별칭</label>
+                                <input type="text" id="binance-alias" class="form-input" data-i18n-attr="placeholder:binance_alias_placeholder" placeholder="예: 내 Binance 메인">
                             </div>
                             <div class="form-group">
                                 <label>API Key</label>
-                                <input type="password" id="binance-api-key" class="form-input" placeholder="API 키를 입력하세요">
+                                <input type="password" id="binance-api-key" class="form-input" data-i18n-attr="placeholder:enter_api_key" placeholder="API 키를 입력하세요">
                             </div>
                             <div class="form-group">
                                 <label>Secret Key</label>
-                                <input type="password" id="binance-secret" class="form-input" placeholder="Secret 키를 입력하세요">
+                                <input type="password" id="binance-secret" class="form-input" data-i18n-attr="placeholder:enter_secret_key" placeholder="Secret 키를 입력하세요">
                             </div>
                         </div>
 
                         <!-- Bybit 폼 (API Key + Secret Key) -->
                         <div id="bybit-form" class="exchange-form" style="display: none;">
                             <div class="form-group">
-                                <label>계정 별칭</label>
-                                <input type="text" id="bybit-alias" class="form-input" placeholder="예: 내 Bybit 메인">
+                                <label data-i18n="account_alias">계정 별칭</label>
+                                <input type="text" id="bybit-alias" class="form-input" data-i18n-attr="placeholder:bybit_alias_placeholder" placeholder="예: 내 Bybit 메인">
                             </div>
                             <div class="form-group">
                                 <label>API Key</label>
-                                <input type="password" id="bybit-api-key" class="form-input" placeholder="API 키를 입력하세요">
+                                <input type="password" id="bybit-api-key" class="form-input" data-i18n-attr="placeholder:enter_api_key" placeholder="API 키를 입력하세요">
                             </div>
                             <div class="form-group">
                                 <label>Secret Key</label>
-                                <input type="password" id="bybit-secret" class="form-input" placeholder="Secret 키를 입력하세요">
+                                <input type="password" id="bybit-secret" class="form-input" data-i18n-attr="placeholder:enter_secret_key" placeholder="Secret 키를 입력하세요">
                             </div>
                         </div>
 
                         <!-- Upbit 폼 (Access Key + Secret Key) -->
                         <div id="upbit-form" class="exchange-form" style="display: none;">
                             <div class="form-group">
-                                <label>계정 별칭</label>
-                                <input type="text" id="upbit-alias" class="form-input" placeholder="예: 내 Upbit 메인">
+                                <label data-i18n="account_alias">계정 별칭</label>
+                                <input type="text" id="upbit-alias" class="form-input" data-i18n-attr="placeholder:upbit_alias_placeholder" placeholder="예: 내 Upbit 메인">
                             </div>
                             <div class="form-group">
                                 <label>Access Key</label>
-                                <input type="password" id="upbit-access-key" class="form-input" placeholder="Access 키를 입력하세요">
+                                <input type="password" id="upbit-access-key" class="form-input" data-i18n-attr="placeholder:enter_access_key" placeholder="Access 키를 입력하세요">
                             </div>
                             <div class="form-group">
                                 <label>Secret Key</label>
-                                <input type="password" id="upbit-secret" class="form-input" placeholder="Secret 키를 입력하세요">
+                                <input type="password" id="upbit-secret" class="form-input" data-i18n-attr="placeholder:enter_secret_key" placeholder="Secret 키를 입력하세요">
                             </div>
                         </div>
 
                         <!-- KIS 국내주식 폼 (App Key + App Secret + 계좌번호) -->
                         <div id="kis-kr-form" class="exchange-form" style="display: none;">
                             <div class="form-group">
-                                <label>계정 별칭</label>
-                                <input type="text" id="kis-kr-alias" class="form-input" placeholder="예: 한투 국내주식">
+                                <label data-i18n="account_alias">계정 별칭</label>
+                                <input type="text" id="kis-kr-alias" class="form-input" data-i18n-attr="placeholder:kis_kr_alias_placeholder" placeholder="예: 한투 국내주식">
                             </div>
                             <div class="form-group">
                                 <label>App Key</label>
-                                <input type="password" id="kis-kr-app-key" class="form-input" placeholder="App Key를 입력하세요">
+                                <input type="password" id="kis-kr-app-key" class="form-input" data-i18n-attr="placeholder:enter_app_key" placeholder="App Key를 입력하세요">
                             </div>
                             <div class="form-group">
                                 <label>App Secret</label>
-                                <input type="password" id="kis-kr-app-secret" class="form-input" placeholder="App Secret을 입력하세요">
+                                <input type="password" id="kis-kr-app-secret" class="form-input" data-i18n-attr="placeholder:enter_app_secret" placeholder="App Secret을 입력하세요">
                             </div>
                             <div class="form-group">
-                                <label>계좌번호 (앞8자리-뒤2자리)</label>
-                                <input type="text" id="kis-kr-account-number" class="form-input" placeholder="예: 12345678-01">
+                                <label data-i18n="account_number">계좌번호 (앞8자리-뒤2자리)</label>
+                                <input type="text" id="kis-kr-account-number" class="form-input" data-i18n-attr="placeholder:account_number_placeholder" placeholder="예: 12345678-01">
                             </div>
                         </div>
 
                         <!-- KIS 해외주식 폼 (App Key + App Secret + 계좌번호) -->
                         <div id="kis-us-form" class="exchange-form" style="display: none;">
                             <div class="form-group">
-                                <label>계정 별칭</label>
-                                <input type="text" id="kis-us-alias" class="form-input" placeholder="예: 한투 해외주식">
+                                <label data-i18n="account_alias">계정 별칭</label>
+                                <input type="text" id="kis-us-alias" class="form-input" data-i18n-attr="placeholder:kis_us_alias_placeholder" placeholder="예: 한투 해외주식">
                             </div>
                             <div class="form-group">
                                 <label>App Key</label>
-                                <input type="password" id="kis-us-app-key" class="form-input" placeholder="App Key를 입력하세요">
+                                <input type="password" id="kis-us-app-key" class="form-input" data-i18n-attr="placeholder:enter_app_key" placeholder="App Key를 입력하세요">
                             </div>
                             <div class="form-group">
                                 <label>App Secret</label>
-                                <input type="password" id="kis-us-app-secret" class="form-input" placeholder="App Secret을 입력하세요">
+                                <input type="password" id="kis-us-app-secret" class="form-input" data-i18n-attr="placeholder:enter_app_secret" placeholder="App Secret을 입력하세요">
                             </div>
                             <div class="form-group">
-                                <label>계좌번호 (앞8자리-뒤2자리)</label>
-                                <input type="text" id="kis-us-account-number" class="form-input" placeholder="예: 12345678-01">
+                                <label data-i18n="account_number">계좌번호 (앞8자리-뒤2자리)</label>
+                                <input type="text" id="kis-us-account-number" class="form-input" data-i18n-attr="placeholder:account_number_placeholder" placeholder="예: 12345678-01">
                             </div>
                         </div>
 
                         <!-- Alpaca 폼 (API Key + Secret Key) -->
                         <div id="alpaca-form" class="exchange-form" style="display: none;">
                             <div class="form-group">
-                                <label>계정 별칭</label>
+                                <label data-i18n="account_alias">계정 별칭</label>
                                 <input type="text" id="alpaca-alias" class="form-input" placeholder="예: Alpaca Paper">
                             </div>
                             <div class="form-group">
@@ -2669,20 +2666,20 @@
                             <div class="form-group">
                                 <label>
                                     <input type="checkbox" id="alpaca-paper" checked>
-                                    Paper Trading (모의투자)
+                                    <span data-i18n="paper_trading">Paper Trading (모의투자)</span>
                                 </label>
                             </div>
                         </div>
 
                         <div class="form-actions">
-                            <button class="btn btn-secondary" id="btn-cancel-account">취소</button>
-                            <button class="btn btn-primary" id="btn-save-account">저장</button>
+                            <button class="btn btn-secondary" id="btn-cancel-account" data-i18n="cancel">취소</button>
+                            <button class="btn btn-primary" id="btn-save-account" data-i18n="save">저장</button>
                         </div>
                     </div>
 
                     <!-- 등록된 계정 목록 -->
                     <div id="accounts-list" class="accounts-list">
-                        <p class="empty">계정 로딩 중...</p>
+                        <p class="empty" data-i18n="loading_accounts">계정 로딩 중...</p>
                     </div>
                 </div>
             </main>
@@ -2693,27 +2690,27 @@
                     <div class="card">
                         <div class="coming-soon-card">
                             <span class="coming-soon-icon">🔔</span>
-                            <h2>알림 기능은 준비 중입니다</h2>
-                            <p>향후 추가될 기능:</p>
+                            <h2 data-i18n="notifications_coming_soon">알림 기능은 준비 중입니다</h2>
+                            <p data-i18n="future_features">향후 추가될 기능:</p>
                             <div class="notification-items">
                                 <div class="notification-item disabled">
                                     <span class="item-icon">✅</span>
-                                    <span class="item-label">거래 체결 알림</span>
+                                    <span class="item-label" data-i18n="trade_executed_alert">거래 체결 알림</span>
                                     <div class="toggle-switch disabled"></div>
                                 </div>
                                 <div class="notification-item disabled">
                                     <span class="item-icon">🛡️</span>
-                                    <span class="item-label">손절/익절 도달 알림</span>
+                                    <span class="item-label" data-i18n="sl_tp_alert">손절/익절 도달 알림</span>
                                     <div class="toggle-switch disabled"></div>
                                 </div>
                                 <div class="notification-item disabled">
                                     <span class="item-icon">⚠️</span>
-                                    <span class="item-label">전략 에러 알림</span>
+                                    <span class="item-label" data-i18n="strategy_error_alert">전략 에러 알림</span>
                                     <div class="toggle-switch disabled"></div>
                                 </div>
                                 <div class="notification-item disabled">
                                     <span class="item-icon">📊</span>
-                                    <span class="item-label">일일 리포트</span>
+                                    <span class="item-label" data-i18n="daily_report">일일 리포트</span>
                                     <div class="toggle-switch disabled"></div>
                                 </div>
                             </div>
@@ -2726,48 +2723,48 @@
             <main class="main page-content" id="page-app-info" style="display: none;">
                 <div class="app-info-container">
                     <section class="card">
-                        <h2>앱 정보</h2>
+                        <h2 data-i18n="app_info">앱 정보</h2>
                         <div class="info-table">
                             <div class="info-row">
-                                <span class="info-label">앱 이름</span>
+                                <span class="info-label" data-i18n="app_name_label">앱 이름</span>
                                 <span class="info-value">BBooster</span>
                             </div>
                             <div class="info-row">
-                                <span class="info-label">버전</span>
+                                <span class="info-label" data-i18n="version">버전</span>
                                 <span class="info-value">1.0.0</span>
                             </div>
                             <div class="info-row">
-                                <span class="info-label">개발사</span>
-                                <span class="info-value">큐브시스템 (QUBE System)</span>
+                                <span class="info-label" data-i18n="developer">개발사</span>
+                                <span class="info-value" data-i18n="company_name">큐브시스템 (QUBE System)</span>
                             </div>
                             <div class="info-row">
-                                <span class="info-label">웹사이트</span>
+                                <span class="info-label" data-i18n="website">웹사이트</span>
                                 <span class="info-value"><a href="https://qube-system.com" target="_blank">https://qube-system.com</a></span>
                             </div>
                             <div class="info-row">
-                                <span class="info-label">서버 상태</span>
-                                <span class="info-value" id="app-server-status">확인 중...</span>
+                                <span class="info-label" data-i18n="server_status">서버 상태</span>
+                                <span class="info-value" id="app-server-status" data-i18n="checking">확인 중...</span>
                             </div>
                             <div class="info-row">
-                                <span class="info-label">마지막 연결</span>
+                                <span class="info-label" data-i18n="last_connection">마지막 연결</span>
                                 <span class="info-value" id="app-last-connection">--</span>
                             </div>
                         </div>
                         <div class="button-group">
-                            <button class="btn btn-secondary" id="btn-open-terms">이용약관</button>
-                            <button class="btn btn-secondary" id="btn-open-privacy">개인정보처리방침</button>
-                            <button class="btn btn-secondary" id="btn-export-logs">로그 내보내기</button>
+                            <button class="btn btn-secondary" id="btn-open-terms" data-i18n="terms">이용약관</button>
+                            <button class="btn btn-secondary" id="btn-open-privacy" data-i18n="privacy">개인정보처리방침</button>
+                            <button class="btn btn-secondary" id="btn-export-logs" data-i18n="export_logs">로그 내보내기</button>
                         </div>
                     </section>
 
                     <!-- 서비스 지역 설정 섹션 -->
                     <section class="card mode-setting-section">
-                        <h2>🌍 서비스 지역 설정</h2>
+                        <h2 data-i18n="region_setting">🌍 서비스 지역 설정</h2>
                         <div class="mode-selector">
-                            <button id="mode-btn-kr" class="mode-btn active" onclick="setAppMode('KR')">
+                            <button id="mode-btn-kr" class="mode-btn active" onclick="setAppMode('KR')" data-i18n="korea_mode">
                                 🇰🇷 한국 (KIS)
                             </button>
-                            <button id="mode-btn-us" class="mode-btn" onclick="setAppMode('US')">
+                            <button id="mode-btn-us" class="mode-btn" onclick="setAppMode('US')" data-i18n="us_mode">
                                 🇺🇸 미국 (Alpaca)
                             </button>
                         </div>
@@ -3225,8 +3222,8 @@
                     <div class="access-restriction" id="screener-restriction" style="display: none;">
                         <div class="restriction-content">
                             <span class="restriction-icon">🔒</span>
-                            <h3>종목검색은 Pro 이상 요금제에서 이용 가능합니다</h3>
-                            <button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 업그레이드</button>
+                            <h3 data-i18n="screener_restriction_title">종목검색은 Pro 이상 요금제에서 이용 가능합니다</h3>
+                            <button class="btn btn-primary" onclick="navigateTo('app-info')" data-i18n="upgrade_plan">요금제 업그레이드</button>
                         </div>
                     </div>
 
@@ -3236,6 +3233,7 @@
                             <div class="unified-search-wrapper">
                                 <span class="unified-search-icon">🔍</span>
                                 <input type="text" id="unified-search-input" class="unified-search-input"
+                                       data-i18n-attr="placeholder:unified_search_placeholder"
                                        placeholder="종목명, 코드, 티커로 검색 (예: 삼성전자, AAPL, KODEX)"
                                        autocomplete="off">
                                 <button class="unified-search-clear" id="unified-search-clear" style="display:none;">✕</button>
@@ -3247,8 +3245,8 @@
 
                         <!-- 시장 선택 탭 -->
                         <div class="screener-market-tabs">
-                            <button class="screener-tab active" data-market="kr">국내</button>
-                            <button class="screener-tab" data-market="us">해외</button>
+                            <button class="screener-tab active" data-market="kr" data-i18n="domestic">국내</button>
+                            <button class="screener-tab" data-market="us" data-i18n="overseas">해외</button>
                             <button class="screener-tab" data-market="etf">ETF</button>
                         </div>
 
@@ -3258,101 +3256,101 @@
                             <div class="screener-preset-toolbar">
                                 <div class="preset-left">
                                     <select id="preset-select" class="preset-select">
-                                        <option value="">프리셋 선택...</option>
+                                        <option value="" data-i18n="select_preset">프리셋 선택...</option>
                                     </select>
-                                    <button class="preset-btn" id="btn-load-preset" title="프리셋 불러오기">적용</button>
-                                    <button class="preset-btn" id="btn-delete-preset" title="프리셋 삭제">삭제</button>
+                                    <button class="preset-btn" id="btn-load-preset" data-i18n-attr="title:load_preset" title="프리셋 불러오기" data-i18n="apply">적용</button>
+                                    <button class="preset-btn" id="btn-delete-preset" data-i18n-attr="title:delete_preset" title="프리셋 삭제" data-i18n="delete">삭제</button>
                                 </div>
                                 <div class="preset-right">
-                                    <input type="text" id="preset-name-input" class="preset-name-input" placeholder="프리셋 이름" maxlength="30">
-                                    <button class="preset-btn preset-btn-primary" id="btn-save-preset">저장</button>
+                                    <input type="text" id="preset-name-input" class="preset-name-input" data-i18n-attr="placeholder:preset_name" placeholder="프리셋 이름" maxlength="30">
+                                    <button class="preset-btn preset-btn-primary" id="btn-save-preset" data-i18n="save">저장</button>
                                 </div>
                             </div>
 
                             <!-- 활성 필터 표시 영역 -->
                             <div class="active-filters-row" id="active-filters-row">
-                                <span class="active-filters-label">필터:</span>
+                                <span class="active-filters-label" data-i18n="filters">필터:</span>
                                 <div class="active-filters-chips" id="active-filters-chips"></div>
-                                <button class="clear-all-btn" id="btn-clear-all-filters" style="display:none;">모두 지우기</button>
+                                <button class="clear-all-btn" id="btn-clear-all-filters" style="display:none;" data-i18n="clear_all">모두 지우기</button>
                             </div>
 
                             <!-- 필터 칩 그룹 (35개 필터) -->
                             <div class="filter-chip-groups">
                                 <!-- 기본정보 그룹 (7개) -->
                                 <div class="filter-chip-group">
-                                    <span class="chip-group-label">기본</span>
+                                    <span class="chip-group-label" data-i18n="basic">기본</span>
                                     <div class="chip-row">
-                                        <button class="filter-chip" data-filter="exchange">거래소</button>
-                                        <button class="filter-chip" data-filter="sector">업종</button>
-                                        <button class="filter-chip" data-filter="market_cap">시가총액</button>
-                                        <button class="filter-chip" data-filter="price">현재가</button>
-                                        <button class="filter-chip" data-filter="volume">거래량</button>
-                                        <button class="filter-chip" data-filter="foreign_ratio">외국인비율</button>
-                                        <button class="filter-chip" data-filter="change_pct">등락률</button>
+                                        <button class="filter-chip" data-filter="exchange" data-i18n="exchange">거래소</button>
+                                        <button class="filter-chip" data-filter="sector" data-i18n="sector">업종</button>
+                                        <button class="filter-chip" data-filter="market_cap" data-i18n="market_cap">시가총액</button>
+                                        <button class="filter-chip" data-filter="price" data-i18n="current_price">현재가</button>
+                                        <button class="filter-chip" data-filter="volume" data-i18n="volume">거래량</button>
+                                        <button class="filter-chip" data-filter="foreign_ratio" data-i18n="foreign_ratio">외국인비율</button>
+                                        <button class="filter-chip" data-filter="change_pct" data-i18n="change_rate">등락률</button>
                                     </div>
                                 </div>
 
                                 <!-- 재무지표 그룹 (16개) -->
                                 <div class="filter-chip-group">
-                                    <span class="chip-group-label">재무</span>
+                                    <span class="chip-group-label" data-i18n="financial">재무</span>
                                     <div class="chip-row">
                                         <button class="filter-chip" data-filter="per">PER</button>
                                         <button class="filter-chip" data-filter="pbr">PBR</button>
                                         <button class="filter-chip" data-filter="psr">PSR</button>
                                         <button class="filter-chip" data-filter="roe">ROE</button>
                                         <button class="filter-chip" data-filter="roa">ROA</button>
-                                        <button class="filter-chip" data-filter="operating_margin">영업이익률</button>
-                                        <button class="filter-chip" data-filter="net_margin">순이익률</button>
-                                        <button class="filter-chip" data-filter="debt_ratio">부채비율</button>
-                                        <button class="filter-chip" data-filter="current_ratio">유동비율</button>
-                                        <button class="filter-chip" data-filter="quick_ratio">당좌비율</button>
-                                        <button class="filter-chip" data-filter="reserve_ratio">유보율</button>
-                                        <button class="filter-chip" data-filter="dividend_yield">배당수익률</button>
+                                        <button class="filter-chip" data-filter="operating_margin" data-i18n="operating_margin">영업이익률</button>
+                                        <button class="filter-chip" data-filter="net_margin" data-i18n="net_margin">순이익률</button>
+                                        <button class="filter-chip" data-filter="debt_ratio" data-i18n="debt_ratio">부채비율</button>
+                                        <button class="filter-chip" data-filter="current_ratio" data-i18n="current_ratio">유동비율</button>
+                                        <button class="filter-chip" data-filter="quick_ratio" data-i18n="quick_ratio">당좌비율</button>
+                                        <button class="filter-chip" data-filter="reserve_ratio" data-i18n="reserve_ratio">유보율</button>
+                                        <button class="filter-chip" data-filter="dividend_yield" data-i18n="dividend_yield">배당수익률</button>
                                         <button class="filter-chip" data-filter="eps">EPS</button>
                                         <button class="filter-chip" data-filter="bps">BPS</button>
-                                        <button class="filter-chip" data-filter="sales_growth">매출성장률</button>
-                                        <button class="filter-chip" data-filter="op_growth">영업익성장률</button>
-                                        <button class="filter-chip" data-filter="payout_ratio">배당성향</button>
+                                        <button class="filter-chip" data-filter="sales_growth" data-i18n="sales_growth">매출성장률</button>
+                                        <button class="filter-chip" data-filter="op_growth" data-i18n="op_growth">영업익성장률</button>
+                                        <button class="filter-chip" data-filter="payout_ratio" data-i18n="payout_ratio">배당성향</button>
                                     </div>
                                 </div>
 
                                 <!-- 기술적지표 그룹 (12개) -->
                                 <div class="filter-chip-group">
-                                    <span class="chip-group-label">기술</span>
+                                    <span class="chip-group-label" data-i18n="technical">기술</span>
                                     <div class="chip-row">
                                         <button class="filter-chip" data-filter="rsi">RSI</button>
-                                        <button class="filter-chip" data-filter="sma">이평선</button>
-                                        <button class="filter-chip" data-filter="sma_cross">이평교차</button>
-                                        <button class="filter-chip" data-filter="bollinger">볼린저</button>
+                                        <button class="filter-chip" data-filter="sma" data-i18n="moving_avg">이평선</button>
+                                        <button class="filter-chip" data-filter="sma_cross" data-i18n="ma_cross">이평교차</button>
+                                        <button class="filter-chip" data-filter="bollinger" data-i18n="bollinger">볼린저</button>
                                         <button class="filter-chip" data-filter="macd">MACD</button>
-                                        <button class="filter-chip" data-filter="stochastic">스토캐스틱</button>
-                                        <button class="filter-chip" data-filter="volume_surge">거래량급증</button>
-                                        <button class="filter-chip" data-filter="w52_high">52주고가</button>
-                                        <button class="filter-chip" data-filter="w52_low">52주저가</button>
+                                        <button class="filter-chip" data-filter="stochastic" data-i18n="stochastic">스토캐스틱</button>
+                                        <button class="filter-chip" data-filter="volume_surge" data-i18n="volume_surge">거래량급증</button>
+                                        <button class="filter-chip" data-filter="w52_high" data-i18n="w52_high">52주고가</button>
+                                        <button class="filter-chip" data-filter="w52_low" data-i18n="w52_low">52주저가</button>
                                         <button class="filter-chip" data-filter="atr">ATR</button>
-                                        <button class="filter-chip" data-filter="period_return">기간수익률</button>
+                                        <button class="filter-chip" data-filter="period_return" data-i18n="period_return">기간수익률</button>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- 검색/초기화 버튼 -->
                             <div class="filter-actions-v2">
-                                <button class="btn btn-primary" id="btn-screener-search">검색</button>
-                                <button class="btn btn-secondary" id="btn-screener-reset">초기화</button>
-                                <span class="result-count" id="screener-result-count">결과: -건</span>
+                                <button class="btn btn-primary" id="btn-screener-search" data-i18n="search">검색</button>
+                                <button class="btn btn-secondary" id="btn-screener-reset" data-i18n="reset">초기화</button>
+                                <span class="result-count" id="screener-result-count" data-i18n="result_count">결과: -건</span>
                             </div>
                         </div>
 
                         <!-- 필터 팝오버 (동적 생성) -->
                         <div class="filter-popover" id="filter-popover" style="display:none;">
                             <div class="popover-header">
-                                <span class="popover-title" id="popover-title">필터</span>
+                                <span class="popover-title" id="popover-title" data-i18n="filter">필터</span>
                                 <button class="popover-close" id="popover-close">&times;</button>
                             </div>
                             <div class="popover-body" id="popover-body"></div>
                             <div class="popover-footer">
-                                <button class="btn btn-sm btn-secondary" id="popover-clear">초기화</button>
-                                <button class="btn btn-sm btn-primary" id="popover-apply">적용</button>
+                                <button class="btn btn-sm btn-secondary" id="popover-clear" data-i18n="reset">초기화</button>
+                                <button class="btn btn-sm btn-primary" id="popover-apply" data-i18n="apply">적용</button>
                             </div>
                         </div>
 
@@ -3363,24 +3361,24 @@
                                 <!-- 빈 상태 안내 -->
                                 <div id="screener-empty-state" class="screener-empty-state">
                                     <div class="empty-icon">🔍</div>
-                                    <div class="empty-title">필터를 설정하고 검색하세요</div>
-                                    <div class="empty-desc">위의 필터 버튼으로 원하는 조건을 설정하거나,<br>프리셋을 선택하면 바로 검색됩니다.</div>
+                                    <div class="empty-title" data-i18n="set_filter_search">필터를 설정하고 검색하세요</div>
+                                    <div class="empty-desc" data-i18n="filter_search_hint">위의 필터 버튼으로 원하는 조건을 설정하거나,<br>프리셋을 선택하면 바로 검색됩니다.</div>
                                 </div>
                                 <table class="data-table screener-table" id="screener-table" style="display:none;">
                                     <thead>
                                         <tr>
-                                            <th data-sort="code" class="sortable">코드 <span class="sort-icon"></span></th>
-                                            <th data-sort="name" class="sortable">종목명 <span class="sort-icon"></span></th>
-                                            <th data-sort="price" class="sortable align-right">현재가 <span class="sort-icon"></span></th>
-                                            <th data-sort="change_pct" class="sortable align-right">등락률 <span class="sort-icon"></span></th>
-                                            <th data-sort="volume" class="sortable align-right">거래량 <span class="sort-icon"></span></th>
-                                            <th data-sort="market_cap" class="sortable align-right active">시총 <span class="sort-icon">▼</span></th>
+                                            <th data-sort="code" class="sortable" data-i18n="code">코드 <span class="sort-icon"></span></th>
+                                            <th data-sort="name" class="sortable" data-i18n="stock_name">종목명 <span class="sort-icon"></span></th>
+                                            <th data-sort="price" class="sortable align-right" data-i18n="current_price">현재가 <span class="sort-icon"></span></th>
+                                            <th data-sort="change_pct" class="sortable align-right" data-i18n="change_rate">등락률 <span class="sort-icon"></span></th>
+                                            <th data-sort="volume" class="sortable align-right" data-i18n="volume">거래량 <span class="sort-icon"></span></th>
+                                            <th data-sort="market_cap" class="sortable align-right active" data-i18n="market_cap_short">시총 <span class="sort-icon">▼</span></th>
                                             <th data-sort="per" class="sortable align-right">PER <span class="sort-icon"></span></th>
                                             <th data-sort="rsi" class="sortable align-right">RSI <span class="sort-icon"></span></th>
                                         </tr>
                                     </thead>
                                     <tbody id="screener-tbody">
-                                        <tr><td colspan="8" class="empty-cell">검색 버튼을 클릭하세요</td></tr>
+                                        <tr><td colspan="8" class="empty-cell" data-i18n="click_search">검색 버튼을 클릭하세요</td></tr>
                                     </tbody>
                                 </table>
 
@@ -3410,34 +3408,34 @@
 
                                     <!-- 기본 정보 -->
                                     <div class="detail-section">
-                                        <h4>기본 정보</h4>
+                                        <h4 data-i18n="basic_info">기본 정보</h4>
                                         <div class="detail-grid">
-                                            <div class="detail-item"><span class="label">시가총액</span><span class="value" id="panel-market-cap">-</span></div>
-                                            <div class="detail-item"><span class="label">거래량</span><span class="value" id="panel-volume">-</span></div>
-                                            <div class="detail-item"><span class="label">52주고가</span><span class="value" id="panel-w52-high">-</span></div>
-                                            <div class="detail-item"><span class="label">52주저가</span><span class="value" id="panel-w52-low">-</span></div>
+                                            <div class="detail-item"><span class="label" data-i18n="market_cap">시가총액</span><span class="value" id="panel-market-cap">-</span></div>
+                                            <div class="detail-item"><span class="label" data-i18n="volume">거래량</span><span class="value" id="panel-volume">-</span></div>
+                                            <div class="detail-item"><span class="label" data-i18n="w52_high">52주고가</span><span class="value" id="panel-w52-high">-</span></div>
+                                            <div class="detail-item"><span class="label" data-i18n="w52_low">52주저가</span><span class="value" id="panel-w52-low">-</span></div>
                                         </div>
                                     </div>
 
                                     <!-- 재무 지표 -->
                                     <div class="detail-section">
-                                        <h4>재무 지표</h4>
+                                        <h4 data-i18n="financial_indicators">재무 지표</h4>
                                         <div class="detail-grid">
                                             <div class="detail-item"><span class="label">PER</span><span class="value" id="panel-per">-</span></div>
                                             <div class="detail-item"><span class="label">PBR</span><span class="value" id="panel-pbr">-</span></div>
                                             <div class="detail-item"><span class="label">ROE</span><span class="value" id="panel-roe">-</span></div>
-                                            <div class="detail-item"><span class="label">배당수익률</span><span class="value" id="panel-dividend">-</span></div>
+                                            <div class="detail-item"><span class="label" data-i18n="dividend_yield">배당수익률</span><span class="value" id="panel-dividend">-</span></div>
                                         </div>
                                     </div>
 
                                     <!-- 기술적 지표 -->
                                     <div class="detail-section">
-                                        <h4>기술적 지표</h4>
+                                        <h4 data-i18n="technical_indicators">기술적 지표</h4>
                                         <div class="detail-grid">
                                             <div class="detail-item"><span class="label">RSI(14)</span><span class="value" id="panel-rsi">-</span></div>
                                             <div class="detail-item"><span class="label">MACD</span><span class="value" id="panel-macd">-</span></div>
-                                            <div class="detail-item"><span class="label">볼린저</span><span class="value" id="panel-bb">-</span></div>
-                                            <div class="detail-item"><span class="label">거래량급증</span><span class="value" id="panel-vol-surge">-</span></div>
+                                            <div class="detail-item"><span class="label" data-i18n="bollinger">볼린저</span><span class="value" id="panel-bb">-</span></div>
+                                            <div class="detail-item"><span class="label" data-i18n="volume_surge">거래량급증</span><span class="value" id="panel-vol-surge">-</span></div>
                                         </div>
                                     </div>
 
