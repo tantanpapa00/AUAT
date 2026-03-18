@@ -78,13 +78,13 @@
                 로그인 없이 계속 (로컬 모드)
             </button>
 
-            <p class="login-hint">로그인 없이도 로컬 모드로 기본 기능을 사용할 수 있습니다.</p>
+            <p class="login-hint" data-i18n="local_mode_desc">로그인 없이도 로컬 모드로 기본 기능을 사용할 수 있습니다.</p>
         </div>
 
         <!-- 약관 동의 화면 (소셜 로그인 신규 가입) -->
         <div class="consent-card" id="consent-card" style="display:none;">
             <h2 class="consent-title" data-i18n="terms_title">서비스 이용 동의</h2>
-            <p class="consent-subtitle">BBooster 서비스 이용을 위해 아래 약관에 동의해주세요.</p>
+            <p class="consent-subtitle" data-i18n="consent_subtitle">서비스 이용을 위해 아래 약관에 동의해주세요.</p>
 
             <div class="consent-form">
                 <label class="consent-item consent-all">
@@ -95,12 +95,12 @@
                 <label class="consent-item">
                     <input type="checkbox" id="consent-terms" class="consent-required">
                     <span class="consent-label" data-i18n="terms_required">[필수] 이용약관 동의</span>
-                    <a href="/legal/terms" target="_blank" class="consent-link">보기</a>
+                    <a href="/legal/terms" target="_blank" class="consent-link" data-i18n="view">보기</a>
                 </label>
                 <label class="consent-item">
                     <input type="checkbox" id="consent-privacy" class="consent-required">
                     <span class="consent-label" data-i18n="privacy_required">[필수] 개인정보 처리방침</span>
-                    <a href="/legal/privacy" target="_blank" class="consent-link">보기</a>
+                    <a href="/legal/privacy" target="_blank" class="consent-link" data-i18n="view">보기</a>
                 </label>
                 <label class="consent-item">
                     <input type="checkbox" id="consent-age" class="consent-required">
@@ -110,7 +110,7 @@
                     <input type="checkbox" id="consent-risk" class="consent-required">
                     <span class="consent-label" data-i18n="risk_required">[필수] 투자 리스크를 이해합니다</span>
                 </label>
-                <p class="consent-risk-text">"투자 판단과 결과 책임은 사용자에게 있으며, BBooster는 정보 제공 및 자동 실행 도구입니다."</p>
+                <p class="consent-risk-text" data-i18n="investment_disclaimer">"투자 판단과 결과 책임은 사용자에게 있으며, BBooster는 정보 제공 및 자동 실행 도구입니다."</p>
                 <label class="consent-item">
                     <input type="checkbox" id="consent-marketing">
                     <span class="consent-label" data-i18n="marketing_optional">[선택] 마케팅 정보 수신 동의</span>
@@ -118,7 +118,7 @@
             </div>
 
             <button class="consent-submit-btn" id="btn-consent-submit" disabled data-i18n="agree_start">동의하고 시작하기</button>
-            <p class="consent-note">약관이 변경되면 재동의를 요청드릴 수 있습니다.</p>
+            <p class="consent-note" data-i18n="terms_change_notice">약관이 변경되면 재동의를 요청드릴 수 있습니다.</p>
         </div>
     </div>
 
@@ -126,7 +126,7 @@
     <div id="loading-overlay" class="loading-overlay" style="display: none;">
         <div class="loading-content">
             <div class="loading-spinner"></div>
-            <div id="loading-message" class="loading-message">서버 연결 중...</div>
+            <div id="loading-message" class="loading-message" data-i18n="connecting">서버 연결 중...</div>
             <button id="btn-retry-connection" class="btn btn-primary" style="display: none;" data-i18n="retry">재시도</button>
         </div>
     </div>
@@ -557,68 +557,68 @@
 
                     <!-- Step 1: 거래소 선택 -->
                     <section class="wizard-content card" id="tv-step-1">
-                        <h2>단계 1. 거래소 선택</h2>
-                        <p class="step-description">등록된 거래소 계정 중 사용할 거래소를 선택하세요.</p>
+                        <h2 data-i18n="step1">단계 1. 거래소 선택</h2>
+                        <p class="step-description" data-i18n="step1_desc">등록된 거래소 계정 중 사용할 거래소를 선택하세요.</p>
                         <div class="exchange-selection" id="exchange-selection">
-                            <p class="empty">등록된 계정 로딩 중...</p>
+                            <p class="empty" data-i18n="account_loading">등록된 계정 로딩 중...</p>
                         </div>
                         <div class="wizard-actions">
-                            <button class="btn btn-secondary" disabled>이전</button>
-                            <button class="btn btn-primary" id="btn-tv-next-1" disabled>다음</button>
+                            <button class="btn btn-secondary" disabled data-i18n="back">이전</button>
+                            <button class="btn btn-primary" id="btn-tv-next-1" disabled data-i18n="next">다음</button>
                         </div>
                     </section>
 
                     <!-- Step 2: 자산 선택 -->
                     <section class="wizard-content card" id="tv-step-2" style="display: none;">
-                        <h2>단계 2. 자산 선택</h2>
-                        <p class="step-description">거래할 자산을 검색하고 선택하세요.</p>
+                        <h2 data-i18n="step2">단계 2. 자산 선택</h2>
+                        <p class="step-description" data-i18n="step2_desc">거래할 자산을 검색하고 선택하세요.</p>
                         <div class="asset-search">
                             <input type="text" id="asset-search-input" class="search-input" placeholder="종목 검색 (예: BTC, 삼성전자)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                             <div class="popular-assets">
-                                <span class="popular-label">인기:</span>
+                                <span class="popular-label" data-i18n="popular">인기:</span>
                                 <button class="asset-tag" data-symbol="BTC-USDT">BTC</button>
                                 <button class="asset-tag" data-symbol="ETH-USDT">ETH</button>
                                 <button class="asset-tag" data-symbol="SOL-USDT">SOL</button>
                             </div>
                         </div>
                         <div class="asset-list" id="tv-asset-list">
-                            <p class="empty">자산을 검색하세요</p>
+                            <p class="empty" data-i18n="search_asset">자산을 검색하세요</p>
                         </div>
                         <div class="wizard-actions">
-                            <button class="btn btn-secondary" id="btn-tv-prev-2">이전</button>
-                            <button class="btn btn-primary" id="btn-tv-next-2" disabled>다음</button>
+                            <button class="btn btn-secondary" id="btn-tv-prev-2" data-i18n="back">이전</button>
+                            <button class="btn btn-primary" id="btn-tv-next-2" disabled data-i18n="next">다음</button>
                         </div>
                     </section>
 
                     <!-- Step 3: 매매 설정 (Sizing/Risk/Limits) v2 -->
                     <section class="wizard-content" id="tv-step-3" style="display: none;">
-                        <h2>단계 3. 매매 설정</h2>
-                        <p class="step-description">웹훅 신호 수신 시 적용할 사이징, 리스크, 리밋 규칙을 설정하세요.</p>
+                        <h2 data-i18n="step3">단계 3. 매매 설정</h2>
+                        <p class="step-description" data-i18n="step3_desc">웹훅 신호 수신 시 적용할 사이징, 리스크, 리밋 규칙을 설정하세요.</p>
 
                         <!-- 사이징 카드 -->
                         <div class="signal-params-card card">
                             <div class="card-header">
-                                <h3>사이징 (Sizing)</h3>
+                                <h3 data-i18n="sizing">사이징 (Sizing)</h3>
                                 <span class="help-icon" title="주문 수량을 결정하는 방식을 설정합니다">ℹ️</span>
                             </div>
                             <div class="signal-params-grid">
                                 <div class="param-group">
-                                    <label>주문 방식 <span class="help-icon" title="자본의%: 잔고 대비 비율로 주문&#10;고정금액: 매번 동일한 금액으로 주문&#10;수량: 매번 동일한 수량으로 주문">ℹ️</span></label>
+                                    <label data-i18n="order_type">주문 방식</label>
                                     <select id="sizing-mode" class="param-select">
-                                        <option value="balance_pct">자본의 %</option>
-                                        <option value="fixed_amount">고정금액</option>
-                                        <option value="fixed_qty">수량</option>
+                                        <option value="balance_pct" data-i18n="capital_pct">자본의 %</option>
+                                        <option value="fixed_amount" data-i18n="fixed_amount">고정금액</option>
+                                        <option value="fixed_qty" data-i18n="units_qty">수량</option>
                                     </select>
                                 </div>
                                 <div class="param-group">
-                                    <label for="sizing-value" id="sizing-value-label">비율</label>
+                                    <label for="sizing-value" id="sizing-value-label" data-i18n="ratio">비율</label>
                                     <div class="input-with-suffix">
                                         <input type="number" id="sizing-value" value="30" min="0" step="1">
                                         <span class="suffix" id="sizing-value-suffix">%</span>
                                     </div>
                                 </div>
                                 <div class="param-group" id="sizing-currency-group">
-                                    <label for="sizing-currency">통화 <span class="help-icon" title="거래소에 따라 사용 가능한 통화가 다릅니다">ℹ️</span></label>
+                                    <label for="sizing-currency" data-i18n="currency">통화</label>
                                     <select id="sizing-currency" class="param-select">
                                         <option value="USDT">USDT</option>
                                         <option value="USD">USD</option>
@@ -627,21 +627,21 @@
                                     </select>
                                 </div>
                                 <div class="param-group" id="sizing-base-group">
-                                    <label>기준 잔고 <span class="help-icon" title="가용잔고: 주문 가능한 잔고만&#10;총자산: 포지션 포함 전체 자산">ℹ️</span></label>
+                                    <label data-i18n="base_balance">기준 잔고</label>
                                     <div class="radio-group">
-                                        <label class="radio-label"><input type="radio" name="sizing-base" value="free" checked> 가용잔고</label>
-                                        <label class="radio-label"><input type="radio" name="sizing-base" value="total"> 총자산</label>
+                                        <label class="radio-label"><input type="radio" name="sizing-base" value="free" checked> <span data-i18n="available_balance">가용잔고</span></label>
+                                        <label class="radio-label"><input type="radio" name="sizing-base" value="total"> <span data-i18n="total_balance">총자산</span></label>
                                     </div>
                                 </div>
                                 <div class="param-group" id="sizing-max-notional-group">
-                                    <label for="sizing-max-notional">1회 최대 주문금액 <span class="help-icon" title="0=무제한. 비율 계산 결과가 이 값을 초과하면 이 값으로 제한">ℹ️</span></label>
+                                    <label for="sizing-max-notional" data-i18n="max_order_amount">1회 최대 주문금액</label>
                                     <div class="input-with-suffix">
                                         <input type="number" id="sizing-max-notional" value="0" min="0" step="1000" placeholder="0=무제한">
                                         <span class="suffix" id="sizing-max-suffix">USDT</span>
                                     </div>
                                 </div>
                                 <div class="param-group" id="sizing-min-notional-group">
-                                    <label for="sizing-min-notional">1회 최소 주문금액 <span class="help-icon" title="0=무제한. 비율 계산 결과가 이 값 미만이면 이 값으로 올림">ℹ️</span></label>
+                                    <label for="sizing-min-notional" data-i18n="min_order_amount">1회 최소 주문금액</label>
                                     <div class="input-with-suffix">
                                         <input type="number" id="sizing-min-notional" value="0" min="0" step="1000" placeholder="0=무제한">
                                         <span class="suffix" id="sizing-min-suffix">USDT</span>
@@ -649,17 +649,17 @@
                                 </div>
                             </div>
                             <details class="param-advanced">
-                                <summary>청산 설정</summary>
+                                <summary data-i18n="liquidation_settings">청산 설정</summary>
                                 <div class="signal-params-grid">
                                     <div class="param-group">
-                                        <label>청산 방식 <span class="help-icon" title="전량청산: 포지션 전체 청산&#10;부분청산: 지정 비율만 청산">ℹ️</span></label>
+                                        <label data-i18n="liquidation_type">청산 방식</label>
                                         <select id="sizing-reduce-mode" class="param-select">
-                                            <option value="full">전량청산</option>
-                                            <option value="partial">부분청산</option>
+                                            <option value="full" data-i18n="full_liquidation">전량청산</option>
+                                            <option value="partial" data-i18n="partial_liquidation">부분청산</option>
                                         </select>
                                     </div>
                                     <div class="param-group" id="sizing-reduce-pct-group" style="display: none;">
-                                        <label for="sizing-reduce-pct">기본 청산 비율 <span class="help-icon" title="reduce 신호 수신 시 청산할 기본 비율 (1~100%)">ℹ️</span></label>
+                                        <label for="sizing-reduce-pct" data-i18n="default_liquidation_ratio">기본 청산 비율</label>
                                         <div class="input-with-suffix">
                                             <input type="number" id="sizing-reduce-pct" value="50" min="1" max="100" step="1">
                                             <span class="suffix">%</span>
@@ -672,19 +672,18 @@
                         <!-- 리스크 카드 -->
                         <div class="signal-params-card card">
                             <div class="card-header">
-                                <h3>리스크 (Risk)</h3>
-                                <span class="help-icon" title="손절/익절 및 포지션 보호 설정">ℹ️</span>
+                                <h3 data-i18n="risk">리스크 (Risk)</h3>
                             </div>
                             <div class="signal-params-grid">
                                 <div class="param-group">
-                                    <label>청산 방식 <span class="help-icon" title="신호 대기: TV 청산 신호가 올 때까지 대기&#10;자동 손절/익절: 거래소에서 자동으로 SL/TP 주문 설정">ℹ️</span></label>
+                                    <label data-i18n="close_type">청산 방식</label>
                                     <select id="risk-exec-mode" class="param-select">
-                                        <option value="tv_exit_signal">신호 대기</option>
-                                        <option value="exchange_bracket">자동 손절/익절</option>
+                                        <option value="tv_exit_signal" data-i18n="wait_signal">신호 대기</option>
+                                        <option value="exchange_bracket" data-i18n="auto_sl_tp">자동 손절/익절</option>
                                     </select>
                                 </div>
                                 <div class="param-group futures-only" id="risk-leverage-group" style="display: none;">
-                                    <label for="risk-leverage-value">레버리지 <span class="help-icon" title="선물 거래 시 사용할 레버리지 배수 (1~125x)">ℹ️</span></label>
+                                    <label for="risk-leverage-value" data-i18n="leverage">레버리지</label>
                                     <div class="input-with-suffix">
                                         <input type="number" id="risk-leverage-value" value="1" min="1" max="125" step="1">
                                         <span class="suffix">x</span>
@@ -698,14 +697,14 @@
                                 <div class="signal-params-grid">
                                     <div class="param-group">
                                         <label class="checkbox-label">
-                                            <input type="checkbox" id="risk-sl-enabled"> 손절 (SL) 활성화
+                                            <input type="checkbox" id="risk-sl-enabled"> <span data-i18n="sl_enable">손절 활성화</span>
                                         </label>
                                     </div>
                                     <div class="param-group sl-field" style="display: none;">
-                                        <label for="risk-sl-type">방식</label>
+                                        <label for="risk-sl-type" data-i18n="method">방식</label>
                                         <select id="risk-sl-type" class="param-select">
-                                            <option value="pct">퍼센트</option>
-                                            <option value="price">가격</option>
+                                            <option value="pct" data-i18n="percent">퍼센트</option>
+                                            <option value="price" data-i18n="price_type">가격</option>
                                         </select>
                                     </div>
                                     <div class="param-group sl-field" style="display: none;">
