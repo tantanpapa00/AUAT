@@ -1497,6 +1497,9 @@ window.navigateTo = function(page) {
     else if (page === 'app-info') loadAppInfoPage();
     else if (page === 'admin-users') loadAdminUsersPage();
     else if (page === 'admin-system') loadAdminSystemPage();
+
+    // 페이지 전환 후 번역 재적용
+    applyTranslations();
 };
 
 // Handle URL hash navigation
