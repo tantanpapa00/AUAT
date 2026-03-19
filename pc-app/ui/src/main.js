@@ -396,8 +396,8 @@ function updateNavVisibility(mode) {
     const desc = document.getElementById('mode-description');
     if (desc) {
         desc.textContent = mode === 'US'
-            ? 'Alpaca를 통해 미국 주식 거래를 사용합니다.'
-            : 'KIS 국내/해외 주식 거래를 사용합니다.';
+            ? t('mode_us_desc')
+            : t('mode_kr_desc');
     }
 
     // 모드 버튼 활성화 상태 업데이트
@@ -546,7 +546,7 @@ async function invokeWithTimeout(command, args = {}, timeout = 10000) {
     } catch (e) {
         console.error(`[${command}] Error:`, e);
         if (e.message === 'TIMEOUT') {
-            throw new Error('요청 시간이 초과되었습니다');
+            throw new Error(t('request_timeout'));
         }
         throw e;
     }
@@ -559,14 +559,14 @@ async function invokeWithTimeout(command, args = {}, timeout = 10000) {
  */
 function showLoadingWithTimeout(element, maxTime = 15000) {
     if (!element) return null;
-    element.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+    element.innerHTML = `<div class="loading-state">${t('data_loading')}</div>`;
 
     const timeoutId = setTimeout(() => {
-        if (element.innerHTML.includes('로딩 중')) {
+        if (element.innerHTML.includes(t('loading'))) {
             element.innerHTML = `
                 <div class="error-state">
-                    <p>데이터를 불러올 수 없습니다</p>
-                    <button class="btn btn-sm btn-primary retry-btn">다시 시도</button>
+                    <p>${t('data_load_failed')}</p>
+                    <button class="btn btn-sm btn-primary retry-btn">${t('retry')}</button>
                 </div>
             `;
         }
@@ -581,12 +581,13 @@ function showLoadingWithTimeout(element, maxTime = 15000) {
  * @param {string} message
  * @param {Function} retryFn - 다시 시도 콜백
  */
-function showErrorState(element, message = '데이터를 불러올 수 없습니다', retryFn = null) {
+function showErrorState(element, message = null, retryFn = null) {
     if (!element) return;
+    const msg = message || t('data_load_failed');
     element.innerHTML = `
         <div class="error-state">
-            <p>${message}</p>
-            ${retryFn ? '<button class="btn btn-sm btn-primary retry-btn">다시 시도</button>' : ''}
+            <p>${msg}</p>
+            ${retryFn ? `<button class="btn btn-sm btn-primary retry-btn">${t('retry')}</button>` : ''}
         </div>
     `;
     if (retryFn) {
@@ -706,7 +707,7 @@ function createSymbolAutocomplete(inputElement, onSelect, options = {}) {
     }
 
     function showNoResults() {
-        dropdown.innerHTML = '<div class="autocomplete-no-result">검색 결과가 없습니다</div>';
+        dropdown.innerHTML = `<div class="autocomplete-no-result">${t('no_search_results')}</div>`;
         showDropdown();
     }
 
@@ -876,10 +877,10 @@ ensureLoginScreenVisible();
 async function loginWithGoogle() {
     try {
         await open(`${API_BASE_URL}/api/auth/google/login`);
-        showToast('브라우저에서 로그인을 완료해주세요', 'info');
+        showToast(t('complete_login_in_browser'), 'info');
         startLoginPolling();
     } catch (error) {
-        showToast('로그인 페이지를 열 수 없습니다', 'error');
+        showToast(t('cannot_open_login_page'), 'error');
     }
 }
 
@@ -887,10 +888,10 @@ async function loginWithGoogle() {
 async function loginWithKakao() {
     try {
         await open(`${API_BASE_URL}/api/auth/kakao/login`);
-        showToast('브라우저에서 로그인을 완료해주세요', 'info');
+        showToast(t('complete_login_in_browser'), 'info');
         startLoginPolling();
     } catch (error) {
-        showToast('로그인 페이지를 열 수 없습니다', 'error');
+        showToast(t('cannot_open_login_page'), 'error');
     }
 }
 
@@ -937,7 +938,7 @@ function updateConsentAllState() {
 // 약관 동의 제출
 async function submitConsent() {
     if (!signupTempToken) {
-        showToast('세션이 만료되었습니다. 다시 로그인해주세요.', 'error');
+        showToast(t('session_expired'), 'error');
         showLoginCard();
         return;
     }
@@ -957,14 +958,14 @@ async function submitConsent() {
             signupTempToken = null;
             await loadUserInfo();
             hideLoginScreen();
-            showToast('회원가입 및 로그인 성공', 'success');
+            showToast(t('signup_login_success'), 'success');
             checkServerConnection();
             ws.connect(result.access_token);
         } else {
-            showToast(result.detail || '가입에 실패했습니다', 'error');
+            showToast(result.detail || t('signup_failed'), 'error');
         }
     } catch (error) {
-        showToast(error.message || '가입에 실패했습니다', 'error');
+        showToast(error.message || t('signup_failed'), 'error');
     }
 }
 
@@ -1015,14 +1016,14 @@ function startLoginPolling() {
             loginPollingInterval = null;
             await loadUserInfo();
             hideLoginScreen();
-            showToast('로그인 성공', 'success');
+            showToast(t('login_success'), 'success');
             checkServerConnection();
             return;
         }
         if (attempts >= maxAttempts) {
             clearInterval(loginPollingInterval);
             loginPollingInterval = null;
-            showToast('로그인 시간이 초과되었습니다', 'warning');
+            showToast(t('login_timeout'), 'warning');
         }
     }, 2000);
 }
@@ -1030,8 +1031,8 @@ function startLoginPolling() {
 function skipLogin() {
     auth.setHubMode(true);
     hideLoginScreen();
-    updateUserUI({ name: '허브 모드', plan: 'hub', role: 'user' });
-    showToast('허브 모드로 시작합니다', 'info');
+    updateUserUI({ name: t('hub_mode'), plan: 'hub', role: 'user' });
+    showToast(t('hub_mode_start'), 'info');
     checkServerConnection();
 }
 
@@ -1080,7 +1081,7 @@ async function handleEmailLogin() {
     const password = document.getElementById('login-password')?.value;
 
     if (!email || !password) {
-        showLoginError('이메일과 비밀번호를 입력하세요');
+        showLoginError(t('enter_email_password'));
         return;
     }
 
@@ -1095,12 +1096,12 @@ async function handleEmailLogin() {
         auth.saveTokens(data.access_token, data.refresh_token);
         await loadUserInfo();
         hideLoginScreen();
-        showToast('로그인 성공', 'success');
+        showToast(t('login_success'), 'success');
         checkServerConnection();
         // WebSocket 연결
         ws.connect(data.access_token);
     } catch (error) {
-        showLoginError(error || '로그인에 실패했습니다');
+        showLoginError(error || t('login_failed'));
     } finally {
         if (btnEmailLogin) {
             btnEmailLogin.disabled = false;
@@ -1122,10 +1123,10 @@ function validatePassword(password) {
 function getPasswordErrors(password) {
     const checks = validatePassword(password);
     const errors = [];
-    if (!checks.length) errors.push('12자리 이상');
-    if (!checks.letter) errors.push('영문자 포함');
-    if (!checks.number) errors.push('숫자 포함');
-    if (!checks.special) errors.push('특수문자 포함 (!@#$%^&* 등)');
+    if (!checks.length) errors.push(t('pwd_min_12'));
+    if (!checks.letter) errors.push(t('pwd_include_letter'));
+    if (!checks.number) errors.push(t('pwd_include_number'));
+    if (!checks.special) errors.push(t('pwd_include_special'));
     return errors;
 }
 
@@ -1136,19 +1137,19 @@ async function handleEmailRegister() {
     const passwordConfirm = document.getElementById('register-password-confirm')?.value;
 
     if (!email || !password) {
-        showRegisterError('이메일과 비밀번호를 입력하세요');
+        showRegisterError(t('enter_email_password'));
         return;
     }
 
     if (password !== passwordConfirm) {
-        showRegisterError('비밀번호가 일치하지 않습니다');
+        showRegisterError(t('password_mismatch'));
         return;
     }
 
     // Day14: 강화된 비밀번호 정책
     const pwdErrors = getPasswordErrors(password);
     if (pwdErrors.length > 0) {
-        showRegisterError('비밀번호 조건: ' + pwdErrors.join(', '));
+        showRegisterError(t('password_requirements') + pwdErrors.join(', '));
         return;
     }
 
@@ -1163,12 +1164,12 @@ async function handleEmailRegister() {
         auth.saveTokens(data.access_token, data.refresh_token);
         await loadUserInfo();
         hideLoginScreen();
-        showToast('회원가입 및 로그인 성공', 'success');
+        showToast(t('signup_login_success'), 'success');
         checkServerConnection();
         // WebSocket 연결
         ws.connect(data.access_token);
     } catch (error) {
-        showRegisterError(error || '회원가입에 실패했습니다');
+        showRegisterError(error || t('signup_failed'));
     } finally {
         if (btnEmailRegister) {
             btnEmailRegister.disabled = false;
@@ -1188,10 +1189,10 @@ document.getElementById('register-password-confirm')?.addEventListener('keypress
 document.getElementById('register-password')?.addEventListener('input', (e) => {
     const password = e.target.value;
     const checks = validatePassword(password);
-    document.getElementById('pwd-length').textContent = (checks.length ? '✅' : '❌') + ' 12자리 이상';
-    document.getElementById('pwd-letter').textContent = (checks.letter ? '✅' : '❌') + ' 영문자 포함';
-    document.getElementById('pwd-number').textContent = (checks.number ? '✅' : '❌') + ' 숫자 포함';
-    document.getElementById('pwd-special').textContent = (checks.special ? '✅' : '❌') + ' 특수문자 포함';
+    document.getElementById('pwd-length').textContent = (checks.length ? '✅' : '❌') + ' ' + t('pwd_12_chars');
+    document.getElementById('pwd-letter').textContent = (checks.letter ? '✅' : '❌') + ' ' + t('pwd_letter');
+    document.getElementById('pwd-number').textContent = (checks.number ? '✅' : '❌') + ' ' + t('pwd_number');
+    document.getElementById('pwd-special').textContent = (checks.special ? '✅' : '❌') + ' ' + t('pwd_special');
 });
 
 async function loadUserInfo() {
@@ -1230,7 +1231,7 @@ function updateUserUI(user) {
 
     // Update user name (admin 표시 포함)
     if (userName) {
-        const displayName = user.name || user.email?.split('@')[0] || '사용자';
+        const displayName = user.name || user.email?.split('@')[0] || t('user');
         userName.textContent = isAdmin ? `${displayName} (Admin)` : displayName;
     }
 
@@ -1239,7 +1240,7 @@ function updateUserUI(user) {
         if (isAdmin) {
             userAvatar.textContent = '👑';
         } else {
-            const name = user.name || user.email || '사용자';
+            const name = user.name || user.email || t('user');
             userAvatar.textContent = name.charAt(0).toUpperCase();
         }
     }
@@ -1287,7 +1288,7 @@ async function initAuth() {
 
     if (auth.isHubMode) {
         hideLoginScreen();
-        updateUserUI({ name: '허브 모드', plan: 'hub', role: 'user' });
+        updateUserUI({ name: t('hub_mode'), plan: 'hub', role: 'user' });
         return true;
     }
 
@@ -1346,38 +1347,35 @@ const sidebarToggle = document.getElementById('sidebar-toggle');
 const mainWrapper = document.querySelector('.main-wrapper');
 const pageTitle = document.getElementById('page-title');
 
-const pageTitles = {
-    home: '홈',
-    'tv-connect': '트레이딩뷰 연결',
-    'premium-strategy': '프리미엄 전략',
-    // 종목검색
-    screener: '종목검색',
-    // BBooster AI
-    'bbooster-ai': 'BBooster AI',
-    // 시장분석
-    'market-kr': '국내시장',
-    'market-us': '해외시장',
-    'market-etf': 'ETF',
-    'market-crypto': '코인시장',
-    // 종목분석
-    'stock-kr': '국내주식',
-    'stock-us': '해외주식',
-    'stock-etf': 'ETF 분석',
-    'stock-crypto': '코인분석',
-    // 기타
-    watchlist: '관심종목',
-    symbols: '종목분석', // legacy
-    'market-overview': '시장현황', // legacy
-    'sector-analysis': '업종분석', // legacy
-    'stock-ranking': '종목순위', // legacy
-    'featured-stocks': '특징주', // legacy
-    'market-events': '이벤트일정', // legacy
-    accounts: '계정관리',
-    notifications: '알림설정',
-    'app-info': '앱정보',
-    'admin-users': '사용자관리',
-    'admin-system': '시스템상태'
-};
+function getPageTitles() {
+    return {
+        home: t('nav_home'),
+        'tv-connect': t('nav_tradingview'),
+        'premium-strategy': t('nav_premium'),
+        screener: t('nav_screener'),
+        'bbooster-ai': 'BBooster AI',
+        'market-kr': t('nav_kr_market'),
+        'market-us': t('nav_us_market'),
+        'market-etf': 'ETF',
+        'market-crypto': t('nav_crypto'),
+        'stock-kr': t('domestic_stocks'),
+        'stock-us': t('foreign_stocks'),
+        'stock-etf': t('etf_analysis'),
+        'stock-crypto': t('crypto_analysis'),
+        watchlist: t('nav_watchlist'),
+        symbols: t('symbol_analysis'),
+        'market-overview': t('market_overview'),
+        'sector-analysis': t('sector_analysis'),
+        'stock-ranking': t('stock_ranking'),
+        'featured-stocks': t('featured_stocks'),
+        'market-events': t('event_schedule'),
+        accounts: t('nav_account'),
+        notifications: t('nav_notification'),
+        'app-info': t('nav_appinfo'),
+        'admin-users': t('nav_user_mgmt'),
+        'admin-system': t('nav_system')
+    };
+}
 
 // Sidebar Toggle (Collapse/Expand)
 sidebarToggle?.addEventListener('click', () => {
@@ -1432,7 +1430,7 @@ window.navigateTo = function(page) {
     }
 
     // Update page title
-    if (pageTitle) pageTitle.textContent = pageTitles[page] || page;
+    if (pageTitle) pageTitle.textContent = getPageTitles()[page] || page;
 
     // Show target page
     document.querySelectorAll('.page-content').forEach(pageEl => {
@@ -1482,7 +1480,7 @@ window.navigateTo = function(page) {
 // Handle URL hash navigation
 window.addEventListener('hashchange', () => {
     const hash = window.location.hash.slice(1);
-    if (hash && pageTitles[hash]) {
+    if (hash && getPageTitles()[hash]) {
         navigateTo(hash);
     }
 });
@@ -1509,18 +1507,18 @@ ws.onNotification((data) => {
 
     // 알림 유형별 처리
     const typeMap = {
-        'order_filled': { type: 'success', prefix: '체결' },
-        'order_failed': { type: 'error', prefix: '주문실패' },
-        'signal_received': { type: 'info', prefix: '시그널' },
-        'signal_skipped': { type: 'warning', prefix: '스킵' },
-        'report_done': { type: 'success', prefix: 'AI 리포트' },
-        'report_failed': { type: 'error', prefix: 'AI 리포트' },
-        'system_alert': { type: 'warning', prefix: '시스템' },
-        'price_alert': { type: 'info', prefix: '가격알림' }
+        'order_filled': { type: 'success', prefix: t('filled') },
+        'order_failed': { type: 'error', prefix: t('order_failed') },
+        'signal_received': { type: 'info', prefix: t('signal') },
+        'signal_skipped': { type: 'warning', prefix: t('skipped') },
+        'report_done': { type: 'success', prefix: t('ai_report') },
+        'report_failed': { type: 'error', prefix: t('ai_report') },
+        'system_alert': { type: 'warning', prefix: t('system') },
+        'price_alert': { type: 'info', prefix: t('price_alert') }
     };
 
     const config = typeMap[data.type] || { type: 'info', prefix: '' };
-    const displayMessage = data.title || data.message || '새 알림';
+    const displayMessage = data.title || data.message || t('new_notification');
 
     showToast(displayMessage, config.type);
 });
@@ -1653,7 +1651,7 @@ function updateSummaryCards(summary) {
         dailyChange.className = 'summary-value ' + (rate >= 0 ? 'profit' : 'loss');
     }
 
-    if (activeStrategies) activeStrategies.textContent = (summary.active_strategies || 0) + '개';
+    if (activeStrategies) activeStrategies.textContent = (summary.active_strategies || 0) + t('count_suffix');
 
     // 수익률 기간 상태 업데이트
     if (summary.first_snapshot_date && typeof profitPeriodState !== 'undefined') {
@@ -1730,7 +1728,7 @@ function initAllocationChart(allocData) {
     allocationChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: ['국내주식', '해외주식', '암호화폐', '현금(원화)', '현금(달러)'],
+            labels: [t('domestic_stocks'), t('foreign_stocks'), t('crypto'), t('cash_krw'), t('cash_usd')],
             datasets: [{
                 data: data,
                 backgroundColor: ['#3B82F6', '#8B5CF6', '#F59E0B', '#6B7280', '#9CA3AF'],
@@ -1837,7 +1835,7 @@ function calculateAllocation(holdings) {
 
         // 거래소별 분류
         if (exchange === 'KIS_KR' || exchange === 'KIS') {
-            if (symbol === 'KRW' || h.name === '예수금') {
+            if (symbol === 'KRW' || h.name === t('deposit')) {
                 cash += valueKRW;
             } else {
                 krStock += valueKRW;
@@ -1890,9 +1888,9 @@ function renderHoldings() {
             <tr class="empty-row">
                 <td colspan="8">
                     <div class="empty-state">
-                        <p>${selectedExchange === 'all' ? '연결된 계정이 없습니다.' : `${selectedExchange.toUpperCase()} 자산이 없습니다.`}</p>
-                        <p>설정 → 계정관리에서 거래소를 연결하세요.</p>
-                        <button class="btn btn-primary" onclick="navigateTo('accounts')">계정 연결하기</button>
+                        <p>${selectedExchange === 'all' ? t('no_connected_account') : t('no_assets_exchange', { exchange: selectedExchange.toUpperCase() })}</p>
+                        <p>${t('connect_account_hint')}</p>
+                        <button class="btn btn-primary" onclick="navigateTo('accounts')">${t('connect_account')}</button>
                     </div>
                 </td>
             </tr>
@@ -1926,19 +1924,19 @@ function renderHoldings() {
             const subtotalFormatted = isKRWExchange
                 ? '₩' + Math.round(subtotal).toLocaleString('ko-KR')
                 : '$' + subtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            html += `<tr class="exchange-group-header"><td colspan="8"><strong>${ex}</strong> (${assets.length}개 자산, ${subtotalFormatted})</td></tr>`;
+            html += `<tr class="exchange-group-header"><td colspan="8"><strong>${ex}</strong> (${assets.length}${t('assets_count')}, ${subtotalFormatted})</td></tr>`;
         }
 
         assets.forEach(h => {
             // 예수금/현금 특별 처리
-            const isDeposit = h.symbol === 'KRW' || h.name === '예수금';
+            const isDeposit = h.symbol === 'KRW' || h.name === t('deposit');
 
             if (isDeposit) {
                 // 예수금 전용 표시
                 const depositAmount = h.quantity || h.value_krw || 0;
                 html += `
                     <tr>
-                        <td title="예수금">${h.name || '예수금'}</td>
+                        <td title="${t('deposit')}">${h.name || t('deposit')}</td>
                         <td><span class="exchange-badge ${h.exchange.toLowerCase()}">${h.exchange}</span></td>
                         <td>-</td>
                         <td>-</td>
@@ -2004,7 +2002,7 @@ async function showAssetTradesModal(symbol, exchange, name) {
     exchangeBadge.className = `exchange-badge ${exchange.toLowerCase()}`;
 
     // 로딩 표시
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px;">거래내역 로딩 중...</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 40px;">${t('trade_history_loading')}</td></tr>`;
     modal.style.display = 'flex';
 
     try {
@@ -2017,7 +2015,7 @@ async function showAssetTradesModal(symbol, exchange, name) {
         });
 
         if (!trades || trades.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px; color: #9CA3AF;">거래내역이 없습니다.</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 40px; color: #9CA3AF;">${t('no_trade_history')}</td></tr>`;
             return;
         }
 
@@ -2025,14 +2023,14 @@ async function showAssetTradesModal(symbol, exchange, name) {
         let cumulative = 0;
         let html = '';
 
-        trades.forEach(t => {
-            const side = t.side?.toUpperCase() === 'BUY' ? '매수' : '매도';
-            const sideClass = t.side?.toUpperCase() === 'BUY' ? 'profit' : 'loss';
-            const date = t.executed_at ? new Date(t.executed_at).toLocaleDateString('ko-KR') : '-';
-            const quantity = formatQuantity(t.quantity || 0);
-            const amount = formatCurrency(t.total_amount || (t.price * t.quantity) || 0, exchange);
-            const profit = t.profit_loss || 0;
-            const profitRate = t.profit_rate || 0;
+        trades.forEach(tr => {
+            const side = tr.side?.toUpperCase() === 'BUY' ? t('buy') : t('sell');
+            const sideClass = tr.side?.toUpperCase() === 'BUY' ? 'profit' : 'loss';
+            const date = tr.executed_at ? new Date(tr.executed_at).toLocaleDateString('ko-KR') : '-';
+            const quantity = formatQuantity(tr.quantity || 0);
+            const amount = formatCurrency(tr.total_amount || (tr.price * tr.quantity) || 0, exchange);
+            const profit = tr.profit_loss || 0;
+            const profitRate = tr.profit_rate || 0;
             cumulative += profit;
 
             const profitClass = profit >= 0 ? 'profit' : 'loss';
@@ -2042,7 +2040,7 @@ async function showAssetTradesModal(symbol, exchange, name) {
 
             html += `
                 <tr>
-                    <td>${t.strategy_name || '-'}</td>
+                    <td>${tr.strategy_name || '-'}</td>
                     <td class="${sideClass}">${side}</td>
                     <td>${date}</td>
                     <td>${quantity}</td>
@@ -2057,7 +2055,7 @@ async function showAssetTradesModal(symbol, exchange, name) {
         tbody.innerHTML = html;
     } catch (e) {
         console.error('Failed to load asset trades:', e);
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px; color: #EF4444;">거래내역을 불러올 수 없습니다.</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 40px; color: #EF4444;">${t('trade_history_load_error')}</td></tr>`;
     }
 }
 
@@ -2097,9 +2095,9 @@ async function loadActiveStrategies() {
                 <tr class="empty-row">
                     <td colspan="6">
                         <div class="empty-state">
-                            <p>활성 전략이 없습니다.</p>
-                            <p>전략설정에서 전략을 추가하세요.</p>
-                            <button class="btn btn-primary" onclick="navigateTo('tv-connect')">전략 추가하기</button>
+                            <p>${t('no_active_strategy')}</p>
+                            <p>${t('go_to_strategy')}</p>
+                            <button class="btn btn-primary" onclick="navigateTo('tv-connect')">${t('add_strategy')}</button>
                         </div>
                     </td>
                 </tr>
@@ -2110,7 +2108,7 @@ async function loadActiveStrategies() {
         tbody.innerHTML = strategies.map(s => {
             const isRunning = s.status === 'running';
             const statusClass = isRunning ? 'running' : 'paused';
-            const statusText = isRunning ? '실행중' : '일시정지';
+            const statusText = isRunning ? t('status_running') : t('status_paused');
             const rowClass = isRunning ? '' : ' class="paused-row"';
             // 전략명에서 특수문자 이스케이프
             const safeName = s.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
@@ -2120,14 +2118,14 @@ async function loadActiveStrategies() {
                 <td class="strategy-name-cell" title="${s.name}">${s.name}</td>
                 <td class="strategy-symbol-cell">${s.symbol}</td>
                 <td>${s.exchange}</td>
-                <td class="strategy-trades-cell">${s.trades_today}건</td>
+                <td class="strategy-trades-cell">${s.trades_today}${t('count_unit')}</td>
                 <td><span class="strategy-status-badge ${statusClass}">${statusText}</span></td>
                 <td class="strategy-actions-cell">
                     ${isRunning
-                        ? `<button class="btn-action btn-pause" onclick="toggleAsset(${s.id}, '${safeName}')">정지</button>`
-                        : `<button class="btn-action btn-resume" onclick="toggleAsset(${s.id}, '${safeName}')">재개</button>`
+                        ? `<button class="btn-action btn-pause" onclick="toggleAsset(${s.id}, '${safeName}')">${t('btn_pause')}</button>`
+                        : `<button class="btn-action btn-resume" onclick="toggleAsset(${s.id}, '${safeName}')">${t('btn_resume')}</button>`
                     }
-                    <button class="btn-action btn-delete" onclick="deleteAsset(${s.id}, '${safeName}')">삭제</button>
+                    <button class="btn-action btn-delete" onclick="deleteAsset(${s.id}, '${safeName}')">${t('btn_delete')}</button>
                 </td>
             </tr>
             `;
@@ -2145,26 +2143,26 @@ async function toggleAsset(assetId, name) {
         // Tauri는 camelCase → snake_case 자동 변환 (strategyId → strategy_id 패턴 따름)
         const res = await invoke('toggle_asset', { accessToken: auth.accessToken, assetId: assetId });
         console.log('[toggleAsset] response:', res);
-        const statusText = res.is_active ? '재개' : '일시정지';
-        showToast(`${name} 전략이 ${statusText}되었습니다.`);
+        const statusText = res.is_active ? t('btn_resume') : t('status_paused');
+        showToast(t('strategy_status_changed', { name, status: statusText }));
         await loadActiveStrategies();
     } catch (e) {
         console.error('[toggleAsset] error:', e);
-        showToast(`전략 변경 실패: ${e}`, 'error');
+        showToast(`${t('strategy_change_failed')}: ${e}`, 'error');
     }
 }
 
 async function deleteAsset(assetId, name) {
-    if (!confirm(`"${name}" 전략을 삭제하시겠습니까?\n삭제 후 복구할 수 없습니다.`)) return;
+    if (!confirm(t('confirm_delete_strategy', { name }))) return;
     console.log('[deleteAsset] called with assetId:', assetId);
     try {
         const res = await invoke('delete_asset', { accessToken: auth.accessToken, assetId: assetId });
         console.log('[deleteAsset] response:', res);
-        showToast(`${name} 전략이 삭제되었습니다.`);
+        showToast(t('strategy_deleted', { name }));
         await loadActiveStrategies();
     } catch (e) {
         console.error('[deleteAsset] error:', e);
-        showToast(`전략 삭제 실패: ${e}`, 'error');
+        showToast(`${t('strategy_delete_failed')}: ${e}`, 'error');
     }
 }
 
@@ -2205,7 +2203,7 @@ async function loadRecentTrades(append = false) {
             tbody.innerHTML = `
                 <tr class="empty-row">
                     <td colspan="6">
-                        <div class="empty-state"><p>거래 내역이 없습니다.</p></div>
+                        <div class="empty-state"><p>${t('no_trade_history')}</p></div>
                     </td>
                 </tr>
             `;
@@ -2215,14 +2213,14 @@ async function loadRecentTrades(append = false) {
 
         const rowsHtml = trades.map(trade => {
             const side = (trade.side || '').toLowerCase();
-            const sideText = side.includes('buy') ? '매수' : side.includes('sell') ? '매도' : trade.side || '-';
+            const sideText = side.includes('buy') ? t('buy') : side.includes('sell') ? t('sell') : trade.side || '-';
             const sideClass = side.includes('buy') ? 'buy' : 'sell';
 
             const status = (trade.status || 'filled').toLowerCase();
-            const statusText = status === 'filled' ? '체결' :
-                              status === 'failed' ? '실패' :
-                              status === 'skipped' ? '스킵' :
-                              status === 'sent' ? '전송' : status;
+            const statusText = status === 'filled' ? t('status_filled') :
+                              status === 'failed' ? t('status_failed') :
+                              status === 'skipped' ? t('status_skipped') :
+                              status === 'sent' ? t('status_sent') : status;
             const statusClass = status === 'filled' ? 'filled' :
                                status === 'failed' || status === 'skipped' ? 'failed' : 'pending';
 
@@ -2249,7 +2247,7 @@ async function loadRecentTrades(append = false) {
                     <td colspan="6">
                         <div class="trade-error-msg">
                             <span>⚠️</span>
-                            <span>사유: ${errorMsg}</span>
+                            <span>${t('reason')}: ${errorMsg}</span>
                         </div>
                     </td>
                 </tr>`;
@@ -2328,7 +2326,7 @@ document.getElementById('btn-load-more-trades')?.addEventListener('click', () =>
 
 // Emergency stop button
 document.getElementById('btn-emergency-stop')?.addEventListener('click', async () => {
-    if (!confirm('모든 자동매매를 즉시 정지하시겠습니까?\n\n모든 활성 전략이 중단됩니다.')) return;
+    if (!confirm(t('confirm_emergency_stop'))) return;
 
     try {
         if (auth.accessToken) {
@@ -2336,10 +2334,10 @@ document.getElementById('btn-emergency-stop')?.addEventListener('click', async (
         } else {
             await invoke('set_estop', { enabled: true });
         }
-        showToast('긴급 정지가 활성화되었습니다', 'warning');
+        showToast(t('emergency_stop_activated'), 'warning');
         loadActiveStrategies(); // Refresh strategies
     } catch (error) {
-        showToast('긴급 정지 실패: ' + error, 'error');
+        showToast(`${t('emergency_stop_failed')}: ` + error, 'error');
     }
 });
 
@@ -2372,8 +2370,8 @@ async function loadExchangeSelection() {
         if (accounts.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
-                    <p>등록된 거래소 계정이 없습니다.</p>
-                    <button class="btn btn-primary" onclick="navigateTo('accounts')">계정 등록하기</button>
+                    <p>${t('no_account_connected')}</p>
+                    <button class="btn btn-primary" onclick="navigateTo('accounts')">${t('register_account')}</button>
                 </div>
             `;
             return;
@@ -2396,8 +2394,8 @@ async function loadExchangeSelection() {
             });
         });
     } catch (error) {
-        console.error('[loadExchangeSelection] 계정 로딩 실패:', error);
-        container.innerHTML = `<p class="empty">계정 로딩 실패: ${error}</p>`;
+        console.error('[loadExchangeSelection] Account load failed:', error);
+        container.innerHTML = `<p class="empty">${t('account_load_failed')}: ${error}</p>`;
     }
 }
 
@@ -2414,13 +2412,13 @@ async function loadWebhookLogs() {
         }
 
         if (!logs || logs.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">최근 수신 웹훅 없음</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="5" class="empty-cell">${t('no_recent_webhooks')}</td></tr>`;
             return;
         }
 
         tbody.innerHTML = logs.map(log => {
             const statusClass = log.status === 'success' ? 'success' : log.status === 'rejected' ? 'warning' : 'error';
-            const statusText = log.status === 'success' ? '성공' : log.status === 'rejected' ? '거부' : '실패';
+            const statusText = log.status === 'success' ? t('status_success') : log.status === 'rejected' ? t('status_rejected') : t('status_failed');
             const timeStr = log.received_at ? new Date(log.received_at).toLocaleString('ko-KR') : '-';
             const content = log.error_message || `${log.action} ${log.symbol}`;
 
@@ -2437,7 +2435,7 @@ async function loadWebhookLogs() {
 
     } catch (error) {
         console.error('Failed to load webhook logs:', error);
-        tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">로그 로딩 실패</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="5" class="empty-cell">${t('log_load_failed')}</td></tr>`;
     }
 }
 
@@ -2607,11 +2605,11 @@ function generateTemplate() {
  */
 async function saveStrategyAndAsset() {
     if (!selectedExchange || !selectedSymbol) {
-        return { ok: false, error: '거래소와 종목을 선택해주세요' };
+        return { ok: false, error: t('select_exchange_and_symbol') };
     }
 
     if (!auth.accessToken) {
-        return { ok: false, error: '로그인이 필요합니다' };
+        return { ok: false, error: t('login_required') };
     }
 
     const signalParams = collectSignalParams();
@@ -2629,7 +2627,7 @@ async function saveStrategyAndAsset() {
 
         const strategyId = strategyData.id;
         if (!strategyId) {
-            throw new Error('전략 ID를 받지 못했습니다');
+            throw new Error(t('strategy_id_not_received'));
         }
 
         // 2. signal_params 저장 (별도 API로 확실히 저장)
@@ -2640,7 +2638,7 @@ async function saveStrategyAndAsset() {
                 signalParams: signalParams
             });
         } catch (e) {
-            console.warn('signal_params 저장 실패, 계속 진행:', e);
+            console.warn('signal_params save failed, continuing:', e);
         }
 
         // 3. 종목(asset) 생성
@@ -2881,11 +2879,11 @@ document.getElementById('btn-tv-next-3')?.addEventListener('click', async () => 
         const result = await saveStrategyAndAsset();
 
         if (!result.ok) {
-            showToast(result.error || '저장 실패', 'error');
+            showToast(result.error || t('save_failed'), 'error');
             return;
         }
 
-        showToast('전략 및 종목이 저장되었습니다', 'success');
+        showToast(t('strategy_saved'), 'success');
 
         // 전략 목록 갱신
         await loadStrategies();
@@ -2904,7 +2902,7 @@ document.getElementById('btn-tv-next-3')?.addEventListener('click', async () => 
         updateTVWizardUI(4);
     } catch (error) {
         console.error('btn-tv-next-3 error:', error);
-        showToast('저장 중 오류가 발생했습니다', 'error');
+        showToast(t('save_error'), 'error');
     } finally {
         if (btn) {
             btn.disabled = false;
@@ -2925,7 +2923,7 @@ document.getElementById('btn-copy-template')?.addEventListener('click', async ()
     const code = document.getElementById('template-code')?.textContent;
     if (code) {
         await navigator.clipboard.writeText(code);
-        showToast('템플릿이 복사되었습니다', 'success');
+        showToast(t('template_copied'), 'success');
     }
 });
 
@@ -2933,7 +2931,7 @@ document.getElementById('btn-copy-webhook-url')?.addEventListener('click', async
     const url = document.getElementById('webhook-url')?.textContent;
     if (url) {
         await navigator.clipboard.writeText(url);
-        showToast('웹훅 URL이 복사되었습니다', 'success');
+        showToast(t('webhook_url_copied'), 'success');
     }
 });
 
@@ -2956,7 +2954,7 @@ document.querySelectorAll('.asset-tag').forEach(tag => {
     tag.addEventListener('click', () => {
         selectedSymbol = tag.dataset.symbol;
         document.getElementById('btn-tv-next-2').disabled = false;
-        showToast(`${selectedSymbol} 선택됨`, 'info');
+        showToast(t('symbol_selected', { symbol: selectedSymbol }), 'info');
     });
 });
 
@@ -2992,12 +2990,12 @@ function initTVAssetAutocomplete() {
                     </div>
                 `;
             }
-            showToast(`${symbol.name} (${symbol.code}) 선택됨`, 'success');
+            showToast(t('symbol_selected_full', { name: symbol.name, code: symbol.code }), 'success');
         } else {
             selectedSymbol = null;
             document.getElementById('btn-tv-next-2').disabled = true;
             const listEl = document.getElementById('tv-asset-list');
-            if (listEl) listEl.innerHTML = '<p class="empty">자산을 검색하세요</p>';
+            if (listEl) listEl.innerHTML = `<p class="empty">${t('search_for_assets')}</p>`;
         }
     }, { exchange: 'all', showBadge: false });
 }
@@ -3149,22 +3147,22 @@ function showWatchlistAddModal() {
         watchlistAddModal.innerHTML = `
             <div class="modal-content" style="max-width: 400px;">
                 <div class="modal-header">
-                    <h3>종목 추가</h3>
+                    <h3>${t('add_stock_title')}</h3>
                     <button class="close-btn" id="close-watchlist-add-modal">&times;</button>
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
-                        <label>종목 검색</label>
-                        <input type="text" id="watchlist-add-search" class="form-input" placeholder="종목명 또는 종목코드 검색..." autocomplete="off">
+                        <label>${t('stock_search')}</label>
+                        <input type="text" id="watchlist-add-search" class="form-input" placeholder="${t('stock_search_placeholder')}" autocomplete="off">
                     </div>
                     <div class="form-group">
-                        <label>메모 (선택)</label>
-                        <input type="text" id="watchlist-add-memo" class="form-input" placeholder="메모 입력">
+                        <label>${t('memo_select')}</label>
+                        <input type="text" id="watchlist-add-memo" class="form-input" placeholder="${t('memo_input')}">
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" id="btn-cancel-watchlist-add">취소</button>
-                    <button class="btn btn-primary" id="btn-confirm-watchlist-add" disabled>추가</button>
+                    <button class="btn btn-secondary" id="btn-cancel-watchlist-add">${t('cancel')}</button>
+                    <button class="btn btn-primary" id="btn-confirm-watchlist-add" disabled>${t('add')}</button>
                 </div>
             </div>
         `;
@@ -3198,7 +3196,7 @@ function hideWatchlistAddModal() {
 
 async function confirmWatchlistAdd() {
     if (!watchlistAddSelectedSymbol) {
-        showToast('종목을 선택해주세요', 'warning');
+        showToast(t('select_stock'), 'warning');
         return;
     }
 
@@ -3214,11 +3212,11 @@ async function confirmWatchlistAdd() {
             memo: memo
         }, 5000);
 
-        showToast(`${watchlistAddSelectedSymbol.name} 관심종목에 추가됨`, 'success');
+        showToast(t('watchlist_added', { name: watchlistAddSelectedSymbol.name }), 'success');
         hideWatchlistAddModal();
         loadWatchlistItems(group); // 리스트 새로고침
     } catch (e) {
-        showToast('종목 추가 실패: ' + e, 'error');
+        showToast(`${t('stock_add_failed')}: ` + e, 'error');
     }
 }
 
@@ -3284,7 +3282,7 @@ function showSymbolsLoading() {
         <tr>
             <td colspan="6" class="empty-cell">
                 <div class="loading-spinner"></div>
-                <span style="margin-left: 8px;">거래소에서 데이터 로딩 중...</span>
+                <span style="margin-left: 8px;">${t('exchange_loading')}</span>
             </td>
         </tr>
     `;
@@ -3331,7 +3329,7 @@ async function loadPopularSymbols() {
         renderSymbolsTable(allSymbols);
     } catch (error) {
         console.error('Failed to load popular symbols:', error);
-        tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">인기 종목 로딩 실패</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-cell">${t('popular_load_failed')}</td></tr>`;
     } finally {
         isSymbolsLoading = false;
     }
@@ -3379,7 +3377,7 @@ async function searchSymbols(query) {
     } catch (error) {
         if (thisRequestId !== searchSymbolsRequestId) return;
         console.error('Failed to search symbols:', error);
-        tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">검색 실패</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-cell">${t('search_failed')}</td></tr>`;
     } finally {
         if (thisRequestId === searchSymbolsRequestId) {
             isSymbolsLoading = false;
@@ -3401,7 +3399,7 @@ function renderSymbolsTable(symbols) {
     if (!tbody) return;
 
     if (!symbols || symbols.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">검색 결과 없음</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-cell">${t('search_no_result')}</td></tr>`;
         return;
     }
 
@@ -3876,7 +3874,7 @@ async function loadStrategies() {
     const list = document.getElementById('strategies-list');
     if (!list) return;
 
-    list.innerHTML = '<p class="loading">전략 로딩 중...</p>';
+    list.innerHTML = `<p class="loading">${t('strategy_loading')}</p>`;
 
     try {
         let strategies = [];
@@ -3889,8 +3887,8 @@ async function loadStrategies() {
         if (!strategies || strategies.length === 0) {
             list.innerHTML = `
                 <div class="empty-state">
-                    <p>설정된 전략이 없습니다.</p>
-                    <p>커스텀/역추세/추세 탭에서 전략을 추가하세요.</p>
+                    <p>${t('strategy_none_msg')}</p>
+                    <p>${t('strategy_add_hint')}</p>
                 </div>
             `;
             return;
@@ -3903,24 +3901,24 @@ async function loadStrategies() {
             return `
             <div class="strategy-card" data-id="${s.id}">
                 <div class="strategy-card-header">
-                    <h4>${s.name || '전략'}</h4>
+                    <h4>${s.name || t('strategy')}</h4>
                     <span class="strategy-type-badge ${strategyType}">${strategyType}</span>
                 </div>
                 <div class="strategy-card-body">
                     <div class="strategy-info">
-                        <span>종목:</span>
+                        <span>${t('symbol')}:</span>
                         <strong>${s.symbol || 'N/A'}</strong>
                     </div>
                     <div class="strategy-info">
-                        <span>거래소:</span>
+                        <span>${t('exchange')}:</span>
                         <strong>${s.exchange || 'N/A'}</strong>
                     </div>
                 </div>
                 <div class="strategy-card-actions">
                     <button class="btn btn-sm ${isRunning ? 'btn-success' : 'btn-secondary'} btn-toggle-strategy" data-id="${s.id}">
-                        ${isRunning ? '실행중' : '비활성'}
+                        ${isRunning ? t('running') : t('inactive')}
                     </button>
-                    <button class="btn btn-sm btn-danger btn-delete-strategy" data-id="${s.id}">삭제</button>
+                    <button class="btn btn-sm btn-danger btn-delete-strategy" data-id="${s.id}">${t('btn_delete')}</button>
                 </div>
             </div>
             `;
@@ -3932,33 +3930,33 @@ async function loadStrategies() {
                 const id = parseInt(btn.dataset.id);
                 try {
                     const result = await invoke('toggle_asset', { accessToken: auth.accessToken, assetId: id });
-                    showToast(result.is_active ? '전략 활성화됨' : '전략 비활성화됨', 'success');
+                    showToast(result.is_active ? t('strategy_activated') : t('strategy_deactivated'), 'success');
                     loadStrategies();
                     loadActiveStrategies(); // 홈 페이지도 갱신
                 } catch (e) {
-                    showToast('전략 토글 실패', 'error');
+                    showToast(t('strategy_toggle_failed'), 'error');
                 }
             });
         });
 
         list.querySelectorAll('.btn-delete-strategy').forEach(btn => {
             btn.addEventListener('click', async () => {
-                if (!confirm('이 전략을 삭제하시겠습니까?')) return;
+                if (!confirm(t('strategy_delete_confirm'))) return;
                 const id = parseInt(btn.dataset.id);
                 try {
                     await invoke('delete_asset', { accessToken: auth.accessToken, assetId: id });
-                    showToast('전략이 삭제되었습니다', 'success');
+                    showToast(t('strategy_deleted'), 'success');
                     loadStrategies();
                     loadActiveStrategies(); // 홈 페이지도 갱신
                 } catch (e) {
-                    showToast('전략 삭제 실패', 'error');
+                    showToast(t('strategy_delete_failed'), 'error');
                 }
             });
         });
 
     } catch (error) {
         console.error('Failed to load strategies:', error);
-        list.innerHTML = '<p class="empty">전략 로딩 실패</p>';
+        list.innerHTML = `<p class="empty">${t('strategy_load_failed')}</p>`;
     }
 }
 
@@ -4612,8 +4610,8 @@ async function loadAccountsList() {
         if (accounts.length === 0) {
             list.innerHTML = `
                 <div class="empty-state">
-                    <p>등록된 계정이 없습니다.</p>
-                    <p>계정 추가 버튼을 클릭하여 거래소를 연결하세요.</p>
+                    <p>${t('no_registered_msg')}</p>
+                    <p>${t('add_account_hint')}</p>
                 </div>
             `;
             return;
@@ -4627,18 +4625,18 @@ async function loadAccountsList() {
                         <span class="exchange-badge ${acc.exchange.toLowerCase()}">${acc.exchange}</span>
                     </div>
                     <span class="account-status ${acc.is_active ? 'active' : 'inactive'}">
-                        ${acc.is_active ? '● 연결됨' : '○ 미연결'}
+                        ${acc.is_active ? `● ${t('connected')}` : `○ ${t('not_connected')}`}
                     </span>
                 </div>
                 <div class="account-card-body">
                     <div class="account-detail">
                         <span>API Key</span>
-                        <span>****${acc.has_keys ? '(저장됨)' : '(미설정)'}</span>
+                        <span>****${acc.has_keys ? `(${t('saved')})` : `(${t('not_set')})`}</span>
                     </div>
                 </div>
                 <div class="account-card-actions">
-                    <button class="btn btn-secondary btn-test" data-name="${acc.name}" data-exchange="${acc.exchange}">연결 테스트</button>
-                    <button class="btn btn-danger btn-delete" data-id="${acc.id}" data-name="${acc.name}" data-exchange="${acc.exchange}">삭제</button>
+                    <button class="btn btn-secondary btn-test" data-name="${acc.name}" data-exchange="${acc.exchange}">${t('test_connection')}</button>
+                    <button class="btn btn-danger btn-delete" data-id="${acc.id}" data-name="${acc.name}" data-exchange="${acc.exchange}">${t('btn_delete')}</button>
                 </div>
             </div>
         `).join('');
@@ -4649,9 +4647,9 @@ async function loadAccountsList() {
                 btn.textContent = t('testing');
                 try {
                     await invoke('test_account_connection', { exchange: btn.dataset.exchange, accountName: btn.dataset.name });
-                    showToast('연결 성공', 'success');
+                    showToast(t('connection_success'), 'success');
                 } catch (e) {
-                    showToast('연결 실패: ' + e, 'error');
+                    showToast(`${t('connection_failed')}: ` + e, 'error');
                 }
                 btn.disabled = false;
                 btn.textContent = t('test_connection');
@@ -4660,20 +4658,20 @@ async function loadAccountsList() {
 
         list.querySelectorAll('.btn-delete').forEach(btn => {
             btn.addEventListener('click', async () => {
-                if (!confirm(`${btn.dataset.name} 계정을 삭제하시겠습니까?`)) return;
+                if (!confirm(t('account_delete_confirm'))) return;
                 try {
                     await invoke('delete_api_key', { accessToken: auth.accessToken, accountId: parseInt(btn.dataset.id), accountName: btn.dataset.name, exchange: btn.dataset.exchange });
-                    showToast('계정이 삭제되었습니다', 'success');
+                    showToast(t('account_deleted'), 'success');
                     loadAccountsList();
                 } catch (e) {
-                    showToast('삭제 실패: ' + e, 'error');
+                    showToast(`${t('delete_failed')}: ` + e, 'error');
                 }
             });
         });
 
     } catch (error) {
-        console.error('[loadAccountsList] 계정 로딩 실패:', error);
-        list.innerHTML = `<p class="empty">계정 로딩 실패: ${error}</p>`;
+        console.error('[loadAccountsList] Account load failed:', error);
+        list.innerHTML = `<p class="empty">${t('account_load_failed')}: ${error}</p>`;
     }
 }
 
@@ -4710,7 +4708,7 @@ document.getElementById('btn-save-account')?.addEventListener('click', async () 
     const exchange = document.getElementById('account-exchange').value;
 
     if (!exchange) {
-        showToast('거래소를 선택하세요', 'error');
+        showToast(t('select_exchange'), 'error');
         return;
     }
 
@@ -4722,7 +4720,7 @@ document.getElementById('btn-save-account')?.addEventListener('click', async () 
         apiSecret = document.getElementById('okx-secret').value;
         passphrase = document.getElementById('okx-passphrase').value;
         if (!name || !apiKey || !apiSecret || !passphrase) {
-            showToast('모든 필드를 입력하세요', 'error');
+            showToast(t('fill_all_fields'), 'error');
             return;
         }
     } else if (exchange === 'BINANCE') {
@@ -4730,7 +4728,7 @@ document.getElementById('btn-save-account')?.addEventListener('click', async () 
         apiKey = document.getElementById('binance-api-key').value;
         apiSecret = document.getElementById('binance-secret').value;
         if (!name || !apiKey || !apiSecret) {
-            showToast('모든 필드를 입력하세요', 'error');
+            showToast(t('fill_all_fields'), 'error');
             return;
         }
     } else if (exchange === 'BYBIT') {
@@ -4738,7 +4736,7 @@ document.getElementById('btn-save-account')?.addEventListener('click', async () 
         apiKey = document.getElementById('bybit-api-key').value;
         apiSecret = document.getElementById('bybit-secret').value;
         if (!name || !apiKey || !apiSecret) {
-            showToast('모든 필드를 입력하세요', 'error');
+            showToast(t('fill_all_fields'), 'error');
             return;
         }
     } else if (exchange === 'UPBIT') {
@@ -4746,7 +4744,7 @@ document.getElementById('btn-save-account')?.addEventListener('click', async () 
         apiKey = document.getElementById('upbit-access-key').value;
         apiSecret = document.getElementById('upbit-secret').value;
         if (!name || !apiKey || !apiSecret) {
-            showToast('모든 필드를 입력하세요', 'error');
+            showToast(t('fill_all_fields'), 'error');
             return;
         }
     } else if (exchange === 'KIS_KR') {
@@ -4755,7 +4753,7 @@ document.getElementById('btn-save-account')?.addEventListener('click', async () 
         apiSecret = document.getElementById('kis-kr-app-secret').value;
         accountNumber = document.getElementById('kis-kr-account-number').value;
         if (!name || !apiKey || !apiSecret || !accountNumber) {
-            showToast('모든 필드를 입력하세요', 'error');
+            showToast(t('fill_all_fields'), 'error');
             return;
         }
     } else if (exchange === 'KIS_US') {
@@ -4764,7 +4762,7 @@ document.getElementById('btn-save-account')?.addEventListener('click', async () 
         apiSecret = document.getElementById('kis-us-app-secret').value;
         accountNumber = document.getElementById('kis-us-account-number').value;
         if (!name || !apiKey || !apiSecret || !accountNumber) {
-            showToast('모든 필드를 입력하세요', 'error');
+            showToast(t('fill_all_fields'), 'error');
             return;
         }
     } else if (exchange === 'ALPACA') {
@@ -4774,7 +4772,7 @@ document.getElementById('btn-save-account')?.addEventListener('click', async () 
         const isPaper = document.getElementById('alpaca-paper')?.checked;
         accountType = isPaper ? 'paper' : 'live';
         if (!name || !apiKey || !apiSecret) {
-            showToast('모든 필드를 입력하세요', 'error');
+            showToast(t('fill_all_fields'), 'error');
             return;
         }
     }
@@ -4791,14 +4789,14 @@ document.getElementById('btn-save-account')?.addEventListener('click', async () 
             accountType: accountType || null
         });
 
-        showToast('계정이 등록되었습니다', 'success');
+        showToast(t('account_registered'), 'success');
         document.getElementById('account-form-section').style.display = 'none';
         // 폼 초기화
         document.querySelectorAll('.exchange-form input').forEach(input => input.value = '');
         document.getElementById('account-exchange').value = '';
         loadAccountsList();
     } catch (error) {
-        showToast('등록 실패: ' + error, 'error');
+        showToast(`${t('registration_failed')}: ` + error, 'error');
     }
 });
 
