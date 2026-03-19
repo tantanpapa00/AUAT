@@ -504,10 +504,32 @@ def apply_us_filters(stocks: List[Dict], filters: dict) -> List[Dict]:
 
 async def get_us_heatmap() -> Dict[str, Any]:
     """
-    US 섹터별 히트맵 데이터 생성
+    US 섹터별 히트맵 데이터 생성 (S&P500 전용)
     Returns: {"sectors": [...], "stocks": [...]}
     """
-    stocks = await load_us_stocks()
+    # 히트맵은 S&P500만 사용 (시각화 성능)
+    sp500_list = await get_sp500_list()
+    if sp500_list:
+        # S&P500 목록에서 가격 데이터 가져오기
+        symbols = [s["symbol"] for s in sp500_list]
+        prices = await get_us_prices(symbols)
+        stocks = []
+        for item in sp500_list:
+            sym = item["symbol"]
+            price_info = prices.get(sym, {})
+            stocks.append({
+                "code": sym,
+                "name": item.get("name", sym),
+                "sector": item.get("sector", ""),
+                "price": price_info.get("price", 0),
+                "change_pct": price_info.get("change_pct", 0),
+                "market_cap": price_info.get("market_cap_t", 0),
+                "market_cap_raw": price_info.get("market_cap", 0),
+            })
+    else:
+        # Fallback: 전체 종목
+        stocks = await load_us_stocks()
+
     if not stocks:
         return {"sectors": [], "stocks": []}
 

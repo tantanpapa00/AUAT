@@ -182,7 +182,7 @@
                         <span class="nav-arrow">▼</span>
                     </a>
                     <div class="nav-submenu" id="submenu-market">
-                        <a href="#" class="nav-item nav-child" data-page="market-kr">
+                        <a href="#" class="nav-item nav-child" data-page="market-kr" id="nav-market-kr">
                             <span class="nav-icon">🇰🇷</span>
                             <span class="nav-text" data-i18n="nav_kr_market">국내시장</span>
                         </a>
@@ -3495,8 +3495,14 @@
                                     <button class="ai-send-btn" id="ai-send-btn">전송</button>
                                 </div>
                                 <div class="ai-suggest-chips">
-                                    <button class="ai-chip" data-question="삼성전자 종합 분석 보고서">삼성전자 종합 분석 보고서</button>
-                                    <button class="ai-chip" data-question="SK하이닉스 종합 분석 보고서">SK하이닉스 종합 분석 보고서</button>
+                                    <!-- KR 모드 전용 -->
+                                    <button class="ai-chip kr-only" data-question="삼성전자 종합 분석 보고서">삼성전자 종합 분석 보고서</button>
+                                    <button class="ai-chip kr-only" data-question="SK하이닉스 종합 분석 보고서">SK하이닉스 종합 분석 보고서</button>
+                                    <!-- US 모드 전용 -->
+                                    <button class="ai-chip us-only" data-question="AAPL comprehensive analysis report" style="display:none">AAPL Analysis Report</button>
+                                    <button class="ai-chip us-only" data-question="NVDA comprehensive analysis report" style="display:none">NVDA Analysis Report</button>
+                                    <button class="ai-chip us-only" data-question="TSLA comprehensive analysis report" style="display:none">TSLA Analysis Report</button>
+                                    <!-- 공통 -->
                                     <button class="ai-chip" data-question="NVDA 종합 분석 보고서">NVDA 종합 분석 보고서</button>
                                 </div>
                             </div>
@@ -3505,9 +3511,9 @@
 
                         <!-- 시장 선택 탭 -->
                         <div class="ai-market-tabs">
-                            <button class="ai-tab active" data-market="kr">🇰🇷 국내주식</button>
+                            <button class="ai-tab kr-only active" data-market="kr">🇰🇷 국내주식</button>
                             <button class="ai-tab" data-market="us">🇺🇸 해외주식</button>
-                            <button class="ai-tab" data-market="etf">📦 ETF</button>
+                            <button class="ai-tab kr-only" data-market="etf">📦 ETF</button>
                         </div>
 
                         <!-- 추천 카테고리 목록 -->

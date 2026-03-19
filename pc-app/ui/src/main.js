@@ -365,6 +365,27 @@ function applyAppMode(mode) {
         if (etfTab) etfTab.style.display = '';
     }
 
+    // BBooster AI 화면 모드별 처리
+    const krOnlyChips = document.querySelectorAll('.ai-chip.kr-only');
+    const usOnlyChips = document.querySelectorAll('.ai-chip.us-only');
+    const krOnlyTabs = document.querySelectorAll('.ai-tab.kr-only');
+    const aiUsTab = document.querySelector('.ai-tab[data-market="us"]');
+
+    if (mode === 'US') {
+        krOnlyChips.forEach(el => el.style.display = 'none');
+        usOnlyChips.forEach(el => el.style.display = '');
+        krOnlyTabs.forEach(el => el.style.display = 'none');
+        // US 모드에서 해외주식 탭 자동 활성화
+        if (aiUsTab) {
+            document.querySelectorAll('.ai-tab').forEach(t => t.classList.remove('active'));
+            aiUsTab.classList.add('active');
+        }
+    } else {
+        krOnlyChips.forEach(el => el.style.display = '');
+        usOnlyChips.forEach(el => el.style.display = 'none');
+        krOnlyTabs.forEach(el => el.style.display = '');
+    }
+
     // i18n: 언어 전환 적용
     applyTranslations();
 }
@@ -377,6 +398,7 @@ function updateNavVisibility(mode) {
     // KR 전용 메뉴 (US 모드에서 숨김)
     const krOnlyMenus = [
         'nav-screener-kr',   // 국내 스크리너
+        'nav-market-kr',     // 국내시장
     ];
     // US 전용 메뉴 (KR 모드에서 숨김)
     const usOnlyMenus = [
