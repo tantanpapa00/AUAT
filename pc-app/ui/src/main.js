@@ -4997,7 +4997,7 @@ async function loadAiUsageStats() {
         const aiData = stats.ai_usage_7days || [];
 
         if (aiData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3" class="empty-cell">데이터 없음</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="3" class="empty-cell">${t('no_data')}</td></tr>`;
             return;
         }
 
@@ -5019,7 +5019,7 @@ async function loadUsersList() {
     const tbody = document.getElementById('users-tbody');
     if (!tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">로딩 중...</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">${t('loading')}</td></tr>`;
 
     try {
         const users = await invoke('admin_get_users', {
@@ -5241,7 +5241,7 @@ async function loadSectorAnalysis() {
                 <td>${s.current?.toLocaleString() || '-'}</td>
                 <td class="${(s.change || 0) >= 0 ? 'profit' : 'loss'}">${s.change >= 0 ? '+' : ''}${s.change?.toFixed(2) || 0}%</td>
             </tr>
-        `).join('') || '<tr><td colspan="3" class="empty-cell">데이터 없음</td></tr>';
+        `).join('') || `<tr><td colspan="3" class="empty-cell">${t('no_data')}</td></tr>`;
 
     } catch (error) {
         console.error('Sector analysis error:', error);
@@ -5267,7 +5267,7 @@ async function loadStockRanking(rankingType = 'volume', market = 'all') {
     };
     if (headerEl) headerEl.textContent = headers[rankingType] || '거래량';
 
-    tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">로딩 중...</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-cell">${t('loading')}</td></tr>`;
 
     try {
         const data = await invoke('get_stock_ranking', {
@@ -5296,14 +5296,14 @@ async function loadStockRanking(rankingType = 'volume', market = 'all') {
                     <td>${extraValue}</td>
                 </tr>
             `;
-        }).join('') || '<tr><td colspan="5" class="empty-cell">데이터 없음</td></tr>';
+        }).join('') || `<tr><td colspan="5" class="empty-cell">${t('no_data')}</td></tr>`;
 
     } catch (error) {
         console.error('Stock ranking error:', error);
         if (error.toString().includes('Pro') && restrictionEl) {
             restrictionEl.style.display = 'flex';
         }
-        tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">데이터를 불러올 수 없습니다</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="5" class="empty-cell">${t('data_load_failed')}</td></tr>`;
     }
 }
 
@@ -5371,7 +5371,7 @@ async function loadMarketEvents(eventType = 'all') {
     if (!tbody) return;
 
     currentEventType = eventType;
-    tbody.innerHTML = '<tr><td colspan="4" class="empty-cell">로딩 중...</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="4" class="empty-cell">${t('loading')}</td></tr>`;
 
     try {
         const data = await invoke('get_market_events', {
@@ -5414,7 +5414,7 @@ async function loadMarketEvents(eventType = 'all') {
         if (error.toString().includes('Pro') && restrictionEl) {
             restrictionEl.style.display = 'flex';
         }
-        tbody.innerHTML = '<tr><td colspan="4" class="empty-cell">데이터를 불러올 수 없습니다</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="4" class="empty-cell">${t('data_load_failed')}</td></tr>`;
     }
 }
 
@@ -5779,7 +5779,7 @@ document.getElementById('btn-add-watchlist')?.addEventListener('click', async ()
     const groupsList = document.getElementById('watchlist-groups-list');
 
     modal.style.display = 'flex';
-    groupsList.innerHTML = '<div class="loading">로딩 중...</div>';
+    groupsList.innerHTML = `<div class="loading">${t('loading')}</div>`;
 
     try {
         const data = await invoke('get_watchlist_groups', { accessToken: auth.accessToken || '' });
@@ -5879,7 +5879,7 @@ async function loadMarketKr() {
 
     restrictionEl.style.display = 'none';
     contentEl.style.display = 'block';
-    contentEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+    contentEl.innerHTML = `<div class="loading-state">${t('data_loading')}</div>`;
 
     try {
         // 시장 개요 + 시장신호 API 병렬 호출
@@ -5893,7 +5893,7 @@ async function loadMarketKr() {
 
         // signal 또는 overview 중 하나라도 있으면 진행
         if (!overviewData && !signalData) {
-            contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button class="btn btn-sm btn-primary" onclick="loadMarketKr()">다시 시도</button></div>';
+            contentEl.innerHTML = `<div class="error-state"><p>${t('data_load_failed')}</p><button class="btn btn-sm btn-primary" onclick="loadMarketKr()">${t('retry')}</button></div>`;
             return;
         }
 
@@ -6082,7 +6082,7 @@ async function loadMarketKr() {
                     </div>
                 </div>
                 <div class="se-featured-list" id="featured-stocks-list">
-                    <div class="loading-state">데이터 로딩 중...</div>
+                    <div class="loading-state">데이터 ${t('loading')}</div>
                 </div>
             </div>
 
@@ -6103,7 +6103,7 @@ async function loadMarketKr() {
                     </div>
                 </div>
                 <div class="se-sector-list-unified" id="kr-sector-unified">
-                    <div class="loading-state">데이터 로딩 중...</div>
+                    <div class="loading-state">데이터 ${t('loading')}</div>
                 </div>
             </div>
 
@@ -6130,7 +6130,7 @@ async function loadMarketKr() {
                                 </tr>
                             </thead>
                             <tbody id="trend-maintain-body">
-                                <tr><td colspan="7" class="loading-cell">데이터 로딩 중...</td></tr>
+                                <tr><td colspan="7" class="loading-cell">데이터 ${t('loading')}</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -6226,7 +6226,7 @@ async function loadMarketKr() {
                     </div>
                 `).join('');
             } else {
-                sectorListEl.innerHTML = '<div class="empty-state">섹터 데이터 없음</div>';
+                sectorListEl.innerHTML = `<div class="empty-state">${t('sector_data_none')}</div>`;
             }
         }
 
@@ -6241,8 +6241,8 @@ async function loadMarketKr() {
 
     } catch (error) {
         console.error('Market KR error:', error);
-        const errMsg = error?.message || error || '알 수 없는 오류';
-        contentEl.innerHTML = `<div class="error-state"><p>${errMsg}</p><button class="btn btn-sm btn-primary" onclick="loadMarketKr()">다시 시도</button></div>`;
+        const errMsg = error?.message || error || t('unknown_error');
+        contentEl.innerHTML = `<div class="error-state"><p>${errMsg}</p><button class="btn btn-sm btn-primary" onclick="loadMarketKr()">${t('retry')}</button></div>`;
     }
 }
 
@@ -6514,13 +6514,13 @@ async function loadMaRatioChart() {
         ctx.fillStyle = '#6b7280';
         ctx.font = '14px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('차트 데이터 로드 실패', canvas.width / 2, canvas.height / 2);
+        ctx.fillText(t('chart_load_error'), canvas.width / 2, canvas.height / 2);
     }
 }
 
 // Breadth 데이터 초기화 (서버에서 수동 초기화 필요)
 async function initBreadthData() {
-    console.warn('[initBreadthData] Breadth 데이터가 없습니다. 서버에서 POST /api/market/breadth/init 를 실행해주세요.');
+    console.warn('[initBreadthData] Breadth 데이터 없음. 서버에서 POST /api/market/breadth/init 를 실행해주세요.');
     // 데이터가 이미 VPS에 초기화되어 있으므로 재시도
     setTimeout(() => loadMaRatioChart(), 3000);
 }
@@ -6719,7 +6719,7 @@ async function loadTrendMaintainData() {
     const tbody = document.getElementById('trend-maintain-body');
     if (!tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="7" class="loading-cell">데이터 로딩 중...</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="7" class="loading-cell">${t('data_loading')}</td></tr>`;
 
     try {
         // 추세유지 API 호출 (대표종목 RS는 DB 연동 후 추가)
@@ -6729,7 +6729,7 @@ async function loadTrendMaintainData() {
         // API returns { success: true, data: [...] }
         const sectors = response?.data || [];
         if (!sectors || sectors.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">추세유지 데이터 없음</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="7" class="empty-cell">${t('trend_data_none')}</td></tr>`;
             return;
         }
 
@@ -6761,7 +6761,7 @@ async function loadTrendMaintainData() {
         });
     } catch (error) {
         console.error('[loadTrendMaintainData] error:', error);
-        tbody.innerHTML = `<tr><td colspan="7" class="error-cell">데이터 로드 실패: ${error?.message || error}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="error-cell">${t('data_load_error')}: ${error?.message || error}</td></tr>`;
     }
 }
 
@@ -6839,8 +6839,8 @@ async function loadSectorData() {
     const weakEl = document.getElementById('kr-weak-sectors');
     if (!leadingEl || !weakEl) return;
 
-    leadingEl.innerHTML = '<div class="loading-state">로딩 중...</div>';
-    weakEl.innerHTML = '<div class="loading-state">로딩 중...</div>';
+    leadingEl.innerHTML = `<div class="loading-state">${t('loading')}</div>`;
+    weakEl.innerHTML = `<div class="loading-state">${t('loading')}</div>`;
 
     try {
         const data = await invokeWithTimeout('get_market_sectors', { accessToken: auth.accessToken || '' }, 10000);
@@ -6848,8 +6848,8 @@ async function loadSectorData() {
 
         const sectors = data?.sectors || data || [];
         if (!sectors.length) {
-            leadingEl.innerHTML = '<div class="empty-state">섹터 데이터 없음</div>';
-            weakEl.innerHTML = '<div class="empty-state">섹터 데이터 없음</div>';
+            leadingEl.innerHTML = `<div class="empty-state">${t('sector_data_none')}</div>`;
+            weakEl.innerHTML = `<div class="empty-state">${t('sector_data_none')}</div>`;
             return;
         }
 
@@ -6942,7 +6942,7 @@ function attachSectorClickEvents() {
             document.querySelectorAll('.sector-item.clickable').forEach(i => i.classList.remove('expanded'));
 
             // 로딩 표시
-            detailEl.innerHTML = '<div class="sector-detail-loading">로딩 중...</div>';
+            detailEl.innerHTML = `<div class="sector-detail-loading">${t('loading')}</div>`;
             detailEl.style.display = 'block';
             arrow.textContent = '▲';
             el.classList.add('expanded');
@@ -6957,11 +6957,11 @@ function attachSectorClickEvents() {
                 if (resp?.success) {
                     detailEl.innerHTML = renderSectorDetail(resp, type);
                 } else {
-                    detailEl.innerHTML = '<div class="sector-detail-error">데이터 조회 실패</div>';
+                    detailEl.innerHTML = `<div class="sector-detail-error">${t('data_fetch_failed')}</div>`;
                 }
             } catch (err) {
                 console.error('[SectorDetail]', err);
-                detailEl.innerHTML = `<div class="sector-detail-error">${err?.message || '오류 발생'}</div>`;
+                detailEl.innerHTML = `<div class="sector-detail-error">${err?.message || t('error_occurred')}</div>`;
             }
         });
     });
@@ -7000,7 +7000,7 @@ function renderSectorDetail(data, type) {
     }
 
     if (html === '<div class="sector-detail-content">') {
-        html += '<div class="detail-empty">상세 데이터 없음</div>';
+        html += `<div class="detail-empty">${t('detail_data_none')}</div>`;
     }
 
     html += '</div>';
@@ -7016,7 +7016,7 @@ async function loadFeaturedStocksKr(type = 'gainers', market = 'ALL') {
     const listEl = document.getElementById('featured-stocks-list');
     if (!listEl) return;
 
-    listEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+    listEl.innerHTML = `<div class="loading-state">${t('data_loading')}</div>`;
 
     try {
         // ranking_type 매핑: gainers -> rise, losers -> fall, trading_value -> trading_value
@@ -7033,7 +7033,7 @@ async function loadFeaturedStocksKr(type = 'gainers', market = 'ALL') {
 
         const stocks = data?.stocks || [];
         if (stocks.length === 0) {
-            listEl.innerHTML = '<div class="empty-state">데이터가 없습니다</div>';
+            listEl.innerHTML = `<div class="empty-state">${t('no_data')}</div>`;
             return;
         }
 
@@ -7088,7 +7088,7 @@ async function loadFeaturedStocksKr(type = 'gainers', market = 'ALL') {
         });
     } catch (error) {
         console.error('[loadFeaturedStocks] error:', error);
-        listEl.innerHTML = `<div class="error-state">${error?.message || '데이터 로드 실패'}</div>`;
+        listEl.innerHTML = `<div class="error-state">${error?.message || t('data_load_error')}</div>`;
     }
 }
 
@@ -7124,7 +7124,7 @@ async function loadSectorDataUnified() {
     const listEl = document.getElementById('kr-sector-unified');
     if (!listEl) return;
 
-    listEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+    listEl.innerHTML = `<div class="loading-state">${t('data_loading')}</div>`;
 
     try {
         const data = await invokeWithTimeout('get_market_sectors', { accessToken: auth.accessToken || '' }, 10000);
@@ -7132,7 +7132,7 @@ async function loadSectorDataUnified() {
 
         const sectors = data?.sectors || data || [];
         if (!sectors.length) {
-            listEl.innerHTML = '<div class="empty-state">섹터 데이터 없음</div>';
+            listEl.innerHTML = `<div class="empty-state">${t('sector_data_none')}</div>`;
             return;
         }
 
@@ -7174,7 +7174,7 @@ function renderSectorList(sectors, sortBy = 'change', filter = 'all') {
     }
 
     if (filtered.length === 0) {
-        const msg = filter === 'up' ? '상승 섹터가 없습니다' : (filter === 'down' ? '하락 섹터가 없습니다' : '데이터 없음');
+        const msg = filter === 'up' ? t('no_rising_sector') : (filter === 'down' ? t('no_falling_sector') : t('no_data'));
         listEl.innerHTML = `<div class="empty-state">${msg}</div>`;
         return;
     }
@@ -7234,7 +7234,7 @@ async function showSectorStocksModal(sectorName) {
                 }).join('\n');
                 alert(`[${sectorName}] 주요 종목:\n\n${stockList}`);
             } else {
-                alert(`[${sectorName}] 종목 데이터가 없습니다.`);
+                alert(`[${sectorName}] 종목 ${t('no_data')}.`);
             }
         }
     } catch (err) {
@@ -7319,7 +7319,7 @@ async function loadMarketUs() {
 
     restrictionEl.style.display = 'none';
     contentEl.style.display = 'block';
-    contentEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+    contentEl.innerHTML = `<div class="loading-state">${t('data_loading')}</div>`;
 
     try {
         // Phase 5: Full US market data API
@@ -7330,7 +7330,7 @@ async function loadMarketUs() {
         console.log('[loadMarketUs] data:', data);
 
         if (!data || !data.success) {
-            contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button class="btn btn-sm btn-primary" onclick="loadMarketUs()">다시 시도</button></div>';
+            contentEl.innerHTML = `<div class="error-state"><p>${t('data_load_failed')}</p><button class="btn btn-sm btn-primary" onclick="loadMarketUs()">${t('retry')}</button></div>`;
             return;
         }
 
@@ -7602,7 +7602,7 @@ async function loadMarketUs() {
                     </div>
                 </div>
                 <div class="se-featured-list" id="us-featured-stocks-list">
-                    <div class="loading-state">데이터 로딩 중...</div>
+                    <div class="loading-state">데이터 ${t('loading')}</div>
                 </div>
             </div>
 
@@ -7623,7 +7623,7 @@ async function loadMarketUs() {
                     </div>
                 </div>
                 <div class="se-sector-list-unified" id="us-sector-unified">
-                    <div class="loading-state">데이터 로딩 중...</div>
+                    <div class="loading-state">데이터 ${t('loading')}</div>
                 </div>
             </div>
 
@@ -7650,7 +7650,7 @@ async function loadMarketUs() {
                                 </tr>
                             </thead>
                             <tbody id="us-trend-maintain-body">
-                                <tr><td colspan="7" class="loading-cell">데이터 로딩 중...</td></tr>
+                                <tr><td colspan="7" class="loading-cell">데이터 ${t('loading')}</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -7736,8 +7736,8 @@ async function loadMarketUs() {
 
     } catch (error) {
         console.error('Market US error:', error);
-        const errMsg = error?.message || error || '알 수 없는 오류';
-        contentEl.innerHTML = `<div class="error-state"><p>${errMsg}</p><button class="btn btn-sm btn-primary" onclick="loadMarketUs()">다시 시도</button></div>`;
+        const errMsg = error?.message || error || t('unknown_error');
+        contentEl.innerHTML = `<div class="error-state"><p>${errMsg}</p><button class="btn btn-sm btn-primary" onclick="loadMarketUs()">${t('retry')}</button></div>`;
     }
 }
 
@@ -7748,7 +7748,7 @@ async function loadFeaturedStocksUs(type = 'gainers') {
     const listEl = document.getElementById('us-featured-stocks-list');
     if (!listEl) return;
 
-    listEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+    listEl.innerHTML = `<div class="loading-state">${t('data_loading')}</div>`;
 
     try {
         // API: /api/market/us/ranking via Tauri command
@@ -7766,7 +7766,7 @@ async function loadFeaturedStocksUs(type = 'gainers') {
 
         const stocks = data?.stocks || [];
         if (stocks.length === 0) {
-            listEl.innerHTML = '<div class="empty-state">데이터가 없습니다</div>';
+            listEl.innerHTML = `<div class="empty-state">${t('no_data')}</div>`;
             return;
         }
 
@@ -7815,7 +7815,7 @@ async function loadFeaturedStocksUs(type = 'gainers') {
         });
     } catch (error) {
         console.error('[loadFeaturedStocksUs] error:', error);
-        listEl.innerHTML = `<div class="error-state">${error?.message || '데이터 로드 실패'}</div>`;
+        listEl.innerHTML = `<div class="error-state">${error?.message || t('data_load_error')}</div>`;
     }
 }
 
@@ -7826,7 +7826,7 @@ async function loadSectorDataUs() {
     const listEl = document.getElementById('us-sector-unified');
     if (!listEl) return;
 
-    listEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+    listEl.innerHTML = `<div class="loading-state">${t('data_loading')}</div>`;
 
     try {
         const data = await invokeWithTimeout('get_market_us_sectors', {
@@ -7837,7 +7837,7 @@ async function loadSectorDataUs() {
 
         const sectors = data?.sectors || [];
         if (!sectors.length) {
-            listEl.innerHTML = '<div class="empty-state">섹터 데이터 없음</div>';
+            listEl.innerHTML = `<div class="empty-state">${t('sector_data_none')}</div>`;
             return;
         }
 
@@ -7867,7 +7867,7 @@ function renderUsSectorList(sectors, sortBy = 'change', filter = 'all') {
     }
 
     if (filtered.length === 0) {
-        const msg = filter === 'up' ? '상승 섹터가 없습니다' : (filter === 'down' ? '하락 섹터가 없습니다' : '데이터 없음');
+        const msg = filter === 'up' ? t('no_rising_sector') : (filter === 'down' ? t('no_falling_sector') : t('no_data'));
         listEl.innerHTML = `<div class="empty-state">${msg}</div>`;
         return;
     }
@@ -7909,7 +7909,7 @@ async function loadTrendMaintainDataUs() {
     const tbody = document.getElementById('us-trend-maintain-body');
     if (!tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="6" class="loading-cell">데이터 로딩 중...</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="6" class="loading-cell">${t('data_loading')}</td></tr>`;
 
     try {
         const data = await invokeWithTimeout('get_market_us_trend_maintain', {
@@ -7920,7 +7920,7 @@ async function loadTrendMaintainDataUs() {
 
         const sectors = data?.data || [];
         if (!sectors || sectors.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">추세유지 데이터 없음</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="6" class="empty-cell">${t('trend_data_none')}</td></tr>`;
             return;
         }
 
@@ -7951,7 +7951,7 @@ async function loadTrendMaintainDataUs() {
         });
     } catch (error) {
         console.error('[loadTrendMaintainDataUs] error:', error);
-        tbody.innerHTML = `<tr><td colspan="6" class="error-cell">데이터 로드 실패: ${error?.message || error}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="error-cell">${t('data_load_error')}: ${error?.message || error}</td></tr>`;
     }
 }
 
@@ -8414,7 +8414,7 @@ function renderUsSectorBars(sectors) {
     if (!container) return;
 
     if (!sectors || sectors.length === 0) {
-        container.innerHTML = '<div class="empty-state">섹터 데이터 없음</div>';
+        container.innerHTML = `<div class="empty-state">${t('sector_data_none')}</div>`;
         return;
     }
 
@@ -8455,7 +8455,7 @@ async function loadUsTrendMaintainData() {
     const tbody = document.getElementById('us-trend-maintain-body');
     if (!tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="6" class="loading-cell">데이터 로딩 중...</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="6" class="loading-cell">${t('data_loading')}</td></tr>`;
 
     try {
         const data = await invokeWithTimeout('get_market_us_trend_maintain', {
@@ -8465,13 +8465,13 @@ async function loadUsTrendMaintainData() {
         console.log('[loadUsTrendMaintainData] data:', data);
 
         if (!data || !data.success || !data.data) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">데이터를 불러올 수 없습니다</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="6" class="empty-cell">${t('data_load_failed')}</td></tr>`;
             return;
         }
 
         const items = data.data || [];
         if (items.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">추세유지 데이터 없음</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="6" class="empty-cell">${t('trend_data_none')}</td></tr>`;
             return;
         }
 
@@ -8495,7 +8495,7 @@ async function loadUsTrendMaintainData() {
 
     } catch (error) {
         console.error('US Trend Maintain error:', error);
-        tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">데이터 로드 실패</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-cell">${t('data_load_error')}</td></tr>`;
     }
 }
 
@@ -8519,7 +8519,7 @@ async function loadMarketEtf() {
 
     restrictionEl.style.display = 'none';
     contentEl.style.display = 'block';
-    contentEl.innerHTML = '<div class="loading-state">ETF 데이터 로딩 중...</div>';
+    contentEl.innerHTML = `<div class="loading-state">${t('etf_data_loading')}</div>`;
 
     try {
         const data = await invokeWithTimeout('get_market_etf', {
@@ -8527,7 +8527,7 @@ async function loadMarketEtf() {
         }, 15000);
 
         if (!data || !data.success) {
-            contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button class="btn btn-sm btn-primary" onclick="loadMarketEtf()">다시 시도</button></div>';
+            contentEl.innerHTML = `<div class="error-state"><p>${t('data_load_failed')}</p><button class="btn btn-sm btn-primary" onclick="loadMarketEtf()">${t('retry')}</button></div>`;
             return;
         }
 
@@ -8535,7 +8535,7 @@ async function loadMarketEtf() {
 
     } catch (error) {
         console.error('Market ETF error:', error);
-        contentEl.innerHTML = `<div class="error-state"><p>${error.message || '알 수 없는 오류'}</p><button class="btn btn-sm btn-primary" onclick="loadMarketEtf()">다시 시도</button></div>`;
+        contentEl.innerHTML = `<div class="error-state"><p>${error.message || t('unknown_error')}</p><button class="btn btn-sm btn-primary" onclick="loadMarketEtf()">${t('retry')}</button></div>`;
     }
 }
 
@@ -8651,7 +8651,7 @@ function renderEtfDashboard(data, container) {
         const el = document.getElementById('etf-theme-cards');
         const themes = mode === 'up' ? (data.themes_up || []) : (data.themes_down || []);
         if (!el) return;
-        if (!themes.length) { el.innerHTML = '<div class="empty-cell">테마 데이터 없음</div>'; return; }
+        if (!themes.length) { el.innerHTML = `<div class="empty-cell">${t('theme_data_none')}</div>`; return; }
 
         el.innerHTML = themes.slice(0, 10).map((t, i) => {
             const isUp = t.avg_change >= 0;
@@ -8695,7 +8695,7 @@ function renderEtfDashboard(data, container) {
         const el = document.getElementById('etf-us-theme-cards');
         const themes = mode === 'up' ? (data.themes_us_up || []) : (data.themes_us_down || []);
         if (!el) return;
-        if (!themes.length) { el.innerHTML = '<div class="empty-cell">해외 테마 데이터 없음</div>'; return; }
+        if (!themes.length) { el.innerHTML = `<div class="empty-cell">${t('overseas_theme_data_none')}</div>`; return; }
 
         el.innerHTML = themes.slice(0, 10).map((t, i) => {
             const isUp = t.avg_change >= 0;
@@ -8807,7 +8807,7 @@ function renderEtfDashboard(data, container) {
                                 </div>
                             </div>
                         `;
-                    }).join('') || '<div class="empty-cell">데이터 없음</div>'}
+                    }).join('') || `<div class="empty-cell">${t('no_data')}</div>`}
                 </div>
             `;
         }
@@ -8898,7 +8898,7 @@ function renderEtfDashboard(data, container) {
                     <button class="etf-more-btn" id="etf-rank-more-btn">더보기 ∨</button>
                 </div>
             ` : '')
-            || '<div class="empty-cell">데이터 없음</div>';
+            || `<div class="empty-cell">${t('no_data')}</div>`;
 
         // 더보기 버튼 이벤트
         const moreBtn = document.getElementById('etf-rank-more-btn');
@@ -9034,7 +9034,7 @@ function renderEtfDashboard(data, container) {
                 <button class="etf-more-btn" id="etf-major-more-btn">더보기 ∨</button>
             </div>
         ` : '')
-        || '<div class="empty-cell">데이터 없음</div>';
+        || `<div class="empty-cell">${t('no_data')}</div>`;
 
         const majorMoreBtn = document.getElementById('etf-major-more-btn');
         if (majorMoreBtn) {
@@ -9091,7 +9091,7 @@ async function loadMarketCrypto() {
 
     restrictionEl.style.display = 'none';
     contentEl.style.display = 'block';
-    contentEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+    contentEl.innerHTML = `<div class="loading-state">${t('data_loading')}</div>`;
 
     try {
         // [BUG FIX 3] 거래소 API 직접 연동
@@ -9101,7 +9101,7 @@ async function loadMarketCrypto() {
         }, 10000);
 
         if (!data || !data.success) {
-            contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button class="btn btn-sm btn-primary" onclick="loadMarketCrypto()">다시 시도</button></div>';
+            contentEl.innerHTML = `<div class="error-state"><p>${t('data_load_failed')}</p><button class="btn btn-sm btn-primary" onclick="loadMarketCrypto()">${t('retry')}</button></div>`;
             return;
         }
 
@@ -9158,8 +9158,8 @@ async function loadMarketCrypto() {
 
     } catch (error) {
         console.error('Market Crypto error:', error);
-        const errMsg = error?.message || error || '알 수 없는 오류';
-        contentEl.innerHTML = `<div class="error-state"><p>${errMsg}</p><button class="btn btn-sm btn-primary" onclick="loadMarketCrypto()">다시 시도</button></div>`;
+        const errMsg = error?.message || error || t('unknown_error');
+        contentEl.innerHTML = `<div class="error-state"><p>${errMsg}</p><button class="btn btn-sm btn-primary" onclick="loadMarketCrypto()">${t('retry')}</button></div>`;
     }
 }
 
@@ -9168,7 +9168,7 @@ function renderCryptoTable(coins) {
     if (!tbody) return;
 
     if (coins.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">데이터 없음</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="5" class="empty-cell">${t('no_data')}</td></tr>`;
         return;
     }
 
@@ -9261,7 +9261,7 @@ async function loadRsData() {
     const tbody = document.getElementById('rs-tbody');
     if (!tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">RS 데이터 로딩 중...</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="9" class="empty-cell">RS 데이터 ${t('loading')}</td></tr>`;
 
     try {
         const result = await invokeWithTimeout('get_analysis_rs', {
@@ -9271,7 +9271,7 @@ async function loadRsData() {
 
         const stocks = result?.stocks || [];
         if (stocks.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">데이터가 없습니다</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="9" class="empty-cell">${t('no_data')}</td></tr>`;
             return;
         }
 
@@ -9306,7 +9306,7 @@ async function loadRsData() {
 
     } catch (error) {
         console.error('RS 데이터 로드 실패:', error);
-        const errMsg = error?.message || error || '알 수 없는 오류';
+        const errMsg = error?.message || error || t('unknown_error');
         tbody.innerHTML = `<tr><td colspan="9" class="empty-cell">${errMsg}</td></tr>`;
     }
 }
@@ -9316,7 +9316,7 @@ async function loadHigh52Data() {
     const tbody = document.getElementById('high52-tbody');
     if (!tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">52주 신고가 데이터 로딩 중...</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-cell">52주 신고가 데이터 ${t('loading')}</td></tr>`;
 
     try {
         const result = await invokeWithTimeout('get_analysis_new_high', {
@@ -9325,7 +9325,7 @@ async function loadHigh52Data() {
 
         const stocks = result?.stocks || [];
         if (stocks.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">데이터가 없습니다</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="7" class="empty-cell">${t('no_data')}</td></tr>`;
             return;
         }
 
@@ -9364,7 +9364,7 @@ async function loadHigh52Data() {
 
     } catch (error) {
         console.error('52주 신고가 데이터 로드 실패:', error);
-        const errMsg = error?.message || error || '알 수 없는 오류';
+        const errMsg = error?.message || error || t('unknown_error');
         tbody.innerHTML = `<tr><td colspan="6" class="empty-cell">${errMsg}</td></tr>`;
     }
 }
@@ -9374,7 +9374,7 @@ async function loadValuationData() {
     const tbody = document.getElementById('valuation-tbody');
     if (!tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">밸류에이션 데이터 로딩 중...</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">밸류에이션 데이터 ${t('loading')}</td></tr>`;
 
     try {
         const result = await invokeWithTimeout('get_analysis_valuation', {
@@ -9384,7 +9384,7 @@ async function loadValuationData() {
 
         const stocks = result?.stocks || [];
         if (stocks.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">데이터가 없습니다</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">${t('no_data')}</td></tr>`;
             return;
         }
 
@@ -9419,7 +9419,7 @@ async function loadValuationData() {
 
     } catch (error) {
         console.error('밸류에이션 데이터 로드 실패:', error);
-        const errMsg = error?.message || error || '알 수 없는 오류';
+        const errMsg = error?.message || error || t('unknown_error');
         tbody.innerHTML = `<tr><td colspan="6" class="empty-cell">${errMsg}</td></tr>`;
     }
 }
@@ -10126,7 +10126,7 @@ function renderHealthCircle(score, gradeClass) {
 // DIV 기반 바 차트 생성
 function renderTrendChart(data) {
     if (!data || data.length === 0) {
-        return '<div class="sd-empty-state">실적 데이터가 없습니다</div>';
+        return `<div class="sd-empty-state">실적 ${t('no_data')}</div>`;
     }
 
     // 최대값 찾기
@@ -10168,7 +10168,7 @@ function renderTrendChart(data) {
 // SVG 도넛 차트 생성 (세그먼트 매출)
 function renderDonutChart(segments) {
     if (!segments || segments.length === 0) {
-        return '<div class="sd-empty-state">세그먼트 데이터가 없습니다</div>';
+        return `<div class="sd-empty-state">세그먼트 ${t('no_data')}</div>`;
     }
 
     const colors = ['#7C3AED', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
@@ -10231,7 +10231,7 @@ async function openStockDetail(symbol, exchange) {
     const codeEl = document.getElementById('detail-stock-code');
     const marketEl = document.getElementById('detail-stock-market');
 
-    if (nameEl) nameEl.textContent = '로딩 중...';
+    if (nameEl) nameEl.textContent = t('loading');
     if (codeEl) codeEl.textContent = symbol || '';
     if (marketEl) marketEl.textContent = exchange?.toUpperCase() || '';
 
@@ -10406,7 +10406,7 @@ async function openEtfDetail(code) {
     const codeEl = document.getElementById('detail-stock-code');
     const marketEl = document.getElementById('detail-stock-market');
 
-    if (nameEl) nameEl.textContent = '로딩 중...';
+    if (nameEl) nameEl.textContent = t('loading');
     if (codeEl) codeEl.textContent = code || '';
     if (marketEl) marketEl.textContent = 'ETF';
 
@@ -10598,7 +10598,7 @@ async function loadEtfReturnsTab(code) {
     }
     if (!container) return;
 
-    container.innerHTML = '<div class="loading-indicator">로딩 중...</div>';
+    container.innerHTML = `<div class="loading-indicator">${t('loading')}</div>`;
 
     try {
         const response = await invokeWithTimeout('get_etf_performance', {
@@ -10682,7 +10682,7 @@ async function loadEtfDividendTab(code) {
     }
     if (!container) return;
 
-    container.innerHTML = '<div class="loading-indicator">로딩 중...</div>';
+    container.innerHTML = `<div class="loading-indicator">${t('loading')}</div>`;
 
     try {
         const response = await invokeWithTimeout('get_etf_performance', {
@@ -10720,7 +10720,7 @@ async function loadEtfDividendTab(code) {
             } else {
                 dividendHtml = `
                     <div class="empty-state">
-                        <p>분배금 이력이 없거나 데이터를 불러올 수 없습니다.</p>
+                        <p>분배금 이력이 없거나 ${t('data_load_failed')}.</p>
                     </div>
                 `;
             }
@@ -11331,7 +11331,7 @@ async function loadAiRecommendations(market) {
         }, 60000);  // US Finviz 스크래핑 대응 (60초)
 
         if (!response || !response.categories) {
-            container.innerHTML = '<div class="ai-empty">추천 데이터를 불러올 수 없습니다</div>';
+            container.innerHTML = `<div class="ai-empty">추천 ${t('data_load_failed')}</div>`;
             return;
         }
 
@@ -11405,7 +11405,7 @@ async function loadAiRecommendations(market) {
 
     } catch (error) {
         console.error('AI recommendations error:', error);
-        container.innerHTML = '<div class="ai-empty">추천 데이터를 불러올 수 없습니다</div>';
+        container.innerHTML = `<div class="ai-empty">추천 ${t('data_load_failed')}</div>`;
     }
 }
 
@@ -11681,7 +11681,7 @@ async function loadFinancialSummaryKr(code) {
                             <span class="sd-trend-title">EPS 전망 추이</span>
                         </div>
                         <div id="sd-eps-forecast-content" class="sd-eps-forecast-empty">
-                            <div class="sd-empty-card">데이터 없음</div>
+                            <div class="sd-empty-card">${t('no_data')}</div>
                         </div>
                     </div>
                 </div>
@@ -11949,7 +11949,7 @@ function renderEpsForecastChartFallback(container, annualData) {
     }
 
     if (forecastData.length === 0) {
-        container.innerHTML = '<div class="sd-empty-card">전망치 데이터 없음</div>';
+        container.innerHTML = `<div class="sd-empty-card">${t('forecast_data_none')}</div>`;
         return;
     }
 
@@ -12027,7 +12027,7 @@ function renderStockEasyChart(canvasId, chartData, colorSet, chartType, currency
 
     if (!values || values.length === 0) {
         console.warn('[renderStockEasyChart] 값 없음:', canvasId);
-        canvas.parentElement.innerHTML = '<div class="sd-trend-empty">데이터 없음</div>';
+        canvas.parentElement.innerHTML = `<div class="sd-trend-empty">${t('no_data')}</div>`;
         return;
     }
 
@@ -12533,7 +12533,7 @@ function renderAllFinancialChartsUs(financials) {
     } else {
         const container = document.getElementById('us-earnings-surprise-content');
         if (container) {
-            container.innerHTML = '<div class="sd-empty-card" style="padding:40px;text-align:center;color:var(--text-muted);">어닝서프라이즈 데이터 없음</div>';
+            container.innerHTML = `<div class="sd-empty-card" style="padding:40px;text-align:center;color:var(--text-muted);">${t('earnings_data_none')}</div>`;
         }
     }
 }
@@ -12813,7 +12813,7 @@ async function loadDisclosureKr(code) {
         newsSubTabCache.disclosure = items;
 
         if (items.length === 0) {
-            container.innerHTML = '<div class="sd-empty-state">공시 데이터가 없습니다</div>';
+            container.innerHTML = `<div class="sd-empty-state">공시 ${t('no_data')}</div>`;
             return;
         }
 
@@ -12967,7 +12967,7 @@ function renderGroupedNewsItems(grouped, type) {
         html += `</div></div>`;
     }
 
-    return html || '<div class="sd-empty-state">데이터가 없습니다</div>';
+    return html || `<div class="sd-empty-state">${t('no_data')}</div>`;
 }
 
 // 날짜 표시 포맷 (1월 30일)
@@ -13138,7 +13138,7 @@ async function loadCompanyInfo(code) {
                     </div>
                 `;
             } else {
-                comparablesHtml = '<div class="sd-card"><div class="sd-empty-state">동종업계 비교 데이터가 없습니다</div></div>';
+                comparablesHtml = `<div class="sd-card"><div class="sd-empty-state">동종업계 비교 ${t('no_data')}</div></div>`;
             }
 
             companyContent.innerHTML = companyInfoHtml + segmentHtml + comparablesHtml;
@@ -13194,7 +13194,7 @@ async function loadCompanyInfoKr(code) {
 
             // 2. 기업 개요 (FnGuide bizSummary)
             const formatDescription = (text) => {
-                if (!text) return '<p style="color:var(--text-muted);">기업 개요 데이터가 없습니다.</p>';
+                if (!text) return `<p style="color:var(--text-muted);">기업 개요 ${t('no_data')}.</p>`;
                 return text.split('\n\n').map(p => `<p style="margin-bottom:12px;">${p}</p>`).join('');
             };
 
@@ -13576,7 +13576,7 @@ async function loadCompanyInfoUs(ticker) {
 
             // 기업 개요 포맷팅 (번호별 문단 분리)
             const formatDescription = (text) => {
-                if (!text) return '<p style="color:var(--text-muted);">기업 개요 데이터가 없습니다.</p>';
+                if (!text) return `<p style="color:var(--text-muted);">기업 개요 ${t('no_data')}.</p>`;
                 // 번호로 시작하는 라인을 문단으로 분리
                 const paragraphs = text.split(/\n+/).filter(p => p.trim());
                 return paragraphs.map(p => `<p style="margin-bottom:12px;">${p}</p>`).join('');
@@ -13784,7 +13784,7 @@ async function loadFinancialTabUs(ticker) {
                             <span class="expand-arrow" style="color:var(--text-muted);font-size:10px;">▼</span>
                         </div>
                         <div class="indicator-detail" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.05);">
-                            ${detailItems || '<div style="color:var(--text-muted);font-size:12px;">데이터 없음</div>'}
+                            ${detailItems || `<div style="color:var(--text-muted);font-size:12px;">${t('no_data')}</div>`}
                         </div>
                     </div>
                 `;
@@ -13809,7 +13809,7 @@ async function loadFinancialTabUs(ticker) {
 
         const renderContent = (data, indicators) => {
             if (!data || !data.periods || data.periods.length === 0) {
-                return '<div class="sd-empty-state">재무제표 데이터가 없습니다</div>';
+                return `<div class="sd-empty-state">재무제표 ${t('no_data')}</div>`;
             }
 
             const health = data.health || {};
@@ -14217,7 +14217,7 @@ async function loadFinancialTabKr(code) {
                             <span class="expand-arrow" style="color:var(--text-muted);font-size:10px;">▼</span>
                         </div>
                         <div class="indicator-detail" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.05);">
-                            ${detailItems || '<div style="color:var(--text-muted);font-size:12px;">데이터 없음</div>'}
+                            ${detailItems || `<div style="color:var(--text-muted);font-size:12px;">${t('no_data')}</div>`}
                         </div>
                     </div>
                 `;
@@ -14242,7 +14242,7 @@ async function loadFinancialTabKr(code) {
 
         const renderContent = (data, indicators) => {
             if (!data || !data.periods || data.periods.length === 0) {
-                return '<div class="sd-empty-state">재무제표 데이터가 없습니다</div>';
+                return `<div class="sd-empty-state">재무제표 ${t('no_data')}</div>`;
             }
 
             const health = data.health || {};
@@ -16014,7 +16014,7 @@ document.getElementById('btn-mr-run-backtest')?.addEventListener('click', async 
         });
 
         if (!preloadResult.success) {
-            throw new Error(preloadResult.message || '시세 데이터 로드 실패');
+            throw new Error(preloadResult.message || `시세 ${t('data_load_error')}`);
         }
 
         console.log('[MR 백테스트] 프리로드 완료:', preloadResult.candles, '봉,', preloadResult.time_sec, '초');
@@ -16227,7 +16227,7 @@ function createBacktestCandleChart(containerId, candles, trades) {
 
     // 방어: candles가 없거나 빈 배열이면 스킵
     if (!candles || !Array.isArray(candles) || candles.length === 0) {
-        container.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:40px;">캔들 데이터가 없습니다</div>';
+        container.innerHTML = `<div style="color:var(--text-muted); text-align:center; padding:40px;">캔들 ${t('no_data')}</div>`;
         return null;
     }
 
@@ -17969,7 +17969,7 @@ document.getElementById('btn-trend-run-backtest')?.addEventListener('click', asy
         });
 
         if (!preloadResult.success) {
-            throw new Error(preloadResult.message || '시세 데이터 로드 실패');
+            throw new Error(preloadResult.message || `시세 ${t('data_load_error')}`);
         }
 
         console.log('[Trend 백테스트] 프리로드 완료:', preloadResult.candles, '봉,', preloadResult.time_sec, '초');
@@ -18077,7 +18077,7 @@ function displayTrendBacktestResult(result) {
     if (!result.success) {
         if (errorEl) {
             errorEl.style.display = 'block';
-            errorEl.innerHTML = `<span style="color:var(--danger);">⚠️ ${result.error || result.message || '알 수 없는 오류'}</span>`;
+            errorEl.innerHTML = `<span style="color:var(--danger);">⚠️ ${result.error || result.message || t('unknown_error')}</span>`;
         }
         resultEl.style.display = 'none';
         return;
@@ -20051,7 +20051,7 @@ async function searchScreener() {
     } catch (err) {
         console.error('Screener search error:', err);
         if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">오류 발생: ${err.message || err}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">${t('error_occurred')}: ${err.message || err}</td></tr>`;
         }
     }
 }

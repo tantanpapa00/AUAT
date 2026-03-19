@@ -1716,6 +1716,23 @@ const LANG = {
     'registration_failed': '등록 실패',
     'search_failed': '검색 실패',
     'cancel': '취소',
+    // 섹션 3-4 추가 키
+    'sector_data_none': '섹터 데이터 없음',
+    'unknown_error': '알 수 없는 오류',
+    'retry': '다시 시도',
+    'data_load_failed': '데이터를 불러올 수 없습니다',
+    'no_data': '데이터 없음',
+    'loading': '로딩 중...',
+    'trend_data_none': '추세유지 데이터 없음',
+    'detail_data_none': '상세 데이터 없음',
+    'theme_data_none': '테마 데이터 없음',
+    'forecast_data_none': '전망치 데이터 없음',
+    'earnings_data_none': '어닝서프라이즈 데이터 없음',
+    'data_fetch_failed': '데이터 조회 실패',
+    'error_occurred': '오류 발생',
+    'data_load_error': '데이터 로드 실패',
+    'no_rising_sector': '상승 섹터가 없습니다',
+    'no_falling_sector': '하락 섹터가 없습니다',
   },
   EN: {
     // 로그인/회원가입
@@ -3434,6 +3451,23 @@ const LANG = {
     'registration_failed': 'Registration failed',
     'search_failed': 'Search failed',
     'cancel': 'Cancel',
+    // Section 3-4 additional keys
+    'sector_data_none': 'No sector data',
+    'unknown_error': 'Unknown error',
+    'retry': 'Retry',
+    'data_load_failed': 'Failed to load data',
+    'no_data': 'No data',
+    'loading': 'Loading...',
+    'trend_data_none': 'No trend data',
+    'detail_data_none': 'No detail data',
+    'theme_data_none': 'No theme data',
+    'forecast_data_none': 'No forecast data',
+    'earnings_data_none': 'No earnings surprise data',
+    'data_fetch_failed': 'Data fetch failed',
+    'error_occurred': 'Error occurred',
+    'data_load_error': 'Data load failed',
+    'no_rising_sector': 'No rising sectors',
+    'no_falling_sector': 'No falling sectors',
   }
 };
 
