@@ -1632,20 +1632,20 @@
                                     <div class="mr-field">
                                         <label data-i18n="signal_tf">시그널 TF</label>
                                         <select id="mr-signal-tf" class="form-select">
-                                            <option value="15m">15분</option>
-                                            <option value="30m" selected>30분</option>
-                                            <option value="1h">1시간</option>
-                                            <option value="4h">4시간</option>
-                                            <option value="1D">일봉</option>
+                                            <option value="15m" data-i18n="timeframe_15m">15분</option>
+                                            <option value="30m" selected data-i18n="timeframe_30m">30분</option>
+                                            <option value="1h" data-i18n="timeframe_1h">1시간</option>
+                                            <option value="4h" data-i18n="timeframe_4h">4시간</option>
+                                            <option value="1D" data-i18n="timeframe_daily">일봉</option>
                                         </select>
                                         <span class="mr-help" data-i18n="signal_tf_help">오실레이터 신호를 계산할 타임프레임</span>
                                     </div>
                                     <div class="mr-field">
                                         <label data-i18n="htf_regime">HTF (국면 판별)</label>
                                         <select id="mr-htf" class="form-select">
-                                            <option value="4h">4시간</option>
-                                            <option value="1D" selected>일봉</option>
-                                            <option value="1W">주봉</option>
+                                            <option value="4h" data-i18n="timeframe_4h">4시간</option>
+                                            <option value="1D" selected data-i18n="timeframe_daily">일봉</option>
+                                            <option value="1W" data-i18n="timeframe_weekly">주봉</option>
                                         </select>
                                         <span class="mr-help" data-i18n="htf_help">VWMA50/200, Supertrend 등 국면 지표 계산용</span>
                                     </div>
@@ -1982,15 +1982,15 @@
                             <div class="mr-accordion-body" style="display: none;">
                                 <div class="mr-row">
                                     <div class="mr-field">
-                                        <label>백테스트 기간 (일)</label>
+                                        <label data-i18n="backtest_period">백테스트 기간 (일)</label>
                                         <input type="number" id="mr-bt-days" class="form-input" value="365" min="30" max="1000">
                                     </div>
                                     <div class="mr-field">
-                                        <label>초기 자본</label>
+                                        <label data-i18n="initial_capital">초기 자본</label>
                                         <input type="number" id="mr-bt-capital" class="form-input" value="10000000">
                                     </div>
                                 </div>
-                                <button class="btn btn-primary" id="btn-mr-run-backtest">백테스트 실행</button>
+                                <button class="btn btn-primary" id="btn-mr-run-backtest" data-i18n="run_backtest_btn">백테스트 실행</button>
 
                                 <!-- 로딩 표시 -->
                                 <div id="mr-backtest-loading" style="display:none; text-align:center; padding:40px;">
@@ -2092,9 +2092,9 @@
 
                         <!-- 하단 액션 버튼 -->
                         <div class="mr-actions">
-                            <button class="btn btn-secondary" id="btn-mr-backtest-quick">백테스트</button>
-                            <button class="btn btn-primary" id="btn-mr-save">저장</button>
-                            <button class="btn btn-danger" id="btn-mr-start-strategy">전략 시작</button>
+                            <button class="btn btn-secondary" id="btn-mr-backtest-quick" data-i18n="backtesting">백테스트</button>
+                            <button class="btn btn-primary" id="btn-mr-save" data-i18n="save">저장</button>
+                            <button class="btn btn-danger" id="btn-mr-start-strategy" data-i18n="start_strategy">전략 시작</button>
                         </div>
                     </section>
 
@@ -2154,33 +2154,33 @@
                                     <div class="mr-field">
                                         <label>기준 타임프레임</label>
                                         <select id="trend-signal-tf" class="form-select">
-                                            <option value="15m">15분</option>
-                                            <option value="30m">30분</option>
-                                            <option value="1h">1시간</option>
-                                            <option value="4h">4시간</option>
-                                            <option value="12h">12시간</option>
-                                            <option value="1D" selected>1일</option>
+                                            <option value="15m" data-i18n="timeframe_15m">15분</option>
+                                            <option value="30m" data-i18n="timeframe_30m">30분</option>
+                                            <option value="1h" data-i18n="timeframe_1h">1시간</option>
+                                            <option value="4h" data-i18n="timeframe_4h">4시간</option>
+                                            <option value="12h" data-i18n="timeframe_12h">12시간</option>
+                                            <option value="1D" selected data-i18n="timeframe_1d">1일</option>
                                         </select>
                                         <span class="mr-help">매수·분할매도·손절·TP1 판단 기준</span>
                                     </div>
                                     <div class="mr-field">
                                         <label>매도기준 타임프레임</label>
                                         <select id="trend-exit-tf" class="form-select">
-                                            <option value="15m">15분</option>
-                                            <option value="30m">30분</option>
-                                            <option value="1h">1시간</option>
-                                            <option value="4h">4시간</option>
-                                            <option value="12h">12시간</option>
-                                            <option value="1D">1일</option>
-                                            <option value="1W" selected>1주</option>
+                                            <option value="15m" data-i18n="timeframe_15m">15분</option>
+                                            <option value="30m" data-i18n="timeframe_30m">30분</option>
+                                            <option value="1h" data-i18n="timeframe_1h">1시간</option>
+                                            <option value="4h" data-i18n="timeframe_4h">4시간</option>
+                                            <option value="12h" data-i18n="timeframe_12h">12시간</option>
+                                            <option value="1D" data-i18n="timeframe_1d">1일</option>
+                                            <option value="1W" selected data-i18n="timeframe_1w">1주</option>
                                         </select>
                                         <span class="mr-help">추세전환 전량매도 전용</span>
                                     </div>
                                     <div class="mr-field">
                                         <label>상위기준 타임프레임</label>
                                         <select id="trend-htf-tf" class="form-select">
-                                            <option value="1D">1일</option>
-                                            <option value="1W" selected>1주</option>
+                                            <option value="1D" data-i18n="timeframe_1d">1일</option>
+                                            <option value="1W" selected data-i18n="timeframe_1w">1주</option>
                                         </select>
                                         <span class="mr-help">HTF VWMA 필터 전용</span>
                                     </div>
@@ -2367,15 +2367,15 @@
                             <div class="mr-accordion-body">
                                 <div class="mr-row">
                                     <div class="mr-field">
-                                        <label>백테스트 기간 (일)</label>
+                                        <label data-i18n="backtest_period">백테스트 기간 (일)</label>
                                         <input type="number" id="trend-bt-days" class="form-input" value="365" min="30" max="1000">
                                     </div>
                                     <div class="mr-field">
-                                        <label>초기 자본</label>
+                                        <label data-i18n="initial_capital">초기 자본</label>
                                         <input type="number" id="trend-bt-capital" class="form-input" value="10000000">
                                     </div>
                                 </div>
-                                <button class="btn btn-primary" id="btn-trend-run-backtest">백테스트 실행</button>
+                                <button class="btn btn-primary" id="btn-trend-run-backtest" data-i18n="run_backtest_btn">백테스트 실행</button>
 
                                 <!-- 로딩 표시 -->
                                 <div id="trend-backtest-loading" style="display:none; text-align:center; padding:40px;">
@@ -2477,9 +2477,9 @@
 
                         <!-- 하단 액션 버튼 -->
                         <div class="mr-actions" style="margin-top:16px;">
-                            <button class="btn btn-secondary" id="btn-trend-backtest-quick">백테스트</button>
-                            <button class="btn btn-primary" id="btn-trend-save">저장</button>
-                            <button class="btn btn-danger" id="btn-trend-start-strategy">전략 시작</button>
+                            <button class="btn btn-secondary" id="btn-trend-backtest-quick" data-i18n="backtesting">백테스트</button>
+                            <button class="btn btn-primary" id="btn-trend-save" data-i18n="save">저장</button>
+                            <button class="btn btn-danger" id="btn-trend-start-strategy" data-i18n="start_strategy">전략 시작</button>
                         </div>
                     </section>
 
@@ -3480,19 +3480,20 @@
                     <div id="bbooster-ai-content">
                         <div class="ai-header">
                             <h2>🤖 BBooster AI</h2>
-                            <p class="ai-subtitle">AI가 선별한 투자 전략별 추천 종목</p>
+                            <p class="ai-subtitle" data-i18n="ai_subtitle">AI가 선별한 투자 전략별 추천 종목</p>
                             <span class="ai-updated" id="ai-updated-time">마지막 업데이트: -</span>
                         </div>
 
                         <!-- AI 채팅 입력 영역 -->
                         <div class="ai-chat-section">
                             <div class="ai-chat-input-box">
-                                <div class="ai-chat-label">분석할 종목명을 입력하세요</div>
+                                <div class="ai-chat-label" data-i18n="ai_input_title">분석할 종목명을 입력하세요</div>
                                 <div class="ai-chat-row">
                                     <input type="text" id="ai-quick-input" class="ai-quick-input"
                                            placeholder="종목명 또는 종목코드를 입력하세요 (예: 삼성전자, 005930, AAPL)"
+                                           data-i18n="ai_input_placeholder" data-i18n-attr="placeholder"
                                            autocomplete="one-time-code" name="ai-chat-input-unique-bbooster">
-                                    <button class="ai-send-btn" id="ai-send-btn">전송</button>
+                                    <button class="ai-send-btn" id="ai-send-btn" data-i18n="send">전송</button>
                                 </div>
                                 <div class="ai-suggest-chips">
                                     <!-- KR 모드 전용 -->
@@ -3503,7 +3504,7 @@
                                     <button class="ai-chip us-only" data-question="NVDA comprehensive analysis report" style="display:none">NVDA Analysis Report</button>
                                     <button class="ai-chip us-only" data-question="TSLA comprehensive analysis report" style="display:none">TSLA Analysis Report</button>
                                     <!-- 공통 -->
-                                    <button class="ai-chip" data-question="NVDA 종합 분석 보고서">NVDA 종합 분석 보고서</button>
+                                    <button class="ai-chip" data-question="NVDA 종합 분석 보고서" data-i18n="nvda_report">NVDA 종합 분석 보고서</button>
                                 </div>
                             </div>
                             <div id="ai-response-area" class="ai-response-area" style="display:none;"></div>
@@ -3512,7 +3513,7 @@
                         <!-- 시장 선택 탭 -->
                         <div class="ai-market-tabs">
                             <button class="ai-tab kr-only active" data-market="kr">🇰🇷 국내주식</button>
-                            <button class="ai-tab" data-market="us">🇺🇸 해외주식</button>
+                            <button class="ai-tab" data-market="us" data-i18n="us_foreign_tab">🇺🇸 해외주식</button>
                             <button class="ai-tab kr-only" data-market="etf">📦 ETF</button>
                         </div>
 

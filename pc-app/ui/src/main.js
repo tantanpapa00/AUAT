@@ -7378,12 +7378,12 @@ async function loadMarketUs() {
                 <!-- 좌측: 시장신호 + 신호등 -->
                 <div class="se-header-left">
                     <div class="se-signal-title" id="us-signal-toggle">
-                        <span>시장신호</span>
+                        <span>${t('market_signal')}</span>
                         <span class="toggle-arrow" id="us-signal-arrow">∧</span>
                     </div>
                     <div class="se-signal-lights">
                         <div class="se-signal-group">
-                            <span class="se-signal-label">단기</span>
+                            <span class="se-signal-label">${t('short_term')}</span>
                             <div class="se-capsule" id="us-short-term-capsule">
                                 <span class="se-dot" data-color="green"></span>
                                 <span class="se-dot" data-color="yellow"></span>
@@ -7391,7 +7391,7 @@ async function loadMarketUs() {
                             </div>
                         </div>
                         <div class="se-signal-group">
-                            <span class="se-signal-label">장기</span>
+                            <span class="se-signal-label">${t('long_term')}</span>
                             <div class="se-capsule" id="us-long-term-capsule">
                                 <span class="se-dot" data-color="green"></span>
                                 <span class="se-dot" data-color="yellow"></span>
@@ -7402,7 +7402,7 @@ async function loadMarketUs() {
                 </div>
                 <!-- 중앙: 전체시장 상승/하락 -->
                 <div style="text-align:center">
-                    <div style="font-size:0.7em;color:var(--text-muted);margin-bottom:2px">전체 시장</div>
+                    <div style="font-size:0.7em;color:var(--text-muted);margin-bottom:2px">${t('entire_market')}</div>
                     <div style="font-size:0.85em">
                         <span style="color:#22c55e">▲${data.rising_stocks || 0}</span>
                         <span style="color:var(--text-muted);margin:0 2px">·</span>
@@ -7464,25 +7464,25 @@ async function loadMarketUs() {
             <!-- 3행: Fear & Greed + VIX -->
             <div class="se-fgvix-section">
                 <div class="se-fg-card card">
-                    <h3>탐욕/공포 지수</h3>
+                    <h3>${t('fear_greed')}</h3>
                     <div class="se-fg-content">
                         <div class="se-fg-value" style="color: ${getFgColor(fearGreed.value)}">${fearGreed.value || 50}</div>
-                        <div class="se-fg-label">${fearGreed.label || '중립'}</div>
+                        <div class="se-fg-label">${fearGreed.label || t('neutral')}</div>
                         <div class="se-fg-gauge">
                             <div class="se-fg-gauge-track">
                                 <div class="se-fg-gauge-fill" style="width: ${fearGreed.value || 50}%; background: linear-gradient(90deg, #ef4444 0%, #fde047 50%, #22c55e 100%);"></div>
                                 <div class="se-fg-gauge-pointer" style="left: ${fearGreed.value || 50}%"></div>
                             </div>
                             <div class="se-fg-gauge-labels">
-                                <span>극심한 공포</span>
-                                <span>중립</span>
-                                <span>극심한 탐욕</span>
+                                <span>${t('extreme_fear')}</span>
+                                <span>${t('neutral')}</span>
+                                <span>${t('extreme_greed')}</span>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="se-vix-card card">
-                    <h3>VIX (변동성 지수)</h3>
+                    <h3>${t('vix_index')}</h3>
                     <div class="se-vix-content">
                         <div class="se-vix-value" style="color: ${getVixColor(vix.value)}">${(vix.value || 0).toFixed(2)}</div>
                         <div class="se-vix-change ${(vix.change_pct || 0) >= 0 ? 'up' : 'down'}">
@@ -7498,7 +7498,7 @@ async function loadMarketUs() {
             <!-- 4행: 다우존스 + 러셀2000 -->
             <div class="se-extra-indices card">
                 <div class="se-extra-index">
-                    <span class="se-extra-name">다우존스</span>
+                    <span class="se-extra-name">${t('dow_jones')}</span>
                     <span class="se-extra-value">${dow.value?.toLocaleString(undefined, {maximumFractionDigits: 2}) || '-'}</span>
                     <span class="se-extra-pct ${(dow.change_pct || 0) >= 0 ? 'up' : 'down'}">
                         ${(dow.change_pct || 0) >= 0 ? '+' : ''}${(dow.change_pct || 0).toFixed(2)}%
@@ -7506,7 +7506,7 @@ async function loadMarketUs() {
                 </div>
                 <div class="se-extra-divider">|</div>
                 <div class="se-extra-index">
-                    <span class="se-extra-name">러셀2000</span>
+                    <span class="se-extra-name">${t('russell2000')}</span>
                     <span class="se-extra-value">${russell.value?.toLocaleString(undefined, {maximumFractionDigits: 2}) || '-'}</span>
                     <span class="se-extra-pct ${(russell.change_pct || 0) >= 0 ? 'up' : 'down'}">
                         ${(russell.change_pct || 0) >= 0 ? '+' : ''}${(russell.change_pct || 0).toFixed(2)}%
@@ -8407,11 +8407,11 @@ function getVixColor(val) {
 
 // VIX 라벨
 function getVixLabel(val) {
-    if (val < 15) return '매우 안정';
-    if (val < 20) return '안정';
-    if (val < 25) return '보통';
-    if (val < 30) return '불안';
-    return '극도 불안';
+    if (val < 15) return t('very_stable');
+    if (val < 20) return t('stable');
+    if (val < 25) return t('normal');
+    if (val < 30) return t('anxious');
+    return t('extreme_anxious');
 }
 
 // 브레드스 값 포맷팅 (-1이면 "계산 중")
@@ -11384,7 +11384,7 @@ async function loadAiRecommendations(market) {
                         </tr>
                     `;
                 }).join('')
-                : '<tr><td colspan="4" class="ai-empty-cell">종목 없음</td></tr>';
+                : `<tr><td colspan="4" class="ai-empty-cell">${t('no_stocks')}</td></tr>`;
 
             return `
                 <div class="ai-category-card">
@@ -11395,10 +11395,10 @@ async function loadAiRecommendations(market) {
                     <table class="ai-stock-table">
                         <thead>
                             <tr>
-                                <th>종목명</th>
-                                <th>현재가</th>
-                                <th>등락률</th>
-                                <th>시그널</th>
+                                <th>${t('stock_name')}</th>
+                                <th>${t('current_price')}</th>
+                                <th>${t('change_rate')}</th>
+                                <th>${t('signal_label')}</th>
                             </tr>
                         </thead>
                         <tbody>
