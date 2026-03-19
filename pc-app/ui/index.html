@@ -2775,15 +2775,15 @@
 
                     <!-- 테마 설정 섹션 -->
                     <section class="card theme-setting-section">
-                        <h2>🎨 화면 설정</h2>
+                        <h2>🎨 <span data-i18n="screen_settings">화면 설정</span></h2>
                         <div class="theme-toggle-row">
-                            <span>테마</span>
+                            <span data-i18n="theme">테마</span>
                             <div class="theme-toggle">
                                 <button class="theme-btn active" data-theme="dark" id="theme-btn-dark">
-                                    🌙 다크
+                                    🌙 <span data-i18n="dark">다크</span>
                                 </button>
                                 <button class="theme-btn" data-theme="light" id="theme-btn-light">
-                                    ☀️ 라이트
+                                    ☀️ <span data-i18n="light">라이트</span>
                                 </button>
                             </div>
                         </div>
@@ -2791,42 +2791,42 @@
 
                     <!-- 요금제 정보 -->
                     <section class="card pricing-info-card">
-                        <h2>현재 요금제</h2>
+                        <h2 data-i18n="current_plan">현재 요금제</h2>
                         <div class="current-plan" id="current-plan-info">
-                            <div class="plan-badge free">무료</div>
-                            <p class="plan-description">기본 기능을 무료로 이용하세요.</p>
+                            <div class="plan-badge free" data-i18n="plan_free">무료</div>
+                            <p class="plan-description" data-i18n="all_features">기본 기능을 무료로 이용하세요.</p>
                         </div>
 
-                        <h3>요금제 안내</h3>
+                        <h3 data-i18n="plan_info">요금제 안내</h3>
                         <div class="pricing-cards">
                             <div class="pricing-mini-card">
-                                <h4>무료</h4>
-                                <div class="price">₩0/월</div>
+                                <h4 data-i18n="plan_free">무료</h4>
+                                <div class="price" data-i18n="price_free">₩0/월</div>
                                 <ul>
-                                    <li>TradingView 연동 1개</li>
-                                    <li>기본 대시보드</li>
+                                    <li><span data-i18n="tv_connect">TradingView 연동</span> 1</li>
+                                    <li data-i18n="basic_dashboard">기본 대시보드</li>
                                 </ul>
                             </div>
                             <div class="pricing-mini-card popular">
-                                <span class="badge">추천</span>
-                                <h4>허브</h4>
-                                <div class="price">₩29,900/월</div>
+                                <span class="badge" data-i18n="plan_recommended">추천</span>
+                                <h4 data-i18n="plan_hub">허브</h4>
+                                <div class="price" data-i18n="price_hub">₩29,900/월</div>
                                 <ul>
-                                    <li>TV 연동 5개</li>
-                                    <li>종목분석</li>
-                                    <li>알림 기능</li>
+                                    <li><span data-i18n="tv_connect">TV 연동</span> 5</li>
+                                    <li data-i18n="stock_analysis">종목분석</li>
+                                    <li data-i18n="alarm">알림 기능</li>
                                 </ul>
-                                <button class="btn btn-primary btn-sm" id="btn-upgrade-hub">구독하기</button>
+                                <button class="btn btn-primary btn-sm" id="btn-upgrade-hub" data-i18n="subscribe">구독하기</button>
                             </div>
                             <div class="pricing-mini-card premium">
-                                <h4>프리미엄</h4>
-                                <div class="price">₩59,900/월</div>
+                                <h4 data-i18n="plan_premium">프리미엄</h4>
+                                <div class="price" data-i18n="price_premium">₩59,900/월</div>
                                 <ul>
-                                    <li>무제한 연동</li>
-                                    <li>AI 전략</li>
-                                    <li>백테스팅</li>
+                                    <li data-i18n="unlimited_connect">무제한 연동</li>
+                                    <li data-i18n="ai_strategy">AI 전략</li>
+                                    <li data-i18n="backtesting">백테스팅</li>
                                 </ul>
-                                <button class="btn btn-primary btn-sm" id="btn-upgrade-premium">구독하기</button>
+                                <button class="btn btn-primary btn-sm" id="btn-upgrade-premium" data-i18n="subscribe">구독하기</button>
                             </div>
                         </div>
                     </section>
