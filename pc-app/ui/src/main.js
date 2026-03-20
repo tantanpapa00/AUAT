@@ -18765,139 +18765,139 @@ const FILTER_DEFINITIONS = {
         label: 'RSI',
         type: 'indicator',
         params: [
-            { key: 'period', label: '기간', default: 14, unit: '일' }
+            { key: 'period', label: 'Period', default: 14, unit: 'd' }
         ],
         presets: [
-            { min: 70, max: null, label: '과매수 (70+)' },
-            { min: null, max: 30, label: '과매도 (30-)' },
-            { min: 30, max: 70, label: '중립 (30~70)' }
+            { min: 70, max: null, label: 'Overbought (70+)' },
+            { min: null, max: 30, label: 'Oversold (30-)' },
+            { min: 30, max: 70, label: 'Neutral (30~70)' }
         ]
     },
     sma: {
-        label: '이동평균선',
+        label: t('filter_ma'),
         type: 'sma',
         multiple: true,
         maTypes: ['SMA', 'EMA', 'WMA'],
         conditions: [
-            { value: 'above', label: '현재가가 위' },
-            { value: 'below', label: '현재가가 아래' },
-            { value: 'near', label: '근접 (±2%)' }
+            { value: 'above', label: 'Price Above' },
+            { value: 'below', label: 'Price Below' },
+            { value: 'near', label: 'Near (±2%)' }
         ]
     },
     sma_cross: {
-        label: '이평선교차',
+        label: t('filter_ma_cross'),
         type: 'sma_cross',
         maTypes: ['SMA', 'EMA', 'WMA'],
         conditions: [
-            { value: 'golden', label: '골든크로스 (단기 > 장기)' },
-            { value: 'dead', label: '데드크로스 (단기 < 장기)' }
+            { value: 'golden', label: 'Golden Cross' },
+            { value: 'dead', label: 'Death Cross' }
         ]
     },
     bollinger: {
-        label: '볼린저밴드',
+        label: t('filter_bollinger'),
         type: 'indicator',
         params: [
-            { key: 'period', label: '기간', default: 20, unit: '일' },
-            { key: 'mult', label: '승수', default: 2, unit: 'σ' }
+            { key: 'period', label: 'Period', default: 20, unit: 'd' },
+            { key: 'mult', label: 'Mult', default: 2, unit: 'σ' }
         ],
         presets: [
-            { value: 'upper', label: '상단 돌파' },
-            { value: 'lower', label: '하단 돌파' },
-            { value: 'middle', label: '중심선 부근' }
+            { value: 'upper', label: 'Upper Break' },
+            { value: 'lower', label: 'Lower Break' },
+            { value: 'middle', label: 'Near Middle' }
         ]
     },
     macd: {
         label: 'MACD',
         type: 'indicator',
         params: [
-            { key: 'fast', label: '빠른선', default: 12, unit: '일' },
-            { key: 'slow', label: '느린선', default: 26, unit: '일' },
-            { key: 'signal', label: '시그널', default: 9, unit: '일' }
+            { key: 'fast', label: 'Fast', default: 12, unit: 'd' },
+            { key: 'slow', label: 'Slow', default: 26, unit: 'd' },
+            { key: 'signal', label: 'Signal', default: 9, unit: 'd' }
         ],
         presets: [
-            { value: 'buy', label: '매수신호 (MACD > Signal)' },
-            { value: 'sell', label: '매도신호 (MACD < Signal)' },
-            { value: 'above_zero', label: '0선 위' },
-            { value: 'below_zero', label: '0선 아래' }
+            { value: 'buy', label: 'Buy Signal (MACD > Signal)' },
+            { value: 'sell', label: 'Sell Signal (MACD < Signal)' },
+            { value: 'above_zero', label: 'Above Zero' },
+            { value: 'below_zero', label: 'Below Zero' }
         ]
     },
     stochastic: {
-        label: '스토캐스틱',
+        label: t('filter_stochastic'),
         type: 'indicator',
         params: [
-            { key: 'k_period', label: '%K', default: 14, unit: '일' },
-            { key: 'd_period', label: '%D', default: 3, unit: '일' }
+            { key: 'k_period', label: '%K', default: 14, unit: 'd' },
+            { key: 'd_period', label: '%D', default: 3, unit: 'd' }
         ],
         presets: [
-            { min: 80, max: null, label: '과매수 (80+)' },
-            { min: null, max: 20, label: '과매도 (20-)' }
+            { min: 80, max: null, label: 'Overbought (80+)' },
+            { min: null, max: 20, label: 'Oversold (20-)' }
         ]
     },
     volume_surge: {
-        label: '거래량급증',
+        label: t('filter_vol_surge'),
         type: 'indicator',
         params: [
-            { key: 'period', label: '기준기간', default: 20, unit: '일' }
+            { key: 'period', label: 'Period', default: 20, unit: 'd' }
         ],
         presets: [
-            { min: 2, max: null, label: '2배 이상' },
-            { min: 5, max: null, label: '5배 이상' },
-            { min: 10, max: null, label: '10배 이상' }
+            { min: 2, max: null, label: '2x+' },
+            { min: 5, max: null, label: '5x+' },
+            { min: 10, max: null, label: '10x+' }
         ],
-        unit: '배'
+        unit: 'x'
     },
     w52_high: {
-        label: '52주고가대비',
+        label: t('filter_52h'),
         type: 'range',
         unit: '%',
         presets: [
-            { min: -5, max: 0, label: '신고가 근접 (0~5% 하락)' },
-            { min: -10, max: -5, label: '5~10% 하락' },
-            { min: -20, max: -10, label: '10~20% 하락' },
-            { min: null, max: -20, label: '20%+ 하락' }
+            { min: -5, max: 0, label: 'Near High (0~5% down)' },
+            { min: -10, max: -5, label: '5~10% down' },
+            { min: -20, max: -10, label: '10~20% down' },
+            { min: null, max: -20, label: '20%+ down' }
         ]
     },
     w52_low: {
-        label: '52주저가대비',
+        label: t('filter_52l'),
         type: 'range',
         unit: '%',
         presets: [
-            { min: 0, max: 5, label: '바닥 근접 (0~5% 상승)' },
-            { min: 5, max: 10, label: '5~10% 상승' },
-            { min: 10, max: 20, label: '10~20% 상승' },
-            { min: 20, max: null, label: '20%+ 상승' }
+            { min: 0, max: 5, label: 'Near Low (0~5% up)' },
+            { min: 5, max: 10, label: '5~10% up' },
+            { min: 10, max: 20, label: '10~20% up' },
+            { min: 20, max: null, label: '20%+ up' }
         ]
     },
     atr: {
         label: 'ATR',
         type: 'indicator',
         params: [
-            { key: 'period', label: '기간', default: 14, unit: '일' }
+            { key: 'period', label: 'Period', default: 14, unit: 'd' }
         ],
         presets: [
-            { value: 'high', label: '고변동 (3%+)' },
-            { value: 'medium', label: '중변동 (1.5~3%)' },
-            { value: 'low', label: '저변동 (1.5% 미만)' }
+            { value: 'high', label: 'High Vol (3%+)' },
+            { value: 'medium', label: 'Mid Vol (1.5~3%)' },
+            { value: 'low', label: 'Low Vol (<1.5%)' }
         ]
     },
     period_return: {
-        label: '기간수익률',
+        label: t('filter_period_return'),
         type: 'indicator',
         params: [
-            { key: 'period', label: '기간', default: '1m', unit: '', options: [
-                { value: '1w', label: '1주' },
-                { value: '1m', label: '1개월' },
-                { value: '3m', label: '3개월' },
-                { value: '6m', label: '6개월' },
-                { value: '1y', label: '1년' }
+            { key: 'period', label: 'Period', default: '1m', unit: '', options: [
+                { value: '1w', label: '1W' },
+                { value: '1m', label: '1M' },
+                { value: '3m', label: '3M' },
+                { value: '6m', label: '6M' },
+                { value: '1y', label: '1Y' }
             ]}
         ],
         presets: [
-            { min: 30, max: null, label: '+30% 이상' },
+            { min: 30, max: null, label: '+30%+' },
             { min: 20, max: 30, label: '+20~30%' },
             { min: 10, max: 20, label: '+10~20%' },
-            { min: null, max: -10, label: '-10% 이하' },
-            { min: null, max: -20, label: '-20% 이하' }
+            { min: null, max: -10, label: '-10%-' },
+            { min: null, max: -20, label: '-20%-' }
         ],
         unit: '%'
     }
@@ -18978,20 +18978,20 @@ const COMMON_TECHNICAL_FILTERS = {
     period_return: { ...FILTER_DEFINITIONS.period_return, category: 'technical' },
     // 신규 5개
     ichimoku: {
-        label: '일목균형표',
+        label: t('filter_candlestick'),
         category: 'technical',
         type: 'indicator',
         params: [
-            { key: 'tenkan', label: '전환선', default: 9, unit: '일' },
-            { key: 'kijun', label: '기준선', default: 26, unit: '일' },
-            { key: 'senkou_b', label: '선행스팬B', default: 52, unit: '일' }
+            { key: 'tenkan', label: 'Tenkan', default: 9, unit: 'd' },
+            { key: 'kijun', label: 'Kijun', default: 26, unit: 'd' },
+            { key: 'senkou_b', label: 'Senkou B', default: 52, unit: 'd' }
         ],
         presets: [
-            { value: 'above_cloud', label: '구름 위 (상승)' },
-            { value: 'below_cloud', label: '구름 아래 (하락)' },
-            { value: 'in_cloud', label: '구름 내 (횡보)' },
-            { value: 'tenkan_above_kijun', label: '전환선 > 기준선' },
-            { value: 'tenkan_below_kijun', label: '전환선 < 기준선' }
+            { value: 'above_cloud', label: 'Above Cloud (Bull)' },
+            { value: 'below_cloud', label: 'Below Cloud (Bear)' },
+            { value: 'in_cloud', label: 'In Cloud (Neutral)' },
+            { value: 'tenkan_above_kijun', label: 'Tenkan > Kijun' },
+            { value: 'tenkan_below_kijun', label: 'Tenkan < Kijun' }
         ]
     },
     stoch_rsi: {
@@ -18999,14 +18999,14 @@ const COMMON_TECHNICAL_FILTERS = {
         category: 'technical',
         type: 'indicator',
         params: [
-            { key: 'rsi_period', label: 'RSI기간', default: 14, unit: '일' },
-            { key: 'stoch_period', label: 'Stoch기간', default: 14, unit: '일' },
-            { key: 'k_period', label: '%K', default: 3, unit: '일' },
-            { key: 'd_period', label: '%D', default: 3, unit: '일' }
+            { key: 'rsi_period', label: 'RSI Period', default: 14, unit: 'd' },
+            { key: 'stoch_period', label: 'Stoch Period', default: 14, unit: 'd' },
+            { key: 'k_period', label: '%K', default: 3, unit: 'd' },
+            { key: 'd_period', label: '%D', default: 3, unit: 'd' }
         ],
         presets: [
-            { min: null, max: 20, label: '과매도 (<20)' },
-            { min: 80, max: null, label: '과매수 (>80)' }
+            { min: null, max: 20, label: 'Oversold (<20)' },
+            { min: 80, max: null, label: 'Overbought (>80)' }
         ]
     },
     adx: {
@@ -19014,12 +19014,12 @@ const COMMON_TECHNICAL_FILTERS = {
         category: 'technical',
         type: 'indicator',
         params: [
-            { key: 'period', label: '기간', default: 14, unit: '일' }
+            { key: 'period', label: 'Period', default: 14, unit: 'd' }
         ],
         presets: [
-            { min: 25, max: null, label: '강한 추세 (25+)' },
-            { min: 40, max: null, label: '매우 강한 추세 (40+)' },
-            { min: null, max: 20, label: '약한 추세 (<20)' }
+            { min: 25, max: null, label: 'Strong Trend (25+)' },
+            { min: 40, max: null, label: 'Very Strong (40+)' },
+            { min: null, max: 20, label: 'Weak Trend (<20)' }
         ]
     },
     cci: {
@@ -19027,12 +19027,12 @@ const COMMON_TECHNICAL_FILTERS = {
         category: 'technical',
         type: 'indicator',
         params: [
-            { key: 'period', label: '기간', default: 20, unit: '일' }
+            { key: 'period', label: 'Period', default: 20, unit: 'd' }
         ],
         presets: [
-            { min: 100, max: null, label: '과매수 (100+)' },
-            { min: null, max: -100, label: '과매도 (-100↓)' },
-            { min: -100, max: 100, label: '중립 (-100~100)' }
+            { min: 100, max: null, label: 'Overbought (100+)' },
+            { min: null, max: -100, label: 'Oversold (-100↓)' },
+            { min: -100, max: 100, label: 'Neutral (-100~100)' }
         ]
     },
     williams_r: {
@@ -19040,12 +19040,12 @@ const COMMON_TECHNICAL_FILTERS = {
         category: 'technical',
         type: 'indicator',
         params: [
-            { key: 'period', label: '기간', default: 14, unit: '일' }
+            { key: 'period', label: 'Period', default: 14, unit: 'd' }
         ],
         presets: [
-            { min: -20, max: 0, label: '과매수 (-20↑)' },
-            { min: -100, max: -80, label: '과매도 (-80↓)' },
-            { min: -80, max: -20, label: '중립' }
+            { min: -20, max: 0, label: 'Overbought (-20↑)' },
+            { min: -100, max: -80, label: 'Oversold (-80↓)' },
+            { min: -80, max: -20, label: 'Neutral' }
         ]
     }
 };
@@ -19150,7 +19150,7 @@ const KR_FILTER_DEFINITIONS = {
 // US (해외) 필터 정의
 const US_FILTER_DEFINITIONS = {
     sector: {
-        label: '섹터',
+        label: t('filter_sector'),
         category: 'basic',
         type: 'select',
         options: [
@@ -19168,7 +19168,7 @@ const US_FILTER_DEFINITIONS = {
         ]
     },
     market_cap: {
-        label: '시가총액',
+        label: t('filter_mktcap'),
         category: 'basic',
         type: 'range',
         unit: 'B$',
@@ -19180,7 +19180,7 @@ const US_FILTER_DEFINITIONS = {
         ]
     },
     price: {
-        label: '현재가',
+        label: t('filter_price'),
         category: 'basic',
         type: 'range',
         unit: '$',
@@ -19192,19 +19192,19 @@ const US_FILTER_DEFINITIONS = {
         ]
     },
     change_pct: {
-        label: '등락률',
+        label: t('filter_change'),
         category: 'basic',
         type: 'range',
         unit: '%',
         presets: [
-            { min: 5, max: null, label: '+5% 이상' },
-            { min: 3, max: null, label: '+3% 이상' },
-            { min: null, max: -3, label: '-3% 이하' },
-            { min: null, max: -5, label: '-5% 이하' }
+            { min: 5, max: null, label: '+5%+' },
+            { min: 3, max: null, label: '+3%+' },
+            { min: null, max: -3, label: '-3%-' },
+            { min: null, max: -5, label: '-5%-' }
         ]
     },
     volume: {
-        label: '거래량',
+        label: t('filter_volume'),
         category: 'basic',
         type: 'range',
         unit: '',
@@ -19226,7 +19226,7 @@ const US_FILTER_DEFINITIONS = {
         ]
     },
     dividend_yield: {
-        label: '배당수익률',
+        label: t('filter_dividend'),
         category: 'financial',
         type: 'range',
         unit: '%',
@@ -20165,7 +20165,7 @@ function updateScreenerFiltersUI(market) {
         });
 
         // 카테고리 라벨 매핑
-        const catLabels = { basic: '기본', financial: '재무', technical: '기술' };
+        const catLabels = { basic: t('filter_basic'), financial: t('filter_financial'), technical: t('filter_technical') };
 
         // 카테고리 순서 고정: basic → financial → technical
         const catOrder = ['basic', 'financial', 'technical'];
