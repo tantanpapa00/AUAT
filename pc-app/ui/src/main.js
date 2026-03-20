@@ -18803,9 +18803,9 @@ const FILTER_DEFINITIONS = {
         multiple: true,
         maTypes: ['SMA', 'EMA', 'WMA'],
         conditions: [
-            { value: 'above', label: '현재가가 위' },
-            { value: 'below', label: '현재가가 아래' },
-            { value: 'near', label: '근접 (±2%)' }
+            { value: 'above', label: '현재가가 위', labelEn: 'Price Above' },
+            { value: 'below', label: '현재가가 아래', labelEn: 'Price Below' },
+            { value: 'near', label: '근접 (±2%)', labelEn: 'Near (±2%)' }
         ]
     },
     sma_cross: {
@@ -18814,8 +18814,8 @@ const FILTER_DEFINITIONS = {
         type: 'sma_cross',
         maTypes: ['SMA', 'EMA', 'WMA'],
         conditions: [
-            { value: 'golden', label: '골든크로스 (단기 > 장기)' },
-            { value: 'dead', label: '데드크로스 (단기 < 장기)' }
+            { value: 'golden', label: '골든크로스 (단기 > 장기)', labelEn: 'Golden Cross (Short > Long)' },
+            { value: 'dead', label: '데드크로스 (단기 < 장기)', labelEn: 'Death Cross (Short < Long)' }
         ]
     },
     bollinger: {
@@ -18823,13 +18823,13 @@ const FILTER_DEFINITIONS = {
         labelEn: 'Bollinger Bands',
         type: 'indicator',
         params: [
-            { key: 'period', label: '기간', default: 20, unit: '일' },
-            { key: 'mult', label: '승수', default: 2, unit: 'σ' }
+            { key: 'period', label: '기간', labelEn: 'Period', default: 20, unit: '일', unitEn: 'd' },
+            { key: 'mult', label: '승수', labelEn: 'Multiplier', default: 2, unit: 'σ' }
         ],
         presets: [
-            { value: 'upper', label: '상단 돌파' },
-            { value: 'lower', label: '하단 돌파' },
-            { value: 'middle', label: '중심선 부근' }
+            { value: 'upper', label: '상단 돌파', labelEn: 'Upper Band Breakout' },
+            { value: 'lower', label: '하단 돌파', labelEn: 'Lower Band Breakout' },
+            { value: 'middle', label: '중심선 부근', labelEn: 'Near Middle Band' }
         ]
     },
     macd: {
@@ -18837,15 +18837,15 @@ const FILTER_DEFINITIONS = {
         labelEn: 'MACD',
         type: 'indicator',
         params: [
-            { key: 'fast', label: '빠른선', default: 12, unit: '일' },
-            { key: 'slow', label: '느린선', default: 26, unit: '일' },
-            { key: 'signal', label: '시그널', default: 9, unit: '일' }
+            { key: 'fast', label: '빠른선', labelEn: 'Fast', default: 12, unit: '일', unitEn: 'd' },
+            { key: 'slow', label: '느린선', labelEn: 'Slow', default: 26, unit: '일', unitEn: 'd' },
+            { key: 'signal', label: '시그널', labelEn: 'Signal', default: 9, unit: '일', unitEn: 'd' }
         ],
         presets: [
-            { value: 'buy', label: '매수신호 (MACD > Signal)' },
-            { value: 'sell', label: '매도신호 (MACD < Signal)' },
-            { value: 'above_zero', label: '0선 위' },
-            { value: 'below_zero', label: '0선 아래' }
+            { value: 'buy', label: '매수신호 (MACD > Signal)', labelEn: 'Buy Signal (MACD > Signal)' },
+            { value: 'sell', label: '매도신호 (MACD < Signal)', labelEn: 'Sell Signal (MACD < Signal)' },
+            { value: 'above_zero', label: '0선 위', labelEn: 'Above Zero Line' },
+            { value: 'below_zero', label: '0선 아래', labelEn: 'Below Zero Line' }
         ]
     },
     stochastic: {
@@ -18853,12 +18853,12 @@ const FILTER_DEFINITIONS = {
         labelEn: 'Stochastic',
         type: 'indicator',
         params: [
-            { key: 'k_period', label: '%K', default: 14, unit: '일' },
-            { key: 'd_period', label: '%D', default: 3, unit: '일' }
+            { key: 'k_period', label: '%K', default: 14, unit: '일', unitEn: 'd' },
+            { key: 'd_period', label: '%D', default: 3, unit: '일', unitEn: 'd' }
         ],
         presets: [
-            { min: 80, max: null, label: '과매수 (80+)' },
-            { min: null, max: 20, label: '과매도 (20-)' }
+            { min: 80, max: null, label: '과매수 (80+)', labelEn: 'Overbought (80+)' },
+            { min: null, max: 20, label: '과매도 (20-)', labelEn: 'Oversold (20-)' }
         ]
     },
     volume_surge: {
@@ -18866,12 +18866,12 @@ const FILTER_DEFINITIONS = {
         labelEn: 'Volume Surge',
         type: 'indicator',
         params: [
-            { key: 'period', label: '기준기간', default: 20, unit: '일' }
+            { key: 'period', label: '기준기간', labelEn: 'Period', default: 20, unit: '일', unitEn: 'd' }
         ],
         presets: [
-            { min: 2, max: null, label: '2배 이상' },
-            { min: 5, max: null, label: '5배 이상' },
-            { min: 10, max: null, label: '10배 이상' }
+            { min: 2, max: null, label: '2배 이상', labelEn: '2x or more' },
+            { min: 5, max: null, label: '5배 이상', labelEn: '5x or more' },
+            { min: 10, max: null, label: '10배 이상', labelEn: '10x or more' }
         ],
         unit: '배'
     },
@@ -18881,10 +18881,10 @@ const FILTER_DEFINITIONS = {
         type: 'range',
         unit: '%',
         presets: [
-            { min: -5, max: 0, label: '신고가 근접 (0~5% 하락)' },
-            { min: -10, max: -5, label: '5~10% 하락' },
-            { min: -20, max: -10, label: '10~20% 하락' },
-            { min: null, max: -20, label: '20%+ 하락' }
+            { min: -5, max: 0, label: '신고가 근접 (0~5% 하락)', labelEn: 'Near High (0~5% down)' },
+            { min: -10, max: -5, label: '5~10% 하락', labelEn: '5~10% down' },
+            { min: -20, max: -10, label: '10~20% 하락', labelEn: '10~20% down' },
+            { min: null, max: -20, label: '20%+ 하락', labelEn: '20%+ down' }
         ]
     },
     w52_low: {
@@ -18893,10 +18893,10 @@ const FILTER_DEFINITIONS = {
         type: 'range',
         unit: '%',
         presets: [
-            { min: 0, max: 5, label: '바닥 근접 (0~5% 상승)' },
-            { min: 5, max: 10, label: '5~10% 상승' },
-            { min: 10, max: 20, label: '10~20% 상승' },
-            { min: 20, max: null, label: '20%+ 상승' }
+            { min: 0, max: 5, label: '바닥 근접 (0~5% 상승)', labelEn: 'Near Low (0~5% up)' },
+            { min: 5, max: 10, label: '5~10% 상승', labelEn: '5~10% up' },
+            { min: 10, max: 20, label: '10~20% 상승', labelEn: '10~20% up' },
+            { min: 20, max: null, label: '20%+ 상승', labelEn: '20%+ up' }
         ]
     },
     atr: {
@@ -18904,12 +18904,12 @@ const FILTER_DEFINITIONS = {
         labelEn: 'ATR',
         type: 'indicator',
         params: [
-            { key: 'period', label: '기간', default: 14, unit: '일' }
+            { key: 'period', label: '기간', labelEn: 'Period', default: 14, unit: '일', unitEn: 'd' }
         ],
         presets: [
-            { value: 'high', label: '고변동 (3%+)' },
-            { value: 'medium', label: '중변동 (1.5~3%)' },
-            { value: 'low', label: '저변동 (1.5% 미만)' }
+            { value: 'high', label: '고변동 (3%+)', labelEn: 'High Volatility (3%+)' },
+            { value: 'medium', label: '중변동 (1.5~3%)', labelEn: 'Medium Volatility (1.5~3%)' },
+            { value: 'low', label: '저변동 (1.5% 미만)', labelEn: 'Low Volatility (<1.5%)' }
         ]
     },
     period_return: {
@@ -18917,20 +18917,20 @@ const FILTER_DEFINITIONS = {
         labelEn: 'Period Return',
         type: 'indicator',
         params: [
-            { key: 'period', label: '기간', default: '1m', unit: '', options: [
-                { value: '1w', label: '1주' },
-                { value: '1m', label: '1개월' },
-                { value: '3m', label: '3개월' },
-                { value: '6m', label: '6개월' },
-                { value: '1y', label: '1년' }
+            { key: 'period', label: '기간', labelEn: 'Period', default: '1m', unit: '', options: [
+                { value: '1w', label: '1주', labelEn: '1 Week' },
+                { value: '1m', label: '1개월', labelEn: '1 Month' },
+                { value: '3m', label: '3개월', labelEn: '3 Months' },
+                { value: '6m', label: '6개월', labelEn: '6 Months' },
+                { value: '1y', label: '1년', labelEn: '1 Year' }
             ]}
         ],
         presets: [
-            { min: 30, max: null, label: '+30% 이상' },
-            { min: 20, max: 30, label: '+20~30%' },
-            { min: 10, max: 20, label: '+10~20%' },
-            { min: null, max: -10, label: '-10% 이하' },
-            { min: null, max: -20, label: '-20% 이하' }
+            { min: 30, max: null, label: '+30% 이상', labelEn: '+30% or more' },
+            { min: 20, max: 30, label: '+20~30%', labelEn: '+20~30%' },
+            { min: 10, max: 20, label: '+10~20%', labelEn: '+10~20%' },
+            { min: null, max: -10, label: '-10% 이하', labelEn: '-10% or less' },
+            { min: null, max: -20, label: '-20% 이하', labelEn: '-20% or less' }
         ],
         unit: '%'
     }
@@ -19018,16 +19018,16 @@ const COMMON_TECHNICAL_FILTERS = {
         category: 'technical',
         type: 'indicator',
         params: [
-            { key: 'tenkan', label: '전환선', default: 9, unit: '일' },
-            { key: 'kijun', label: '기준선', default: 26, unit: '일' },
-            { key: 'senkou_b', label: '선행스팬B', default: 52, unit: '일' }
+            { key: 'tenkan', label: '전환선', labelEn: 'Tenkan', default: 9, unit: '일', unitEn: 'd' },
+            { key: 'kijun', label: '기준선', labelEn: 'Kijun', default: 26, unit: '일', unitEn: 'd' },
+            { key: 'senkou_b', label: '선행스팬B', labelEn: 'Senkou B', default: 52, unit: '일', unitEn: 'd' }
         ],
         presets: [
-            { value: 'above_cloud', label: '구름 위 (상승)' },
-            { value: 'below_cloud', label: '구름 아래 (하락)' },
-            { value: 'in_cloud', label: '구름 내 (횡보)' },
-            { value: 'tenkan_above_kijun', label: '전환선 > 기준선' },
-            { value: 'tenkan_below_kijun', label: '전환선 < 기준선' }
+            { value: 'above_cloud', label: '구름 위 (상승)', labelEn: 'Above Cloud (Bullish)' },
+            { value: 'below_cloud', label: '구름 아래 (하락)', labelEn: 'Below Cloud (Bearish)' },
+            { value: 'in_cloud', label: '구름 내 (횡보)', labelEn: 'In Cloud (Neutral)' },
+            { value: 'tenkan_above_kijun', label: '전환선 > 기준선', labelEn: 'Tenkan > Kijun' },
+            { value: 'tenkan_below_kijun', label: '전환선 < 기준선', labelEn: 'Tenkan < Kijun' }
         ]
     },
     stoch_rsi: {
@@ -19036,14 +19036,14 @@ const COMMON_TECHNICAL_FILTERS = {
         category: 'technical',
         type: 'indicator',
         params: [
-            { key: 'rsi_period', label: 'RSI기간', default: 14, unit: '일' },
-            { key: 'stoch_period', label: 'Stoch기간', default: 14, unit: '일' },
-            { key: 'k_period', label: '%K', default: 3, unit: '일' },
-            { key: 'd_period', label: '%D', default: 3, unit: '일' }
+            { key: 'rsi_period', label: 'RSI기간', labelEn: 'RSI Period', default: 14, unit: '일', unitEn: 'd' },
+            { key: 'stoch_period', label: 'Stoch기간', labelEn: 'Stoch Period', default: 14, unit: '일', unitEn: 'd' },
+            { key: 'k_period', label: '%K', default: 3, unit: '일', unitEn: 'd' },
+            { key: 'd_period', label: '%D', default: 3, unit: '일', unitEn: 'd' }
         ],
         presets: [
-            { min: null, max: 20, label: '과매도 (<20)' },
-            { min: 80, max: null, label: '과매수 (>80)' }
+            { min: null, max: 20, label: '과매도 (<20)', labelEn: 'Oversold (<20)' },
+            { min: 80, max: null, label: '과매수 (>80)', labelEn: 'Overbought (>80)' }
         ]
     },
     adx: {
@@ -19052,12 +19052,12 @@ const COMMON_TECHNICAL_FILTERS = {
         category: 'technical',
         type: 'indicator',
         params: [
-            { key: 'period', label: '기간', default: 14, unit: '일' }
+            { key: 'period', label: '기간', labelEn: 'Period', default: 14, unit: '일', unitEn: 'd' }
         ],
         presets: [
-            { min: 25, max: null, label: '강한 추세 (25+)' },
-            { min: 40, max: null, label: '매우 강한 추세 (40+)' },
-            { min: null, max: 20, label: '약한 추세 (<20)' }
+            { min: 25, max: null, label: '강한 추세 (25+)', labelEn: 'Strong Trend (25+)' },
+            { min: 40, max: null, label: '매우 강한 추세 (40+)', labelEn: 'Very Strong (40+)' },
+            { min: null, max: 20, label: '약한 추세 (<20)', labelEn: 'Weak Trend (<20)' }
         ]
     },
     cci: {
@@ -19066,12 +19066,12 @@ const COMMON_TECHNICAL_FILTERS = {
         category: 'technical',
         type: 'indicator',
         params: [
-            { key: 'period', label: '기간', default: 20, unit: '일' }
+            { key: 'period', label: '기간', labelEn: 'Period', default: 20, unit: '일', unitEn: 'd' }
         ],
         presets: [
-            { min: 100, max: null, label: '과매수 (100+)' },
-            { min: null, max: -100, label: '과매도 (-100↓)' },
-            { min: -100, max: 100, label: '중립 (-100~100)' }
+            { min: 100, max: null, label: '과매수 (100+)', labelEn: 'Overbought (100+)' },
+            { min: null, max: -100, label: '과매도 (-100↓)', labelEn: 'Oversold (-100↓)' },
+            { min: -100, max: 100, label: '중립 (-100~100)', labelEn: 'Neutral (-100~100)' }
         ]
     },
     williams_r: {
@@ -19080,12 +19080,12 @@ const COMMON_TECHNICAL_FILTERS = {
         category: 'technical',
         type: 'indicator',
         params: [
-            { key: 'period', label: '기간', default: 14, unit: '일' }
+            { key: 'period', label: '기간', labelEn: 'Period', default: 14, unit: '일', unitEn: 'd' }
         ],
         presets: [
-            { min: -20, max: 0, label: '과매수 (-20↑)' },
-            { min: -100, max: -80, label: '과매도 (-80↓)' },
-            { min: -80, max: -20, label: '중립' }
+            { min: -20, max: 0, label: '과매수 (-20↑)', labelEn: 'Overbought (-20↑)' },
+            { min: -100, max: -80, label: '과매도 (-80↓)', labelEn: 'Oversold (-80↓)' },
+            { min: -80, max: -20, label: '중립', labelEn: 'Neutral' }
         ]
     }
 };
@@ -19630,13 +19630,28 @@ function showFilterPopover(filterKey, chipElement) {
 
     // 현재 필터 키 저장
     popover.dataset.currentFilter = filterKey;
-    titleEl.textContent = filterDef.label;
+    const isUS = getAppMode() === 'US';
+    titleEl.textContent = (filterDef.labelEn && isUS) ? filterDef.labelEn : filterDef.label;
 
     // 현재 값 가져오기
     const currentFilter = screenerState.activeFilters[filterKey];
     const currentMin = currentFilter?.min || '';
     const currentMax = currentFilter?.max || '';
     const currentParams = currentFilter?.params || {};
+
+    // US 모드용 텍스트
+    const txt = {
+        quickSelect: isUS ? 'Quick Select' : '빠른 선택',
+        directInput: isUS ? 'Direct Input' : '직접 입력',
+        min: isUS ? 'Min' : '최소',
+        max: isUS ? 'Max' : '최대',
+        condition: isUS ? 'Condition' : '조건',
+        type: isUS ? 'Type' : '종류',
+        period: isUS ? 'Period' : '기간',
+        days: isUS ? 'd' : '일',
+        shortTerm: isUS ? 'Short:' : '단기:',
+        longTerm: isUS ? 'Long:' : '장기:'
+    };
 
     let html = '';
 
@@ -19646,7 +19661,8 @@ function showFilterPopover(filterKey, chipElement) {
         html = '<div class="popover-options">';
         filterDef.options.forEach(opt => {
             const selected = currentFilter?.value === opt.value ? 'selected' : '';
-            html += `<button class="popover-option ${selected}" data-value="${opt.value}">${opt.label}</button>`;
+            const optLabel = (opt.labelEn && isUS) ? opt.labelEn : opt.label;
+            html += `<button class="popover-option ${selected}" data-value="${opt.value}">${optLabel}</button>`;
         });
         html += '</div>';
 
@@ -19655,23 +19671,25 @@ function showFilterPopover(filterKey, chipElement) {
         html = '<div class="popover-radio-group">';
         filterDef.options.forEach(opt => {
             const checked = currentFilter?.value === opt.value ? 'checked' : '';
-            html += `<label class="popover-radio"><input type="radio" name="compare" value="${opt.value}" ${checked}> ${opt.label}</label>`;
+            const optLabel = (opt.labelEn && isUS) ? opt.labelEn : opt.label;
+            html += `<label class="popover-radio"><input type="radio" name="compare" value="${opt.value}" ${checked}> ${optLabel}</label>`;
         });
         html += '</div>';
 
     } else if (filterDef.type === 'range') {
         // 범위형: 프리셋 + min/max 입력
         if (filterDef.presets) {
-            html += '<div class="popover-presets"><span class="popover-presets-label">빠른 선택</span><div class="popover-preset-btns">';
+            html += `<div class="popover-presets"><span class="popover-presets-label">${txt.quickSelect}</span><div class="popover-preset-btns">`;
             filterDef.presets.forEach((preset, idx) => {
-                html += `<button class="popover-preset-btn" data-idx="${idx}" data-min="${preset.min ?? ''}" data-max="${preset.max ?? ''}">${preset.label}</button>`;
+                const presetLabel = (preset.labelEn && isUS) ? preset.labelEn : preset.label;
+                html += `<button class="popover-preset-btn" data-idx="${idx}" data-min="${preset.min ?? ''}" data-max="${preset.max ?? ''}">${presetLabel}</button>`;
             });
             html += '</div></div>';
         }
-        html += `<div class="popover-range-section"><span class="popover-range-label">직접 입력</span><div class="popover-range">`;
-        html += `<input type="number" inputmode="decimal" id="popover-range-min" placeholder="최소" value="${currentMin}">`;
+        html += `<div class="popover-range-section"><span class="popover-range-label">${txt.directInput}</span><div class="popover-range">`;
+        html += `<input type="number" inputmode="decimal" id="popover-range-min" placeholder="${txt.min}" value="${currentMin}">`;
         html += '<span class="range-sep">~</span>';
-        html += `<input type="number" inputmode="decimal" id="popover-range-max" placeholder="최대" value="${currentMax}">`;
+        html += `<input type="number" inputmode="decimal" id="popover-range-max" placeholder="${txt.max}" value="${currentMax}">`;
         html += `<span class="range-unit">${filterDef.unit || ''}</span></div></div>`;
 
     } else if (filterDef.type === 'indicator') {
@@ -19682,39 +19700,44 @@ function showFilterPopover(filterKey, chipElement) {
                 const paramVal = currentParams[param.key] || param.default;
                 if (param.options) {
                     // 드롭다운 파라미터 (기간 선택 등)
-                    html += `<div class="popover-param"><label>${param.label}:</label><select id="popover-param-${param.key}">`;
+                    const paramLabel = (param.labelEn && isUS) ? param.labelEn : param.label;
+                    html += `<div class="popover-param"><label>${paramLabel}:</label><select id="popover-param-${param.key}">`;
                     param.options.forEach(opt => {
                         const sel = paramVal === opt.value ? 'selected' : '';
-                        html += `<option value="${opt.value}" ${sel}>${opt.label}</option>`;
+                        const optLabel = (opt.labelEn && isUS) ? opt.labelEn : opt.label;
+                        html += `<option value="${opt.value}" ${sel}>${optLabel}</option>`;
                     });
                     html += '</select></div>';
                 } else {
                     // 숫자 입력 파라미터
-                    html += `<div class="popover-param"><label>${param.label}:</label>`;
+                    const paramLabel = (param.labelEn && isUS) ? param.labelEn : param.label;
+                    const paramUnit = (param.unitEn && isUS) ? param.unitEn : (param.unit || '');
+                    html += `<div class="popover-param"><label>${paramLabel}:</label>`;
                     html += `<input type="number" id="popover-param-${param.key}" value="${paramVal}" style="width:60px;">`;
-                    html += `<span class="param-unit">${param.unit || ''}</span></div>`;
+                    html += `<span class="param-unit">${paramUnit}</span></div>`;
                 }
             });
             html += '</div>';
         }
         // 프리셋 (value 기반 또는 min/max 기반)
         if (filterDef.presets) {
-            html += '<div class="popover-presets"><span class="popover-presets-label">조건</span><div class="popover-preset-btns">';
+            html += `<div class="popover-presets"><span class="popover-presets-label">${txt.condition}</span><div class="popover-preset-btns">`;
             filterDef.presets.forEach((preset, idx) => {
+                const presetLabel = (preset.labelEn && isUS) ? preset.labelEn : preset.label;
                 if (preset.value !== undefined) {
-                    html += `<button class="popover-preset-btn" data-value="${preset.value}">${preset.label}</button>`;
+                    html += `<button class="popover-preset-btn" data-value="${preset.value}">${presetLabel}</button>`;
                 } else {
-                    html += `<button class="popover-preset-btn" data-idx="${idx}" data-min="${preset.min ?? ''}" data-max="${preset.max ?? ''}">${preset.label}</button>`;
+                    html += `<button class="popover-preset-btn" data-idx="${idx}" data-min="${preset.min ?? ''}" data-max="${preset.max ?? ''}">${presetLabel}</button>`;
                 }
             });
             html += '</div></div>';
         }
         // min/max 범위가 필요한 지표는 직접 입력도 제공
         if (filterDef.presets?.some(p => p.min !== undefined || p.max !== undefined)) {
-            html += `<div class="popover-range-section"><span class="popover-range-label">직접 입력</span><div class="popover-range">`;
-            html += `<input type="number" inputmode="decimal" id="popover-range-min" placeholder="최소" value="${currentMin}">`;
+            html += `<div class="popover-range-section"><span class="popover-range-label">${txt.directInput}</span><div class="popover-range">`;
+            html += `<input type="number" inputmode="decimal" id="popover-range-min" placeholder="${txt.min}" value="${currentMin}">`;
             html += '<span class="range-sep">~</span>';
-            html += `<input type="number" inputmode="decimal" id="popover-range-max" placeholder="최대" value="${currentMax}">`;
+            html += `<input type="number" inputmode="decimal" id="popover-range-max" placeholder="${txt.max}" value="${currentMax}">`;
             html += `<span class="range-unit">${filterDef.unit || ''}</span></div></div>`;
         }
 
@@ -19725,16 +19748,17 @@ function showFilterPopover(filterKey, chipElement) {
         const curCond = currentFilter?.value || '';
 
         html += '<div class="popover-sma">';
-        html += '<div class="popover-param"><label>종류:</label><select id="popover-sma-type">';
+        html += `<div class="popover-param"><label>${txt.type}:</label><select id="popover-sma-type">`;
         filterDef.maTypes.forEach(t => {
             html += `<option value="${t}" ${curType === t ? 'selected' : ''}>${t}</option>`;
         });
         html += '</select></div>';
-        html += `<div class="popover-param"><label>기간:</label><input type="number" id="popover-sma-period" value="${curPeriod}" style="width:60px;"><span class="param-unit">일</span></div>`;
-        html += '<div class="popover-conditions"><span class="popover-presets-label">조건</span>';
+        html += `<div class="popover-param"><label>${txt.period}:</label><input type="number" id="popover-sma-period" value="${curPeriod}" style="width:60px;"><span class="param-unit">${txt.days}</span></div>`;
+        html += `<div class="popover-conditions"><span class="popover-presets-label">${txt.condition}</span>`;
         filterDef.conditions.forEach(c => {
+            const condLabel = c.labelEn && isUS ? c.labelEn : c.label;
             const checked = curCond === c.value ? 'checked' : '';
-            html += `<label class="popover-radio"><input type="radio" name="sma-cond" value="${c.value}" ${checked}> ${c.label}</label>`;
+            html += `<label class="popover-radio"><input type="radio" name="sma-cond" value="${c.value}" ${checked}> ${condLabel}</label>`;
         });
         html += '</div></div>';
 
@@ -19747,22 +19771,23 @@ function showFilterPopover(filterKey, chipElement) {
         const curCond = currentFilter?.value || '';
 
         html += '<div class="popover-sma-cross">';
-        html += '<div class="cross-row"><span class="cross-label">단기:</span>';
+        html += `<div class="cross-row"><span class="cross-label">${txt.shortTerm}</span>`;
         html += '<select id="popover-short-type">';
         filterDef.maTypes.forEach(t => html += `<option value="${t}" ${curShortType === t ? 'selected' : ''}>${t}</option>`);
         html += '</select>';
-        html += `<input type="number" id="popover-short-period" value="${curShortPeriod}" style="width:50px;"><span class="param-unit">일</span></div>`;
+        html += `<input type="number" id="popover-short-period" value="${curShortPeriod}" style="width:50px;"><span class="param-unit">${txt.days}</span></div>`;
 
-        html += '<div class="cross-row"><span class="cross-label">장기:</span>';
+        html += `<div class="cross-row"><span class="cross-label">${txt.longTerm}</span>`;
         html += '<select id="popover-long-type">';
         filterDef.maTypes.forEach(t => html += `<option value="${t}" ${curLongType === t ? 'selected' : ''}>${t}</option>`);
         html += '</select>';
-        html += `<input type="number" id="popover-long-period" value="${curLongPeriod}" style="width:50px;"><span class="param-unit">일</span></div>`;
+        html += `<input type="number" id="popover-long-period" value="${curLongPeriod}" style="width:50px;"><span class="param-unit">${txt.days}</span></div>`;
 
-        html += '<div class="popover-conditions"><span class="popover-presets-label">조건</span>';
+        html += `<div class="popover-conditions"><span class="popover-presets-label">${txt.condition}</span>`;
         filterDef.conditions.forEach(c => {
             const checked = curCond === c.value ? 'checked' : '';
-            html += `<label class="popover-radio"><input type="radio" name="cross-cond" value="${c.value}" ${checked}> ${c.label}</label>`;
+            const condLabel = (c.labelEn && isUS) ? c.labelEn : c.label;
+            html += `<label class="popover-radio"><input type="radio" name="cross-cond" value="${c.value}" ${checked}> ${condLabel}</label>`;
         });
         html += '</div></div>';
     }
