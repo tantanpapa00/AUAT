@@ -18520,11 +18520,11 @@ const FILTER_DEFINITIONS = {
         type: 'range',
         unit: '배',
         presets: [
-            { min: null, max: 0, label: '적자' },
-            { min: 0, max: 10, label: '저PER (0~10)' },
-            { min: 10, max: 20, label: '적정 (10~20)' },
-            { min: 20, max: 50, label: '고PER (20~50)' },
-            { min: 50, max: null, label: '50 이상' }
+            { min: null, max: 0, label: '적자', labelEn: 'Loss' },
+            { min: 0, max: 10, label: '저PER (0~10)', labelEn: 'Low PER (0~10)' },
+            { min: 10, max: 20, label: '적정 (10~20)', labelEn: 'Fair (10~20)' },
+            { min: 20, max: 50, label: '고PER (20~50)', labelEn: 'High PER (20~50)' },
+            { min: 50, max: null, label: '50 이상', labelEn: '50+' }
         ]
     },
     pbr: {
@@ -18533,11 +18533,11 @@ const FILTER_DEFINITIONS = {
         type: 'range',
         unit: '배',
         presets: [
-            { min: null, max: 0.5, label: '저평가 (0~0.5)' },
-            { min: 0.5, max: 1, label: '0.5~1' },
-            { min: 1, max: 2, label: '적정 (1~2)' },
-            { min: 2, max: 5, label: '2~5' },
-            { min: 5, max: null, label: '5 이상' }
+            { min: null, max: 0.5, label: '저평가 (0~0.5)', labelEn: 'Undervalued (0~0.5)' },
+            { min: 0.5, max: 1, label: '0.5~1', labelEn: '0.5~1' },
+            { min: 1, max: 2, label: '적정 (1~2)', labelEn: 'Fair (1~2)' },
+            { min: 2, max: 5, label: '2~5', labelEn: '2~5' },
+            { min: 5, max: null, label: '5 이상', labelEn: '5+' }
         ]
     },
     roe: {
@@ -18546,10 +18546,10 @@ const FILTER_DEFINITIONS = {
         type: 'range',
         unit: '%',
         presets: [
-            { min: 20, max: null, label: '우량 (20%+)' },
-            { min: 15, max: 20, label: '양호 (15~20%)' },
-            { min: 10, max: 15, label: '보통 (10~15%)' },
-            { min: null, max: 10, label: '10% 미만' }
+            { min: 20, max: null, label: '우량 (20%+)', labelEn: 'Excellent (20%+)' },
+            { min: 15, max: 20, label: '양호 (15~20%)', labelEn: 'Good (15~20%)' },
+            { min: 10, max: 15, label: '보통 (10~15%)', labelEn: 'Average (10~15%)' },
+            { min: null, max: 10, label: '10% 미만', labelEn: '<10%' }
         ]
     },
     roa: {
@@ -18558,9 +18558,9 @@ const FILTER_DEFINITIONS = {
         type: 'range',
         unit: '%',
         presets: [
-            { min: 10, max: null, label: '우량 (10%+)' },
-            { min: 5, max: 10, label: '양호 (5~10%)' },
-            { min: null, max: 5, label: '5% 미만' }
+            { min: 10, max: null, label: '우량 (10%+)', labelEn: 'Excellent (10%+)' },
+            { min: 5, max: 10, label: '양호 (5~10%)', labelEn: 'Good (5~10%)' },
+            { min: null, max: 5, label: '5% 미만', labelEn: '<5%' }
         ]
     },
     operating_margin: {
@@ -18569,10 +18569,10 @@ const FILTER_DEFINITIONS = {
         type: 'range',
         unit: '%',
         presets: [
-            { min: 20, max: null, label: '고수익 (20%+)' },
-            { min: 10, max: 20, label: '양호 (10~20%)' },
-            { min: 5, max: 10, label: '보통 (5~10%)' },
-            { min: null, max: 5, label: '저수익 (5% 미만)' }
+            { min: 20, max: null, label: '고수익 (20%+)', labelEn: 'High (20%+)' },
+            { min: 10, max: 20, label: '양호 (10~20%)', labelEn: 'Good (10~20%)' },
+            { min: 5, max: 10, label: '보통 (5~10%)', labelEn: 'Average (5~10%)' },
+            { min: null, max: 5, label: '저수익 (5% 미만)', labelEn: 'Low (<5%)' }
         ]
     },
     gross_margin: {
@@ -18581,10 +18581,10 @@ const FILTER_DEFINITIONS = {
         type: 'range',
         unit: '%',
         presets: [
-            { min: 50, max: null, label: '고마진 (50%+)' },
-            { min: 30, max: 50, label: '양호 (30~50%)' },
-            { min: 15, max: 30, label: '보통 (15~30%)' },
-            { min: null, max: 15, label: '저마진 (15% 미만)' }
+            { min: 50, max: null, label: '고마진 (50%+)', labelEn: 'High Margin (50%+)' },
+            { min: 30, max: 50, label: '양호 (30~50%)', labelEn: 'Good (30~50%)' },
+            { min: 15, max: 30, label: '보통 (15~30%)', labelEn: 'Average (15~30%)' },
+            { min: null, max: 15, label: '저마진 (15% 미만)', labelEn: 'Low Margin (<15%)' }
         ]
     },
     profit_margin: {
@@ -18593,10 +18593,10 @@ const FILTER_DEFINITIONS = {
         type: 'range',
         unit: '%',
         presets: [
-            { min: 15, max: null, label: '고수익 (15%+)' },
-            { min: 10, max: 15, label: '양호 (10~15%)' },
-            { min: 5, max: 10, label: '보통 (5~10%)' },
-            { min: null, max: 5, label: '5% 미만' }
+            { min: 15, max: null, label: '고수익 (15%+)', labelEn: 'High (15%+)' },
+            { min: 10, max: 15, label: '양호 (10~15%)', labelEn: 'Good (10~15%)' },
+            { min: 5, max: 10, label: '보통 (5~10%)', labelEn: 'Average (5~10%)' },
+            { min: null, max: 5, label: '5% 미만', labelEn: '<5%' }
         ]
     },
     debt_ratio: {
@@ -18605,10 +18605,10 @@ const FILTER_DEFINITIONS = {
         type: 'range',
         unit: '%',
         presets: [
-            { min: null, max: 50, label: '안정 (50% 미만)' },
-            { min: 50, max: 100, label: '보통 (50~100%)' },
-            { min: 100, max: 200, label: '주의 (100~200%)' },
-            { min: 200, max: null, label: '위험 (200%+)' }
+            { min: null, max: 50, label: '안정 (50% 미만)', labelEn: 'Stable (<50%)' },
+            { min: 50, max: 100, label: '보통 (50~100%)', labelEn: 'Average (50~100%)' },
+            { min: 100, max: 200, label: '주의 (100~200%)', labelEn: 'Caution (100~200%)' },
+            { min: 200, max: null, label: '위험 (200%+)', labelEn: 'Risk (200%+)' }
         ]
     },
     current_ratio: {
@@ -18617,10 +18617,10 @@ const FILTER_DEFINITIONS = {
         type: 'range',
         unit: '배',
         presets: [
-            { min: 2, max: null, label: '안정 (2배+)' },
-            { min: 1.5, max: 2, label: '양호 (1.5~2배)' },
-            { min: 1, max: 1.5, label: '보통 (1~1.5배)' },
-            { min: null, max: 1, label: '주의 (1배 미만)' }
+            { min: 2, max: null, label: '안정 (2배+)', labelEn: 'Stable (2x+)' },
+            { min: 1.5, max: 2, label: '양호 (1.5~2배)', labelEn: 'Good (1.5~2x)' },
+            { min: 1, max: 1.5, label: '보통 (1~1.5배)', labelEn: 'Average (1~1.5x)' },
+            { min: null, max: 1, label: '주의 (1배 미만)', labelEn: 'Caution (<1x)' }
         ]
     },
     dividend_yield: {
@@ -18629,10 +18629,10 @@ const FILTER_DEFINITIONS = {
         type: 'range',
         unit: '%',
         presets: [
-            { min: 5, max: null, label: '고배당 (5%+)' },
-            { min: 3, max: 5, label: '3~5%' },
-            { min: 2, max: 3, label: '2~3%' },
-            { min: 1, max: 2, label: '1~2%' }
+            { min: 5, max: null, label: '고배당 (5%+)', labelEn: 'High Dividend (5%+)' },
+            { min: 3, max: 5, label: '3~5%', labelEn: '3~5%' },
+            { min: 2, max: 3, label: '2~3%', labelEn: '2~3%' },
+            { min: 1, max: 2, label: '1~2%', labelEn: '1~2%' }
         ]
     },
     revenue_growth: {
@@ -18641,10 +18641,10 @@ const FILTER_DEFINITIONS = {
         type: 'range',
         unit: '%',
         presets: [
-            { min: 50, max: null, label: '고성장 (50%+)' },
-            { min: 20, max: 50, label: '성장 (20~50%)' },
-            { min: 0, max: 20, label: '안정 (0~20%)' },
-            { min: null, max: 0, label: '역성장' }
+            { min: 50, max: null, label: '고성장 (50%+)', labelEn: 'High Growth (50%+)' },
+            { min: 20, max: 50, label: '성장 (20~50%)', labelEn: 'Growth (20~50%)' },
+            { min: 0, max: 20, label: '안정 (0~20%)', labelEn: 'Stable (0~20%)' },
+            { min: null, max: 0, label: '역성장', labelEn: 'Decline' }
         ]
     },
     earnings_growth: {
@@ -18653,10 +18653,10 @@ const FILTER_DEFINITIONS = {
         type: 'range',
         unit: '%',
         presets: [
-            { min: 50, max: null, label: '고성장 (50%+)' },
-            { min: 20, max: 50, label: '성장 (20~50%)' },
-            { min: 0, max: 20, label: '안정 (0~20%)' },
-            { min: null, max: 0, label: '역성장' }
+            { min: 50, max: null, label: '고성장 (50%+)', labelEn: 'High Growth (50%+)' },
+            { min: 20, max: 50, label: '성장 (20~50%)', labelEn: 'Growth (20~50%)' },
+            { min: 0, max: 20, label: '안정 (0~20%)', labelEn: 'Stable (0~20%)' },
+            { min: null, max: 0, label: '역성장', labelEn: 'Decline' }
         ]
     },
     eps_growth: {
@@ -18665,10 +18665,10 @@ const FILTER_DEFINITIONS = {
         type: 'range',
         unit: '%',
         presets: [
-            { min: 100, max: null, label: '100%+' },
-            { min: 50, max: null, label: '50%+' },
-            { min: 20, max: null, label: '20%+' },
-            { min: null, max: 0, label: '역성장' }
+            { min: 100, max: null, label: '100%+', labelEn: '100%+' },
+            { min: 50, max: null, label: '50%+', labelEn: '50%+' },
+            { min: 20, max: null, label: '20%+', labelEn: '20%+' },
+            { min: null, max: 0, label: '역성장', labelEn: 'Decline' }
         ]
     },
 
@@ -18679,10 +18679,10 @@ const FILTER_DEFINITIONS = {
         type: 'range',
         unit: '배',
         presets: [
-            { min: null, max: 1, label: '저평가 (1 미만)' },
-            { min: 1, max: 3, label: '적정 (1~3)' },
-            { min: 3, max: 5, label: '보통 (3~5)' },
-            { min: 5, max: null, label: '고평가 (5+)' }
+            { min: null, max: 1, label: '저평가 (1 미만)', labelEn: 'Undervalued (<1)' },
+            { min: 1, max: 3, label: '적정 (1~3)', labelEn: 'Fair (1~3)' },
+            { min: 3, max: 5, label: '보통 (3~5)', labelEn: 'Average (3~5)' },
+            { min: 5, max: null, label: '고평가 (5+)', labelEn: 'Overvalued (5+)' }
         ]
     },
     quick_ratio: {
@@ -18691,10 +18691,10 @@ const FILTER_DEFINITIONS = {
         type: 'range',
         unit: '%',
         presets: [
-            { min: 150, max: null, label: '우량 (150%+)' },
-            { min: 100, max: 150, label: '양호 (100~150%)' },
-            { min: 50, max: 100, label: '보통 (50~100%)' },
-            { min: null, max: 50, label: '주의 (50% 미만)' }
+            { min: 150, max: null, label: '우량 (150%+)', labelEn: 'Excellent (150%+)' },
+            { min: 100, max: 150, label: '양호 (100~150%)', labelEn: 'Good (100~150%)' },
+            { min: 50, max: 100, label: '보통 (50~100%)', labelEn: 'Average (50~100%)' },
+            { min: null, max: 50, label: '주의 (50% 미만)', labelEn: 'Caution (<50%)' }
         ]
     },
     reserve_ratio: {
@@ -18703,10 +18703,10 @@ const FILTER_DEFINITIONS = {
         type: 'range',
         unit: '%',
         presets: [
-            { min: 1000, max: null, label: '최우량 (1000%+)' },
-            { min: 500, max: 1000, label: '우량 (500~1000%)' },
-            { min: 200, max: 500, label: '양호 (200~500%)' },
-            { min: null, max: 200, label: '주의 (200% 미만)' }
+            { min: 1000, max: null, label: '최우량 (1000%+)', labelEn: 'Top (1000%+)' },
+            { min: 500, max: 1000, label: '우량 (500~1000%)', labelEn: 'Excellent (500~1000%)' },
+            { min: 200, max: 500, label: '양호 (200~500%)', labelEn: 'Good (200~500%)' },
+            { min: null, max: 200, label: '주의 (200% 미만)', labelEn: 'Caution (<200%)' }
         ]
     },
     eps: {
@@ -18715,10 +18715,10 @@ const FILTER_DEFINITIONS = {
         type: 'range',
         unit: '원',
         presets: [
-            { min: 10000, max: null, label: '고수익 (1만원+)' },
-            { min: 5000, max: 10000, label: '양호 (5천~1만)' },
-            { min: 1000, max: 5000, label: '보통 (1천~5천)' },
-            { min: null, max: 0, label: '적자' }
+            { min: 10000, max: null, label: '고수익 (1만원+)', labelEn: 'High (10K+)' },
+            { min: 5000, max: 10000, label: '양호 (5천~1만)', labelEn: 'Good (5K~10K)' },
+            { min: 1000, max: 5000, label: '보통 (1천~5천)', labelEn: 'Average (1K~5K)' },
+            { min: null, max: 0, label: '적자', labelEn: 'Loss' }
         ]
     },
     bps: {
@@ -18727,10 +18727,10 @@ const FILTER_DEFINITIONS = {
         type: 'range',
         unit: '원',
         presets: [
-            { min: 50000, max: null, label: '5만원+' },
-            { min: 20000, max: 50000, label: '2~5만원' },
-            { min: 10000, max: 20000, label: '1~2만원' },
-            { min: null, max: 10000, label: '1만원 미만' }
+            { min: 50000, max: null, label: '5만원+', labelEn: '50K+' },
+            { min: 20000, max: 50000, label: '2~5만원', labelEn: '20K~50K' },
+            { min: 10000, max: 20000, label: '1~2만원', labelEn: '10K~20K' },
+            { min: null, max: 10000, label: '1만원 미만', labelEn: '<10K' }
         ]
     },
     sales_growth: {
@@ -18739,10 +18739,10 @@ const FILTER_DEFINITIONS = {
         type: 'range',
         unit: '%',
         presets: [
-            { min: 50, max: null, label: '고성장 (50%+)' },
-            { min: 20, max: 50, label: '성장 (20~50%)' },
-            { min: 0, max: 20, label: '안정 (0~20%)' },
-            { min: null, max: 0, label: '역성장' }
+            { min: 50, max: null, label: '고성장 (50%+)', labelEn: 'High Growth (50%+)' },
+            { min: 20, max: 50, label: '성장 (20~50%)', labelEn: 'Growth (20~50%)' },
+            { min: 0, max: 20, label: '안정 (0~20%)', labelEn: 'Stable (0~20%)' },
+            { min: null, max: 0, label: '역성장', labelEn: 'Decline' }
         ]
     },
     op_growth: {
@@ -18751,10 +18751,10 @@ const FILTER_DEFINITIONS = {
         type: 'range',
         unit: '%',
         presets: [
-            { min: 50, max: null, label: '고성장 (50%+)' },
-            { min: 20, max: 50, label: '성장 (20~50%)' },
-            { min: 0, max: 20, label: '안정 (0~20%)' },
-            { min: null, max: 0, label: '역성장' }
+            { min: 50, max: null, label: '고성장 (50%+)', labelEn: 'High Growth (50%+)' },
+            { min: 20, max: 50, label: '성장 (20~50%)', labelEn: 'Growth (20~50%)' },
+            { min: 0, max: 20, label: '안정 (0~20%)', labelEn: 'Stable (0~20%)' },
+            { min: null, max: 0, label: '역성장', labelEn: 'Decline' }
         ]
     },
     payout_ratio: {
@@ -18763,10 +18763,10 @@ const FILTER_DEFINITIONS = {
         type: 'range',
         unit: '%',
         presets: [
-            { min: 50, max: null, label: '고배당 (50%+)' },
-            { min: 30, max: 50, label: '적정 (30~50%)' },
-            { min: 10, max: 30, label: '저배당 (10~30%)' },
-            { min: null, max: 10, label: '10% 미만' }
+            { min: 50, max: null, label: '고배당 (50%+)', labelEn: 'High Payout (50%+)' },
+            { min: 30, max: 50, label: '적정 (30~50%)', labelEn: 'Normal (30~50%)' },
+            { min: 10, max: 30, label: '저배당 (10~30%)', labelEn: 'Low Payout (10~30%)' },
+            { min: null, max: 10, label: '10% 미만', labelEn: '<10%' }
         ]
     },
     net_margin: {
@@ -18775,10 +18775,10 @@ const FILTER_DEFINITIONS = {
         type: 'range',
         unit: '%',
         presets: [
-            { min: 15, max: null, label: '고수익 (15%+)' },
-            { min: 10, max: 15, label: '양호 (10~15%)' },
-            { min: 5, max: 10, label: '보통 (5~10%)' },
-            { min: null, max: 5, label: '5% 미만' }
+            { min: 15, max: null, label: '고수익 (15%+)', labelEn: 'High (15%+)' },
+            { min: 10, max: 15, label: '양호 (10~15%)', labelEn: 'Good (10~15%)' },
+            { min: 5, max: 10, label: '보통 (5~10%)', labelEn: 'Average (5~10%)' },
+            { min: null, max: 5, label: '5% 미만', labelEn: '<5%' }
         ]
     },
 
@@ -18788,12 +18788,12 @@ const FILTER_DEFINITIONS = {
         labelEn: 'RSI',
         type: 'indicator',
         params: [
-            { key: 'period', label: '기간', default: 14, unit: '일' }
+            { key: 'period', label: '기간', labelEn: 'Period', default: 14, unit: '일', unitEn: 'd' }
         ],
         presets: [
-            { min: 70, max: null, label: '과매수 (70+)' },
-            { min: null, max: 30, label: '과매도 (30-)' },
-            { min: 30, max: 70, label: '중립 (30~70)' }
+            { min: 70, max: null, label: '과매수 (70+)', labelEn: 'Overbought (70+)' },
+            { min: null, max: 30, label: '과매도 (30-)', labelEn: 'Oversold (30-)' },
+            { min: 30, max: 70, label: '중립 (30~70)', labelEn: 'Neutral (30~70)' }
         ]
     },
     sma: {
