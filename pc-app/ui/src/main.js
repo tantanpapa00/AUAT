@@ -19408,6 +19408,15 @@ async function loadScreener() {
     if (restrictionEl) restrictionEl.style.display = 'none';
     if (contentEl) contentEl.style.display = 'block';
 
+    // 앱 모드에 따라 기본 market 설정
+    if (getAppMode() === 'US') {
+        screenerState.market = 'us';
+        // 탭 UI 동기화
+        document.querySelectorAll('.screener-tab').forEach(tab => {
+            tab.classList.toggle('active', tab.dataset.market === 'us');
+        });
+    }
+
     // 이벤트 바인딩 (최초 1회)
     initScreenerEvents();
 
