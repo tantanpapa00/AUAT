@@ -7373,6 +7373,7 @@ async function loadMarketUs() {
         const signal = data.signal || {};
         const sp500Sig = signal.sp500 || {};
         const nasdaqSig = signal.nasdaq || {};
+        const isUS = getAppMode() === 'US';
 
         // UI 렌더링 (StockEasy 스타일 - 국내시장과 동일)
         contentEl.innerHTML = `
@@ -7453,13 +7454,13 @@ async function loadMarketUs() {
 
             <!-- 2행: S&P 500 히트맵 (줌 가능) -->
             <div class="card us-heatmap-card">
-                <h3>S&P 500 히트맵</h3>
+                <h3>${isUS ? 'S&P 500 Heatmap' : 'S&P 500 히트맵'}</h3>
                 <div class="us-heatmap-wrap" id="us-heatmap-wrap">
                     <div class="us-heatmap-grid" id="us-heatmap-grid"></div>
                     <div class="hm-zoom-controls">
-                        <button class="hm-zoom-btn" id="hm-zoom-in" title="확대">+</button>
-                        <button class="hm-zoom-btn" id="hm-zoom-out" title="축소">−</button>
-                        <button class="hm-zoom-btn" id="hm-zoom-reset" title="초기화">⟲</button>
+                        <button class="hm-zoom-btn" id="hm-zoom-in" title="${isUS ? 'Zoom In' : '확대'}">+</button>
+                        <button class="hm-zoom-btn" id="hm-zoom-out" title="${isUS ? 'Zoom Out' : '축소'}">−</button>
+                        <button class="hm-zoom-btn" id="hm-zoom-reset" title="${isUS ? 'Reset' : '초기화'}">⟲</button>
                     </div>
                 </div>
             </div>
@@ -7519,17 +7520,17 @@ async function loadMarketUs() {
 
             <!-- 5행: 신호 설명 (접기 가능) -->
             <div class="se-signal-desc" id="us-signal-desc">
-                <p>시장 신호는 신호등 색상으로 현재 시장의 상태를 나타냅니다: (🟢 양호, 🟡 주의, 🔴 매우주의).</p>
-                <p>단기/장기 신호는 각각 단기적, 장기적 관점에서의 시장 흐름을 보여주는 지표입니다.</p>
+                <p>${isUS ? 'Market signal indicates current market state using traffic light colors: (🟢 Bullish, 🟡 Caution, 🔴 Bearish).' : '시장 신호는 신호등 색상으로 현재 시장의 상태를 나타냅니다: (🟢 양호, 🟡 주의, 🔴 매우주의).'}</p>
+                <p>${isUS ? 'Short/Long term signals show market trends from short and long term perspectives.' : '단기/장기 신호는 각각 단기적, 장기적 관점에서의 시장 흐름을 보여주는 지표입니다.'}</p>
             </div>
 
             <!-- 6행: 서브탭 (시장지표 | 섹터 | 오늘의 특징주 | 오늘의 업종 | 섹터별 추세) -->
             <div class="se-subtabs" id="us-subtabs">
-                <button class="se-subtab active" data-tab="us-market-indicators">시장지표</button>
-                <button class="se-subtab" data-tab="us-sector">섹터</button>
-                <button class="se-subtab" data-tab="us-featured-stocks">오늘의 특징주</button>
-                <button class="se-subtab" data-tab="us-sector-data">오늘의 업종</button>
-                <button class="se-subtab" data-tab="us-trend-maintain">섹터별 추세</button>
+                <button class="se-subtab active" data-tab="us-market-indicators">${isUS ? 'Market Indicators' : '시장지표'}</button>
+                <button class="se-subtab" data-tab="us-sector">${isUS ? 'Sectors' : '섹터'}</button>
+                <button class="se-subtab" data-tab="us-featured-stocks">${isUS ? "Today's Movers" : '오늘의 특징주'}</button>
+                <button class="se-subtab" data-tab="us-sector-data">${isUS ? "Today's Sectors" : '오늘의 업종'}</button>
+                <button class="se-subtab" data-tab="us-trend-maintain">${isUS ? 'Sector Trends' : '섹터별 추세'}</button>
             </div>
 
             <!-- 시장지표 탭 -->
@@ -7539,7 +7540,7 @@ async function loadMarketUs() {
                     <div class="se-bp-item">
                         <span class="se-bp-market">S&P500</span>
                         <span class="se-bp-dot" id="bp-sp500-dot">●</span>
-                        <span class="se-bp-status" id="bp-sp500-status">${sp500Sig.status_label || '확인된 상승세'}</span>
+                        <span class="se-bp-status" id="bp-sp500-status">${sp500Sig.status_label || (isUS ? 'Confirmed Uptrend' : '확인된 상승세')}</span>
                         <span class="se-bp-exposure">(${sp500Sig.exposure || '80-100%'})</span>
                         <span class="se-bp-dd">DD:${sp500Sig.active_dd_count || 0}</span>
                         ${(sp500Sig.active_dd_count || 0) >= 3 ? '<span class="se-bp-warn">⚠️</span>' : ''}
@@ -7548,7 +7549,7 @@ async function loadMarketUs() {
                     <div class="se-bp-item">
                         <span class="se-bp-market">NASDAQ</span>
                         <span class="se-bp-dot" id="bp-nasdaq-dot">●</span>
-                        <span class="se-bp-status" id="bp-nasdaq-status">${nasdaqSig.status_label || '확인된 상승세'}</span>
+                        <span class="se-bp-status" id="bp-nasdaq-status">${nasdaqSig.status_label || (isUS ? 'Confirmed Uptrend' : '확인된 상승세')}</span>
                         <span class="se-bp-exposure">(${nasdaqSig.exposure || '80-100%'})</span>
                         <span class="se-bp-dd">DD:${nasdaqSig.active_dd_count || 0}</span>
                         ${(nasdaqSig.active_dd_count || 0) >= 3 ? '<span class="se-bp-warn">⚠️</span>' : ''}
@@ -7557,10 +7558,10 @@ async function loadMarketUs() {
 
                 <!-- 시장 브레드스 (Breadth) - Finviz 전체 시장 기준 -->
                 <div class="se-breadth-card card">
-                    <h3>시장 브레드스 (전체 시장)</h3>
+                    <h3>${isUS ? 'Market Breadth (Overall Market)' : '시장 브레드스 (전체 시장)'}</h3>
                     <div class="se-breadth-grid">
                         <div class="se-breadth-item">
-                            <span class="se-breadth-label">상승 / 하락</span>
+                            <span class="se-breadth-label">${isUS ? 'Advancing / Declining' : '상승 / 하락'}</span>
                             <div class="se-breadth-bar">
                                 <span class="up">${breadth.advancing || 0}</span>
                                 <div class="se-breadth-bar-track">
@@ -7571,7 +7572,7 @@ async function loadMarketUs() {
                             </div>
                         </div>
                         <div class="se-breadth-item">
-                            <span class="se-breadth-label">신고가 / 신저가</span>
+                            <span class="se-breadth-label">${isUS ? 'New Highs / New Lows' : '신고가 / 신저가'}</span>
                             <div class="se-breadth-bar">
                                 <span class="up">${formatBreadthValue(breadth.new_high)}</span>
                                 <div class="se-breadth-bar-track">
@@ -7582,7 +7583,7 @@ async function loadMarketUs() {
                             </div>
                         </div>
                         <div class="se-breadth-item">
-                            <span class="se-breadth-label">SMA50 위 / 아래</span>
+                            <span class="se-breadth-label">${isUS ? 'Above / Below SMA50' : 'SMA50 위 / 아래'}</span>
                             <div class="se-breadth-bar">
                                 <span class="up">${formatBreadthValue(breadth.above_sma50)}</span>
                                 <div class="se-breadth-bar-track">
@@ -7593,7 +7594,7 @@ async function loadMarketUs() {
                             </div>
                         </div>
                         <div class="se-breadth-item">
-                            <span class="se-breadth-label">SMA200 위 / 아래</span>
+                            <span class="se-breadth-label">${isUS ? 'Above / Below SMA200' : 'SMA200 위 / 아래'}</span>
                             <div class="se-breadth-bar">
                                 <span class="up">${formatBreadthValue(breadth.above_sma200)}</span>
                                 <div class="se-breadth-bar-track">
@@ -7610,7 +7611,7 @@ async function loadMarketUs() {
             <!-- 섹터 탭 -->
             <div class="se-tab-content" id="tab-us-sector" style="display:none;">
                 <div class="card">
-                    <h3>S&P 500 GICS 섹터 (11개)</h3>
+                    <h3>${isUS ? 'S&P 500 GICS Sectors (11)' : 'S&P 500 GICS 섹터 (11개)'}</h3>
                     <div class="us-sector-bars" id="us-sector-bars">
                         <!-- JS에서 렌더링 -->
                     </div>
@@ -7621,13 +7622,13 @@ async function loadMarketUs() {
             <div class="se-tab-content" id="tab-us-featured-stocks" style="display:none;">
                 <div class="se-featured-controls">
                     <div class="se-featured-tabs">
-                        <button class="se-featured-tab-us active" data-type="gainers">상승률 상위</button>
-                        <button class="se-featured-tab-us" data-type="losers">하락률 상위</button>
-                        <button class="se-featured-tab-us" data-type="trading_value">거래대금 상위</button>
+                        <button class="se-featured-tab-us active" data-type="gainers">${isUS ? 'Top Gainers' : '상승률 상위'}</button>
+                        <button class="se-featured-tab-us" data-type="losers">${isUS ? 'Top Losers' : '하락률 상위'}</button>
+                        <button class="se-featured-tab-us" data-type="trading_value">${isUS ? 'Top Volume' : '거래대금 상위'}</button>
                     </div>
                 </div>
                 <div class="se-featured-list" id="us-featured-stocks-list">
-                    <div class="loading-state">데이터 ${t('loading')}</div>
+                    <div class="loading-state">${isUS ? 'Loading data...' : '데이터'} ${t('loading')}</div>
                 </div>
             </div>
 
@@ -7635,47 +7636,49 @@ async function loadMarketUs() {
             <div class="se-tab-content" id="tab-us-sector-data" style="display:none;">
                 <div class="se-sector-controls">
                     <div class="se-sector-sort">
-                        <label>정렬:</label>
+                        <label>${isUS ? 'Sort:' : '정렬:'}</label>
                         <select id="us-sector-sort-by">
-                            <option value="change">등락률</option>
-                            <option value="volume">거래대금</option>
+                            <option value="change">${isUS ? 'Change %' : '등락률'}</option>
+                            <option value="volume">${isUS ? 'Volume' : '거래대금'}</option>
                         </select>
                     </div>
                     <div class="se-sector-filter">
-                        <button class="se-filter-btn-us active" data-filter="all">전체</button>
-                        <button class="se-filter-btn-us" data-filter="up">상승</button>
-                        <button class="se-filter-btn-us" data-filter="down">하락</button>
+                        <button class="se-filter-btn-us active" data-filter="all">${isUS ? 'All' : '전체'}</button>
+                        <button class="se-filter-btn-us" data-filter="up">${isUS ? 'Up' : '상승'}</button>
+                        <button class="se-filter-btn-us" data-filter="down">${isUS ? 'Down' : '하락'}</button>
                     </div>
                 </div>
                 <div class="se-sector-list-unified" id="us-sector-unified">
-                    <div class="loading-state">데이터 ${t('loading')}</div>
+                    <div class="loading-state">${isUS ? 'Loading data...' : '데이터'} ${t('loading')}</div>
                 </div>
             </div>
 
             <!-- 섹터별 추세 탭 (US) -->
             <div class="se-tab-content" id="tab-us-trend-maintain" style="display:none;">
                 <div class="card">
-                    <h3>섹터별 추세 (20MA 기준)</h3>
+                    <h3>${isUS ? 'Sector Trends (20MA)' : '섹터별 추세 (20MA 기준)'}</h3>
                     <p class="trend-maintain-desc">
-                        • <b>포지션</b>: 현재가가 20일 이동평균선 위에 며칠째 유지 또는 이탈 중인지<br>
+                        ${isUS ? `• <b>Position</b>: Days above or below 20-day moving average<br>
+                        • <b>Signal</b>: Current sector status (<span style="color:#22c55e">●</span>Bullish, <span style="color:#fde047">●</span>Caution, <span style="color:#ef4444">●</span>Bearish)<br>
+                        • <b>Top Stocks (RS)</b>: Stocks with RS score <b>90+</b> are shown in <b>bold</b>` : `• <b>포지션</b>: 현재가가 20일 이동평균선 위에 며칠째 유지 또는 이탈 중인지<br>
                         • <b>신호등</b>: 섹터의 현재 상태 (<span style="color:#22c55e">●</span>양호, <span style="color:#fde047">●</span>주의, <span style="color:#ef4444">●</span>매우주의)<br>
-                        • <b>대표종목(RS)</b>: RS 점수가 <b>90 이상</b>인 종목은 <b>굵게</b> 표시
+                        • <b>대표종목(RS)</b>: RS 점수가 <b>90 이상</b>인 종목은 <b>굵게</b> 표시`}
                     </p>
                     <div class="trend-maintain-table-wrap">
                         <table class="trend-maintain-table" id="us-trend-maintain-table">
                             <thead>
                                 <tr>
-                                    <th class="sortable" data-sort="sector">섹터</th>
+                                    <th class="sortable" data-sort="sector">${isUS ? 'Sector' : '섹터'}</th>
                                     <th>ETF</th>
-                                    <th class="sortable" data-sort="change">등락률</th>
-                                    <th class="sortable" data-sort="days">포지션</th>
-                                    <th>신호</th>
-                                    <th class="sortable" data-sort="gap">이격률</th>
-                                    <th>대표종목(RS)</th>
+                                    <th class="sortable" data-sort="change">${isUS ? 'Change %' : '등락률'}</th>
+                                    <th class="sortable" data-sort="days">${isUS ? 'Position' : '포지션'}</th>
+                                    <th>${isUS ? 'Signal' : '신호'}</th>
+                                    <th class="sortable" data-sort="gap">${isUS ? 'Gap %' : '이격률'}</th>
+                                    <th>${isUS ? 'Top Stocks (RS)' : '대표종목(RS)'}</th>
                                 </tr>
                             </thead>
                             <tbody id="us-trend-maintain-body">
-                                <tr><td colspan="7" class="loading-cell">데이터 ${t('loading')}</td></tr>
+                                <tr><td colspan="7" class="loading-cell">${isUS ? 'Loading data...' : '데이터'} ${t('loading')}</td></tr>
                             </tbody>
                         </table>
                     </div>
