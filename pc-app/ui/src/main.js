@@ -93,7 +93,7 @@ const API_COMMAND_MAP = {
     // Market Overview
     'get_market_overview': (args) => api.getMarketOverview(args.accessToken),
     'get_market_us_overview': (args) => api.getMarketUsOverview(args.accessToken),
-    'get_market_us_full': (args) => api.getMarketUsFull(args.accessToken),
+    'get_market_us_full': (args) => api.getMarketUsFull(args.accessToken, args.lang || 'kr'),
     'get_market_us_trend_maintain': (args) => api.getMarketUsTrendMaintain(args.accessToken),
     'get_market_us_ranking': (args) => api.getMarketUsRanking(args.accessToken, args.sort, args.order, args.limit),
     'get_market_us_sectors': (args) => api.getMarketUsSectors(args.accessToken),
@@ -7347,9 +7347,11 @@ async function loadMarketUs() {
     contentEl.innerHTML = `<div class="loading-state">${t('data_loading')}</div>`;
 
     try {
-        // Phase 5: Full US market data API
+        // Phase 5: Full US market data API (lang 파라미터로 섹터명 언어 결정)
+        const lang = getAppMode() === 'US' ? 'en' : 'kr';
         const data = await invokeWithTimeout('get_market_us_full', {
-            accessToken: auth.accessToken || ''
+            accessToken: auth.accessToken || '',
+            lang: lang
         }, 30000);
 
         console.log('[loadMarketUs] data:', data);

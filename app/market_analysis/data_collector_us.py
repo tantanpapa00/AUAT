@@ -237,16 +237,18 @@ async def collect_us_sectors() -> List[Dict]:
     return result
 
 
-async def collect_us_heatmap() -> List[Dict]:
+async def collect_us_heatmap(lang: str = "kr") -> List[Dict]:
     """
     히트맵용 S&P 500 전체 종목 데이터 수집
     us_screener.py의 get_us_heatmap() 사용
+    Args:
+        lang: 언어 설정 ('kr' = 한글, 'en' = 영문)
     """
     try:
         from app.screener.us_screener import get_us_heatmap
-        heatmap_data = await get_us_heatmap()
+        heatmap_data = await get_us_heatmap(lang=lang)
         stocks = heatmap_data.get("stocks", [])
-        print(f"[US Heatmap] {len(stocks)}개 종목 로드")
+        print(f"[US Heatmap] {len(stocks)}개 종목 로드 (lang={lang})")
         return stocks
     except Exception as e:
         print(f"[US Heatmap] 오류: {e}")
@@ -283,14 +285,16 @@ async def collect_fear_greed_index() -> Dict:
         return {"value": 50, "label": "중립", "label_en": "Neutral"}
 
 
-async def get_us_market_summary() -> Dict[str, Any]:
+async def get_us_market_summary(lang: str = "kr") -> Dict[str, Any]:
     """
     미국 시장 요약 데이터 전체 수집
     방안 B: 브레드스는 DB에서 읽기 (즉시 응답)
+    Args:
+        lang: 언어 설정 ('kr' = 한글, 'en' = 영문)
     """
     indices_task = collect_us_indices()
     sectors_task = collect_us_sectors()
-    heatmap_task = collect_us_heatmap()
+    heatmap_task = collect_us_heatmap(lang=lang)
     fg_task = collect_fear_greed_index()
 
     indices, sectors, heatmap, fear_greed = await asyncio.gather(

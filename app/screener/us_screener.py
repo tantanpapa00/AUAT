@@ -49,6 +49,28 @@ SECTOR_KR = {
     "Basic Materials": "소재",
 }
 
+# GICS 섹터 영문 (간결화)
+SECTOR_EN = {
+    "Information Technology": "Technology",
+    "Technology": "Technology",
+    "Health Care": "Healthcare",
+    "Healthcare": "Healthcare",
+    "Financials": "Financials",
+    "Financial": "Financials",
+    "Financial Services": "Financials",
+    "Consumer Discretionary": "Consumer Disc.",
+    "Consumer Cyclical": "Consumer Disc.",
+    "Consumer Staples": "Consumer Staples",
+    "Consumer Defensive": "Consumer Staples",
+    "Communication Services": "Communication",
+    "Industrials": "Industrials",
+    "Energy": "Energy",
+    "Utilities": "Utilities",
+    "Real Estate": "Real Estate",
+    "Materials": "Materials",
+    "Basic Materials": "Materials",
+}
+
 # ========== 캐시 ==========
 
 # S&P 500 목록 캐시 (24시간)
@@ -502,11 +524,16 @@ def apply_us_filters(stocks: List[Dict], filters: dict) -> List[Dict]:
 
 # ========== 히트맵 데이터 ==========
 
-async def get_us_heatmap() -> Dict[str, Any]:
+async def get_us_heatmap(lang: str = "kr") -> Dict[str, Any]:
     """
     US 섹터별 히트맵 데이터 생성 (S&P500 전용)
+    Args:
+        lang: 언어 설정 ('kr' = 한글, 'en' = 영문)
     Returns: {"sectors": [...], "stocks": [...]}
     """
+    # 섹터 매핑 선택
+    sector_map = SECTOR_EN if lang == "en" else SECTOR_KR
+
     # 히트맵은 S&P500만 사용 (시각화 성능)
     sp500_list = await get_sp500_list()
     if sp500_list:
@@ -517,10 +544,13 @@ async def get_us_heatmap() -> Dict[str, Any]:
         for item in sp500_list:
             sym = item["symbol"]
             price_info = prices.get(sym, {})
+            # lang에 따라 sector 필드 선택
+            sector_en = item.get("sector_en", "")
+            sector_display = sector_map.get(sector_en, sector_en) if lang == "en" else item.get("sector", sector_en)
             stocks.append({
                 "code": sym,
                 "name": item.get("name", sym),
-                "sector": item.get("sector", ""),
+                "sector": sector_display,
                 "price": price_info.get("price", 0),
                 "change_pct": price_info.get("change_pct", 0),
                 "market_cap": price_info.get("market_cap_t", 0),
@@ -536,9 +566,10 @@ async def get_us_heatmap() -> Dict[str, Any]:
     # 섹터별 그룹핑
     sector_data = {}
     stock_list = []
+    default_sector = "Others" if lang == "en" else "기타"
 
     for stock in stocks:
-        sector = stock.get("sector", "기타")
+        sector = stock.get("sector", default_sector) or default_sector
         if sector not in sector_data:
             sector_data[sector] = {
                 "name": sector,

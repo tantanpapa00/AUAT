@@ -286,8 +286,8 @@ export const getMarketOverview = (token) =>
 export const getMarketUsOverview = (token) =>
     apiGet('/api/market/us/overview', token);
 
-export const getMarketUsFull = (token) =>
-    apiGet('/api/market/us/full', token);
+export const getMarketUsFull = (token, lang = 'kr') =>
+    apiGet(`/api/market/us/full?lang=${lang}`, token);
 
 export const getMarketUsTrendMaintain = (token) =>
     apiGet('/api/market/us/trend-maintain', token);

@@ -21,6 +21,14 @@ US_SECTOR_NAME_MAP = {
     "XLRE": "부동산", "XLC": "커뮤니케이션"
 }
 
+# 섹터 ETF 영문 이름 매핑
+US_SECTOR_NAME_MAP_EN = {
+    "XLK": "Technology", "XLF": "Financials", "XLV": "Healthcare",
+    "XLE": "Energy", "XLY": "Consumer Disc.", "XLP": "Consumer Staples",
+    "XLI": "Industrials", "XLB": "Materials", "XLU": "Utilities",
+    "XLRE": "Real Estate", "XLC": "Communication"
+}
+
 # 섹터별 대표종목 매핑
 SECTOR_TOP_STOCKS = {
     "XLK": [{"name": "AAPL", "rs": 95}, {"name": "NVDA", "rs": 98}, {"name": "MSFT", "rs": 90}, {"name": "AVGO", "rs": 92}, {"name": "CRM", "rs": 85}],
@@ -69,6 +77,7 @@ async def api_market_us_overview(
 
 @router.get("/full")
 async def api_market_us_full(
+    lang: str = Query(default="kr", description="언어 설정 (kr=한글, en=영문)"),
     current_user: User = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
@@ -91,8 +100,8 @@ async def api_market_us_full(
         from app.market_analysis.data_collector_us import get_us_market_summary
         from app.market_analysis.signal_engine import BIG_PICTURE_CONFIG
 
-        # 1. 미국시장 전체 요약 수집 (병렬)
-        summary = await get_us_market_summary()
+        # 1. 미국시장 전체 요약 수집 (병렬) - lang 파라미터 전달
+        summary = await get_us_market_summary(lang=lang)
 
         def calc_us_signal_from_indices(indices: dict, market_key: str) -> tuple:
             """US 지수 데이터로 신호 계산"""
