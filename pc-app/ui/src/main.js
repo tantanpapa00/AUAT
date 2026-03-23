@@ -418,8 +418,8 @@ function updateNavVisibility(mode) {
     const desc = document.getElementById('mode-description');
     if (desc) {
         desc.textContent = mode === 'US'
-            ? t('mode_us_desc')
-            : t('mode_kr_desc');
+            ? 'US stocks & crypto trading'
+            : '국내주식/해외주식/암호화폐 트레이딩';
     }
 
     // 모드 버튼 활성화 상태 업데이트
@@ -19483,7 +19483,8 @@ function initScreenerEvents() {
         // 필터가 1개 이상 있어야 검색 실행
         if (Object.keys(screenerState.activeFilters).length === 0) {
             console.log('[Search Button] No filters set');
-            showNotification('필터를 1개 이상 설정해주세요', 'warning');
+            const msg = getAppMode() === 'US' ? 'Please set at least one filter' : '필터를 1개 이상 설정해주세요';
+            showNotification(msg, 'warning');
             return;
         }
         screenerState.page = 1;
@@ -20244,7 +20245,7 @@ function updateScreenerFiltersUI(market) {
 
         // 카테고리 라벨 매핑 (모드별 분기)
         const catLabels = getAppMode() === 'US'
-            ? { basic: t('filter_basic'), financial: t('filter_financial'), technical: t('filter_technical') }
+            ? { basic: 'Basic', financial: 'Financial', technical: 'Technical' }
             : { basic: '기본', financial: '재무', technical: '기술' };
 
         // 카테고리 순서 고정: basic → financial → technical
@@ -20267,6 +20268,19 @@ function updateScreenerFiltersUI(market) {
 
         chipGroups.innerHTML = html;
     }
+
+    // 스크리너 UI 텍스트 i18n 적용
+    const isUS = getAppMode() === 'US';
+    const searchInput = document.getElementById('unified-search-input');
+    if (searchInput) searchInput.placeholder = isUS ? 'Search by name, code, ticker (e.g., AAPL, MSFT)' : '종목명, 코드, 티커로 검색 (예: 삼성전자, AAPL, KODEX)';
+    const loadPresetBtn = document.getElementById('btn-load-preset');
+    if (loadPresetBtn) loadPresetBtn.textContent = isUS ? 'Apply' : '적용';
+    const deletePresetBtn = document.getElementById('btn-delete-preset');
+    if (deletePresetBtn) deletePresetBtn.textContent = isUS ? 'Delete' : '삭제';
+    const presetNameInput = document.getElementById('preset-name-input');
+    if (presetNameInput) presetNameInput.placeholder = isUS ? 'Preset name' : '프리셋 이름';
+    const popoverApply = document.getElementById('popover-apply');
+    if (popoverApply) popoverApply.textContent = isUS ? 'Apply' : '적용';
 
     // 필터 칩 이벤트 재바인딩
     rebindFilterChipEvents();
@@ -20532,7 +20546,8 @@ async function saveScreenerPreset() {
     const name = nameInput?.value?.trim();
 
     if (!name) {
-        showNotification('프리셋 이름을 입력하세요', 'warning');
+        const msg = getAppMode() === 'US' ? 'Please enter a preset name' : '프리셋 이름을 입력하세요';
+        showNotification(msg, 'warning');
         nameInput?.focus();
         return;
     }
@@ -20607,7 +20622,8 @@ function loadSelectedPreset() {
     screenerState.hasSearched = true;
     searchScreener();
 
-    showNotification(`프리셋 "${preset.name}" 적용`, 'success');
+    const applyMsg = getAppMode() === 'US' ? `Preset "${preset.name}" applied` : `프리셋 "${preset.name}" 적용`;
+    showNotification(applyMsg, 'success');
 }
 
 async function deleteSelectedPreset() {
