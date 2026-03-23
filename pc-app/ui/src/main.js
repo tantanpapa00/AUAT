@@ -19921,10 +19921,12 @@ function applyPopoverFilter() {
         const condition = document.querySelector('#popover-body input[name="sma-cond"]:checked')?.value;
 
         if (condition) {
-            const condLabel = filterDef.conditions.find(c => c.value === condition)?.label || condition;
+            const condDef = filterDef.conditions.find(c => c.value === condition);
+            const condLabel = (condDef?.labelEn && getAppMode() === 'US') ? condDef.labelEn : (condDef?.label || condition);
             filterData.value = condition;
             filterData.params = { maType, period };
-            filterData.label = `${maType}(${period}) ${condLabel.replace('현재가가 ', '')}`;
+            const cleanLabel = condLabel.replace('현재가가 ', '').replace('Price ', '');
+            filterData.label = `${maType}(${period}) ${cleanLabel}`;
 
             // 다중 SMA 지원: 고유 키 생성
             const uniqueKey = `sma_${maType}_${period}`;
@@ -19939,7 +19941,8 @@ function applyPopoverFilter() {
         const condition = document.querySelector('#popover-body input[name="cross-cond"]:checked')?.value;
 
         if (condition) {
-            const condLabel = condition === 'golden' ? '골든' : '데드';
+            const isUS = getAppMode() === 'US';
+            const condLabel = condition === 'golden' ? (isUS ? 'Golden' : '골든') : (isUS ? 'Death' : '데드');
             filterData.value = condition;
             filterData.params = { shortType, shortPeriod, longType, longPeriod };
             filterData.label = `${shortType}(${shortPeriod})×${longType}(${longPeriod}) ${condLabel}`;
@@ -19990,7 +19993,8 @@ function updateActiveFiltersUI() {
     const filterKeys = Object.keys(filters);
 
     if (filterKeys.length === 0) {
-        container.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">선택된 필터 없음</span>';
+        const noFilterText = getAppMode() === 'US' ? 'No filters selected' : '선택된 필터 없음';
+        container.innerHTML = `<span style="color: var(--text-muted); font-size: 0.85rem;">${noFilterText}</span>`;
         if (clearAllBtn) clearAllBtn.style.display = 'none';
         return;
     }
@@ -20115,7 +20119,8 @@ async function searchScreener() {
     updateTableHeader(screenerState.market);
 
     if (tbody) {
-        tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">검색 중...</td></tr>';
+        const searchingText = getAppMode() === 'US' ? 'Searching...' : '검색 중...';
+        tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">${searchingText}</td></tr>`;
     }
 
     try {
@@ -20293,7 +20298,9 @@ function showStockDetailPanel(stock) {
 
     // 현재가
     const price = (stock.price || 0).toLocaleString();
-    document.getElementById('panel-current-price').textContent = `${price}원`;
+    const currencyUnit = screenerState.market === 'us' ? '$' : '원';
+    const priceText = screenerState.market === 'us' ? `$${price}` : `${price}원`;
+    document.getElementById('panel-current-price').textContent = priceText;
 
     // 등락률
     const changePct = stock.change_pct || 0;
@@ -20315,17 +20322,18 @@ function showStockDetailPanel(stock) {
     document.getElementById('panel-dividend').textContent = stock.dividend_yield ? stock.dividend_yield.toFixed(2) + '%' : '-';
 
     // 기술적 지표
+    const isUS = getAppMode() === 'US';
     document.getElementById('panel-rsi').textContent = stock.rsi ? stock.rsi.toFixed(0) : '-';
-    document.getElementById('panel-macd').textContent = stock.macd_cross === 'buy' ? '매수' : stock.macd_cross === 'sell' ? '매도' : '-';
-    document.getElementById('panel-bb').textContent = stock.bb_position === 'upper' ? '상단' : stock.bb_position === 'lower' ? '하단' : stock.bb_position === 'middle' ? '중심' : '-';
-    document.getElementById('panel-vol-surge').textContent = stock.volume_surge ? stock.volume_surge.toFixed(1) + '배' : '-';
+    document.getElementById('panel-macd').textContent = stock.macd_cross === 'buy' ? (isUS ? 'Buy' : '매수') : stock.macd_cross === 'sell' ? (isUS ? 'Sell' : '매도') : '-';
+    document.getElementById('panel-bb').textContent = stock.bb_position === 'upper' ? (isUS ? 'Upper' : '상단') : stock.bb_position === 'lower' ? (isUS ? 'Lower' : '하단') : stock.bb_position === 'middle' ? (isUS ? 'Mid' : '중심') : '-';
+    document.getElementById('panel-vol-surge').textContent = stock.volume_surge ? stock.volume_surge.toFixed(1) + (isUS ? 'x' : '배') : '-';
 
     // 이평선
-    const smaFormat = (pos) => pos === 'above' ? '위' : pos === 'below' ? '아래' : pos === 'near' ? '근접' : '-';
+    const smaFormat = (pos) => pos === 'above' ? (isUS ? 'Above' : '위') : pos === 'below' ? (isUS ? 'Below' : '아래') : pos === 'near' ? (isUS ? 'Near' : '근접') : '-';
     document.getElementById('panel-sma20').textContent = smaFormat(stock.sma20_position);
     document.getElementById('panel-sma50').textContent = smaFormat(stock.sma50_position);
     document.getElementById('panel-sma200').textContent = smaFormat(stock.sma200_position);
-    document.getElementById('panel-sma-cross').textContent = stock.sma_cross === 'golden' ? '골든' : stock.sma_cross === 'dead' ? '데드' : '-';
+    document.getElementById('panel-sma-cross').textContent = stock.sma_cross === 'golden' ? (isUS ? 'Golden' : '골든') : stock.sma_cross === 'dead' ? (isUS ? 'Death' : '데드') : '-';
 
     // 패널 표시
     panel.style.display = 'block';
@@ -20355,7 +20363,8 @@ function renderScreenerTable(items) {
     if (!tbody) return;
 
     if (!items || items.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">검색 결과가 없습니다</td></tr>';
+        const noResultText = getAppMode() === 'US' ? 'No results found' : '검색 결과가 없습니다';
+        tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">${noResultText}</td></tr>`;
         return;
     }
 
