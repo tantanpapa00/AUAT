@@ -19888,7 +19888,7 @@ function applyPopoverFilter() {
             // 라벨 생성
             const unit = filterDef.unit || '';
             if (filterData.params?.period) {
-                filterData.label = `${filterDef.label}(${filterData.params.period}): ${minVal || ''}~${maxVal || ''}${unit}`;
+                filterData.label = `${(isUS && filterDef.labelEn) ? filterDef.labelEn : filterDef.label}(${filterData.params.period}): ${minVal || ''}~${maxVal || ''}${unit}`;
             } else {
                 filterData.label = minVal && maxVal ? `${minVal}~${maxVal}${unit}` : minVal ? `${minVal}${unit}+` : `~${maxVal}${unit}`;
             }
@@ -19910,7 +19910,7 @@ function applyPopoverFilter() {
                 });
                 // 라벨에 파라미터 추가
                 const paramStr = Object.entries(filterData.params).map(([k,v]) => v).join(',');
-                filterData.label = `${filterDef.label}(${paramStr}): ${selectedPreset.textContent}`;
+                filterData.label = `${(isUS && filterDef.labelEn) ? filterDef.labelEn : filterDef.label}(${paramStr}): ${selectedPreset.textContent}`;
             }
             setFilterV2(filterKey, filterData);
         }
@@ -20004,7 +20004,8 @@ function updateActiveFiltersUI() {
     container.innerHTML = filterKeys.map(key => {
         const filter = filters[key];
         // V2 구조: filter.label 우선 사용
-        const displayLabel = filter.label || `${key}: ${filter.value || ''}`;
+        const isUS = getAppMode() === 'US';
+        const displayLabel = (isUS && filter.labelEn) ? filter.labelEn : (filter.label || `${key}: ${filter.value || ''}`);
         return `
             <span class="active-filter-chip" data-key="${key}">
                 ${displayLabel}
