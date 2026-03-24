@@ -399,6 +399,7 @@ function updateNavVisibility(mode) {
     const krOnlyMenus = [
         'nav-screener-kr',   // 국내 스크리너
         'nav-market-kr',     // 국내시장
+        'nav-market-etf',    // ETF (국내)
     ];
     // US 전용 메뉴 (KR 모드에서 숨김)
     const usOnlyMenus = [
