@@ -10970,6 +10970,9 @@ async function searchUnified(query) {
 let currentAiMarket = 'kr';
 
 async function loadBBoosterAI() {
+    // US 모드에서는 기본으로 US 마켓 선택
+    const isUS = getAppMode() === 'US';
+    currentAiMarket = isUS ? 'us' : 'kr';
     const restrictionEl = document.getElementById('bbooster-ai-restriction');
     const contentEl = document.getElementById('bbooster-ai-content');
 
@@ -10985,6 +10988,14 @@ async function loadBBoosterAI() {
     }
     if (restrictionEl) restrictionEl.style.display = 'none';
     if (contentEl) contentEl.style.display = 'block';
+
+    // US 모드에서 US 탭 활성화
+    document.querySelectorAll('.ai-tab').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.dataset.market === currentAiMarket) {
+            tab.classList.add('active');
+        }
+    });
 
     // 탭 이벤트 바인딩
     initAiTabEvents();
@@ -11363,10 +11374,11 @@ async function loadAiRecommendations(market) {
 
     if (!container) return;
 
+    const isUS = getAppMode() === 'US';
     container.innerHTML = `
         <div class="ai-loading">
             <div class="loading-spinner"></div>
-            <span>AI 추천 종목을 불러오는 중...</span>
+            <span>${isUS ? 'Loading AI recommendations...' : 'AI 추천 종목을 불러오는 중...'}</span>
         </div>
     `;
 
@@ -11377,19 +11389,19 @@ async function loadAiRecommendations(market) {
         }, 60000);  // US Finviz 스크래핑 대응 (60초)
 
         if (!response || !response.categories) {
-            container.innerHTML = `<div class="ai-empty">추천 ${t('data_load_failed')}</div>`;
+            container.innerHTML = `<div class="ai-empty">${isUS ? 'Recommendations' : '추천'} ${t('data_load_failed')}</div>`;
             return;
         }
 
         // 업데이트 시간
         if (updatedEl && response.updated_at) {
             const date = new Date(response.updated_at);
-            updatedEl.textContent = `${t('last_updated')} ${date.toLocaleString('ko-KR')}`;
+            updatedEl.textContent = `${t('last_updated')} ${date.toLocaleString(isUS ? 'en-US' : 'ko-KR')}`;
         }
 
         // 카테고리 렌더링
         if (response.categories.length === 0) {
-            container.innerHTML = '<div class="ai-empty">현재 추천 종목이 없습니다</div>';
+            container.innerHTML = `<div class="ai-empty">${isUS ? 'No recommendations available' : '현재 추천 종목이 없습니다'}</div>`;
             return;
         }
 
