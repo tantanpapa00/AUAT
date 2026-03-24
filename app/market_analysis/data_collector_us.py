@@ -369,11 +369,22 @@ async def get_us_market_summary(lang: str = "kr") -> Dict[str, Any]:
         **breadth_extra,
     }
 
+    # lang에 따라 sectors 이름 선택
+    sectors_localized = []
+    for s in sectors:
+        sector_item = {**s}
+        sector_item["name"] = s.get("name_en") if lang == "en" else s.get("name")
+        sectors_localized.append(sector_item)
+
+    # lang에 따라 fear_greed 레이블 선택
+    fg_localized = {**fear_greed} if isinstance(fear_greed, dict) else {"value": 50, "label": "중립", "label_en": "Neutral"}
+    fg_localized["label"] = fg_localized.get("label_en") if lang == "en" else fg_localized.get("label")
+
     return {
         "indices": indices,
-        "sectors": sectors,
+        "sectors": sectors_localized,
         "heatmap": heatmap,
-        "fear_greed": fear_greed,
+        "fear_greed": fg_localized,
         "breadth": breadth,
         "rising_stocks": rising,
         "falling_stocks": falling,
