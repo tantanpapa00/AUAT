@@ -7859,8 +7859,10 @@ async function loadSectorDataUs() {
     listEl.innerHTML = `<div class="loading-state">${t('data_loading')}</div>`;
 
     try {
+        const lang = getAppMode() === 'US' ? 'en' : 'kr';
         const data = await invokeWithTimeout('get_market_us_sectors', {
-            accessToken: auth.accessToken || ''
+            accessToken: auth.accessToken || '',
+            lang: lang
         }, 30000);
 
         console.log('[loadSectorDataUs] data:', data);
