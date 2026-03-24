@@ -308,6 +308,7 @@ async def get_us_stock_ranking(
 async def get_us_market_sectors(
     sort: str = Query("change", description="정렬 기준: change(등락률), volume(거래대금)"),
     order: str = Query("desc", description="정렬 순서: desc(내림차순), asc(오름차순)"),
+    lang: str = Query(default="kr", description="언어 설정 (kr=한글, en=영문)"),
     current_user: User = Depends(get_current_user_optional),
 ):
     """
@@ -326,6 +327,8 @@ async def get_us_market_sectors(
         import yfinance as yf
 
         result = []
+        # lang에 따라 섹터명 선택
+        name_key = "name_en" if lang == "en" else "name"
 
         for etf in US_SECTOR_ETFS:
             symbol = etf["symbol"]
@@ -349,7 +352,7 @@ async def get_us_market_sectors(
                     volume = 0
 
                 result.append({
-                    "name": etf["name"],
+                    "name": etf[name_key],
                     "name_en": etf["name_en"],
                     "symbol": symbol,
                     "etf": symbol,
@@ -361,7 +364,7 @@ async def get_us_market_sectors(
             except Exception as etf_err:
                 print(f"[US Sectors] {symbol} 오류: {etf_err}")
                 result.append({
-                    "name": etf["name"],
+                    "name": etf[name_key],
                     "name_en": etf["name_en"],
                     "symbol": symbol,
                     "etf": symbol,
@@ -393,6 +396,7 @@ async def get_us_market_sectors(
 
 @router.get("/trend-maintain")
 async def get_us_trend_maintain(
+    lang: str = Query(default="kr", description="언어 설정 (kr=한글, en=영문)"),
     current_user: User = Depends(get_current_user_optional),
 ):
     """해외 섹터 ETF 추세유지 분석 (20MA 기준)"""
@@ -408,19 +412,23 @@ async def get_us_trend_maintain(
         from app.market_analysis.data_collector_us import US_SECTOR_ETFS, fetch_sector_etf_daily
         from app.market_analysis.trend_maintain import calculate_trend_maintain
 
+        # lang에 따라 섹터명 선택
+        sector_key = "name_en" if lang == "en" else "name"
+        holding_text = "Holding" if lang == "en" else "유지"
+
         for etf in US_SECTOR_ETFS:
             symbol = etf["symbol"]
             closes = await fetch_sector_etf_daily(symbol, 60)
 
             if len(closes) >= 20:
-                trend = calculate_trend_maintain(closes)
+                trend = calculate_trend_maintain(closes, lang=lang)
                 if trend:
                     current_price = closes[-1] if closes else 0
                     prev_price = closes[-2] if len(closes) >= 2 else current_price
                     change_pct_val = ((current_price - prev_price) / prev_price * 100) if prev_price else 0
 
                     result.append({
-                        "sector": etf["name"],
+                        "sector": etf[sector_key],
                         "name": symbol,
                         "etf": symbol,
                         "etf_name": etf["name_en"],
@@ -437,7 +445,7 @@ async def get_us_trend_maintain(
                     })
             else:
                 result.append({
-                    "sector": etf["name"],
+                    "sector": etf[sector_key],
                     "name": symbol,
                     "etf": symbol,
                     "etf_name": etf["name_en"],
@@ -450,8 +458,8 @@ async def get_us_trend_maintain(
                     "top_holdings": SECTOR_TOP_STOCKS.get(symbol, []),
                 })
 
-        # 정렬: 유지 > 이탈, 일수 내림차순
-        result.sort(key=lambda x: (0 if x["position"] == "유지" else 1, -x["days"]))
+        # 정렬: Holding/유지 > Below/이탈, 일수 내림차순
+        result.sort(key=lambda x: (0 if x["position"] == holding_text else 1, -x["days"]))
 
     except Exception as e:
         print(f"[API] /api/market/us/trend-maintain 오류: {e}")

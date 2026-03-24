@@ -289,14 +289,14 @@ export const getMarketUsOverview = (token) =>
 export const getMarketUsFull = (token, lang = 'kr') =>
     apiGet(`/api/market/us/full?lang=${lang}`, token);
 
-export const getMarketUsTrendMaintain = (token) =>
-    apiGet('/api/market/us/trend-maintain', token);
+export const getMarketUsTrendMaintain = (token, lang = 'kr') =>
+    apiGet(`/api/market/us/trend-maintain?lang=${lang}`, token);
 
 export const getMarketUsRanking = (token, sort = 'change', order = 'desc', limit = 50) =>
     apiGet(`/api/market/us/ranking?sort=${sort}&order=${order}&limit=${limit}`, token);
 
-export const getMarketUsSectors = (token) =>
-    apiGet('/api/market/us/sectors', token);
+export const getMarketUsSectors = (token, lang = 'kr') =>
+    apiGet(`/api/market/us/sectors?lang=${lang}`, token);
 
 export const getMarketSectors = (token) =>
     apiGet('/api/market/sectors', token);

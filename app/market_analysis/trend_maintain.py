@@ -9,7 +9,7 @@ from datetime import date
 from .sector_config import SECTOR_ETFS
 
 
-def calculate_trend_maintain(daily_closes: List[float]) -> Optional[Dict]:
+def calculate_trend_maintain(daily_closes: List[float], lang: str = "kr") -> Optional[Dict]:
     """
     추세유지 판단:
     1. 20일 이동평균(MA20) 계산
@@ -19,10 +19,11 @@ def calculate_trend_maintain(daily_closes: List[float]) -> Optional[Dict]:
 
     Args:
         daily_closes: 일별 종가 리스트 (오래된 것 먼저)
+        lang: 언어 설정 ('kr' = 한글, 'en' = 영문)
 
     Returns:
         {
-            "position": "유지" | "이탈",
+            "position": "유지" | "이탈" (kr) or "Holding" | "Below" (en),
             "days": 연속 유지/이탈 일수,
             "gap_percent": 20일 이격도 %,
             "signal": "green" | "yellow" | "red",
@@ -51,7 +52,11 @@ def calculate_trend_maintain(daily_closes: List[float]) -> Optional[Dict]:
         else:
             break
 
-    position = "유지" if is_above else "이탈"
+    # lang에 따라 position 텍스트 결정
+    if lang == "en":
+        position = "Holding" if is_above else "Below"
+    else:
+        position = "유지" if is_above else "이탈"
 
     # 신호등
     if is_above and days >= 5:
