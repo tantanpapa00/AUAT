@@ -163,13 +163,14 @@ async def api_market_us_full(
                     # DB 데이터 없음 → 실시간 계산 (yfinance)
                     idx_symbol = "^GSPC" if market == "SP500" else "^IXIC"
                     try:
-                        sig = await calculate_us_signal(idx_symbol)
+                        sig = await calculate_us_signal(idx_symbol, lang=lang)
                         status = sig.get("status", "unknown")
                         cfg = BIG_PICTURE_CONFIG.get(status, BIG_PICTURE_CONFIG.get("confirmed_uptrend", {}))
+                        default_label = "Unknown" if lang == "en" else "알 수 없음"
 
                         signal_result[market.lower()] = {
                             "status": status,
-                            "status_label": sig.get("status_label", cfg.get("label", "알 수 없음")),
+                            "status_label": sig.get("status_label", cfg.get("label", default_label)),
                             "exposure": cfg.get("exposure", "0-20%"),
                             "active_dd_count": sig.get("active_dd_count", 0),
                             "rally_day_count": 0,
@@ -183,7 +184,7 @@ async def api_market_us_full(
                         short_signal, long_signal = calc_us_signal_from_indices(indices, idx_key)
                         signal_result[market.lower()] = {
                             "status": "unknown",
-                            "status_label": "계산 중",
+                            "status_label": "Calculating..." if lang == "en" else "계산 중",
                             "exposure": "0-20%",
                             "active_dd_count": 0,
                             "rally_day_count": 0,
@@ -196,7 +197,7 @@ async def api_market_us_full(
             for market in ["sp500", "nasdaq"]:
                 signal_result[market] = {
                     "status": "unknown",
-                    "status_label": "조회 실패",
+                    "status_label": "Query Failed" if lang == "en" else "조회 실패",
                     "exposure": "0-20%",
                     "active_dd_count": 0,
                     "rally_day_count": 0,

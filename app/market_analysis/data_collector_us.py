@@ -693,8 +693,12 @@ async def warmup_us_breadth_db():
         print(f"[US Breadth DB] 워밍업 실패: {e}")
 
 
-async def calculate_us_signal(index_symbol: str = "^GSPC") -> Dict[str, Any]:
-    """S&P500/NASDAQ 지수 기반 Distribution Day + 시그널 계산"""
+async def calculate_us_signal(index_symbol: str = "^GSPC", lang: str = "kr") -> Dict[str, Any]:
+    """S&P500/NASDAQ 지수 기반 Distribution Day + 시그널 계산
+    Args:
+        index_symbol: 지수 심볼
+        lang: 언어 설정 ('kr' = 한글, 'en' = 영문)
+    """
     try:
         import yfinance as yf
 
@@ -714,7 +718,7 @@ async def calculate_us_signal(index_symbol: str = "^GSPC") -> Dict[str, Any]:
         if not closes or len(closes) < 2:
             return {
                 "status": "unknown",
-                "status_label": "데이터 부족",
+                "status_label": "Insufficient Data" if lang == "en" else "데이터 부족",
                 "short_term_signal": "yellow",
                 "long_term_signal": "yellow",
                 "active_dd_count": 0,
@@ -775,16 +779,16 @@ async def calculate_us_signal(index_symbol: str = "^GSPC") -> Dict[str, Any]:
         else:
             long_signal = "green"
 
-        # 상태 메시지
+        # 상태 메시지 (lang에 따라 텍스트 선택)
         if short_signal == "red":
             status = "market_in_correction"
-            status_label = "시장 조정"
+            status_label = "Market Correction" if lang == "en" else "시장 조정"
         elif short_signal == "yellow":
             status = "uptrend_under_pressure"
-            status_label = "상승 둔화"
+            status_label = "Uptrend Under Pressure" if lang == "en" else "상승 둔화"
         else:
             status = "confirmed_uptrend"
-            status_label = "상승 추세"
+            status_label = "Confirmed Uptrend" if lang == "en" else "상승 추세"
 
         return {
             "status": status,
@@ -800,7 +804,7 @@ async def calculate_us_signal(index_symbol: str = "^GSPC") -> Dict[str, Any]:
         print(f"[US Signal] calculate_us_signal error: {e}")
         return {
             "status": "unknown",
-            "status_label": "계산 오류",
+            "status_label": "Calculation Error" if lang == "en" else "계산 오류",
             "short_term_signal": "yellow",
             "long_term_signal": "yellow",
             "active_dd_count": 0,

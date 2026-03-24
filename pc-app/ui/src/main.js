@@ -7883,6 +7883,8 @@ function renderUsSectorList(sectors, sortBy = 'change', filter = 'all') {
     const listEl = document.getElementById('us-sector-unified');
     if (!listEl) return;
 
+    const isUS = getAppMode() === 'US';
+
     let filtered = [...sectors];
     if (filter === 'up') {
         filtered = sectors.filter(s => (s.change_pct || 0) > 0);
@@ -7906,9 +7908,9 @@ function renderUsSectorList(sectors, sortBy = 'change', filter = 'all') {
         <table class="se-sector-table">
             <thead>
                 <tr>
-                    <th class="name-col">섹터명</th>
+                    <th class="name-col">${isUS ? 'Sector' : '섹터명'}</th>
                     <th class="etf-col">ETF</th>
-                    <th class="change-col">등락률</th>
+                    <th class="change-col">${isUS ? 'Change %' : '등락률'}</th>
                 </tr>
             </thead>
             <tbody>
@@ -7991,12 +7993,16 @@ function renderUsTrendMaintainTable() {
     const tbody = document.getElementById('us-trend-maintain-body');
     if (!tbody || !usTrendMaintainData.length) return;
 
+    const isUS = getAppMode() === 'US';
+    const holdingText = isUS ? 'Holding' : '유지';
+    const daysUnit = isUS ? 'd' : '일';
+
     const sorted = [...usTrendMaintainData].sort((a, b) => {
         let va, vb;
         switch (usTrendMaintainSortColumn) {
             case 'sector': va = a.sector || ''; vb = b.sector || ''; break;
             case 'change': va = a.change_percent || 0; vb = b.change_percent || 0; break;
-            case 'days': va = (a.position === '유지' ? 1000 : 0) + (a.position_days || 0); vb = (b.position === '유지' ? 1000 : 0) + (b.position_days || 0); break;
+            case 'days': va = (a.position === holdingText || a.position === '유지' || a.position === 'Holding' ? 1000 : 0) + (a.position_days || 0); vb = (b.position === holdingText || b.position === '유지' || b.position === 'Holding' ? 1000 : 0) + (b.position_days || 0); break;
             case 'gap': va = a.gap_percent || 0; vb = b.gap_percent || 0; break;
             default: va = 0; vb = 0;
         }
@@ -8013,7 +8019,7 @@ function renderUsTrendMaintainTable() {
             'red': '#ef4444'
         }[s.signal] || '#6b7280';
 
-        const positionClass = s.position === '유지' ? 'maintain' : 'depart';
+        const positionClass = (s.position === '유지' || s.position === 'Holding') ? 'maintain' : 'depart';
         const gapClass = (s.gap_percent || 0) >= 0 ? 'positive' : 'negative';
         const changeClass = (s.change_percent || 0) >= 0 ? 'profit' : 'loss';
 
@@ -8030,7 +8036,7 @@ function renderUsTrendMaintainTable() {
                 <td class="sector-name">${s.sector || ''}</td>
                 <td class="etf-name">${s.etf_name || '-'}</td>
                 <td class="change-cell ${changeClass}">${(s.change_percent || 0) >= 0 ? '+' : ''}${(s.change_percent || 0).toFixed(2)}%</td>
-                <td class="position-cell ${positionClass}">${s.position || ''} ${s.position_days || 0}일</td>
+                <td class="position-cell ${positionClass}">${s.position || ''} ${s.position_days || 0}${daysUnit}</td>
                 <td class="signal-cell"><span class="signal-dot" style="background:${signalColor}"></span></td>
                 <td class="gap-cell ${gapClass}">${(s.gap_percent || 0) >= 0 ? '+' : ''}${(s.gap_percent || 0).toFixed(1)}%</td>
                 <td class="top-stocks-cell">${topHoldingsHtml || '-'}</td>
@@ -8509,9 +8515,12 @@ async function loadUsTrendMaintainData() {
             return;
         }
 
+        const isUS = lang === 'en';
+        const daysUnit = isUS ? 'd' : '일';
+
         tbody.innerHTML = items.map(item => {
             const changeClass = (item.change_pct || 0) >= 0 ? 'profit' : 'loss';
-            const positionClass = item.position === '유지' ? 'position-maintain' : 'position-break';
+            const positionClass = (item.position === '유지' || item.position === 'Holding') ? 'position-maintain' : 'position-break';
             const gapClass = (item.gap_percent || 0) >= 0 ? 'profit' : 'loss';
             const signalDot = item.signal === 'green' ? '🟢' : (item.signal === 'yellow' ? '🟡' : '🔴');
 
@@ -8520,7 +8529,7 @@ async function loadUsTrendMaintainData() {
                     <td class="sector-name">${item.sector || '-'}</td>
                     <td class="etf-name">${item.etf || '-'}</td>
                     <td class="change-cell ${changeClass}">${(item.change_pct || 0) >= 0 ? '+' : ''}${(item.change_pct || 0).toFixed(2)}%</td>
-                    <td class="position-cell ${positionClass}">${item.position || '-'} ${item.days || 0}일</td>
+                    <td class="position-cell ${positionClass}">${item.position || '-'} ${item.days || 0}${daysUnit}</td>
                     <td class="signal-cell">${signalDot}</td>
                     <td class="gap-cell ${gapClass}">${(item.gap_percent || 0) >= 0 ? '+' : ''}${(item.gap_percent || 0).toFixed(1)}%</td>
                 </tr>
