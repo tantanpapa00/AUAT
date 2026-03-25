@@ -12418,20 +12418,20 @@ async function loadFinancialSummaryUs(ticker) {
         const summaryCardHtml = `
             <div class="sd-card">
                 <div class="sd-card-title">
-                    주요 재무지표
-                    <span class="sd-basis-label">${latestPeriod ? `기준: ${latestPeriod} (연간)` : ''}</span>
+                    Key Financials
+                    <span class="sd-basis-label">${latestPeriod ? `As of: ${latestPeriod} (Annual)` : ''}</span>
                 </div>
                 <div class="sd-financial-grid sd-grid-6">
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">시가총액</span>
+                        <span class="sd-financial-label">Market Cap</span>
                         <span class="sd-financial-value">${formatMarketCapUsd(summary.market_cap)}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">매출액</span>
+                        <span class="sd-financial-label">Revenue</span>
                         <span class="sd-financial-value">${formatUsdMillions(latestRevenue)}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">영업이익</span>
+                        <span class="sd-financial-label">Op. Income</span>
                         <span class="sd-financial-value ${latestOpProfit < 0 ? 'negative' : ''}">${formatUsdMillions(latestOpProfit)}</span>
                     </div>
                     <div class="sd-financial-item">
@@ -12443,7 +12443,7 @@ async function loadFinancialSummaryUs(ticker) {
                         <span class="sd-financial-value">${latestEps ? '$' + latestEps.toFixed(2) : '-'}</span>
                     </div>
                     <div class="sd-financial-item">
-                        <span class="sd-financial-label">당기순이익</span>
+                        <span class="sd-financial-label">Net Income</span>
                         <span class="sd-financial-value ${latestNetIncome < 0 ? 'negative' : ''}">${formatUsdMillions(latestNetIncome)}</span>
                     </div>
                 </div>
@@ -12453,7 +12453,7 @@ async function loadFinancialSummaryUs(ticker) {
         // 재무추이 차트 - 국내주식과 동일한 2x2 레이아웃
         const financialChartsHtml = `
             <div class="sd-trend-section">
-                <div class="sd-trend-note">단위: 백만 달러 ($M), 연간 기준</div>
+                <div class="sd-trend-note">Unit: USD Million ($M), Annual</div>
 
                 <!-- 매출액 + 영업이익: 2열 나란히 -->
                 <div class="sd-trend-row">
@@ -12461,11 +12461,11 @@ async function loadFinancialSummaryUs(ticker) {
                     <div class="sd-trend-card">
                         <div class="sd-trend-card-header">
                             <span class="sd-trend-dot blue"></span>
-                            <span class="sd-trend-title">매출액 (Revenue)</span>
+                            <span class="sd-trend-title">Revenue</span>
                         </div>
-                        <div class="sd-trend-sub-label">연간</div>
+                        <div class="sd-trend-sub-label">Annual</div>
                         <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-revenue-annual-us"></canvas></div>
-                        <div class="sd-trend-sub-label">분기별</div>
+                        <div class="sd-trend-sub-label">Quarterly</div>
                         <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-revenue-quarter-us"></canvas></div>
                     </div>
 
@@ -12473,17 +12473,17 @@ async function loadFinancialSummaryUs(ticker) {
                     <div class="sd-trend-card">
                         <div class="sd-trend-card-header">
                             <span class="sd-trend-dot green"></span>
-                            <span class="sd-trend-title">영업이익 (Operating Income)</span>
+                            <span class="sd-trend-title">Operating Income</span>
                             <span class="sd-trend-legend-line">── OPM</span>
                         </div>
-                        <div class="sd-trend-sub-label">연간</div>
+                        <div class="sd-trend-sub-label">Annual</div>
                         <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-op-annual-us"></canvas></div>
-                        <div class="sd-trend-sub-label">분기별</div>
+                        <div class="sd-trend-sub-label">Quarterly</div>
                         <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-op-quarter-us"></canvas></div>
                     </div>
                 </div>
 
-                <!-- EPS + 당기순이익: 2열 나란히 -->
+                <!-- EPS + Net Income: 2열 나란히 -->
                 <div class="sd-trend-row">
                     <!-- EPS -->
                     <div class="sd-trend-card">
@@ -12491,17 +12491,17 @@ async function loadFinancialSummaryUs(ticker) {
                             <span class="sd-trend-dot orange"></span>
                             <span class="sd-trend-title">EPS</span>
                         </div>
-                        <div class="sd-trend-sub-label">연간</div>
+                        <div class="sd-trend-sub-label">Annual</div>
                         <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-eps-annual-us"></canvas></div>
-                        <div class="sd-trend-sub-label">분기별</div>
+                        <div class="sd-trend-sub-label">Quarterly</div>
                         <div class="sd-trend-chart-wrapper"><canvas id="sd-fc-eps-quarter-us"></canvas></div>
                     </div>
 
-                    <!-- 어닝서프라이즈 (Earnings Surprise) -->
+                    <!-- Earnings Surprise -->
                     <div class="sd-trend-card">
                         <div class="sd-trend-card-header">
                             <span class="sd-trend-dot" style="background:#a855f7"></span>
-                            <span class="sd-trend-title">어닝서프라이즈</span>
+                            <span class="sd-trend-title">Earnings Surprise</span>
                         </div>
                         <div id="us-earnings-surprise-content">
                             <div class="sd-trend-chart-wrapper" style="height:160px;"><canvas id="us-earnings-surprise-chart"></canvas></div>
@@ -13645,41 +13645,41 @@ async function loadCompanyInfoUs(ticker) {
                 <div class="company-header-card">
                     <div class="company-main-row">
                         <div class="company-main-item">
-                            <div class="company-label">시가총액</div>
+                            <div class="company-label">Market Cap</div>
                             <div class="company-value-lg">${data.market_cap_str || '-'}</div>
                         </div>
                         <div class="company-main-item">
-                            <div class="company-label">현재가</div>
+                            <div class="company-label">Price</div>
                             <div class="company-value-lg">$${data.price > 0 ? data.price.toFixed(2) : '-'}</div>
                         </div>
                     </div>
                     <div class="company-sub-row">
-                        <span>↗ 52주 고가 <strong class="text-red">$${data.high_52w > 0 ? data.high_52w.toFixed(2) : '-'}</strong></span>
-                        <span>↘ 52주 저가 <strong class="text-blue">$${data.low_52w > 0 ? data.low_52w.toFixed(2) : '-'}</strong></span>
-                        <span>🏛 기관 <strong>${data.institutional_ratio > 0 ? data.institutional_ratio.toFixed(1) + '%' : '-'}</strong></span>
-                        <span>📊 유통비율 <strong>${data.float_ratio > 0 ? data.float_ratio.toFixed(1) + '%' : '-'}</strong></span>
+                        <span>↗ 52W High <strong class="text-red">$${data.high_52w > 0 ? data.high_52w.toFixed(2) : '-'}</strong></span>
+                        <span>↘ 52W Low <strong class="text-blue">$${data.low_52w > 0 ? data.low_52w.toFixed(2) : '-'}</strong></span>
+                        <span>🏛 Inst. <strong>${data.institutional_ratio > 0 ? data.institutional_ratio.toFixed(1) + '%' : '-'}</strong></span>
+                        <span>📊 Float <strong>${data.float_ratio > 0 ? data.float_ratio.toFixed(1) + '%' : '-'}</strong></span>
                     </div>
                 </div>
             `;
 
             // 2. 기업 개요 (한글 번역 또는 영문)
             const langBadge = data.description_lang === 'ko'
-                ? '<span style="background:#22c55e;color:#fff;font-size:11px;padding:2px 6px;border-radius:3px;margin-left:8px;">한글</span>'
-                : '<span style="background:#6b7280;color:#fff;font-size:11px;padding:2px 6px;border-radius:3px;margin-left:8px;">영문</span>';
+                ? '<span style="background:#22c55e;color:#fff;font-size:11px;padding:2px 6px;border-radius:3px;margin-left:8px;">KR</span>'
+                : '<span style="background:#6b7280;color:#fff;font-size:11px;padding:2px 6px;border-radius:3px;margin-left:8px;">EN</span>';
 
             const overviewHtml = `
                 <div class="company-overview-card">
                     <div class="overview-header-row">
-                        <h3 class="overview-title">🏢 기업 개요${langBadge}</h3>
+                        <h3 class="overview-title">🏢 Company Overview${langBadge}</h3>
                     </div>
                     <div class="overview-body">
                         ${formatDescription(data.description)}
                     </div>
                     <div class="company-meta-row" style="display:flex;flex-wrap:wrap;gap:16px;margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);font-size:0.85rem;color:var(--text-muted);">
-                        ${data.sector ? `<span>📂 섹터: <strong style="color:var(--text-primary);">${data.sector}</strong></span>` : ''}
-                        ${data.industry ? `<span>🏭 업종: <strong style="color:var(--text-primary);">${data.industry}</strong></span>` : ''}
-                        ${data.headquarters ? `<span>📍 본사: <strong style="color:var(--text-primary);">${data.headquarters}</strong></span>` : ''}
-                        ${data.employees > 0 ? `<span>👥 직원: <strong style="color:var(--text-primary);">${data.employees.toLocaleString()}명</strong></span>` : ''}
+                        ${data.sector ? `<span>📂 Sector: <strong style="color:var(--text-primary);">${data.sector}</strong></span>` : ''}
+                        ${data.industry ? `<span>🏭 Industry: <strong style="color:var(--text-primary);">${data.industry}</strong></span>` : ''}
+                        ${data.headquarters ? `<span>📍 HQ: <strong style="color:var(--text-primary);">${data.headquarters}</strong></span>` : ''}
+                        ${data.employees > 0 ? `<span>👥 Employees: <strong style="color:var(--text-primary);">${data.employees.toLocaleString()}</strong></span>` : ''}
                         ${data.website ? `<span>🌐 <a href="${data.website}" target="_blank" style="color:#3B82F6;">${data.website.replace('https://', '').replace('http://', '')}</a></span>` : ''}
                     </div>
                 </div>
@@ -13691,20 +13691,20 @@ async function loadCompanyInfoUs(ticker) {
                 const recClass = ['STRONG_BUY', 'BUY'].includes(data.recommendation) ? 'positive' :
                                  ['STRONG_SELL', 'SELL'].includes(data.recommendation) ? 'negative' : '';
                 const recText = {
-                    'STRONG_BUY': '강력매수', 'BUY': '매수', 'HOLD': '중립',
-                    'SELL': '매도', 'STRONG_SELL': '강력매도'
+                    'STRONG_BUY': 'Strong Buy', 'BUY': 'Buy', 'HOLD': 'Hold',
+                    'SELL': 'Sell', 'STRONG_SELL': 'Strong Sell'
                 }[data.recommendation] || data.recommendation;
 
                 analystHtml = `
                     <div class="sd-card">
-                        <div class="sd-card-title">📊 투자의견</div>
+                        <div class="sd-card-title">📊 Analyst Opinion</div>
                         <div class="sd-consensus-grid">
                             <div class="sd-consensus-item">
-                                <span class="sd-consensus-label">목표주가</span>
+                                <span class="sd-consensus-label">Target Price</span>
                                 <span class="sd-consensus-value">$${data.target_price > 0 ? data.target_price.toFixed(2) : '-'}</span>
                             </div>
                             <div class="sd-consensus-item">
-                                <span class="sd-consensus-label">투자의견</span>
+                                <span class="sd-consensus-label">Rating</span>
                                 <span class="sd-consensus-value ${recClass}">${recText}</span>
                             </div>
                         </div>

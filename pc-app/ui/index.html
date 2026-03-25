@@ -3869,10 +3869,10 @@
                     <div class="current-price" id="detail-current-price">0</div>
                     <div class="price-change profit" id="detail-price-change">+0 (+0.00%)</div>
                     <div class="price-meta">
-                        <span>시가: <strong id="detail-open">0</strong></span>
-                        <span>고가: <strong id="detail-high">0</strong></span>
-                        <span>저가: <strong id="detail-low">0</strong></span>
-                        <span>거래량: <strong id="detail-volume">0</strong></span>
+                        <span><span data-i18n="open">시가</span>: <strong id="detail-open">0</strong></span>
+                        <span><span data-i18n="high">고가</span>: <strong id="detail-high">0</strong></span>
+                        <span><span data-i18n="low">저가</span>: <strong id="detail-low">0</strong></span>
+                        <span><span data-i18n="volume_label">거래량</span>: <strong id="detail-volume">0</strong></span>
                     </div>
                 </div>
 
@@ -3880,13 +3880,13 @@
                 <div class="chart-section">
                     <div class="chart-toolbar">
                         <div class="chart-period-btns">
-                            <button class="period-btn active" data-timeframe="daily">일봉</button>
-                            <button class="period-btn" data-timeframe="weekly">주봉</button>
-                            <button class="period-btn" data-timeframe="monthly">월봉</button>
+                            <button class="period-btn active" data-timeframe="daily" data-i18n="daily">일봉</button>
+                            <button class="period-btn" data-timeframe="weekly" data-i18n="weekly">주봉</button>
+                            <button class="period-btn" data-timeframe="monthly" data-i18n="monthly">월봉</button>
                         </div>
                         <div class="chart-type-btns">
-                            <button class="type-btn active" data-type="candle">캔들</button>
-                            <button class="type-btn" data-type="line">라인</button>
+                            <button class="type-btn active" data-type="candle" data-i18n="candle">캔들</button>
+                            <button class="type-btn" data-type="line" data-i18n="line">라인</button>
                         </div>
                     </div>
                     <div class="candle-chart-container" id="candle-chart"></div>
@@ -3894,10 +3894,10 @@
 
                 <!-- 종목 정보 탭 (4-Tab: 요약/소식/기업/재무) -->
                 <div class="stock-info-tabs">
-                    <button class="info-tab active" data-tab="summary">요약</button>
-                    <button class="info-tab" data-tab="news">소식</button>
-                    <button class="info-tab" data-tab="company">기업</button>
-                    <button class="info-tab" data-tab="financial">재무</button>
+                    <button class="info-tab active" data-tab="summary" data-i18n="tab_summary">요약</button>
+                    <button class="info-tab" data-tab="news" data-i18n="tab_news">소식</button>
+                    <button class="info-tab" data-tab="company" data-i18n="tab_company">기업</button>
+                    <button class="info-tab" data-tab="financial" data-i18n="tab_financial">재무</button>
                 </div>
 
                 <!-- 요약 탭 (동적 렌더링) -->
@@ -3933,8 +3933,8 @@
                 </div>
             </div>
             <div class="modal-footer stock-detail-footer">
-                <button class="btn btn-secondary" id="btn-add-to-watchlist">관심종목 추가</button>
-                <button class="btn btn-primary" id="btn-ai-analysis-modal">🤖 AI 분석</button>
+                <button class="btn btn-secondary" id="btn-add-to-watchlist" data-i18n="add_watchlist">관심종목 추가</button>
+                <button class="btn btn-primary" id="btn-ai-analysis-modal" data-i18n="ai_analysis">🤖 AI 분석</button>
             </div>
         </div>
     </div>
