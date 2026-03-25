@@ -5230,6 +5230,13 @@ function updateInvestorBar(type, value, maxVal) {
 }
 
 function formatKoreanNumber(num) {
+    const isUS = getAppMode() === 'US';
+    if (isUS) {
+        if (num >= 1000000000) return (num / 1000000000).toFixed(1) + 'B';
+        if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+        if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+        return num.toLocaleString();
+    }
     if (num >= 100000000) return (num / 100000000).toFixed(1) + '억';
     if (num >= 10000) return (num / 10000).toFixed(1) + '만';
     return num.toLocaleString();
@@ -9869,8 +9876,11 @@ async function loadWatchlistItems(groupId) {
                     const changePct = item.change_pct || 0;
                     const changeClass = changePct >= 0 ? 'profit' : 'loss';
                     const changeSign = changePct >= 0 ? '+' : '';
-                    const priceStr = item.price ? item.price.toLocaleString() + '원' : '-';
-                    const volumeStr = item.volume ? (item.volume >= 10000 ? Math.floor(item.volume / 10000) + '만' : item.volume.toLocaleString()) : '-';
+                    const isUS = getAppMode() === 'US';
+                    const priceStr = item.price ? item.price.toLocaleString() + (isUS ? '' : '원') : '-';
+                    const volumeStr = item.volume ? (isUS
+                        ? (item.volume >= 1000000 ? (item.volume / 1000000).toFixed(1) + 'M' : item.volume >= 1000 ? (item.volume / 1000).toFixed(1) + 'K' : item.volume.toLocaleString())
+                        : (item.volume >= 10000 ? Math.floor(item.volume / 10000) + '만' : item.volume.toLocaleString())) : '-';
 
                     return `
                         <tr data-symbol="${item.symbol}" data-exchange="${item.exchange}">
@@ -10551,9 +10561,17 @@ function updateEtfDetailUI(data) {
     if (lowEl) lowEl.textContent = data.low ? data.low.toLocaleString() : '-';
     if (volumeEl) {
         const vol = data.volume || 0;
-        if (vol >= 1e8) volumeEl.textContent = `${(vol / 1e8).toFixed(0)}억`;
-        else if (vol >= 1e4) volumeEl.textContent = `${(vol / 1e4).toFixed(0)}만`;
-        else volumeEl.textContent = vol > 0 ? vol.toLocaleString() : '-';
+        const isUS = getAppMode() === 'US';
+        if (isUS) {
+            if (vol >= 1e9) volumeEl.textContent = `${(vol / 1e9).toFixed(1)}B`;
+            else if (vol >= 1e6) volumeEl.textContent = `${(vol / 1e6).toFixed(1)}M`;
+            else if (vol >= 1e3) volumeEl.textContent = `${(vol / 1e3).toFixed(1)}K`;
+            else volumeEl.textContent = vol > 0 ? vol.toLocaleString() : '-';
+        } else {
+            if (vol >= 1e8) volumeEl.textContent = `${(vol / 1e8).toFixed(0)}억`;
+            else if (vol >= 1e4) volumeEl.textContent = `${(vol / 1e4).toFixed(0)}만`;
+            else volumeEl.textContent = vol > 0 ? vol.toLocaleString() : '-';
+        }
     }
 }
 
@@ -13353,12 +13371,12 @@ async function loadStockNewsUs(ticker) {
         currentNewsTickerUs = ticker;
     }
 
-    // 서브탭 UI 렌더링
+    // 서브탭 UI 렌더링 (US 종목이므로 영문)
     newsContent.innerHTML = `
         <div class="news-sub-tabs">
-            <button class="news-tab-btn active" data-tab="filings">SEC 공시</button>
-            <button class="news-tab-btn" data-tab="analyst">애널리스트</button>
-            <button class="news-tab-btn" data-tab="articles">뉴스</button>
+            <button class="news-tab-btn active" data-tab="filings">SEC Filings</button>
+            <button class="news-tab-btn" data-tab="analyst">Analyst</button>
+            <button class="news-tab-btn" data-tab="articles">News</button>
         </div>
         <div id="news-filings" class="news-content active"></div>
         <div id="news-analyst" class="news-content" style="display:none;"></div>
@@ -14245,24 +14263,25 @@ async function loadFinancialTabKr(code) {
         const renderInvestIndicators = (indicators) => {
             if (!indicators) return '';
 
+            // US 종목이므로 영문 라벨 사용
             const categories = [
-                { key: 'growth', icon: '📈', label: '성장성' },
-                { key: 'profitability', icon: '💰', label: '수익성' },
-                { key: 'stability', icon: '🛡', label: '안정성' },
-                { key: 'valuation', icon: '📊', label: '밸류에이션' }
+                { key: 'growth', icon: '📈', label: 'Growth' },
+                { key: 'profitability', icon: '💰', label: 'Profitability' },
+                { key: 'stability', icon: '🛡', label: 'Stability' },
+                { key: 'valuation', icon: '📊', label: 'Valuation' }
             ];
 
             const cardsHtml = categories.map(cat => {
                 const catData = indicators[cat.key] || {};
                 const grade = catData.grade || 'C';
-                const gradeLabel = catData.grade_label || '보통';
+                const gradeLabel = catData.grade_label || 'Average';
                 const items = catData.items || {};
                 const gradeColor = getGradeColor(grade);
 
-                // 세부 항목 HTML
+                // 세부 항목 HTML (US: x suffix for PER/PBR)
                 const detailItems = Object.entries(items).map(([k, v]) => {
                     const formatted = typeof v === 'number' ? (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(1)) : v;
-                    const suffix = ['PER', 'PBR'].includes(k) ? '배' : (k.includes('율') || k === 'ROE' || k === 'ROA' ? '%' : '');
+                    const suffix = ['PER', 'PBR'].includes(k) ? 'x' : (k.includes('율') || k === 'ROE' || k === 'ROA' ? '%' : '');
                     return `<div style="display:flex;justify-content:space-between;padding:6px 0;color:var(--text-muted);font-size:12px;"><span>${k}</span><span style="color:var(--text-secondary);">${formatted}${suffix}</span></div>`;
                 }).join('');
 
@@ -14284,11 +14303,11 @@ async function loadFinancialTabKr(code) {
             return `
                 <div class="invest-indicators-section" style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                        <h3 style="margin:0;font-size:1rem;color:var(--text-primary);">투자 지표</h3>
+                        <h3 style="margin:0;font-size:1rem;color:var(--text-primary);">Investment Metrics</h3>
                         <div style="display:flex;gap:6px;font-size:10px;color:var(--text-muted);">
-                            <span style="padding:2px 6px;border-radius:3px;background:#059669;color:#fff;">A+</span>매우우수
-                            <span style="padding:2px 6px;border-radius:3px;background:#3b82f6;color:#fff;">B</span>양호
-                            <span style="padding:2px 6px;border-radius:3px;background:#f59e0b;color:#fff;">C</span>보통
+                            <span style="padding:2px 6px;border-radius:3px;background:#059669;color:#fff;">A+</span>Excellent
+                            <span style="padding:2px 6px;border-radius:3px;background:#3b82f6;color:#fff;">B</span>Good
+                            <span style="padding:2px 6px;border-radius:3px;background:#f59e0b;color:#fff;">C</span>Average
                         </div>
                     </div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
@@ -14300,26 +14319,26 @@ async function loadFinancialTabKr(code) {
 
         const renderContent = (data, indicators) => {
             if (!data || !data.periods || data.periods.length === 0) {
-                return `<div class="sd-empty-state">재무제표 ${t('no_data')}</div>`;
+                return `<div class="sd-empty-state">Financial Statements ${t('no_data')}</div>`;
             }
 
             const health = data.health || {};
             const gradeColor = getGradeColor(health.grade);
 
-            // 건전성 카드
+            // 건전성 카드 (US: English labels)
             const healthCardHtml = `
                 <div class="financial-health-card" style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;">
-                    <h3 style="margin:0 0 16px;font-size:1rem;color:var(--text-primary);">재무 건전성</h3>
+                    <h3 style="margin:0 0 16px;font-size:1rem;color:var(--text-primary);">Financial Health</h3>
                     <div style="display:flex;align-items:center;gap:24px;">
                         <div>${renderHealthGauge(health.score || 0)}</div>
                         <div style="flex:1;">
                             <div style="margin-bottom:12px;">
-                                <span style="display:inline-block;padding:4px 12px;border-radius:4px;background:${gradeColor};color:#fff;font-weight:700;">${health.grade}등급</span>
+                                <span style="display:inline-block;padding:4px 12px;border-radius:4px;background:${gradeColor};color:#fff;font-weight:700;">Grade ${health.grade}</span>
                                 <span style="margin-left:8px;color:var(--text-muted);">${health.grade_label}</span>
                             </div>
                             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
                                 <div style="text-align:center;">
-                                    <div style="font-size:11px;color:var(--text-muted);">부채비율</div>
+                                    <div style="font-size:11px;color:var(--text-muted);">Debt Ratio</div>
                                     <div style="font-size:14px;font-weight:600;color:var(--text-primary);">${health.debt_ratio != null ? health.debt_ratio.toFixed(1) + '%' : '-'}</div>
                                 </div>
                                 <div style="text-align:center;">
@@ -14327,11 +14346,11 @@ async function loadFinancialTabKr(code) {
                                     <div style="font-size:14px;font-weight:600;color:var(--text-primary);">${health.roe != null ? health.roe.toFixed(1) + '%' : '-'}</div>
                                 </div>
                                 <div style="text-align:center;">
-                                    <div style="font-size:11px;color:var(--text-muted);">영업이익률</div>
+                                    <div style="font-size:11px;color:var(--text-muted);">Op. Margin</div>
                                     <div style="font-size:14px;font-weight:600;color:var(--text-primary);">${health.operating_margin != null ? health.operating_margin.toFixed(1) + '%' : '-'}</div>
                                 </div>
                                 <div style="text-align:center;">
-                                    <div style="font-size:11px;color:var(--text-muted);">유동비율</div>
+                                    <div style="font-size:11px;color:var(--text-muted);">Current Ratio</div>
                                     <div style="font-size:14px;font-weight:600;color:var(--text-primary);">${health.current_ratio != null ? health.current_ratio.toFixed(1) + '%' : '-'}</div>
                                 </div>
                             </div>
@@ -14340,7 +14359,7 @@ async function loadFinancialTabKr(code) {
                 </div>
             `;
 
-            // 테이블
+            // 테이블 (US: English labels)
             const periods = data.periods;
             const rows = data.rows || [];
 
@@ -14349,14 +14368,14 @@ async function loadFinancialTabKr(code) {
                     <table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
                         <thead>
                             <tr style="background:rgba(255,255,255,0.05);">
-                                <th style="padding:10px 12px;text-align:left;color:var(--text-muted);font-weight:500;position:sticky;left:0;background:var(--bg-card);z-index:1;min-width:110px;">항목</th>
+                                <th style="padding:10px 12px;text-align:left;color:var(--text-muted);font-weight:500;position:sticky;left:0;background:var(--bg-card);z-index:1;min-width:110px;">Item</th>
                                 ${periods.map(p => `<th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:500;">${p}</th>`).join('')}
                             </tr>
                         </thead>
                         <tbody>
                             ${rows.map(row => {
                                 const unit = row.unit || '';
-                                const isRatio = ['%', '배'].includes(unit);
+                                const isRatio = ['%', '배', 'x'].includes(unit);
                                 return `
                                     <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
                                         <td style="padding:10px 12px;font-weight:500;color:var(--text-primary);position:sticky;left:0;background:var(--bg-card);z-index:1;${isRatio ? 'padding-left:20px;color:var(--text-muted);' : ''}">${row.label}</td>
@@ -14379,10 +14398,10 @@ async function loadFinancialTabKr(code) {
             return healthCardHtml + indicatorsHtml + `
                 <div class="sd-card" style="background:transparent;padding:0;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                        <div style="font-size:1rem;font-weight:600;color:var(--text-primary);">재무제표</div>
+                        <div style="font-size:1rem;font-weight:600;color:var(--text-primary);">Financial Statements</div>
                         <div style="display:flex;gap:4px;">
-                            <button class="sd-period-btn ${periodType === 'quarter' ? 'active' : ''}" data-period="quarter" style="padding:6px 14px;border:1px solid rgba(255,255,255,0.15);border-radius:6px;background:${periodType === 'quarter' ? 'rgba(239,68,68,0.15)' : 'transparent'};color:${periodType === 'quarter' ? '#ef4444' : '#9ca3af'};font-size:13px;cursor:pointer;">분기</button>
-                            <button class="sd-period-btn ${periodType === 'annual' ? 'active' : ''}" data-period="annual" style="padding:6px 14px;border:1px solid rgba(255,255,255,0.15);border-radius:6px;background:${periodType === 'annual' ? 'rgba(239,68,68,0.15)' : 'transparent'};color:${periodType === 'annual' ? '#ef4444' : '#9ca3af'};font-size:13px;cursor:pointer;">연간</button>
+                            <button class="sd-period-btn ${periodType === 'quarter' ? 'active' : ''}" data-period="quarter" style="padding:6px 14px;border:1px solid rgba(255,255,255,0.15);border-radius:6px;background:${periodType === 'quarter' ? 'rgba(239,68,68,0.15)' : 'transparent'};color:${periodType === 'quarter' ? '#ef4444' : '#9ca3af'};font-size:13px;cursor:pointer;">Quarterly</button>
+                            <button class="sd-period-btn ${periodType === 'annual' ? 'active' : ''}" data-period="annual" style="padding:6px 14px;border:1px solid rgba(255,255,255,0.15);border-radius:6px;background:${periodType === 'annual' ? 'rgba(239,68,68,0.15)' : 'transparent'};color:${periodType === 'annual' ? '#ef4444' : '#9ca3af'};font-size:13px;cursor:pointer;">Annual</button>
                         </div>
                     </div>
                     ${tableHtml}
@@ -14623,6 +14642,13 @@ function updateStockDetailUI(detail) {
 
 function formatVolume(volume) {
     if (!volume) return '-';
+    const isUS = getAppMode() === 'US';
+    if (isUS) {
+        if (volume >= 1e9) return `${(volume / 1e9).toFixed(1)}B`;
+        if (volume >= 1e6) return `${(volume / 1e6).toFixed(1)}M`;
+        if (volume >= 1e3) return `${(volume / 1e3).toFixed(1)}K`;
+        return volume.toLocaleString();
+    }
     if (volume >= 1e8) return `${(volume / 1e8).toFixed(0)}억`;
     if (volume >= 1e4) return `${(volume / 1e4).toFixed(0)}만`;
     return volume.toLocaleString();
