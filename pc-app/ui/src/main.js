@@ -13580,8 +13580,8 @@ function renderAnalystGrouped(grouped) {
                     <div class="sd-news-title">${item.firm}</div>
                     <div class="sd-news-meta">
                         <span class="analyst-grade ${actionClass}">${gradeText}</span>
-                        ${targetText ? `<span class="analyst-target">목표가: ${targetText}</span>` : ''}
-                        <span class="news-badge ${actionClass}">${item.action_kr || item.action}</span>
+                        ${targetText ? `<span class="analyst-target">Target: ${targetText}</span>` : ''}
+                        <span class="news-badge ${actionClass}">${item.action}</span>
                     </div>
                 </div>`;
         }
@@ -13630,13 +13630,13 @@ async function loadCompanyInfoUs(ticker) {
     const companyContent = document.getElementById('info-company');
     if (!companyContent) return;
 
-    companyContent.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px;">기업 정보를 불러오는 중...</div>';
+    companyContent.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px;">Loading company info...</div>';
 
     try {
         const response = await invokeWithTimeout('get_stock_company_us', {
             accessToken: auth.accessToken || '',
             ticker: ticker
-        }, 30000);  // 번역 시간 고려 30초
+        }, 30000);  // Allow time for translation
 
         if (response && response.data) {
             const data = response.data;
@@ -13652,7 +13652,7 @@ async function loadCompanyInfoUs(ticker) {
 
             // 기업 개요 포맷팅 (번호별 문단 분리)
             const formatDescription = (text) => {
-                if (!text) return `<p style="color:var(--text-muted);">기업 개요 ${t('no_data')}.</p>`;
+                if (!text) return `<p style="color:var(--text-muted);">Company Overview ${t('no_data')}.</p>`;
                 // 번호로 시작하는 라인을 문단으로 분리
                 const paragraphs = text.split(/\n+/).filter(p => p.trim());
                 return paragraphs.map(p => `<p style="margin-bottom:12px;">${p}</p>`).join('');
@@ -13747,9 +13747,9 @@ async function loadFinancialTabUs(ticker) {
     const financialContent = document.getElementById('info-financial');
     if (!financialContent) return;
 
-    financialContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>재무 정보를 불러오는 중...</span></div>';
+    financialContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>Loading financials...</span></div>';
 
-    let periodType = 'quarter';  // 기본 분기
+    let periodType = 'quarter';  // default: quarterly
 
     try {
         const loadData = async (period) => {
@@ -13780,8 +13780,8 @@ async function loadFinancialTabUs(ticker) {
             if (val === null || val === undefined) return '-';
             if (unit === '%') {
                 return `${val >= 0 ? '' : ''}${val.toFixed(1)}%`;
-            } else if (unit === '배') {
-                return val.toFixed(2);
+            } else if (unit === '배' || unit === 'x') {
+                return val.toFixed(2) + 'x';
             } else if (unit === '$M') {
                 // 백만 달러 → B/M 변환
                 const absVal = Math.abs(val);
@@ -13826,28 +13826,28 @@ async function loadFinancialTabUs(ticker) {
             return colors[grade] || '#6b7280';
         };
 
-        // 투자지표 섹션 렌더링
+        // 투자지표 섹션 렌더링 (US: English labels)
         const renderInvestIndicators = (indicators) => {
             if (!indicators) return '';
 
             const categories = [
-                { key: 'growth', icon: '📈', label: '성장성' },
-                { key: 'profitability', icon: '💰', label: '수익성' },
-                { key: 'stability', icon: '🛡', label: '안정성' },
-                { key: 'valuation', icon: '📊', label: '밸류에이션' }
+                { key: 'growth', icon: '📈', label: 'Growth' },
+                { key: 'profitability', icon: '💰', label: 'Profitability' },
+                { key: 'stability', icon: '🛡', label: 'Stability' },
+                { key: 'valuation', icon: '📊', label: 'Valuation' }
             ];
 
             const cardsHtml = categories.map(cat => {
                 const catData = indicators[cat.key] || {};
                 const grade = catData.grade || 'C';
-                const gradeLabel = catData.grade_label || '보통';
+                const gradeLabel = catData.grade_label || 'Average';
                 const items = catData.items || {};
                 const gradeColor = getGradeColor(grade);
 
-                // 세부 항목 HTML
+                // 세부 항목 HTML (US: x suffix for PER/PBR)
                 const detailItems = Object.entries(items).map(([k, v]) => {
                     const formatted = typeof v === 'number' ? (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(1)) : v;
-                    const suffix = ['PER', 'PBR', 'Forward PER'].includes(k) ? '배' : (k.includes('율') || k === 'ROE' || k === 'ROA' ? '%' : '');
+                    const suffix = ['PER', 'PBR', 'Forward PER'].includes(k) ? 'x' : (k.includes('율') || k === 'ROE' || k === 'ROA' ? '%' : '');
                     return `<div style="display:flex;justify-content:space-between;padding:6px 0;color:var(--text-muted);font-size:12px;"><span>${k}</span><span style="color:var(--text-secondary);">${formatted}${suffix}</span></div>`;
                 }).join('');
 
@@ -13869,11 +13869,11 @@ async function loadFinancialTabUs(ticker) {
             return `
                 <div class="invest-indicators-section" style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                        <h3 style="margin:0;font-size:1rem;color:var(--text-primary);">투자 지표</h3>
+                        <h3 style="margin:0;font-size:1rem;color:var(--text-primary);">Investment Metrics</h3>
                         <div style="display:flex;gap:6px;font-size:10px;color:var(--text-muted);">
-                            <span style="padding:2px 6px;border-radius:3px;background:#059669;color:#fff;">A+</span>매우우수
-                            <span style="padding:2px 6px;border-radius:3px;background:#3b82f6;color:#fff;">B</span>양호
-                            <span style="padding:2px 6px;border-radius:3px;background:#f59e0b;color:#fff;">C</span>보통
+                            <span style="padding:2px 6px;border-radius:3px;background:#059669;color:#fff;">A+</span>Excellent
+                            <span style="padding:2px 6px;border-radius:3px;background:#3b82f6;color:#fff;">B</span>Good
+                            <span style="padding:2px 6px;border-radius:3px;background:#f59e0b;color:#fff;">C</span>Average
                         </div>
                     </div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
@@ -13885,26 +13885,26 @@ async function loadFinancialTabUs(ticker) {
 
         const renderContent = (data, indicators) => {
             if (!data || !data.periods || data.periods.length === 0) {
-                return `<div class="sd-empty-state">재무제표 ${t('no_data')}</div>`;
+                return `<div class="sd-empty-state">Financial Statements ${t('no_data')}</div>`;
             }
 
             const health = data.health || {};
             const gradeColor = getGradeColor(health.grade);
 
-            // 건전성 카드
+            // 건전성 카드 (US: English labels)
             const healthCardHtml = `
                 <div class="financial-health-card" style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;">
-                    <h3 style="margin:0 0 16px;font-size:1rem;color:var(--text-primary);">재무 건전성</h3>
+                    <h3 style="margin:0 0 16px;font-size:1rem;color:var(--text-primary);">Financial Health</h3>
                     <div style="display:flex;align-items:center;gap:24px;">
                         <div>${renderHealthGauge(health.score || 0)}</div>
                         <div style="flex:1;">
                             <div style="margin-bottom:12px;">
-                                <span style="display:inline-block;padding:4px 12px;border-radius:4px;background:${gradeColor};color:#fff;font-weight:700;">${health.grade}등급</span>
+                                <span style="display:inline-block;padding:4px 12px;border-radius:4px;background:${gradeColor};color:#fff;font-weight:700;">Grade ${health.grade}</span>
                                 <span style="margin-left:8px;color:var(--text-muted);">${health.grade_label}</span>
                             </div>
                             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
                                 <div style="text-align:center;">
-                                    <div style="font-size:11px;color:var(--text-muted);">부채비율</div>
+                                    <div style="font-size:11px;color:var(--text-muted);">Debt Ratio</div>
                                     <div style="font-size:14px;font-weight:600;color:var(--text-primary);">${health.debt_ratio != null ? health.debt_ratio.toFixed(1) + '%' : '-'}</div>
                                 </div>
                                 <div style="text-align:center;">
@@ -13912,11 +13912,11 @@ async function loadFinancialTabUs(ticker) {
                                     <div style="font-size:14px;font-weight:600;color:var(--text-primary);">${health.roe != null ? health.roe.toFixed(1) + '%' : '-'}</div>
                                 </div>
                                 <div style="text-align:center;">
-                                    <div style="font-size:11px;color:var(--text-muted);">영업이익률</div>
+                                    <div style="font-size:11px;color:var(--text-muted);">Op. Margin</div>
                                     <div style="font-size:14px;font-weight:600;color:var(--text-primary);">${health.operating_margin != null ? health.operating_margin.toFixed(1) + '%' : '-'}</div>
                                 </div>
                                 <div style="text-align:center;">
-                                    <div style="font-size:11px;color:var(--text-muted);">유동비율</div>
+                                    <div style="font-size:11px;color:var(--text-muted);">Current Ratio</div>
                                     <div style="font-size:14px;font-weight:600;color:var(--text-primary);">${health.current_ratio != null ? health.current_ratio.toFixed(1) + '%' : '-'}</div>
                                 </div>
                             </div>
@@ -13925,7 +13925,7 @@ async function loadFinancialTabUs(ticker) {
                 </div>
             `;
 
-            // 테이블
+            // 테이블 (US: English labels)
             const periods = data.periods;
             const rows = data.rows || [];
 
@@ -13934,14 +13934,14 @@ async function loadFinancialTabUs(ticker) {
                     <table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
                         <thead>
                             <tr style="background:rgba(255,255,255,0.05);">
-                                <th style="padding:10px 12px;text-align:left;color:var(--text-muted);font-weight:500;position:sticky;left:0;background:var(--bg-card);z-index:1;min-width:110px;">항목</th>
+                                <th style="padding:10px 12px;text-align:left;color:var(--text-muted);font-weight:500;position:sticky;left:0;background:var(--bg-card);z-index:1;min-width:110px;">Item</th>
                                 ${periods.map(p => `<th style="padding:10px 12px;text-align:right;color:var(--text-muted);font-weight:500;">${p}</th>`).join('')}
                             </tr>
                         </thead>
                         <tbody>
                             ${rows.map(row => {
                                 const unit = row.unit || '';
-                                const isRatio = ['%', '배'].includes(unit);
+                                const isRatio = ['%', '배', 'x'].includes(unit);
                                 return `
                                     <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
                                         <td style="padding:10px 12px;font-weight:500;color:var(--text-primary);position:sticky;left:0;background:var(--bg-card);z-index:1;${isRatio ? 'padding-left:20px;color:var(--text-muted);' : ''}">${row.label}</td>
@@ -13964,10 +13964,10 @@ async function loadFinancialTabUs(ticker) {
             return healthCardHtml + indicatorsHtml + `
                 <div class="sd-card" style="background:transparent;padding:0;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                        <div style="font-size:1rem;font-weight:600;color:var(--text-primary);">재무제표</div>
+                        <div style="font-size:1rem;font-weight:600;color:var(--text-primary);">Financial Statements</div>
                         <div style="display:flex;gap:4px;">
-                            <button class="sd-period-btn ${periodType === 'quarter' ? 'active' : ''}" data-period="quarter" style="padding:6px 14px;border:1px solid rgba(255,255,255,0.15);border-radius:6px;background:${periodType === 'quarter' ? 'rgba(239,68,68,0.15)' : 'transparent'};color:${periodType === 'quarter' ? '#ef4444' : '#9ca3af'};font-size:13px;cursor:pointer;">분기</button>
-                            <button class="sd-period-btn ${periodType === 'annual' ? 'active' : ''}" data-period="annual" style="padding:6px 14px;border:1px solid rgba(255,255,255,0.15);border-radius:6px;background:${periodType === 'annual' ? 'rgba(239,68,68,0.15)' : 'transparent'};color:${periodType === 'annual' ? '#ef4444' : '#9ca3af'};font-size:13px;cursor:pointer;">연간</button>
+                            <button class="sd-period-btn ${periodType === 'quarter' ? 'active' : ''}" data-period="quarter" style="padding:6px 14px;border:1px solid rgba(255,255,255,0.15);border-radius:6px;background:${periodType === 'quarter' ? 'rgba(239,68,68,0.15)' : 'transparent'};color:${periodType === 'quarter' ? '#ef4444' : '#9ca3af'};font-size:13px;cursor:pointer;">Quarterly</button>
+                            <button class="sd-period-btn ${periodType === 'annual' ? 'active' : ''}" data-period="annual" style="padding:6px 14px;border:1px solid rgba(255,255,255,0.15);border-radius:6px;background:${periodType === 'annual' ? 'rgba(239,68,68,0.15)' : 'transparent'};color:${periodType === 'annual' ? '#ef4444' : '#9ca3af'};font-size:13px;cursor:pointer;">Annual</button>
                         </div>
                     </div>
                     ${tableHtml}
@@ -13993,7 +13993,7 @@ async function loadFinancialTabUs(ticker) {
                     const newPeriod = e.target.dataset.period;
                     if (newPeriod !== periodType) {
                         periodType = newPeriod;
-                        financialContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>재무 정보를 불러오는 중...</span></div>';
+                        financialContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>Loading financials...</span></div>';
                         await updateContent();
                     }
                 });
@@ -14017,7 +14017,7 @@ async function loadFinancialTabUs(ticker) {
 
     } catch (error) {
         console.error('Failed to load financial tab (US):', error);
-        financialContent.innerHTML = '<div class="sd-card"><div class="sd-empty-state">재무 정보를 불러올 수 없습니다</div></div>';
+        financialContent.innerHTML = '<div class="sd-card"><div class="sd-empty-state">Failed to load financial data</div></div>';
     }
 }
 
