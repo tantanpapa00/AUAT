@@ -95,32 +95,32 @@ PRESET_STRATEGIES = {
     },
     "us": {
         "momentum": {
-            "title": "강세 모멘텀",
-            "description": "상승률 상위 종목",
+            "title": "Strong Momentum",
+            "description": "Top gaining stocks",
             "sort": "change_pct",
             "order": "desc",
             "filters": {"change_filter": {"min": 2}},
             "limit": 10
         },
         "value": {
-            "title": "저평가 가치주",
-            "description": "PER 15 이하 + ROE 15% 이상 + PBR 1.5 이하",
+            "title": "Undervalued Stocks",
+            "description": "PER < 15 + ROE > 15% + PBR < 1.5",
             "sort": "roe",
             "order": "desc",
             "filters": {"per": {"min": 0.1, "max": 15}, "roe": {"min": 15}, "pbr": {"min": 0.1, "max": 1.5}},
             "limit": 10
         },
         "large_cap": {
-            "title": "대형 기술주",
-            "description": "시가총액 상위 종목",
+            "title": "Large Cap Tech",
+            "description": "Top stocks by market cap",
             "sort": "market_cap",
             "order": "desc",
             "filters": {},
             "limit": 10
         },
         "growth": {
-            "title": "성장주",
-            "description": "높은 성장률 기대 종목",
+            "title": "Growth Stocks",
+            "description": "High growth potential stocks",
             "sort": "eps_growth",
             "order": "desc",
             "filters": {},
@@ -356,11 +356,13 @@ async def api_ai_recommendations(
                     cleaned["signal"] = f"PER {per_val:.1f} ROE {roe_val:.0f}% PBR {pbr_val:.2f}"
                 elif strategy_id == "dividend":
                     div_yield = item.get('dividend_yield', 0)
-                    cleaned["signal"] = f"배당 {div_yield:.1f}% (5년+)"
+                    cleaned["signal"] = f"Div {div_yield:.1f}% (5yr+)" if market == "us" else f"배당 {div_yield:.1f}% (5년+)"
                 elif config.get("sort") == "change_pct":
-                    cleaned["signal"] = f"+{item.get('change_pct', 0):.1f}% 상승"
+                    change_val = item.get('change_pct', 0)
+                    cleaned["signal"] = f"+{change_val:.1f}% Up" if market == "us" else f"+{change_val:.1f}% 상승"
                 elif config.get("sort") == "dividend_yield":
-                    cleaned["signal"] = f"배당 {item.get('dividend_yield', 0):.1f}%"
+                    div_val = item.get('dividend_yield', 0)
+                    cleaned["signal"] = f"Div {div_val:.1f}%" if market == "us" else f"배당 {div_val:.1f}%"
                 elif config.get("sort") == "roe":
                     cleaned["signal"] = f"ROE {item.get('roe', 0):.1f}%"
                 elif config.get("sort") == "per":
