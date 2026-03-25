@@ -171,11 +171,24 @@ async def run_ai_chat_job(
             if chart_urls.get("resistance_levels"):
                 tech["resistance_levels"] = chart_urls["resistance_levels"]
 
-            ai_jobs[job_id]["progress"] = "AI가 분석 중..."
+            ai_jobs[job_id]["progress"] = "AI is analyzing..." if market == "us" else "AI가 분석 중..."
 
             system_prompt, user_data_prompt = _build_claude_prompt(name, code, tech, fin, news, company_summary, market, pre_fetched_data)
 
-            final_user_prompt = f"""{user_data_prompt}
+            if market == "us":
+                final_user_prompt = f"""{user_data_prompt}
+
+---
+Additional Rules:
+- Write a comprehensive analysis report immediately. Do not ask questions.
+- Analyze only the requested stock ({name}).
+
+User Question: {message}
+
+Write a comprehensive analysis report for {name} ({code}) based on the above data immediately.
+"""
+            else:
+                final_user_prompt = f"""{user_data_prompt}
 
 ---
 추가 규칙:
@@ -201,9 +214,30 @@ async def run_ai_chat_job(
                 messages=cache_messages
             )
         else:
-            ai_jobs[job_id]["progress"] = "AI가 생각 중..."
+            ai_jobs[job_id]["progress"] = "AI가 생각 중..." if not detected_stock or detected_stock.get("market") != "us" else "AI is thinking..."
 
-            system_prompt = """당신은 BBooster의 AI 투자 어시스턴트입니다.
+            # Determine language based on detected market or default to Korean
+            is_us_market = detected_stock.get("market") == "us" if detected_stock else False
+
+            if is_us_market:
+                system_prompt = """You are BBooster's AI Investment Assistant.
+You provide professional and friendly responses to users' investment-related questions.
+
+Role:
+- Stock/ETF analysis and forecasts
+- Investment strategy advice
+- Market trend explanations
+- Technical/fundamental analysis guidance
+
+Guidelines:
+- Clarify that this is not legal investment advice
+- Provide objective, data-based analysis
+- Include risk warnings
+- Respond in English
+- Use markdown format (## headings, - lists, **emphasis**)
+- Provide detailed responses (at least 500 words)"""
+            else:
+                system_prompt = """당신은 BBooster의 AI 투자 어시스턴트입니다.
 사용자의 투자 관련 질문에 전문적이고 친절하게 답변합니다.
 
 역할:
@@ -584,7 +618,15 @@ async def _collect_news_for_ai(code: str, name: str, market: str = "kr") -> list
 # =============================================================================
 # AI Report System Prompt
 # =============================================================================
-AI_REPORT_SYSTEM_PROMPT = """당신은 15년 경력의 전문 증권 애널리스트입니다.
+def get_ai_report_system_prompt(market: str = "kr") -> str:
+    """market에 따라 적절한 시스템 프롬프트 반환"""
+    if market == "us":
+        return """You are a professional securities analyst with 15 years of experience.
+Write a comprehensive analysis report based on the given data and instructions.
+Please respond in English. All analysis, descriptions, and explanations must be written in English.
+"""
+    else:
+        return """당신은 15년 경력의 전문 증권 애널리스트입니다.
 주어진 데이터와 지시에 따라 종합 분석 보고서를 작성합니다.
 """
 
@@ -594,6 +636,7 @@ def _split_prompt_for_cache(user_prompt: str) -> list:
     MARKERS = [
         "서버 제공 재무 데이터",
         "## 제공 데이터",
+        "## Provided Data",  # English marker for US market
     ]
 
     split_idx = -1
@@ -620,14 +663,16 @@ def _split_prompt_for_cache(user_prompt: str) -> list:
 
 def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list, company_summary: str = "", market: str = "kr", pre_fetched_data: dict = None) -> tuple:
     """Claude에게 보낼 분석 프롬프트 구성"""
-    today = datetime.now(KST).strftime('%Y년 %m월 %d일')
+    is_us = market == "us"
 
-    if market == "us":
+    if is_us:
+        today = datetime.now(KST).strftime('%B %d, %Y')
         currency_prefix = "$"
         currency_suffix = ""
-        cap_unit = "억달러"
-        currency_instruction = "이 종목은 미국 시장(US) 종목이다. 모든 가격을 달러($)로 표시해라."
+        cap_unit = "B"
+        currency_instruction = "This is a US market stock. Display all prices in USD ($)."
     else:
+        today = datetime.now(KST).strftime('%Y년 %m월 %d일')
         currency_prefix = ""
         currency_suffix = "원"
         cap_unit = "억원"
@@ -679,10 +724,16 @@ def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list
 
     support_levels = tech.get("support_levels", [])
     resistance_levels = tech.get("resistance_levels", [])
-    support1 = f"{support_levels[0]:,}원" if support_levels else "-"
-    support2 = f"{support_levels[1]:,}원" if len(support_levels) > 1 else "-"
-    resistance1 = f"{resistance_levels[0]:,}원" if resistance_levels else "-"
-    resistance2 = f"{resistance_levels[1]:,}원" if len(resistance_levels) > 1 else "-"
+    if is_us:
+        support1 = f"${support_levels[0]:,.2f}" if support_levels else "-"
+        support2 = f"${support_levels[1]:,.2f}" if len(support_levels) > 1 else "-"
+        resistance1 = f"${resistance_levels[0]:,.2f}" if resistance_levels else "-"
+        resistance2 = f"${resistance_levels[1]:,.2f}" if len(resistance_levels) > 1 else "-"
+    else:
+        support1 = f"{support_levels[0]:,}원" if support_levels else "-"
+        support2 = f"{support_levels[1]:,}원" if len(support_levels) > 1 else "-"
+        resistance1 = f"{resistance_levels[0]:,}원" if resistance_levels else "-"
+        resistance2 = f"{resistance_levels[1]:,}원" if len(resistance_levels) > 1 else "-"
 
     ratios = fin.get("ratios", {})
     roe = safe_str(ratios.get("roe"))
@@ -693,14 +744,74 @@ def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list
     opm = safe_str(ratios.get("operating_margin"))
     market_cap = safe_str(ratios.get("market_cap"))
 
-    news_text = "\n".join([f"- [{n['date']}] {n['title']}" for n in news[:5]]) if news else "최근 뉴스 없음"
-    company_text = company_summary if company_summary else "기업 개요 정보 없음"
+    if is_us:
+        news_text = "\n".join([f"- [{n['date']}] {n['title']}" for n in news[:5]]) if news else "No recent news"
+        company_text = company_summary if company_summary else "Company overview not available"
+    else:
+        news_text = "\n".join([f"- [{n['date']}] {n['title']}" for n in news[:5]]) if news else "최근 뉴스 없음"
+        company_text = company_summary if company_summary else "기업 개요 정보 없음"
 
     pre_fetched_text = ""
     if pre_fetched_data:
         pre_fetched_text = format_financial_data_for_prompt(pre_fetched_data, market)
 
-    user_prompt = f"""당신은 15년 경력의 전문 증권 애널리스트입니다.
+    if is_us:
+        user_prompt = f"""You are a professional securities analyst with 15 years of experience.
+Today's Date: {today}
+{currency_instruction}
+
+Write a comprehensive analysis report for {name} ({code}) based on the data below.
+
+{pre_fetched_text}
+
+## Provided Data
+
+### Company Overview
+{company_text}
+
+### Basic Information
+- Stock: {name} ({code})
+- Current Price: {currency_prefix}{current:,}{currency_suffix} ({change:+.2f}%)
+- 52-Week High/Low: {currency_prefix}{high_52w:,}{currency_suffix} / {currency_prefix}{low_52w:,}{currency_suffix}
+- Volume: {volume:,} shares (20-day avg: {avg_vol:,} shares)
+- Market Cap: {currency_prefix}{market_cap}{cap_unit}
+
+### Financial Ratios
+| Metric | Value |
+|--------|-------|
+| P/E Ratio | {per} |
+| P/B Ratio | {pbr} |
+| ROE | {roe}% |
+| EPS | {currency_prefix}{eps}{currency_suffix} |
+| Debt Ratio | {debt}% |
+| Operating Margin | {opm}% |
+
+### Technical Indicators Summary
+- RSI(14): {rsi} | MACD Histogram: {macd_hist}
+- ADX: {adx} (+DI: {plus_di}, -DI: {minus_di})
+- RS (Relative Strength): {rs}
+- Support: {support1}, {support2} | Resistance: {resistance1}, {resistance2}
+- Moving Averages: SMA20 {sma20}, SMA60 {sma60}, SMA200 {sma200}
+
+### Recent News
+{news_text}
+
+---
+
+## Report Structure
+
+1. Executive Summary (Company identity, earnings, valuation, growth drivers, risks, technical signals)
+2. Company Analysis (Business overview, market position)
+3. Earnings & Valuation Analysis (Annual/quarterly tables)
+4. Investment Points (Positive/negative factors)
+5. Technical Analysis (Support/resistance, momentum, trend)
+6. Investment Strategy (Short-term/mid-long term)
+7. Disclaimer
+
+Please write the report. Minimum 1500 words.
+"""
+    else:
+        user_prompt = f"""당신은 15년 경력의 전문 증권 애널리스트입니다.
 오늘 날짜: {today}
 {currency_instruction}
 
@@ -754,7 +865,7 @@ def _build_claude_prompt(name: str, code: str, tech: dict, fin: dict, news: list
 
 보고서를 작성하세요. 최소 3000자 이상.
 """
-    return (AI_REPORT_SYSTEM_PROMPT, user_prompt)
+    return (get_ai_report_system_prompt(market), user_prompt)
 
 
 async def _generate_etf_report(name: str, code: str, market: str = "kr", chart_data: dict = None) -> dict:
@@ -854,19 +965,55 @@ async def _collect_etf_data_for_ai(code: str) -> dict:
 
 def _build_etf_prompt(name: str, code: str, data: dict, market: str = "kr") -> str:
     """ETF 전용 AI 분석 프롬프트 구성"""
-    today = datetime.now(KST).strftime('%Y년 %m월 %d일')
+    is_us = market == "us"
 
-    if market == "us":
+    if is_us:
+        today = datetime.now(KST).strftime('%B %d, %Y')
         currency_prefix = "$"
         currency_suffix = ""
+        manager_default = "Not available"
     else:
+        today = datetime.now(KST).strftime('%Y년 %m월 %d일')
         currency_prefix = ""
         currency_suffix = "원"
+        manager_default = "정보 없음"
 
     current_price = data.get('current_price', 0)
     nav = data.get('nav', 0)
 
-    prompt = f"""
+    if is_us:
+        prompt = f"""
+You are a professional ETF analyst. Write an investment analysis report based on the ETF information below.
+Please respond in English. All analysis must be written in English.
+
+## Analysis Target
+- ETF Name: {name}
+- Ticker: {code}
+- Analysis Date: {today}
+
+## Provided Data
+- Current Price: {currency_prefix}{current_price:,}{currency_suffix}
+- Change: {data.get('change_pct', 0):.2f}%
+- NAV: {currency_prefix}{nav:,}{currency_suffix}
+- Manager: {data.get('manager', manager_default)}
+- Expense Ratio: {data.get('total_expense', 0):.2f}%
+
+---
+
+## Report Structure
+
+1. Executive Summary
+2. Tracking Index Analysis
+3. Holdings Analysis
+4. Cost & Efficiency
+5. Technical Analysis
+6. Investment Opinion
+7. Disclaimer
+
+Minimum 1000 words.
+"""
+    else:
+        prompt = f"""
 당신은 ETF 전문 애널리스트입니다. 아래 ETF 정보를 바탕으로 투자 분석 보고서를 작성해주세요.
 
 ## 분석 대상
@@ -878,7 +1025,7 @@ def _build_etf_prompt(name: str, code: str, data: dict, market: str = "kr") -> s
 - 현재가: {currency_prefix}{current_price:,}{currency_suffix}
 - 등락률: {data.get('change_pct', 0):.2f}%
 - NAV: {currency_prefix}{nav:,}{currency_suffix}
-- 운용사: {data.get('manager', '정보 없음')}
+- 운용사: {data.get('manager', manager_default)}
 - 총보수: {data.get('total_expense', 0):.2f}%
 
 ---
@@ -899,13 +1046,21 @@ def _build_etf_prompt(name: str, code: str, data: dict, market: str = "kr") -> s
 
 
 def _clean_meta_comments(report_md: str) -> str:
-    """AI 응답에서 메타 코멘트 제거"""
+    """AI 응답에서 메타 코멘트 제거 (Remove meta comments from AI response)"""
     meta_patterns = [
+        # Korean patterns
         r"이제 보고서를 완성하겠습니다\.?",
         r"분석을 시작하겠습니다\.?",
         r"다음으로 넘어가겠습니다\.?",
         r"이상으로 마치겠습니다\.?",
         r"보고서를 작성하겠습니다\.?",
+        # English patterns
+        r"I will now complete the report\.?",
+        r"Let me start the analysis\.?",
+        r"Moving on to the next section\.?",
+        r"That concludes the report\.?",
+        r"I will write the report\.?",
+        r"Let me analyze\.?",
     ]
 
     cleaned = report_md
