@@ -4788,26 +4788,43 @@ def _fetch_yfinance_news(ticker: str, limit: int = 20) -> list:
         news_data = stock.news
 
         for item in news_data[:limit]:
-            # 타임스탬프 변환
-            pub_time = item.get("providerPublishTime", 0)
-            if pub_time:
-                dt = datetime.fromtimestamp(pub_time)
-                date_str = dt.strftime("%b-%d-%y")
-                time_str = dt.strftime("%I:%M%p")
+            # 새로운 yfinance 구조: item['content'] 안에 데이터
+            content = item.get("content", {})
+
+            # pubDate는 ISO 문자열 (예: "2026-03-24T20:57:00Z")
+            pub_date_str = content.get("pubDate", "")
+            if pub_date_str:
+                try:
+                    dt = datetime.fromisoformat(pub_date_str.replace("Z", "+00:00"))
+                    date_str = dt.strftime("%b-%d-%y")
+                    time_str = dt.strftime("%I:%M%p")
+                except:
+                    date_str = "Today"
+                    time_str = ""
             else:
                 date_str = "Today"
                 time_str = ""
 
+            # provider 정보 추출
+            provider = content.get("provider", {})
+            source = provider.get("displayName", "") if isinstance(provider, dict) else ""
+
+            # clickThroughUrl 또는 canonicalUrl
+            click_url = content.get("clickThroughUrl", {})
+            url = click_url.get("url", "") if isinstance(click_url, dict) else content.get("canonicalUrl", {}).get("url", "")
+
             news.append({
-                "title": item.get("title", ""),
-                "source": item.get("publisher", ""),
-                "url": item.get("link", ""),
+                "title": content.get("title", ""),
+                "source": source,
+                "url": url,
                 "date": date_str,
-                "time": time_str
+                "time": time_str,
+                "summary": content.get("summary", "")
             })
 
     except Exception as e:
         print(f"[yfinance] News error for {ticker}: {e}")
+        traceback.print_exc()
 
     return news
 
