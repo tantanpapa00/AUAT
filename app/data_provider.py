@@ -4840,13 +4840,13 @@ async def get_stock_news_us(ticker: str, limit: int = 20) -> dict:
     return result
 
 
-async def get_stock_filings_us(ticker: str, limit: int = 30) -> dict:
+async def get_stock_filings_us(ticker: str, limit: int = 30, lang: str = 'kr') -> dict:
     """
     해외 종목 SEC 공시
     데이터 소스: yfinance sec_filings
     """
     ticker = ticker.upper()
-    cache_key = f"stock_filings_us_{ticker}"
+    cache_key = f"stock_filings_us_{ticker}_{lang}"
     cached = _cached(cache_key, 1800)  # 30분 캐싱
     if cached:
         return cached
@@ -4869,7 +4869,7 @@ async def get_stock_filings_us(ticker: str, limit: int = 30) -> dict:
                     result["items"].append({
                         "date": f.get("date", ""),
                         "type": filing_type,
-                        "title": _get_sec_filing_title(filing_type),
+                        "title": _get_sec_filing_title(filing_type, lang),
                         "url": f.get("edgarUrl", ""),
                     })
 
@@ -4881,18 +4881,30 @@ async def get_stock_filings_us(ticker: str, limit: int = 30) -> dict:
     return result
 
 
-def _get_sec_filing_title(filing_type: str) -> str:
-    """SEC 공시 유형별 한글 제목"""
-    titles = {
-        "10-K": "Annual Report (연간 보고서)",
-        "10-Q": "Quarterly Report (분기 보고서)",
-        "8-K": "Current Report (수시 공시)",
-        "4": "Insider Transaction (내부자 거래)",
-        "S-1": "Registration Statement (등록 신청서)",
-        "S-3": "Registration Statement (간이 등록)",
-        "DEF 14A": "Proxy Statement (위임장)",
-        "424B5": "Prospectus (투자설명서)",
-    }
+def _get_sec_filing_title(filing_type: str, lang: str = 'kr') -> str:
+    """SEC 공시 유형별 제목"""
+    if lang == 'en':
+        titles = {
+            "10-K": "Annual Report",
+            "10-Q": "Quarterly Report",
+            "8-K": "Current Report",
+            "4": "Insider Transaction",
+            "S-1": "Registration Statement",
+            "S-3": "Registration Statement",
+            "DEF 14A": "Proxy Statement",
+            "424B5": "Prospectus",
+        }
+    else:
+        titles = {
+            "10-K": "Annual Report (연간 보고서)",
+            "10-Q": "Quarterly Report (분기 보고서)",
+            "8-K": "Current Report (수시 공시)",
+            "4": "Insider Transaction (내부자 거래)",
+            "S-1": "Registration Statement (등록 신청서)",
+            "S-3": "Registration Statement (간이 등록)",
+            "DEF 14A": "Proxy Statement (위임장)",
+            "424B5": "Prospectus (투자설명서)",
+        }
     return titles.get(filing_type, filing_type)
 
 

@@ -143,7 +143,7 @@ const API_COMMAND_MAP = {
     'get_stock_summary_us': (args) => api.getStockSummaryUs(args.ticker),
     'get_stock_chart_us': (args) => api.getStockChartUs(args.ticker, args.period),
     'get_stock_news_us': (args) => api.getStockNewsUs(args.ticker, args.limit),
-    'get_stock_filings_us': (args) => api.getStockFilingsUs(args.ticker, args.limit),
+    'get_stock_filings_us': (args) => api.getStockFilingsUs(args.ticker, args.limit, args.lang),
     'get_stock_analyst_us': (args) => api.getStockAnalystUs(args.ticker, args.limit),
     'get_stock_company_us': (args) => api.getStockCompanyUs(args.ticker),
     'get_stock_financials_us': (args) => api.getStockFinancialsUs(args.ticker),
@@ -13417,7 +13417,8 @@ async function loadFilingsUs(ticker) {
         const response = await invokeWithTimeout('get_stock_filings_us', {
             accessToken: auth.accessToken || '',
             ticker: ticker,
-            limit: 30
+            limit: 30,
+            lang: 'en'
         }, 15000);
 
         const items = response?.data?.items || [];

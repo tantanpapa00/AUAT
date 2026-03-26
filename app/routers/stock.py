@@ -356,6 +356,7 @@ async def api_stock_news_us(
 async def api_stock_filings_us(
     ticker: str,
     limit: int = Query(30, ge=1, le=50),
+    lang: str = Query('kr', regex='^(kr|en)$'),
     current_user: User = Depends(get_current_user_optional)
 ):
     """
@@ -363,7 +364,7 @@ async def api_stock_filings_us(
     - 데이터 소스: yfinance sec_filings
     - 누구나 접근 가능
     """
-    data = await get_stock_filings_us(ticker, limit)
+    data = await get_stock_filings_us(ticker, limit, lang)
     return {"data": data}
 
 

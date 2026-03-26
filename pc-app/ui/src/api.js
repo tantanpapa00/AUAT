@@ -428,8 +428,8 @@ export const getStockChartUs = (ticker, period = '3m') =>
 export const getStockNewsUs = (ticker, limit = 20) =>
     apiGet(`/api/stock/us/${ticker}/news?limit=${limit}`);
 
-export const getStockFilingsUs = (ticker, limit = 30) =>
-    apiGet(`/api/stock/us/${ticker}/filings?limit=${limit}`);
+export const getStockFilingsUs = (ticker, limit = 30, lang = 'kr') =>
+    apiGet(`/api/stock/us/${ticker}/filings?limit=${limit}&lang=${lang}`);
 
 export const getStockAnalystUs = (ticker, limit = 30) =>
     apiGet(`/api/stock/us/${ticker}/analyst?limit=${limit}`);
