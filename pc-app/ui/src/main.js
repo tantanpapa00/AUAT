@@ -13681,10 +13681,14 @@ async function loadCompanyInfoUs(ticker) {
                 </div>
             `;
 
-            // 2. 기업 개요 (한글 번역 또는 영문)
-            const langBadge = data.description_lang === 'ko'
-                ? '<span style="background:#22c55e;color:#fff;font-size:11px;padding:2px 6px;border-radius:3px;margin-left:8px;">KR</span>'
-                : '<span style="background:#6b7280;color:#fff;font-size:11px;padding:2px 6px;border-radius:3px;margin-left:8px;">EN</span>';
+            // 2. 기업 개요 (US 모드는 영문 사용)
+            const isUS = getAppMode() === 'US';
+            const descriptionText = isUS ? (data.description_en || data.description) : data.description;
+            const langBadge = isUS
+                ? '<span style="background:#3B82F6;color:#fff;font-size:11px;padding:2px 6px;border-radius:3px;margin-left:8px;">EN</span>'
+                : (data.description_lang === 'ko'
+                    ? '<span style="background:#22c55e;color:#fff;font-size:11px;padding:2px 6px;border-radius:3px;margin-left:8px;">KR</span>'
+                    : '<span style="background:#6b7280;color:#fff;font-size:11px;padding:2px 6px;border-radius:3px;margin-left:8px;">EN</span>');
 
             const overviewHtml = `
                 <div class="company-overview-card">
@@ -13692,7 +13696,7 @@ async function loadCompanyInfoUs(ticker) {
                         <h3 class="overview-title">🏢 Company Overview${langBadge}</h3>
                     </div>
                     <div class="overview-body">
-                        ${formatDescription(data.description)}
+                        ${formatDescription(descriptionText)}
                     </div>
                     <div class="company-meta-row" style="display:flex;flex-wrap:wrap;gap:16px;margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);font-size:0.85rem;color:var(--text-muted);">
                         ${data.sector ? `<span>📂 Sector: <strong style="color:var(--text-primary);">${data.sector}</strong></span>` : ''}
