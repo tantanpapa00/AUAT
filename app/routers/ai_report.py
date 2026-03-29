@@ -808,14 +808,15 @@ async def request_ai_analysis(
     is_domestic = exchange_lower in ("kis_kr", "kis_kr_etf")
     market = "kr" if is_domestic else "us"
 
-    # 앱 모드에 따라 언어 결정 (appMode 우선)
+    # 앱 모드 + 종목 시장에 따라 언어 결정
+    # - US 모드 + US 종목 → 영어
+    # - US 모드 + KR 종목 → 한국어 (한국 종목은 한국어)
+    # - KR 모드 + 모든 종목 → 한국어
     app_mode = request.appMode.upper() if request.appMode else "KR"
-    if app_mode == "US":
+    if app_mode == "US" and market == "us":
         language = "en"
-    elif app_mode == "KR":
-        language = "kr"
     else:
-        language = "kr" if market == "kr" else "en"
+        language = "kr"
 
     is_etf = "etf" in exchange_lower
     if not is_etf:

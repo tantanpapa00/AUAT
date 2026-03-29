@@ -5495,7 +5495,8 @@ document.getElementById('btn-ai-analysis')?.addEventListener('click', async () =
 
     modal.style.display = 'flex';
     loadingEl.style.display = 'block';
-    loadingEl.innerHTML = '<div class="ai-spinner"></div><p id="ai-progress-text" style="color:var(--text-muted);margin-top:12px;">📊 종목 데이터 수집 중...</p>';
+    const isUSMode = getAppMode() === 'US';
+    loadingEl.innerHTML = `<div class="ai-spinner"></div><p id="ai-progress-text" style="color:var(--text-muted);margin-top:12px;">📊 ${isUSMode ? 'Collecting stock data...' : '종목 데이터 수집 중...'}</p>`;
     reportEl.style.display = 'none';
     errorEl.style.display = 'none';
 
@@ -15154,7 +15155,8 @@ document.getElementById('btn-ai-analysis-modal')?.addEventListener('click', asyn
 
     modal.style.display = 'flex';
     loadingEl.style.display = 'block';
-    loadingEl.innerHTML = '<div class="ai-spinner"></div><p id="ai-progress-text2" style="color:var(--text-muted);margin-top:12px;">📊 종목 데이터 수집 중...</p>';
+    const isUSMode = getAppMode() === 'US';
+    loadingEl.innerHTML = `<div class="ai-spinner"></div><p id="ai-progress-text2" style="color:var(--text-muted);margin-top:12px;">📊 ${isUSMode ? 'Collecting stock data...' : '종목 데이터 수집 중...'}</p>`;
     reportEl.style.display = 'none';
     errorEl.style.display = 'none';
 
