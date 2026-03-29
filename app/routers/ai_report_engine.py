@@ -27,14 +27,17 @@ async def run_ai_analysis_job(
     market: str,
     is_etf: bool,
     ai_jobs: Dict[str, Dict[str, Any]],
-    get_master_cache: Callable
+    get_master_cache: Callable,
+    language: str = "kr"
 ):
     """백그라운드에서 AI 분석 실행"""
     from .ai_report_charts import generate_ai_charts
 
+    is_english = language == "en"
+
     try:
         ai_jobs[job_id]["status"] = "running"
-        ai_jobs[job_id]["progress"] = "종목 데이터 수집 중..."
+        ai_jobs[job_id]["progress"] = "Collecting stock data..." if is_english else "종목 데이터 수집 중..."
 
         # 종목명 조회
         name = symbol
@@ -57,7 +60,7 @@ async def run_ai_analysis_job(
                 pass
 
         # 차트 생성
-        ai_jobs[job_id]["progress"] = "차트 생성 중..."
+        ai_jobs[job_id]["progress"] = "Generating charts..." if is_english else "차트 생성 중..."
         try:
             chart_urls = await generate_ai_charts(symbol, name, market)
             if chart_urls:
@@ -66,22 +69,22 @@ async def run_ai_analysis_job(
             print(f"[AI Job] Chart generation error: {e}")
             chart_urls = {}
 
-        ai_jobs[job_id]["progress"] = "AI가 분석 중..."
+        ai_jobs[job_id]["progress"] = "AI is analyzing..." if is_english else "AI가 분석 중..."
 
-        # Claude API로 리포트 생성
+        # Claude API로 리포트 생성 (language로 프롬프트 언어 결정)
         if is_etf:
-            ai_result = await _generate_etf_report(name=name, code=symbol, market=market, chart_data=chart_urls)
+            ai_result = await _generate_etf_report(name=name, code=symbol, market=market, chart_data=chart_urls, language=language)
         else:
-            ai_result = await _generate_claude_report(name=name, code=symbol, market=market, chart_data=chart_urls)
+            ai_result = await _generate_claude_report(name=name, code=symbol, market=market, chart_data=chart_urls, language=language)
 
         report = ai_result.get("report", "")
         if not report or len(report) < 200:
-            raise Exception("리포트 생성 실패")
+            raise Exception("Report generation failed" if is_english else "리포트 생성 실패")
 
         ai_jobs[job_id]["stock"] = {"name": name, "code": symbol}
         ai_jobs[job_id]["status"] = "done"
         ai_jobs[job_id]["result"] = report
-        ai_jobs[job_id]["progress"] = "완료"
+        ai_jobs[job_id]["progress"] = "Done" if is_english else "완료"
 
         # 사용량 증가 + 캐시 저장
         try:
@@ -111,7 +114,7 @@ async def run_ai_analysis_job(
         print(f"[AI Job] {job_id} 오류: {e}")
         ai_jobs[job_id]["status"] = "error"
         ai_jobs[job_id]["error"] = str(e)
-        ai_jobs[job_id]["progress"] = "오류 발생"
+        ai_jobs[job_id]["progress"] = "Error occurred" if is_english else "오류 발생"
 
 
 async def run_ai_chat_job(
@@ -868,15 +871,16 @@ Please write the report. Minimum 1500 words.
     return (get_ai_report_system_prompt(market), user_prompt)
 
 
-async def _generate_etf_report(name: str, code: str, market: str = "kr", chart_data: dict = None) -> dict:
+async def _generate_etf_report(name: str, code: str, market: str = "kr", chart_data: dict = None, language: str = "kr") -> dict:
     """ETF 전용 Claude API 리포트 생성"""
     import anthropic
 
+    is_english = language == "en"
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         return {
             "success": False,
-            "report": f"# {name} ({code}) ETF 분석\n\nETF 분석 데이터를 불러올 수 없습니다.",
+            "report": f"# {name} ({code}) ETF Analysis\n\nUnable to load ETF analysis data." if is_english else f"# {name} ({code}) ETF 분석\n\nETF 분석 데이터를 불러올 수 없습니다.",
             "fallback": True
         }
 
@@ -893,7 +897,9 @@ async def _generate_etf_report(name: str, code: str, market: str = "kr", chart_d
 
         etf_data['technical'] = technical_data
 
-        prompt = _build_etf_prompt(name, code, etf_data, market)
+        # language로 프롬프트 언어 결정
+        prompt_lang = "us" if language == "en" else "kr"
+        prompt = _build_etf_prompt(name, code, etf_data, prompt_lang)
 
         client = anthropic.AsyncAnthropic(api_key=api_key, timeout=180.0)
 
@@ -1072,7 +1078,7 @@ def _clean_meta_comments(report_md: str) -> str:
     return cleaned.strip()
 
 
-async def _generate_claude_report(name: str, code: str, market: str = "kr", chart_data: dict = None) -> dict:
+async def _generate_claude_report(name: str, code: str, market: str = "kr", chart_data: dict = None, language: str = "kr") -> dict:
     """Claude API로 종합 분석 리포트 생성"""
     import anthropic
 
@@ -1102,7 +1108,9 @@ async def _generate_claude_report(name: str, code: str, market: str = "kr", char
             if chart_data.get("resistance_levels"):
                 tech["resistance_levels"] = chart_data["resistance_levels"]
 
-        system_prompt, user_prompt = _build_claude_prompt(name, code, tech, fin, news, "", market, pre_fetched_data)
+        # language 파라미터를 사용하여 프롬프트 언어 결정
+        prompt_lang = "us" if language == "en" else "kr"
+        system_prompt, user_prompt = _build_claude_prompt(name, code, tech, fin, news, "", prompt_lang, pre_fetched_data)
 
         client = anthropic.AsyncAnthropic(api_key=api_key, timeout=180.0)
         cache_messages = _split_prompt_for_cache(user_prompt)

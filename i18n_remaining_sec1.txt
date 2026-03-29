@@ -1,0 +1,122 @@
+17: console.log('[Chart] Chart.js + ChartDataLabels 등록 완료');
+230: console.error(`[API] ${cmd} 오류:`, err);
+236: console.warn(`[invoke] 매핑되지 않은 커맨드: ${cmd}, Tauri fallback 사용`);
+290: * 테마 설정
+291: * @param {string} theme - 'dark' 또는 'light'
+308: * 저장된 테마 로드
+320: * 앱 모드 불러오기 (기본값: 'KR')
+327: * 앱 모드 저장 및 적용
+328: * @param {string} mode - 'KR' 또는 'US'
+340: * 모드에 따라 UI 전체 적용
+341: * @param {string} mode - 'KR' 또는 'US'
+373: * 네비게이션 메뉴 모드별 표시/숨김
+374: * @param {string} mode - 'KR' 또는 'US'
+409: * 계정 등록 거래소 드롭다운 모드별 필터링
+410: * KR 모드: KIS_KR, KIS_US, OKX, BINANCE, BYBIT, UPBIT
+411: * US 모드: ALPACA, OKX, BINANCE, BYBIT (Upbit/KIS 제외)
+434: * 차트 테마 색상 반환
+448: * 차트 테마 업데이트 (TradingView Lightweight Charts)
+466: console.log('[Theme] 차트 테마 업데이트 스킵:', e.message);
+491: * 안전하게 텍스트 설정 (null 요소 방지)
+492: * @param {string} selector - CSS 선택자 또는 요소 ID
+493: * @param {string} text - 설정할 텍스트
+503: * 안전하게 HTML 설정 (null 요소 방지)
+504: * @param {string} selector - CSS 선택자 또는 요소 ID
+505: * @param {string} html - 설정할 HTML
+515: * 안전하게 요소 표시/숨김 (null 요소 방지)
+516: * @param {string} selector - CSS 선택자 또는 요소 ID
+517: * @param {boolean} visible - 표시 여부
+531: * Tauri invoke 래퍼 - 타임아웃 + 에러 처리
+532: * @param {string} command - Tauri 명령어
+533: * @param {object} args - 인자
+534: * @param {number} timeout - 타임아웃 (ms)
+549: throw new Error('요청 시간이 초과되었습니다');
+556: * 로딩 상태 표시 + 타임아웃 자동 에러 전환
+557: * @param {HTMLElement} element - 로딩 표시할 요소
+558: * @param {number} maxTime - 최대 대기 시간 (ms)
+579: * 에러 상태 표시
+582: * @param {Function} retryFn - 다시 시도 콜백
+603: * 종목 자동완성 컴포넌트 생성
+604: * @param {HTMLInputElement} inputElement - 검색 입력 필드
+605: * @param {Function} onSelect - 종목 선택 시 콜백 ({code, name, exchange, market})
+606: * @param {object} options - 옵션 {exchange, category, showBadge}
+607: * @returns {object} - 컴포넌트 인스턴스
+663: console.log('[Search] 오래된 요청 무시:', query);
+769: console.log('[createSymbolAutocomplete] input 이벤트 바인딩:', inputElement.id);
+880: showToast('브라우저에서 로그인을 완료해주세요', 'info');
+883: showToast('로그인 페이지를 열 수 없습니다', 'error');
+891: showToast('브라우저에서 로그인을 완료해주세요', 'info');
+894: showToast('로그인 페이지를 열 수 없습니다', 'error');
+941: showToast('세션이 만료되었습니다. 다시 로그인해주세요.', 'error');
+961: showToast('회원가입 및 로그인 성공', 'success');
+965: showToast(result.detail || '가입에 실패했습니다', 'error');
+968: showToast(error.message || '가입에 실패했습니다', 'error');
+1019: showToast('로그인 성공', 'success');
+1026: showToast('로그인 시간이 초과되었습니다', 'warning');
+1084: showLoginError('이메일과 비밀번호를 입력하세요');
+1099: showToast('로그인 성공', 'success');
+1104: showLoginError(error || '로그인에 실패했습니다');
+1126: if (!checks.length) errors.push('12자리 이상');
+1127: if (!checks.letter) errors.push('영문자 포함');
+1128: if (!checks.number) errors.push('숫자 포함');
+1129: if (!checks.special) errors.push('특수문자 포함 (!@#$%^&* 등)');
+1140: showRegisterError('이메일과 비밀번호를 입력하세요');
+1145: showRegisterError('비밀번호가 일치하지 않습니다');
+1152: showRegisterError('비밀번호 조건: ' + pwdErrors.join(', '));
+1167: showToast('회원가입 및 로그인 성공', 'success');
+1172: showRegisterError(error || '회원가입에 실패했습니다');
+1234: const displayName = user.name || user.email?.split('@')[0] || '사용자';
+1506: console.log('[WS] 알림 수신:', data);
+1527: console.log('[WS] 연결 상태:', connected ? '연결됨' : '연결 해제됨');
+1789: * 보유자산 기반 자산배분 계산
+1790: * @returns [국내주식%, 해외주식%, 암호화폐%, 현금%]
+1856: console.log(`[Allocation] 국내주식: ₩${krStock.toLocaleString()}, 해외주식: ₩${usStock.toLocaleString()}, 암호
+1868: console.log(`[Allocation] 국내주식: ${krStockPct}%, 해외주식: ${usStockPct}%, 암호화폐: ${cryptoPct}%, 현금: ${cas
+2098: <p>활성 전략이 없습니다.</p>
+2099: <p>전략설정에서 전략을 추가하세요.</p>
+2100: <button class="btn btn-primary" onclick="navigateTo('tv-connect')">전략 추가하기</button>
+2111: const statusText = isRunning ? '실행중' : '일시정지';
+2121: <td class="strategy-trades-cell">${s.trades_today}건</td>
+2125: ? `<button class="btn-action btn-pause" onclick="toggleAsset(${s.id}, '${safeName}')">정지</button>`
+2126: : `<button class="btn-action btn-resume" onclick="toggleAsset(${s.id}, '${safeName}')">재개</button>`
+2128: <button class="btn-action btn-delete" onclick="deleteAsset(${s.id}, '${safeName}')">삭제</button>
+2146: const statusText = res.is_active ? '재개' : '일시정지';
+2147: showToast(`${name} 전략이 ${statusText}되었습니다.`);
+2151: showToast(`전략 변경 실패: ${e}`, 'error');
+2156: if (!confirm(`"${name}" 전략을 삭제하시겠습니까?\n삭제 후 복구할 수 없습니다.`)) return;
+2161: showToast(`${name} 전략이 삭제되었습니다.`);
+2165: showToast(`전략 삭제 실패: ${e}`, 'error');
+2206: <div class="empty-state"><p>거래 내역이 없습니다.</p></div>
+2216: const sideText = side.includes('buy') ? '매수' : side.includes('sell') ? '매도' : trade.side || '-';
+2220: const statusText = status === 'filled' ? '체결' :
+2221: status === 'failed' ? '실패' :
+2222: status === 'skipped' ? '스킵' :
+2223: status === 'sent' ? '전송' : status;
+2250: <span>사유: ${errorMsg}</span>
+2329: if (!confirm('모든 자동매매를 즉시 정지하시겠습니까?\n\n모든 활성 전략이 중단됩니다.')) return;
+2337: showToast('긴급 정지가 활성화되었습니다', 'warning');
+2340: showToast('긴급 정지 실패: ' + error, 'error');
+2373: <p>등록된 거래소 계정이 없습니다.</p>
+2374: <button class="btn btn-primary" onclick="navigateTo('accounts')">계정 등록하기</button>
+2397: console.error('[loadExchangeSelection] 계정 로딩 실패:', error);
+2398: container.innerHTML = `<p class="empty">계정 로딩 실패: ${error}</p>`;
+2415: tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">최근 수신 웹훅 없음</td></tr>';
+2421: const statusText = log.status === 'success' ? '성공' : log.status === 'rejected' ? '거부' : '실패';
+2438: tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">로그 로딩 실패</td></tr>';
+2485: * UI에서 signal_params 수집 (v2)
+2588: * TradingView 웹훅 템플릿 생성 (v2: 간소화 - 설정은 서버에 저장)
+2603: * 전략/종목을 서버에 저장 (Tauri invoke 사용)
+2608: return { ok: false, error: '거래소와 종목을 선택해주세요' };
+2612: return { ok: false, error: '로그인이 필요합니다' };
+2630: throw new Error('전략 ID를 받지 못했습니다');
+2641: console.warn('signal_params 저장 실패, 계속 진행:', e);
+2667: * signal_params를 UI에 로드 (v2)
+2790: * Step 3 조건부 필드 표시/숨김 업데이트 (v2)
+2882: showToast(result.error || '저장 실패', 'error');
+2886: showToast('전략 및 종목이 저장되었습니다', 'success');
+2905: showToast('저장 중 오류가 발생했습니다', 'error');
+2926: showToast('템플릿이 복사되었습니다', 'success');
+2934: showToast('웹훅 URL이 복사되었습니다', 'success');
+2957: showToast(`${selectedSymbol} 선택됨`, 'info');
+2993: showToast(`${symbol.name} (${symbol.code}) 선택됨`, 'success');
+2998: if (listEl) listEl.innerHTML = '<p class="empty">자산을 검색하세요</p>';

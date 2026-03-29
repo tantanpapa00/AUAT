@@ -1,0 +1,345 @@
+6018: <!-- 2행: 투자자별 순매수 (시장신호 바로 아래) -->
+6020: <h3>투자자별 순매수</h3>
+6023: <span class="label">외국인</span>
+6027: <span class="label">기관</span>
+6031: <span class="label">개인</span>
+6037: <!-- 3행: 거래대금 (전일대비 포함) -->
+6039: <h3>거래대금</h3>
+6054: <!-- 4행: 신호 설명 (접기 가능) -->
+6056: <p>시장 신호는 신호등 색상으로 현재 시장의 상태를 나타냅니다: (🟢 양호, 🟡 주의, 🔴 매우주의).</p>
+6057: <p>단기/장기 신호는 각각 단기적, 장기적 관점에서의 시장 흐름을 보여주는 지표입니다.</p>
+6060: <!-- 5행: 서브탭 (오늘의 특징주 | 오늘의 업종 | 섹터별 추세 | 신용잔고) -->
+6062: <button class="se-subtab active" data-tab="featured-stocks">오늘의 특징주</button>
+6063: <button class="se-subtab" data-tab="sector">오늘의 업종</button>
+6064: <button class="se-subtab" data-tab="trend-maintain">섹터별 추세</button>
+6065: <button class="se-subtab" data-tab="credit-balance">신용잔고</button>
+6068: <!-- 오늘의 특징주 탭 -->
+6072: <button class="se-featured-tab active" data-type="gainers">상승률 상위</button>
+6073: <button class="se-featured-tab" data-type="losers">하락률 상위</button>
+6074: <button class="se-featured-tab" data-type="trading_value">거래대금 상위</button>
+6078: <option value="ALL">전체</option>
+6085: <div class="loading-state">데이터 로딩 중...</div>
+6089: <!-- 오늘의 업종 탭 -->
+6093: <label>정렬:</label>
+6095: <option value="change">등락률</option>
+6096: <option value="volume">거래대금</option>
+6100: <button class="se-filter-btn active" data-filter="all">전체</button>
+6101: <button class="se-filter-btn" data-filter="up">상승</button>
+6102: <button class="se-filter-btn" data-filter="down">하락</button>
+6106: <div class="loading-state">데이터 로딩 중...</div>
+6110: <!-- 섹터별 추세 탭 -->
+6113: <h3>섹터별 추세 (20MA 기준)</h3>
+6115: • <b>포지션</b>: 현재가가 20일 이동평균선 위에 며칠째 유지 또는 이탈 중인지<br>
+6116: • <b>신호등</b>: 섹터의 현재 상태 (<span style="color:#22c55e">●</span>양호, <span style="co
+6117: • <b>대표종목(RS)</b>: RS 점수가 <b>90 이상</b>인 종목은 <b>굵게</b> 표시
+6123: <th class="sortable" data-sort="sector">섹터</th>
+6125: <th class="sortable" data-sort="change">등락률</th>
+6126: <th class="sortable" data-sort="days">포지션</th>
+6127: <th>신호</th>
+6128: <th class="sortable" data-sort="gap">이격률</th>
+6129: <th>대표종목(RS)</th>
+6133: <tr><td colspan="7" class="loading-cell">데이터 로딩 중...</td></tr>
+6140: <!-- 신용잔고 탭 -->
+6143: <h3>신용잔고</h3>
+6144: <p class="empty-state">추후 업데이트 예정</p>
+6195: if (v === 0) return '0억';
+6197: return `${sign}${Math.abs(v).toLocaleString()}억`;
+6229: sectorListEl.innerHTML = '<div class="empty-state">섹터 데이터 없음</div>';
+6244: const errMsg = error?.message || error || '알 수 없는 오류';
+6245: contentEl.innerHTML = `<div class="error-state"><p>${errMsg}</p><button class="b
+6271: return (billion / 10000).toFixed(1) + '조';
+6273: return billion.toFixed(0) + '억';
+6285: diffStr = (diffBillion / 10000).toFixed(1) + '조';
+6287: diffStr = Math.abs(diffBillion).toFixed(0) + '억';
+6354: console.log('[loadMaRatioChart] API 응답:', data);
+6358: console.warn('[loadMaRatioChart] 데이터 없음, 초기화 필요');
+6392: label: '200일선 하락비율',
+6404: label: '20일선 하락비율',
+6494: text: '하락비율(%)',
+6509: console.log('[loadMaRatioChart] 차트 생성 완료:', data.dates.length, '일치');
+6512: console.error('[loadMaRatioChart] 오류:', error);
+6517: ctx.fillText('차트 데이터 로드 실패', canvas.width / 2, canvas.height / 2);
+6523: console.warn('[initBreadthData] Breadth 데이터가 없습니다. 서버에서 POST /api/market/breadth
+6548: console.log('[loadAdrChart] API 응답:', data);
+6552: console.warn('[loadAdrChart] 데이터 없음');
+6633: return `${label}: ${value} (${value >= 100 ? '상승우세' : '하락우세'})`;
+6650: content: '100 기준',
+6705: console.log('[loadAdrChart] 차트 생성 완료');
+6708: console.error('[loadAdrChart] 오류:', error);
+6722: tbody.innerHTML = '<tr><td colspan="7" class="loading-cell">데이터 로딩 중...</td></tr
+6732: tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">추세유지 데이터 없음</td></tr>'
+6764: tbody.innerHTML = `<tr><td colspan="7" class="error-cell">데이터 로드 실패: ${error?.me
+6779: case 'days': va = (a.position === '유지' ? 1000 : 0) + (a.position_days || 0); vb 
+6796: const positionClass = s.position === '유지' ? 'maintain' : 'depart';
+6813: <td class="position-cell ${positionClass}">${s.position || ''} ${s.position_days
+6842: leadingEl.innerHTML = '<div class="loading-state">로딩 중...</div>';
+6843: weakEl.innerHTML = '<div class="loading-state">로딩 중...</div>';
+6851: leadingEl.innerHTML = '<div class="empty-state">섹터 데이터 없음</div>';
+6852: weakEl.innerHTML = '<div class="empty-state">섹터 데이터 없음</div>';
+6872: leadingEl.innerHTML = '<div class="empty-state all-down">오늘은 모든 섹터가 하락했습니다</div>
+6879: weakEl.innerHTML = '<div class="empty-state all-up">오늘은 모든 섹터가 상승했습니다</div>';
+6916: return (billions / 10000).toFixed(1) + '조';
+6918: return Math.round(billions).toLocaleString() + '억';
+6945: detailEl.innerHTML = '<div class="sector-detail-loading">로딩 중...</div>';
+6960: detailEl.innerHTML = '<div class="sector-detail-error">데이터 조회 실패</div>';
+6964: detailEl.innerHTML = `<div class="sector-detail-error">${err?.message || '오류 발생'
+6977: html += '<div class="detail-section"><div class="detail-title">📈 등락률 TOP</div>';
+6984: html += '<div class="detail-section"><div class="detail-title">💰 거래대금 TOP</div>'
+6994: html += '<div class="detail-section"><div class="detail-title">📉 하락률 TOP</div>';
+7003: html += '<div class="detail-empty">상세 데이터 없음</div>';
+7019: listEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+7036: listEl.innerHTML = '<div class="empty-state">데이터가 없습니다</div>';
+7048: <th class="name-col">종목명</th>
+7049: <th class="price-col">현재가</th>
+7050: <th class="change-col">등락률</th>
+7051: <th class="volume-col">거래대금</th>
+7091: listEl.innerHTML = `<div class="error-state">${error?.message || '데이터 로드 실패'}</d
+7127: listEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+7135: listEl.innerHTML = '<div class="empty-state">섹터 데이터 없음</div>';
+7177: const msg = filter === 'up' ? '상승 섹터가 없습니다' : (filter === 'down' ? '하락 섹터가 없습니다'
+7186: <th class="name-col">업종명</th>
+7187: <th class="change-col">등락률</th>
+7188: <th class="volume-col">거래대금</th>
+7235: alert(`[${sectorName}] 주요 종목:\n\n${stockList}`);
+7237: alert(`[${sectorName}] 종목 데이터가 없습니다.`);
+7322: contentEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+7333: contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button cl
+7354: <!-- 시장신호 헤더 (1줄 통합) -->
+7356: <!-- 좌측: 시장신호 + 신호등 -->
+7359: <span>시장신호</span>
+7364: <span class="se-signal-label">단기</span>
+7372: <span class="se-signal-label">장기</span>
+7381: <!-- 중앙: 전체시장 상승/하락 -->
+7383: <div style="font-size:0.7em;color:var(--text-muted);margin-bottom:2px">전체 시장</di
+7394: <!-- 우측: S&P500 + NASDAQ 블록 -->
+7396: <!-- S&P 500: 게이지 포함 -->
+7411: <!-- NASDAQ: 게이지 없이 가격 정보만 -->
+7429: <!-- 2행: S&P 500 히트맵 (줌 가능) -->
+7431: <h3>S&P 500 히트맵</h3>
+7435: <button class="hm-zoom-btn" id="hm-zoom-in" title="확대">+</button>
+7436: <button class="hm-zoom-btn" id="hm-zoom-out" title="축소">−</button>
+7437: <button class="hm-zoom-btn" id="hm-zoom-reset" title="초기화">⟲</button>
+7442: <!-- 3행: Fear & Greed + VIX -->
+7445: <h3>탐욕/공포 지수</h3>
+7448: <div class="se-fg-label">${fearGreed.label || '중립'}</div>
+7455: <span>극심한 공포</span>
+7456: <span>중립</span>
+7457: <span>극심한 탐욕</span>
+7463: <h3>VIX (변동성 지수)</h3>
+7476: <!-- 4행: 다우존스 + 러셀2000 -->
+7479: <span class="se-extra-name">다우존스</span>
+7487: <span class="se-extra-name">러셀2000</span>
+7495: <!-- 5행: 신호 설명 (접기 가능) -->
+7497: <p>시장 신호는 신호등 색상으로 현재 시장의 상태를 나타냅니다: (🟢 양호, 🟡 주의, 🔴 매우주의).</p>
+7498: <p>단기/장기 신호는 각각 단기적, 장기적 관점에서의 시장 흐름을 보여주는 지표입니다.</p>
+7501: <!-- 6행: 서브탭 (시장지표 | 섹터 | 오늘의 특징주 | 오늘의 업종 | 섹터별 추세) -->
+7503: <button class="se-subtab active" data-tab="us-market-indicators">시장지표</button>
+7504: <button class="se-subtab" data-tab="us-sector">섹터</button>
+7505: <button class="se-subtab" data-tab="us-featured-stocks">오늘의 특징주</button>
+7506: <button class="se-subtab" data-tab="us-sector-data">오늘의 업종</button>
+7507: <button class="se-subtab" data-tab="us-trend-maintain">섹터별 추세</button>
+7510: <!-- 시장지표 탭 -->
+7512: <!-- Big Picture 컴팩트 -->
+7517: <span class="se-bp-status" id="bp-sp500-status">${sp500Sig.status_label || '확인된 
+7526: <span class="se-bp-status" id="bp-nasdaq-status">${nasdaqSig.status_label || '확인
+7533: <!-- 시장 브레드스 (Breadth) - Finviz 전체 시장 기준 -->
+7535: <h3>시장 브레드스 (전체 시장)</h3>
+7538: <span class="se-breadth-label">상승 / 하락</span>
+7549: <span class="se-breadth-label">신고가 / 신저가</span>
+7560: <span class="se-breadth-label">SMA50 위 / 아래</span>
+7571: <span class="se-breadth-label">SMA200 위 / 아래</span>
+7585: <!-- 섹터 탭 -->
+7588: <h3>S&P 500 GICS 섹터 (11개)</h3>
+7590: <!-- JS에서 렌더링 -->
+7595: <!-- 오늘의 특징주 탭 (US) -->
+7599: <button class="se-featured-tab-us active" data-type="gainers">상승률 상위</button>
+7600: <button class="se-featured-tab-us" data-type="losers">하락률 상위</button>
+7601: <button class="se-featured-tab-us" data-type="trading_value">거래대금 상위</button>
+7605: <div class="loading-state">데이터 로딩 중...</div>
+7609: <!-- 오늘의 업종 탭 (US) -->
+7613: <label>정렬:</label>
+7615: <option value="change">등락률</option>
+7616: <option value="volume">거래대금</option>
+7620: <button class="se-filter-btn-us active" data-filter="all">전체</button>
+7621: <button class="se-filter-btn-us" data-filter="up">상승</button>
+7622: <button class="se-filter-btn-us" data-filter="down">하락</button>
+7626: <div class="loading-state">데이터 로딩 중...</div>
+7630: <!-- 섹터별 추세 탭 (US) -->
+7633: <h3>섹터별 추세 (20MA 기준)</h3>
+7635: • <b>포지션</b>: 현재가가 20일 이동평균선 위에 며칠째 유지 또는 이탈 중인지<br>
+7636: • <b>신호등</b>: 섹터의 현재 상태 (<span style="color:#22c55e">●</span>양호, <span style="co
+7637: • <b>대표종목(RS)</b>: RS 점수가 <b>90 이상</b>인 종목은 <b>굵게</b> 표시
+7643: <th class="sortable" data-sort="sector">섹터</th>
+7645: <th class="sortable" data-sort="change">등락률</th>
+7646: <th class="sortable" data-sort="days">포지션</th>
+7647: <th>신호</th>
+7648: <th class="sortable" data-sort="gap">이격률</th>
+7649: <th>대표종목(RS)</th>
+7653: <tr><td colspan="7" class="loading-cell">데이터 로딩 중...</td></tr>
+7739: const errMsg = error?.message || error || '알 수 없는 오류';
+7740: contentEl.innerHTML = `<div class="error-state"><p>${errMsg}</p><button class="b
+7751: listEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+7769: listEl.innerHTML = '<div class="empty-state">데이터가 없습니다</div>';
+7778: <th class="name-col">종목명</th>
+7779: <th class="price-col">현재가</th>
+7780: <th class="change-col">등락률</th>
+7781: ${type === 'trading_value' ? '<th class="volume-col">시가총액</th>' : ''}
+7818: listEl.innerHTML = `<div class="error-state">${error?.message || '데이터 로드 실패'}</d
+7829: listEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+7840: listEl.innerHTML = '<div class="empty-state">섹터 데이터 없음</div>';
+7870: const msg = filter === 'up' ? '상승 섹터가 없습니다' : (filter === 'down' ? '하락 섹터가 없습니다'
+7879: <th class="name-col">섹터명</th>
+7881: <th class="change-col">등락률</th>
+7912: tbody.innerHTML = '<tr><td colspan="6" class="loading-cell">데이터 로딩 중...</td></tr
+7923: tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">추세유지 데이터 없음</td></tr>'
+7954: tbody.innerHTML = `<tr><td colspan="6" class="error-cell">데이터 로드 실패: ${error?.me
+7967: case 'days': va = (a.position === '유지' ? 1000 : 0) + (a.position_days || 0); vb 
+7984: const positionClass = s.position === '유지' ? 'maintain' : 'depart';
+8001: <td class="position-cell ${positionClass}">${s.position || ''} ${s.position_days
+8067: * Squarified Treemap 레이아웃 계산
+8068: * data: [{value, ...}, ...] (value 내림차순 정렬 필수)
+8069: * x, y, w, h: 배치 영역
+8070: * returns: 각 data 요소에 x, y, w, h 속성 추가
+8191: const sec = s.sector || '기타';
+8388: if (val < 15) return '매우 안정';
+8389: if (val < 20) return '안정';
+8390: if (val < 25) return '보통';
+8391: if (val < 30) return '불안';
+8392: return '극도 불안';
+8417: container.innerHTML = '<div class="empty-state">섹터 데이터 없음</div>';
+8458: tbody.innerHTML = '<tr><td colspan="6" class="loading-cell">데이터 로딩 중...</td></tr
+8468: tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">데이터를 불러올 수 없습니다</td></
+8474: tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">추세유지 데이터 없음</td></tr>'
+8480: const positionClass = item.position === '유지' ? 'position-maintain' : 'position-b
+8489: <td class="position-cell ${positionClass}">${item.position || '-'} ${item.days |
+8498: tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">데이터 로드 실패</td></tr>';
+8522: contentEl.innerHTML = '<div class="loading-state">ETF 데이터 로딩 중...</div>';
+8530: contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button cl
+8538: contentEl.innerHTML = `<div class="error-state"><p>${error.message || '알 수 없는 오류
+8549: <!-- 시장 개요 -->
+8553: <span class="etf-stat-label">전체 종목</span>
+8557: <span class="etf-stat-label">상승</span>
+8561: <span class="etf-stat-label">하락</span>
+8565: <span class="etf-stat-label">보합</span>
+8571: <!-- 1. HOT 테마 (국내) -->
+8574: <h3>HOT 테마</h3>
+8576: <button class="etf-toggle-btn active" data-mode="up">상승</button>
+8577: <button class="etf-toggle-btn" data-mode="down">하락</button>
+8583: <!-- 1-2. 해외(미국) HOT 테마 -->
+8586: <h3>해외 HOT 테마</h3>
+8588: <button class="etf-toggle-btn active" data-mode="up">상승</button>
+8589: <button class="etf-toggle-btn" data-mode="down">하락</button>
+8595: <!-- 2. 상승하락 (ETFCheck: 상승하락 | TOP3거래량) -->
+8598: <button class="etf-main-tab active" data-tab="dist">상승하락</button>
+8599: <button class="etf-main-tab" data-tab="top3vol">TOP3거래량</button>
+8602: <button class="etf-sub-tab active" data-asset="전체">전체</button>
+8603: <button class="etf-sub-tab" data-asset="주식">주식</button>
+8604: <button class="etf-sub-tab" data-asset="채권">채권</button>
+8605: <button class="etf-sub-tab" data-asset="원자재">원자재</button>
+8610: <!-- 3. 랭킹 TOP 10 (ETFCheck: 수익률 | 거래량 | 순자산총액) -->
+8612: <h3>랭킹 TOP 10</h3>
+8614: <button class="etf-main-tab active" data-tab="return">수익률</button>
+8615: <button class="etf-main-tab" data-tab="volume">거래량</button>
+8616: <button class="etf-main-tab" data-tab="asset-total">순자산총액</button>
+8619: <button class="etf-sub-tab active" data-asset="전체">전체</button>
+8620: <button class="etf-sub-tab" data-asset="주식">주식</button>
+8621: <button class="etf-sub-tab" data-asset="채권">채권</button>
+8622: <button class="etf-sub-tab" data-asset="원자재">원자재</button>
+8625: <button class="etf-toggle-btn active" data-mode="up">상승</button>
+8626: <button class="etf-toggle-btn" data-mode="down">하락</button>
+8631: <!-- 4. 주요 종목현황 (ETFCheck: 전체|주식|채권|원자재 + 현재가|시세|거래량|자금유입) -->
+8633: <h3>주요 종목현황</h3>
+8635: <button class="etf-sub-tab active" data-asset="전체">전체</button>
+8636: <button class="etf-sub-tab" data-asset="주식">주식</button>
+8637: <button class="etf-sub-tab" data-asset="채권">채권</button>
+8638: <button class="etf-sub-tab" data-asset="원자재">원자재</button>
+8641: <button class="etf-main-tab active" data-sort="price">현재가</button>
+8642: <button class="etf-main-tab" data-sort="change">시세</button>
+8643: <button class="etf-main-tab" data-sort="volume">거래량</button>
+8654: if (!themes.length) { el.innerHTML = '<div class="empty-cell">테마 데이터 없음</div>'; 
+8676: <span style="color:#3b82f6">하락/${t.down || 0}</span>
+8677: <span style="color:#ef4444">${t.up || 0}/상승</span>
+8698: if (!themes.length) { el.innerHTML = '<div class="empty-cell">해외 테마 데이터 없음</div>
+8720: <span style="color:#3b82f6">하락/${t.down || 0}</span>
+8721: <span style="color:#ef4444">${t.up || 0}/상승</span>
+8739: let distAsset = '전체';
+8757: <div class="etf-total-label">전체 종목수 : <strong>${totalInAsset}</strong></div>
+8780: <span style="color:#3b82f6">하락종목 / ${downCount}</span>
+8782: <span style="color:#ef4444">${upCount} / 상승종목</span>
+8792: ${distAsset === '전체' ? '' : `[${distAsset}] `}거래량 증가 TOP3 종목의 현황입니다.
+8804: <span style="color:var(--text-muted)">현재가 ${(e.price||0).toLocaleString()}</span
+8806: <span style="color:var(--text-muted)">거래량 ${(e.volume||0).toLocaleString()}</spa
+8810: }).join('') || '<div class="empty-cell">데이터 없음</div>'}
+8836: let rankAsset = '전체';
+8848: ? (e.market_sum / 100000000).toFixed(0) + '억'
+8863: <span style="color:var(--text-muted);font-size:0.82em">현재가 ${(e.price || 0).toLo
+8898: <button class="etf-more-btn" id="etf-rank-more-btn">더보기 ∨</button>
+8901: || '<div class="empty-cell">데이터 없음</div>';
+8911: moreBtn.textContent = isHidden ? '접기 ∧' : '더보기 ∨';
+8944: let majorAsset = '전체';
+8997: } else if (majorAsset === '전체') {
+9025: <span>종목</span>
+9026: <span>현재가</span>
+9034: <button class="etf-more-btn" id="etf-major-more-btn">더보기 ∨</button>
+9037: || '<div class="empty-cell">데이터 없음</div>';
+9046: majorMoreBtn.textContent = isHidden ? '접기 ∧' : '더보기 ∨';
+9094: contentEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+9104: contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button cl
+9116: <div class="card-label">BTC 도미넌스</div>
+9120: <div class="card-label">ETH 도미넌스</div>
+9124: <div class="card-label">김치 프리미엄</div>
+9128: <div class="card-label">총 시가총액</div>
+9133: <button class="filter-btn active" data-exchange="all">전체</button>
+9138: <h3>코인 시세</h3>
+9140: <thead><tr><th>코인</th><th>거래소</th><th>현재가</th><th>24h 등락률</th><th>거래량</th></tr><
+9161: const errMsg = error?.message || error || '알 수 없는 오류';
+9162: contentEl.innerHTML = `<div class="error-state"><p>${errMsg}</p><button class="b
+9171: tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">데이터 없음</td></tr>';
+9206: console.log('[loadStockKr] 함수 시작');
+9208: console.log('[loadStockKr] initStockKrAutocomplete 호출 전');
+9210: console.log('[loadStockKr] initStockKrAutocomplete 호출 후');
+9264: tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">RS 데이터 로딩 중...</td></t
+9274: tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">데이터가 없습니다</td></tr>';
+9308: console.error('RS 데이터 로드 실패:', error);
+9309: const errMsg = error?.message || error || '알 수 없는 오류';
+9319: tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">52주 신고가 데이터 로딩 중...</t
+9328: tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">데이터가 없습니다</td></tr>';
+9335: tableHead.innerHTML = '<th>종목명</th><th>현재가</th><th>등락률</th><th>52주 최고가</th><th>최
+9366: console.error('52주 신고가 데이터 로드 실패:', error);
+9367: const errMsg = error?.message || error || '알 수 없는 오류';
+9377: tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">밸류에이션 데이터 로딩 중...</td>
+9387: tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">데이터가 없습니다</td></tr>';
+9394: tableHead.innerHTML = '<th>종목명</th><th>현재가</th><th>시가총액</th><th>PER</th><th>PBR<
+9421: console.error('밸류에이션 데이터 로드 실패:', error);
+9422: const errMsg = error?.message || error || '알 수 없는 오류';
+9469: showToast('검색 결과가 없습니다', 'warning');
+9472: showToast('검색 실패', 'error');
+9553: showToast('검색 실패', 'error');
+9562: { symbol: '069500', name: 'KODEX 200', price: '42,850', change: '+0.82%', nav: '
+9563: { symbol: '229200', name: 'KODEX 코스닥150', price: '12,340', change: '+1.54%', nav
+9564: { symbol: '305720', name: 'KODEX 2차전지산업', price: '18,650', change: '+2.31%', nav
+9565: { symbol: '381170', name: 'TIGER AI코리아', price: '11,280', change: '+3.45%', nav:
+9566: { symbol: '091160', name: 'KODEX 반도체', price: '35,200', change: '+1.87%', nav: '
+9583: }).join('') || '<tr><td colspan="6" class="empty-cell">해당 테마의 ETF가 없습니다</td></tr
+9632: showToast('검색 실패', 'error');
+9644: { symbol: 'BTC-KRW', name: '비트코인', exchange: 'upbit', price: '₩142,350,000', cha
+9662: }).join('') || '<tr><td colspan="6" class="empty-cell">해당 거래소의 코인이 없습니다</td></tr
+9700: showToast('그룹이 생성되었습니다', 'success');
+9703: showToast('그룹 생성 실패: ' + err, 'error');
+9731: html += `<button class="group-tab add-group" id="btn-add-watchlist-group">+ 그룹 추
+9759: if (!confirm('이 그룹을 삭제하시겠습니까? 그룹 내 종목도 함께 삭제됩니다.')) return;
+9766: showToast('그룹이 삭제되었습니다', 'success');
+9775: showToast('그룹 삭제 실패: ' + err, 'error');
+9792: showToast('그룹이 생성되었습니다', 'success');
+9795: showToast('그룹 생성 실패: ' + err, 'error');
+9820: tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">관심종목이 없습니다. 종목분석에서 ⭐ 버
+9826: const priceStr = item.price ? item.price.toLocaleString() + '원' : '-';
+9827: const volumeStr = item.volume ? (item.volume >= 10000 ? Math.floor(item.volume /
+9836: <td><button class="btn btn-sm btn-danger watchlist-delete-btn" data-id="${item.i
+9850: showToast('관심종목에서 삭제되었습니다', 'success');
+9853: showToast('삭제 실패: ' + err, 'error');
+9868: if (absVal >= 1e12) return `${(value / 1e12).toFixed(1)}조`;
+9869: if (absVal >= 1e8) return `${(value / 1e8).toFixed(0)}억`;
+9870: if (absVal >= 1e4) return `${(value / 1e4).toFixed(0)}만`;
+9880: if (abs >= 10000) return sign + (abs / 10000).toFixed(1) + '조';
+9881: return sign + Math.round(abs).toLocaleString() + '억';

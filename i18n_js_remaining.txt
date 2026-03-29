@@ -1,0 +1,1280 @@
+총 누락: 1279건
+399|? 'Alpaca를 통해 미국 주식 거래를 사용합니다.'
+400|: 'KIS 국내/해외 주식 거래를 사용합니다.';
+562|element.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+565|if (element.innerHTML.includes('로딩 중')) {
+568|<p>데이터를 불러올 수 없습니다</p>
+569|<button class="btn btn-sm btn-primary retry-btn">다시 시도</button>
+589|${retryFn ? '<button class="btn btn-sm btn-primary retry-btn">다시 시도</button>' : ''}
+709|dropdown.innerHTML = '<div class="autocomplete-no-result">검색 결과가 없습니다</div>';
+1033|updateUserUI({ name: '허브 모드', plan: 'hub', role: 'user' });
+1191|document.getElementById('pwd-length').textContent = (checks.length ? '✅' : '❌') + ' 12자리 이상';
+1192|document.getElementById('pwd-letter').textContent = (checks.letter ? '✅' : '❌') + ' 영문자 포함';
+1193|document.getElementById('pwd-number').textContent = (checks.number ? '✅' : '❌') + ' 숫자 포함';
+1194|document.getElementById('pwd-special').textContent = (checks.special ? '✅' : '❌') + ' 특수문자 포함';
+1242|const name = user.name || user.email || '사용자';
+1290|updateUserUI({ name: '허브 모드', plan: 'hub', role: 'user' });
+1350|home: '홈',
+1351|'tv-connect': '트레이딩뷰 연결',
+1352|'premium-strategy': '프리미엄 전략',
+1354|screener: '종목검색',
+1358|'market-kr': '국내시장',
+1359|'market-us': '해외시장',
+1361|'market-crypto': '코인시장',
+1363|'stock-kr': '국내주식',
+1364|'stock-us': '해외주식',
+1365|'stock-etf': 'ETF 분석',
+1366|'stock-crypto': '코인분석',
+1368|watchlist: '관심종목',
+1375|accounts: '계정관리',
+1376|notifications: '알림설정',
+1377|'app-info': '앱정보',
+1378|'admin-users': '사용자관리',
+1379|'admin-system': '시스템상태'
+1512|'order_filled': { type: 'success', prefix: '체결' },
+1514|'signal_received': { type: 'info', prefix: '시그널' },
+1515|'signal_skipped': { type: 'warning', prefix: '스킵' },
+1516|'report_done': { type: 'success', prefix: 'AI 리포트' },
+1518|'system_alert': { type: 'warning', prefix: '시스템' },
+1519|'price_alert': { type: 'info', prefix: '가격알림' }
+1523|const displayMessage = data.title || data.message || '새 알림';
+1656|if (activeStrategies) activeStrategies.textContent = (summary.active_strategies || 0) + '개';
+1733|labels: ['국내주식', '해외주식', '암호화폐', '현금(원화)', '현금(달러)'],
+1840|if (symbol === 'KRW' || h.name === '예수금') {
+1893|<p>${selectedExchange === 'all' ? '연결된 계정이 없습니다.' : `${selectedExchange.toUpperCase()} 자산이 없습니다.`}</p>
+1894|<p>설정 → 계정관리에서 거래소를 연결하세요.</p>
+1895|<button class="btn btn-primary" onclick="navigateTo('accounts')">계정 연결하기</button>
+1929|html += `<tr class="exchange-group-header"><td colspan="8"><strong>${ex}</strong> (${assets.length}개 자산, ${subtotalForma
+1934|const isDeposit = h.symbol === 'KRW' || h.name === '예수금';
+1941|<td title="예수금">${h.name || '예수금'}</td>
+2007|tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px;">거래내역 로딩 중...</td></tr>';
+2029|const side = t.side?.toUpperCase() === 'BUY' ? '매수' : '매도';
+2100|<p>활성 전략이 없습니다.</p>
+2101|<p>전략설정에서 전략을 추가하세요.</p>
+2102|<button class="btn btn-primary" onclick="navigateTo('tv-connect')">전략 추가하기</button>
+2113|const statusText = isRunning ? '실행중' : '일시정지';
+2123|<td class="strategy-trades-cell">${s.trades_today}건</td>
+2127|? `<button class="btn-action btn-pause" onclick="toggleAsset(${s.id}, '${safeName}')">정지</button>`
+2128|: `<button class="btn-action btn-resume" onclick="toggleAsset(${s.id}, '${safeName}')">재개</button>`
+2130|<button class="btn-action btn-delete" onclick="deleteAsset(${s.id}, '${safeName}')">삭제</button>
+2148|const statusText = res.is_active ? '재개' : '일시정지';
+2149|showToast(`${name} 전략이 ${statusText}되었습니다.`);
+2158|if (!confirm(`"${name}" 전략을 삭제하시겠습니까?\n삭제 후 복구할 수 없습니다.`)) return;
+2163|showToast(`${name} 전략이 삭제되었습니다.`);
+2208|<div class="empty-state"><p>거래 내역이 없습니다.</p></div>
+2218|const sideText = side.includes('buy') ? '매수' : side.includes('sell') ? '매도' : trade.side || '-';
+2222|const statusText = status === 'filled' ? '체결' :
+2223|status === 'failed' ? '실패' :
+2224|status === 'skipped' ? '스킵' :
+2225|status === 'sent' ? '전송' : status;
+2331|if (!confirm('모든 자동매매를 즉시 정지하시겠습니까?\n\n모든 활성 전략이 중단됩니다.')) return;
+2375|<p>등록된 거래소 계정이 없습니다.</p>
+2376|<button class="btn btn-primary" onclick="navigateTo('accounts')">계정 등록하기</button>
+2417|tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">최근 수신 웹훅 없음</td></tr>';
+2423|const statusText = log.status === 'success' ? '성공' : log.status === 'rejected' ? '거부' : '실패';
+2440|tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">로그 로딩 실패</td></tr>';
+2959|showToast(`${selectedSymbol} 선택됨`, 'info');
+2995|showToast(`${symbol.name} (${symbol.code}) 선택됨`, 'success');
+3000|if (listEl) listEl.innerHTML = '<p class="empty">자산을 검색하세요</p>';
+3152|<h3>종목 추가</h3>
+3157|<label>종목 검색</label>
+3158|<input type="text" id="watchlist-add-search" class="form-input" placeholder="종목명 또는 종목코드 검색..." autocomplete="off">
+3161|<label>메모 (선택)</label>
+3162|<input type="text" id="watchlist-add-memo" class="form-input" placeholder="메모 입력">
+3166|<button class="btn btn-secondary" id="btn-cancel-watchlist-add">취소</button>
+3167|<button class="btn btn-primary" id="btn-confirm-watchlist-add" disabled>추가</button>
+3217|showToast(`${watchlistAddSelectedSymbol.name} 관심종목에 추가됨`, 'success');
+3287|<span style="margin-left: 8px;">거래소에서 데이터 로딩 중...</span>
+3334|tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">인기 종목 로딩 실패</td></tr>';
+3382|tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">검색 실패</td></tr>';
+3404|tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">검색 결과 없음</td></tr>';
+3511|sourceEl.textContent = '네이버 금융';
+3570|document.getElementById('consensus-badge').className = `consensus-badge ${detail.opinion.consensus === '매수' ? 'buy' : (d
+3805|showToast(`${symbol}으로 전략 설정 페이지로 이동`, 'info');
+3879|list.innerHTML = '<p class="loading">전략 로딩 중...</p>';
+3892|<p>설정된 전략이 없습니다.</p>
+3893|<p>커스텀/역추세/추세 탭에서 전략을 추가하세요.</p>
+3901|const strategyType = s.name?.includes('MR') || s.name?.includes('역추세') ? 'mr' :
+3902|s.name?.includes('Trend') || s.name?.includes('추세') ? 'trend' : 'custom';
+3906|<h4>${s.name || '전략'}</h4>
+3911|<span>종목:</span>
+3915|<span>거래소:</span>
+3921|${isRunning ? '실행중' : '비활성'}
+3923|<button class="btn btn-sm btn-danger btn-delete-strategy" data-id="${s.id}">삭제</button>
+3935|showToast(result.is_active ? '전략 활성화됨' : '전략 비활성화됨', 'success');
+3946|if (!confirm('이 전략을 삭제하시겠습니까?')) return;
+3961|list.innerHTML = '<p class="empty">전략 로딩 실패</p>';
+3995|newSelect.innerHTML = '<option value="">선택하세요</option>';
+4400|document.getElementById('bt-trades').textContent = `${summary.total_trades || 0}회`;
+4422|label: '자산',
+4466|label: '자산',
+4615|<p>등록된 계정이 없습니다.</p>
+4616|<p>계정 추가 버튼을 클릭하여 거래소를 연결하세요.</p>
+4630|${acc.is_active ? '● 연결됨' : '○ 미연결'}
+4640|<button class="btn btn-secondary btn-test" data-name="${acc.name}" data-exchange="${acc.exchange}">연결 테스트</button>
+4641|<button class="btn btn-danger btn-delete" data-id="${acc.id}" data-name="${acc.name}" data-exchange="${acc.exchange}">삭제
+4663|if (!confirm(`${btn.dataset.name} 계정을 삭제하시겠습니까?`)) return;
+4811|document.getElementById('app-server-status').textContent = result.ok ? '정상 연결' : '연결 오류';
+4825|badge.textContent = plan === 'premium' ? '프리미엄' : plan === 'hub' ? '허브' : '무료';
+4828|desc.textContent = plan === 'premium' ? '모든 기능을 이용할 수 있습니다.' :
+4829|plan === 'hub' ? '허브 기능을 이용할 수 있습니다.' :
+4830|'기본 기능을 무료로 이용하세요.';
+4958|tbody.innerHTML = '<tr><td colspan="4" class="empty-cell">최근 가입자 없음</td></tr>';
+4977|tbody.innerHTML = '<tr><td colspan="4" class="empty-cell">로딩 실패</td></tr>';
+5002|tbody.innerHTML = '<tr><td colspan="3" class="empty-cell">데이터 없음</td></tr>';
+5009|<td>${d.count}회</td>
+5010|<td>~${d.tokens.toLocaleString()} 토큰</td>
+5016|tbody.innerHTML = '<tr><td colspan="3" class="empty-cell">로딩 실패</td></tr>';
+5024|tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">로딩 중...</td></tr>';
+5034|tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">사용자 없음</td></tr>';
+5059|<td>${user.role === 'admin' ? '<span class="role-badge">관리자</span>' : ''}</td>
+5085|tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">로딩 실패 (권한 확인)</td></tr>';
+5093|document.getElementById('sys-status').textContent = status.status === 'ok' ? '정상' : '오류';
+5097|document.getElementById('sys-db').textContent = status.db_connected ? '정상' : '오류';
+5146|`코스피 ${kospiChange >= 0 ? '+' : ''}${kospiChange.toFixed(2)}%, ` +
+5147|`코스닥 ${kosdaqChange >= 0 ? '+' : ''}${kosdaqChange.toFixed(2)}%`;
+5209|if (num >= 100000000) return (num / 100000000).toFixed(1) + '억';
+5210|if (num >= 10000) return (num / 10000).toFixed(1) + '만';
+5246|`).join('') || '<tr><td colspan="3" class="empty-cell">데이터 없음</td></tr>';
+5266|volume: '거래량', rise: '등락률', fall: '등락률',
+5267|market_cap: '시가총액', foreign_buy: '외인순매수', foreign_sell: '외인순매도',
+5268|institution_buy: '기관순매수', institution_sell: '기관순매도'
+5270|if (headerEl) headerEl.textContent = headers[rankingType] || '거래량';
+5272|tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">로딩 중...</td></tr>';
+5301|}).join('') || '<tr><td colspan="5" class="empty-cell">데이터 없음</td></tr>';
+5308|tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">데이터를 불러올 수 없습니다</td></tr>';
+5376|tbody.innerHTML = '<tr><td colspan="4" class="empty-cell">로딩 중...</td></tr>';
+5389|tbody.innerHTML = '<tr><td colspan="4" class="empty-cell">KIS 계정 등록 필요</td></tr>';
+5396|const typeLabels = { dividend: '배당', ipo: '공모주', rights: '유상증자', bonus: '무상증자' };
+5400|if (e.type === 'dividend') detail = `${e.amount?.toLocaleString()}원 (${e.yield}%)`;
+5401|else if (e.type === 'ipo') detail = `공모가 ${e.price?.toLocaleString()}원`;
+5412|}).join('') || '<tr><td colspan="4" class="empty-cell">예정된 이벤트 없음</td></tr>';
+5419|tbody.innerHTML = '<tr><td colspan="4" class="empty-cell">데이터를 불러올 수 없습니다</td></tr>';
+5467|loadingEl.innerHTML = '<div class="ai-spinner"></div><p id="ai-progress-text" style="color:var(--text-muted);margin-top:
+5548|if (e.message && e.message.includes('분석 실패')) throw e;
+5589|<!-- 버튼 영역 -->
+5593|<span>📄</span> PDF 다운로드
+5597|<span>🔗</span> 공유
+5601|<!-- 1~4 섹션: 핵심요약, 실적, 성장동력, 이슈 (차트 없음) -->
+5604|<!-- 5. 기술적 분석 -->
+5605|<h2 style="color:var(--danger);margin-top:30px;padding-top:20px;border-top:2px solid var(--danger);">5. 기술적 분석</h2>
+5607|<!-- 5.1 지지/저항: 제목 → 차트 → 설명 -->
+5608|<h3 style="margin-top:25px;color:var(--warning);">5.1 주가 및 지지/저항선 분석</h3>
+5609|${c.price_chart ? `<img src="${c.price_chart}" style="width:100%;max-width:720px;margin:12px 0;border-radius:8px;border:
+5612|<!-- 5.2 추세: 제목 → 차트 → 설명 -->
+5613|<h3 style="margin-top:25px;color:var(--warning);">5.2 추세추종 지표 분석</h3>
+5614|${c.trend_chart ? `<img src="${c.trend_chart}" style="width:100%;max-width:720px;margin:12px 0;border-radius:8px;border:
+5617|<!-- 5.3 모멘텀: 제목 → 차트 → 설명 -->
+5618|<h3 style="margin-top:25px;color:var(--warning);">5.3 모멘텀 지표 분석</h3>
+5619|${c.momentum_chart ? `<img src="${c.momentum_chart}" style="width:100%;max-width:720px;margin:12px 0;border-radius:8px;b
+5622|<!-- 5.4~ 거래량, 종합, 시나리오, 투자전략, 면책 -->
+5740|const shareText = `📊 ${stockName}(${stockCode}) AI 종합분석\n\nBBooster에서 생성된 AI 투자 분석 리포트입니다.`;
+5745|title: `${stockName} AI 분석`,
+5784|groupsList.innerHTML = '<div class="loading">로딩 중...</div>';
+5794|`).join('') || '<div class="empty">그룹이 없습니다</div>';
+5884|contentEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+5940|<!-- 시장신호 헤더 (1줄 통합) -->
+5942|<!-- 좌측: 시장신호 + 신호등 -->
+5945|<span>시장신호</span>
+5950|<span class="se-signal-label">단기</span>
+5958|<span class="se-signal-label">장기</span>
+5967|<!-- 우측: KOSPI + KOSDAQ 블록 -->
+6020|<!-- 2행: 투자자별 순매수 (시장신호 바로 아래) -->
+6022|<h3>투자자별 순매수</h3>
+6025|<span class="label">외국인</span>
+6029|<span class="label">기관</span>
+6033|<span class="label">개인</span>
+6039|<!-- 3행: 거래대금 (전일대비 포함) -->
+6041|<h3>거래대금</h3>
+6056|<!-- 4행: 신호 설명 (접기 가능) -->
+6058|<p>시장 신호는 신호등 색상으로 현재 시장의 상태를 나타냅니다: (🟢 양호, 🟡 주의, 🔴 매우주의).</p>
+6059|<p>단기/장기 신호는 각각 단기적, 장기적 관점에서의 시장 흐름을 보여주는 지표입니다.</p>
+6062|<!-- 5행: 서브탭 (오늘의 특징주 | 오늘의 업종 | 섹터별 추세 | 신용잔고) -->
+6064|<button class="se-subtab active" data-tab="featured-stocks">오늘의 특징주</button>
+6065|<button class="se-subtab" data-tab="sector">오늘의 업종</button>
+6066|<button class="se-subtab" data-tab="trend-maintain">섹터별 추세</button>
+6067|<button class="se-subtab" data-tab="credit-balance">신용잔고</button>
+6070|<!-- 오늘의 특징주 탭 -->
+6074|<button class="se-featured-tab active" data-type="gainers">상승률 상위</button>
+6075|<button class="se-featured-tab" data-type="losers">하락률 상위</button>
+6076|<button class="se-featured-tab" data-type="trading_value">거래대금 상위</button>
+6080|<option value="ALL">전체</option>
+6087|<div class="loading-state">데이터 로딩 중...</div>
+6091|<!-- 오늘의 업종 탭 -->
+6095|<label>정렬:</label>
+6097|<option value="change">등락률</option>
+6098|<option value="volume">거래대금</option>
+6102|<button class="se-filter-btn active" data-filter="all">전체</button>
+6103|<button class="se-filter-btn" data-filter="up">상승</button>
+6104|<button class="se-filter-btn" data-filter="down">하락</button>
+6108|<div class="loading-state">데이터 로딩 중...</div>
+6112|<!-- 섹터별 추세 탭 -->
+6115|<h3>섹터별 추세 (20MA 기준)</h3>
+6117|• <b>포지션</b>: 현재가가 20일 이동평균선 위에 며칠째 유지 또는 이탈 중인지<br>
+6119|• <b>대표종목(RS)</b>: RS 점수가 <b>90 이상</b>인 종목은 <b>굵게</b> 표시
+6125|<th class="sortable" data-sort="sector">섹터</th>
+6127|<th class="sortable" data-sort="change">등락률</th>
+6128|<th class="sortable" data-sort="days">포지션</th>
+6129|<th>신호</th>
+6130|<th class="sortable" data-sort="gap">이격률</th>
+6131|<th>대표종목(RS)</th>
+6135|<tr><td colspan="7" class="loading-cell">데이터 로딩 중...</td></tr>
+6142|<!-- 신용잔고 탭 -->
+6145|<h3>신용잔고</h3>
+6146|<p class="empty-state">추후 업데이트 예정</p>
+6197|if (v === 0) return '0억';
+6199|return `${sign}${Math.abs(v).toLocaleString()}억`;
+6231|sectorListEl.innerHTML = '<div class="empty-state">섹터 데이터 없음</div>';
+6273|return (billion / 10000).toFixed(1) + '조';
+6275|return billion.toFixed(0) + '억';
+6287|diffStr = (diffBillion / 10000).toFixed(1) + '조';
+6289|diffStr = Math.abs(diffBillion).toFixed(0) + '억';
+6394|label: '200일선 하락비율',
+6406|label: '20일선 하락비율',
+6496|text: '하락비율(%)',
+6635|return `${label}: ${value} (${value >= 100 ? '상승우세' : '하락우세'})`;
+6652|content: '100 기준',
+6724|tbody.innerHTML = '<tr><td colspan="7" class="loading-cell">데이터 로딩 중...</td></tr>';
+6734|tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">추세유지 데이터 없음</td></tr>';
+6781|case 'days': va = (a.position === '유지' ? 1000 : 0) + (a.position_days || 0); vb = (b.position === '유지' ? 1000 : 0) + (b.
+6798|const positionClass = s.position === '유지' ? 'maintain' : 'depart';
+6815|<td class="position-cell ${positionClass}">${s.position || ''} ${s.position_days || 0}일</td>
+6844|leadingEl.innerHTML = '<div class="loading-state">로딩 중...</div>';
+6845|weakEl.innerHTML = '<div class="loading-state">로딩 중...</div>';
+6853|leadingEl.innerHTML = '<div class="empty-state">섹터 데이터 없음</div>';
+6854|weakEl.innerHTML = '<div class="empty-state">섹터 데이터 없음</div>';
+6874|leadingEl.innerHTML = '<div class="empty-state all-down">오늘은 모든 섹터가 하락했습니다</div>';
+6881|weakEl.innerHTML = '<div class="empty-state all-up">오늘은 모든 섹터가 상승했습니다</div>';
+6918|return (billions / 10000).toFixed(1) + '조';
+6920|return Math.round(billions).toLocaleString() + '억';
+6947|detailEl.innerHTML = '<div class="sector-detail-loading">로딩 중...</div>';
+6979|html += '<div class="detail-section"><div class="detail-title">📈 등락률 TOP</div>';
+6986|html += '<div class="detail-section"><div class="detail-title">💰 거래대금 TOP</div>';
+6996|html += '<div class="detail-section"><div class="detail-title">📉 하락률 TOP</div>';
+7005|html += '<div class="detail-empty">상세 데이터 없음</div>';
+7021|listEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+7038|listEl.innerHTML = '<div class="empty-state">데이터가 없습니다</div>';
+7050|<th class="name-col">종목명</th>
+7051|<th class="price-col">현재가</th>
+7052|<th class="change-col">등락률</th>
+7053|<th class="volume-col">거래대금</th>
+7129|listEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+7137|listEl.innerHTML = '<div class="empty-state">섹터 데이터 없음</div>';
+7179|const msg = filter === 'up' ? '상승 섹터가 없습니다' : (filter === 'down' ? '하락 섹터가 없습니다' : '데이터 없음');
+7188|<th class="name-col">업종명</th>
+7189|<th class="change-col">등락률</th>
+7190|<th class="volume-col">거래대금</th>
+7324|contentEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+7356|<!-- 시장신호 헤더 (1줄 통합) -->
+7358|<!-- 좌측: 시장신호 + 신호등 -->
+7361|<span>시장신호</span>
+7366|<span class="se-signal-label">단기</span>
+7374|<span class="se-signal-label">장기</span>
+7383|<!-- 중앙: 전체시장 상승/하락 -->
+7385|<div style="font-size:0.7em;color:var(--text-muted);margin-bottom:2px">전체 시장</div>
+7396|<!-- 우측: S&P500 + NASDAQ 블록 -->
+7398|<!-- S&P 500: 게이지 포함 -->
+7413|<!-- NASDAQ: 게이지 없이 가격 정보만 -->
+7431|<!-- 2행: S&P 500 히트맵 (줌 가능) -->
+7433|<h3>S&P 500 히트맵</h3>
+7437|<button class="hm-zoom-btn" id="hm-zoom-in" title="확대">+</button>
+7438|<button class="hm-zoom-btn" id="hm-zoom-out" title="축소">−</button>
+7439|<button class="hm-zoom-btn" id="hm-zoom-reset" title="초기화">⟲</button>
+7444|<!-- 3행: Fear & Greed + VIX -->
+7447|<h3>탐욕/공포 지수</h3>
+7450|<div class="se-fg-label">${fearGreed.label || '중립'}</div>
+7457|<span>극심한 공포</span>
+7458|<span>중립</span>
+7459|<span>극심한 탐욕</span>
+7465|<h3>VIX (변동성 지수)</h3>
+7478|<!-- 4행: 다우존스 + 러셀2000 -->
+7481|<span class="se-extra-name">다우존스</span>
+7489|<span class="se-extra-name">러셀2000</span>
+7497|<!-- 5행: 신호 설명 (접기 가능) -->
+7499|<p>시장 신호는 신호등 색상으로 현재 시장의 상태를 나타냅니다: (🟢 양호, 🟡 주의, 🔴 매우주의).</p>
+7500|<p>단기/장기 신호는 각각 단기적, 장기적 관점에서의 시장 흐름을 보여주는 지표입니다.</p>
+7503|<!-- 6행: 서브탭 (시장지표 | 섹터 | 오늘의 특징주 | 오늘의 업종 | 섹터별 추세) -->
+7505|<button class="se-subtab active" data-tab="us-market-indicators">시장지표</button>
+7506|<button class="se-subtab" data-tab="us-sector">섹터</button>
+7507|<button class="se-subtab" data-tab="us-featured-stocks">오늘의 특징주</button>
+7508|<button class="se-subtab" data-tab="us-sector-data">오늘의 업종</button>
+7509|<button class="se-subtab" data-tab="us-trend-maintain">섹터별 추세</button>
+7512|<!-- 시장지표 탭 -->
+7514|<!-- Big Picture 컴팩트 -->
+7519|<span class="se-bp-status" id="bp-sp500-status">${sp500Sig.status_label || '확인된 상승세'}</span>
+7528|<span class="se-bp-status" id="bp-nasdaq-status">${nasdaqSig.status_label || '확인된 상승세'}</span>
+7535|<!-- 시장 브레드스 (Breadth) - Finviz 전체 시장 기준 -->
+7537|<h3>시장 브레드스 (전체 시장)</h3>
+7540|<span class="se-breadth-label">상승 / 하락</span>
+7551|<span class="se-breadth-label">신고가 / 신저가</span>
+7562|<span class="se-breadth-label">SMA50 위 / 아래</span>
+7573|<span class="se-breadth-label">SMA200 위 / 아래</span>
+7587|<!-- 섹터 탭 -->
+7590|<h3>S&P 500 GICS 섹터 (11개)</h3>
+7592|<!-- JS에서 렌더링 -->
+7597|<!-- 오늘의 특징주 탭 (US) -->
+7601|<button class="se-featured-tab-us active" data-type="gainers">상승률 상위</button>
+7602|<button class="se-featured-tab-us" data-type="losers">하락률 상위</button>
+7603|<button class="se-featured-tab-us" data-type="trading_value">거래대금 상위</button>
+7607|<div class="loading-state">데이터 로딩 중...</div>
+7611|<!-- 오늘의 업종 탭 (US) -->
+7615|<label>정렬:</label>
+7617|<option value="change">등락률</option>
+7618|<option value="volume">거래대금</option>
+7622|<button class="se-filter-btn-us active" data-filter="all">전체</button>
+7623|<button class="se-filter-btn-us" data-filter="up">상승</button>
+7624|<button class="se-filter-btn-us" data-filter="down">하락</button>
+7628|<div class="loading-state">데이터 로딩 중...</div>
+7632|<!-- 섹터별 추세 탭 (US) -->
+7635|<h3>섹터별 추세 (20MA 기준)</h3>
+7637|• <b>포지션</b>: 현재가가 20일 이동평균선 위에 며칠째 유지 또는 이탈 중인지<br>
+7639|• <b>대표종목(RS)</b>: RS 점수가 <b>90 이상</b>인 종목은 <b>굵게</b> 표시
+7645|<th class="sortable" data-sort="sector">섹터</th>
+7647|<th class="sortable" data-sort="change">등락률</th>
+7648|<th class="sortable" data-sort="days">포지션</th>
+7649|<th>신호</th>
+7650|<th class="sortable" data-sort="gap">이격률</th>
+7651|<th>대표종목(RS)</th>
+7655|<tr><td colspan="7" class="loading-cell">데이터 로딩 중...</td></tr>
+7753|listEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+7771|listEl.innerHTML = '<div class="empty-state">데이터가 없습니다</div>';
+7780|<th class="name-col">종목명</th>
+7781|<th class="price-col">현재가</th>
+7782|<th class="change-col">등락률</th>
+7783|${type === 'trading_value' ? '<th class="volume-col">시가총액</th>' : ''}
+7831|listEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+7842|listEl.innerHTML = '<div class="empty-state">섹터 데이터 없음</div>';
+7872|const msg = filter === 'up' ? '상승 섹터가 없습니다' : (filter === 'down' ? '하락 섹터가 없습니다' : '데이터 없음');
+7881|<th class="name-col">섹터명</th>
+7883|<th class="change-col">등락률</th>
+7914|tbody.innerHTML = '<tr><td colspan="6" class="loading-cell">데이터 로딩 중...</td></tr>';
+7925|tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">추세유지 데이터 없음</td></tr>';
+7969|case 'days': va = (a.position === '유지' ? 1000 : 0) + (a.position_days || 0); vb = (b.position === '유지' ? 1000 : 0) + (b.
+7986|const positionClass = s.position === '유지' ? 'maintain' : 'depart';
+8003|<td class="position-cell ${positionClass}">${s.position || ''} ${s.position_days || 0}일</td>
+8193|const sec = s.sector || '기타';
+8390|if (val < 15) return '매우 안정';
+8391|if (val < 20) return '안정';
+8392|if (val < 25) return '보통';
+8393|if (val < 30) return '불안';
+8394|return '극도 불안';
+8419|container.innerHTML = '<div class="empty-state">섹터 데이터 없음</div>';
+8460|tbody.innerHTML = '<tr><td colspan="6" class="loading-cell">데이터 로딩 중...</td></tr>';
+8470|tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">데이터를 불러올 수 없습니다</td></tr>';
+8476|tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">추세유지 데이터 없음</td></tr>';
+8482|const positionClass = item.position === '유지' ? 'position-maintain' : 'position-break';
+8491|<td class="position-cell ${positionClass}">${item.position || '-'} ${item.days || 0}일</td>
+8500|tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">데이터 로드 실패</td></tr>';
+8524|contentEl.innerHTML = '<div class="loading-state">ETF 데이터 로딩 중...</div>';
+8551|<!-- 시장 개요 -->
+8555|<span class="etf-stat-label">전체 종목</span>
+8559|<span class="etf-stat-label">상승</span>
+8563|<span class="etf-stat-label">하락</span>
+8567|<span class="etf-stat-label">보합</span>
+8573|<!-- 1. HOT 테마 (국내) -->
+8576|<h3>HOT 테마</h3>
+8578|<button class="etf-toggle-btn active" data-mode="up">상승</button>
+8579|<button class="etf-toggle-btn" data-mode="down">하락</button>
+8585|<!-- 1-2. 해외(미국) HOT 테마 -->
+8588|<h3>해외 HOT 테마</h3>
+8590|<button class="etf-toggle-btn active" data-mode="up">상승</button>
+8591|<button class="etf-toggle-btn" data-mode="down">하락</button>
+8597|<!-- 2. 상승하락 (ETFCheck: 상승하락 | TOP3거래량) -->
+8600|<button class="etf-main-tab active" data-tab="dist">상승하락</button>
+8601|<button class="etf-main-tab" data-tab="top3vol">TOP3거래량</button>
+8604|<button class="etf-sub-tab active" data-asset="전체">전체</button>
+8605|<button class="etf-sub-tab" data-asset="주식">주식</button>
+8606|<button class="etf-sub-tab" data-asset="채권">채권</button>
+8607|<button class="etf-sub-tab" data-asset="원자재">원자재</button>
+8612|<!-- 3. 랭킹 TOP 10 (ETFCheck: 수익률 | 거래량 | 순자산총액) -->
+8614|<h3>랭킹 TOP 10</h3>
+8616|<button class="etf-main-tab active" data-tab="return">수익률</button>
+8617|<button class="etf-main-tab" data-tab="volume">거래량</button>
+8618|<button class="etf-main-tab" data-tab="asset-total">순자산총액</button>
+8621|<button class="etf-sub-tab active" data-asset="전체">전체</button>
+8622|<button class="etf-sub-tab" data-asset="주식">주식</button>
+8623|<button class="etf-sub-tab" data-asset="채권">채권</button>
+8624|<button class="etf-sub-tab" data-asset="원자재">원자재</button>
+8627|<button class="etf-toggle-btn active" data-mode="up">상승</button>
+8628|<button class="etf-toggle-btn" data-mode="down">하락</button>
+8633|<!-- 4. 주요 종목현황 (ETFCheck: 전체|주식|채권|원자재 + 현재가|시세|거래량|자금유입) -->
+8635|<h3>주요 종목현황</h3>
+8637|<button class="etf-sub-tab active" data-asset="전체">전체</button>
+8638|<button class="etf-sub-tab" data-asset="주식">주식</button>
+8639|<button class="etf-sub-tab" data-asset="채권">채권</button>
+8640|<button class="etf-sub-tab" data-asset="원자재">원자재</button>
+8643|<button class="etf-main-tab active" data-sort="price">현재가</button>
+8644|<button class="etf-main-tab" data-sort="change">시세</button>
+8645|<button class="etf-main-tab" data-sort="volume">거래량</button>
+8656|if (!themes.length) { el.innerHTML = '<div class="empty-cell">테마 데이터 없음</div>'; return; }
+8700|if (!themes.length) { el.innerHTML = '<div class="empty-cell">해외 테마 데이터 없음</div>'; return; }
+8741|let distAsset = '전체';
+8759|<div class="etf-total-label">전체 종목수 : <strong>${totalInAsset}</strong></div>
+8794|${distAsset === '전체' ? '' : `[${distAsset}] `}거래량 증가 TOP3 종목의 현황입니다.
+8806|<span style="color:var(--text-muted)">현재가 ${(e.price||0).toLocaleString()}</span>
+8808|<span style="color:var(--text-muted)">거래량 ${(e.volume||0).toLocaleString()}</span>
+8812|}).join('') || '<div class="empty-cell">데이터 없음</div>'}
+8838|let rankAsset = '전체';
+8850|? (e.market_sum / 100000000).toFixed(0) + '억'
+8865|<span style="color:var(--text-muted);font-size:0.82em">현재가 ${(e.price || 0).toLocaleString()}</span>
+8900|<button class="etf-more-btn" id="etf-rank-more-btn">더보기 ∨</button>
+8903||| '<div class="empty-cell">데이터 없음</div>';
+8913|moreBtn.textContent = isHidden ? '접기 ∧' : '더보기 ∨';
+8946|let majorAsset = '전체';
+8999|} else if (majorAsset === '전체') {
+9027|<span>종목</span>
+9028|<span>현재가</span>
+9036|<button class="etf-more-btn" id="etf-major-more-btn">더보기 ∨</button>
+9039||| '<div class="empty-cell">데이터 없음</div>';
+9048|majorMoreBtn.textContent = isHidden ? '접기 ∧' : '더보기 ∨';
+9096|contentEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+9118|<div class="card-label">BTC 도미넌스</div>
+9122|<div class="card-label">ETH 도미넌스</div>
+9126|<div class="card-label">김치 프리미엄</div>
+9130|<div class="card-label">총 시가총액</div>
+9135|<button class="filter-btn active" data-exchange="all">전체</button>
+9140|<h3>코인 시세</h3>
+9142|<thead><tr><th>코인</th><th>거래소</th><th>현재가</th><th>24h 등락률</th><th>거래량</th></tr></thead>
+9173|tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">데이터 없음</td></tr>';
+9266|tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">RS 데이터 로딩 중...</td></tr>';
+9276|tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">데이터가 없습니다</td></tr>';
+9321|tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">52주 신고가 데이터 로딩 중...</td></tr>';
+9330|tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">데이터가 없습니다</td></tr>';
+9337|tableHead.innerHTML = '<th>종목명</th><th>현재가</th><th>등락률</th><th>52주 최고가</th><th>최고가 대비</th><th>거래량</th>';
+9379|tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">밸류에이션 데이터 로딩 중...</td></tr>';
+9389|tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">데이터가 없습니다</td></tr>';
+9396|tableHead.innerHTML = '<th>종목명</th><th>현재가</th><th>시가총액</th><th>PER</th><th>PBR</th><th>시장</th>';
+9564|{ symbol: '069500', name: 'KODEX 200', price: '42,850', change: '+0.82%', nav: '25.5조', volume: '1,234억', theme: '대표' },
+9565|{ symbol: '229200', name: 'KODEX 코스닥150', price: '12,340', change: '+1.54%', nav: '3.2조', volume: '456억', theme: '코스닥' }
+9566|{ symbol: '305720', name: 'KODEX 2차전지산업', price: '18,650', change: '+2.31%', nav: '2.1조', volume: '892억', theme: '2차전지' 
+9567|{ symbol: '381170', name: 'TIGER AI코리아', price: '11,280', change: '+3.45%', nav: '1.5조', volume: '567억', theme: 'AI' },
+9568|{ symbol: '091160', name: 'KODEX 반도체', price: '35,200', change: '+1.87%', nav: '4.8조', volume: '2,345억', theme: '반도체' },
+9585|}).join('') || '<tr><td colspan="6" class="empty-cell">해당 테마의 ETF가 없습니다</td></tr>';
+9646|{ symbol: 'BTC-KRW', name: '비트코인', exchange: 'upbit', price: '₩142,350,000', change: '+2.15%', volume: '₩1.2조', marketCa
+9664|}).join('') || '<tr><td colspan="6" class="empty-cell">해당 거래소의 코인이 없습니다</td></tr>';
+9733|html += `<button class="group-tab add-group" id="btn-add-watchlist-group">+ 그룹 추가</button>`;
+9761|if (!confirm('이 그룹을 삭제하시겠습니까? 그룹 내 종목도 함께 삭제됩니다.')) return;
+9822|tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">관심종목이 없습니다. 종목분석에서 ⭐ 버튼을 눌러 추가하세요.</td></tr>';
+9828|const priceStr = item.price ? item.price.toLocaleString() + '원' : '-';
+9829|const volumeStr = item.volume ? (item.volume >= 10000 ? Math.floor(item.volume / 10000) + '만' : item.volume.toLocaleStri
+9838|<td><button class="btn btn-sm btn-danger watchlist-delete-btn" data-id="${item.id}">삭제</button></td>
+9870|if (absVal >= 1e12) return `${(value / 1e12).toFixed(1)}조`;
+9871|if (absVal >= 1e8) return `${(value / 1e8).toFixed(0)}억`;
+9872|if (absVal >= 1e4) return `${(value / 1e4).toFixed(0)}만`;
+9882|if (abs >= 10000) return sign + (abs / 10000).toFixed(1) + '조';
+9883|return sign + Math.round(abs).toLocaleString() + '억';
+10070|if (score >= 80) return { grade: 'A', label: '매우 우수', class: 'grade-a' };
+10071|if (score >= 60) return { grade: 'B', label: '양호', class: 'grade-b' };
+10072|if (score >= 40) return { grade: 'C', label: '보통', class: 'grade-c' };
+10073|if (score >= 20) return { grade: 'D', label: '주의', class: 'grade-d' };
+10074|return { grade: 'F', label: '취약', class: 'grade-f' };
+10131|return '<div class="sd-empty-state">실적 데이터가 없습니다</div>';
+10160|<span>매출액</span>
+10164|<span>영업이익</span>
+10173|return '<div class="sd-empty-state">세그먼트 데이터가 없습니다</div>';
+10236|if (nameEl) nameEl.textContent = '로딩 중...';
+10411|if (nameEl) nameEl.textContent = '로딩 중...';
+10446|<button class="info-tab active" data-tab="summary">개요</button>
+10447|<button class="info-tab" data-tab="returns">수익률</button>
+10448|<button class="info-tab" data-tab="dividend">분배금</button>
+10479|priceEl.textContent = priceValue + '원';
+10510|if (vol >= 1e8) volumeEl.textContent = `${(vol / 1e8).toFixed(0)}억`;
+10511|else if (vol >= 1e4) volumeEl.textContent = `${(vol / 1e4).toFixed(0)}만`;
+10534|<div class="sd-card-title">기본정보</div>
+10537|<span class="sd-financial-label">순자산(NAV)</span>
+10538|<span class="sd-financial-value">${(data.nav || 0).toLocaleString()}원</span>
+10541|<span class="sd-financial-label">괴리율</span>
+10545|<span class="sd-financial-label">총보수</span>
+10549|<span class="sd-financial-label">운용사</span>
+10553|<span class="sd-financial-label">순자산총액</span>
+10557|<span class="sd-financial-label">시가총액</span>
+10561|<span class="sd-financial-label">배당수익률</span>
+10568|<div class="sd-card-title">수익률 요약</div>
+10571|<span class="etf-return-label">1개월</span>
+10575|<span class="etf-return-label">3개월</span>
+10579|<span class="etf-return-label">1년</span>
+10603|container.innerHTML = '<div class="loading-indicator">로딩 중...</div>';
+10633|<div class="sd-card-title">기간별 수익률</div>
+10636|<span class="etf-period">1개월</span>
+10641|<span class="etf-period">3개월</span>
+10646|<span class="etf-period">6개월</span>
+10651|<span class="etf-period">1년</span>
+10664|container.innerHTML = '<div class="empty-state">수익률 정보를 불러올 수 없습니다</div>';
+10668|container.innerHTML = '<div class="empty-state">수익률 정보를 불러올 수 없습니다</div>';
+10687|container.innerHTML = '<div class="loading-indicator">로딩 중...</div>';
+10706|<th>지급일</th>
+10707|<th>금액</th>
+10708|<th>유형</th>
+10715|<td>${(d.amount || 0).toLocaleString()}원</td>
+10716|<td>${d.type || '현금분배'}</td>
+10725|<p>분배금 이력이 없거나 데이터를 불러올 수 없습니다.</p>
+10732|<div class="sd-card-title">분배금 정보</div>
+10735|<span class="label">배당수익률 (TTM)</span>
+10745|<div class="sd-card-title">분배금 정보</div>
+10746|<div class="empty-state">분배금 정보를 불러올 수 없습니다</div>
+10752|container.innerHTML = '<div class="empty-state">분배금 정보를 불러올 수 없습니다</div>';
+10864|resultsContainer.innerHTML = '<div class="search-no-results">검색 결과가 없습니다</div>';
+11114|input.value = `${code} 분석해줘`;
+11143|<span id="ai-chat-progress">🤖 AI가 생각 중...</span>
+11202|<div style="color:var(--text-muted);font-size:13px;margin-top:8px;">잠시 후 다시 시도해주세요.</div>
+11220|fileName: `${stockName || 'BBooster'}_${stockCode || jobId}_분석리포트.pdf`
+11309|if (e.message && e.message.includes('응답 실패')) throw e;
+11325|<span>AI 추천 종목을 불러오는 중...</span>
+11336|container.innerHTML = '<div class="ai-empty">추천 데이터를 불러올 수 없습니다</div>';
+11348|container.innerHTML = '<div class="ai-empty">현재 추천 종목이 없습니다</div>';
+11367|: '<tr><td colspan="4" class="ai-empty-cell">종목 없음</td></tr>';
+11378|<th>종목명</th>
+11379|<th>현재가</th>
+11380|<th>등락률</th>
+11381|<th>시그널</th>
+11410|container.innerHTML = '<div class="ai-empty">추천 데이터를 불러올 수 없습니다</div>';
+11432|<div class="sd-card-title">주요 지표</div>
+11435|<span class="sd-financial-label">시가총액</span>
+11451|<span class="sd-financial-label">52주 최고</span>
+11455|<span class="sd-financial-label">52주 최저</span>
+11459|<span class="sd-financial-label">매출액</span>
+11463|<span class="sd-financial-label">영업이익</span>
+11478|<div class="sd-card-title">투자 지표</div>
+11481|<div class="sd-indicator-title">성장성</div>
+11485|<div class="sd-indicator-title">수익성</div>
+11489|<div class="sd-indicator-title">안정성</div>
+11493|<div class="sd-indicator-title">밸류에이션</div>
+11501|<p>Hub 이상 요금제에서 이용 가능</p>
+11502|<span>상세 투자 지표를 확인하세요</span>
+11503|<button class="upgrade-btn" onclick="navigateTo('settings')">업그레이드</button>
+11514|<h4>투자의견</h4>
+11515|<span class="sd-target-price">목표가: ${data.target_price > 0 ? data.target_price.toLocaleString() + '원' : '-'}</span>
+11517|<span class="sd-recommendation ${data.recommendation === '매수' ? 'buy' : data.recommendation === '보유' ? 'hold' : 'sell'}"
+11525|summaryContent.innerHTML = '<div class="sd-empty-state">재무 정보를 불러올 수 없습니다</div>';
+11538|summaryContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>정보를 불러오는 중...</span></di
+11600|주요 재무지표
+11601|<span class="sd-basis-label">${latestPeriod ? `기준: ${latestPeriod}${isLatestEstimate ? '' : ' (연간)'}` : ''}</span>
+11605|<span class="sd-financial-label">시가총액</span>
+11609|<span class="sd-financial-label">매출액</span>
+11613|<span class="sd-financial-label">영업이익</span>
+11622|<span class="sd-financial-value">${latestEps !== 0 ? latestEps.toLocaleString() + '원' : '-'}</span>
+11625|<span class="sd-financial-label">당기순이익</span>
+11635|<div class="sd-trend-note">연간은 4Q 기준이며, (E)는 전망치를 포함합니다.</div>
+11637|<!-- 매출액 + 영업이익: 2열 나란히 -->
+11639|<!-- 매출액 -->
+11643|<span class="sd-trend-title">매출액</span>
+11645|<div class="sd-trend-sub-label">연간 (4Q)</div>
+11647|<div class="sd-trend-sub-label">분기별</div>
+11651|<!-- 영업이익 -->
+11655|<span class="sd-trend-title">영업이익</span>
+11658|<div class="sd-trend-sub-label">연간 (4Q)</div>
+11660|<div class="sd-trend-sub-label">분기별</div>
+11665|<!-- EPS + EPS 전망추이: 2열 나란히 -->
+11673|<div class="sd-trend-sub-label">연간 (4Q)</div>
+11675|<div class="sd-trend-sub-label">분기별</div>
+11679|<!-- EPS 전망추이 -->
+11683|<span class="sd-trend-title">EPS 전망 추이</span>
+11686|<div class="sd-empty-card">데이터 없음</div>
+11700|summaryContent.innerHTML = '<div class="sd-empty-state">재무 정보를 불러올 수 없습니다</div>';
+11813|container.innerHTML = '<div class="sd-empty-card">EPS 추정추이 로딩중...</div>';
+11864|<span style="font-size:11px;color:var(--text-muted);">${fy1.year}년 전망치</span>
+11867|<span style="color:var(--text-muted);font-weight:normal;margin-left:4px;">${changeCount}회 변경</span>
+11871|<span>시작: <b style="color:var(--text-primary);">${firstVal.toLocaleString()}원</b></span>
+11872|<span>현재: <b style="color:${lineColor};">${lastVal.toLocaleString()}원</b></span>
+11915|label: (ctx) => `EPS 추정: ${ctx.raw?.toLocaleString() || 0}원`
+11954|container.innerHTML = '<div class="sd-empty-card">전망치 데이터 없음</div>';
+11962|<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;text-align:center;">연도별 EPS 전망</div>
+11991|formatter: (v) => v ? v.toLocaleString() + '원' : ''
+12001|tooltip: { callbacks: { label: (ctx) => `EPS: ${ctx.raw?.toLocaleString() || 0}원` } }
+12032|canvas.parentElement.innerHTML = '<div class="sd-trend-empty">데이터 없음</div>';
+12069|return Math.round(v).toLocaleString('ko-KR') + '원';
+12073|if (abs >= 10000) return sign + (abs / 10000).toFixed(1) + '조';
+12074|if (abs >= 100) return sign + Math.round(abs) + '억';
+12100|label: '실적',
+12117|label: '전망',
+12205|const estLabel = isEst ? ' (전망)' : '';
+12246|if (abs >= 10000) return (v / 10000).toFixed(0) + '조';
+12247|if (abs >= 100) return Math.round(v) + '억';
+12365|주요 재무지표
+12366|<span class="sd-basis-label">${latestPeriod ? `기준: ${latestPeriod} (연간)` : ''}</span>
+12370|<span class="sd-financial-label">시가총액</span>
+12374|<span class="sd-financial-label">매출액</span>
+12378|<span class="sd-financial-label">영업이익</span>
+12390|<span class="sd-financial-label">당기순이익</span>
+12400|<div class="sd-trend-note">단위: 백만 달러 ($M), 연간 기준</div>
+12402|<!-- 매출액 + 영업이익: 2열 나란히 -->
+12404|<!-- 매출액 -->
+12408|<span class="sd-trend-title">매출액 (Revenue)</span>
+12410|<div class="sd-trend-sub-label">연간</div>
+12412|<div class="sd-trend-sub-label">분기별</div>
+12416|<!-- 영업이익 -->
+12420|<span class="sd-trend-title">영업이익 (Operating Income)</span>
+12423|<div class="sd-trend-sub-label">연간</div>
+12425|<div class="sd-trend-sub-label">분기별</div>
+12430|<!-- EPS + 당기순이익: 2열 나란히 -->
+12438|<div class="sd-trend-sub-label">연간</div>
+12440|<div class="sd-trend-sub-label">분기별</div>
+12444|<!-- 어닝서프라이즈 (Earnings Surprise) -->
+12448|<span class="sd-trend-title">어닝서프라이즈</span>
+12465|summaryContent.innerHTML = '<div class="sd-empty-state">재무 정보를 불러올 수 없습니다</div>';
+12538|container.innerHTML = '<div class="sd-empty-card" style="padding:40px;text-align:center;color:var(--text-muted);">어닝서프라이
+12576|label: '예상 EPS',
+12587|label: '실제 EPS',
+12626|return `서프라이즈: ${sign}${s.toFixed(2)}% (${label})`;
+12628|return '실적 미발표';
+12688|canvas.parentElement.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);">차트를 불러올 수 없습니다</d
+12702|label: '매출액 (억원)',
+12710|label: '영업이익 (억원)',
+12739|return value.toLocaleString() + '억';
+12766|<button class="news-tab-btn active" data-tab="disclosure">공시</button>
+12767|<button class="news-tab-btn" data-tab="research">증권사 리포트</button>
+12768|<button class="news-tab-btn" data-tab="articles">뉴스</button>
+12805|container.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>공시를 불러오는 중...</span></div>';
+12818|container.innerHTML = '<div class="sd-empty-state">공시 데이터가 없습니다</div>';
+12828|container.innerHTML = '<div class="sd-empty-state">공시를 불러올 수 없습니다</div>';
+12837|container.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>리포트를 불러오는 중...</span></div>';
+12849|container.innerHTML = '<div class="sd-empty-state">증권사 리포트가 없습니다</div>';
+12872|container.innerHTML = '<div class="sd-empty-state">리포트를 불러올 수 없습니다</div>';
+12881|container.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>뉴스를 불러오는 중...</span></div>';
+12894|container.innerHTML = '<div class="sd-empty-state">최신 뉴스가 없습니다</div>';
+12904|container.innerHTML = '<div class="sd-empty-state">뉴스를 불러올 수 없습니다</div>';
+12946|const badge = type === 'disclosure' ? '<span class="news-badge disclosure">공시</span>' : '';
+12972|return html || '<div class="sd-empty-state">데이터가 없습니다</div>';
+12982|return `${month}월 ${day}일`;
+12992|newsContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>뉴스를 불러오는 중...</span></div>'
+13006|<div class="sd-card-title">최신 뉴스</div>
+13012|<span class="sd-news-source">${item.source || '뉴스'}</span>
+13021|newsHtml = '<div class="sd-card"><div class="sd-empty-state">관련 뉴스가 없습니다</div></div>';
+13035|<div class="sd-card-title">최근 공시</div>
+13047|disclosureHtml = '<div class="sd-card"><div class="sd-empty-state">최근 공시가 없습니다</div></div>';
+13054|newsContent.innerHTML = '<div class="sd-card"><div class="sd-empty-state">뉴스를 불러올 수 없습니다</div></div>';
+13063|companyContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>기업 정보를 불러오는 중...</span><
+13078|<div class="sd-card-title">기업 개요</div>
+13081|<span class="sd-company-label">회사명</span>
+13085|<span class="sd-company-label">업종</span>
+13089|<span class="sd-company-label">시장</span>
+13101|<div class="sd-card-title">세그먼트별 매출</div>
+13108|<div class="sd-card-title">세그먼트별 매출</div>
+13110|세그먼트 데이터
+13115|<p>Hub 이상 요금제에서 이용 가능</p>
+13116|<button class="upgrade-btn" onclick="navigateTo('settings')">업그레이드</button>
+13128|<div class="sd-card-title">동종업계 비교</div>
+13133|<span class="sd-comp-price">${comp.price?.toLocaleString() || '-'}원</span>
+13143|comparablesHtml = '<div class="sd-card"><div class="sd-empty-state">동종업계 비교 데이터가 없습니다</div></div>';
+13148|companyContent.innerHTML = '<div class="sd-card"><div class="sd-empty-state">기업 정보를 불러올 수 없습니다</div></div>';
+13152|companyContent.innerHTML = '<div class="sd-card"><div class="sd-empty-state">기업 정보를 불러올 수 없습니다</div></div>';
+13161|companyContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>기업 정보를 불러오는 중...</span><
+13178|<div class="company-label">시가총액</div>
+13182|<div class="company-label">현재가</div>
+13184|${data.price?.toLocaleString() || '-'}원
+13190|<span>↗ 52주 고가 <strong class="text-red">${data.high_52w?.toLocaleString() || '-'}원</strong></span>
+13191|<span>↘ 52주 저가 <strong class="text-blue">${data.low_52w?.toLocaleString() || '-'}원</strong></span>
+13192|<span>🌐 외인 <strong>${data.foreign_ratio > 0 ? data.foreign_ratio.toFixed(2) + '%' : '-'}</strong></span>
+13199|if (!text) return '<p style="color:var(--text-muted);">기업 개요 데이터가 없습니다.</p>';
+13206|<h3 class="overview-title">🏢 기업 개요</h3>
+13220|const ratingText = rating >= 4 ? '매수' : rating >= 3 ? '중립' : rating >= 2 ? '매도' : '-';
+13223|<div class="sd-card-title">투자의견</div>
+13226|<span class="sd-consensus-label">투자의견</span>
+13230|<span class="sd-consensus-label">목표주가</span>
+13231|<span class="sd-consensus-value">${targetPrice > 0 ? targetPrice.toLocaleString() + '원' : '-'}</span>
+13243|<div class="sd-card-title">동종업계 종목</div>
+13248|<span class="sd-comp-price">${peer.price?.toLocaleString() || '-'}원</span>
+13262|'<div class="sd-card"><div class="sd-empty-state">기업 정보가 없습니다</div></div>';
+13264|companyContent.innerHTML = '<div class="sd-card"><div class="sd-empty-state">기업 정보를 불러올 수 없습니다</div></div>';
+13268|companyContent.innerHTML = '<div class="sd-card"><div class="sd-empty-state">기업 정보를 불러올 수 없습니다</div></div>';
+13303|<button class="news-tab-btn active" data-tab="filings">SEC 공시</button>
+13304|<button class="news-tab-btn" data-tab="analyst">애널리스트</button>
+13305|<button class="news-tab-btn" data-tab="articles">뉴스</button>
+13509|${targetText ? `<span class="analyst-target">목표가: ${targetText}</span>` : ''}
+13559|companyContent.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px;">기업 정보를 불러오는 중...</div>'
+13581|if (!text) return '<p style="color:var(--text-muted);">기업 개요 데이터가 없습니다.</p>';
+13592|<div class="company-label">시가총액</div>
+13596|<div class="company-label">현재가</div>
+13601|<span>↗ 52주 고가 <strong class="text-red">$${data.high_52w > 0 ? data.high_52w.toFixed(2) : '-'}</strong></span>
+13602|<span>↘ 52주 저가 <strong class="text-blue">$${data.low_52w > 0 ? data.low_52w.toFixed(2) : '-'}</strong></span>
+13603|<span>🏛 기관 <strong>${data.institutional_ratio > 0 ? data.institutional_ratio.toFixed(1) + '%' : '-'}</strong></span>
+13604|<span>📊 유통비율 <strong>${data.float_ratio > 0 ? data.float_ratio.toFixed(1) + '%' : '-'}</strong></span>
+13617|<h3 class="overview-title">🏢 기업 개요${langBadge}</h3>
+13623|${data.sector ? `<span>📂 섹터: <strong style="color:var(--text-primary);">${data.sector}</strong></span>` : ''}
+13624|${data.industry ? `<span>🏭 업종: <strong style="color:var(--text-primary);">${data.industry}</strong></span>` : ''}
+13625|${data.headquarters ? `<span>📍 본사: <strong style="color:var(--text-primary);">${data.headquarters}</strong></span>` : ''
+13626|${data.employees > 0 ? `<span>👥 직원: <strong style="color:var(--text-primary);">${data.employees.toLocaleString()}명</stro
+13638|'STRONG_BUY': '강력매수', 'BUY': '매수', 'HOLD': '중립',
+13639|'SELL': '매도', 'STRONG_SELL': '강력매도'
+13644|<div class="sd-card-title">📊 투자의견</div>
+13647|<span class="sd-consensus-label">목표주가</span>
+13651|<span class="sd-consensus-label">투자의견</span>
+13676|financialContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>재무 정보를 불러오는 중...</span
+13709|} else if (unit === '배') {
+13769|const gradeLabel = catData.grade_label || '보통';
+13776|const suffix = ['PER', 'PBR', 'Forward PER'].includes(k) ? '배' : (k.includes('율') || k === 'ROE' || k === 'ROA' ? '%' : 
+13789|${detailItems || '<div style="color:var(--text-muted);font-size:12px;">데이터 없음</div>'}
+13798|<h3 style="margin:0;font-size:1rem;color:var(--text-primary);">투자 지표</h3>
+13814|return '<div class="sd-empty-state">재무제표 데이터가 없습니다</div>';
+13823|<h3 style="margin:0 0 16px;font-size:1rem;color:var(--text-primary);">재무 건전성</h3>
+13833|<div style="font-size:11px;color:var(--text-muted);">부채비율</div>
+13841|<div style="font-size:11px;color:var(--text-muted);">영업이익률</div>
+13845|<div style="font-size:11px;color:var(--text-muted);">유동비율</div>
+13863|<th style="padding:10px 12px;text-align:left;color:var(--text-muted);font-weight:500;position:sticky;left:0;background:v
+13870|const isRatio = ['%', '배'].includes(unit);
+13893|<div style="font-size:1rem;font-weight:600;color:var(--text-primary);">재무제표</div>
+13922|financialContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>재무 정보를 불러오는 중...</span
+13946|financialContent.innerHTML = '<div class="sd-card"><div class="sd-empty-state">재무 정보를 불러올 수 없습니다</div></div>';
+13963|financialContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>재무 정보를 불러오는 중...</span
+13987|<div class="sd-card-title">실적 추이</div>
+13994|<div class="sd-card-title">실적 추이</div>
+13996|실적 추이 차트
+14001|<p>Hub 이상 요금제에서 이용 가능</p>
+14002|<span>상세 재무 데이터를 확인하세요</span>
+14003|<button class="upgrade-btn" onclick="navigateTo('settings')">업그레이드</button>
+14018|<div class="sd-card-title">재무 건전성</div>
+14027|<span class="sd-health-detail-label">부채비율</span>
+14031|<span class="sd-health-detail-label">배당수익률</span>
+14036|<span class="sd-health-detail-value">${summaryData.bps > 0 ? summaryData.bps.toLocaleString() + '원' : '-'}</span>
+14045|<div class="sd-card-title">재무 건전성</div>
+14047|재무 건전성 점수
+14052|<p>Hub 이상 요금제에서 이용 가능</p>
+14053|<button class="upgrade-btn" onclick="navigateTo('settings')">업그레이드</button>
+14063|<div class="sd-card-title">상세 재무 지표</div>
+14074|<span class="sd-financial-label">부채비율</span>
+14078|<span class="sd-financial-label">유보율</span>
+14082|<span class="sd-financial-label">배당수익률</span>
+14090|<span class="sd-financial-label">외국인지분율</span>
+14094|<span class="sd-financial-label">영업이익률</span>
+14105|financialContent.innerHTML = '<div class="sd-card"><div class="sd-empty-state">재무 정보를 불러올 수 없습니다</div></div>';
+14114|financialContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>재무 정보를 불러오는 중...</span
+14147|} else if (unit === '배') {
+14149|} else if (unit === '억원') {
+14154|return `${sign}${(absVal / 10000).toFixed(1)}조`;
+14156|return `${sign}${Math.round(absVal).toLocaleString()}억`;
+14160|} else if (unit === '원') {
+14202|const gradeLabel = catData.grade_label || '보통';
+14209|const suffix = ['PER', 'PBR'].includes(k) ? '배' : (k.includes('율') || k === 'ROE' || k === 'ROA' ? '%' : '');
+14222|${detailItems || '<div style="color:var(--text-muted);font-size:12px;">데이터 없음</div>'}
+14231|<h3 style="margin:0;font-size:1rem;color:var(--text-primary);">투자 지표</h3>
+14247|return '<div class="sd-empty-state">재무제표 데이터가 없습니다</div>';
+14256|<h3 style="margin:0 0 16px;font-size:1rem;color:var(--text-primary);">재무 건전성</h3>
+14266|<div style="font-size:11px;color:var(--text-muted);">부채비율</div>
+14274|<div style="font-size:11px;color:var(--text-muted);">영업이익률</div>
+14278|<div style="font-size:11px;color:var(--text-muted);">유동비율</div>
+14296|<th style="padding:10px 12px;text-align:left;color:var(--text-muted);font-weight:500;position:sticky;left:0;background:v
+14303|const isRatio = ['%', '배'].includes(unit);
+14326|<div style="font-size:1rem;font-weight:600;color:var(--text-primary);">재무제표</div>
+14355|financialContent.innerHTML = '<div class="sd-loading"><div class="sd-loading-spinner"></div><span>재무 정보를 불러오는 중...</span
+14379|financialContent.innerHTML = '<div class="sd-card"><div class="sd-empty-state">재무 정보를 불러올 수 없습니다</div></div>';
+14471|if (val >= 1e12) return `${(val / 1e12).toFixed(1)}조`;
+14472|if (val >= 1e8) return `${(val / 1e8).toFixed(0)}억`;
+14473|if (val >= 1e4) return `${(val / 1e4).toFixed(0)}만`;
+14570|if (volume >= 1e8) return `${(volume / 1e8).toFixed(0)}억`;
+14571|if (volume >= 1e4) return `${(volume / 1e4).toFixed(0)}만`;
+14853|container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-m
+15059|loadingEl.innerHTML = '<div class="ai-spinner"></div><p id="ai-progress-text2" style="color:var(--text-muted);margin-top
+15133|if (e.message && e.message.includes('분석 실패')) throw e;
+15185|tbody.innerHTML = '<tr><td colspan="7" class="empty-state">등록된 종목이 없습니다</td></tr>';
+15198|<td><span class="status-badge ${config.enabled ? 'active' : 'inactive'}">${config.enabled ? '활성' : '비활성'}</span></td>
+15200|<button class="btn btn-sm btn-icon" onclick="triggerMrSignal(${config.asset_id})" title="수동 시그널">▶</button>
+15201|<button class="btn btn-sm btn-icon btn-danger" onclick="deleteMrConfig(${config.asset_id})" title="삭제">✕</button>
+15223|list.innerHTML = '<p class="empty-state">시그널 기록이 없습니다</p>';
+15229|const actionText = event.action === 'buy' ? '매수' : '매도';
+15733|<label>${i + 1}차 (%)</label>
+15777|<label>${i + 1}차 (%)</label>
+16007|setLoadingMsg('시세 데이터 준비 중...');
+16025|setLoadingMsg('전략 분석 중...');
+16108|return '서버 응답 시간이 초과되었습니다. 기간을 줄이거나 잠시 후 다시 시도해주세요.';
+16110|return '거래소 요청 제한에 걸렸습니다. 1~2분 후 다시 시도해주세요.';
+16112|return '주식 백테스트는 현재 준비 중입니다. OKX, Binance, Bybit에서 이용 가능합니다.';
+16114|return '서버에 연결할 수 없습니다. 네트워크를 확인해주세요.';
+16116|return '백테스트 API를 찾을 수 없습니다. 서버 상태를 확인해주세요.';
+16118|return '매수/매도 비중에 소수점이 포함되어 있습니다. 정수로 입력해주세요.';
+16120|return '서버 응답을 처리할 수 없습니다. 잠시 후 다시 시도해주세요.';
+16169|return num.toLocaleString('ko-KR', {maximumFractionDigits: 0}) + '원';
+16185|return sign + Math.abs(num).toLocaleString('ko-KR', {maximumFractionDigits: 0}) + '원';
+16203|'KIS_KR': 'KIS_KR(한국투자증권)',
+16204|'KIS_US': 'KIS_US(한국투자증권)',
+16232|container.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:40px;">캔들 데이터가 없습니다</div>';
+16404|container.innerHTML = '<div style="color:var(--danger); text-align:center; padding:40px;">차트 생성 실패: ' + (err.message || 
+16513|row('순손익', m.net_profit, m.net_profit_pct, m.buy_net_profit, m.buy_net_profit_pct, m.sell_net_profit, m.sell_net_profit_
+16514|row('총수익', m.gross_profit, m.gross_profit_pct, m.buy_gross_profit, m.buy_gross_profit_pct, m.sell_gross_profit, m.sell_g
+16515|row('총손실', m.gross_loss ? -Math.abs(m.gross_loss) : 0, m.gross_loss_pct ? -Math.abs(m.gross_loss_pct) : 0,
+16517|row('미실현 손익', m.unrealized_pnl, m.unrealized_pnl_pct, null, null, null, null),
+16518|simpleRow('수익지수', formatProfitFactor(m.profit_factor), formatProfitFactor(m.buy_profit_factor), '—'),
+16519|simpleRow('수수료', fmtAmt(m.commission_paid), fmtAmt(m.buy_commission), fmtAmt(m.sell_commission)),
+16520|simpleRow('기대수익', fmtAmt(m.expected_value), fmtAmt(m.buy_expected_value), fmtAmt(m.sell_expected_value)),
+16532|tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px; color:var(--text-muted);">거래 내역이 없습니다</td
+16538|const isBuy = (t.type === '매수' || t.action === 'buy' || t.action === 'BUY');
+16540|const typeText = t.type || (isBuy ? '매수' : '매도');
+16720|<div>손익: ${formatMrAmountSigned(pnl, currency)}</div>
+16721|<div>자산: ${formatMrAmount(equity, currency)}</div>
+16943|"PRICE": { name: "가격", category: "가격", params: [], outputs: ["open", "high", "low", "close", "volume"] },
+16955|{ value: "cross_above", label: "상향돌파 (골든크로스)" },
+16956|{ value: "cross_below", label: "하향돌파 (데드크로스)" },
+16965|{ label: "과매도 진입 (RSI < 30)", description: "RSI가 30 이하로 내려가면 매수", config: { indicator: "RSI", output: "value", params: {
+16966|{ label: "과매수 진입 (RSI > 70)", description: "RSI가 70 이상으로 올라가면 매도", config: { indicator: "RSI", output: "value", params: 
+16967|{ label: "과매도 탈출 (RSI ↑ 30)", description: "RSI가 30을 상향 돌파", config: { indicator: "RSI", output: "value", params: { peri
+16968|{ label: "과매수 탈출 (RSI ↓ 70)", description: "RSI가 70을 하향 돌파", config: { indicator: "RSI", output: "value", params: { peri
+16969|{ label: "중립선 상향돌파 (RSI ↑ 50)", description: "상승 추세 시작", config: { indicator: "RSI", output: "value", params: { period: 
+16972|{ label: "골든크로스 (MACD ↑ 시그널)", description: "매수 신호", config: { indicator: "MACD", output: "macd", params: { fast_length:
+16973|{ label: "데드크로스 (MACD ↓ 시그널)", description: "매도 신호", config: { indicator: "MACD", output: "macd", params: { fast_length:
+16974|{ label: "히스토그램 양전환", description: "상승 모멘텀", config: { indicator: "MACD", output: "histogram", params: { fast_length: 12
+16975|{ label: "히스토그램 음전환", description: "하락 모멘텀", config: { indicator: "MACD", output: "histogram", params: { fast_length: 12
+16978|{ label: "하단밴드 터치 (과매도)", description: "종가 < 하단밴드 = 반등 기대", config: { indicator: "PRICE", output: "close", params: {}, o
+16979|{ label: "상단밴드 터치 (과매수)", description: "종가 > 상단밴드 = 조정 기대", config: { indicator: "PRICE", output: "close", params: {}, o
+16980|{ label: "중간밴드 상향돌파", description: "20일선 돌파", config: { indicator: "PRICE", output: "close", params: {}, operator: "cros
+16983|{ label: "과매도 (%K < 20)", description: "과매도 구간", config: { indicator: "STOCH", output: "k", params: { k_period: 14, d_pe
+16984|{ label: "과매수 (%K > 80)", description: "과매수 구간", config: { indicator: "STOCH", output: "k", params: { k_period: 14, d_pe
+16985|{ label: "골든크로스 (%K ↑ %D)", description: "매수 신호", config: { indicator: "STOCH", output: "k", params: { k_period: 14, d_p
+16986|{ label: "데드크로스 (%K ↓ %D)", description: "매도 신호", config: { indicator: "STOCH", output: "k", params: { k_period: 14, d_p
+16989|{ label: "종가 > 이평선 (상승추세)", config: { indicator: "PRICE", output: "close", params: {}, operator: ">", compare_type: "ind
+16990|{ label: "종가 < 이평선 (하락추세)", config: { indicator: "PRICE", output: "close", params: {}, operator: "<", compare_type: "ind
+16991|{ label: "골든크로스", description: "단기>장기", config: { indicator: "SMA", output: "value", params: { period: 20 }, operator: "
+16992|{ label: "데드크로스", description: "단기<장기", config: { indicator: "SMA", output: "value", params: { period: 20 }, operator: "
+16995|{ label: "종가 > 이평선", config: { indicator: "PRICE", output: "close", params: {}, operator: ">", compare_type: "indicator"
+16996|{ label: "골든크로스", config: { indicator: "EMA", output: "value", params: { period: 12 }, operator: "cross_above", compare_
+16999|{ label: "상승전환 (매수)", description: "하락→상승", config: { indicator: "SUPERTREND", output: "direction", params: { atr_len: 2
+17000|{ label: "하락전환 (매도)", description: "상승→하락", config: { indicator: "SUPERTREND", output: "direction", params: { atr_len: 2
+17001|{ label: "상승 유지", description: "direction < 0", config: { indicator: "SUPERTREND", output: "direction", params: { atr_le
+17002|{ label: "하락 유지", description: "direction > 0", config: { indicator: "SUPERTREND", output: "direction", params: { atr_le
+17005|{ label: "강한 추세 (ADX > 25)", config: { indicator: "ADX", output: "adx", params: { period: 14 }, operator: ">", compare_t
+17006|{ label: "약한 추세 (ADX < 20)", description: "횡보 구간", config: { indicator: "ADX", output: "adx", params: { period: 14 }, op
+17007|{ label: "상승 추세 (+DI > -DI)", config: { indicator: "ADX", output: "plus_di", params: { period: 14 }, operator: ">", comp
+17008|{ label: "하락 추세 (-DI > +DI)", config: { indicator: "ADX", output: "minus_di", params: { period: 14 }, operator: ">", com
+17011|{ label: "과매도 (CCI < -100)", config: { indicator: "CCI", output: "value", params: { period: 20 }, operator: "<", compare
+17012|{ label: "과매수 (CCI > 100)", config: { indicator: "CCI", output: "value", params: { period: 20 }, operator: ">", compare_
+17013|{ label: "중립선 상향돌파", config: { indicator: "CCI", output: "value", params: { period: 20 }, operator: "cross_above", compa
+17016|{ label: "변동성 크다 (ATR > 기준)", config: { indicator: "ATR", output: "value", params: { period: 14 }, operator: ">", compar
+17019|{ label: "구름 위 (상승추세)", description: "종가 > 선행스팬A", config: { indicator: "PRICE", output: "close", params: {}, operator: 
+17020|{ label: "구름 아래 (하락추세)", description: "종가 < 선행스팬B", config: { indicator: "PRICE", output: "close", params: {}, operator:
+17021|{ label: "전환선 > 기준선", config: { indicator: "ICHIMOKU", output: "tenkan", params: { tenkan_len: 9, kijun_len: 26, senkou_
+17022|{ label: "전환선 ↑ 기준선", description: "매수 신호", config: { indicator: "ICHIMOKU", output: "tenkan", params: { tenkan_len: 9, 
+17025|{ label: "양봉 (종가 > 시가)", config: { indicator: "PRICE", output: "close", params: {}, operator: ">", compare_type: "indica
+17026|{ label: "음봉 (종가 < 시가)", config: { indicator: "PRICE", output: "close", params: {}, operator: "<", compare_type: "indica
+17029|{ label: "종가 > 이평선", config: { indicator: "PRICE", output: "close", params: {}, operator: ">", compare_type: "indicator"
+17032|{ label: "종가 > 이평선", config: { indicator: "PRICE", output: "close", params: {}, operator: ">", compare_type: "indicator"
+17035|{ label: "종가 > 이평선", config: { indicator: "PRICE", output: "close", params: {}, operator: ">", compare_type: "indicator"
+17042|if (presets.length === 0) return '<option value="">프리셋 없음</option>';
+17069|<span class="group-label">그룹 ${groupCount + 1}</span>
+17071|<button type="button" class="btn-remove-group" title="그룹 삭제">&times;</button>
+17075|<button type="button" class="btn btn-secondary btn-sm btn-add-condition">+ 조건 추가</button>
+17138|<option value="preset">프리셋</option>
+17139|<option value="manual">직접설정</option>
+17150|<option value="value">값</option>
+17157|<option value="value">고정값</option>
+17158|<option value="indicator">지표 비교</option>
+17160|<input type="number" class="cond-compare-value" placeholder="값 입력" step="any">
+17166|<option value="value">값</option>
+17171|<button type="button" class="btn-remove-condition" title="조건 삭제">&times;</button>
+17185|if (!indicatorRegistry) return '<option value="">로드 중...</option>';
+17192|const cat = ind.category || '기타';
+17309|const labelPrefix = (isSameIndicator && config.compare_type === 'indicator') ? '단기 ' : '';
+17334|<label class="param-label">장기 ${p.label}
+17357|'RSI': value >= 50 ? '과매수 기준' : '과매도 기준',
+17358|'STOCH': value >= 50 ? '과매수 기준' : '과매도 기준',
+17359|'CCI': value >= 0 ? '과매수 기준' : '과매도 기준',
+17360|'ADX': '추세 기준',
+17361|'MACD': '기준선',
+17362|'SUPERTREND': '방향 기준',
+17364|return labels[indicator] || '기준값';
+17418|"value": "값",
+17420|"macd": "MACD선",
+17421|"signal": "시그널선",
+17422|"histogram": "히스토그램",
+17424|"upper": "상단밴드",
+17425|"middle": "중간밴드",
+17426|"lower": "하단밴드",
+17435|"direction": "방향",
+17437|"tenkan": "전환선",
+17438|"kijun": "기준선",
+17439|"senkou_a": "선행스팬A",
+17440|"senkou_b": "선행스팬B",
+17441|"chikou": "후행스팬",
+17443|"open": "시가",
+17444|"high": "고가",
+17445|"low": "저가",
+17446|"close": "종가",
+17447|"volume": "거래량",
+17622|name: document.getElementById('custom-strategy-name')?.value || '내 전략',
+17674|setLoadingMsg('시세 데이터 준비 중...');
+17883|row('순손익', m.net_profit, m.net_profit_pct, m.buy_net_profit, m.buy_net_profit_pct, m.sell_net_profit, m.sell_net_profit_
+17884|row('총수익', m.gross_profit, m.gross_profit_pct, m.buy_gross_profit, m.buy_gross_profit_pct, m.sell_gross_profit, m.sell_g
+17885|row('총손실', m.gross_loss ? -Math.abs(m.gross_loss) : 0, m.gross_loss_pct ? -Math.abs(m.gross_loss_pct) : 0,
+17887|row('미실현 손익', m.unrealized_pnl, m.unrealized_pnl_pct, null, null, null, null),
+17888|simpleRow('수익지수', formatProfitFactor(m.profit_factor), formatProfitFactor(m.profit_factor), '—'),
+17889|simpleRow('수수료', fmtAmt(m.commission_paid), fmtAmt(m.buy_commission), '—'),
+17890|simpleRow('기대수익', fmtAmt(m.expected_value), fmtAmt(m.expected_value), '—'),
+17891|simpleRow('총 거래 수', m.total_trades || 0, m.buy_trades || 0, 0),
+17892|simpleRow('수익 거래', m.winning_trades || 0, m.buy_winning || 0, 0),
+17893|simpleRow('손실 거래', m.losing_trades || 0, m.buy_losing || 0, 0),
+17894|simpleRow('승률', `${(m.win_rate_pct || 0).toFixed(1)}%`, `${(m.win_rate_pct || 0).toFixed(1)}%`, '—'),
+17895|simpleRow('최대 연속 승리', m.max_consecutive_wins || 0, m.max_consecutive_wins || 0, 0),
+17896|simpleRow('최대 연속 손실', m.max_consecutive_losses || 0, m.max_consecutive_losses || 0, 0),
+17962|setLoadingMsg('시세 데이터 준비 중...');
+17980|setLoadingMsg('전략 분석 중...');
+18184|row('순손익', m.net_profit, m.net_profit_pct, m.buy_net_profit, m.buy_net_profit_pct, m.sell_net_profit, m.sell_net_profit_
+18185|row('총수익', m.gross_profit, m.gross_profit_pct, m.buy_gross_profit, m.buy_gross_profit_pct, m.sell_gross_profit, m.sell_g
+18186|row('총손실', m.gross_loss ? -Math.abs(m.gross_loss) : 0, m.gross_loss_pct ? -Math.abs(m.gross_loss_pct) : 0,
+18188|row('미실현 손익', m.unrealized_pnl, m.unrealized_pnl_pct, null, null, null, null),
+18189|simpleRow('수익지수', formatProfitFactor(m.profit_factor), formatProfitFactor(m.buy_profit_factor), '—'),
+18190|simpleRow('수수료', fmtAmt(m.commission_paid), fmtAmt(m.buy_commission), fmtAmt(m.sell_commission)),
+18191|simpleRow('기대수익', fmtAmt(m.expected_value), fmtAmt(m.buy_expected_value), fmtAmt(m.sell_expected_value)),
+18203|tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px; color:var(--text-muted);">거래 내역이 없습니다</td
+18209|const isBuy = (t.type === '매수' || t.action === 'buy' || t.action === 'BUY');
+18211|const typeText = t.type || (isBuy ? '매수' : '매도');
+18385|<div>손익: ${formatMrAmountSigned(pnl, currency)}</div>
+18386|<div>자산: ${formatMrAmount(equity, currency)}</div>
+18412|label: '거래소',
+18420|label: '업종',
+18423|{ value: '반도체', label: '반도체' }, { value: '자동차', label: '자동차' },
+18424|{ value: '은행', label: '은행' }, { value: '제약', label: '제약' },
+18425|{ value: '바이오', label: '바이오' }, { value: '화학', label: '화학' },
+18426|{ value: '철강', label: '철강' }, { value: '건설', label: '건설' },
+18427|{ value: '유통', label: '유통' }, { value: '통신', label: '통신' },
+18428|{ value: '미디어', label: '미디어' }, { value: '식품', label: '식품' },
+18429|{ value: '전기전자', label: '전기전자' }, { value: '기계', label: '기계' },
+18430|{ value: 'IT서비스', label: 'IT서비스' }, { value: '게임', label: '게임' }
+18434|label: '시가총액',
+18436|unit: '억원',
+18438|{ min: 100000, max: null, label: '초대형 (10조+)' },
+18439|{ min: 10000, max: 100000, label: '대형 (1조~10조)' },
+18440|{ min: 5000, max: 10000, label: '중형 (5천억~1조)' },
+18441|{ min: 1000, max: 5000, label: '소형 (1천억~5천억)' },
+18442|{ min: null, max: 1000, label: '초소형 (1천억 미만)' }
+18446|label: '현재가',
+18448|unit: '원',
+18450|{ min: null, max: 5000, label: '5천원 이하' },
+18451|{ min: 5000, max: 10000, label: '5천~1만원' },
+18452|{ min: 10000, max: 50000, label: '1만~5만원' },
+18453|{ min: 50000, max: 100000, label: '5만~10만원' },
+18454|{ min: 100000, max: null, label: '10만원 이상' }
+18458|label: '거래량',
+18460|unit: '주',
+18462|{ min: 100000, max: null, label: '10만 이상' },
+18463|{ min: 500000, max: null, label: '50만 이상' },
+18464|{ min: 1000000, max: null, label: '100만 이상' },
+18465|{ min: 5000000, max: null, label: '500만 이상' }
+18469|label: '외국인비율',
+18473|{ min: 30, max: null, label: '30% 이상' },
+18476|{ min: null, max: 10, label: '10% 미만' }
+18480|label: '등락률',
+18484|{ min: 10, max: null, label: '+10% 이상' },
+18485|{ min: 5, max: null, label: '+5% 이상' },
+18486|{ min: 3, max: null, label: '+3% 이상' },
+18487|{ min: null, max: -3, label: '-3% 이하' },
+18488|{ min: null, max: -5, label: '-5% 이하' },
+18489|{ min: null, max: -10, label: '-10% 이하' }
+18497|unit: '배',
+18499|{ min: null, max: 0, label: '적자' },
+18500|{ min: 0, max: 10, label: '저PER (0~10)' },
+18501|{ min: 10, max: 20, label: '적정 (10~20)' },
+18502|{ min: 20, max: 50, label: '고PER (20~50)' },
+18503|{ min: 50, max: null, label: '50 이상' }
+18509|unit: '배',
+18511|{ min: null, max: 0.5, label: '저평가 (0~0.5)' },
+18513|{ min: 1, max: 2, label: '적정 (1~2)' },
+18515|{ min: 5, max: null, label: '5 이상' }
+18523|{ min: 20, max: null, label: '우량 (20%+)' },
+18524|{ min: 15, max: 20, label: '양호 (15~20%)' },
+18525|{ min: 10, max: 15, label: '보통 (10~15%)' },
+18526|{ min: null, max: 10, label: '10% 미만' }
+18534|{ min: 10, max: null, label: '우량 (10%+)' },
+18535|{ min: 5, max: 10, label: '양호 (5~10%)' },
+18536|{ min: null, max: 5, label: '5% 미만' }
+18540|label: '영업이익률',
+18544|{ min: 20, max: null, label: '고수익 (20%+)' },
+18545|{ min: 10, max: 20, label: '양호 (10~20%)' },
+18546|{ min: 5, max: 10, label: '보통 (5~10%)' },
+18547|{ min: null, max: 5, label: '저수익 (5% 미만)' }
+18551|label: '매출총이익률',
+18555|{ min: 50, max: null, label: '고마진 (50%+)' },
+18556|{ min: 30, max: 50, label: '양호 (30~50%)' },
+18557|{ min: 15, max: 30, label: '보통 (15~30%)' },
+18558|{ min: null, max: 15, label: '저마진 (15% 미만)' }
+18562|label: '순이익률',
+18566|{ min: 15, max: null, label: '고수익 (15%+)' },
+18567|{ min: 10, max: 15, label: '양호 (10~15%)' },
+18568|{ min: 5, max: 10, label: '보통 (5~10%)' },
+18569|{ min: null, max: 5, label: '5% 미만' }
+18573|label: '부채비율',
+18577|{ min: null, max: 50, label: '안정 (50% 미만)' },
+18578|{ min: 50, max: 100, label: '보통 (50~100%)' },
+18579|{ min: 100, max: 200, label: '주의 (100~200%)' },
+18580|{ min: 200, max: null, label: '위험 (200%+)' }
+18584|label: '유동비율',
+18586|unit: '배',
+18588|{ min: 2, max: null, label: '안정 (2배+)' },
+18589|{ min: 1.5, max: 2, label: '양호 (1.5~2배)' },
+18590|{ min: 1, max: 1.5, label: '보통 (1~1.5배)' },
+18591|{ min: null, max: 1, label: '주의 (1배 미만)' }
+18595|label: '배당수익률',
+18599|{ min: 5, max: null, label: '고배당 (5%+)' },
+18606|label: '매출성장률',
+18610|{ min: 50, max: null, label: '고성장 (50%+)' },
+18611|{ min: 20, max: 50, label: '성장 (20~50%)' },
+18612|{ min: 0, max: 20, label: '안정 (0~20%)' },
+18613|{ min: null, max: 0, label: '역성장' }
+18617|label: '이익성장률',
+18621|{ min: 50, max: null, label: '고성장 (50%+)' },
+18622|{ min: 20, max: 50, label: '성장 (20~50%)' },
+18623|{ min: 0, max: 20, label: '안정 (0~20%)' },
+18624|{ min: null, max: 0, label: '역성장' }
+18628|label: 'EPS 성장률(컨센서스)',
+18635|{ min: null, max: 0, label: '역성장' }
+18643|unit: '배',
+18645|{ min: null, max: 1, label: '저평가 (1 미만)' },
+18646|{ min: 1, max: 3, label: '적정 (1~3)' },
+18647|{ min: 3, max: 5, label: '보통 (3~5)' },
+18648|{ min: 5, max: null, label: '고평가 (5+)' }
+18652|label: '당좌비율',
+18656|{ min: 150, max: null, label: '우량 (150%+)' },
+18657|{ min: 100, max: 150, label: '양호 (100~150%)' },
+18658|{ min: 50, max: 100, label: '보통 (50~100%)' },
+18659|{ min: null, max: 50, label: '주의 (50% 미만)' }
+18663|label: '유보율',
+18667|{ min: 1000, max: null, label: '최우량 (1000%+)' },
+18668|{ min: 500, max: 1000, label: '우량 (500~1000%)' },
+18669|{ min: 200, max: 500, label: '양호 (200~500%)' },
+18670|{ min: null, max: 200, label: '주의 (200% 미만)' }
+18676|unit: '원',
+18678|{ min: 10000, max: null, label: '고수익 (1만원+)' },
+18679|{ min: 5000, max: 10000, label: '양호 (5천~1만)' },
+18680|{ min: 1000, max: 5000, label: '보통 (1천~5천)' },
+18681|{ min: null, max: 0, label: '적자' }
+18687|unit: '원',
+18689|{ min: 50000, max: null, label: '5만원+' },
+18690|{ min: 20000, max: 50000, label: '2~5만원' },
+18691|{ min: 10000, max: 20000, label: '1~2만원' },
+18692|{ min: null, max: 10000, label: '1만원 미만' }
+18696|label: '매출성장률',
+18700|{ min: 50, max: null, label: '고성장 (50%+)' },
+18701|{ min: 20, max: 50, label: '성장 (20~50%)' },
+18702|{ min: 0, max: 20, label: '안정 (0~20%)' },
+18703|{ min: null, max: 0, label: '역성장' }
+18707|label: '영업익성장률',
+18711|{ min: 50, max: null, label: '고성장 (50%+)' },
+18712|{ min: 20, max: 50, label: '성장 (20~50%)' },
+18713|{ min: 0, max: 20, label: '안정 (0~20%)' },
+18714|{ min: null, max: 0, label: '역성장' }
+18718|label: '배당성향',
+18722|{ min: 50, max: null, label: '고배당 (50%+)' },
+18723|{ min: 30, max: 50, label: '적정 (30~50%)' },
+18724|{ min: 10, max: 30, label: '저배당 (10~30%)' },
+18725|{ min: null, max: 10, label: '10% 미만' }
+18729|label: '순이익률',
+18733|{ min: 15, max: null, label: '고수익 (15%+)' },
+18734|{ min: 10, max: 15, label: '양호 (10~15%)' },
+18735|{ min: 5, max: 10, label: '보통 (5~10%)' },
+18736|{ min: null, max: 5, label: '5% 미만' }
+18748|{ min: 70, max: null, label: '과매수 (70+)' },
+18749|{ min: null, max: 30, label: '과매도 (30-)' },
+18750|{ min: 30, max: 70, label: '중립 (30~70)' }
+18754|label: '이동평균선',
+18759|{ value: 'above', label: '현재가가 위' },
+18760|{ value: 'below', label: '현재가가 아래' },
+18761|{ value: 'near', label: '근접 (±2%)' }
+18765|label: '이평선교차',
+18769|{ value: 'golden', label: '골든크로스 (단기 > 장기)' },
+18770|{ value: 'dead', label: '데드크로스 (단기 < 장기)' }
+18774|label: '볼린저밴드',
+18781|{ value: 'upper', label: '상단 돌파' },
+18782|{ value: 'lower', label: '하단 돌파' },
+18783|{ value: 'middle', label: '중심선 부근' }
+18795|{ value: 'buy', label: '매수신호 (MACD > Signal)' },
+18796|{ value: 'sell', label: '매도신호 (MACD < Signal)' },
+18797|{ value: 'above_zero', label: '0선 위' },
+18798|{ value: 'below_zero', label: '0선 아래' }
+18802|label: '스토캐스틱',
+18809|{ min: 80, max: null, label: '과매수 (80+)' },
+18810|{ min: null, max: 20, label: '과매도 (20-)' }
+18814|label: '거래량급증',
+18820|{ min: 2, max: null, label: '2배 이상' },
+18821|{ min: 5, max: null, label: '5배 이상' },
+18822|{ min: 10, max: null, label: '10배 이상' }
+18824|unit: '배'
+18827|label: '52주고가대비',
+18831|{ min: -5, max: 0, label: '신고가 근접 (0~5% 하락)' },
+18832|{ min: -10, max: -5, label: '5~10% 하락' },
+18833|{ min: -20, max: -10, label: '10~20% 하락' },
+18834|{ min: null, max: -20, label: '20%+ 하락' }
+18838|label: '52주저가대비',
+18842|{ min: 0, max: 5, label: '바닥 근접 (0~5% 상승)' },
+18843|{ min: 5, max: 10, label: '5~10% 상승' },
+18844|{ min: 10, max: 20, label: '10~20% 상승' },
+18845|{ min: 20, max: null, label: '20%+ 상승' }
+18855|{ value: 'high', label: '고변동 (3%+)' },
+18856|{ value: 'medium', label: '중변동 (1.5~3%)' },
+18857|{ value: 'low', label: '저변동 (1.5% 미만)' }
+18861|label: '기간수익률',
+18865|{ value: '1w', label: '1주' },
+18866|{ value: '1m', label: '1개월' },
+18867|{ value: '3m', label: '3개월' },
+18868|{ value: '6m', label: '6개월' },
+18869|{ value: '1y', label: '1년' }
+18873|{ min: 30, max: null, label: '+30% 이상' },
+18876|{ min: null, max: -10, label: '-10% 이하' },
+18877|{ min: null, max: -20, label: '-20% 이하' }
+18958|label: '일목균형표',
+18967|{ value: 'above_cloud', label: '구름 위 (상승)' },
+18968|{ value: 'below_cloud', label: '구름 아래 (하락)' },
+18969|{ value: 'in_cloud', label: '구름 내 (횡보)' },
+18970|{ value: 'tenkan_above_kijun', label: '전환선 > 기준선' },
+18971|{ value: 'tenkan_below_kijun', label: '전환선 < 기준선' }
+18985|{ min: null, max: 20, label: '과매도 (<20)' },
+18986|{ min: 80, max: null, label: '과매수 (>80)' }
+18997|{ min: 25, max: null, label: '강한 추세 (25+)' },
+18998|{ min: 40, max: null, label: '매우 강한 추세 (40+)' },
+18999|{ min: null, max: 20, label: '약한 추세 (<20)' }
+19010|{ min: 100, max: null, label: '과매수 (100+)' },
+19011|{ min: null, max: -100, label: '과매도 (-100↓)' },
+19012|{ min: -100, max: 100, label: '중립 (-100~100)' }
+19023|{ min: -20, max: 0, label: '과매수 (-20↑)' },
+19024|{ min: -100, max: -80, label: '과매도 (-80↓)' },
+19025|{ min: -80, max: -20, label: '중립' }
+19034|label: '거래소',
+19043|label: '업종',
+19047|{ value: '반도체', label: '반도체' }, { value: '자동차', label: '자동차' },
+19048|{ value: '은행', label: '은행' }, { value: '제약', label: '제약' },
+19049|{ value: '바이오', label: '바이오' }, { value: '화학', label: '화학' },
+19050|{ value: '철강', label: '철강' }, { value: '건설', label: '건설' },
+19051|{ value: '유통', label: '유통' }, { value: '통신', label: '통신' },
+19052|{ value: '미디어', label: '미디어' }, { value: '식품', label: '식품' },
+19053|{ value: '전기전자', label: '전기전자' }, { value: '기계', label: '기계' },
+19054|{ value: 'IT서비스', label: 'IT서비스' }, { value: '게임', label: '게임' }
+19058|label: '시가총액',
+19061|unit: '억원',
+19063|{ min: 100000, max: null, label: '초대형 (10조+)' },
+19064|{ min: 10000, max: 100000, label: '대형 (1조~10조)' },
+19065|{ min: 5000, max: 10000, label: '중형 (5천억~1조)' },
+19066|{ min: 1000, max: 5000, label: '소형 (1천억~5천억)' },
+19067|{ min: null, max: 1000, label: '초소형 (1천억 미만)' }
+19071|label: '현재가',
+19074|unit: '원',
+19076|{ min: null, max: 5000, label: '5천원 이하' },
+19077|{ min: 5000, max: 10000, label: '5천~1만원' },
+19078|{ min: 10000, max: 50000, label: '1만~5만원' },
+19079|{ min: 50000, max: 100000, label: '5만~10만원' },
+19080|{ min: 100000, max: null, label: '10만원 이상' }
+19084|label: '거래량',
+19087|unit: '주',
+19089|{ min: 100000, max: null, label: '10만 이상' },
+19090|{ min: 500000, max: null, label: '50만 이상' },
+19091|{ min: 1000000, max: null, label: '100만 이상' },
+19092|{ min: 5000000, max: null, label: '500만 이상' }
+19096|label: '외국인비율',
+19101|{ min: 30, max: null, label: '30% 이상' },
+19104|{ min: null, max: 10, label: '10% 미만' }
+19108|label: '등락률',
+19113|{ min: 10, max: null, label: '+10% 이상' },
+19114|{ min: 5, max: null, label: '+5% 이상' },
+19115|{ min: 3, max: null, label: '+3% 이상' },
+19116|{ min: null, max: -3, label: '-3% 이하' },
+19117|{ min: null, max: -5, label: '-5% 이하' },
+19118|{ min: null, max: -10, label: '-10% 이하' }
+19130|label: '섹터',
+19148|label: '시가총액',
+19160|label: '현재가',
+19172|label: '등락률',
+19177|{ min: 5, max: null, label: '+5% 이상' },
+19178|{ min: 3, max: null, label: '+3% 이상' },
+19179|{ min: null, max: -3, label: '-3% 이하' },
+19180|{ min: null, max: -5, label: '-5% 이하' }
+19184|label: '거래량',
+19206|label: '배당수익률',
+19225|label: '카테고리',
+19229|{ value: '인덱스', label: '인덱스' },
+19230|{ value: '해외', label: '해외' },
+19231|{ value: '섹터', label: '섹터' },
+19232|{ value: '레버리지/인버스', label: '레버리지/인버스' },
+19233|{ value: '채권', label: '채권' },
+19234|{ value: '원자재', label: '원자재' },
+19235|{ value: '통화', label: '통화' },
+19236|{ value: '테마', label: '테마' },
+19237|{ value: '기타', label: '기타' }
+19241|label: '운용사',
+19245|{ value: '삼성자산운용', label: 'KODEX (삼성)' },
+19246|{ value: '미래에셋자산운용', label: 'TIGER (미래에셋)' },
+19247|{ value: 'KB자산운용', label: 'KBSTAR (KB)' },
+19248|{ value: '한국투자신탁운용', label: 'ACE (한투)' },
+19249|{ value: '한화자산운용', label: 'ARIRANG (한화)' },
+19250|{ value: '신한자산운용', label: 'SOL (신한)' },
+19251|{ value: 'NH-Amundi자산운용', label: 'HANARO (NH)' },
+19252|{ value: '키움투자자산운용', label: 'KOSEF (키움)' }
+19256|label: '순자산',
+19259|unit: '억원',
+19261|{ min: 10000, max: null, label: '1조 이상' },
+19262|{ min: 5000, max: null, label: '5천억 이상' },
+19263|{ min: 1000, max: null, label: '1천억 이상' },
+19264|{ min: null, max: 1000, label: '1천억 미만' }
+19268|label: '현재가',
+19271|unit: '원',
+19273|{ min: 50000, max: null, label: '5만원+' },
+19274|{ min: 10000, max: 50000, label: '1~5만원' },
+19275|{ min: null, max: 10000, label: '1만원 미만' }
+19279|label: '등락률',
+19284|{ min: 3, max: null, label: '+3% 이상' },
+19285|{ min: 1, max: null, label: '+1% 이상' },
+19286|{ min: null, max: -1, label: '-1% 이하' },
+19287|{ min: null, max: -3, label: '-3% 이하' }
+19291|label: '거래량',
+19296|{ min: 1000000, max: null, label: '100만+' },
+19297|{ min: 500000, max: null, label: '50만+' },
+19298|{ min: 100000, max: null, label: '10만+' }
+19416|showNotification('필터를 1개 이상 설정해주세요', 'warning');
+19595|html += '<div class="popover-presets"><span class="popover-presets-label">빠른 선택</span><div class="popover-preset-btns">'
+19601|html += `<div class="popover-range-section"><span class="popover-range-label">직접 입력</span><div class="popover-range">`;
+19602|html += `<input type="number" inputmode="decimal" id="popover-range-min" placeholder="최소" value="${currentMin}">`;
+19604|html += `<input type="number" inputmode="decimal" id="popover-range-max" placeholder="최대" value="${currentMax}">`;
+19632|html += '<div class="popover-presets"><span class="popover-presets-label">조건</span><div class="popover-preset-btns">';
+19644|html += `<div class="popover-range-section"><span class="popover-range-label">직접 입력</span><div class="popover-range">`;
+19645|html += `<input type="number" inputmode="decimal" id="popover-range-min" placeholder="최소" value="${currentMin}">`;
+19647|html += `<input type="number" inputmode="decimal" id="popover-range-max" placeholder="최대" value="${currentMax}">`;
+19658|html += '<div class="popover-param"><label>종류:</label><select id="popover-sma-type">';
+19663|html += `<div class="popover-param"><label>기간:</label><input type="number" id="popover-sma-period" value="${curPeriod}" 
+19664|html += '<div class="popover-conditions"><span class="popover-presets-label">조건</span>';
+19680|html += '<div class="cross-row"><span class="cross-label">단기:</span>';
+19684|html += `<input type="number" id="popover-short-period" value="${curShortPeriod}" style="width:50px;"><span class="param
+19686|html += '<div class="cross-row"><span class="cross-label">장기:</span>';
+19690|html += `<input type="number" id="popover-long-period" value="${curLongPeriod}" style="width:50px;"><span class="param-u
+19692|html += '<div class="popover-conditions"><span class="popover-presets-label">조건</span>';
+19832|filterData.label = `${maType}(${period}) ${condLabel.replace('현재가가 ', '')}`;
+19847|const condLabel = condition === 'golden' ? '골든' : '데드';
+19898|container.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">선택된 필터 없음</span>';
+20023|tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">검색 중...</td></tr>';
+20056|tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">오류 발생: ${err.message || err}</td></tr>`;
+20068|<th data-sort="code" class="sortable">코드 <span class="sort-icon"></span></th>
+20069|<th data-sort="name" class="sortable">종목명 <span class="sort-icon"></span></th>
+20070|<th data-sort="price" class="sortable align-right">현재가 <span class="sort-icon"></span></th>
+20071|<th data-sort="change_pct" class="sortable align-right">등락률 <span class="sort-icon"></span></th>
+20072|<th data-sort="volume" class="sortable align-right">거래량 <span class="sort-icon"></span></th>
+20073|<th data-sort="market_cap" class="sortable align-right active">시총 <span class="sort-icon">▼</span></th>
+20079|<th data-sort="code" class="sortable">티커 <span class="sort-icon"></span></th>
+20080|<th data-sort="name" class="sortable">종목명 <span class="sort-icon"></span></th>
+20081|<th data-sort="sector" class="sortable">섹터 <span class="sort-icon"></span></th>
+20082|<th data-sort="change_pct" class="sortable align-right">등락률 <span class="sort-icon"></span></th>
+20083|<th data-sort="market_cap" class="sortable align-right active">시총 <span class="sort-icon">▼</span></th>
+20088|<th data-sort="code" class="sortable">코드 <span class="sort-icon"></span></th>
+20089|<th data-sort="name" class="sortable">종목명 <span class="sort-icon"></span></th>
+20090|<th data-sort="price" class="sortable align-right">현재가 <span class="sort-icon"></span></th>
+20091|<th data-sort="change_pct" class="sortable align-right">등락률 <span class="sort-icon"></span></th>
+20092|<th data-sort="volume" class="sortable align-right">거래량 <span class="sort-icon"></span></th>
+20093|<th data-sort="nav" class="sortable align-right active">순자산 <span class="sort-icon">▼</span></th>
+20094|<th data-sort="issuer" class="sortable">운용사 <span class="sort-icon"></span></th>
+20095|<th data-sort="category" class="sortable">카테고리 <span class="sort-icon"></span></th>
+20145|const catLabels = { basic: '기본', financial: '재무', technical: '기술' };
+20198|document.getElementById('panel-current-price').textContent = `${price}원`;
+20210|document.getElementById('panel-w52-high').textContent = stock.high_52w ? stock.high_52w.toLocaleString() + '원' : '-';
+20211|document.getElementById('panel-w52-low').textContent = stock.low_52w ? stock.low_52w.toLocaleString() + '원' : '-';
+20221|document.getElementById('panel-macd').textContent = stock.macd_cross === 'buy' ? '매수' : stock.macd_cross === 'sell' ? '매
+20222|document.getElementById('panel-bb').textContent = stock.bb_position === 'upper' ? '상단' : stock.bb_position === 'lower' ?
+20223|document.getElementById('panel-vol-surge').textContent = stock.volume_surge ? stock.volume_surge.toFixed(1) + '배' : '-';
+20226|const smaFormat = (pos) => pos === 'above' ? '위' : pos === 'below' ? '아래' : pos === 'near' ? '근접' : '-';
+20230|document.getElementById('panel-sma-cross').textContent = stock.sma_cross === 'golden' ? '골든' : stock.sma_cross === 'dead
+20260|tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">검색 결과가 없습니다</td></tr>';
+20368|if (cap >= 1000000000000) return (cap / 1000000000000).toFixed(1) + '조';
+20369|if (cap >= 100000000) return (cap / 100000000).toFixed(0) + '억';
+20413|select.innerHTML = '<option value="">프리셋 선택...</option>';
+20427|showNotification('프리셋 이름을 입력하세요', 'warning');
+20451|showNotification(`프리셋 "${name}" 저장 완료`, 'success');
+20468|showNotification('프리셋을 선택하세요', 'warning');
+20502|showNotification(`프리셋 "${preset.name}" 적용`, 'success');
+20510|showNotification('삭제할 프리셋을 선택하세요', 'warning');
+20515|if (!confirm(`프리셋 "${preset?.name}"을(를) 삭제하시겠습니까?`)) return;
+20525|showNotification('프리셋 삭제 완료', 'success');
+20562|showNotification('종목을 먼저 선택하세요', 'warning');
+20581|showNotification(`${stock.name} (${symbol}) 백테스트 준비 완료`, 'success');
+20589|showNotification('종목을 먼저 선택하세요', 'warning');
+20594|showNotification(`${stock.name} 관심종목 기능은 준비중입니다`, 'info');
+20640|msgEl.textContent = message || '이 기능을 사용하려면 요금제를 업그레이드하세요.';

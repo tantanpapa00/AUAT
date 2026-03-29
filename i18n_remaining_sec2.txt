@@ -1,0 +1,163 @@
+3083: console.log('[initStockKrAutocomplete] 종료 - input없음 또는 이미 초기화됨');
+3087: console.log('[initStockKrAutocomplete] createSymbolAutocomplete 호출');
+3095: console.log('[initStockKrAutocomplete] 완료:', stockKrAutocomplete);
+3150: <h3>종목 추가</h3>
+3155: <label>종목 검색</label>
+3156: <input type="text" id="watchlist-add-search" class="form-input" placeholder="종목명 또는 종목코드 검색..." auto
+3159: <label>메모 (선택)</label>
+3160: <input type="text" id="watchlist-add-memo" class="form-input" placeholder="메모 입력">
+3164: <button class="btn btn-secondary" id="btn-cancel-watchlist-add">취소</button>
+3165: <button class="btn btn-primary" id="btn-confirm-watchlist-add" disabled>추가</button>
+3199: showToast('종목을 선택해주세요', 'warning');
+3215: showToast(`${watchlistAddSelectedSymbol.name} 관심종목에 추가됨`, 'success');
+3219: showToast('종목 추가 실패: ' + e, 'error');
+3285: <span style="margin-left: 8px;">거래소에서 데이터 로딩 중...</span>
+3332: tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">인기 종목 로딩 실패</td></tr>';
+3359: console.log('[SearchSymbols] 오래된 요청 무시:', query);
+3380: tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">검색 실패</td></tr>';
+3402: tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">검색 결과 없음</td></tr>';
+3509: sourceEl.textContent = '네이버 금융';
+3568: document.getElementById('consensus-badge').className = `consensus-badge ${detail.opinion.consensus =
+3803: showToast(`${symbol}으로 전략 설정 페이지로 이동`, 'info');
+3877: list.innerHTML = '<p class="loading">전략 로딩 중...</p>';
+3890: <p>설정된 전략이 없습니다.</p>
+3891: <p>커스텀/역추세/추세 탭에서 전략을 추가하세요.</p>
+3899: const strategyType = s.name?.includes('MR') || s.name?.includes('역추세') ? 'mr' :
+3900: s.name?.includes('Trend') || s.name?.includes('추세') ? 'trend' : 'custom';
+3904: <h4>${s.name || '전략'}</h4>
+3909: <span>종목:</span>
+3913: <span>거래소:</span>
+3919: ${isRunning ? '실행중' : '비활성'}
+3921: <button class="btn btn-sm btn-danger btn-delete-strategy" data-id="${s.id}">삭제</button>
+3933: showToast(result.is_active ? '전략 활성화됨' : '전략 비활성화됨', 'success');
+3937: showToast('전략 토글 실패', 'error');
+3944: if (!confirm('이 전략을 삭제하시겠습니까?')) return;
+3948: showToast('전략이 삭제되었습니다', 'success');
+3952: showToast('전략 삭제 실패', 'error');
+3959: list.innerHTML = '<p class="empty">전략 로딩 실패</p>';
+3993: newSelect.innerHTML = '<option value="">선택하세요</option>';
+4099: console.error('KIS_KR 설정 저장 실패:', e);
+4104: showToast('KIS_KR 주문 설정이 저장되었습니다.', 'success');
+4132: console.error('KIS_US 설정 저장 실패:', e);
+4137: showToast('KIS_US 주문 설정이 저장되었습니다.', 'success');
+4202: showToast('로그인이 필요합니다.', 'error');
+4230: showToast('수익률 계산 실패: ' + e, 'error');
+4309: showToast('백테스팅 실행 중...', 'info');
+4379: showToast('백테스팅 완료', 'success');
+4382: showToast('백테스팅 실패: ' + error, 'error');
+4398: document.getElementById('bt-trades').textContent = `${summary.total_trades || 0}회`;
+4420: label: '자산',
+4464: label: '자산',
+4545: showToast('전략이 저장되고 활성화되었습니다', 'success');
+4549: showToast('전략 저장 실패: ' + error, 'error');
+4613: <p>등록된 계정이 없습니다.</p>
+4614: <p>계정 추가 버튼을 클릭하여 거래소를 연결하세요.</p>
+4628: ${acc.is_active ? '● 연결됨' : '○ 미연결'}
+4634: <span>****${acc.has_keys ? '(저장됨)' : '(미설정)'}</span>
+4638: <button class="btn btn-secondary btn-test" data-name="${acc.name}" data-exchange="${acc.exchange}">연
+4639: <button class="btn btn-danger btn-delete" data-id="${acc.id}" data-name="${acc.name}" data-exchange=
+4650: showToast('연결 성공', 'success');
+4652: showToast('연결 실패: ' + e, 'error');
+4661: if (!confirm(`${btn.dataset.name} 계정을 삭제하시겠습니까?`)) return;
+4664: showToast('계정이 삭제되었습니다', 'success');
+4667: showToast('삭제 실패: ' + e, 'error');
+4673: console.error('[loadAccountsList] 계정 로딩 실패:', error);
+4674: list.innerHTML = `<p class="empty">계정 로딩 실패: ${error}</p>`;
+4711: showToast('거래소를 선택하세요', 'error');
+4723: showToast('모든 필드를 입력하세요', 'error');
+4731: showToast('모든 필드를 입력하세요', 'error');
+4739: showToast('모든 필드를 입력하세요', 'error');
+4747: showToast('모든 필드를 입력하세요', 'error');
+4756: showToast('모든 필드를 입력하세요', 'error');
+4765: showToast('모든 필드를 입력하세요', 'error');
+4775: showToast('모든 필드를 입력하세요', 'error');
+4792: showToast('계정이 등록되었습니다', 'success');
+4799: showToast('등록 실패: ' + error, 'error');
+4809: document.getElementById('app-server-status').textContent = result.ok ? '정상 연결' : '연결 오류';
+4823: badge.textContent = plan === 'premium' ? '프리미엄' : plan === 'hub' ? '허브' : '무료';
+4826: desc.textContent = plan === 'premium' ? '모든 기능을 이용할 수 있습니다.' :
+4827: plan === 'hub' ? '허브 기능을 이용할 수 있습니다.' :
+4828: '기본 기능을 무료로 이용하세요.';
+4838: showToast('로그가 내보내졌습니다', 'success');
+4840: showToast('내보내기 실패', 'error');
+4845: showToast('요금제 페이지로 이동합니다...', 'info');
+4849: showToast('요금제 페이지로 이동합니다...', 'info');
+4956: tbody.innerHTML = '<tr><td colspan="4" class="empty-cell">최근 가입자 없음</td></tr>';
+4968: <td><span class="status-badge ${user.is_active ? 'success' : 'error'}">${user.is_active ? '활성' : '비활
+4975: tbody.innerHTML = '<tr><td colspan="4" class="empty-cell">로딩 실패</td></tr>';
+5000: tbody.innerHTML = '<tr><td colspan="3" class="empty-cell">데이터 없음</td></tr>';
+5007: <td>${d.count}회</td>
+5008: <td>~${d.tokens.toLocaleString()} 토큰</td>
+5014: tbody.innerHTML = '<tr><td colspan="3" class="empty-cell">로딩 실패</td></tr>';
+5022: tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">로딩 중...</td></tr>';
+5032: tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">사용자 없음</td></tr>';
+5056: <td><span class="status-badge ${user.is_active ? 'success' : 'error'}">${user.is_active ? '활성' : '비활
+5057: <td>${user.role === 'admin' ? '<span class="role-badge">관리자</span>' : ''}</td>
+5073: showToast('요금제가 변경되었습니다', 'success');
+5075: showToast('요금제 변경 실패', 'error');
+5083: tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">로딩 실패 (권한 확인)</td></tr>';
+5091: document.getElementById('sys-status').textContent = status.status === 'ok' ? '정상' : '오류';
+5095: document.getElementById('sys-db').textContent = status.db_connected ? '정상' : '오류';
+5109: document.getElementById('btn-export-users')?.addEventListener('click', () => showToast('CSV 내보내기 준비 
+5144: `코스피 ${kospiChange >= 0 ? '+' : ''}${kospiChange.toFixed(2)}%, ` +
+5145: `코스닥 ${kosdaqChange >= 0 ? '+' : ''}${kosdaqChange.toFixed(2)}%`;
+5207: if (num >= 100000000) return (num / 100000000).toFixed(1) + '억';
+5208: if (num >= 10000) return (num / 10000).toFixed(1) + '만';
+5244: `).join('') || '<tr><td colspan="3" class="empty-cell">데이터 없음</td></tr>';
+5264: volume: '거래량', rise: '등락률', fall: '등락률',
+5265: market_cap: '시가총액', foreign_buy: '외인순매수', foreign_sell: '외인순매도',
+5266: institution_buy: '기관순매수', institution_sell: '기관순매도'
+5268: if (headerEl) headerEl.textContent = headers[rankingType] || '거래량';
+5270: tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">로딩 중...</td></tr>';
+5299: }).join('') || '<tr><td colspan="5" class="empty-cell">데이터 없음</td></tr>';
+5306: tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">데이터를 불러올 수 없습니다</td></tr>';
+5374: tbody.innerHTML = '<tr><td colspan="4" class="empty-cell">로딩 중...</td></tr>';
+5387: tbody.innerHTML = '<tr><td colspan="4" class="empty-cell">KIS 계정 등록 필요</td></tr>';
+5394: const typeLabels = { dividend: '배당', ipo: '공모주', rights: '유상증자', bonus: '무상증자' };
+5398: if (e.type === 'dividend') detail = `${e.amount?.toLocaleString()}원 (${e.yield}%)`;
+5399: else if (e.type === 'ipo') detail = `공모가 ${e.price?.toLocaleString()}원`;
+5410: }).join('') || '<tr><td colspan="4" class="empty-cell">예정된 이벤트 없음</td></tr>';
+5417: tbody.innerHTML = '<tr><td colspan="4" class="empty-cell">데이터를 불러올 수 없습니다</td></tr>';
+5453: showToast('종목을 먼저 선택하세요', 'error');
+5465: loadingEl.innerHTML = '<div class="ai-spinner"></div><p id="ai-progress-text" style="color:var(--tex
+5484: throw new Error(reqResult.error || '요청 실패');
+5500: if (!jobId) throw new Error('작업 ID가 없습니다');
+5542: throw new Error(status.error || '분석 실패');
+5546: if (e.message && e.message.includes('분석 실패')) throw e;
+5547: console.warn('[AI Poll] 재시도:', e);
+5550: throw new Error('시간 초과 (3분). 다시 시도해주세요.');
+5587: <!-- 버튼 영역 -->
+5591: <span>📄</span> PDF 다운로드
+5595: <span>🔗</span> 공유
+5599: <!-- 1~4 섹션: 핵심요약, 실적, 성장동력, 이슈 (차트 없음) -->
+5602: <!-- 5. 기술적 분석 -->
+5603: <h2 style="color:var(--danger);margin-top:30px;padding-top:20px;border-top:2px solid var(--danger);"
+5605: <!-- 5.1 지지/저항: 제목 → 차트 → 설명 -->
+5606: <h3 style="margin-top:25px;color:var(--warning);">5.1 주가 및 지지/저항선 분석</h3>
+5607: ${c.price_chart ? `<img src="${c.price_chart}" style="width:100%;max-width:720px;margin:12px 0;borde
+5610: <!-- 5.2 추세: 제목 → 차트 → 설명 -->
+5611: <h3 style="margin-top:25px;color:var(--warning);">5.2 추세추종 지표 분석</h3>
+5612: ${c.trend_chart ? `<img src="${c.trend_chart}" style="width:100%;max-width:720px;margin:12px 0;borde
+5615: <!-- 5.3 모멘텀: 제목 → 차트 → 설명 -->
+5616: <h3 style="margin-top:25px;color:var(--warning);">5.3 모멘텀 지표 분석</h3>
+5617: ${c.momentum_chart ? `<img src="${c.momentum_chart}" style="width:100%;max-width:720px;margin:12px 0
+5620: <!-- 5.4~ 거래량, 종합, 시나리오, 투자전략, 면책 -->
+5738: const shareText = `📊 ${stockName}(${stockCode}) AI 종합분석\n\nBBooster에서 생성된 AI 투자 분석 리포트입니다.`;
+5743: title: `${stockName} AI 분석`,
+5753: showToast('분석 내용이 클립보드에 복사되었습니다', 'success');
+5755: showToast('공유 실패', 'error');
+5774: showToast('종목을 먼저 선택하세요', 'error');
+5782: groupsList.innerHTML = '<div class="loading">로딩 중...</div>';
+5792: `).join('') || '<div class="empty">그룹이 없습니다</div>';
+5802: groupsList.innerHTML = '<div class="error">그룹 로딩 실패</div>';
+5814: showToast('관심종목에 추가되었습니다', 'success');
+5826: showToast('그룹 이름을 입력하세요', 'error');
+5836: showToast('그룹이 생성되었습니다', 'success');
+5882: contentEl.innerHTML = '<div class="loading-state">데이터 로딩 중...</div>';
+5896: contentEl.innerHTML = '<div class="error-state"><p>데이터를 불러올 수 없습니다</p><button class="btn btn-sm btn-
+5938: <!-- 시장신호 헤더 (1줄 통합) -->
+5940: <!-- 좌측: 시장신호 + 신호등 -->
+5943: <span>시장신호</span>
+5948: <span class="se-signal-label">단기</span>
+5956: <span class="se-signal-label">장기</span>
+5965: <!-- 우측: KOSPI + KOSDAQ 블록 -->

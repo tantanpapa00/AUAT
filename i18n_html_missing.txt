@@ -1,0 +1,1156 @@
+total missing: 1155
+6|<title>BBooster — 큐브시스템</title>
+23|<p class="login-subtitle">큐브시스템 — Quint Booster Engine System</p>
+25|<!-- 이메일 로그인 폼 -->
+36|<!-- 회원가입 폼 -->
+57|<!-- 카카오 로그인 (메인 CTA) -->
+78|로그인 없이 계속 (로컬 모드)
+84|<!-- 약관 동의 화면 (소셜 로그인 신규 가입) -->
+134|<!-- 대시보드 -->
+136|<!-- Sidebar Navigation - 새 구조 -->
+141|<button class="sidebar-toggle" id="sidebar-toggle" title="사이드바 접기/펴기">
+146|<!-- 홈 -->
+152|<!-- 종목검색 - Pro 이상 -->
+158|<!-- 전략설정 (아코디언) -->
+177|<!-- 시장분석 (아코디언) - Pro 이상 -->
+197|<!-- HIDDEN: 추후 업데이트 예정 -->
+211|<!-- 관심종목 -->
+217|<!-- 설정 (아코디언) -->
+240|<!-- 관리자 (아코디언) -->
+269|<button class="logout-btn" id="sidebar-logout-btn" title="로그아웃">
+280|<h1 id="page-title">홈</h1>
+281|<span class="header-subtitle">큐브시스템 — BBooster</span>
+286|<span id="server-status" class="status-text">서버: --</span>
+291|<!-- ========== 홈 페이지 (PHASE 3) ========== -->
+293|<!-- 상단 요약 카드 -->
+307|<button class="profit-period-btn" id="btn-profit-period" title="기간 선택">📅</button>
+324|<div class="summary-value" id="active-strategies-count">0개</div>
+330|<!-- 자산 배분 -->
+365|<!-- 자산 배분 테이블 -->
+378|<td>국내주식</td>
+384|<td>해외주식</td>
+390|<td>암호화폐</td>
+396|<td>현금(원화)</td>
+402|<td>현금(달러)</td>
+412|<!-- 보유 자산 목록 -->
+423|<option value="kis_kr">KIS 국내</option>
+424|<option value="kis_us">KIS 해외</option>
+458|<!-- 활성 전략 현황 -->
+491|<!-- 최근 거래 내역 -->
+526|<!-- 긴급 정지 버튼 -->
+527|<button class="emergency-stop-btn" id="btn-emergency-stop" title="긴급 정지 - 모든 자동매매 즉시 중단">
+532|<!-- ========== TV 전략연결 페이지 (PHASE 4) ========== -->
+535|<!-- 위자드 진행 표시 -->
+558|<!-- Step 1: 거래소 선택 -->
+571|<!-- Step 2: 자산 선택 -->
+576|<input type="text" id="asset-search-input" class="search-input" placeholder="종목 검색 (예: BTC, 삼성전자)" a
+593|<!-- Step 3: 매매 설정 (Sizing/Risk/Limits) v2 -->
+598|<!-- 사이징 카드 -->
+602|<span class="help-icon" title="주문 수량을 결정하는 방식을 설정합니다">ℹ️</span>
+639|<input type="number" id="sizing-max-notional" value="0" min="0" step="1000" placeholder="0=무제한">
+646|<input type="number" id="sizing-min-notional" value="0" min="0" step="1000" placeholder="0=무제한">
+672|<!-- 리스크 카드 -->
+694|<!-- SL/TP 설정 (자동 손절/익절 선택 시만 표시) -->
+711|<label for="risk-sl-value">손절값 <span class="help-icon" title="진입가 대비 손절 발동 %">ℹ️</span></label>
+721|<input type="checkbox" id="risk-tp-enabled"> 익절 (TP) 활성화
+725|<label for="risk-tp-type">방식</label>
+727|<option value="pct">퍼센트</option>
+728|<option value="price">가격</option>
+732|<label for="risk-tp-value">익절값 <span class="help-icon" title="진입가 대비 익절 발동 %">ℹ️</span></label>
+742|<input type="checkbox" id="risk-trailing-enabled"> 트레일링 스탑 활성화
+746|<label for="risk-trailing-value">트레일링 값 <span class="help-icon" title="고점 대비 하락 시 청산 발동 %">ℹ️</span>
+757|<input type="checkbox" id="risk-reduce-only" checked> 청산주문 reduceOnly 사용
+758|<span class="help-icon" title="선물 거래에서 청산 주문 시 포지션 증가 방지">ℹ️</span>
+763|<!-- 리밋 카드 -->
+766|<h3>리밋 (Limits)</h3>
+767|<span class="help-icon" title="사고 방지를 위한 가드레일 설정">ℹ️</span>
+772|<input type="checkbox" id="limits-idempotency-enabled" checked> 중복신호 방지
+773|<span class="help-icon" title="같은 alert_id로 중복 주문 방지 (24시간 내)">ℹ️</span>
+777|<label for="limits-cooldown">쿨다운 <span class="help-icon" title="마지막 주문 후 다음 주문까지 대기 시간 (0=비활성)">ℹ️</
+779|<input type="number" id="limits-cooldown" value="0" min="0" step="1" placeholder="0=비활성">
+780|<span class="suffix">초</span>
+785|<input type="checkbox" id="limits-one-trade-per-bar"> 1봉 1회 제한
+786|<span class="help-icon" title="같은 봉(캔들) 내에서 1회만 거래">ℹ️</span>
+792|<h4 class="subsection-title">일일 한도</h4>
+796|<input type="checkbox" id="limits-daily-trades-enabled"> 일일 최대 거래 횟수
+801|<span class="suffix">회</span>
+807|<input type="checkbox" id="limits-daily-notional-enabled"> 일일 최대 거래 금액
+819|<h4 class="subsection-title">포지션 한도</h4>
+823|<input type="checkbox" id="limits-max-positions-enabled"> 최대 동시 포지션
+828|<span class="suffix">개</span>
+834|<input type="checkbox" id="limits-allow-same-side-add" checked> 같은 방향 추가 진입 허용
+835|<span class="help-icon" title="이미 롱 포지션이 있을 때 추가 롱 진입 허용 여부">ℹ️</span>
+842|<button class="btn btn-secondary" id="btn-tv-prev-3">이전</button>
+843|<button class="btn btn-primary" id="btn-tv-next-3">템플릿 생성</button>
+847|<!-- Step 4: 템플릿 확인 -->
+849|<h2>단계 4. 템플릿 확인</h2>
+850|<p class="step-description">생성된 JSON을 TradingView 웹훅 메시지에 붙여넣으세요.</p>
+854|<span>사이징/리스크/리밋 설정은 서버에 저장됩니다. 웹훅 JSON에는 필수 필드만 포함됩니다.</span>
+859|<span>JSON 템플릿</span>
+860|<button class="btn btn-secondary btn-sm" id="btn-copy-template">복사</button>
+866|<h4>웹훅 URL</h4>
+869|<button class="btn btn-sm btn-secondary" id="btn-copy-webhook-url">복사</button>
+872|<h4>TradingView 설정 방법</h4>
+874|<li>TradingView에서 전략 또는 알림 설정</li>
+875|<li>웹훅 URL에 위 주소 입력</li>
+876|<li>메시지에 위 JSON 붙여넣기</li>
+877|<li>알림 저장</li>
+883|<button class="btn btn-secondary" id="btn-tv-prev-4">이전</button>
+884|<button class="btn btn-primary" id="btn-tv-restart">처음부터 다시</button>
+888|<!-- 웹훅 수신 로그 -->
+891|<h2>최근 수신 웹훅</h2>
+892|<button class="btn btn-secondary btn-sm" id="btn-refresh-webhook-logs">새로고침</button>
+898|<th>시간</th>
+899|<th>상태</th>
+900|<th>거래소</th>
+901|<th>자산</th>
+902|<th>내용</th>
+906|<tr><td colspan="5" class="empty-cell">로그 없음</td></tr>
+914|<!-- ========== 종목분석 페이지 (PHASE 5) ========== -->
+917|<!-- 검색 영역 -->
+920|<input type="text" id="symbol-search" class="search-input" placeholder="종목명 또는 종목코드 검색..." autocompl
+921|<button class="btn btn-primary" id="btn-symbol-search">검색</button>
+924|<button class="filter-tab active" data-exchange="all">전체</button>
+929|<button class="filter-tab" data-exchange="kis_kr">국내주식</button>
+930|<button class="filter-tab" data-exchange="kis_kr_etf">국내ETF</button>
+931|<button class="filter-tab" data-exchange="kis_us">해외주식</button>
+932|<button class="filter-tab" data-exchange="kis_us_etf">해외ETF</button>
+935|<span class="label">인기 종목:</span>
+939|<button class="symbol-tag" data-symbol="005930">삼성전자</button>
+943|<!-- 종목 목록 -->
+948|<th>종목코드</th>
+949|<th>이름</th>
+950|<th>거래소</th>
+951|<th>현재가</th>
+952|<th>24h 변동</th>
+953|<th>거래량</th>
+957|<tr><td colspan="6" class="empty-cell">종목을 검색하세요</td></tr>
+962|<!-- 종목 상세 정보 패널 (미니 종목보고서) -->
+974|<button class="btn btn-icon" id="btn-add-watchlist" title="관심종목 추가">★</button>
+975|<button class="btn btn-icon ai-btn" id="btn-ai-analysis" title="AI 종합분석">🤖</button>
+976|<button class="btn btn-secondary" id="btn-close-detail">닫기</button>
+980|<!-- 현재가 헤더 -->
+984|<span class="data-source" id="detail-source" title="데이터 출처"></span>
+987|<!-- 상세 탭 -->
+989|<button class="detail-tab active" data-tab="price">시세</button>
+990|<button class="detail-tab" data-tab="financial">재무</button>
+991|<button class="detail-tab" data-tab="opinion">투자의견</button>
+994|<!-- 시세 탭 -->
+998|<span class="stat-label">고가</span>
+1002|<span class="stat-label">저가</span>
+1006|<span class="stat-label">거래량</span>
+1010|<span class="stat-label">시가총액</span>
+1017|<button class="chart-period-btn" data-period="1w">1주</button>
+1018|<button class="chart-period-btn active" data-period="1m">1개월</button>
+1019|<button class="chart-period-btn" data-period="3m">3개월</button>
+1020|<button class="chart-period-btn" data-period="6m">6개월</button>
+1021|<button class="chart-period-btn" data-period="1y">1년</button>
+1024|<button class="chart-type-btn active" data-type="line">라인</button>
+1025|<button class="chart-type-btn" data-type="candle">캔들</button>
+1030|<label><input type="checkbox" id="ma5-toggle"> 5일선</label>
+1031|<label><input type="checkbox" id="ma20-toggle"> 20일선</label>
+1032|<label><input type="checkbox" id="ma60-toggle"> 60일선</label>
+1036|<h4>투자자별 순매수 (최근 5일)</h4>
+1041|<!-- 재무 탭 -->
+1044|<p>KIS 계정을 등록하면 재무제표를 확인할 수 있습니다.</p>
+1045|<button class="btn btn-primary btn-sm" onclick="navigateTo('account-manage')">계정 등록하기</button>
+1062|<span class="fin-label">부채비율</span>
+1067|<h4>손익 추이 (최근 4분기)</h4>
+1073|<!-- 투자의견 탭 -->
+1076|<p>KIS 계정을 등록하면 투자의견을 확인할 수 있습니다.</p>
+1077|<button class="btn btn-primary btn-sm" onclick="navigateTo('account-manage')">계정 등록하기</button>
+1081|<div class="consensus-badge" id="consensus-badge">매수</div>
+1083|<span class="label">목표가</span>
+1087|<span>분석가 <strong id="analyst-count">0</strong>명</span>
+1091|<h4>투자의견 분포</h4>
+1095|<div class="opinion-item buy"><span>매수</span><span id="buy-count">0</span></div>
+1096|<div class="opinion-item hold"><span>중립</span><span id="hold-count">0</span></div>
+1097|<div class="opinion-item sell"><span>매도</span><span id="sell-count">0</span></div>
+1102|<button class="btn btn-primary" id="btn-set-strategy-symbol">이 종목으로 전략 설정</button>
+1105|<!-- 접근 제한 안내 -->
+1109|<h3>종목분석는 허브 이상 요금제에서 이용 가능합니다</h3>
+1110|<p>허브 또는 프리미엄 요금제로 업그레이드하여 모든 기능을 이용하세요.</p>
+1111|<button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 확인</button>
+1117|<!-- ========== 시장현황 페이지 (STEP 2) ========== -->
+1120|<!-- Pro 이상 요금제 필요 안내 -->
+1124|<h3>시장분석은 Pro 이상 요금제에서 이용 가능합니다</h3>
+1125|<button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 업그레이드</button>
+1130|<!-- 지수 카드 -->
+1133|<div class="index-name">코스피</div>
+1138|<div class="index-name">코스닥</div>
+1143|<div class="index-name">나스닥</div>
+1153|<div class="index-name">다우존스</div>
+1159|<!-- 시황 요약 -->
+1161|<h3><span id="market-status-emoji">🟡</span> 시장 상태: <span id="market-status-text">-</span></h3>
+1162|<p id="market-summary-text">데이터를 불러오는 중...</p>
+1165|<!-- 투자자 동향 -->
+1167|<h3>투자자별 매매동향</h3>
+1170|<span class="label">외국인</span>
+1177|<span class="label">기관</span>
+1184|<span class="label">개인</span>
+1191|<p class="kis-hint" id="investor-kis-hint" style="display: none;">KIS 계정을 등록하면 상세 데이터를 볼 수 있습니다.</p>
+1197|<!-- ========== 업종분석 페이지 (STEP 2) ========== -->
+1203|<h3>시장분석은 Pro 이상 요금제에서 이용 가능합니다</h3>
+1204|<button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 업그레이드</button>
+1209|<h3>업종별 현황</h3>
+1212|<span class="leader-label">주도 업종</span>
+1216|<span class="leader-label lagging">부진 업종</span>
+1223|<th>업종명</th>
+1224|<th>현재</th>
+1225|<th>등락률</th>
+1229|<tr><td colspan="3" class="empty-cell">데이터 로딩 중...</td></tr>
+1236|<!-- ========== 종목순위 페이지 (STEP 2) ========== -->
+1242|<h3>시장분석은 Pro 이상 요금제에서 이용 가능합니다</h3>
+1243|<button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 업그레이드</button>
+1249|<button class="ranking-tab active" data-type="volume">거래량</button>
+1250|<button class="ranking-tab" data-type="rise">상승률</button>
+1251|<button class="ranking-tab" data-type="fall">하락률</button>
+1252|<button class="ranking-tab" data-type="market_cap">시가총액</button>
+1253|<button class="ranking-tab" data-type="foreign_buy">외인순매수</button>
+1254|<button class="ranking-tab" data-type="institution_buy">기관순매수</button>
+1258|<option value="all">전체</option>
+1259|<option value="kospi">코스피</option>
+1260|<option value="kosdaq">코스닥</option>
+1266|<th>순위</th>
+1267|<th>종목명</th>
+1268|<th>현재가</th>
+1269|<th>등락률</th>
+1270|<th id="ranking-extra-header">거래량</th>
+1274|<tr><td colspan="5" class="empty-cell">데이터 로딩 중...</td></tr>
+1281|<!-- ========== 특징주 페이지 (STEP 2) ========== -->
+1287|<h3>시장분석은 Pro 이상 요금제에서 이용 가능합니다</h3>
+1288|<button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 업그레이드</button>
+1294|<h3>🔺 상한가</h3>
+1298|<h3>🔻 하한가</h3>
+1302|<h3>🚀 급등주</h3>
+1306|<h3>📉 급락주</h3>
+1312|<h3>상승률 TOP 10</h3>
+1315|<tr><th>순위</th><th>종목명</th><th>현재가</th><th>등락률</th></tr>
+1322|<h3>하락률 TOP 10</h3>
+1325|<tr><th>순위</th><th>종목명</th><th>현재가</th><th>등락률</th></tr>
+1333|<!-- ========== 이벤트일정 페이지 (STEP 2) ========== -->
+1339|<h3>시장분석은 Pro 이상 요금제에서 이용 가능합니다</h3>
+1340|<button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 업그레이드</button>
+1346|<button class="event-tab active" data-type="all">전체</button>
+1347|<button class="event-tab" data-type="dividend">배당</button>
+1348|<button class="event-tab" data-type="ipo">공모주</button>
+1349|<button class="event-tab" data-type="rights">유상증자</button>
+1350|<button class="event-tab" data-type="bonus">무상증자</button>
+1353|<p>이벤트 일정은 KIS 계정 등록 시 이용 가능합니다.</p>
+1354|<button class="btn btn-primary btn-sm" onclick="navigateTo('accounts')">계정 등록하기</button>
+1359|<th>유형</th>
+1360|<th>종목명</th>
+1361|<th>일자</th>
+1362|<th>상세</th>
+1366|<tr><td colspan="4" class="empty-cell">데이터 로딩 중...</td></tr>
+1373|<!-- ========== 프리미엄 전략 페이지 (PHASE 6) ========== -->
+1376|<!-- 탭 메뉴 -->
+1378|<button class="strategy-tab active" data-tab="status">전략현황</button>
+1379|<button class="strategy-tab" data-tab="reversal">역추세매매</button>
+1380|<button class="strategy-tab" data-tab="trend">추세매매</button>
+1381|<button class="strategy-tab" data-tab="custom">커스텀</button>
+1384|<!-- 전략현황 탭 -->
+1386|<h2>활성화된 전략</h2>
+1389|<p>설정된 전략이 없습니다.</p>
+1390|<p>커스텀/역추세매매/추세매매 탭에서 전략을 추가하세요.</p>
+1395|<!-- 커스텀 전략 탭 -->
+1397|<h2>커스텀 전략 설정 <span class="difficulty-badge advanced">🔴 고급</span></h2>
+1398|<p class="strategy-description">🛠️ 나만의 조건으로 직접 만드는 전략</p>
+1399|<p class="strategy-subdesc">매수/매도 조건을 원하는 대로 조합하여 자신만의 전략을 구성합니다. 자동매매 경험이 있는 분에게 추천합니다.</p>
+1401|<!-- 거래소 + 종목 + 타임프레임 -->
+1403|<h3>거래소 + 종목</h3>
+1406|<label>거래소</label>
+1408|<option value="KIS_KR" selected>KIS_KR(한국투자증권)</option>
+1409|<option value="KIS_US">KIS_US(한국투자증권)</option>
+1417|<label>종목</label>
+1418|<input type="text" id="custom-symbol" class="form-input" placeholder="예: BTC-USDT" autocomplete="off
+1421|<label>타임프레임</label>
+1423|<option value="1D">일봉 (1D)</option>
+1424|<option value="4H">4시간 (4H)</option>
+1425|<option value="1H">1시간 (1H)</option>
+1426|<option value="30m">30분 (30m)</option>
+1427|<option value="15m">15분 (15m)</option>
+1428|<option value="5m">5분 (5m)</option>
+1429|<option value="1W">주봉 (1W)</option>
+1435|<!-- 진입 조건 (매수) -->
+1437|<h3>진입 조건 (매수)</h3>
+1438|<p class="section-hint">각 그룹 내 조건은 AND로 연결, 그룹 간은 OR로 연결됩니다</p>
+1440|<button type="button" class="btn btn-secondary btn-sm" id="btn-add-entry-group">+ 조건 그룹 추가 (OR)</but
+1443|<!-- 청산 조건 (매도) -->
+1445|<h3>청산 조건 (매도)</h3>
+1446|<p class="section-hint">각 그룹 내 조건은 AND로 연결, 그룹 간은 OR로 연결됩니다</p>
+1448|<button type="button" class="btn btn-secondary btn-sm" id="btn-add-exit-group">+ 조건 그룹 추가 (OR)</butt
+1451|<!-- 위험관리 -->
+1453|<h3>위험관리</h3>
+1456|<label>포지션 비중 (%)</label>
+1460|<label>손절 (%)</label>
+1461|<input type="number" id="custom-stop-loss" class="form-input" placeholder="선택" step="0.1">
+1464|<label>익절 (%)</label>
+1465|<input type="number" id="custom-take-profit" class="form-input" placeholder="선택" step="0.1">
+1468|<label>수수료 (%)</label>
+1474|<!-- 백테스트 설정 및 실행 -->
+1476|<h3>백테스트</h3>
+1479|<label>전략 이름</label>
+1480|<input type="text" id="custom-strategy-name" class="form-input" value="내 전략" placeholder="전략 이름">
+1483|<label>테스트 기간 (일)</label>
+1487|<label>초기 자본</label>
+1491|<button class="btn btn-primary" id="btn-custom-run-backtest">백테스트 실행</button>
+1495|<!-- 로딩 표시 -->
+1498|<div id="custom-backtest-loading-msg" style="font-size:14px; color:var(--text-muted); margin-top:12p
+1499|<div style="font-size:12px; color:var(--text-muted); margin-top:4px;">첫 조회 시 다소 시간이 걸릴 수 있습니다</div>
+1502|<!-- 에러 표시 -->
+1505|<!-- 결과 영역 -->
+1507|<!-- 5카드 요약 -->
+1510|<div class="bt-card-label">순손익</div>
+1514|<div class="bt-card-label">총 거래</div>
+1518|<div class="bt-card-label">승률</div>
+1522|<div class="bt-card-label">수익지수</div>
+1526|<div class="bt-card-label">최대낙폭</div>
+1531|<!-- 캔들 차트 -->
+1533|<h4>캔들 차트</h4>
+1537|<!-- 수익률 테이블 -->
+1539|<h4>수익률</h4>
+1543|<th>항목</th>
+1544|<th>전체</th>
+1545|<th>매수</th>
+1546|<th>매도</th>
+1553|<!-- 거래 내역 -->
+1555|<h4>거래 내역</h4>
+1560|<th>번호</th>
+1561|<th>유형</th>
+1562|<th>날짜</th>
+1563|<th>가격</th>
+1564|<th>수량</th>
+1565|<th>구분</th>
+1566|<th>손익</th>
+1567|<th>수익률</th>
+1578|<!-- 역추세매매 탭 (MR 프리미엄 엔진) - 리디자인 -->
+1580|<h2>역추세매매 설정 <span class="difficulty-badge beginner">🟢 초보 추천</span></h2>
+1581|<p class="strategy-description">📉 과하게 떨어진 종목의 반등을 노리는 전략</p>
+1582|<p class="strategy-subdesc">평균보다 많이 떨어진 종목을 매수하고, 가격이 회복되면 매도합니다. 비중 조절과 운용 방식에 따라 수익률이 크게 달라질 수 있습니
+1584|<!-- ① 거래소 + 종목 (항상 열림) -->
+1586|<h3 class="mr-section-header">거래소 + 종목</h3>
+1590|<label>거래소</label>
+1592|<option value="KIS_KR" selected>KIS_KR(한국투자증권)</option>
+1593|<option value="KIS_US">KIS_US(한국투자증권)</option>
+1601|<label>종목</label>
+1602|<input type="text" id="mr-symbol" class="form-input" placeholder="예: BTC-USDT" autocomplete="off">
+1608|<!-- ② 가용자금 (항상 열림) -->
+1610|<h3 class="mr-section-header">가용자금</h3>
+1614|<label>가용자금 사용률 (%)</label>
+1616|<span class="mr-help">해당 계좌 가용자금 중 투입할 비율</span>
+1619|<label>절대 노출 상한 (%)</label>
+1621|<span class="mr-help">자산 대비 최대 노출 상한 (안전장치)</span>
+1627|<!-- ③ 기본 설정 (아코디언, 기본 접힘) -->
+1630|<span class="mr-accordion-icon">▶</span> 기본 설정
+1633|<!-- 타임프레임 -->
+1636|<label>시그널 TF</label>
+1638|<option value="15m">15분</option>
+1639|<option value="30m" selected>30분</option>
+1640|<option value="1h">1시간</option>
+1641|<option value="4h">4시간</option>
+1642|<option value="1D">일봉</option>
+1644|<span class="mr-help">오실레이터 신호를 계산할 타임프레임</span>
+1647|<label>HTF (국면 판별)</label>
+1649|<option value="4h">4시간</option>
+1650|<option value="1D" selected>일봉</option>
+1651|<option value="1W">주봉</option>
+1653|<span class="mr-help">VWMA50/200, Supertrend 등 국면 지표 계산용</span>
+1657|<!-- 오실레이터 -->
+1660|<label>오실레이터 스무딩</label>
+1662|<span class="mr-help">smoother 길이 (기본: 4)</span>
+1665|<label>오실레이터 임계값</label>
+1667|<span class="mr-help">신호 발생 기준 (기본: 1.0)</span>
+1671|<!-- 매도 게이트 -->
+1674|<label>매도허용 최소수익 (%)</label>
+1676|<span class="mr-help">이 수익률 이상일 때만 매도 실행</span>
+1679|<label>매도게이트 버퍼 (%)</label>
+1681|<span class="mr-help">백테스트 시 최소수익에 합산되는 버퍼</span>
+1685|<!-- 기타 옵션 -->
+1690|HTF 반전보정
+1692|<span class="mr-help">HTF 뒤집힐 때 튀는 값 보정</span>
+1697|1봉 1주문 락
+1699|<span class="mr-help">같은 봉에서 중복 주문 방지</span>
+1705|<!-- ④ 매수/매도 차수 + 비중 (아코디언, 기본 접힘) -->
+1708|<span class="mr-accordion-icon">▶</span> 매수/매도 차수 + 비중
+1711|<!-- 매수 비중 -->
+1713|<h4>매수 비중</h4>
+1716|<label>매수 차수</label>
+1718|<span class="mr-help">차수를 변경하면 비중 입력 칸이 자동 생성됩니다</span>
+1722|<!-- JavaScript가 동적 생성 -->
+1726|<label>합계: <span id="mr-buy-total-pct">50</span>%</label>
+1731|<label>최대 차수 초과 시</label>
+1733|<label><input type="radio" name="mr-after-max-buy" value="extend" checked> 반복 (마지막 비중)</label>
+1734|<label><input type="radio" name="mr-after-max-buy" value="cycle"> 처음부터</label>
+1735|<label><input type="radio" name="mr-after-max-buy" value="stop"> 중단</label>
+1743|<!-- 매도 비중 -->
+1745|<h4>매도 비중</h4>
+1748|<label>매도 차수</label>
+1753|<!-- JavaScript가 동적 생성 -->
+1757|<label>합계: <span id="mr-sell-total-pct">68.5</span>%</label>
+1758|<span class="mr-help">보유수량 대비 % (100% 이하 권장)</span>
+1763|<label>최대 차수 초과 시</label>
+1765|<label><input type="radio" name="mr-after-max-sell" value="cycle" checked> 처음부터</label>
+1766|<label><input type="radio" name="mr-after-max-sell" value="extend"> 반복</label>
+1767|<label><input type="radio" name="mr-after-max-sell" value="stop"> 중단</label>
+1775|<!-- ⑤ 국면별 설정 (아코디언 + 내부 탭) -->
+1778|<span class="mr-accordion-icon">▶</span> 국면별 설정
+1781|<!-- 4-Regime 사용 토글 -->
+1785|4국면 자동 판별 사용
+1787|<span class="mr-help">OFF 시 단일 국면으로 동작 (국면 무시)</span>
+1790|<!-- R1~R4 탭 -->
+1792|<button class="mr-regime-tab active" data-regime="r1">R1 상승장</button>
+1793|<button class="mr-regime-tab" data-regime="r2">R2 조정장</button>
+1794|<button class="mr-regime-tab" data-regime="r3">R3 반등장</button>
+1795|<button class="mr-regime-tab" data-regime="r4">R4 하락장</button>
+1798|<!-- R1 상승장 -->
+1800|<p class="mr-regime-desc">정배열(VWMA50&gt;=200) + Supertrend 상승</p>
+1803|<label>매수 배수</label>
+1805|<span class="mr-help">기본 매수금액 x 이 배수</span>
+1808|<label>매도 배수</label>
+1810|<span class="mr-help">기본 매도수량 x 이 배수</span>
+1814|<div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r1-allow-osc-buy" 
+1815|<div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r1-buy1-only"> BUY
+1816|<div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r1-sell1-only"> SE
+1820|<label>매도 방식</label>
+1822|<label><input type="radio" name="mr-r1-sell-mode" value="Normal" checked> 일반</label>
+1823|<label><input type="radio" name="mr-r1-sell-mode" value="Alternate"> 교대 (2회 중 1회)</label>
+1828|<h5>필터</h5>
+1830|<label class="checkbox-label"><input type="checkbox" id="mr-r1-filt-below-avg" checked> 평단가 이하 매수</l
+1831|<label class="checkbox-label"><input type="checkbox" id="mr-r1-filt-prev-signal" checked> 직전 신호가보다 낮
+1832|<label class="checkbox-label"><input type="checkbox" id="mr-r1-filt-prev-exec" checked> 직전 체결가보다 낮을 
+1836|<h5>특수 트리거</h5>
+1839|<label class="checkbox-label"><input type="checkbox" id="mr-r1-pullback-on" checked> 눌림매수 1회</label>
+1840|<span class="mr-help">HULL MA 하락 전환 시 대기 -> OSC 신호 발생하면 1회 추가매수</span>
+1843|<label>눌림 배수</label>
+1850|<!-- R2 조정장 -->
+1852|<p class="mr-regime-desc">정배열(VWMA50&gt;=200) + Supertrend 하락</p>
+1855|<label>매수 배수</label>
+1857|<span class="mr-help">0 = 매수 금지</span>
+1860|<label>매도 배수</label>
+1865|<div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r2-allow-osc-buy">
+1866|<div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r2-buy1-only"> BUY
+1867|<div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r2-sell1-only"> SE
+1871|<label>매도 방식</label>
+1873|<label><input type="radio" name="mr-r2-sell-mode" value="Normal"> 일반</label>
+1874|<label><input type="radio" name="mr-r2-sell-mode" value="Alternate" checked> 교대</label>
+1876|<span class="mr-help">조정장에서는 교대매도 기본</span>
+1880|<h5>필터</h5>
+1882|<label class="checkbox-label"><input type="checkbox" id="mr-r2-filt-below-avg"> 평단가 이하 매수</label>
+1883|<label class="checkbox-label"><input type="checkbox" id="mr-r2-filt-prev-signal"> 직전 신호가보다 낮을 때</lab
+1884|<label class="checkbox-label"><input type="checkbox" id="mr-r2-filt-prev-exec"> 직전 체결가보다 낮을 때</label
+1889|<!-- R3 반등장 -->
+1891|<p class="mr-regime-desc">역배열(VWMA50&lt;200) + Supertrend 상승</p>
+1894|<label>매수 배수</label>
+1898|<label>매도 배수</label>
+1903|<div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r3-allow-osc-buy" 
+1904|<div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r3-buy1-only" chec
+1905|<div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r3-sell1-only"> SE
+1909|<label>매도 방식</label>
+1911|<label><input type="radio" name="mr-r3-sell-mode" value="Normal" checked> 일반</label>
+1912|<label><input type="radio" name="mr-r3-sell-mode" value="Alternate"> 교대</label>
+1917|<h5>필터</h5>
+1919|<label class="checkbox-label"><input type="checkbox" id="mr-r3-filt-below-avg"> 평단가 이하 매수</label>
+1920|<label class="checkbox-label"><input type="checkbox" id="mr-r3-filt-prev-signal" checked> 직전 신호가보다 낮
+1921|<label class="checkbox-label"><input type="checkbox" id="mr-r3-filt-prev-exec" checked> 직전 체결가보다 낮을 
+1925|<h5>특수 트리거</h5>
+1928|<label class="checkbox-label"><input type="checkbox" id="mr-r3-breakout-on" checked> 돌파매수 1회</label>
+1929|<span class="mr-help">종가가 일목 선행스팬B를 상향 돌파 시 1회 추가매수 (음운 조건)</span>
+1932|<label>돌파 배수</label>
+1939|<!-- R4 하락장 -->
+1941|<p class="mr-regime-desc">역배열(VWMA50&lt;200) + Supertrend 하락</p>
+1944|<label>매수 배수</label>
+1946|<span class="mr-help">하락장에서 매수 확대</span>
+1949|<label>매도 배수</label>
+1951|<span class="mr-help">하락장에서 매도 축소</span>
+1955|<div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r4-allow-osc-buy" 
+1956|<div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r4-buy1-only"> BUY
+1957|<div class="mr-field"><label class="checkbox-label"><input type="checkbox" id="mr-r4-sell1-only"> SE
+1961|<label>매도 방식</label>
+1963|<label><input type="radio" name="mr-r4-sell-mode" value="Normal" checked> 일반</label>
+1964|<label><input type="radio" name="mr-r4-sell-mode" value="Alternate"> 교대</label>
+1969|<h5>필터</h5>
+1971|<label class="checkbox-label"><input type="checkbox" id="mr-r4-filt-below-avg" checked> 평단가 이하 매수</l
+1972|<label class="checkbox-label"><input type="checkbox" id="mr-r4-filt-prev-signal" checked> 직전 신호가보다 낮
+1973|<label class="checkbox-label"><input type="checkbox" id="mr-r4-filt-prev-exec"> 직전 체결가보다 낮을 때</label
+1980|<!-- 백테스트 섹션 -->
+1983|<span class="mr-accordion-icon">▶</span> 백테스트
+1988|<label>백테스트 기간 (일)</label>
+1992|<label>초기 자본</label>
+1996|<button class="btn btn-primary" id="btn-mr-run-backtest">백테스트 실행</button>
+1998|<!-- 로딩 표시 -->
+2001|<div id="mr-backtest-loading-msg" style="font-size:14px; color:var(--text-muted); margin-top:12px;">
+2002|<div style="font-size:12px; color:var(--text-muted); margin-top:4px;">첫 조회 시 다소 시간이 걸릴 수 있습니다</div>
+2005|<!-- 에러 표시 -->
+2008|<!-- 백테스트 결과 (트레이딩뷰 동일 구조) -->
+2012|<!-- 캔들 차트 (TradingView Lightweight Charts) - 맨 위 -->
+2014|<h4 style="color:var(--text-primary); margin-bottom:12px; font-size:14px;">캔들 차트 (20/50/200일선)</h4>
+2018|<!-- 상단 카드 5개 (1줄) - 트레이딩뷰 동일 -->
+2021|<div class="metric-label">총 손익</div>
+2026|<div class="metric-label">최대 자본 감소</div>
+2031|<div class="metric-label">총 거래횟수</div>
+2035|<div class="metric-label">수익성 거래</div>
+2040|<div class="metric-label">수익지수</div>
+2045|<!-- 수익률 테이블 (전체/매수/매도 3열) -->
+2047|<h4 style="color:var(--text-primary); margin-bottom:12px; font-size:14px;">📊 수익률</h4>
+2052|<th style="padding:8px; text-align:right; width:25%;">전체</th>
+2053|<th style="padding:8px; text-align:right; width:25%;">매수</th>
+2054|<th style="padding:8px; text-align:right; width:25%;">매도</th>
+2061|<!-- 자산 추이 차트 -->
+2063|<h4 style="color:var(--text-primary); margin-bottom:12px; font-size:14px;">📈 자산 추이</h4>
+2067|<!-- 거래 내역 테이블 (수익금+수익률 둘 다 표시) -->
+2070|<h4 style="color:var(--text-primary); font-size:14px;">📋 거래 내역</h4>
+2078|<th style="padding:8px 4px; text-align:left;">타입</th>
+2079|<th style="padding:8px 4px; text-align:left;">날짜</th>
+2080|<th style="padding:8px 4px; text-align:right;">가격</th>
+2081|<th style="padding:8px 4px; text-align:right;">수량</th>
+2082|<th style="padding:8px 4px; text-align:left;">차수</th>
+2083|<th style="padding:8px 4px; text-align:right;">수익금</th>
+2084|<th style="padding:8px 4px; text-align:right;">수익률</th>
+2085|<th style="padding:8px 4px; text-align:right;">누적</th>
+2096|<!-- 하단 액션 버튼 -->
+2098|<button class="btn btn-secondary" id="btn-mr-backtest-quick">백테스트</button>
+2099|<button class="btn btn-primary" id="btn-mr-save">저장</button>
+2100|<button class="btn btn-danger" id="btn-mr-start-strategy">전략 시작</button>
+2104|<!-- 추세매매 탭 (Trend 프리미엄 엔진) - v8 UI 전면 재설계 -->
+2106|<h2>추세매매 설정 <span class="difficulty-badge intermediate">🟡 중급</span></h2>
+2107|<p class="strategy-description">📈 오르는 종목에 올라타는 전략</p>
+2108|<p class="strategy-subdesc">상승 흐름이 시작된 종목을 매수하고, 흐름이 꺾이면 매도합니다. 강한 상승장에서 큰 수익을 기대할 수 있습니다.</p>
+2110|<!-- ① 거래소 + 종목 (항상 열림) -->
+2112|<h3 class="mr-section-header">거래소 + 종목</h3>
+2116|<label>거래소</label>
+2118|<option value="KIS_KR" selected>KIS_KR(한국투자증권)</option>
+2119|<option value="KIS_US">KIS_US(한국투자증권)</option>
+2127|<label>종목</label>
+2128|<input type="text" id="trend-symbol" class="form-input" placeholder="예: BTC-USDT" autocomplete="off"
+2134|<!-- ② 가용자금 (항상 열림) -->
+2136|<h3 class="mr-section-header">가용자금</h3>
+2140|<label>가용자금 사용률 (%)</label>
+2142|<span class="mr-help">해당 계좌 가용자금 중 투입할 비율</span>
+2148|<!-- ③ 매수 설정 (아코디언, 기본 열림) -->
+2151|<span class="mr-accordion-icon">▶</span> 매수 설정
+2155|<!-- 타임프레임 3개 -->
+2158|<label>기준 타임프레임</label>
+2160|<option value="15m">15분</option>
+2161|<option value="30m">30분</option>
+2162|<option value="1h">1시간</option>
+2163|<option value="4h">4시간</option>
+2164|<option value="12h">12시간</option>
+2165|<option value="1D" selected>1일</option>
+2167|<span class="mr-help">매수·분할매도·손절·TP1 판단 기준</span>
+2170|<label>매도기준 타임프레임</label>
+2172|<option value="15m">15분</option>
+2173|<option value="30m">30분</option>
+2174|<option value="1h">1시간</option>
+2175|<option value="4h">4시간</option>
+2176|<option value="12h">12시간</option>
+2177|<option value="1D">1일</option>
+2178|<option value="1W" selected>1주</option>
+2180|<span class="mr-help">추세전환 전량매도 전용</span>
+2183|<label>상위기준 타임프레임</label>
+2185|<option value="1D">1일</option>
+2186|<option value="1W" selected>1주</option>
+2188|<span class="mr-help">HTF VWMA 필터 전용</span>
+2192|<!-- 슈퍼트렌드 -->
+2193|<h4 class="mr-subsection-header">슈퍼트렌드</h4>
+2196|<label>ATR 길이</label>
+2200|<label>팩터</label>
+2205|<!-- 피라미딩 -->
+2206|<h4 class="mr-subsection-header">피라미딩 <span class="mr-help">*전고점 돌파 시 추가매수</span></h4>
+2210|<input type="checkbox" id="trend-use-pyramiding" checked> 사용
+2217|<label>최대 횟수 (1차 포함)</label>
+2219|<span class="mr-help">변경 시 비중 입력칸이 자동 조정</span>
+2222|<label>N봉 신고가</label>
+2226|<label>쿨다운 (봉)</label>
+2233|<input type="checkbox" id="trend-pyr-refill"> 매도 후 추가매수 허용 (리필)
+2237|<!-- 피라미딩 비중 (JS에서 동적 생성) -->
+2239|<label style="color:var(--text-muted); font-size:13px;">차수별 비중</label>
+2241|<span id="trend-pyr-weights-sum" class="mr-help">합계: 100%</span>
+2248|<!-- ④ 매도 설정 (아코디언, 기본 열림) -->
+2251|<span class="mr-accordion-icon">▶</span> 매도 설정
+2255|<!-- 추세전환 전량매도 -->
+2256|<h4 class="mr-subsection-header">추세전환 전량매도 <span class="mr-help">*슈퍼트렌드 하락 전환 시 전량매도</span></h4>
+2260|<input type="checkbox" id="trend-use-st-exit" checked> 사용
+2265|<!-- 부분익절 TP1 -->
+2266|<h4 class="mr-subsection-header">부분익절 <span class="mr-help">*목표 수익률 도달 시 일부 매도</span></h4>
+2270|<input type="checkbox" id="trend-use-tp1"> 사용 (기본 OFF)
+2277|<label>목표 수익률 (%)</label>
+2281|<label>매도비율 (%)</label>
+2287|<!-- 과매수구간 분할매도 -->
+2288|<h4 class="mr-subsection-header">과매수구간 분할매도 <span class="mr-help">*과매수 시그널 발생 시 비중별 분할매도</span></h4>
+2292|<input type="checkbox" id="trend-use-spo" checked> 사용
+2299|<label>최대 분할 횟수</label>
+2301|<span class="mr-help">변경 시 비중 입력칸이 자동 조정</span>
+2304|<label>최대 횟수 이후</label>
+2306|<option value="cycle" selected>처음부터 반복</option>
+2307|<option value="extend">마지막 비율 유지</option>
+2308|<option value="stop">멈춤</option>
+2312|<!-- 분할매도 비중 (JS에서 동적 생성) -->
+2314|<label style="color:var(--text-muted); font-size:13px;">매도 비중 (%)</label>
+2320|<input type="checkbox" id="trend-use-profit-gate" checked> 익절 게이트
+2322|<span class="mr-help">수익 구간에서만 분할매도 허용</span>
+2327|<!-- 손절 — 택 1 (고정% 또는 ATR, 동시 사용 아님) -->
+2328|<h4 class="mr-subsection-header">손절</h4>
+2331|<label>손절 방식</label>
+2333|<option value="fixed" selected>고정 %</option>
+2334|<option value="atr">ATR 기반</option>
+2336|<span class="mr-help">고정%와 ATR 중 택 1 (동시 사용 아님)</span>
+2339|<!-- 고정% 선택 시 표시 -->
+2343|<label>고정 손절 (%)</label>
+2348|<!-- ATR 선택 시 표시 (기본 숨김) -->
+2352|<label>ATR 길이</label>
+2356|<label>ATR 배수</label>
+2365|<!-- ⑤ 백테스트 (아코디언, 맨 아래) -->
+2368|<span class="mr-accordion-icon">▶</span> 백테스트
+2373|<label>백테스트 기간 (일)</label>
+2377|<label>초기 자본</label>
+2381|<button class="btn btn-primary" id="btn-trend-run-backtest">백테스트 실행</button>
+2383|<!-- 로딩 표시 -->
+2386|<div id="trend-backtest-loading-msg" style="font-size:14px; color:var(--text-muted); margin-top:12px
+2387|<div style="font-size:12px; color:var(--text-muted); margin-top:4px;">첫 조회 시 다소 시간이 걸릴 수 있습니다</div>
+2390|<!-- 백테스트 에러 -->
+2393|<!-- 백테스트 결과 -->
+2397|<!-- 캔들 차트 (TradingView Lightweight Charts) - 맨 위 -->
+2399|<h4 style="color:var(--text-primary); margin-bottom:12px; font-size:14px;">캔들 차트 (20/50/200일선)</h4>
+2403|<!-- 상단 카드 5개 -->
+2406|<div class="metric-label">총 손익</div>
+2411|<div class="metric-label">최대 자본 감소</div>
+2416|<div class="metric-label">총 거래횟수</div>
+2420|<div class="metric-label">수익성 거래</div>
+2425|<div class="metric-label">수익지수</div>
+2430|<!-- 수익률 테이블 -->
+2432|<h4 style="color:var(--text-primary); margin-bottom:12px; font-size:14px;">수익률</h4>
+2437|<th style="padding:8px; text-align:right; width:25%;">전체</th>
+2438|<th style="padding:8px; text-align:right; width:25%;">매수</th>
+2439|<th style="padding:8px; text-align:right; width:25%;">매도</th>
+2446|<!-- 자산 추이 차트 -->
+2448|<h4 style="color:var(--text-primary); margin-bottom:12px; font-size:14px;">자산 추이</h4>
+2452|<!-- 거래 내역 -->
+2455|<h4 style="color:var(--text-primary); font-size:14px;">거래 내역</h4>
+2463|<th style="padding:8px 4px; text-align:left;">타입</th>
+2464|<th style="padding:8px 4px; text-align:left;">날짜</th>
+2465|<th style="padding:8px 4px; text-align:right;">가격</th>
+2466|<th style="padding:8px 4px; text-align:right;">수량</th>
+2467|<th style="padding:8px 4px; text-align:left;">차수</th>
+2468|<th style="padding:8px 4px; text-align:right;">수익금</th>
+2469|<th style="padding:8px 4px; text-align:right;">수익률</th>
+2470|<th style="padding:8px 4px; text-align:right;">누적</th>
+2481|<!-- 하단 액션 버튼 -->
+2483|<button class="btn btn-secondary" id="btn-trend-backtest-quick">백테스트</button>
+2484|<button class="btn btn-primary" id="btn-trend-save">저장</button>
+2485|<button class="btn btn-danger" id="btn-trend-start-strategy">전략 시작</button>
+2489|<!-- 접근 제한 안내 -->
+2493|<h3>프리미엄 전략은 프리미엄 요금제에서 이용 가능합니다</h3>
+2494|<p>프리미엄 요금제로 업그레이드하여 백테스팅과 AI 전략을 이용하세요.</p>
+2495|<button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 확인</button>
+2501|<!-- ========== 계정관리 페이지 (PHASE 7) ========== -->
+2503|<!-- 비밀번호 재입력 모달 -->
+2507|<h3>🔒 보안 확인</h3>
+2510|<p>보안을 위해 비밀번호를 다시 입력해주세요.</p>
+2511|<input type="password" id="verify-password" class="form-input" placeholder="비밀번호">
+2515|<button class="btn btn-primary" id="btn-verify-password">확인</button>
+2523|<h2>거래소 계정 관리</h2>
+2524|<button id="btn-add-account" class="btn btn-primary">+ 계정 추가</button>
+2527|<!-- 거래소 선택 폼 -->
+2529|<h3 id="account-form-title">계정 추가</h3>
+2531|<label>거래소</label>
+2533|<option value="">거래소 선택</option>
+2534|<!-- KR+US 공통 (암호화폐 거래소) -->
+2538|<!-- KR 모드 전용 -->
+2540|<option value="KIS_KR" data-mode="KR">KIS 국내주식</option>
+2541|<option value="KIS_US" data-mode="KR">KIS 해외주식</option>
+2542|<!-- US 모드 전용 -->
+2547|<!-- OKX 폼 (API Key + Secret Key + Passphrase) -->
+2550|<label>계정 별칭</label>
+2551|<input type="text" id="okx-alias" class="form-input" placeholder="예: 내 OKX 메인">
+2555|<input type="password" id="okx-api-key" class="form-input" placeholder="API 키를 입력하세요">
+2559|<input type="password" id="okx-secret" class="form-input" placeholder="Secret 키를 입력하세요">
+2563|<input type="password" id="okx-passphrase" class="form-input" placeholder="Passphrase를 입력하세요">
+2567|<!-- Binance 폼 (API Key + Secret Key) -->
+2570|<label>계정 별칭</label>
+2571|<input type="text" id="binance-alias" class="form-input" placeholder="예: 내 Binance 메인">
+2575|<input type="password" id="binance-api-key" class="form-input" placeholder="API 키를 입력하세요">
+2579|<input type="password" id="binance-secret" class="form-input" placeholder="Secret 키를 입력하세요">
+2583|<!-- Bybit 폼 (API Key + Secret Key) -->
+2586|<label>계정 별칭</label>
+2587|<input type="text" id="bybit-alias" class="form-input" placeholder="예: 내 Bybit 메인">
+2591|<input type="password" id="bybit-api-key" class="form-input" placeholder="API 키를 입력하세요">
+2595|<input type="password" id="bybit-secret" class="form-input" placeholder="Secret 키를 입력하세요">
+2599|<!-- Upbit 폼 (Access Key + Secret Key) -->
+2602|<label>계정 별칭</label>
+2603|<input type="text" id="upbit-alias" class="form-input" placeholder="예: 내 Upbit 메인">
+2607|<input type="password" id="upbit-access-key" class="form-input" placeholder="Access 키를 입력하세요">
+2611|<input type="password" id="upbit-secret" class="form-input" placeholder="Secret 키를 입력하세요">
+2615|<!-- KIS 국내주식 폼 (App Key + App Secret + 계좌번호) -->
+2618|<label>계정 별칭</label>
+2619|<input type="text" id="kis-kr-alias" class="form-input" placeholder="예: 한투 국내주식">
+2623|<input type="password" id="kis-kr-app-key" class="form-input" placeholder="App Key를 입력하세요">
+2627|<input type="password" id="kis-kr-app-secret" class="form-input" placeholder="App Secret을 입력하세요">
+2630|<label>계좌번호 (앞8자리-뒤2자리)</label>
+2631|<input type="text" id="kis-kr-account-number" class="form-input" placeholder="예: 12345678-01">
+2635|<!-- KIS 해외주식 폼 (App Key + App Secret + 계좌번호) -->
+2638|<label>계정 별칭</label>
+2639|<input type="text" id="kis-us-alias" class="form-input" placeholder="예: 한투 해외주식">
+2643|<input type="password" id="kis-us-app-key" class="form-input" placeholder="App Key를 입력하세요">
+2647|<input type="password" id="kis-us-app-secret" class="form-input" placeholder="App Secret을 입력하세요">
+2650|<label>계좌번호 (앞8자리-뒤2자리)</label>
+2651|<input type="text" id="kis-us-account-number" class="form-input" placeholder="예: 12345678-01">
+2655|<!-- Alpaca 폼 (API Key + Secret Key) -->
+2658|<label>계정 별칭</label>
+2659|<input type="text" id="alpaca-alias" class="form-input" placeholder="예: Alpaca Paper">
+2672|Paper Trading (모의투자)
+2678|<button class="btn btn-secondary" id="btn-cancel-account">취소</button>
+2679|<button class="btn btn-primary" id="btn-save-account">저장</button>
+2683|<!-- 등록된 계정 목록 -->
+2685|<p class="empty">계정 로딩 중...</p>
+2690|<!-- ========== 알림설정 페이지 (PHASE 7) ========== -->
+2696|<h2>알림 기능은 준비 중입니다</h2>
+2697|<p>향후 추가될 기능:</p>
+2701|<span class="item-label">거래 체결 알림</span>
+2706|<span class="item-label">손절/익절 도달 알림</span>
+2711|<span class="item-label">전략 에러 알림</span>
+2716|<span class="item-label">일일 리포트</span>
+2725|<!-- ========== 앱정보 페이지 (PHASE 7) ========== -->
+2729|<h2>앱 정보</h2>
+2732|<span class="info-label">앱 이름</span>
+2736|<span class="info-label">버전</span>
+2740|<span class="info-label">개발사</span>
+2741|<span class="info-value">큐브시스템 (QUBE System)</span>
+2744|<span class="info-label">웹사이트</span>
+2748|<span class="info-label">서버 상태</span>
+2749|<span class="info-value" id="app-server-status">확인 중...</span>
+2752|<span class="info-label">마지막 연결</span>
+2757|<button class="btn btn-secondary" id="btn-open-terms">이용약관</button>
+2758|<button class="btn btn-secondary" id="btn-open-privacy">개인정보처리방침</button>
+2759|<button class="btn btn-secondary" id="btn-export-logs">로그 내보내기</button>
+2763|<!-- 서비스 지역 설정 섹션 -->
+2765|<h2>🌍 서비스 지역 설정</h2>
+2768|🇰🇷 한국 (KIS)
+2771|🇺🇸 미국 (Alpaca)
+2775|KIS 국내/해외 주식 거래를 사용합니다.
+2779|<!-- 테마 설정 섹션 -->
+2781|<h2>🎨 화면 설정</h2>
+2783|<span>테마</span>
+2786|🌙 다크
+2789|☀️ 라이트
+2795|<!-- 요금제 정보 -->
+2797|<h2>현재 요금제</h2>
+2799|<div class="plan-badge free">무료</div>
+2800|<p class="plan-description">기본 기능을 무료로 이용하세요.</p>
+2803|<h3>요금제 안내</h3>
+2806|<h4>무료</h4>
+2807|<div class="price">₩0/월</div>
+2809|<li>TradingView 연동 1개</li>
+2810|<li>기본 대시보드</li>
+2814|<span class="badge">추천</span>
+2815|<h4>허브</h4>
+2816|<div class="price">₩29,900/월</div>
+2818|<li>TV 연동 5개</li>
+2819|<li>종목분석</li>
+2820|<li>알림 기능</li>
+2822|<button class="btn btn-primary btn-sm" id="btn-upgrade-hub">구독하기</button>
+2825|<h4>프리미엄</h4>
+2826|<div class="price">₩59,900/월</div>
+2828|<li>무제한 연동</li>
+2829|<li>AI 전략</li>
+2830|<li>백테스팅</li>
+2832|<button class="btn btn-primary btn-sm" id="btn-upgrade-premium">구독하기</button>
+2839|<!-- ========== 관리자 - 사용자관리 (PHASE 7) ========== -->
+2842|<!-- 사용자 현황 카드 -->
+2847|<div class="stat-label">전체 가입자</div>
+2854|<div class="stat-label">활성 사용자</div>
+2861|<div class="stat-label">오늘 가입자</div>
+2868|<div class="stat-label">오늘 AI 분석</div>
+2874|<!-- 요금제별 가입자 & 원형 차트 -->
+2877|<h3>요금제별 가입자 현황</h3>
+2881|<th>요금제</th>
+2882|<th>가입자 수</th>
+2883|<th>비율</th>
+2884|<th>월 예상 매출</th>
+2892|<tr class="total-row"><td><strong>합계</strong></td><td id="plan-total-count"><strong>0</strong></td><
+2897|<h3>요금제별 분포</h3>
+2910|<!-- 최근 가입자 리스트 -->
+2912|<h3>최근 가입자 (10명)</h3>
+2916|<th>이름/이메일</th>
+2917|<th>가입일</th>
+2918|<th>요금제</th>
+2919|<th>상태</th>
+2923|<tr><td colspan="4" class="empty-cell">로딩 중...</td></tr>
+2928|<!-- AI 사용량 통계 -->
+2930|<h3>AI 사용량 (최근 7일)</h3>
+2934|<th>날짜</th>
+2935|<th>AI 분석 횟수</th>
+2936|<th>추정 토큰 사용량</th>
+2940|<tr><td colspan="3" class="empty-cell">로딩 중...</td></tr>
+2945|<!-- 사용자 관리 테이블 -->
+2947|<h2>사용자 관리</h2>
+2949|<input type="text" id="user-search" class="search-input" placeholder="이메일 또는 이름 검색" autocomplete="of
+2951|<option value="">전체 요금제</option>
+2957|<button class="btn btn-secondary" id="btn-export-users">CSV 내보내기</button>
+2966|<th>이름</th>
+2967|<th>이메일</th>
+2968|<th>요금제</th>
+2969|<th>가입일</th>
+2970|<th>마지막 로그인</th>
+2971|<th>상태</th>
+2972|<th>액션</th>
+2976|<tr><td colspan="8" class="empty-cell">로딩 중...</td></tr>
+2983|<!-- ========== 관리자 - 시스템상태 (PHASE 7) ========== -->
+2986|<h2>시스템 상태</h2>
+2991|<div class="system-label">서버 상태</div>
+2992|<div class="system-value" id="sys-status">정상</div>
+2996|<div class="system-label">가동 시간</div>
+3001|<div class="system-label">메모리 사용량</div>
+3006|<div class="system-label">DB 연결</div>
+3007|<div class="system-value" id="sys-db">정상</div>
+3012|<h3>최근 웹훅 수신 (24시간)</h3>
+3016|<span class="stat-label">전체</span>
+3020|<span class="stat-label">성공</span>
+3024|<span class="stat-label">실패</span>
+3030|<h3>최근 에러 로그</h3>
+3032|<p class="empty">에러 없음</p>
+3037|<h3>서버 컨테이너 상태</h3>
+3041|<span class="container-state running">실행 중</span>
+3045|<span class="container-state running">실행 중</span>
+3052|<!-- ========== 국내시장 페이지 (NEW) ========== -->
+3058|<h3>시장분석은 Pro 이상 요금제에서 이용 가능합니다</h3>
+3059|<button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 업그레이드</button>
+3064|<!-- 시장 신호등 -->
+3068|<span class="signal-text">시장 상태: 중립</span>
+3070|<p class="signal-desc">코스피 20일선 기준 + 거래량 + 투자자 동향 종합</p>
+3073|<!-- 지수 카드 -->
+3076|<div class="index-name">코스피</div>
+3081|<div class="index-name">코스닥</div>
+3086|<div class="index-name">코스피200</div>
+3092|<!-- 투자자 동향 -->
+3094|<h3>투자자별 순매수</h3>
+3097|<span class="label">외국인</span>
+3102|<span class="label">기관</span>
+3107|<span class="label">개인</span>
+3114|<!-- 주도 섹터 -->
+3116|<h3>주도 섹터 TOP 5</h3>
+3119|<tr><th>섹터명</th><th>등락률</th><th>거래대금</th><th>주도주</th></tr>
+3122|<tr><td colspan="4" class="empty-cell">데이터 로딩 중...</td></tr>
+3127|<!-- 52주 신고가 -->
+3129|<h3>52주 신고가 주요 종목</h3>
+3132|<tr><th>종목명</th><th>현재가</th><th>등락률</th><th>신고가</th><th>RS</th></tr>
+3135|<tr><td colspan="5" class="empty-cell">데이터 로딩 중...</td></tr>
+3140|<!-- 시황 타임라인 -->
+3142|<h3>시황 타임라인</h3>
+3144|<p class="empty">타임라인 로딩 중...</p>
+3151|<!-- ========== 해외시장 페이지 (Phase 5 - 국내시장과 동일 구조) ========== -->
+3157|<h3>시장분석은 Pro 이상 요금제에서 이용 가능합니다</h3>
+3158|<button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 업그레이드</button>
+3162|<!-- JS에서 동적으로 렌더링 -->
+3167|<!-- ========== ETF 페이지 (NEW) ========== -->
+3173|<h3>시장분석은 Pro 이상 요금제에서 이용 가능합니다</h3>
+3174|<button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 업그레이드</button>
+3179|<!-- 탭 메뉴 -->
+3181|<button class="sub-tab active" data-tab="etf-kr">국내 ETF</button>
+3182|<button class="sub-tab" data-tab="etf-us">해외 ETF</button>
+3185|<!-- 국내 ETF -->
+3187|<h3>국내 ETF 자금 흐름</h3>
+3189|<button class="theme-btn active" data-theme="all">전체</button>
+3190|<button class="theme-btn" data-theme="반도체">반도체</button>
+3191|<button class="theme-btn" data-theme="2차전지">2차전지</button>
+3193|<button class="theme-btn" data-theme="배당">배당</button>
+3194|<button class="theme-btn" data-theme="인버스">인버스</button>
+3198|<tr><th>ETF명</th><th>현재가</th><th>등락률</th><th>순자산</th><th>거래대금</th></tr>
+3201|<tr><td colspan="5" class="empty-cell">데이터 로딩 중...</td></tr>
+3206|<!-- 해외 ETF -->
+3208|<h3>해외 주요 ETF</h3>
+3211|<tr><th>ETF명</th><th>현재가($)</th><th>등락률</th><th>테마</th></tr>
+3214|<tr><td colspan="4" class="empty-cell">데이터 로딩 중...</td></tr>
+3222|<!-- ========== 종목검색기 페이지 (Phase 7) ========== -->
+3228|<h3>종목검색은 Pro 이상 요금제에서 이용 가능합니다</h3>
+3229|<button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 업그레이드</button>
+3234|<!-- 통합 검색창 (Phase 11-1) -->
+3239|placeholder="종목명, 코드, 티커로 검색 (예: 삼성전자, AAPL, KODEX)"
+3248|<!-- 시장 선택 탭 -->
+3250|<button class="screener-tab active" data-market="kr">국내</button>
+3251|<button class="screener-tab" data-market="us">해외</button>
+3255|<!-- 필터 영역 (TradingView 스타일 칩) -->
+3257|<!-- 프리셋 도구 영역 -->
+3261|<option value="">프리셋 선택...</option>
+3263|<button class="preset-btn" id="btn-load-preset" title="프리셋 불러오기">적용</button>
+3264|<button class="preset-btn" id="btn-delete-preset" title="프리셋 삭제">삭제</button>
+3267|<input type="text" id="preset-name-input" class="preset-name-input" placeholder="프리셋 이름" maxlength="
+3268|<button class="preset-btn preset-btn-primary" id="btn-save-preset">저장</button>
+3272|<!-- 활성 필터 표시 영역 -->
+3274|<span class="active-filters-label">필터:</span>
+3276|<button class="clear-all-btn" id="btn-clear-all-filters" style="display:none;">모두 지우기</button>
+3279|<!-- 필터 칩 그룹 (35개 필터) -->
+3281|<!-- 기본정보 그룹 (7개) -->
+3283|<span class="chip-group-label">기본</span>
+3285|<button class="filter-chip" data-filter="exchange">거래소</button>
+3286|<button class="filter-chip" data-filter="sector">업종</button>
+3287|<button class="filter-chip" data-filter="market_cap">시가총액</button>
+3288|<button class="filter-chip" data-filter="price">현재가</button>
+3289|<button class="filter-chip" data-filter="volume">거래량</button>
+3290|<button class="filter-chip" data-filter="foreign_ratio">외국인비율</button>
+3291|<button class="filter-chip" data-filter="change_pct">등락률</button>
+3295|<!-- 재무지표 그룹 (16개) -->
+3297|<span class="chip-group-label">재무</span>
+3304|<button class="filter-chip" data-filter="operating_margin">영업이익률</button>
+3305|<button class="filter-chip" data-filter="net_margin">순이익률</button>
+3306|<button class="filter-chip" data-filter="debt_ratio">부채비율</button>
+3307|<button class="filter-chip" data-filter="current_ratio">유동비율</button>
+3308|<button class="filter-chip" data-filter="quick_ratio">당좌비율</button>
+3309|<button class="filter-chip" data-filter="reserve_ratio">유보율</button>
+3310|<button class="filter-chip" data-filter="dividend_yield">배당수익률</button>
+3313|<button class="filter-chip" data-filter="sales_growth">매출성장률</button>
+3314|<button class="filter-chip" data-filter="op_growth">영업익성장률</button>
+3315|<button class="filter-chip" data-filter="payout_ratio">배당성향</button>
+3319|<!-- 기술적지표 그룹 (12개) -->
+3321|<span class="chip-group-label">기술</span>
+3324|<button class="filter-chip" data-filter="sma">이평선</button>
+3325|<button class="filter-chip" data-filter="sma_cross">이평교차</button>
+3326|<button class="filter-chip" data-filter="bollinger">볼린저</button>
+3328|<button class="filter-chip" data-filter="stochastic">스토캐스틱</button>
+3329|<button class="filter-chip" data-filter="volume_surge">거래량급증</button>
+3330|<button class="filter-chip" data-filter="w52_high">52주고가</button>
+3331|<button class="filter-chip" data-filter="w52_low">52주저가</button>
+3333|<button class="filter-chip" data-filter="period_return">기간수익률</button>
+3338|<!-- 검색/초기화 버튼 -->
+3340|<button class="btn btn-primary" id="btn-screener-search">검색</button>
+3341|<button class="btn btn-secondary" id="btn-screener-reset">초기화</button>
+3342|<span class="result-count" id="screener-result-count">결과: -건</span>
+3346|<!-- 필터 팝오버 (동적 생성) -->
+3349|<span class="popover-title" id="popover-title">필터</span>
+3354|<button class="btn btn-sm btn-secondary" id="popover-clear">초기화</button>
+3355|<button class="btn btn-sm btn-primary" id="popover-apply">적용</button>
+3359|<!-- 메인 컨텐츠 (테이블 + 상세패널) -->
+3361|<!-- 결과 테이블 -->
+3363|<!-- 빈 상태 안내 -->
+3366|<div class="empty-title">필터를 설정하고 검색하세요</div>
+3367|<div class="empty-desc">위의 필터 버튼으로 원하는 조건을 설정하거나,<br>프리셋을 선택하면 바로 검색됩니다.</div>
+3372|<th data-sort="code" class="sortable">코드 <span class="sort-icon"></span></th>
+3373|<th data-sort="name" class="sortable">종목명 <span class="sort-icon"></span></th>
+3374|<th data-sort="price" class="sortable align-right">현재가 <span class="sort-icon"></span></th>
+3375|<th data-sort="change_pct" class="sortable align-right">등락률 <span class="sort-icon"></span></th>
+3376|<th data-sort="volume" class="sortable align-right">거래량 <span class="sort-icon"></span></th>
+3377|<th data-sort="market_cap" class="sortable align-right active">시총 <span class="sort-icon">▼</span></
+3383|<tr><td colspan="8" class="empty-cell">검색 버튼을 클릭하세요</td></tr>
+3387|<!-- 페이지네이션 -->
+3395|<!-- 종목 상세 패널 (우측) - ID는 panel- 접두사로 구분 -->
+3405|<!-- 현재가 정보 -->
+3411|<!-- 기본 정보 -->
+3413|<h4>기본 정보</h4>
+3415|<div class="detail-item"><span class="label">시가총액</span><span class="value" id="panel-market-cap">-<
+3416|<div class="detail-item"><span class="label">거래량</span><span class="value" id="panel-volume">-</span
+3417|<div class="detail-item"><span class="label">52주고가</span><span class="value" id="panel-w52-high">-</
+3418|<div class="detail-item"><span class="label">52주저가</span><span class="value" id="panel-w52-low">-</s
+3422|<!-- 재무 지표 -->
+3424|<h4>재무 지표</h4>
+3429|<div class="detail-item"><span class="label">배당수익률</span><span class="value" id="panel-dividend">-</
+3433|<!-- 기술적 지표 -->
+3435|<h4>기술적 지표</h4>
+3439|<div class="detail-item"><span class="label">볼린저</span><span class="value" id="panel-bb">-</span></d
+3440|<div class="detail-item"><span class="label">거래량급증</span><span class="value" id="panel-vol-surge">-<
+3444|<!-- 이평선 -->
+3446|<h4>이동평균선</h4>
+3448|<div class="detail-item"><span class="label">20일선</span><span class="value" id="panel-sma20">-</span
+3449|<div class="detail-item"><span class="label">50일선</span><span class="value" id="panel-sma50">-</span
+3450|<div class="detail-item"><span class="label">200일선</span><span class="value" id="panel-sma200">-</sp
+3451|<div class="detail-item"><span class="label">이평교차</span><span class="value" id="panel-sma-cross">-</
+3455|<!-- 전략 연계 버튼 -->
+3457|<button class="btn btn-sm btn-primary" id="panel-btn-backtest" title="이 종목으로 백테스트 실행">
+3458|백테스트 실행
+3460|<button class="btn btn-sm btn-secondary" id="panel-btn-watchlist" title="관심종목에 추가">
+3461|관심종목 추가
+3471|<!-- ========== BBooster AI 페이지 (Phase 11-2) ========== -->
+3477|<h3>BBooster AI는 Pro 이상 요금제에서 이용 가능합니다</h3>
+3478|<button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 업그레이드</button>
+3485|<p class="ai-subtitle">AI가 선별한 투자 전략별 추천 종목</p>
+3486|<span class="ai-updated" id="ai-updated-time">마지막 업데이트: -</span>
+3489|<!-- AI 채팅 입력 영역 -->
+3492|<div class="ai-chat-label">분석할 종목명을 입력하세요</div>
+3495|placeholder="종목명 또는 종목코드를 입력하세요 (예: 삼성전자, 005930, AAPL)"
+3497|<button class="ai-send-btn" id="ai-send-btn">전송</button>
+3500|<button class="ai-chip" data-question="삼성전자 종합 분석 보고서">삼성전자 종합 분석 보고서</button>
+3501|<button class="ai-chip" data-question="SK하이닉스 종합 분석 보고서">SK하이닉스 종합 분석 보고서</button>
+3502|<button class="ai-chip" data-question="NVDA 종합 분석 보고서">NVDA 종합 분석 보고서</button>
+3508|<!-- 시장 선택 탭 -->
+3510|<button class="ai-tab active" data-market="kr">🇰🇷 국내주식</button>
+3511|<button class="ai-tab" data-market="us">🇺🇸 해외주식</button>
+3515|<!-- 추천 카테고리 목록 -->
+3519|<span>AI 추천 종목을 불러오는 중...</span>
+3526|<!-- ========== 코인시장 페이지 (NEW) ========== -->
+3532|<h3>시장분석은 Pro 이상 요금제에서 이용 가능합니다</h3>
+3533|<button class="btn btn-primary" onclick="navigateTo('app-info')">요금제 업그레이드</button>
+3538|<!-- 시장 개요 -->
+3541|<div class="crypto-label">BTC 도미넌스</div>
+3545|<div class="crypto-label">총 시가총액</div>
+3549|<div class="crypto-label">김치 프리미엄</div>
+3554|<!-- 거래소 필터 -->
+3556|<button class="filter-btn active" data-exchange="all">전체</button>
+3563|<!-- 코인 목록 -->
+3565|<h3>주요 코인</h3>
+3568|<tr><th>코인명</th><th>거래소</th><th>현재가</th><th>24h 등락률</th><th>거래량</th></tr>
+3571|<tr><td colspan="5" class="empty-cell">데이터 로딩 중...</td></tr>
+3579|<!-- ========== 국내주식 분석 페이지 (NEW) ========== -->
+3582|<!-- 검색바 (자동완성 포함) -->
+3586|<input type="text" id="stock-kr-search" class="search-input" placeholder="종목명 또는 종목코드 검색..." autocom
+3589|<button class="btn btn-primary" id="btn-stock-kr-search">검색</button>
+3592|<span class="recent-label">최근 검색:</span>
+3597|<!-- 미니 차트 미리보기 -->
+3604|<button class="btn btn-sm btn-primary" id="btn-open-detail">상세보기</button>
+3608|<span>현재가: <strong id="preview-price">-</strong></span>
+3609|<span>등락률: <strong class="profit" id="preview-change">-</strong></span>
+3614|<!-- 하위 탭 -->
+3616|<button class="sub-tab active" data-tab="rs">종합RS</button>
+3617|<button class="sub-tab" data-tab="high52">52주 신고가</button>
+3618|<button class="sub-tab" data-tab="valuation">밸류에이션</button>
+3619|<button class="sub-tab" data-tab="reports">리포트요약</button>
+3622|<!-- 종합RS 탭 -->
+3624|<h3>종합RS 순위 (시총 2000억 이상)</h3>
+3627|<option value="all">전체</option>
+3634|<tr><th>순위</th><th>종목명</th><th>현재가</th><th>등락률</th><th>RS종합</th><th>RS 1개월</th><th>RS 3개월</th><th>RS
+3637|<tr><td colspan="9" class="empty-cell">데이터 로딩 중...</td></tr>
+3642|<!-- 52주 신고가 탭 -->
+3644|<h3>52주 신고가 돌파 종목</h3>
+3647|<tr><th>종목명</th><th>현재가</th><th>등락률</th><th>52주 최고가</th><th>최고가 대비(%)</th><th>RS</th><th>거래량</th></t
+3650|<tr><td colspan="7" class="empty-cell">데이터 로딩 중...</td></tr>
+3655|<!-- 밸류에이션 탭 -->
+3657|<h3>밸류에이션</h3>
+3660|<tr><th>종목명</th><th>현재가</th><th>시가총액</th><th>PER</th><th>PER(E) 2026</th><th>PER(E) 2027</th><th>업종(
+3663|<tr><td colspan="8" class="empty-cell">데이터 로딩 중...</td></tr>
+3668|<!-- 리포트요약 탭 -->
+3670|<h3>증권사 리포트 요약</h3>
+3672|<p>KIS 계정을 등록하면 증권사 리포트를 확인할 수 있습니다.</p>
+3673|<button class="btn btn-primary btn-sm" onclick="navigateTo('accounts')">계정 등록하기</button>
+3677|<tr><th>종목명</th><th>날짜</th><th>증권사</th><th>투자의견</th><th>목표가</th><th>현재가</th><th>괴리율(%)</th></tr>
+3685|<!-- ========== 해외주식 분석 페이지 (NEW) ========== -->
+3690|<input type="text" id="stock-us-search" class="search-input" placeholder="종목명 또는 티커 검색... (예: AAPL, 
+3691|<button class="btn btn-primary" id="btn-stock-us-search">검색</button>
+3696|<button class="sub-tab active" data-tab="us-rs">종합RS</button>
+3697|<button class="sub-tab" data-tab="us-valuation">밸류에이션</button>
+3700|<!-- 종합RS -->
+3702|<h3>종합RS 순위 (S&P 500 기준)</h3>
+3705|<tr><th>순위</th><th>종목명</th><th>현재가($)</th><th>등락률</th><th>RS종합</th><th>RS 1개월</th><th>RS 3개월</th></t
+3708|<tr><td colspan="7" class="empty-cell">데이터 로딩 중...</td></tr>
+3713|<!-- 밸류에이션 -->
+3715|<h3>밸류에이션</h3>
+3718|<tr><th>종목명</th><th>현재가($)</th><th>시가총액</th><th>PER</th><th>PEG</th><th>섹터</th></tr>
+3721|<tr><td colspan="6" class="empty-cell">데이터 로딩 중...</td></tr>
+3728|<!-- ========== ETF 분석 페이지 (NEW) ========== -->
+3733|<input type="text" id="stock-etf-search" class="search-input" placeholder="ETF명 검색..." autocomplete=
+3734|<button class="btn btn-primary" id="btn-stock-etf-search">검색</button>
+3739|<h3>ETF 분석</h3>
+3741|<button class="theme-btn active" data-theme="all">전체</button>
+3742|<button class="theme-btn" data-theme="반도체">반도체</button>
+3744|<button class="theme-btn" data-theme="2차전지">2차전지</button>
+3745|<button class="theme-btn" data-theme="배당">배당</button>
+3746|<button class="theme-btn" data-theme="인버스">인버스</button>
+3747|<button class="theme-btn" data-theme="원자재">원자재</button>
+3751|<tr><th>ETF명</th><th>현재가</th><th>등락률</th><th>순자산</th><th>거래대금</th><th>테마</th></tr>
+3754|<tr><td colspan="6" class="empty-cell">데이터 로딩 중...</td></tr>
+3761|<!-- ========== 코인 분석 페이지 (NEW) ========== -->
+3766|<input type="text" id="stock-crypto-search" class="search-input" placeholder="코인명 검색... (예: BTC, ETH
+3767|<button class="btn btn-primary" id="btn-stock-crypto-search">검색</button>
+3772|<button class="filter-btn active" data-exchange="all">전체</button>
+3780|<h3>코인 분석</h3>
+3783|<tr><th>코인명</th><th>거래소</th><th>현재가</th><th>24h 등락률</th><th>거래량</th><th>시가총액</th></tr>
+3786|<tr><td colspan="6" class="empty-cell">데이터 로딩 중...</td></tr>
+3793|<!-- ========== 관심종목 페이지 (NEW) ========== -->
+3796|<!-- 그룹 탭 -->
+3798|<button class="group-tab active" data-group="default">기본</button>
+3799|<button class="group-tab add-group" id="btn-add-watchlist-group">+ 그룹 추가</button>
+3802|<!-- 관심종목 리스트 -->
+3805|<h3>관심종목 (<span id="watchlist-count">0</span>개)</h3>
+3806|<button class="btn btn-primary btn-sm" id="btn-add-watchlist-item">+ 종목 추가</button>
+3810|<tr><th>종목명</th><th>현재가</th><th>등락률</th><th>거래량</th><th>메모</th><th>액션</th></tr>
+3813|<tr><td colspan="6" class="empty-cell">관심종목이 없습니다. 종목분석에서 ⭐ 버튼을 눌러 추가하세요.</td></tr>
+3821|<p>BBooster v1.0.0 | 큐브시스템 (QUBE System) | <a href="https://qube-system.com" target="_blank">qube-sy
+3826|<!-- 인라인 스크립트: 초기 화면 제어 -->
+3845|<!-- 종목 상세 모달 (StockEasy 스타일) -->
+3855|<h2 id="detail-stock-name">종목명</h2>
+3862|<!-- 가격 정보 -->
+3867|<span>시가: <strong id="detail-open">0</strong></span>
+3868|<span>고가: <strong id="detail-high">0</strong></span>
+3869|<span>저가: <strong id="detail-low">0</strong></span>
+3870|<span>거래량: <strong id="detail-volume">0</strong></span>
+3874|<!-- 캔들차트 -->
+3878|<button class="period-btn active" data-timeframe="daily">일봉</button>
+3879|<button class="period-btn" data-timeframe="weekly">주봉</button>
+3880|<button class="period-btn" data-timeframe="monthly">월봉</button>
+3883|<button class="type-btn active" data-type="candle">캔들</button>
+3884|<button class="type-btn" data-type="line">라인</button>
+3890|<!-- 종목 정보 탭 (4-Tab: 요약/소식/기업/재무) -->
+3892|<button class="info-tab active" data-tab="summary">요약</button>
+3893|<button class="info-tab" data-tab="news">소식</button>
+3894|<button class="info-tab" data-tab="company">기업</button>
+3895|<button class="info-tab" data-tab="financial">재무</button>
+3898|<!-- 요약 탭 (동적 렌더링) -->
+3902|<span>정보를 불러오는 중...</span>
+3906|<!-- 소식 탭 (동적 렌더링) -->
+3910|<span>뉴스를 불러오는 중...</span>
+3914|<!-- 기업 탭 (동적 렌더링) -->
+3918|<span>기업 정보를 불러오는 중...</span>
+3922|<!-- 재무 탭 (동적 렌더링) -->
+3926|<span>재무 정보를 불러오는 중...</span>
+3931|<button class="btn btn-secondary" id="btn-add-to-watchlist">관심종목 추가</button>
+3932|<button class="btn btn-primary" id="btn-ai-analysis-modal">🤖 AI 분석</button>
+3937|<!-- AI 분석 모달 -->
+3941|<h2>🤖 AI 종합분석</h2>
+3947|<p>AI가 분석 중입니다... (약 10~20초)</p>
+3953|<span class="ai-usage" id="ai-usage">남은 분석: -/-</span>
+3958|<!-- 관심종목 추가 모달 -->
+3962|<h2>★ 관심종목 추가</h2>
+3966|<p>그룹을 선택하세요:</p>
+3969|<input type="text" id="new-group-name" placeholder="새 그룹 이름">
+3970|<button class="btn btn-sm" id="btn-create-group">그룹 추가</button>
+3976|<!-- KIS_KR 주문 설정 팝업 -->
+3980|<h3>KIS_KR 주문 설정</h3>
+3985|<label style="display: block; color: #9CA3AF; margin-bottom: 8px; font-size: 13px;">주문 방식</label>
+3987|<option value="regular_close">정규장 마감 전</option>
+3988|<option value="next_trade">넥스트트레이드 마감 전</option>
+3989|<option value="next_day_open">다음날 시가</option>
+3994|주문 타이밍
+3995|<span class="tooltip-icon" data-tooltip="정규장: 15:20 기준, 넥스트트레이드: 20:00 기준">ⓘ</span>
+3998|<span style="color: #9CA3AF;">마감</span>
+4001|<span style="color: #9CA3AF;">초 전</span>
+4006|주문 유형
+4007|<span class="tooltip-icon" data-tooltip="국내주식은 시장가 주문이 가능합니다">ⓘ</span>
+4010|시장가
+4015|<button class="btn btn-secondary" id="kis-kr-modal-cancel">취소</button>
+4016|<button class="btn btn-primary" id="kis-kr-modal-confirm">확인</button>
+4021|<!-- KIS_US 주문 설정 팝업 -->
+4025|<h3>KIS_US 주문 설정</h3>
+4031|종가마감 신호
+4032|<span class="tooltip-icon" data-tooltip="설정한 시간의 현재가를 종가로 간주하여 매매 신호를 판단합니다. 예: 마감 2분 전 → 05:58 시점의 
+4035|<span style="color: #9CA3AF;">마감</span>
+4038|<span style="color: #9CA3AF;">분 전</span>
+4043|주문 유형
+4044|<span class="tooltip-icon" data-tooltip="해외주식은 한국투자증권 API에서 시장가를 지원하지 않아 지정가로만 주문됩니다. 체결을 위해 슬리피지(틱 
+4047|지정가 (API 제한)
+4052|슬리피지
+4053|<span class="tooltip-icon" data-tooltip="매수 시 현재가보다 N틱 높은 가격으로 주문하여 체결 확률을 높입니다. 매도 시에는 N틱 낮은 가격으로 주
+4058|<span style="color: #9CA3AF;">틱</span>
+4063|<button class="btn btn-secondary" id="kis-us-modal-cancel">취소</button>
+4064|<button class="btn btn-primary" id="kis-us-modal-confirm">확인</button>
+4069|<!-- 수익률 기간 선택 모달 -->
+4073|<h3>수익률 기간 선택</h3>
+4078|<label style="display: block; color: #9CA3AF; margin-bottom: 8px; font-size: 13px;">시작일</label>
+4083|<label style="display: block; color: #9CA3AF; margin-bottom: 8px; font-size: 13px;">종료일</label>
+4089|<span style="color: #9CA3AF;">시작 자산</span>
+4093|<span style="color: #9CA3AF;">종료 자산</span>
+4097|<span style="color: #9CA3AF;">수익률</span>
+4103|<button class="btn btn-secondary" id="profit-modal-reset">초기화</button>
+4104|<button class="btn btn-primary" id="profit-modal-apply">적용</button>
+4109|<!-- 자산 거래내역 모달 -->
+4114|<h3 id="asset-trades-title">거래내역</h3>
+4123|<th>전략명</th>
+4124|<th>타입</th>
+4125|<th>날짜</th>
+4126|<th>수량</th>
+4127|<th>금액</th>
+4128|<th>수익금</th>
+4129|<th>수익률</th>
+4130|<th>누적</th>
+4135|<td colspan="8">거래내역이 없습니다.</td>
+4143|<!-- 업그레이드 모달 (명령서65) -->
+4147|<h3 id="upgrade-title" style="font-size:18px;font-weight:700;margin-bottom:8px;">요금제 업그레이드 필요</h3>
+4148|<p id="upgrade-message" style="color:var(--text-muted);margin-bottom:24px;line-height:1.6;">이 기능을 사용
+4150|<button onclick="closeUpgradeModal()" class="btn btn-secondary">닫기</button>
+4151|<button id="upgrade-btn" onclick="openPricingPage()" class="btn btn-primary">업그레이드</button>

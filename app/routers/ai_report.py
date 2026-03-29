@@ -728,6 +728,7 @@ async def get_all_usage(
 class AIAnalyzeRequest(BaseModel):
     symbol: str
     exchange: str
+    appMode: str = "KR"  # 'KR' or 'US' - 앱 모드에 따라 언어 결정
 
 
 class AIChatRequest(BaseModel):
@@ -807,6 +808,15 @@ async def request_ai_analysis(
     is_domestic = exchange_lower in ("kis_kr", "kis_kr_etf")
     market = "kr" if is_domestic else "us"
 
+    # 앱 모드에 따라 언어 결정 (appMode 우선)
+    app_mode = request.appMode.upper() if request.appMode else "KR"
+    if app_mode == "US":
+        language = "en"
+    elif app_mode == "KR":
+        language = "kr"
+    else:
+        language = "kr" if market == "kr" else "en"
+
     is_etf = "etf" in exchange_lower
     if not is_etf:
         master = get_master_cache()
@@ -816,20 +826,21 @@ async def request_ai_analysis(
 
     _ai_jobs[job_id] = {
         "status": "pending",
-        "progress": "요청 접수됨",
+        "progress": "Request received" if language == "en" else "요청 접수됨",
         "result": None,
         "created_at": datetime.now(KST),
         "user_id": current_user.id if current_user else None,
         "symbol": request.symbol,
         "exchange": request.exchange,
         "is_etf": is_etf,
+        "language": language,
     }
 
     # 사용량 증가 (캐시 HIT가 아닌 경우만)
     if current_user:
         check_feature_allowed(current_user, "ai", db, increment=True)
 
-    asyncio.create_task(_run_ai_analysis_job(job_id, request.symbol, market, is_etf))
+    asyncio.create_task(_run_ai_analysis_job(job_id, request.symbol, market, is_etf, language))
 
     print(f"[AI Analyze] === 총 소요: {time_module.time()-t0:.2f}초, job_id={job_id} ===")
     return {"success": True, "job_id": job_id, "status": "pending"}
@@ -1354,10 +1365,10 @@ async def _generate_ai_charts(code: str, name: str, market: str = "kr") -> dict:
     return await generate_ai_charts(code, name, market)
 
 
-async def _run_ai_analysis_job(job_id: str, symbol: str, market: str, is_etf: bool = False):
+async def _run_ai_analysis_job(job_id: str, symbol: str, market: str, is_etf: bool = False, language: str = "kr"):
     """백그라운드에서 AI 분석 실행"""
     from .ai_report_engine import run_ai_analysis_job
-    await run_ai_analysis_job(job_id, symbol, market, is_etf, _ai_jobs, get_master_cache)
+    await run_ai_analysis_job(job_id, symbol, market, is_etf, _ai_jobs, get_master_cache, language)
 
 
 async def _run_ai_chat_job(job_id: str, message: str, user_id: int = None):
