@@ -5492,10 +5492,21 @@ document.getElementById('btn-ai-analysis')?.addEventListener('click', async () =
     const reportEl = document.getElementById('ai-report');
     const errorEl = document.getElementById('ai-error');
     const usageEl = document.getElementById('ai-usage');
+    const modalTitle = document.getElementById('ai-modal-title');
+
+    const isUSMode = getAppMode() === 'US';
+
+    // 모달 제목 영문화
+    if (modalTitle) {
+        modalTitle.textContent = isUSMode ? '🤖 AI Comprehensive Analysis' : '🤖 AI 종합분석';
+    }
+    // 남은 분석 텍스트 영문화 (플레이스홀더)
+    if (usageEl && usageEl.textContent.includes('남은 분석')) {
+        usageEl.textContent = isUSMode ? 'Remaining: -/-' : '남은 분석: -/-';
+    }
 
     modal.style.display = 'flex';
     loadingEl.style.display = 'block';
-    const isUSMode = getAppMode() === 'US';
     loadingEl.innerHTML = `<div class="ai-spinner"></div><p id="ai-progress-text" style="color:var(--text-muted);margin-top:12px;">📊 ${isUSMode ? 'Collecting stock data...' : '종목 데이터 수집 중...'}</p>`;
     reportEl.style.display = 'none';
     errorEl.style.display = 'none';
@@ -15152,10 +15163,21 @@ document.getElementById('btn-ai-analysis-modal')?.addEventListener('click', asyn
     const reportEl = document.getElementById('ai-report');
     const errorEl = document.getElementById('ai-error');
     const usageEl = document.getElementById('ai-usage');
+    const modalTitle = document.getElementById('ai-modal-title');
+
+    const isUSMode = getAppMode() === 'US';
+
+    // 모달 제목 영문화
+    if (modalTitle) {
+        modalTitle.textContent = isUSMode ? '🤖 AI Comprehensive Analysis' : '🤖 AI 종합분석';
+    }
+    // 남은 분석 텍스트 영문화 (플레이스홀더)
+    if (usageEl && usageEl.textContent.includes('남은 분석')) {
+        usageEl.textContent = isUSMode ? 'Remaining: -/-' : '남은 분석: -/-';
+    }
 
     modal.style.display = 'flex';
     loadingEl.style.display = 'block';
-    const isUSMode = getAppMode() === 'US';
     loadingEl.innerHTML = `<div class="ai-spinner"></div><p id="ai-progress-text2" style="color:var(--text-muted);margin-top:12px;">📊 ${isUSMode ? 'Collecting stock data...' : '종목 데이터 수집 중...'}</p>`;
     reportEl.style.display = 'none';
     errorEl.style.display = 'none';
