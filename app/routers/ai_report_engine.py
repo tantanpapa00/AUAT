@@ -100,8 +100,8 @@ async def run_ai_analysis_job(
 
             expires = datetime.now(timezone.utc) + timedelta(hours=6)
             db.execute(
-                text("INSERT INTO ai_reports (symbol, exchange, report_text, data_snapshot, expires_at) VALUES (:sym, :ex, :report, :data, :expires)"),
-                {"sym": symbol, "ex": exchange, "report": report, "data": "{}", "expires": expires}
+                text("INSERT INTO ai_reports (symbol, exchange, language, report_text, data_snapshot, expires_at) VALUES (:sym, :ex, :lang, :report, :data, :expires)"),
+                {"sym": symbol, "ex": exchange, "lang": language, "report": report, "data": "{}", "expires": expires}
             )
             db.commit()
             db.close()

@@ -30,6 +30,7 @@ def ensure_ai_tables(db: Session):
             id SERIAL PRIMARY KEY,
             symbol VARCHAR(50),
             exchange VARCHAR(50),
+            language VARCHAR(10) DEFAULT 'kr',
             report_text TEXT,
             data_snapshot JSONB,
             created_at TIMESTAMP DEFAULT NOW(),

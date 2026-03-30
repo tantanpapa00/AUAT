@@ -192,6 +192,7 @@ def _ensure_ai_tables(db: Session):
             id SERIAL PRIMARY KEY,
             symbol VARCHAR(50),
             exchange VARCHAR(50),
+            language VARCHAR(10) DEFAULT 'kr',
             report_text TEXT,
             data_snapshot JSONB,
             created_at TIMESTAMP DEFAULT NOW(),
@@ -763,15 +764,30 @@ async def request_ai_analysis(
 
     print(f"[AI Analyze] usage check: {time_module.time()-t0:.2f}초")
 
-    # 캐시 확인
+    # 언어 결정 (캐시 조회 전에 필요)
+    exchange_lower = request.exchange.lower()
+    is_domestic = exchange_lower in ("kis_kr", "kis_kr_etf")
+    market = "kr" if is_domestic else "us"
+
+    # 앱 모드 + 종목 시장에 따라 언어 결정
+    # - US 모드 + US 종목 → 영어
+    # - US 모드 + KR 종목 → 한국어 (한국 종목은 한국어)
+    # - KR 모드 + 모든 종목 → 한국어
+    app_mode = request.appMode.upper() if request.appMode else "KR"
+    if app_mode == "US" and market == "us":
+        language = "en"
+    else:
+        language = "kr"
+
+    # 캐시 확인 (언어별 분리)
     try:
         cache_result = db.execute(
             text("""
                 SELECT report_text FROM ai_reports
-                WHERE symbol = :sym AND exchange = :ex AND expires_at > NOW()
+                WHERE symbol = :sym AND exchange = :ex AND language = :lang AND expires_at > NOW()
                 ORDER BY created_at DESC LIMIT 1
             """),
-            {"sym": request.symbol, "ex": request.exchange}
+            {"sym": request.symbol, "ex": request.exchange, "lang": language}
         )
         cache_row = cache_result.fetchone()
         if cache_row:
@@ -786,7 +802,7 @@ async def request_ai_analysis(
 
             _ai_jobs[cache_job_id] = {
                 "status": "done",
-                "progress": "캐시 로드 완료",
+                "progress": "Cache loaded" if language == "en" else "캐시 로드 완료",
                 "result": cache_row[0],
                 "created_at": datetime.now(KST),
                 "user_id": current_user.id if current_user else None,
@@ -796,27 +812,13 @@ async def request_ai_analysis(
                 "charts": {},
                 "cached": True,
             }
-            print(f"[AI Analyze] 캐시 HIT: {stock_name}({request.symbol}), cache_job_id={cache_job_id}")
+            print(f"[AI Analyze] 캐시 HIT ({language}): {stock_name}({request.symbol}), cache_job_id={cache_job_id}")
             return {"success": True, "status": "done", "report": cache_row[0], "job_id": cache_job_id, "cached": True}
     except Exception as e:
         print(f"[AI Analyze] 캐시 조회 오류: {e}")
 
     _cleanup_old_jobs()
     job_id = str(uuid.uuid4())[:8]
-
-    exchange_lower = request.exchange.lower()
-    is_domestic = exchange_lower in ("kis_kr", "kis_kr_etf")
-    market = "kr" if is_domestic else "us"
-
-    # 앱 모드 + 종목 시장에 따라 언어 결정
-    # - US 모드 + US 종목 → 영어
-    # - US 모드 + KR 종목 → 한국어 (한국 종목은 한국어)
-    # - KR 모드 + 모든 종목 → 한국어
-    app_mode = request.appMode.upper() if request.appMode else "KR"
-    if app_mode == "US" and market == "us":
-        language = "en"
-    else:
-        language = "kr"
 
     is_etf = "etf" in exchange_lower
     if not is_etf:
