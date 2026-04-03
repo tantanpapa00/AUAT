@@ -740,7 +740,7 @@ const LANG = {
     'loading_company': '기업 정보를 불러오는 중...',
     'loading_financials': '재무 정보를 불러오는 중...',
     'comprehensive_analysis': '종합분석',
-    'ai_analyzing': 'AI가 분석 중입니다. (약 30초)',
+    'ai_analyzing': 'AI가 분석 중입니다... (약 10~20초)',
     'remaining_analysis': '남은 분석:',
     'select_group': '그룹을 선택하세요',
     // 주문 설정
@@ -2625,7 +2625,7 @@ const LANG = {
     'loading_company': 'Loading company info...',
     'loading_financials': 'Loading financials...',
     'comprehensive_analysis': 'Comprehensive Analysis',
-    'ai_analyzing': 'AI is analyzing. (about 30 seconds)',
+    'ai_analyzing': 'AI is analyzing... (about 10~20 seconds)',
     'remaining_analysis': 'Remaining:',
     'select_group': 'Select a group',
     // Order Settings
