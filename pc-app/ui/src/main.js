@@ -14723,7 +14723,7 @@ async function initCandleChart(symbol, exchange, timeframe = 'daily') {
             },
             localization: {
                 dateFormat: 'yyyy-MM-dd',
-                locale: 'ko-KR',
+                locale: getAppMode() === 'US' ? 'en-US' : 'ko-KR',
                 timeFormatter: (time) => {
                     const date = new Date(time * 1000);
                     const y = date.getFullYear();
@@ -16405,7 +16405,7 @@ function createBacktestCandleChart(containerId, candles, trades) {
         },
         localization: {
             dateFormat: 'yyyy-MM-dd',
-            locale: 'ko-KR',
+            locale: getAppMode() === 'US' ? 'en-US' : 'ko-KR',
             timeFormatter: (time) => {
                 const date = new Date(time * 1000);
                 const y = date.getFullYear();
@@ -16835,7 +16835,7 @@ function drawMrBacktestChart(equityCurve, initialCapital = 10000000, currency = 
         const dataPoint = chartData.find(d => d.time === param.time);
         const equity = dataPoint?.equity || 0;
         const pnl = equity - initCap;
-        const dateStr = new Date(param.time * 1000).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
+        const dateStr = new Date(param.time * 1000).toLocaleDateString(getAppMode() === 'US' ? 'en-US' : 'ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
         const sign = pct >= 0 ? '+' : '';
 
         toolTip.innerHTML = `
@@ -17910,7 +17910,7 @@ function createCustomBacktestChart(candles, trades, exchange, symbol) {
         rightPriceScale: { borderColor: '#485c7b' },
         localization: {
             dateFormat: 'yyyy-MM-dd',
-            locale: 'ko-KR',
+            locale: getAppMode() === 'US' ? 'en-US' : 'ko-KR',
             timeFormatter: (time) => {
                 const date = new Date(time * 1000);
                 const y = date.getFullYear();
@@ -18500,7 +18500,7 @@ function drawTrendBacktestChart(equityCurve, initialCapital = 10000000, currency
         const dataPoint = chartData.find(d => d.time === param.time);
         const equity = dataPoint?.equity || 0;
         const pnl = equity - initialCapital;
-        const dateStr = new Date(param.time * 1000).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
+        const dateStr = new Date(param.time * 1000).toLocaleDateString(getAppMode() === 'US' ? 'en-US' : 'ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
         const sign = pct >= 0 ? '+' : '';
 
         toolTip.innerHTML = `

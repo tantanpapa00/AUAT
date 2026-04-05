@@ -729,7 +729,7 @@ async def get_all_usage(
 class AIAnalyzeRequest(BaseModel):
     symbol: str
     exchange: str
-    appMode: str = "KR"  # 'KR' or 'US' - 앱 모드에 따라 언어 결정
+    app_mode: str = "KR"  # 'KR' or 'US' - 앱 모드에 따라 언어 결정
 
 
 class AIChatRequest(BaseModel):
@@ -773,7 +773,7 @@ async def request_ai_analysis(
     # - US 모드 + US 종목 → 영어
     # - US 모드 + KR 종목 → 한국어 (한국 종목은 한국어)
     # - KR 모드 + 모든 종목 → 한국어
-    app_mode = request.appMode.upper() if request.appMode else "KR"
+    app_mode = request.app_mode.upper() if request.app_mode else "KR"
     if app_mode == "US" and market == "us":
         language = "en"
     else:
