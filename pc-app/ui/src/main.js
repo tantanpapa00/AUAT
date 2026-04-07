@@ -4623,6 +4623,14 @@ document.getElementById('btn-verify-password')?.addEventListener('click', async 
     }
 });
 
+// X 버튼 클릭 시 모달 닫고 홈으로 이동
+document.getElementById('btn-security-close')?.addEventListener('click', () => {
+    document.getElementById('password-verify-modal').style.display = 'none';
+    document.getElementById('verify-password').value = '';
+    document.getElementById('verify-error').textContent = '';
+    navigateTo('home');
+});
+
 async function loadAccountsList() {
     const list = document.getElementById('accounts-list');
     if (!list) return;

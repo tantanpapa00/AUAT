@@ -2500,12 +2500,13 @@
                 <!-- 비밀번호 재입력 모달 -->
                 <div id="password-verify-modal" class="modal" style="display: none;">
                     <div class="modal-content modal-small">
-                        <div class="modal-header">
+                        <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center;">
                             <h3 data-i18n="security_check">🔒 보안 확인</h3>
+                            <button id="btn-security-close" style="background:none; border:none; color:#aaa; font-size:20px; cursor:pointer;">✕</button>
                         </div>
                         <div class="modal-body">
                             <p data-i18n="reenter_password">보안을 위해 비밀번호를 다시 입력해주세요.</p>
-                            <input type="password" id="verify-password" class="form-input" data-i18n-attr="placeholder:password" placeholder="비밀번호">
+                            <input type="password" id="verify-password" class="form-input" data-i18n="password" data-i18n-attr="placeholder" placeholder="비밀번호">
                             <div class="verify-error" id="verify-error"></div>
                         </div>
                         <div class="modal-actions">
