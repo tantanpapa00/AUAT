@@ -2652,7 +2652,7 @@ const LANG = {
     'trade_amount': 'Amount',
     'no_trades': 'No trade history',
     // Others
-    'deposit': 'Deposit',
+    'deposit': 'Cash Balance',
     'assets_count': 'N Assets',
     'filled': 'Filled',
     'order_failed': 'Order Failed',

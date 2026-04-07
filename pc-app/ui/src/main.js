@@ -1962,7 +1962,7 @@ function renderHoldings() {
                 const depositAmount = h.quantity || h.value_krw || 0;
                 html += `
                     <tr>
-                        <td title="${t('deposit')}">${h.name || t('deposit')}</td>
+                        <td title="${t('deposit')}">${t('deposit')}</td>
                         <td><span class="exchange-badge ${h.exchange.toLowerCase()}">${h.exchange}</span></td>
                         <td>-</td>
                         <td>-</td>
