@@ -4840,7 +4840,7 @@ document.getElementById('btn-save-account')?.addEventListener('click', async () 
 async function loadAppInfoPage() {
     try {
         const result = await invoke('check_server_health');
-        document.getElementById('app-server-status').textContent = result.ok ? '정상 연결' : '연결 오류';
+        document.getElementById('app-server-status').textContent = result.ok ? t('connection_normal') : t('connection_error');
         document.getElementById('app-last-connection').textContent = new Date().toLocaleString('ko-KR');
     } catch (e) {
         document.getElementById('app-server-status').textContent = t('connection_failed');

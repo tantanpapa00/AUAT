@@ -20,6 +20,8 @@ const LANG = {
     'marketing_optional': '[선택] 마케팅 정보 수신 동의',
     'agree_all': '전체 동의',
     'view': '보기',
+    // 헤더
+    'header_subtitle': '큐브시스템 — BBooster',
     // 네비게이션
     'nav_home': '홈',
     'nav_screener': '종목검색',
@@ -1905,6 +1907,8 @@ const LANG = {
     'marketing_optional': '[Optional] Marketing communications',
     'agree_all': 'Agree to All',
     'view': 'View',
+    // 헤더
+    'header_subtitle': 'QUBE System — BBooster',
     // 네비게이션
     'nav_home': 'Home',
     'nav_screener': 'Stock Screener',
