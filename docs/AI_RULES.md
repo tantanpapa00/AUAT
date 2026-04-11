@@ -1,120 +1,43 @@
-# AI_RULES — bbooster Hub (MUST FOLLOW)
+﻿# AI_RULES — bbooster Hub (MUST FOLLOW)
 
 ## 0) Absolute Rules (NON-NEGOTIABLE)
-1) Do NOT modify anything related to SMC strategy/files or MFT candle files/logic.
-2) Fixed routine only: stop → syntax → run → /tv test. Do not propose alternative sequences.
-3) /tv must never return HTTP 500. Any exception must return: ok=false + code=exception + detail (with actionable message).
-4) No assumptions. If not proven by file/grep/API output, mark as TODO and cite where to verify.
-5) Always show touched files:
-   - touched files (planned) BEFORE changes
-   - touched files (actual) AFTER changes
+1) SSOT 기준은 `docs/PROJECT_STATUS.md`만. (채팅/추정으로 완료 판정 금지)
+2) 운영 루틴 고정: **stop → syntax → run → /tv test** (이 순서 외 금지)
+3) Hub 원칙: **신호판단/추천/스크리닝/자동선정 X**
+   - TradingView(또는 프리미엄전략 엔진)가 “신호”를 만든다.
+   - Hub는 “브릿지 + 사이징/가드 + 안정성 + 기록/관측 + 실행”만 한다.
+4) `/tv`는 **500 금지**. 예외는 반드시 `ok=false` + `code=exception` + `detail` 포함으로만 반환.
+5) `/tv` 테스트는 **PowerShell** `Invoke-RestMethod` / `Invoke-WebRequest`만 사용 (curl JSON 이스케이프 금지)
+6) **GitHub 레포 실물 기준(추정 금지)**:
+   - 파일/경로/구조는 `git ls-files` 또는 리포 검색으로 “실제 존재” 확인 후 진행한다.
+   - (예외) Release/Installer/패키징처럼 **배포본(zip)**을 다루는 작업에서만 zip 실물 확인을 수행한다.
+   - 스코프 제외(절대 건드리지 않음): **SMC 전략/SMC 파일, MFT 캔들 관련 파일/로직**
+7) “확인 안 하고 수정” 금지: 항상 **(코드검색/파일확인/엔드포인트 실측) → 문서 업데이트 → 작업 진행**
 
-## 1) SSOT & Evidence (Token-saving)
-- Source of truth is repo docs (NOT chat):
-  - docs/PROJECT_STATUS.md = SSOT-SLIM (keep short)
-  - docs/APPENDIX_LOG.md   = raw PowerShell outputs (append-only, no summaries)
-  - docs/SSOT_HEADER.md    = chat copy-paste header (<= 20 lines)
-- Chat should only paste docs/SSOT_HEADER.md (and optionally commit hash). Never paste long logs in chat.
+## 1) Work Start SOP (EVERY TASK)
+매 작업 시작 시 반드시:
+1) `docs/AI_RULES.md` 먼저 읽기
+2) **touched files (planned)** 출력 → 작업 → **touched files (actual)** 출력
 
-## 2) Gates (Quality)
-- Syntax gate: python -m compileall app
-- OKX regression gate: scripts/week4_regression.ps1 -FailOnContradiction
-- KIS regression gate: scripts/kis_regression.ps1
-- If gates fail: stop and revert (do not "push through").
+## 2) Evidence-Only Documentation (Token Saving)
+- 긴 원문 증거(PS 출력/JSON/grep)는 **채팅에 붙이지 않는다**.
+- 원문 증거는 `docs/APPENDIX_LOG.md`에만 **append-only**로 누적한다.
+- 채팅에는 `docs/SSOT_HEADER.md`(20줄 이내)만 붙인다.
+- 완료/미완료 판정은 반드시 **증거(파일/코드/엔드포인트 실측)**로만 한다.
 
-## 3) Scope Policy (Product)
-- TradingView makes signals. Hub only bridges + sizing/guards + stability + logs/observability + execution.
-- No recommendations/selection/screener/auto-picking features.
-- Futures are not supported (coin futures / domestic futures / overseas futures).
+## 3) Gates (DO NOT BREAK)
+- Syntax gate: `python -m compileall app`
+- Regression gate: `scripts/week4_regression.ps1 -FailOnContradiction`
+- Gate 실패 시: **즉시 중단 → 원복/리버트 우선**(억지 진행 금지)
 
-## 4) Security Principles
-- Secret required for /tv (unless diag-only endpoints explicitly exempt).
-- Keys must not be printed. Never include .env values in logs/docs.
-- E-STOP must block execution paths immediately.
+## 4) Safety & Security
+- `.env` **값(키/시크릿)**은 절대 출력/문서화/로그에 남기지 않는다. (키 “목록”만 허용)
+- E-STOP이 ON이면 실행/재시도(send-now 등) 경로는 **반드시 차단**되어야 한다.
+- “설정값 ≠ 실제주문값”이면 주문을 **거부**(오주문 방지 정책 우선).
+- 선물(Futures) 전면 미지원(설계/구현/QA 범위에서 제외).
 
-## 5) Evidence Logging Rule
-- All PowerShell outputs used as proof must be appended to docs/APPENDIX_LOG.md with:
-  - timestamp (KST)
-  - command
-  - raw output block
-- Do not rewrite or summarize raw evidence inside APPENDIX_LOG.md.
-
-## 6) Repo-based Workflow
-- Working directory: C:\Users\pc\새 폴더\AUAT
-- Work directly with repo files (git clone or local).
-- Always verify file structure from repo before making changes.
-- Before starting work: read docs/AI_RULES.md + docs/PROJECT_STATUS.md.
-
-## 7) 일괄 적용 원칙 (NON-NEGOTIABLE)
-1) 모든 코드 수정은 전 거래소(OKX/Binance/Bybit/Upbit/KIS_KR/KIS_US) 일괄 적용.
-   - 한 거래소만 수정하고 나머지 미적용 금지.
-   - 캔들 조회, 백테스트, 주문실행, 잔고조회 등 모든 기능 해당.
-2) candle_preloader.py에 등록된 프리로딩 대상은 전 거래소 주요 종목 포함:
-   - BINANCE: BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, BNBUSDT
-   - OKX: BTC-USDT, ETH-USDT, SOL-USDT
-   - BYBIT: BTCUSDT, ETHUSDT
-   - KIS_KR: 005930(삼성전자), 000660(SK하이닉스) — 일봉만 (분봉은 당일만 가능)
-   - KIS_US: AAPL, TSLA — 일봉만
-3) 커밋 전 반드시:
-   a. 문법 검증: python -c "import ast; ast.parse(open('파일').read())"
-   b. 전 거래소 테스트 (최소 curl로 API 응답 확인)
-   c. 기존 테스트 통과: python -m pytest tests/ -x -q
-
-## 7-A) 캔들 DB 축적 정책 (CANDLE_CACHE)
-BBooster 서버는 캔들 데이터를 PostgreSQL candles 테이블에 축적한다.
-이는 서비스의 핵심 자산이며, 사용자가 많을수록 모든 사용자가 빨라지는 구조다.
-
-**축적 방식 (3가지):**
-1) 프리로딩 (candle_preloader.py): 서버 시작 시 + 1시간마다 주요 종목 자동 저장
-2) 사용자 요청 캐싱: 백테스트 요청 시 DB에 없으면 거래소 API 조회 → DB 저장 → 두 번째부터 즉시
-3) 증분 갱신: DB 마지막 캔들이 오래되면 최신분만 추가 조회
-
-**속도 차이:**
-- DB 캐시 HIT: 0.1초 이내
-- DB 캐시 MISS (첫 요청): 거래소 API 조회 5~15초 → 이후 HIT
-
-**용량 추정:**
-- 종목 1만개 × 일봉 1000일 = 1000만행 ≈ 1~2GB (PostgreSQL에서 가벼운 수준)
-- VPS 디스크 압박 없음
-
-**데이터 관리 정책:**
-- 3년(1095일) 이상 된 캔들은 자동 삭제 (cron 또는 서버 시작 시)
-- 삭제 쿼리: DELETE FROM candles WHERE timestamp < NOW() - INTERVAL '3 years'
-- 프리로딩 대상 종목 캔들은 삭제 대상에서 제외 가능 (선택)
-
-**KIS 캔들 제한사항:**
-- 일봉/주봉/월봉: 조회 가능 → 백테스트 + 프리로딩 가능
-- 분봉: 당일 1분봉만, 30건씩 → 과거 분봉 백테스트 불가
-- KIS 백테스트는 일봉 기준으로만 지원
-
-**전 거래소 캔들 조회 API:**
-| 거래소 | 일봉 | 분봉 | 1회 조회 한도 | 비고 |
-|--------|------|------|-------------|------|
-| Binance | ✅ | ✅ (1m~1w) | 1000개 | 제한 없음 |
-| OKX | ✅ | ✅ (1m~1w) | 100개 | VPS IP 429 주의 |
-| Bybit | ✅ | ✅ (1m~1w) | 200개 | |
-| Upbit | ✅ | ✅ (1m~1w) | 200개 | 원화마켓 |
-| KIS_KR | ✅ | 당일1분봉만 | 30개 | 분봉 과거조회 불가 |
-| KIS_US | ✅ | 당일1분봉만 | 30개 | 분봉 과거조회 불가 |
-
-## 8) 문제 해결 프로세스 (NON-NEGOTIABLE)
-문제 발생 시 아래 순서 준수:
-1) 점검: 로그 확인 (docker logs, grep error)
-2) 원인 규명: 에러 메시지 + 코드 추적
-3) 여러 변수 테스트: 다른 거래소/종목/타임프레임으로 재현
-4) 수정 후 검증: 동일 조건 + 다른 조건 모두 테스트
-5) 커밋
-
-절대 금지:
-- 원인 미파악 상태에서 커밋
-- 한 거래소만 테스트하고 커밋
-- "이미 완료됨" 스킵
-
-## 9) 백테스트 결과 기준 (트레이딩뷰 동일)
-백테스트 결과는 트레이딩뷰 전략 리포트와 동일한 구조:
-- 상단 카드 5개: 총손익(금액+%), 최대자본감소(금액+%), 총거래횟수, 수익성거래(% + n/n), 수익지수
-- 수익률 테이블: 전체/매수/매도 3열, 행: 순손익, 총수익, 총손실, 수익지수, 수수료, 기대수익
-- 자본 차트: Y축 수익률(%), 수익구간 초록/손실구간 빨강, 초기자본 기준선
-- 거래 내역: 수익금+수익률 둘 다 표시
-- 수수료 계산 포함 (기본 0.1%)
-- 미실현 손익 포함 (백테스트 종료 시 보유 포지션)
+## 5) Change Discipline (Small, Verifiable Steps)
+- 한 번에 크게 바꾸지 말고, **작게 변경 → 즉시 실측 → 로그/문서 업데이트** 순서로 진행한다.
+- hotfix가 누적된 `app/main.py`는 특히 **중복 def/오버라이드 위험**이 있으므로,
+  - 호출 경로를 “증거로 고정(런타임 proof)”한 뒤 변경한다.
+- 실패/모순이 보이면 “추측으로 메우지 말고” **증거를 먼저 확보**한다.

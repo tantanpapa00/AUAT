@@ -1,1843 +1,507 @@
-# PROJECT_STATUS.md (SSOT)
-- Last updated: 2026-02-06 (Day 10 — KIS API 연동 + 심볼정보 강화) KST
+﻿# PROJECT_STATUS.md (SSOT)
+- Last updated: 2026-02-02 KST
 - Owner: 기훈(작가님)
 
 > NOTE: 이 파일이 '진실(SSOT)'입니다. 채팅은 인터페이스일 뿐.
-> 변경 시 반드시 근거(파일/코드/PS 실측 출력)를 docs/APPENDIX_LOG.md에 남기고 커밋합니다.
+> 변경 시 반드시 근거(파일/코드/PS 실측 출력)를 APPENDIX_LOG.md에 남기고 커밋합니다.
 
----
+# =========================
+# PROJECT_STATUS.md (SSOT)
+# =========================
+- Last updated: 2026-02-03 KST
+- Owner: 기훈(작가님)
 
 # 0) 절대 규칙 (SSOT / 절대 위반 금지)
-1) 진행상태/완료여부 판단 기준은 "docs/PROJECT_STATUS.md(=이 문서)"만. (채팅 아님)
+1) 진행상태/완료여부 판단 기준은 "PROJECT_STATUS.md(=이 문서)"만. (채팅 아님)
 2) 운영 루틴 고정: stop → syntax → run → /tv test (이 순서 외 금지)
 3) Hub 원칙: 신호판단/추천/스크리닝/자동선정 X
+   - TradingView(또는 프리미엄전략 엔진)가 “신호”를 만든다.
+   - Hub는 “브릿지 + 사이징/가드 + 안정성 + 기록/관측 + 실행”만 한다.
 4) /tv는 500 금지. 예외는 반드시 `ok=false` + `code=exception` + `detail` 포함으로만 반환.
-5) 작업 시작 전 docs/AI_RULES.md 필독 + 레포 파일 구조 확인
+5) /tv 테스트는 PowerShell Invoke-RestMethod/Invoke-WebRequest만 사용 (curl JSON 이스케이프 금지)
+6) (인수인계/작업 시작 전) autobot.zip을 반드시 먼저 풀어서(app/, data/, scripts/, requirements.txt) 구조와 실제 파일명을 확인한다.
    - 스코프 제외(절대 건드리지 않음): SMC 전략/SMC 파일, MFT 캔들 관련 파일/로직
+7) “확인 안 하고 수정” 금지: 항상 (코드검색/파일확인/엔드포인트 실측) → 문서 업데이트 → 작업 진행.
+8) 작업시간 제약: 하루 최대 4시간 기준으로 계획/쪼개기(무리한 일정 금지). 12주 기본, 필요 시 6개월까지도 허용(단, 되돌림/중복작업은 금지).
 
----
+9) [필수] 인수인계서 작성 요령(빠짐없이 작성 / 누락 금지)
+- 원칙: “아는 척으로 추정 작성” 금지. 반드시 아래 증거 기반으로만 기록.
+  A) (파일) zip 실물 확인: 실제 경로/파일명/구조를 적시
+  B) (코드) 검색/라인 근거: grep/리포지토리 검색으로 위치 확인
+  C) (API) 실측 출력: PowerShell로 호출한 결과(필드/값)로 완료/미완료 판정
+- 반드시 포함할 섹션(누락 금지):
+  1) 절대 규칙/스코프 제외/운영 루틴
+  2) 제품 방향(웹/대시보드/프로그램/로컬 에이전트)
+  3) 보안 원칙(E-STOP/키/2차인증/오주문 차단)
+  4) 파일 구조(실물 기준) + .env 키 목록(값 금지)
+  5) 현재까지 성과(M1~)는 “증거(API 출력/로그)”로만
+  6) 핵심 엔드포인트 맵 + 코드 위치
+  7) 다음 마일스톤/로드맵(게이트 기준, 되돌림 최소화)
+  8) Known Issues/Risks(재발 방지 포인트)
+  9) NEXT ACTION(오늘 바로 할 3개)
+- 문서 업데이트 규칙:
+  - 무엇을 확인했고(근거), 무엇이 바뀌었고(변경점), 무엇이 남았는지(TODO)를 “한 줄로” 남긴다.
+  - 작업을 시작하기 전/후에 SSOT 문서를 먼저 갱신한다(문서가 항상 최신).
 
-# 1) 제품 방향
-- 마케팅/소개 = 웹, 대시보드 = 웹(로그인), 계좌/API키/설정 = 프로그램(PC)/앱
-- 보안: 출금 권한 없는 키 + 2차인증 + E-STOP(웹/프로그램/앱 3곳)
-- 증권사: KIS만 (키움 제외)
-- **상세 제품 아키텍처**: [docs/PRODUCT_SPEC.md](PRODUCT_SPEC.md) (사이트/PC/앱 역할, 허브형/프리미엄형, 구독/권한)
+# 1) 제품 방향(최신 합의: 웹 vs 프로그램 vs 로컬 에이전트)
+## 1-1) 결론(하이브리드가 정답)
+- “마케팅/소개/가격/다운로드/사용법/커뮤니티” = 웹(사이트)
+- “대시보드(자산/성과/상태/알림/접속이상)” = 웹(로그인 후)
+- “계좌등록/API키 등록/전략설정/시스템설정/안전가드/전체중지/구독상태 확인” = 프로그램(PC) 또는 앱
+- 24시간 실행은 사용자가 PC를 꺼도 돌아가야 하므로,
+  - 장기적으로는 “서버(클라우드) 실행”이 기본.
+  - 단, 보안(키 유출/해킹) 최소화를 위해 “로컬 에이전트/클라이언트 앱”에서 키 등록·변경·2차인증을 강제하는 구조를 우선 설계한다.
 
----
+## 1-2) 보안 원칙(최우선)
+- 원칙: 출금 권한 없는 키(거래만 가능) + 민감정보 보호 + 강한 인증
+- API키 등록/열람/변경 시 “간편인증(예: 카톡/OTP 등 2차인증)” 같은 보호장치를 반드시 둔다.
+- 오주문 방지: “설정값 ≠ 실제주문값”이면 주문이 안 들어가게(거부) 하는 것이 정답.
+- 전체중지(E-STOP)는 반드시 3곳에서 가능:
+  1) 웹(대시보드)
+  2) 프로그램(PC)
+  3) 앱(모바일)
+  → 누르면 즉시 Hub 실행이 멈춰야 한다.
 
-# 2) 개발 환경
-- 작업 폴더: C:\Users\pc\새 폴더\AUAT
-- 로컬 서버: FastAPI(Uvicorn) http://127.0.0.1:8000
-- **VPS 서버: https://qube-system.com (운영 중)**
-- Swagger: https://qube-system.com/docs
+## 1-3) 수익모델(구독 플랜 - 최신안)
+- 무료: 심볼 1개, TV 지표 연동, 1주 제한
+- 베이직(33,000): 심볼 10개, TV 지표 연동
+- 플러스(55,000): 심볼 무제한, TV 지표 연동
+- 프리미엄(69,000): 심볼 10개, 프리미엄전략(역추세/추세) + TV 지표 연동
+- 프리미엄무제한(99,000): 심볼 무제한, 프리미엄전략(역추세/추세) + TV 지표 연동
+중요:
+- 종목추천/자동선정/스크리너 제공 금지(정책 고정).
+- 프리미엄전략은 “소스 공유 금지”가 기본 원칙.
+- 프리미엄전략을 TV 없이도 쓰게 할지(별도 프로그램 엔진)는 향후 옵션(아키텍처에 플러그인처럼 얹을 수 있게 설계만 선반영).
 
-## 운영 루틴
-- STOP: scripts/stop.ps1 또는 Ctrl+C
-- SYNTAX: `python -m compileall app`
-- RUN: scripts/run.ps1 또는 `python -m uvicorn app.main:app --reload --port 8000`
+## 1-4) 지원 타겟(핵심 범위 확정: 환불/복잡도 최소화)
+### (지원) 1차 출시 타겟 3개
+1) 코인 현물(Spot) — OKX / Upbit (추후 Binance/Bybit 현물은 “필요 시”)
+2) 국내주식 — KIS
+3) 해외주식 — KIS (해외는 계좌 달러/환전은 사용자 영역, Hub는 주문만)
 
----
+### (미지원/공지) 선물(Futures) 전면 미지원 (코인선물/국내선물/해외선물)
+- 이유: 선물은 위험/민원/환불 포인트가 크고, 거래소 자체 솔루션(거래소 봇/서드파티)이 안정적임.
+- 공지 문구 원칙: “선물은 지원하지 않습니다. 선물은 거래소 자체 기능/외부 솔루션을 사용하세요.”
+- Hub는 “현물 + 주식”에 집중하여 설정/오주문/환불 리스크를 최소화한다.
 
-# 3) 파일 구조
-- app/main.py: FastAPI 엔드포인트 (핵심)
-- app/connectors/: OKX, KIS, Binance, Bybit, Upbit 커넥터
-- scripts/: run.ps1, stop.ps1, week4_regression.ps1, kis_regression.ps1
-- docs/: PROJECT_STATUS.md(SSOT), AI_RULES.md, APPENDIX_LOG.md
+## 1-5) 국내 증권사 확장 목표(반영: KIS ONLY / 키움 제외)
+- 최종 목표 증권사(1차): “한국투자증권(KIS)”
+- 설계 원칙:
+  - KIS: 서버(Hub) 커넥터로 직접 연동(REST 기반)
+- (명시) 키움은 Windows/세션/인증 제약으로 운영 변수가 커서, 본 12주 로드맵 범위에서 제외한다(별도 트랙/별도 분기에서 재평가).
+- 절대 원칙: Hub가 추천/선정/성과보장으로 비치지 않게(정책/약관/UX 포함)
 
----
+# 2) 가장 큰 환불 포인트: “얼러트 메시지/설정” 대응 전략(SSOT 반영)
+문제 인식:
+- 사용자는 “지표만 만들면 된다”고 착각한다.
+- 실제로는 TradingView 얼러트 메시지/템플릿/심볼/마켓/통화/주문유형이 조금만 어긋나도 “안 됨” → 환불 폭증.
 
-# 4) 환경변수 키 (값 노출 금지)
-- DATABASE_URL, DRY_RUN, ORDER_SUBMIT_ENABLE, ORDER_POLL_ENABLE
-- OKX_*: API_KEY, API_SECRET, API_PASSPHRASE, BASE_URL, SIMULATED
-- KIS_*: APP_KEY, APP_SECRET, CANO, ACNT_PRDT_CD, SVR, SIMULATED
-- BINANCE_*: API_KEY, API_SECRET, BASE_URL, SIMULATED
-- BYBIT_*: API_KEY, API_SECRET, BASE_URL, SIMULATED
-- UPBIT_*: ACCESS_KEY, SECRET_KEY, BASE_URL
+해결 방향(기본/고급 2모드로 분리):
+## 2-1) 기본모드(초보자용, 클릭 몇 번으로 끝)
+- 사용자는 “계좌(OKX/KIS) + 자산(심볼) + 전략 + 거래방식(현물/주식)”만 고른다.
+- Hub가 제공하는 “고정 템플릿(표준 payload)”을 그대로 복붙만 하면 끝.
+- Hub가 /tv 수신 시 필수필드 검증 + 친절한 에러코드로 안내(500 금지).
+- 기본모드에서는 사용자가 JSON을 직접 작성하지 않도록 유도한다.
 
----
+## 2-2) 고급모드(파워유저용)
+- 사용자가 커스텀 필드를 추가할 수 있으나,
+- Hub는 “지원 필드만” 받아서 주문에 반영한다(미지원 필드는 무시 또는 에러).
+- 핵심: “오주문 방지(설정값 ≠ 실제주문값이면 거부)” 정책 유지.
 
-# 5) 핵심 엔드포인트
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | /tv | TradingView webhook (500 금지) |
-| GET | /api/home | 전광판 요약 |
-| POST | /api/diag/send-now | 주문 전송 |
-| POST | /api/diag/poll-now | 체결 조회 |
-| GET | /api/diag/kis-preflight | KIS 연결 체크 |
-| GET | /api/diag/kis-balance | KIS 잔고 |
-| GET | /api/diag/connector-test | 커넥터 테스트 (Week7) |
+## 2-3) ‘지표 소스 까야만 되는’ 문제(특히 역추세/분할매수) 대응
+- 원칙: Hub가 지표 로직을 재구현/판단하지 않는다.
+- 해결책: “Input Sync(config_hash) + 표준 템플릿”으로 사용자의 지표 인풋(사이징 관련)만 동기화한다.
+- 즉, 사용자는 지표 소스를 까지 않고도:
+  - 가용자금 대비 %
+  - 1차/2차 분할비중
+  - 부분매도 비중
+  같은 “사이징 파라미터”를 Hub 설정(=config)으로 맞추고,
+  TradingView는 “신호(trade action)”만 보내게 만든다.
 
----
+## 2-4) Secret은 꼭 필요한가?
+- YES(필수). /tv 웹훅은 외부 노출 엔드포인트이므로 secret은 최소 인증장치다.
+- 원칙: secret 없으면 /tv는 거부(단, diag 전용 엔드포인트는 예외로 별도 운용).
+- 추가 강화(향후): secret + timestamp + signature(선택)로 리플레이/위조 방지.
 
-# 6) 개발 일정 (18주, v5) — 순서/의존관계 재정렬(거래소→프리미엄→앱→커스텀→라이센스→릴리즈)
+# 3) 개발 환경 / 실행 정보
+- 작업 폴더(사용자 환경): C:\autobot
+- 서버: FastAPI(Uvicorn)
+- 로컬 주소: http://127.0.0.1:8000
 
-## 공통 고정(반드시)
-- 차트는 TradingView embed(WebView) 방식(A) 1순위. 우리는 차트 개발하지 않는다.
-- 근거 표시는 우리 UI(타임라인 패널): reason_code/reason_text/snapshot_id 필수.
-- Premium/Custom 권장 TF: 15분봉 이상(1~5분봉은 슬리피지/체결괴리 경고).
-- Custom은 복잡도 제한 + Rule Lint(OK/WARN/BLOCK) 필수.
-- 거래소는 Spot만 지원. 선물(Futures)/레버리지 전면 미지원.
+## 3-1) 브라우저 확인 주소(중요)
+- Swagger: http://127.0.0.1:8000/docs
+- ReDoc:   http://127.0.0.1:8000/redoc
+- 전광판 JSON: http://127.0.0.1:8000/api/home
+주의: UI 홈(/) 라우트는 현재 main.py에서 주석 처리되어 “사이트 화면”은 안 열릴 수 있다(정상).
 
-## 게이트(절대)
-- **Gate-OKX**: scripts/week4_regression.ps1 -FailOnContradiction PASS 유지(깨지면 즉시 원복)
-- **Gate-TV**: scripts/tv_template_regression.ps1 PASS 유지
-- **Gate-E-STOP**: E-STOP ON에서 send-now 차단 실측 유지
-- **Gate-BINANCE**: scripts/binance_regression.ps1 PASS 유지(Week 12~13에 생성)
-- **Gate-BYBIT**: scripts/bybit_regression.ps1 PASS 유지(Week 12~13에 생성)
-- **Gate-UPBIT**: scripts/upbit_regression.ps1 PASS 유지(Week 13에 생성)
+## 3-2) 고정 운영 루틴(절대 고정)
+STOP:
+- (권장) powershell -ExecutionPolicy Bypass -File C:\autobot\scripts\stop.ps1
+- 또는 uvicorn 창 Ctrl+C
 
-## 원칙
-- 완료/미완료는 PS 실측/파일/코드근거로만 판정. 주차 숫자보다 모듈 게이트 우선.
+SYNTAX:
+- cd C:\autobot
+- python -m compileall app | Select-Object -Last 20
+
+RUN:
+- (권장) powershell -ExecutionPolicy Bypass -File C:\autobot\scripts\run.ps1
+- 또는 python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+
+## 3-3) 운영 방식(창 2개 사용 규칙 — “멋대로 합치지 말 것”)
+- 작가님 운영 방식: “서버창 1개 + 테스트창 1개”를 동시에 켜서 운용한다.
+- 따라서 커맨드는 반드시:
+  - (서버창) run/로그 관측
+  - (테스트창) API 호출/회귀 스크립트
+  로 구분해서 안내한다.
+- 하나의 블록에서 서버/테스트 커맨드를 섞어서 “한 번에 실행”시키는 안내 금지(운영 혼선/오작동 원인).
+
+# 4) 레포/파일 구조(autobot.zip 실물 기준)
+※ 반드시 zip을 풀고 “실제 파일명” 기준으로 문서/코드/엔드포인트를 작성한다(가정 금지).
+
+- app/
+  - main.py                : FastAPI 엔드포인트 대부분(핵심, 단일 거대 파일 + hotfix 누적)
+  - okx_api.py             : OKX REST 호출/서명/주문(place_order) 모듈(존재하나 “실사용 여부는 증거 기반으로만” 판정)
+  - pine_parser.py         : Pine input.* 파서(v1) + warnings(missing_lhs_at) 발생 가능
+  - db.py                  : SQLAlchemy engine/session, .env 로드
+  - models.py              : zip 기준 일부 ORM (단, 다수는 main.py SQL로 처리되는 구간 존재)
+  - templates/index.html   : UI 전광판 HTML(다수 백업파일 존재)
+  - connectors/okx.py      : OKX connector(urllib, dependency-free) (현재 main.py에서 import/사용됨)
+  - connectors/kis.py      : KIS connector(토큰/요청/잔고/주문 스켈레톤 + 실측 일부)
+- data/
+  - inputs_keep_final_v0_4.txt  (운영에서 사용 중인 keep)
+  - inputs_keep_scope_v0_4.txt
+  - inputs_keep_v0_4.txt
+  - inputs_raw_v0_4.txt
+  - inputs_blocks_v0_4.txt
+  - inputs_sizing_ops_v0_4.txt
+  - (주의) 깨진 파일명 1개 존재: "data/┐¬├▀..." (가능하면 사용 금지)
+- scripts/
+  - run.ps1 / stop.ps1           : 서버 기동/중지(권장 루틴)
+  - week4_regression.ps1         : Week4 회귀(증거 기반) 스크립트(중요, 게이트)
+  - kis_regression.ps1           : KIS 실측 회귀 스크립트(증거 기반)
+  - tv_webhook_regression_testonly.ps1 등: 기존 회귀/테스트 스크립트(존재)
+  - uncomment_routes_block*.py   : 주석된 라우트 일부를 안전하게 복구하는 패치 도구
+  - db_patch_order.py            : 주문 row 테스트 패치/조회(재시도/리커버리 테스트에 사용)
+  - db_prepare_recover.py        : recover 테스트 준비(주문 invalid + okx_order_id NULL 등) 스크립트(week4_regression에서 사용)
+
+- requirements.txt
+- .env (민감정보 포함. 커밋/공유 금지)
+
+# 5) 환경변수(.env) — 키 목록(값은 절대 문서/로그에 노출 금지)
+- DATABASE_URL
+- DRY_RUN (0/1)
+- ORDER_SUBMIT_ENABLE (0/1)
+- ORDER_POLL_ENABLE (0/1)
+- OKX_BASE_URL
+- OKX_SIMULATED (0/1)
+- OKX_API_KEY / OKX_API_SECRET / OKX_API_PASSPHRASE
+- KIS_SVR ('prod' or 'vps', 기본값: prod)
+- KIS_SIMULATED (0/1, 1이면 vps로 전환)
+- KIS_BASE_URL (optional, 고급 설정용)
+- KIS_APP_KEY / KIS_APP_SECRET (실전계좌용)
+- KIS_PAPER_APP_KEY / KIS_PAPER_APP_SECRET (모의계좌/vps용)
+- KIS_USER_AGENT (optional)
+- KIS_CANO (계좌번호, 잔고조회용)
+- KIS_ACNT_PRDT_CD (계좌상품코드, 잔고조회용)
+- KIS_TIMEOUT_SEC (optional, 기본 20초)
+- KIS_RETRY_N (optional, 기본 2회)
+
+주의:
+- 현재 .env에는 실키가 들어갈 수 있다. 외부 공유 금지.
+- 장기적으로 “서버에 키를 저장/노출 최소화” 구조로 바꿔야 한다(로컬 에이전트 + 2차인증).
+- (향후) Upbit/Binance/Bybit 관련 키도 동일 원칙(값 노출 금지, 변경 시 감사로그)
+
+# 6) 현재까지 “로그/실측으로 확인된” 성과 (증거는 API 출력)
+## M1: /tv accepted + 주문 생성/전송/체결 루프(OKX Spot) — DONE
+- /api/diag/okx-preflight OK
+- /tv accepted → poll-now(mode=poll)로 filled 갱신 OK
+- (증거) APPENDIX A1 week4_regression 출력에서 poll-now 결과에 status/okx_state/exch_status=filled + filled_qty + avg_px + okx_order_id 확인됨
+
+## M2: Duplicate Guard(중복 방지) — DONE
+- 동일 alert_id 2회 전송:
+  - 1회차: accepted
+  - 2회차: ignored_duplicate + idem_key
+- orders row가 1건만 생성되는 것 확인
+(주의: 이 섹션의 DONE 판정은 “실측 출력”을 재확인할 수 있어야 유지된다)
+
+## M3: Input Sync v1 + config_hash — DONE
+- POST /api/strategies/{id}/configs/from_keep (keep_path=inputs_keep_final_v0_4.txt)
+  - config_id/config_hash 생성 및 재사용(reused_existing_config_hash) 확인
+- templates/tradingview?include_hash=true 에 config_hash 포함 확인
+- /tv payload에 config_hash 넣으면 orders에 config_id/config_hash 저장 확인
+
+## M4: 전광판(UI/요약) 상태 표시 강화 — DONE(백엔드 데이터 기준)
+아래 컬럼들이 실제로 내려오는 것이 “확인됨”:
+- GET /api/home:
+  - last_order_status, last_filled_qty, last_order_avg_px, last_okx_order_id, last_checked_at 등
+(증거) APPENDIX A1의 /api/home 출력에 last_* 필드가 포함됨
+
+주의:
+- “브라우저 UI 화면(index.html)”에 표시가 안 되면, 원인은 2가지다:
+  1) UI 라우트(/)가 주석이라 화면 자체가 안 열릴 수 있다(정상)
+  2) index.html이 avg_px 등 컬럼을 아직 렌더링 안 함(패치로 해결)
+- 하지만 “데이터/API”는 이미 내려오므로 M4는 DONE으로 본다.
+
+## M10-1: E-STOP API + send-now 차단 — DONE(실측)
+- GET /api/system/estop → estop true/false 확인
+- E-STOP ON 상태에서 POST /api/diag/send-now → ok=false, note="stopped", detail="E-STOP is ON" 확인
+- E-STOP OFF 후 POST /api/diag/send-now → ok=true, note="send_checked" 확인
+
+## M11-2: Week4 Regression(PS) + Recover + Filled-wins Gate(실측) — DONE(2026-01-30 KST 실측)
+- scripts/week4_regression.ps1 -FailOnContradiction 옵션으로 “모순 탐지”가 실패(exit 1) 없이 통과
+- poll-now에서 filled 근거(okx_state/exch_status/filled_qty/avg_px)가 생기면 최종 status가 filled로 유지됨(회귀 스크립트로 확인)
+
+# 7) 핵심 엔드포인트 맵(코드 위치 포함)
+(대부분: app/main.py)
+- GET  /api/home                      : 전광판 요약 JSON
+- GET  /api/assets                    : 자산 목록(전광판 원천 데이터)
+- GET  /api/orders                    : 주문 목록
+- GET  /api/diag/order?order_id=...   : 단일 주문 상세(디버깅 핵심)
+- POST /tv                            : TradingView webhook 수신(500 금지 + idem_guard)
+- POST /api/diag/send-now             : 미전송/전송실패 스캔 후 전송(재시도/리커버리 정책 중요)
+- POST /api/diag/poll-now             : OKX 주문조회/체결갱신(상태추적)
+- GET  /api/diag/okx-preflight        : OKX 연결/키 체크
+- GET  /api/diag/okx-balance-split    : trading/funding/total split
+- POST /api/strategies/{id}/configs/from_keep : keep 파일 기반 config_hash 생성
+- GET  /api/diag/home                 : 홈 diag(캐시 상태: hit/miss)
+- GET  /api/diag/home?refresh_kis=1   : KIS 강제조회 + 캐시 갱신(증거용 timestamp 필수)
+
+# 8) DB/스키마 관련 중요한 현실(필수 주의)
+- app/main.py에 hotfix가 누적되어 “중복 정의/오버라이드” 리스크가 항상 존재한다.
+- 운영/확장(OKX→KIS)로 가려면:
+  1) 호출 경로를 증거로 고정하고(런타임 proof),
+  2) 스키마/상태모델을 문서화하여 “되돌림/중복작업”을 막아야 한다.
+- (현실적인 제약) psql이 PowerShell에서 바로 없을 수 있음 → DB 패치는 python+sqlalchemy 스크립트 방식이 안전.
+
+# 9) 이번 세션(2026-01-30 KST)에서 실제로 한 것 / 문제점 / 해결 (증거 기반)
+## 9-1) 오늘 무엇을 했나(증거: APPENDIX A1/A2/A3/A4)
+1) week4_regression.ps1 실행 → 게이트 통과 확인
+2) main.py OKX 직접 호출/레거시 주석 블록 제거 반영(main.py 교체 패치)
+3) compileall 통과 후 week4_regression 재통과
+4) 최종 grep(Select-String)에서 main.py OKX 흔적이 “connector import 4줄만 남음” 확인
+
+## 9-2) 오늘의 문제점(증거 기반)
+1) OKX 최소주문/잔고부족/최소명목 미달은 retryable이 아니라 terminal로 분류되어야 함
+- 증거(사용자 로그 /api/home reason):
+  - send_failed: INSUFFICIENT_BAL ...
+2) (운영 리스크) 호출 경로가 섞이면 okx_place_order 인자/응답 파싱 불일치가 발생할 수 있음
+- 재발 방지: “한 경로만 호출” 원칙을 Week5에서 강제
+
+## 9-3) 오늘 해결한 것(증거 기반)
+1) main.py OKX 직접 /api/v5/requests/urllib 흔적 제거(실사용 구간)
+- 증거: APPENDIX A2 최종 Select-String 결과(4줄)
+2) week4_regression PASS 유지
+- 증거: APPENDIX A1 원문에서 == DONE ==
+
+# =========================
+# 9-4) 이번 세션(2026-02-02 KST)에서 실제로 한 것 / 문제점 / 해결 (KIS cache timestamp) — 누적(삭제 금지)
+# =========================
+## 9-4-1) 오늘 무엇을 했나(증거: APPENDIX A5/A6/A7/A8)
+1) /api/diag/home 기본 호출에서 KIS가 miss로 내려오는 동작 확인(기본은 강제조회하지 않음)
+2) /api/diag/home?refresh_kis=1 호출 시 KIS 강제조회 + 캐시갱신(refresh) 동작 확인
+3) 문제: refresh 후에도 kis_cached_at가 null로 남는 케이스가 있었고, “갱신 시각을 남겨야 한다”로 정책 확정
+4) main.py에서 kis_cached_at 주입 지점 + _KIS_SUMMARY_CACHE(ts/payload) 구조를 Select-String으로 근거 확보
+5) 패치 적용 후 재실측:
+   - refresh_kis=1 호출에서 kis_cached_at가 ISO8601(+09:00)로 채워짐
+   - 이후 기본 호출에서 kis_cache_state=hit + 동일 kis_cached_at 유지됨
+
+## 9-4-2) 오늘의 문제점(증거 기반)
+1) KIS 캐시 타임스탬프(kis_cached_at)가 refresh 이후에도 null이면 “언제 갱신됐는지” 증거가 전광판에서 사라짐
+- 증거: APPENDIX A5(기본 miss) 및 APPENDIX A7(패치 전/후 비교 로그)에서 kis_cached_at=null 관측 케이스 존재
+2) mojibake(문자깨짐): kis_msg1_fixed가 깨진 문자열로 내려옴
+- 증거: APPENDIX A7/A8에서 kis_msg1_fixed="ëª¨ìí¬ì ì¡°íê° ìë£ëììµëë¤." 형태
+3) PowerShell 세션 변경 시 $base 변수가 사라질 수 있어 테스트 혼선 발생 가능
+- 재발 방지: 테스트 시작 시 항상 $base 재정의
+
+## 9-4-3) 오늘 해결한 것(증거 기반)
+1) 정책 확정(운영/비용/증거성):
+   - 기본 /api/diag/home 는 외부 호출 X, 캐시 hit/miss만 표시
+   - /api/diag/home?refresh_kis=1 에서만 외부 호출 O, 캐시 갱신 + kis_cached_at 반드시 세팅
+- 증거: APPENDIX A7/A8에서 refresh→hit 흐름 및 timestamp 유지 확인
+2) 코드 근거 확보:
+   - kis_cached_at 주입 라인 존재
+   - _KIS_SUMMARY_CACHE(ts/payload) 캐시 구조 존재
+   - _fix_mojibake / _fix_mojibake_utf8 존재
+- 증거: APPENDIX A6 Select-String 결과(라인번호 포함)
+
+## 9-4-4) 앞으로는 이렇게 해야 한다(재발 방지 규칙)
+1) KIS 강제조회는 refresh_kis=1에서만(기본 홈 호출에서 KIS API를 절대 때리지 않음)
+2) refresh 시 kis_cached_at 반드시 갱신, hit에서는 유지(전광판에 “근거”가 남아야 함)
+3) mojibake는 “표시용 보정”만 적용(원문 데이터/로그 훼손 금지)
+4) 테스트 루틴:
+   - (테스트창) $base 재세팅
+   - /api/diag/home → miss/hit 확인
+   - /api/diag/home?refresh_kis=1 → refresh + kis_cached_at 확인
+   - /api/diag/home → hit + 동일 kis_cached_at 유지 확인
+
+# =========================
+# 10-A) 개발 일정(고정) — 12주(주5일, 1~2시간/일, 하루 최대 4시간 상한) “Day 단위 SSOT”
+# =========================
+원칙:
+- Day 단위 체크리스트가 SSOT의 “현재 위치”를 만든다. (완료/미완료는 API 실측/파일 증거로만)
+- OKX Week4 회귀 게이트(week4_regression.ps1 -FailOnContradiction PASS)를 절대 깨지 않는다.
+- KIS(한투)는 12주 계획 안에 Day 단위로 포함한다.
 - Hub 원칙(신호판단/추천/스크리닝/자동선정 X) 위반하는 기능은 일정에 넣지 않는다.
 - 선물(Futures)은 전면 미지원(설계/구현/QA 범위에서 제외).
 
-## Week 1~4: DONE (DB+UI 기본/OKX 루프/회귀 게이트 정착)
-- 증거: APPENDIX(week4_regression PASS), /tv accepted, poll-now filled, recover PASS
-
-## Week 5~6: DONE (OKX 커넥터 단일화 + KIS 착수/실측/회귀 기반)
-- 증거: KIS diag/home refresh_kis timestamp, kis_regression PASS 등
-
-## Week 7: DONE (KIS place_order/get_order 골격 + 라우팅 최소)
-- 증거: APPENDIX_LOG.md 실측 원문
-
-## Week 8: DONE (환불 방지 패키지 v1 + ShortMsg)
-- 포함: TV_TEMPLATE.md, /tv 검증 강화, 템플릿 생성 API, TV_WIZARD.md, tv_template_regression.ps1, ShortMsg
-- 증거: APPENDIX_LOG.md 2026-02-03 원문(회귀 PASS, connector-test OK)
-
-## Week 9: 3종 제품 아키텍처 고정 + 구독/권한 뼈대 — DONE
-Day 1: SSOT에 3종 역할/범위(사이트/PC/앱) + 허브/프리미엄 경계 확정 — DONE (2026-02-03)
-- 생성: docs/PRODUCT_SPEC.md (1-6 ~ 1-9)
-- 커넥터 팩토리 모듈화: app/connectors/__init__.py, scripts/connector_regression.ps1
-Day 2: 서버에 Auth 토큰 스펙(초안) + /api/subscription/me(스텁) 설계 — DONE (2026-02-03)
-- 생성: docs/AUTH_SPEC.md (Plan/Entitlement 정의, 동기화 플로우)
-- 구현: /api/subscription/me 스텁 엔드포인트
-Day 3: Plan/Entitlement 모델 확정 + 서버 응답형식 고정 — DONE (2026-02-03)
-- Pydantic 모델: PlanType, Entitlements, SubscriptionResponse, SubscriptionErrorResponse
-- PLAN_DEFAULTS: free/hub/premium 기본 권한값 확정
-Day 4: PC/앱 "실행 시 구독 동기화" 플로우 문서화 — DONE (2026-02-03)
-- AUTH_SPEC.md 5) 섹션 확장: 실행 시 동기화, 토큰 만료, 주기적 동기화, 오프라인 모드
-- 기능 잠금/해제 매핑, 에러 메시지, 로컬 저장 보안 가이드
-Day 5: 회귀: Gate-OKX/Gate-TV/Gate-E-STOP 전부 PASS — DONE (2026-02-03)
-- Gate-OKX: week4_regression.ps1 PASS
-- Gate-TV: tv_template_regression.ps1 PASS
-- Gate-E-STOP: E-STOP ON 시 send-now 차단 확인
-
-## Week 10: 종합 UI v1(공통 데이터) — 타임라인/마커/성과 최소 — DONE
-Day 1: 이벤트(타임라인) 스키마 확정 + DB/로그 저장 방식 결정 — DONE (2026-02-03)
-- 생성: docs/TIMELINE_SPEC.md (이벤트 타입, 스키마, API 스펙)
-- 구현: app/models.py Event 모델 추가
-Day 2: GET /api/timeline 구현 + PS 실측 — DONE (2026-02-03)
-- 구현: /api/timeline 엔드포인트 (asset_id, order_id, limit, offset 필터)
-- Fallback: events 테이블 없으면 orders 테이블에서 이벤트 생성
-Day 3: /api/home에 최근 이벤트 요약 5개 추가 — DONE (2026-02-03)
-- 구현: recent_events 필드 추가
-Day 4: 타임라인 HTML 뷰어 — DONE (2026-02-03)
-- 구현: /ui/timeline 엔드포인트 (최소 HTML 렌더링)
-Day 5: 회귀 게이트 전체 PASS — DONE (2026-02-03)
-- Gate-OKX: PASS, Gate-TV: PASS, timeline: PASS
-
-## Week 11: PC 프로그램(설정 본체) v1 — 키/계좌/전략/템플릿/로그 — DONE
-Day 1: PC 앱 기술선정 고정 + 빌드/런 구조 문서화 — DONE (2026-02-03)
-- 선정: Tauri (Rust + Web, 가벼움, 보안 우수)
-- 생성: docs/PC_APP_SPEC.md (아키텍처, 디렉토리 구조, 빌드/런, 보안)
-Day 2: 계좌/키 등록 UI + 로컬 암호화 저장 — DONE (2026-02-03)
-- PC_APP_SPEC.md 7) Day 2 상세: UI 구성, Tauri 커맨드 (Rust), 보안 체크리스트
-Day 3: PC: 템플릿 생성(assets/template, batch generate, shortmsg template) UI 연결 — DONE (2026-02-03)
-- 구현: PC_APP_SPEC.md 8) Day 3 상세 (UI 구성, API 연동, Tauri 커맨드, 워크플로우)
-Day 4: PC: 시스템 설정(E-STOP, DRY_RUN, submit/poll enable) UI 연결 — DONE (2026-02-03)
-- 구현: PC_APP_SPEC.md 9) Day 4 상세 (E-STOP 제어, 시스템 상태 표시, 서버 연결, Tauri 커맨드)
-Day 5: 회귀: PC 조작 후 서버 API 상태 변화 실측 로그 누적 — DONE (2026-02-03)
-- 증거: APPENDIX_LOG.md 2026-02-03 회귀 게이트 전체 PASS
-- Gate-TV: PASS, Gate-E-STOP: PASS, Gate-OKX: PASS, Connector: PASS
-
-## Week 12: 거래소 확장 v1 — Binance/Bybit (Spot) + 공통 표준 먼저 — DONE
-Day 1: Spot 커넥터 공통 인터페이스/라우팅 정책 확정(account.exchange 기반) — DONE (2026-02-03)
-- 생성: docs/CONNECTOR_SPEC.md (인터페이스, 라우팅, 상태 표준, 심볼 정규화, 환경변수)
-Day 2: 공통 주문 상태/이벤트 표준 재점검 + reason/snapshot 필드 자리 확보 — DONE (2026-02-04)
-- 추가: orders 테이블에 reason_code, reason_text, snapshot_id, exchange_order_id 컬럼
-- 추가: Event 모델에 reason_code, reason_text, snapshot_id 컬럼
-- 문서화: CONNECTOR_SPEC.md §4-4 reason/snapshot 필드 표준
-Day 3: Binance Spot 최소 구현(place_order/get_order/balance) + /api/diag/connector-test 실측 — DONE (2026-02-04)
-- 생성: app/connectors/binance.py (BinanceConnector)
-- 실측: /api/diag/connector-test?exchange=BINANCE → ok:true, trading:2.77 USDT
-Day 4: Bybit Spot 최소 구현(place_order/get_order/balance) + /api/diag/connector-test 실측 — DONE (2026-02-04)
-- 생성: app/connectors/bybit.py (BybitConnector)
-- 커넥터 로드 확인 (API 키 없어서 balance 조회 실패, 구현은 완료)
-Day 5: 회귀 스크립트 생성 + 전체 게이트 검증 — DONE (2026-02-04)
-- 생성: scripts/binance_regression.ps1, scripts/bybit_regression.ps1
-- Gate-BINANCE: PASS (connector load + balance 2.77 USDT)
-- Gate-BYBIT: PASS (connector load, API 키 미설정으로 balance 실패는 예상대로)
-- Gate-OKX: PASS (order_id=197, okx_order_id=3276734354947792896)
-- Gate-TV: PASS
-
-## Week 13: 거래소 확장 v2 — Upbit (Spot) + 심볼/마켓 정책 확정 — DONE
-Day 1: Upbit Spot 최소 구현(place_order/get_order/balance) + 마켓(KRW/USDT) 정책 문서화 — DONE (2026-02-04)
-- 생성: app/connectors/upbit.py (UpbitConnector)
-- JWT 인증 (HMAC SHA256 + Query Hash SHA512)
-- 심볼 변환: BTC-KRW → KRW-BTC (Upbit은 QUOTE-BASE 형식)
-- 마켓 정책: KRW/USDT/BTC 마켓 모두 지원 (CONNECTOR_SPEC.md §10)
-- 시장가 매수 특성: qty = 원화 금액 (다른 거래소와 다름)
-- 실측: connector load OK, get_markets() 689개 마켓 (KRW:237, USDT:170, BTC:282)
-- IP 미인증으로 balance 실패 (예상됨 - API 키 IP 화이트리스트 필요)
-Day 2: 심볼 정규화 룰 확정(내부 표준 symbol 포맷, 거래소별 변환 테이블) — DONE (2026-02-04)
-- 생성: app/connectors/symbols.py (중앙화된 심볼 정규화 모듈)
-- 내부 표준: {BASE}-{QUOTE} 대문자 (BTC-USDT)
-- 함수: to_exchange_symbol(), from_exchange_symbol(), validate_symbol(), parse_tv_ticker()
-- KNOWN_QUOTES: 역변환용 quote 통화 목록 (USDT, KRW, BTC 등)
-- 문서화: CONNECTOR_SPEC.md §5 전면 확장 (규칙, 변환 테이블, 엣지 케이스)
-Day 3: 회귀 스크립트 생성: scripts/upbit_regression.ps1 + Gate-UPBIT PASS 기준 고정 — DONE (2026-02-04)
-- 생성: scripts/upbit_regression.ps1
-- Gate-UPBIT: PASS (connector load OK, balance는 IP 화이트리스트 필요)
-- 테스트: connector-test, connector-all, symbol normalization
-Day 4: 이벤트/타임라인에서 exchange별 표기 통일(OKX/Binance/Bybit/Upbit) — DONE (2026-02-04)
-- TimelineItem에 exchange 필드 추가
-- /api/timeline: exchange 정보 포함 (accounts 조인)
-- /ui/timeline: Exchange 컬럼 추가
-- ShortMsg 검증: 5개 거래소 모두 허용 (OKX/KIS/BINANCE/BYBIT/UPBIT)
-- connector-test: 통화 기본값 개선 (KIS/UPBIT=KRW, 나머지=USDT)
-Day 5: 통합 회귀: Gate-OKX/Gate-TV/Gate-E-STOP + Gate-BINANCE/Gate-BYBIT/Gate-UPBIT PASS — DONE (2026-02-04)
-- Gate-OKX: PASS (order_id=198)
-- Gate-TV: PASS (Errors=0)
-- Gate-BINANCE: PASS (connector + balance OK)
-- Gate-BYBIT: PASS (connector OK, API 키 미설정)
-- Gate-UPBIT: PASS (connector OK, IP 화이트리스트 필요)
-- 지원 거래소: ["OKX", "KIS", "BINANCE", "BYBIT", "UPBIT"]
-
-## Week 14: 프리미엄 엔진 v0 — 추세/역추세 "지표 점검" + 커스텀(룰 실행 계약) + 근거 표준화 — DONE
-> 종목추천/자동선정/스크리너 금지 준수
-> Premium은 신호(결과) 생성만, Hub는 실행/가드/기록만 담당(역할 중복 금지)
-> 차트는 TradingView embed(A) + 근거는 타임라인 패널로만 표시
-
-### (중요) 프리미엄 전략 타입(고정)
-- Premium 전략 타입: 1) 역추세  2) 추세  3) 커스텀(Rule Builder)
-- 돌파/스캘핑 같은 구체 프리셋은 "커스텀"으로 흡수한다.
-- 본 Week 14는 "커스텀 UI/빌더 완성"이 아니라, 커스텀을 포함한 Premium 계약(입출력/근거/가드)을 고정한다.
-  - 커스텀 빌더(UI/AST 편집/복잡도 제한/Lint) 구현은 별도 주차(예: Week 16)에서 완성한다.
-
-### (중요) 추세/역추세의 정본 소스 위치
-- 역추세매매/추세매매 로직(또는 기준)은 scripts/ 폴더 내 파일이 정본이다.
-- Week 14 산출물 문서(docs/PREMIUM_SIGNALS.md)는 "새 로직 창작"이 아니라,
-  scripts 내 정본 로직을 제품 스펙으로 '요약/매핑'하는 문서다.
-- scripts 로직 변경은 별도 이슈로 분리(회귀/실측/PASS 동반). docs는 매핑/설명/계약만 수정한다.
-
-### 목표(Week 14 완료 기준)
-- 추세/역추세/커스텀을 포함한 Premium 입력/출력 계약이 확정되어 있고(문서+모델),
-- Premium ON에서만 signal_event가 생성되며,
-- signal_event마다 reason_code/reason_text/snapshot_id가 저장되고,
-- PC/앱은 TradingView 차트 embed(A) + 우리 타임라인 패널에서 "근거"를 확인 가능해야 한다.
-- 슬리피지/체결괴리로 인해 15분봉 이상 사용 권장(1~5분봉은 강한 경고) 정책이 적용되어 있어야 한다.
-
-### 금지(재확인)
-- 종목추천/자동선정/스크리닝/리밸런싱 자동 구성 금지
-- 프리미엄 엔진 내부 로직/소스 노출 금지(불펌 방지)
-- 선물(Futures)/레버리지/파생상품 전면 미지원
-
-### 공통 데이터 계약(반드시 고정)
-- Premium 출력은 "signal_event"로만 표현한다.
-- signal_event 필수 필드:
-  - asset_id, symbol, exchange, market(spot), side(entry/exit), ts
-  - premium_mode(trend/mr/custom), params_version
-  - reason_code, reason_text, snapshot_id
-  - tf(타임프레임), price_hint(선택)
-- snapshot_id는 "근거 재현"용 최소 스냅샷(OHLCV 범위/계산 결과 요약/주문 시점)을 가리킨다.
-- UI(웹/PC/앱)는 차트 위 오버레이가 아니라 타임라인 패널로 근거를 표시한다(A안).
-
-### 커스텀(Rule Builder) v1 — Week 14에서 '계약'으로 고정(구현 완성은 별도 주차)
-- 커스텀 지원 인디케이터(제한): MA(SMA/EMA/WMA), BollingerBands, RSI, MACD, CCI, Ichimoku
-- 규칙 저장 포맷은 문자열이 아니라 안전한 AST(JSON 트리)로 저장/검증한다.
-- 복잡도 제한(필수, v1 고정):
-  - max_depth = 3
-  - max_leaf_total = 12 (Entry 8 / Exit 4 권장)
-  - max_leaf_per_group = 6
-  - max_or_groups = 2, max_leaf_per_or_group = 4
-  - 같은 레벨에서 AND/OR 혼합 금지(혼합은 그룹 중첩으로만 허용)
-  - 초과 시 저장/실행 불가(code=rule_complexity_exceeded)
-- Rule Lint(필수, v1 고정): OK/WARN/BLOCK 등급
-  - WARN: 희소/상충 가능성 높음(기본 저장 허용 + 강한 경고 UI)
-  - BLOCK: 거의 불가능/오해 유발/위험(기본 저장 불가, 고급 사용자 우회 토글은 premium 권한에서만)
-  - 예: "BB 상단 돌파 AND RSI<30"은 희소/상충 경고(WARN 또는 BLOCK 후보)
-- Exit 옵션(v1 고정): 1) 신호청산 2) %TP/SL 3) Trailing%
-- 우선순위(권장 고정): 리스크(손절/강제) > 익절 > 신호청산
-- TF 정책(고정): 15분봉 이상 권장, 1~5분봉은 슬리피지/체결괴리 경고(필수)
-
-Day 1: 추세/역추세/커스텀 신호 정의서 + reason_code 표준 확정 — DONE (2026-02-04)
-- 입력 소스(정본): scripts/추세매매.txt, scripts/역추세매매 현물 v0.4.txt
-- 산출 문서: docs/PREMIUM_SIGNALS.md (신규 생성)
-  - Trend: Entry(ST+HVI+QQE+VWMA), Exit(HardSL/TP1/SPO/STFlip)
-  - MR: 4국면 엔진(R1~R4), OSC 기반 Entry/Exit, 분할 매수/매도
-  - Custom: 지원 인디케이터 6종, 복잡도 제한, Rule Lint, Exit 옵션
-  - reason_code: TREND_*, MR_*, CUSTOM_* 표준 목록
-  - TF 정책: 15분봉 이상 권장, 1~5분봉 슬리피지 경고
-  - snapshot_id 규격 정의
-- 완료 증거: 커밋 + APPENDIX_LOG.md 기록
-
-Day 2: Premium 입력/출력 스키마 확정(계약 고정) — DONE (2026-02-04)
-- 문서: docs/PREMIUM_ENGINE_SPEC.md (신규 생성)
-  - 역할 분리: Premium(신호 생성) vs Hub(실행/가드/기록)
-  - signal_event 스키마: 필수/선택 필드 정의
-  - SignalSnapshot 스키마: OHLCV + indicators
-  - DB 테이블: signal_events, signal_snapshots
-  - API 엔드포인트: /api/premium/signals, /api/premium/snapshots
-  - 환경변수: PREMIUM_ENABLED, PREMIUM_DAILY_LIMIT 등
-- 모델: app/models.py에 SignalEvent, SignalSnapshot 클래스 추가
-- 완료 증거: 커밋
-
-Day 3: Premium 이벤트 생성 파이프라인 최소 구현 + 실측 — DONE (2026-02-04)
-- 정책: Premium OFF면 signal_event 생성 금지, ON이면 생성
-- 구현:
-  - 환경변수: PREMIUM_ENABLED, PREMIUM_TREND_ENABLED, PREMIUM_MR_ENABLED, PREMIUM_CUSTOM_ENABLED
-  - DB 테이블: signal_events, signal_snapshots 생성 (JSONB 지원)
-  - 엔드포인트 추가:
-    - GET /api/premium/status: Premium 상태 조회
-    - GET /api/premium/signals: 신호 목록 조회
-    - GET /api/premium/snapshots/{id}: 스냅샷 조회
-    - POST /api/diag/premium-test: 테스트 신호 생성
-- 실측:
-  - Premium ON: 신호 생성 성공 (signal_id, snapshot_id 발급)
-  - Premium OFF: 신호 생성 차단 ("Premium is disabled" 메시지)
-  - TF 경고: tf < 15m이면 tf_warning=true
-- 완료 증거: APPENDIX에 PS 원문(요청/응답)
-
-Day 4: 과다 신호/단기봉 경고 가드 정책 확정 + 실측 — DONE (2026-02-04)
-- 정책 확정:
-  - 쿨다운: PREMIUM_COOLDOWN_SEC=60 (자산별 60초 간격)
-  - 일일 제한: PREMIUM_DAILY_LIMIT=100 (자산별 100개/일)
-  - TF 경고: TF < 15m 시 경고 메시지 (tf_warning=true)
-  - TF 차단: PREMIUM_TF_BLOCK_UNDER=1 설정 시 TF < 15m 차단
-- 구현:
-  - 가드 헬퍼 함수: _check_cooldown(), _check_daily_limit(), _check_tf_warning()
-  - 통합 가드: _apply_premium_guards() → PremiumGuardResult
-  - 엔드포인트 추가: GET /api/premium/guards (가드 설정 조회)
-  - /api/diag/premium-test에 가드 정책 적용
-- 실측:
-  - 쿨다운 작동: 동일 자산 60초 내 재생성 차단 (cooldown_active)
-  - TF 경고: 5m TF 신호 생성 시 tf_warning=true + 메시지
-  - TF 차단: PREMIUM_TF_BLOCK_UNDER=1 시 5m 신호 차단 (tf_blocked)
-  - 다른 자산: 쿨다운 없이 즉시 생성 가능
-- 완료 증거: APPENDIX에 PS 원문
-
-Day 5: 회귀(통합) — Premium ON/OFF 차이 실측 + Gate 유지 — DONE (2026-02-04)
-- Premium ON/OFF 전환 실측:
-  - Premium ON: 신호 생성 성공 (signal_id 발급)
-  - Premium OFF: 신호 생성 차단 ("Premium is disabled")
-- 통합 회귀 테스트 결과 (scripts/week14_regression.ps1):
-  - [PASS] Server Health: /api/diag/home ok
-  - [PASS] Premium Status: enabled=true, modes=[trend, mr]
-  - [PASS] Premium Guards: cooldown=60s, daily_limit=100
-  - [PASS] Signal Creation: signal_id 발급
-  - [PASS] Signal List: total=12
-  - [PASS] OKX Connector: balance 조회 ok
-  - [PASS] E-STOP: estop=false
-  - [PASS] Timeline: 조회 ok
-  - [PASS] TF Warning: tf_warning=true for 5m
-- 완료 증거: APPENDIX에 회귀 스크립트 실행 원문
-
-## Week 14 완료 요약
-- Day 1: 신호 정의서 (PREMIUM_SIGNALS.md)
-- Day 2: 입출력 스키마 (PREMIUM_ENGINE_SPEC.md, models.py)
-- Day 3: 이벤트 파이프라인 (signal_events, signal_snapshots, API)
-- Day 4: 가드 정책 (cooldown, daily_limit, tf_warning/block)
-- Day 5: 통합 회귀 PASS
-
-## Week 15: 앱(모바일) v1 — "근거 확인" 중심(프리미엄 반영 포함) — DONE
-Day 1: 앱 기술선정 고정(Flutter/ReactNative 중 1) + 인증/토큰 저장 정책 확정 — DONE (2026-02-04)
-- 기술 선정: Flutter (Dart)
-  - UI 일관성 (iOS/Android 동일)
-  - Skia 기반 성능
-  - flutter_secure_storage로 보안 저장
-- 문서 생성: docs/MOBILE_APP_SPEC.md
-  - §1: 기술 선정 (Flutter vs React Native 비교)
-  - §2: 앱 역할 (읽기 중심, 금지 기능)
-  - §3: 인증/토큰 저장 정책 (flutter_secure_storage)
-  - §4-5: 디렉토리 구조, 의존성
-  - §6: API 연동 (베이스 URL, 엔드포인트)
-  - §7: 화면 설계 (로그인, 대시보드, 타임라인, 차트, 설정)
-  - §8: E-STOP 구현
-  - §9: TradingView 차트 Embed
-  - §10: 오프라인 모드
-Day 2: 앱: 대시보드(계좌/자산/주문 요약) + 타임라인(근거 패널) 읽기전용 — DONE (2026-02-04)
-- MOBILE_APP_SPEC.md §11 추가:
-  - §11-1~3: 대시보드 데이터 구조, API 연동, UI 위젯
-  - §11-4~6: 타임라인 데이터 구조, API 연동, UI 위젯 (무한 스크롤)
-  - §11-7: 스냅샷 상세 다이얼로그 (Premium 근거 확인)
-Day 3: 앱: E-STOP ON/OFF + 실측(차단 동작 확인) + Gate-E-STOP 유지 — DONE (2026-02-04)
-- 테스트 스크립트: scripts/estop_test.ps1
-- 실측 결과:
-  - E-STOP ON: estop=true 설정 성공
-  - send-now 차단: ok=false 반환 (E-STOP ON 상태)
-  - E-STOP OFF: estop=false 복원 성공
-- Gate-E-STOP: PASS (E-STOP ON/OFF 토글 정상)
-Day 4: 앱: TradingView 차트 embed(WebView) 화면 추가(심볼/TF 이동 링크 포함) — DONE (2026-02-04)
-- MOBILE_APP_SPEC.md §12 추가:
-  - §12-1: WebView 설정 (webview_flutter)
-  - §12-2: 심볼 변환 테이블 (내부 → TradingView)
-  - §12-3: 타임프레임 변환
-  - §12-4: 타임라인에서 차트로 이동
-  - §12-5: 차트 화면 네비게이션 플로우
-Day 5: 회귀: 앱 경유 E-STOP + 프리미엄 이벤트 표시 실측 + Gate-OKX/Gate-TV PASS — DONE (2026-02-04)
-- 테스트 스크립트: scripts/week15_regression.ps1
-- 실측 결과 (10/10 PASS):
-  - [PASS] Server Health: OpenAPI 확인
-  - [PASS] E-STOP: estop=false
-  - [PASS] Premium Status: enabled=true, modes=[trend, mr]
-  - [PASS] Premium Guards: cooldown=60s, daily_limit=100
-  - [PASS] Signal Creation: signal_id 발급
-  - [PASS] Signal List: total=18
-  - [PASS] Timeline: 153개 이벤트
-  - [PASS] OKX Connector: 정상
-  - [PASS] TF Warning: tf_warning=true
-  - [PASS] Subscription: plan=hub
-
-## Week 15 완료 요약
-- Day 1: 기술 선정 (Flutter) + 인증/토큰 정책 (MOBILE_APP_SPEC.md)
-- Day 2: 대시보드/타임라인 상세 스펙
-- Day 3: E-STOP 실측 PASS
-- Day 4: TradingView 차트 embed 스펙
-- Day 5: 통합 회귀 PASS (10/10)
-
-## Week 16: 커스텀 Rule Builder v1 — 역추세/추세를 "사용자 조립"으로 확장 — DONE
-Day 1: 지원 인디케이터 확정(제한): MA(SMA/EMA/WMA), Bollinger, RSI, MACD, CCI, Ichimoku — DONE (2026-02-04)
-- 문서 생성: docs/CUSTOM_RULE_SPEC.md
-  - §2: 지원 인디케이터 6종 (MA, BB, RSI, MACD, CCI, ICHIMOKU)
-  - §2-3: 파라미터 범위 (period, type, std_mult 등)
-  - §3: 비교 연산자 (GT, GTE, LT, LTE, CROSS_ABOVE, CROSS_BELOW)
-  - §4: 조건 구조 AST (Condition, ConditionGroup)
-  - §5: 복잡도 제한 (depth=3, leaf=12, or_groups=2)
-  - §6: Rule Lint (OK/WARN/BLOCK)
-  - §7: CustomRule 스키마 + DB 테이블
-  - §8: API 엔드포인트
-Day 2: 규칙 저장 포맷: 문자열 금지 → AST(JSON 트리)로 확정 + 서버 validation 구현 — DONE (2026-02-04)
-- DB 테이블: custom_rules (JSONB 저장)
-- 엔드포인트 구현:
-  - GET /api/custom/indicators: 지원 인디케이터/연산자/제한 조회
-  - POST /api/custom/rules/validate: 저장 없이 검증만
-  - POST /api/custom/rules: 규칙 생성
-  - GET /api/custom/rules: 규칙 목록 조회
-  - GET /api/custom/rules/{rule_id}: 규칙 상세 조회
-- AST 검증: left/operator/right 구조, logic/conditions 그룹 구조
-Day 3: 복잡도 제한 구현(깊이/leaf/OR 제한) + 실패 코드 고정(rule_complexity_exceeded) — DONE (2026-02-04)
-- 구현: _count_complexity() 함수
-- 제한 적용:
-  - max_depth=3: 중첩 깊이 제한
-  - max_leaf_total=12: 전체 조건 수 제한
-  - max_leaf_per_group=6: 그룹당 조건 수 제한
-  - max_or_groups=2: OR 그룹 수 제한
-  - max_leaf_per_or_group=4: OR 그룹당 조건 수 제한
-- 실패 코드: rule_complexity_exceeded
-Day 4: Rule Lint 구현(OK/WARN/BLOCK) + 희소/상충 조건 경고(예: BB 상단돌파 AND RSI<30) — DONE (2026-02-04)
-- 구현: _lint_rule() 함수
-- 상충 감지: RSI < 30 AND RSI > 70 → BLOCK (CONTRADICTION)
-- BLOCK 등급 규칙: 저장 불가 (code=rule_lint_block)
-- WARN 등급 규칙: 저장 허용 + 경고 메시지
-Day 5: 회귀: Custom 룰 생성/검증/실행(이벤트 생성) + Gate-TV PASS — DONE (2026-02-04)
-- 테스트 스크립트: scripts/week16_custom_rule_test.ps1
-- 실측 결과 (9/9 PASS):
-  - [PASS] GET /api/custom/indicators (6종 인디케이터)
-  - [PASS] Validate simple RSI rule (lint=OK)
-  - [PASS] Complexity limit (max_leaf_per_group 초과 거부)
-  - [PASS] Lint contradiction detection (BLOCK grade)
-  - [PASS] Create custom rule
-  - [PASS] List custom rules
-  - [PASS] Get rule by ID
-  - [PASS] Reject BLOCK-grade rule creation
-
-## Week 16 완료 요약
-- Day 1: 인디케이터/연산자/AST 스펙 (CUSTOM_RULE_SPEC.md)
-- Day 2: AST 기반 규칙 저장 + CRUD API
-- Day 3: 복잡도 제한 (depth/leaf/or_groups)
-- Day 4: Rule Lint (OK/WARN/BLOCK, 상충 감지)
-- Day 5: 통합 회귀 PASS (9/9)
-
-## Week 17: 보안/라이센스/구독 연동 v1 — 불펌/오남용 방지 "잠금" 완성 — DONE
-Day 1: Entitlement 적용 범위 확정(Advanced Custom, Premium 엔진, 위험 기능) + 오프라인 정책 확정 — DONE (2026-02-04)
-- 문서 생성: docs/ENTITLEMENT_SPEC.md
-  - §2: Plan 체계 (free/hub/premium)
-  - §3: Entitlement 상세 (기본, Premium 세부, 커스텀, 위험 기능)
-  - §4: 권한 적용 매트릭스 (엔드포인트별, 기능별)
-  - §5: 오프라인 정책 (PC 전용, 7일 캐시 TTL, 동작 제한)
-  - §6: 만료/환불 처리
-  - §7: 보안 체크리스트
-  - §8: Pydantic 모델 확장
-- 모델 추가: PremiumEntitlements, RiskEntitlements, EntitlementsV2
-Day 2: /api/subscription/me 실구현(만료/업그레이드/다운그레이드 반영) — DONE (2026-02-04)
-- 엔드포인트 구현:
-  - GET /api/subscription/me: V2 응답 (EntitlementsV2, offline_cache_valid_until)
-  - GET /api/entitlements/config: Plan별 기본 권한 조회
-  - GET /api/entitlements/check: 특정 기능 권한 체크
-- 헬퍼 함수: _validate_token(), _get_user_subscription(), _check_entitlement()
-- 시나리오 지원:
-  - 토큰 없음 → unauthorized
-  - 잘못된 토큰 → unauthorized
-  - free/hub/premium → 각 plan별 entitlements
-  - 만료됨 → code=expired
-  - Advanced Custom → custom_advanced=true, max_rules=50
-- 테스트 스크립트: scripts/week17_entitlement_test.ps1 (14/14 PASS)
-Day 3: PC/앱: 실행 시 entitlement fetch + 기능 잠금/해제 적용(오프라인 제한 포함) — DONE (2026-02-04)
-- PC_APP_SPEC.md §9 추가:
-  - §9-1: 실행 시 구독 동기화 플로우
-  - §9-2: Tauri Rust 코드 (fetch_subscription, save_entitlements_cache)
-  - §9-3: 기능 잠금/해제 매핑
-  - §9-4: 오프라인 모드 (PC 전용)
-  - §9-5: Frontend 통합 (TypeScript/Svelte)
-  - §9-6: 주기적 동기화 (30분)
-- MOBILE_APP_SPEC.md §13 추가:
-  - §13-1: 실행 시 구독 동기화 (오프라인 미지원)
-  - §13-2: Dart 모델 (EntitlementsV2, SubscriptionResponse)
-  - §13-3: Entitlement Provider (Riverpod)
-  - §13-4: 기능 잠금/해제 매핑
-  - §13-5: UI 가드 위젯
-Day 4: 보안 점검: 민감정보 마스킹(로그/응답), 소스/로직 노출 금지 규칙 강제 — DONE (2026-02-04)
-- 문서 생성: docs/SECURITY_SPEC.md
-  - §2: 민감정보 정의 (절대 노출 금지, 부분 노출 허용)
-  - §3: 마스킹 함수 (_mask_sensitive, _mask_dict, _audit_log)
-  - §4: API 응답 보안 (스택 트레이스 숨김)
-  - §5: 프리미엄 엔진 로직 보호 (블랙박스 원칙)
-  - §6: HTTP 보안 헤더
-  - §7: 입력 검증
-  - §8: 감사 로그
-  - §9: 보안 체크리스트
-- 서버 구현:
-  - SecurityHeadersMiddleware: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection
-  - global_exception_handler: 스택 트레이스 숨김
-  - _mask_sensitive(): API Key→앞4자리, Secret→완전마스킹, Token→앞10자리, IP→마지막옥텟
-  - _mask_dict(): 딕셔너리 내 민감키 자동 마스킹
-  - _audit_log(): 감사 로그 (마스킹 적용)
-Day 5: 회귀: Gate 전부 + entitlement 시나리오 PASS(환불/만료/다운그레이드 포함) — DONE (2026-02-04)
-- Gate-OKX: PASS (week4_regression)
-- Gate-TV: PASS (tv_template_regression, Errors=0)
-- Week 16 Custom Rule: PASS (9/9)
-- Week 17 Entitlement: PASS (14/14)
-  - No token → unauthorized
-  - Free/Hub/Premium → 각 plan별 entitlements
-  - Expired → code=expired
-  - Advanced → custom_advanced=true
-  - Feature checks 작동 확인
-- E-STOP: estop=false (정상)
-- Premium: enabled=true, modes=[trend, mr, custom]
-- Security Headers: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection 적용
-
-## Week 17 완료 요약
-- Day 1: Entitlement 범위 확정 (ENTITLEMENT_SPEC.md)
-- Day 2: /api/subscription/me V2 실구현 (14/14 PASS)
-- Day 3: PC/앱 entitlement fetch 스펙 (PC_APP_SPEC §9, MOBILE_APP_SPEC §13)
-- Day 4: 보안 점검 (SECURITY_SPEC.md, 마스킹/헤더 구현)
-- Day 5: 통합 회귀 PASS
-
-## Week 18: 릴리즈/운영/문서 최종 — "출시 가능한 1.0" — DONE
-Day 1: 온보딩 문서(PC 기준) + 앱 근거 확인 가이드 + 15m 권장 고지 문구 고정 — DONE (2026-02-04)
-- 생성: docs/ONBOARDING.md (사용자 온보딩 가이드)
-  - §1: 시작하기 전에 (제품 구성, 거래소, 플랜)
-  - §2: PC 프로그램 설치 및 설정 (계좌/API, 템플릿, E-STOP)
-  - §3: 모바일 앱 설정 (근거 확인 가이드)
-  - §4: 타임프레임 권장 정책 (15m 이상 권장, 경고 문구)
-  - §5: FAQ (연결/주문/신호 문제 해결)
-  - §6: 보안 권장사항
-  - §7: 용어 정리
-- 수정: PC_APP_SPEC.md §10 추가 (15분봉 권장 고지 UI 컴포넌트)
-- 수정: MOBILE_APP_SPEC.md §14 추가 (15분봉 권장 고지 Flutter 위젯)
-Day 2: 에러코드 카탈로그(/tv 포함) + 환불 방지 문구/경고 문구 고정 — DONE (2026-02-04)
-- 생성: docs/ERROR_CATALOG.md (에러 코드 카탈로그)
-  - §2: 공통 에러 코드 (인증/권한, 시스템, 입력 검증)
-  - §3: /tv 웹훅 에러 코드 (입력, 시스템 상태, 거래소, 주문)
-  - §4: Premium 에러 코드 (기능 제한, 가드)
-  - §5: 커스텀 규칙 에러 코드 (검증, 관리)
-  - §6: 거래소별 에러 코드 (OKX/KIS/Binance/Bybit/Upbit)
-  - §7: 환불 방지 문구 (설치/템플릿/Premium/커스텀 경고)
-  - §8: 사용자 친화적 메시지 변환 표
-Day 3: runbook(운영/장애대응) + scripts 정리 + 관리자 조회(읽기) 최소 — DONE (2026-02-04)
-- 생성: docs/RUNBOOK.md (운영/장애대응 매뉴얼)
-  - §2: 일상 운영 (시작/정지, 헬스체크, E-STOP, 로그)
-  - §3: 장애 대응 (P1~P4 등급, 서버/DB/웹훅/주문/커넥터 장애)
-  - §4: 회귀 테스트 (게이트 스크립트 목록)
-  - §5: 배포/업데이트, 롤백
-  - §6: 모니터링 (주요 항목, 알림 설정)
-  - §7: 보안 점검
-- 구현: 관리자 읽기 전용 엔드포인트
-  - GET /api/admin/system-status: 시스템 상태 조회
-  - GET /api/admin/recent-errors: 최근 에러 조회
-  - GET /api/admin/connector-status: 커넥터 상태 조회
-  - GET /api/admin/daily-summary: 일별 요약 조회
-Day 4: 최종 통합 회귀: OKX/KIS/Binance/Bybit/Upbit + TV/ShortMsg/구독/E-STOP/Premium/Custom 전체 PASS — DONE (2026-02-04)
-- Gate-OKX: PASS (order_id=203, okx_order_id=3277495419528765440)
-- Gate-TV: PASS (Errors=0, Warnings=5)
-- Week 16 Custom Rule: PASS (9/9)
-- Week 17 Entitlement: PASS (14/14)
-- OKX Connector: OK (balance 조회 정상)
-- Premium: enabled=true, modes=[trend, mr, custom]
-- E-STOP: false (정상)
-- 관리자 엔드포인트: 추가됨 (Header import 수정)
-Day 5: SSOT/APPENDIX 증거 최종 정리 + 릴리즈 태그(1.0) 준비 — DONE (2026-02-04)
-- PROJECT_STATUS.md: Week 1~18 전체 완료 상태 정리
-- APPENDIX_LOG.md: Week 18 회귀 테스트 증거 추가
-- 릴리즈 준비: v1.0 태그 생성 대기
-
-## Week 18 완료 요약
-- Day 1: 온보딩 문서 (ONBOARDING.md) + 15m TF 권장 고지 (PC/앱 스펙)
-- Day 2: 에러코드 카탈로그 (ERROR_CATALOG.md) + 환불 방지 문구
-- Day 3: 운영 매뉴얼 (RUNBOOK.md) + 관리자 읽기 전용 엔드포인트
-- Day 4: 최종 통합 회귀 PASS (Gate-OKX, Gate-TV, Week 16/17)
-- Day 5: SSOT 정리 + 릴리즈 준비
-
-## 전체 18주 개발 완료
-- Week 1~4: DB+UI 기본/OKX 루프/회귀 게이트 — DONE
-- Week 5~6: OKX 커넥터 단일화 + KIS 착수 — DONE
-- Week 7: KIS place_order/get_order + 라우팅 — DONE
-- Week 8: 환불 방지 패키지 v1 + ShortMsg — DONE
-- Week 9: 3종 제품 아키텍처 + 구독/권한 — DONE
-- Week 10: 종합 UI v1 (타임라인/마커/성과) — DONE
-- Week 11: PC 프로그램 v1 (키/계좌/설정) — DONE
-- Week 12: 거래소 확장 v1 (Binance/Bybit) — DONE
-- Week 13: 거래소 확장 v2 (Upbit) + 심볼 정규화 — DONE
-- Week 14: 프리미엄 엔진 v0 (추세/역추세/커스텀 계약) — DONE
-- Week 15: 앱(모바일) v1 (근거 확인 중심) — DONE
-- Week 16: 커스텀 Rule Builder v1 (AST/복잡도/Lint) — DONE
-- Week 17: 보안/라이센스/구독 연동 v1 — DONE
-- Week 18: 릴리즈/운영/문서 최종 — DONE
-
----
-
-## Week 19: Docker化 + 배포 준비 — IN PROGRESS
-> 목표: 로컬 Docker 환경에서 서버 정상 동작 확인, 배포 기반 마련
-
-### Day 1: Dockerfile + docker-compose 기반 구축 — DONE (2026-02-04)
-- Dockerfile 생성: Python 3.11-slim 기반, requirements.txt 설치, app/ 복사
-- .dockerignore 생성: .env, __pycache__, docs/, scripts/, pc-app/, mobile-app/ 등 제외
-- docker-compose.yml 생성:
-  - db: PostgreSQL 15 (health check 포함)
-  - app: BBooster FastAPI (DB 의존성, health check)
-  - ngrok: 외부 webhook용 (주석처리, 선택 사용)
-- .env.example 생성: DB/App/Exchange 환경변수 템플릿
-- app/db.py 개선:
-  - SQLAlchemy 커넥션 풀 설정 (pool_size=5, max_overflow=10, pool_recycle=1800)
-  - wait_for_db() 함수 추가 (Docker 시작 동기화용 재시도 로직)
-- /api/health 엔드포인트 추가 (Docker health check용)
-- Syntax Gate: PASS
-- Docker 빌드 테스트: PASS
-- docker-compose up: PASS (bbooster-db + bbooster-app 모두 healthy)
-- Health Check 테스트: PASS ({"ok":true,"status":"running"})
-
-### Day 2: 로컬 Docker 테스트 + 회귀 — DONE (2026-02-04)
-- docker-compose up: PASS (db + app 모두 healthy)
-- DB 스키마 초기화: scripts/init_schema.sql 생성 및 실행
-- Health check (/api/health): PASS
-- Smoke Test 10/10: PASS
-- Gate-TV: PASS (Errors=0)
-- Gate-OKX: PASS (order_id=205, okx_order_id=3278079399588225024)
-- Gate-E-STOP: PASS (toggle ON/OFF 정상)
-
-### Day 3: 배포 문서 + ngrok 연동 가이드 — DONE (2026-02-04)
-- docs/DEPLOY.md 생성 (Docker 배포 가이드)
-  - 빠른 시작 가이드 (docker-compose up)
-  - ngrok 연동 방법 (2가지: docker-compose / 별도 실행)
-  - TradingView 웹훅 설정 가이드
-  - 보안 주의사항 (API 키, .env 보호, E-STOP)
-  - 운영 명령어 (백업/복원/업데이트)
-  - 문제 해결 가이드
-  - 프로덕션 체크리스트
-- docker-compose.ngrok.yml 생성 (ngrok 오버라이드)
-- .env.example ngrok 사용법 추가
-
-### Day 4-5: 최종 정리 + 회귀 — DONE (2026-02-04)
-- Smoke Test 10/10: PASS
-- Gate-TV: PASS (Errors=0)
-- Gate-E-STOP: PASS (estop=false, toggle 정상)
-- SSOT 업데이트 완료
-- Week 19 Docker化 완료
-
----
-
-## Week 19 완료 요약
-- Day 1: Dockerfile + docker-compose 기반 구축
-- Day 2: Docker 테스트 + 회귀 (10/10 PASS)
-- Day 3: DEPLOY.md 배포 가이드 + ngrok 연동
-- Day 4-5: 최종 회귀 PASS
-
-**생성된 파일:**
-- Dockerfile, .dockerignore
-- docker-compose.yml, docker-compose.ngrok.yml
-- .env.example
-- scripts/init_schema.sql, scripts/init_db.py
-- docs/DEPLOY.md
-
----
-
-## Week 20: 웹 대시보드 개선 + 랜딩 페이지 + 법적 페이지 — DONE (2026-02-04)
-
-### Day 1: 대시보드 5개 탭 추가 — DONE
-- 탭 추가: 타임라인, E-STOP, 주문내역, 커넥터, 프리미엄
-- 각 탭 패널 UI 및 JavaScript 함수 구현:
-  - reloadTimeline(): 페이지네이션 지원
-  - reloadEstop() + toggleEstop(): E-STOP 상태 조회/토글
-  - reloadOrders(): 주문 내역 테이블
-  - reloadConnectors(): 5개 거래소 상태 카드
-  - reloadPremium(): Premium 상태 및 신호 목록
-
-### Day 2: 대시보드 상단 요약 카드 추가 — DONE
-- 4개 요약 카드 HTML 추가:
-  - 활성 자산 (sumActiveAssets)
-  - 오늘 주문 (sumTodayOrders)
-  - 커넥터 상태 (sumConnectors)
-  - E-STOP 상태 (sumEstop)
-- reloadHome() 함수에 카드 값 계산 로직 추가:
-  - 활성 자산: is_active 카운트
-  - 오늘 주문: 당일 last_order_at 카운트
-  - E-STOP: 상태 + 색상 표시 (ON=빨강, OFF=초록)
-  - 커넥터: 활성/전체 계정 수
-
-### Day 3: 랜딩 페이지 생성 — DONE
-- landing/ 폴더 생성
-- landing/index.html 생성:
-  - Hero 섹션: QUBE 브랜딩, CTA 버튼
-  - Features 섹션: 6개 기능 카드
-  - Exchanges 섹션: 지원 거래소 5개
-  - How it works 섹션: 4단계 가이드
-  - CTA 섹션: 대시보드 이동
-  - Footer: 법적 페이지 링크
-
-### Day 4: 법적 페이지 생성 — DONE
-- landing/terms.html: 이용약관 (8개 조항)
-- landing/privacy.html: 개인정보처리방침 (8개 섹션)
-- landing/risk.html: 투자위험고지 (6개 섹션, 경고 박스 포함)
-
-### Day 5: PC/모바일 앱 확인 — DONE
-- pc-app/: Tauri 프로젝트 확인 (main.rs, commands.rs, tauri.conf.json)
-- mobile-app/: Flutter 프로젝트 확인 (main.dart, screens/, services/)
-- 기존 구현 확인 완료
-
-## Week 20 완료 요약
-- Day 1: 대시보드 5개 탭 추가 (타임라인/E-STOP/주문/커넥터/프리미엄)
-- Day 2: 상단 요약 카드 4개 + JavaScript 로직
-- Day 3: 랜딩 페이지 (landing/index.html)
-- Day 4: 법적 페이지 3개 (terms/privacy/risk)
-- Day 5: PC/모바일 앱 기존 구현 확인
-
-**생성된 파일:**
-- landing/index.html (랜딩 페이지)
-- landing/terms.html (이용약관)
-- landing/privacy.html (개인정보처리방침)
-- landing/risk.html (투자위험고지)
-
-**수정된 파일:**
-- app/templates/index.html (5개 탭 + 요약 카드 + JavaScript)
-- docker-compose.yml (ngrok 서비스 직접 포함)
-
----
-
-# 7) 배포 준비 상태 (PART 1~6) — 2026-02-05 KST
-
-## PART 1: VPS 서버 세팅 — DONE
-- Dockerfile, docker-compose.yml, .dockerignore 생성
-- .env.example 템플릿
-- scripts/init_schema.sql DB 초기화
-- docs/DEPLOY.md 배포 가이드
-
-## PART 2: 웹 대시보드 + 소개사이트 + 법적 페이지 — DONE
-- app/templates/index.html (5개 탭 + 요약 카드)
-- landing/index.html (랜딩 페이지)
-- landing/terms.html (이용약관)
-- landing/privacy.html (개인정보처리방침)
-- landing/risk.html (투자위험고지)
-
-## PART 3: PC 앱 Tauri — DONE
-- pc-app/src-tauri/ (Rust 백엔드: main.rs, commands.rs)
-- pc-app/ui/ (프론트엔드: index.html, main.js, style.css)
-- pc-app/src-tauri/icons/ (앱 아이콘)
-- pc-app/README.md
-
-## PART 4: 모바일 앱 Flutter — DONE
-- mobile-app/lib/main.dart
-- mobile-app/lib/screens/ (home_screen, settings_screen)
-- mobile-app/lib/services/api_service.dart
-- mobile-app/lib/widgets/ (status_card, estop_button, event_list)
-- mobile-app/pubspec.yaml
-
-## PART 5: Nginx + SSL — DONE
-- nginx/nginx.conf (메인 설정)
-- nginx/bbooster.conf (사이트 설정 + 리버스 프록시)
-- nginx/ssl-setup.sh (Let's Encrypt 자동 설정)
-- nginx/VPS_SETUP.md (VPS 설치 가이드)
-
-## PART 6: SSOT 마무리 — DONE (2026-02-05)
-- docs/PROJECT_STATUS.md 최신화
-
----
-
-# 10) 최근 업데이트 (2026-02-05)
-
-## 웹 대시보드 라우팅 수정 — DONE
-- 문제: `http://서버IP:8000/` 접속 시 `{"detail":"Not Found"}` 반환
-- 해결: app/main.py에 라우트 추가
-  - `GET /` → index.html 렌더링
-  - `GET /ui` → index.html 렌더링
-  - Jinja2Templates 활성화
-- 커밋: `fix: 웹 대시보드 라우팅 추가`
-
-## 브랜드명 통일 — DONE
-- 변경 내용:
-  - `QUBE (Quint Booster Engine)` → `큐브시스템 (Quint Booster Engine System)`
-  - `QUBE` 단독 표기 → `큐브시스템` 또는 `QUBE System`
-  - `© 2026 QUBE` → `© 2026 QUBE System (큐브시스템)`
-- 적용 파일:
-  - landing/index.html (히어로 배지, 푸터)
-  - landing/terms.html (제1조 회사명, 푸터)
-  - landing/privacy.html (서두 회사명, 푸터)
-  - landing/risk.html (푸터)
-- 커밋: `chore: 브랜드명 큐브시스템으로 통일`
-
-## 법적 페이지 디자인 통일 — DONE
-- landing/index.html과 동일한 다크 테마 적용
-- 고정 헤더 + 네비게이션 (홈으로 버튼)
-- 동일한 CSS 변수 사용 (--red, --red2 등)
-- 푸터 링크 active 상태 표시
-
----
-
-# 8) 프로젝트 파일 구조 (최종)
-
-```
-AUAT/
-├── app/                    # FastAPI 백엔드
-│   ├── main.py
-│   ├── db.py
-│   ├── models.py
-│   ├── connectors/         # 거래소 커넥터
-│   │   ├── okx.py
-│   │   ├── kis.py
-│   │   ├── binance.py
-│   │   └── bybit.py
-│   └── templates/
-│       └── index.html      # 웹 대시보드
-├── landing/                # 랜딩 페이지 (정적)
-│   ├── index.html
-│   ├── terms.html
-│   ├── privacy.html
-│   └── risk.html
-├── pc-app/                 # PC 앱 (Tauri)
-│   ├── src-tauri/
-│   └── ui/
-├── mobile-app/             # 모바일 앱 (Flutter)
-│   └── lib/
-├── nginx/                  # Nginx 설정
-│   ├── nginx.conf
-│   ├── bbooster.conf
-│   ├── ssl-setup.sh
-│   └── VPS_SETUP.md
-├── scripts/                # 운영/테스트 스크립트
-├── docs/                   # 문서
-│   ├── PROJECT_STATUS.md   # SSOT (이 문서)
-│   ├── DEPLOY.md
-│   ├── ONBOARDING.md
-│   └── ...
-├── Dockerfile
-├── docker-compose.yml
-└── .env.example
-```
-
----
-
-# 9) Week D: PC 앱 + 모바일 앱 완성 — DONE (2026-02-05)
-
-## STEP 2-7: PC 앱 Tauri 완성 — DONE
-- **STEP 2**: Tauri 프로젝트 초기화 (Rust + Vite)
-- **STEP 3**: 메인 화면 (Dashboard, 사이드바 네비게이션)
-- **STEP 4**: 계좌/API 키 등록 화면 (AES-256-GCM 암호화)
-- **STEP 5**: 전략/템플릿 + 시스템 설정 화면
-- **STEP 6**: Logs 화면 + CSV 내보내기
-- **STEP 7**: 빌드 스크립트 (setup.ps1, build.ps1, dev.ps1)
-
-### PC 앱 구조 (pc-app/)
-```
-pc-app/
-├── scripts/
-│   ├── install-rust.ps1
-│   ├── setup.ps1
-│   ├── dev.ps1
-│   └── build.ps1
-├── src-tauri/
-│   ├── src/
-│   │   ├── main.rs
-│   │   ├── commands.rs
-│   │   └── crypto.rs
-│   ├── icons/
-│   ├── Cargo.toml
-│   └── tauri.conf.json
-├── ui/
-│   ├── index.html
-│   ├── src/
-│   │   ├── main.js
-│   │   └── style.css
-│   ├── package.json
-│   └── vite.config.js
-└── README.md
-```
-
-### PC 앱 기능
-| Page | Features |
-|------|----------|
-| Dashboard | 서버 상태, E-STOP, 커넥터 상태, 타임라인, 최근 이벤트 |
-| Accounts | 거래소 계좌 등록, API 키 관리 (OKX, KIS, Binance, Bybit, Upbit) |
-| Templates | TradingView 웹훅 템플릿 생성, JSON 복사 |
-| Settings | E-STOP 제어, 시스템 상태, 서버 연결 설정 |
-| Logs | 거래 로그 조회, 필터링, CSV 내보내기 |
-
----
-
-## STEP 8-11: 모바일 앱 Flutter 완성 — DONE
-- **STEP 8**: Flutter 프로젝트 초기화 (Android 빌드 설정)
-- **STEP 9**: 대시보드/타임라인 (4탭 네비게이션, 커넥터 상태)
-- **STEP 10**: E-STOP/차트/설정 (사유 입력, TradingView WebView)
-- **STEP 11**: APK 빌드 준비 (릴리즈 서명, ABI 분할)
-
-### 모바일 앱 구조 (mobile-app/)
-```
-mobile-app/
-├── scripts/
-│   ├── setup.ps1
-│   ├── build-apk.ps1
-│   └── create-keystore.ps1
-├── android/
-│   ├── app/
-│   │   ├── build.gradle
-│   │   ├── proguard-rules.pro
-│   │   └── src/main/
-│   ├── key.properties.example
-│   ├── build.gradle
-│   └── settings.gradle
-├── lib/
-│   ├── main.dart
-│   ├── models/
-│   ├── providers/
-│   │   └── app_state.dart
-│   ├── services/
-│   │   └── api_service.dart
-│   ├── screens/
-│   │   ├── home_screen.dart
-│   │   ├── timeline_screen.dart
-│   │   ├── chart_screen.dart
-│   │   └── settings_screen.dart
-│   └── widgets/
-│       ├── estop_button.dart
-│       ├── connector_card.dart
-│       ├── status_card.dart
-│       └── event_list.dart
-├── assets/
-│   └── logo.png
-├── pubspec.yaml
-├── analysis_options.yaml
-└── README.md
-```
-
-### 모바일 앱 기능
-| Screen | Features |
-|--------|----------|
-| Dashboard | 서버 상태, E-STOP (펄스 애니메이션, 사유 입력), 커넥터 상태, 요약 통계 |
-| Timeline | 주문 이력, Status/Exchange 필터, 통계 (Total/Filled/Failed) |
-| Chart | TradingView WebView (BTC, ETH, SOL, XRP, BNB) |
-| Settings | 서버 URL, Quick Connect, 연결 테스트 |
-
-### APK 빌드 출력
-| File | Architecture | Target |
-|------|--------------|--------|
-| BBooster-v0.1.0-arm64.apk | ARM64 | 최신 기기 (권장) |
-| BBooster-v0.1.0-arm32.apk | ARM32 | 구형 기기 |
-| BBooster-v0.1.0-x64.apk | x86_64 | 에뮬레이터 |
-| BBooster-v0.1.0-universal.apk | All | 모든 기기 |
-
----
-
-## STEP 12: SSOT 최종 업데이트 — DONE (2026-02-05)
-- PROJECT_STATUS.md Week D 섹션 추가
-- PC 앱 / 모바일 앱 완성 문서화
-- 빌드 환경 요구사항 정리
-
----
-
-# 10) 빌드 환경 요구사항
-
-## PC 앱 (Tauri)
-- Node.js v18+
-- Rust 1.70+
-- Windows 10/11 (64-bit)
-
-```powershell
-cd pc-app
-powershell -ExecutionPolicy Bypass -File scripts\install-rust.ps1
-powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
-powershell -ExecutionPolicy Bypass -File scripts\build.ps1
-```
-
-## 모바일 앱 (Flutter)
-- Flutter SDK 3.0+
-- Android SDK (API 21+)
-- Java JDK 11+
-
-```powershell
-cd mobile-app
-powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
-powershell -ExecutionPolicy Bypass -File scripts\build-apk.ps1
-```
-
----
-
----
-
-## Week 21 Day 3 — PC 앱 빌드 성공 + UX 피드백
-
-### 완료
-- tauri-cli v1 설치 (v2는 tauri.conf.json v1 형식과 호환 안 됨)
-- 한글 경로("새 폴더") Vite 크래시 발견 → C:\AUAT로 복사하여 빌드
-- keyring API 수정: delete_credential() → delete_password()
-- std::process::Command import 누락 수정 (commands.rs 상단에 추가)
-- PowerShell 콘솔 창 숨기기: .creation_flags(0x08000000) + #![windows_subsystem = "windows"]
-- BBooster_1.0.0_x64-setup.exe / .msi 빌드 성공
-- PC앱 설치 및 실행 테스트 완료
-
-### UX 피드백 (실사용 테스트에서 발견)
-1. 앱이 http://127.0.0.1:8000/ 로 이동하지만 로컬 서버가 자동 실행되지 않음
-2. 대시보드/소개사이트 디자인이 칙칙함 → 밝은 현대적 한국형 SaaS 디자인으로 변경 필요
-3. 전체 UI가 영어 → 한국어화 필요
-4. 허브형/프리미엄형 구분 UI 없음
-5. TradingView 차트 연동 미구현
-6. 결제 시스템 없음
-
-### 기술 메모
-- Tauri v1 CLI 필수: cargo install tauri-cli --version "^1"
-- Windows 빌드 시 한글 경로 금지 (Vite 크래시)
-- Visual Studio 2022 Build Tools + VC++ 워크로드 필수
-- 빌드 작업 경로: C:\AUAT (한글 없는 경로)
-
-### VPS 현황
-- IP: 76.13.180.30
-- http://76.13.180.30 → 소개 사이트
-- http://76.13.180.30/dashboard → 웹 대시보드
-- http://76.13.180.30/docs → API 문서
-- http://76.13.180.30/terms.html → 이용약관
-- http://76.13.180.30/privacy.html → 개인정보처리방침
-- http://76.13.180.30/risk.html → 투자위험고지
-
-### 산출물
-- BBooster_1.0.0_x64-setup.exe (NSIS)
-- BBooster_1.0.0_x64_en-US.msi (MSI)
-
----
-
-## Week 21 Day 4 — UX 개선 통합 완료 (STEP 0~9)
-
-### 완료 항목
-
-**STEP 1: PC앱 VPS 서버 자동 연결** — DONE
-- pc-app/ui/src/config.js 생성 (API_BASE_URL, CONNECTION_TIMEOUT 등)
-- tauri.conf.json HTTP 허용 목록에 VPS IP (76.13.180.30) 추가
-- main.js에 서버 연결 체크 및 재시도 로직 구현
-- 로딩 오버레이 UI (스피너 + 메시지 + 재시도 버튼)
-
-**STEP 2: 웹 대시보드 밝은 테마 리디자인** — DONE
-- app/templates/index.html 전체 밝은 테마로 변환
-- CSS 변수 전면 수정 (--bg: #f8fafc, --card: #ffffff 등)
-- 버튼, 카드, 탭 스타일 현대적 디자인으로 개선
-- 그라데이션 배경, 부드러운 그림자, 호버 애니메이션 적용
-
-**STEP 3: 전체 UI 한국어화** — DONE
-- PC앱 사이드바 메뉴 (대시보드, 계정 관리, 템플릿, 설정, 거래 로그)
-- 대시보드 페이지 (상태 카드, 서버 제어, 긴급 정지)
-- 계정 관리 페이지 (모달, 폼 레이블, 에러 메시지)
-- 템플릿 생성기, 설정 페이지, 거래 로그 페이지 전체 한국어화
-
-**STEP 4: 허브형/프리미엄형 구분 UI** — DONE
-- 구독 배지 스타일 개선 (free, hub, premium 클래스)
-- 설정 페이지에 구독 정보 카드 추가
-- 구독 유형별 기능 표시 (다중 계정, 프리미엄 신호, 클라우드 동기화 등)
-- 사이드바 구독 배지 클릭 시 설정 페이지로 이동
-
-**STEP 5: TradingView 차트 위젯 연동** — DONE
-- 대시보드에 TradingView Advanced Chart 위젯 추가
-- 심볼 선택 (BTC/USDT, ETH/USDT, BTC 선물 등)
-- 시간간격 선택 (1분, 5분, 15분, 1시간, 일봉)
-- RSI, SMA 기본 지표 포함, 다크 테마, 한국어 로케일
-
-**STEP 6: 결제 시스템 UI (프론트엔드)** — DONE
-- 설정 페이지에 요금제 안내 섹션 추가
-- 무료/허브형(₩29,000)/프리미엄(₩99,000) 플랜 카드 디자인
-- 결제 모달 UI (결제 수단 선택, 이메일 입력, 약관 동의)
-- 카드, 계좌이체, 네이버페이 결제 수단 옵션
-
-**STEP 7: 소개 사이트 + 법적 페이지 밝은 테마 리디자인** — DONE
-- landing/index.html: 전체 밝은 테마로 변환
-  - 배경 그라데이션 (오렌지 → 블루 → 그린)
-  - 제품 카드, 거래소 아이콘, 기능 카드 현대화
-  - FAQ, CTA, Footer 밝은 스타일
-- landing/terms.html, privacy.html, risk.html 밝은 테마 적용
-
-### 커밋 목록 (8개)
-1. feat: PC앱 VPS 서버 자동 연결
-2. feat: 웹 대시보드 밝은 테마 리디자인
-3. feat: 전체 UI 한국어화
-4. feat: 허브형/프리미엄형 구분 UI 추가
-5. feat: TradingView 차트 위젯 연동
-6. feat: 결제 시스템 UI 추가 (프론트엔드)
-7. feat: 소개 사이트 + 법적 페이지 밝은 테마 리디자인
-8. docs: SSOT Week 21 Day 4 업데이트
-
-### 남은 작업
-- 결제 시스템 백엔드 연동 (PG사 API 연동)
-- 모바일 앱 UX 동일하게 적용
-
----
-
-## Week 21 Day 4 Evening — VPS 배포 + PC앱 재빌드 완료
-
-### 완료 항목
-
-**1. Git Push 완료** — DONE
-- 로컬에 있던 9개 커밋(STEP 1~9) GitHub에 push
-- UX 개선 전체 코드 원격 저장소에 반영
-
-**2. VPS 배포 완료** — DONE
-- ssh root@76.13.180.30 접속
-- /root/bbooster에서 git pull + docker compose up -d --build
-- 컨테이너 정상 실행 (bbooster-app, bbooster-db)
-
-**3. VPS 대시보드 정상 확인** — DONE
-- http://76.13.180.30:8000 에서 밝은 테마, 한국어 UI 반영 확인
-- 웹 대시보드 5개 탭 정상 동작
-- 랜딩 페이지 + 법적 페이지 밝은 테마 확인
-
-**4. .gitignore 정리** — DONE
-- .claude/ 폴더 제외 추가
-- NUL 파일 제외 추가
-- PROJECT_STATUS_LOCAL.md 제외 추가
-
-**5. PC앱 Rust 코드 서버 주소 변경** — DONE
-- commands.rs, main.rs의 모든 127.0.0.1:8000 → 76.13.180.30:8000으로 변경
-- 로컬 서버 실행(uvicorn) 로직 제거
-- start_server: VPS 연결 상태 확인으로 변경
-- stop_server: 연결 해제 메시지로 변경
-- 트레이 메뉴 텍스트 VPS 연결 방식으로 업데이트
-
-**6. PC앱 서버 연결 방식 수정 (fetch CORS 우회)** — DONE
-- 문제: Tauri WebView의 fetch()가 외부 VPS 서버에 CORS로 인해 접근 불가
-- 해결: Tauri invoke로 Rust 백엔드에서 HTTP 요청 수행
-- commands.rs: check_server_health 커맨드 추가 (latency_ms 포함)
-- main.js 변경:
-  - checkServerConnection() → invoke('check_server_health')
-  - loadSettingsData() → invoke('get_server_status')
-  - E-STOP 버튼 → invoke('set_estop')
-  - loadLogs() → invoke('fetch_timeline')
-  - loadSubscriptionStatus() → invoke('fetch_subscription')
-
-**7. PC앱 재빌드 완료** — DONE
-- BBooster_1.0.0_x64-setup.exe 새 버전 빌드
-- VPS 직접 연결 방식으로 동작 확인 완료
-- 서버 연결 성공 로그 확인
-
-### 커밋 목록 (3개)
-1. feat: PC앱 VPS 서버 연결 방식으로 변경
-2. fix: Tauri invoke로 서버 연결 체크 변경 (fetch CORS 우회)
-3. docs: SSOT Week 21 Day 4 — VPS 배포 + PC앱 재빌드 완료
-
-### 현재 시스템 상태
-| 항목 | 상태 |
-|------|------|
-| STEP 1~9 | ✅ 모두 완료 (코드 수정 + push + VPS 배포 + PC앱 빌드) |
-| VPS 서버 | ✅ http://76.13.180.30:8000 정상 운영 중 |
-| 웹 대시보드 | ✅ 밝은 테마 + 한국어 UI |
-| PC앱 | ✅ VPS 직접 연결 방식 동작 확인 |
-| ngrok | ⏸️ 인증 미설정 (공인 IP 직접 접속 가능하므로 불필요) |
-
-### 남은 작업 (향후)
-- 결제 시스템 백엔드 연동 (PG사 API)
-- 모바일 앱(Flutter APK) UX 업데이트 + 빌드
-- HTTPS/도메인 설정 (선택)
-
----
-
-## Week 21 Day 5 — Google OAuth + 로그인 시스템 구현 (2026-02-05)
-
-### STEP 1: Google OAuth 2.0 + JWT 인증 백엔드 — DONE
-- app/auth.py 생성 (인증 모듈)
-  - OAuth 설정 (authlib, Google OpenID Connect)
-  - JWT 토큰 생성/검증 (python-jose, HS256)
-  - ADMIN_EMAILS 환경변수 기반 관리자 자동 지정
-  - get_current_user, get_admin_user 의존성
-- app/models.py에 User 모델 추가
-  - email, name, picture, role, plan, plan_expires_at
-  - google_id (OAuth 연동)
-- app/main.py에 인증 엔드포인트 추가
-  - GET /api/auth/google/login: Google OAuth 리다이렉트
-  - GET /api/auth/google/callback: OAuth 콜백 처리
-  - GET /api/auth/me: 현재 사용자 정보
-  - POST /api/auth/logout: 로그아웃
-  - POST /api/auth/refresh: 토큰 갱신
-- 관리자 전용 API
-  - GET /api/admin/users: 사용자 목록
-  - GET /api/admin/stats: 통계 (사용자/계정/주문)
-  - PUT /api/admin/users/{id}/role: 역할 변경
-  - PUT /api/admin/users/{id}/plan: 플랜 변경
-- requirements.txt 업데이트
-  - authlib==1.3.0
-  - httpx==0.27.0
-  - python-jose[cryptography]==3.3.0
-  - passlib[bcrypt]==1.7.4
-- .env.example 업데이트
-  - GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
-  - JWT_SECRET_KEY
-  - ADMIN_EMAILS
-
-### STEP 2: 웹 대시보드 로그인 UI — DONE
-- app/templates/index.html 수정
-  - 로그인 화면 (loginScreen) 추가
-    - Google 로그인 버튼 (SVG 로고)
-    - 브랜드 로고 + 타이틀
-  - 사용자 메뉴 (userMenu) 추가
-    - 아바타, 이름, 역할 표시
-    - 로그아웃 버튼
-  - 관리자 패널 (panel-admin) 추가
-    - 통계 카드 4개 (전체 사용자, 프리미엄, 활성 계정, 오늘 주문)
-    - 사용자 관리 테이블 (역할/플랜 변경)
-  - 관리자 전용 탭 CSS (.admin-only)
-- JavaScript 인증 로직
-  - auth 객체 (토큰 관리)
-  - loginWithGoogle(): Google OAuth 리다이렉트
-  - logout(): 토큰 삭제 + 로그인 화면
-  - checkAuth(): 페이지 로드 시 인증 확인
-  - updateUserUI(): 사용자 정보 UI 반영
-  - api() 함수에 Authorization 헤더 추가
-  - reloadAdmin(): 관리자 패널 데이터 로드
-
-### STEP 3: PC앱 로그인 화면 — DONE
-- pc-app/ui/index.html 수정
-  - 로그인 화면 (login-screen) 추가
-    - Google 로그인 버튼
-    - "로그인 없이 계속 (허브 모드)" 버튼
-- pc-app/ui/src/style.css 수정
-  - 로그인 화면 스타일 (.login-screen, .login-card)
-  - Google 버튼 스타일 (.google-login-btn)
-  - 허브 모드 버튼 스타일 (.skip-login-btn)
-- pc-app/ui/src/main.js 수정
-  - auth 객체 (토큰/허브모드 관리)
-  - loginWithGoogle(): 브라우저에서 OAuth 열기 (Tauri shell.open)
-  - skipLogin(): 허브 모드로 시작
-  - initAuth(): 인증 상태 확인
-  - loadUserInfo(): 사용자 정보 로드
-  - refreshAuthToken(): 토큰 갱신
-
-### 생성/수정된 파일
-| 파일 | 작업 |
-|------|------|
-| app/auth.py | 신규 생성 |
-| app/models.py | User 모델 추가 |
-| app/main.py | 인증/관리자 엔드포인트 추가 |
-| app/templates/index.html | 로그인 UI + 관리자 패널 |
-| pc-app/ui/index.html | 로그인 화면 추가 |
-| pc-app/ui/src/style.css | 로그인 스타일 추가 |
-| pc-app/ui/src/main.js | 인증 로직 추가 |
-| requirements.txt | authlib, httpx, python-jose 추가 |
-| .env.example | OAuth/JWT 설정 추가 |
-| scripts/init_schema.sql | users 테이블 추가 |
-
-### 남은 작업 (향후)
-- Google Cloud Console에서 OAuth 클라이언트 ID 생성 필요
-- .env에 GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET 설정
-- PC앱 재빌드 (로그인 화면 포함)
-- 모바일 앱 로그인 화면 추가
-
----
-
-# 11) NEXT ACTION — v17 (VPS 배포 완료)
-
-## 완료된 작업
-- ✅ VPS 서버 배포 (http://76.13.180.30:8000)
-- ✅ PC 앱 빌드 (BBooster_1.0.0_x64-setup.exe)
-- ✅ 웹 대시보드 UX 개선 (밝은 테마 + 한국어)
-- ✅ PC앱 VPS 연결 방식 변경 (CORS 우회)
-
-## 다음 단계
-1) **모바일 앱 빌드**: Flutter 설치 후 `mobile-app/scripts/build-apk.ps1` 실행
-2) **결제 시스템 백엔드**: PG사 API 연동 (토스페이먼츠/네이버페이 등)
-3) **도메인 설정** (선택): nginx/bbooster.conf에서 도메인 교체 + SSL
-4) **v1.0 릴리즈**: `git tag v1.0.0 && git push --tags`
-
-## 운영 중인 서비스
-| 서비스 | URL |
-|--------|-----|
-| 웹 대시보드 | http://76.13.180.30:8000 |
-| API 문서 | http://76.13.180.30:8000/docs |
-| 랜딩 페이지 | http://76.13.180.30:8000/landing/ |
-| 이용약관 | http://76.13.180.30:8000/landing/terms.html |
-
-> **서버 배포 + PC앱 완료!**
-> VPS 서버 정상 운영 중, PC앱 VPS 직접 연결 확인됨.
-
----
-
-## Week 21 Day 6 — 대시보드 + PC앱 업그레이드
-
-### 완료 작업 요약
-
-**STEP 3: 웹 대시보드 리디자인** — DONE
-- 수익률 중심 대시보드 (총 자산, 수익률, 일 변동, 오늘 수익)
-- Chart.js 기반 수익률 차트 (기간 선택: 1주/1개월/3개월)
-- 자산별 수익률 그리드
-- 관리자 전용 패널 (관리자 로그인 시만 표시)
-- 커밋: `feat: 웹 대시보드 수익률 중심 리디자인 + 관리자 패널`
-
-**STEP 5: PC앱 API 키 등록/관리** — DONE
-- Tauri commands 추가: `register_api_key`, `delete_api_key`, `get_accounts_list`
-- JWT 인증 API 엔드포인트: `/api/user/accounts` (GET/POST/DELETE)
-- 로그인 시 VPS 서버에 API 키 등록, 허브 모드 시 로컬 저장
-- 커밋: `feat: PC앱 API 키 등록/관리 화면 + JWT 인증 API`
-
-**STEP 6: 템플릿 생성 마법사** — DONE
-- 3단계 위자드 형식 UI (자산선택 → 주문설정 → 템플릿확인)
-- 시각적 진행 표시기 (progress indicator)
-- 웹훅 URL 복사 기능
-- 한국어 UI 텍스트
-- 커밋: `feat: 템플릿 생성 마법사 형식 UI 개선`
-
-**STEP 7: 구독 플랜 + 관리자 대시보드** — DONE
-- 구독 플랜 섹션 (무료/허브/프리미엄 가격표)
-- 관리자 패널 개선: 사용자 관리 (플랜/권한 변경), CSV 내보내기
-- 시스템 현황 통계 (등록 계정, 오늘 주문, 활성 사용자, E-STOP)
-- 커밋: `feat: 구독 플랜 페이지 + 관리자 대시보드 개선`
-
-**STEP 9: SSOT 문서 업데이트** — DONE
-- PROJECT_STATUS.md 최신화 (이 섹션)
-
-### 변경된 파일
-| 파일 | 설명 |
-|------|------|
-| `app/templates/index.html` | 웹 대시보드 완전 리디자인 + 구독 플랜 + 관리자 패널 |
-| `app/main.py` | Dashboard API + JWT 보호 계정 API + 관리자 통계 |
-| `pc-app/src-tauri/src/commands.rs` | API 키 등록/삭제/조회 명령어 |
-| `pc-app/src-tauri/src/main.rs` | 새 명령어 등록 |
-| `pc-app/ui/index.html` | 템플릿 마법사 UI |
-| `pc-app/ui/src/main.js` | 마법사 로직 + API 키 관리 로직 |
-| `pc-app/ui/src/style.css` | 마법사 스타일 |
-
-### 커밋 이력 (Day 6)
-```
-dfaa451 feat: PC앱 API 키 등록/관리 화면 + JWT 인증 API
-bbcf813 feat: 템플릿 생성 마법사 형식 UI 개선
-7b6db4e feat: 구독 플랜 페이지 + 관리자 대시보드 개선
-```
-
-### 다음 단계
-1) **VPS 배포**: `git pull` 후 서버 재시작
-2) **PC앱 재빌드**: `npm run tauri build` 후 설치 파일 배포
-3) **모바일 앱**: Flutter 환경 설정 후 APK 빌드
-4) **결제 시스템**: PG사 API 연동 (토스페이먼츠/네이버페이)
-
----
-
-## Week 21 Day 7 — 웹사이트 전면 개편 + PC앱 사이드바 재구성
-
-### 완료 작업 요약
-
-**PHASE 1: 웹사이트 홈페이지 분리** — DONE
-- 홈페이지(/)와 대시보드(/dashboard) 완전 분리
-- 로그인/회원가입 페이지 별도 분리 (/login, /register)
-- 홈페이지 구성: Hero 섹션 + 기능 소개 + 요금제 + FAQ + Footer
-- 대시보드: 로그인 후 /dashboard 리디렉션
-- 커밋: `feat: 웹사이트 홈페이지 + 로그인/회원가입 분리 + 대시보드 개편`
-
-**PHASE 2: PC앱 사이드바 완전 재구성** — DONE
-- 접이식 사이드바 (240px ↔ 60px)
-- 아코디언 서브메뉴 구조
-- 사이드바 메뉴 구성:
-  - 홈 (대시보드)
-  - 전략설정 (아코디언): TV 연결, 템플릿 관리, 주문 설정
-  - 설정 (아코디언): 계정/API, 알림 설정
-  - 관리자 (admin 전용, 아코디언): 사용자 관리, 시스템 로그
-- URL 해시 기반 네비게이션 (#home, #tv-connect, #template, 등)
-- 사이드바 상태 localStorage 저장
-- 커밋: `feat: PC앱 사이드바 재구성 + 아코디언 메뉴`
-
-**요금제 구조 변경** — DONE
-- 5개 → 4개 요금제로 간소화
-- Starter (₩19,900/월): 1개 거래소, 일 5회 거래
-- Standard (₩49,000/월, 추천): 3개 거래소, 일 20회 거래
-- Pro (₩99,000/월): 5개 거래소, 일 50회 거래
-- Premium (₩249,000/월): 무제한 거래소, 무제한 거래
-- 커밋: `feat: 요금제 4개로 변경`
-
-**도메인 연결** — DONE
-- 도메인: https://qube-system.com
-- SSL 인증서 적용 완료
-- VPS 서버 배포 완료
-
-### 변경된 파일
-| 파일 | 설명 |
-|------|------|
-| `app/templates/home.html` | 홈페이지 (Hero + 기능 + 요금제 + FAQ) |
-| `app/templates/login.html` | 로그인 페이지 |
-| `app/templates/register.html` | 회원가입 페이지 |
-| `app/templates/index.html` | 대시보드 (로그인 후) |
-| `pc-app/ui/index.html` | 접이식 사이드바 + 아코디언 메뉴 |
-| `pc-app/ui/src/main.js` | 사이드바 토글 + 아코디언 + 해시 네비게이션 |
-| `pc-app/ui/src/style.css` | 사이드바 스타일 (collapsed/expanded) |
-
-### 커밋 이력 (Day 7)
-```
-c3fe6fe feat: 요금제 4개로 변경
-37c2345 feat: PC앱 사이드바 재구성 + 아코디언 메뉴
-ccc6373 feat: 웹사이트 홈페이지 + 로그인/회원가입 분리 + 대시보드 개편
-```
-
-### 운영 중인 서비스 (업데이트)
-| 서비스 | URL |
-|--------|-----|
-| 홈페이지 | https://qube-system.com |
-| 로그인 | https://qube-system.com/login |
-| 대시보드 | https://qube-system.com/dashboard |
-| API 문서 | https://qube-system.com/docs |
-
-### 다음 단계
-1) **PC앱 재빌드**: `npm run tauri build` 후 설치 파일 배포
-2) **결제 시스템**: PG사 API 연동 (토스페이먼츠)
-3) **모바일 앱**: Flutter 환경 설정 후 APK 빌드
-4) **마케팅 페이지**: SEO 최적화 + 소셜 미리보기
-
----
-
-## Week 21 Day 8 — PC앱 홈 페이지 (포트폴리오 대시보드)
-
-### 완료 작업 요약
-
-**PC앱 홈 페이지 구현** — DONE
-- 상단 요약 카드 (4개): 총 자산, 총 수익률, 일간 변동, 활성 전략
-- 수익률 차트: Chart.js 로컬 번들, 기간 선택 (1일/1주/1개월/3개월/1년)
-- 자산 배분 섹션: 도넛 차트 + 범례 + 상세 테이블
-- 보유 자산 목록: 테이블 형태 (자산명, 거래소, 수량, 단가, 손익)
-- 활성 전략 현황: 카드형 (전략명, 자산, 거래소, 상태, 오늘 거래)
-- 긴급 정지 버튼: 플로팅 빨간 원형 버튼 + 펄스 애니메이션
-- 커밋: `feat: PC앱 홈 페이지 — 포트폴리오 현황 + 차트 + 보유자산`
-
-**Tauri 커맨드 추가** — DONE
-- `get_portfolio_summary` → 포트폴리오 요약
-- `get_portfolio_chart` → 수익률 차트 데이터
-- `get_holdings` → 보유 자산 목록
-- `get_active_strategies` → 활성 전략 목록
-- `emergency_stop` → 긴급 정지
-- `verify_password` → 비밀번호 재확인
-
-**백엔드 API 추가** — DONE
-- `GET /api/portfolio/summary` — 포트폴리오 요약
-- `GET /api/portfolio/chart?period=` — 수익률 차트
-- `GET /api/portfolio/holdings` — 보유 자산
-- `GET /api/strategies/active` — 활성 전략
-- `POST /api/system/emergency-stop` — 긴급 정지
-- `POST /api/auth/verify-password` — 비밀번호 검증
-
-### 변경된 파일
-| 파일 | 설명 |
-|------|------|
-| `pc-app/ui/src/lib/chart.min.js` | Chart.js 로컬 번들 (신규) |
-| `pc-app/ui/index.html` | 홈 페이지 HTML 개선 |
-| `pc-app/ui/src/main.js` | 포트폴리오 데이터 로딩 로직 |
-| `pc-app/ui/src/style.css` | 홈 페이지 스타일 (테이블, 카드, 버튼) |
-| `pc-app/src-tauri/src/commands.rs` | 6개 Tauri 커맨드 추가 |
-| `pc-app/src-tauri/src/main.rs` | 커맨드 등록 |
-| `app/main.py` | 6개 백엔드 API 추가 |
-
-### 커밋 이력 (Day 8)
-```
-c502f78 feat: PC앱 홈 페이지 — 포트폴리오 현황 + 차트 + 보유자산
-```
-
----
-
-## Week 21 Day 10 — KIS API 연동 + 심볼정보 대폭 강화
-
-> **날짜**: 2026-02-06
-> **핵심**: 실제 거래소 API 연동 + KIS 종목 마스터 + 미니 종목보고서 UI
-
-### 완료 항목
-
-#### 1. 심볼정보 실제 거래소 API 연동
-- OKX/Binance/Bybit/Upbit 거래소 API 연동
-- 심볼 목록 1시간 캐싱 (TTL)
-- 실시간 가격 조회 (ticker API)
-- 거래량 상위 10개 인기 종목 조회
-- 프론트엔드: 검색 디바운스 300ms, 로딩 스피너
-
-#### 2. verify-password API 수정
-- 기존: 실패 시 401 반환 (프론트엔드에서 에러 처리 필요)
-- 변경: 200 + `{"verified": true/false}` 반환
-- Tauri 커맨드: `verified` 필드 파싱하여 bool 반환
-
-#### 3. KIS Open API 연동 모듈 (`app/kis_api.py` 신규)
-- **종목 마스터 파일 다운로드**:
-  - KOSPI: `kospi_code.mst.zip`
-  - KOSDAQ: `kosdaq_code.mst.zip`
-  - NASDAQ: `nasmst.cod.zip`
-  - NYSE: `nysmst.cod.zip`
-  - AMEX: `amsmst.cod.zip`
-  - 1일 캐싱 + 폴백 하드코딩 (다운로드 실패 시)
-- **KIS API 함수**:
-  - `get_kis_token()`: OAuth2 토큰 발급
-  - `get_domestic_price()`: 국내주식 현재가
-  - `get_overseas_price()`: 해외주식 현재가
-  - `get_financial_ratio()`: 재무비율 (PER/PBR/ROE/부채비율)
-  - `get_income_statement()`: 손익계산서 (4분기)
-  - `get_invest_opinion()`: 투자의견 (컨센서스/목표가)
-  - `get_investor_trend()`: 투자자 매매동향 (5일)
-  - `get_daily_prices()`: 일봉 데이터 (60일)
-
-#### 4. 심볼 상세 API 강화 (`/api/symbols/{exchange}/{symbol}`)
-- 응답 구조 개편 (미니 종목보고서 형태):
-```json
-{
-  "basic": { "name", "symbol", "market", "is_etf", "sector" },
-  "price": { "current", "change", "high", "low", "volume", "market_cap" },
-  "financial": { "per", "pbr", "roe", "debt_ratio", "income_statement" },
-  "opinion": { "consensus", "target_price", "analyst_count", "buy/hold/sell" },
-  "investor": [{ "date", "foreign_net", "institution_net", "individual_net" }],
-  "daily_prices": [{ "date", "close", "volume" }],
-  "has_kis_account": true/false
-}
-```
-
-#### 5. 거래소 탭 확장 (9개)
-```
-전체 | OKX | Binance | Bybit | Upbit | 국내주식 | 국내ETF | 해외주식 | 해외ETF
-```
-
-#### 6. 심볼 상세 패널 3탭 UI
-- **시세 탭**: 고가/저가/거래량/시가총액, 60일 차트, 투자자 순매수 막대그래프
-- **재무 탭**: PER/PBR/ROE/부채비율 카드, 손익 추이 차트 (4분기)
-- **투자의견 탭**: 컨센서스 도넛차트, 목표가, 애널리스트 수
-- KIS 계정 미등록 시 안내 메시지 표시
-
-### 수정/추가 파일
-
-| 파일 | 변경 내용 |
-|------|----------|
-| `app/kis_api.py` (신규) | KIS Open API 연동 모듈 (784줄) |
-| `app/main.py` | KIS 모듈 연동, 심볼 API 강화, startup 이벤트 |
-| `pc-app/src-tauri/src/commands.rs` | SymbolDetail JSON 전달, ETF 카테고리 추가 |
-| `pc-app/ui/index.html` | 심볼 상세 패널 3탭 UI, 거래소 탭 9개 |
-| `pc-app/ui/src/main.js` | 차트 그리기 함수, 탭 전환 로직 (300줄 추가) |
-| `pc-app/ui/src/style.css` | 재무카드, 컨센서스배지, 도넛차트 스타일 (200줄) |
-
-### 커밋 이력 (Day 10)
-```
-206ccd4 feat: 심볼정보 실제 거래소 API 연동 — 전체 심볼 목록 + 실시간 가격
-7f77607 fix: verify-password API 수정 — 계정관리 비밀번호 재확인
-8bf482f feat: KIS API 연동 — 종목 마스터 + 재무제표 + 투자의견 + 매매동향
-```
-
-### 아키텍처 현황
-```
-KIS Open API 연동:
-├── 종목 마스터: 서버 시작 시 백그라운드 다운로드 (1일 캐싱)
-├── 실시간 API: 사용자 KIS 계정 등록 시에만 호출
-└── 폴백: 다운로드 실패 시 하드코딩 목록 사용
-
-심볼 데이터 소스:
-├── OKX/Binance/Bybit/Upbit: 각 거래소 REST API
-└── KIS 국내/해외: 종목 마스터 파일 + KIS 시세 API
-```
-
-### 다음 단계
-1) **VPS 배포**: git pull → docker compose up
-2) **KIS 계정 연동 테스트**: 사용자 KIS 계정으로 재무/투자의견 조회 확인
-3) **PC앱 재빌드**: `cargo tauri build`
-
----
-
-## Week 21 Day 11 — 공개 시세 API + 시장분석 + AI 종합분석 + 관심종목
-
-> **날짜**: 2026-02-06
-> **핵심**: KIS 계정 없이도 시세 표시 + Pro 전용 시장분석 메뉴 + AI 리포트 + 관심종목 기능
-
-### 완료 항목
-
-#### STEP 1: 공개 시세 API 연동 (KIS 계정 없이도 표시)
-- **네이버 금융 API** (국내주식):
-  - `get_naver_stock_price()`: 현재가 조회
-  - `get_naver_daily_prices()`: 일봉 60일
-  - KRX 폴백 (네이버 실패 시)
-- **Yahoo Finance API** (해외주식):
-  - `get_yahoo_stock_price()`: 현재가 조회
-  - `get_yahoo_daily_prices()`: 일봉 60일
-- 심볼 상세 API 개선: `data_source` 필드 추가 (KIS/Naver/Yahoo)
-- 프론트엔드: 데이터 출처 배지 표시 (KIS=파랑, Naver=녹색, Yahoo=보라)
-
-#### STEP 2: 시장분석 메뉴 (Pro 이상)
-- **시장 개요 페이지** (`/api/market/overview`):
-  - 주요지수 카드 (KOSPI/KOSDAQ/NASDAQ/S&P500/DOW)
-  - 투자자별 순매수 막대 그래프
-  - 요금제별 기능 차등 (네이버/KIS)
-- **섹터 분석 페이지** (`/api/market/sectors`):
-  - 섹터별 등락률 테이블
-  - 섹터 대장주 목록
-  - 네이버 금융 업종 데이터
-- **종목 랭킹 페이지** (`/api/market/ranking`):
-  - 탭: 거래량 | 상승률 | 하락률 | 시가총액 | 외국인 | 기관
-  - 50개 종목 테이블 (순위/종목명/현재가/등락률/거래량)
-- **주목 종목 페이지** (`/api/market/featured`):
-  - 신고가/신저가/급등주/급락주 카드 섹션
-  - 네이버 52주 신고가/신저가 데이터
-- **일정/이벤트 페이지** (`/api/market/events`):
-  - 탭: 실적발표 | 배당 | IPO | 경제지표
-  - 월별 필터 (기본: 현재월)
-  - 목업 데이터 (실제 API 연동 TODO)
-
-#### STEP 3: AI 종합분석 + 관심종목 (Standard 이상)
-- **AI 분석 리포트**:
-  - `GET /api/ai/usage`: 사용량 조회 (잔여 분석 횟수)
-  - `POST /api/ai/analyze`: AI 분석 요청 (symbol, exchange)
-  - 요금제별 일일 분석 횟수: Starter 0회, Standard 5회, Pro 10회, Premium 20회
-  - 분석 리포트 캐싱 (6시간) → 중복 분석 방지
-  - 템플릿 기반 마크다운 리포트 생성 (실제 Claude API 연동 TODO)
-  - DB 테이블 자동 생성: `ai_reports`
-- **AI 시황 타임라인**:
-  - `GET /api/market/timeline`: 시장 소식 타임라인
-  - 목업 데이터 (실제 뉴스 API 연동 TODO)
-- **관심종목 기능**:
-  - `GET /api/watchlist/groups`: 그룹 목록
-  - `POST /api/watchlist/groups`: 그룹 생성
-  - `PUT /api/watchlist/groups/{id}`: 그룹 수정
-  - `DELETE /api/watchlist/groups/{id}`: 그룹 삭제
-  - `GET /api/watchlist/groups/{id}/items`: 항목 조회
-  - `POST /api/watchlist/items`: 항목 추가
-  - `DELETE /api/watchlist/items/{id}`: 항목 삭제
-  - 요금제별 관심종목 한도: Starter 10개, Standard 50개, Pro 200개, Premium 무제한
-  - DB 테이블 자동 생성: `watchlist_groups`, `watchlist_items`
-- 프론트엔드: 심볼 상세 패널 ★ / 🤖 버튼 추가
-- 모달 UI: AI 분석 결과 팝업, 관심종목 추가 팝업
-
-### 수정/추가 파일
-
-| 파일 | 변경 내용 |
-|------|----------|
-| `app/kis_api.py` | 공개 시세 API 함수 추가 (네이버/Yahoo/KRX) |
-| `app/main.py` | 시장분석/AI/관심종목 15개 엔드포인트 추가 |
-| `pc-app/src-tauri/src/commands.rs` | 11개 Tauri 커맨드 추가 |
-| `pc-app/src-tauri/src/main.rs` | invoke_handler에 새 커맨드 등록 |
-| `pc-app/ui/index.html` | 시장분석 메뉴 5개 페이지 + 모달 UI |
-| `pc-app/ui/src/main.js` | 시장분석/AI/관심종목 핸들러 (~400줄) |
-| `pc-app/ui/src/style.css` | 시장분석 페이지 + 모달 스타일 (~300줄) |
-
-### 커밋 이력 (Day 11)
-```
-f969b57 feat(STEP1): KIS 계정 없이도 시세 표시 — 네이버/Yahoo 공개 API
-26fd316 feat(STEP2): 시장분석 메뉴 — 시장개요/섹터/랭킹/주목종목/이벤트
-03c634a feat(STEP3): AI 종합분석 + 관심종목 — 리포트/타임라인/워치리스트
-```
-
-### 아키텍처 현황
-```
-데이터 소스 우선순위:
-├── KIS 계정 있음 → KIS Open API (풀 데이터)
-├── KIS 계정 없음 + 국내주식 → 네이버 금융 → KRX 폴백
-└── KIS 계정 없음 + 해외주식 → Yahoo Finance
-
-요금제별 기능:
-├── Starter: 기본 기능만 (시장분석/AI 접근 불가)
-├── Standard: AI 5회/일, 관심종목 50개
-├── Pro: 시장분석 + AI 10회/일, 관심종목 200개
-└── Premium: 전체 기능 + AI 20회/일, 관심종목 무제한
-```
-
-### 다음 단계
-1) **VPS 배포**: git pull → docker compose up
-2) **실제 Claude API 연동**: AI 분석 리포트 품질 향상
-3) **뉴스 API 연동**: AI 시황 타임라인 실데이터
-4) **실적/배당 API 연동**: 이벤트 캘린더 실데이터
-5) **PC앱 재빌드**: `cargo tauri build`
-
----
-
-## Week 21 Day 12 — 버그 수정 6건 + UI 개선
-
-> **날짜**: 2026-02-07
-> **핵심**: 계정 거래소 확장 + 관리자 대시보드 강화 + 요금제 통일 + 차트 개선
-
-### 완료 항목
-
-#### 수정 1: 계정추가 6개 거래소 전부 표시
-- **거래소 목록 확장**:
-  - OKX — API Key + Secret Key + Passphrase
-  - Binance — API Key + Secret Key
-  - Bybit — API Key + Secret Key
-  - Upbit — Access Key + Secret Key
-  - KIS 국내주식 — App Key + App Secret + 계좌번호
-  - KIS 해외주식 — App Key + App Secret + 계좌번호
-- 각 거래소 선택 시 해당 입력 필드만 표시
-- `index.html`: 6개 거래소 폼 추가
-- `main.js`: 폼 전환 로직 + 저장 로직 확장
-
-#### 수정 2: 메뉴명 "심볼정보" → "종목정보" 변경
-- 사이드바 메뉴 텍스트 변경
-- 페이지 타이틀, 버튼 텍스트 변경
-- "심볼" → "종목", "심볼코드" → "종목코드"
-- 변수명/함수명/API 경로는 그대로 유지 (코드 안정성)
-
-#### 수정 3: 관리자 대시보드 강화
-- **사용자 현황 카드** (상단 4개):
-  - 전체 가입자 수
-  - 활성 사용자 수 (is_active = true)
-  - 오늘 가입자 수
-  - 오늘 AI 분석 사용 총 횟수
-- **요금제별 가입자 테이블**:
-  - Starter/Standard/Pro/Premium 각 가입자 수, 비율, 월 예상 매출
-  - 합계 행 포함
-- **요금제별 원형 차트** (Canvas):
-  - Chart.js 도넛 차트
-- **최근 가입자 리스트** (10명)
-- **AI 사용량 통계** (최근 7일)
-- **백엔드 API 추가**:
-  - `GET /api/admin/stats`: 전체 통계
-  - `GET /api/admin/recent-users`: 최근 가입자 10명
-- **Tauri 커맨드**: `admin_get_stats`, `admin_get_recent_users`
-
-#### 수정 4: 요금제 통일 + AI 이중 제한
-- **요금제 4단계 통일**:
-  - Starter: ₩19,900/월 — 심볼 3개, 일거래 20회, 관심종목 10개, AI ❌
-  - Standard: ₩49,000/월 — 심볼 10개, 일거래 100회, 관심종목 50개, AI 3회/일+30회/월
-  - Pro: ₩99,000/월 — 심볼 30개, 일거래 300회, 관심종목 200개, AI 7회/일+100회/월, 시장분석 ✅
-  - Premium: ₩249,000/월 — 무제한, AI 15회/일+200회/월, 시장분석 ✅, 백테스팅 ✅
-- **AI 이중 제한 (일일 + 월간)**:
-  - DB 컬럼 추가: `ai_monthly_count`, `ai_monthly_date`
-  - 일일 리셋: 날짜 변경 시 `ai_usage_count = 0`
-  - 월간 리셋: 월 변경 시 `ai_monthly_count = 0`
-  - 캐시된 결과 반환 시 횟수 차감 안 함
-- **UI 표시**: "오늘 2/3회 | 이번 달 15/30회"
-
-#### 수정 5: 차트 기간 선택 + 유형 전환
-- **차트 기간 버튼**: 1주 | 1개월 | 3개월 | 6개월 | 1년
-- **차트 유형 전환**: 라인 | 캔들
-- **이동평균선 토글**: 5일선 / 20일선 / 60일선 체크박스
-- CSS 스타일 추가 (`.chart-controls`, `.chart-period-btn`, `.ma-toggles`)
-
-#### 수정 6: 영어 → 한국어 통일
-- "Step 1~4" → "단계 1~4"
-- "Running" → "실행 중"
-- "Uptime" → "가동 시간"
-- "Docker 컨테이너" → "서버 컨테이너"
-
-### 수정/추가 파일
-
-| 파일 | 변경 내용 |
-|------|----------|
-| `app/main.py` | AI 이중 제한 로직, 관리자 통계 API 2개 추가 (+307줄) |
-| `pc-app/src-tauri/src/commands.rs` | `admin_get_stats`, `admin_get_recent_users` (+43줄) |
-| `pc-app/src-tauri/src/main.rs` | 신규 커맨드 등록 |
-| `pc-app/ui/index.html` | 6개 거래소 폼, 관리자 대시보드 UI, 차트 컨트롤 (+277줄) |
-| `pc-app/ui/src/main.js` | 거래소 폼 로직, 관리자 대시보드 로직 (+274줄) |
-| `pc-app/ui/src/style.css` | 관리자 카드/테이블, 차트 컨트롤 스타일 (+172줄) |
-
-### 커밋 이력 (Day 12)
-```
-6c4ceca fix: 계정거래소 + 종목정보명칭 + 관리자대시보드 + 요금제통일 + 캔들차트 + 한국어통일
-```
-
-### 아키텍처 현황
-```
-요금제 체계 (통일):
-├── Starter (₩19,900): 기본 기능
-├── Standard (₩49,000): AI 3회/일 + 30회/월
-├── Pro (₩99,000): 시장분석 + AI 7회/일 + 100회/월
-└── Premium (₩249,000): 전체 기능 + AI 15회/일 + 200회/월
-
-AI 사용량 추적:
-├── 일일 제한: ai_usage_count + ai_usage_date
-├── 월간 제한: ai_monthly_count + ai_monthly_date
-└── 캐시 6시간: 캐시 반환 시 차감 안 함
-```
-
-### 다음 단계
-1) **VPS 배포**: git pull → docker compose up -d --build
-2) **PC앱 재빌드**: cargo tauri build
-3) **캔들차트 완전 구현**: Canvas 기반 캔들스틱 그리기
-4) **실제 Claude API 연동**: AI 분석 리포트 품질 향상
-
----
-
-## Week 21 Day 9 — 전면 개편 완료 (PHASE 4~9)
-
-> **날짜**: 2026-02-06
-> **핵심**: PC앱 전체 기능 구현 + 백테스팅 엔진 + 관리자 시스템
-
-### 완료 항목 (PHASE 4~9)
-
-#### PHASE 4: 트레이딩뷰 웹훅 검증
-- `POST /api/webhook/{user_id}`: 웹훅 수신 + 필수 필드 검증
-- 필수 필드: action, symbol, exchange
-- 값 유효성: action은 buy/sell/close, qty > 0, leverage 1-100
-- `webhook_logs` 테이블 자동 생성
-- `GET /api/webhook/logs`: 로그 조회 (JWT 인증)
-- `GET /api/webhook/url`: 웹훅 URL 반환
-- Tauri 커맨드: `get_webhook_logs`, `get_webhook_url`
-
-#### PHASE 5: 심볼정보 페이지
-- `GET /api/symbols/search`: 심볼 검색
-- `GET /api/symbols/{exchange}/{symbol}`: 상세 정보
-- `GET /api/symbols/popular`: 인기 종목 (암호화폐 12종 + 국내주식 10종)
-- Tauri 커맨드: `search_symbols`, `get_symbol_detail`, `get_popular_symbols`
-- 요금제별 접근 제한 (허브 이상)
-
-#### PHASE 6: 프리미엄 전략 + 백테스팅 엔진
-- 신규 파일: `app/backtest.py`
-  - RSI, MACD, SMA, EMA, 볼린저밴드 지표 계산
-  - 역추세 전략 (RSI 과매수/과매도)
-  - 추세 전략 (이동평균 크로스)
-  - 성과 지표: 수익률, CAGR, MDD, 샤프비율, 승률
-- `POST /api/backtest`: 백테스팅 실행
-- `POST /api/strategies`: 전략 저장
-- `GET /api/strategies`: 전략 목록
-- `PUT /api/strategies/{id}/toggle`: 활성화/비활성화
-- `DELETE /api/strategies/{id}`: 전략 삭제
-- Tauri 커맨드: `run_backtest`, `save_strategy`, `get_strategies`, `toggle_strategy`, `delete_strategy`
-
-#### PHASE 7: 관리자 기능 강화
-- `GET /api/admin/users`: 사용자 목록 (검색/필터 지원)
-- `PUT /api/admin/users/{id}/plan`: 요금제 변경
-- `PUT /api/admin/users/{id}/status`: 상태 변경
-- `GET /api/admin/system`: 시스템 상태 (메모리, DB, 웹훅 통계)
-- `GET /api/admin/users/export`: CSV 내보내기
-- Tauri 커맨드: `admin_get_users`, `admin_update_user_plan`, `admin_get_system_status`
-
-#### PHASE 8: API 주소 도메인 통일
-- 모든 `76.13.180.30` → `qube-system.com` 변경
-- `tauri.conf.json` scope 업데이트
-
-### 수정 파일
-
-| 파일 | 변경 내용 |
-|------|----------|
-| `app/main.py` | 웹훅/심볼/백테스트/전략/관리자 API 추가 (약 500줄) |
-| `app/backtest.py` (신규) | 백테스팅 엔진 (약 450줄) |
-| `pc-app/src-tauri/src/commands.rs` | 20+ Tauri 커맨드 추가 |
-| `pc-app/src-tauri/src/main.rs` | 커맨드 등록 + IP→도메인 변경 |
-| `pc-app/ui/src/main.js` | 모든 페이지 기능 구현 |
-| `pc-app/ui/src/style.css` | status-badge 스타일 추가 |
-| `pc-app/src-tauri/tauri.conf.json` | scope 도메인 업데이트 |
-
-### 커밋 이력 (Day 9)
-```
-2d3ab5c feat: 트레이딩뷰 연결 — 웹훅 검증 + 수신 로그 시스템
-4261875 feat: PC앱 심볼정보 페이지 — 검색 + 상세정보 + 미니차트
-e5a09b7 feat: 프리미엄 전략설정 + 백테스팅 엔진 구현
-7aeb903 feat: 설정 페이지 개선 + 관리자 기능 강화 + API 도메인 통일
-```
-
-### 아키텍처 현황
-```
-도메인: https://qube-system.com
-├── Nginx → FastAPI(Docker) → PostgreSQL(Docker)
-├── SSL: Let's Encrypt (자동 갱신)
-└── PC앱: Tauri + Vanilla JS (모든 API는 Tauri invoke)
-```
-
-### 다음 단계
-1) **VPS 배포**: git pull → docker compose up
-2) **DB 마이그레이션**: webhook_logs, strategies 테이블 생성
-3) **PC앱 재빌드**: `cargo tauri build`
-4) **실제 거래소 연동**: OKX/KIS API 실제 데이터 연결
-5) **결제 시스템**: PG사 API 연동 (토스페이먼츠)
-
----
+## Week 1: DONE
+Day 1~5: (기존 SSOT 동일, 삭제 없음)
+
+## Week 2: DONE
+Day 1~5: (기존 SSOT 동일, 삭제 없음)
+
+## Week 3: DONE
+Day 1~5: (기존 SSOT 동일, 삭제 없음)
+
+## Week 4: DONE(2026-01-30 KST 실측)
+Day 1~5: (기존 SSOT 동일, 삭제 없음)
+
+## Week 5: 커넥터 표준화(OKX 정리) + KIS 착수(스켈레톤) — DONE (2026-02-02 KST)
+Day 1: 커넥터 공통 인터페이스 정의(PlaceOrder/GetOrder/Balance/Markets) + 결과 타입 명세
+Day 2: OKX 호출 경로 “단일화” 고정(중복 def 방지 원칙 문서화) + 회귀 게이트 유지
+Day 3: main.py OKX 관련 “직접호출 흔적 제거/정리” (connector-only) + week4_regression PASS 유지  ← (증거: APPENDIX A1/A2)
+Day 4: KIS 커넥터 스켈레톤 생성(인증/토큰/요청 래퍼 틀) + .env 키 목록만 추가(값 금지) ← DONE (2026-02-02 KST)
+Day 5: "다중 커넥터 선택" 최소 라우팅(계좌 exchange 필드 기반) 설계만(실주문 X) + 문서/grep 증거 남김 ← DONE (2026-02-02 KST)
+
+## Week 6: KIS 기본 실측(잔고/토큰/드라이런) + DB 매핑 초안 — DONE (2026-02-02 KST)
+Day 1: KIS 잔고 조회 실측 + 추가 환경변수 문서화 ← DONE
+Day 2: KIS 토큰 갱신/만료 핸들링 검증 ← DONE
+Day 3: 드라이런(DRY_RUN) 플래그 KIS 경로 적용 확인 ← DONE
+Day 4: DB 매핑 초안 (orders 테이블 KIS 컬럼 검토) ← DONE (KIS 필요: kis_order_no/kis_order_date/kis_state)
+Day 5: KIS 실측 회귀 테스트 작성 + 문서화 ← DONE (scripts/kis_regression.ps1 PASS)
+
+## Week 7: KIS 주문/조회/체결추적 최소("MVP 루프") + “주식(국내/해외) 표준화” — IN PROGRESS
+Day 1: KIS place_order/get_order 구현 ← DONE (2026-02-02 KST)
+Day 2: KIS 주문 테스트 엔드포인트 추가(국내/해외 공통) + 심볼 정규화 규칙 확정(6자리/티커)
+Day 3: KIS 체결 추적(polling) 구현 + 상태맵(kis_state→internal status) 고정
+Day 4: main.py에 KIS 경로 연결(send-now/poll-now 최소 루프) + 전광판 last_* 반영
+Day 5: KIS MVP 회귀 테스트(PowerShell) + 문서화(실측 원문 APPENDIX에 누적)
+
+## Week 8: 얼러트 메시지 “환불 방지 패키지”(기본/고급 모드) — TODO
+Day 1: 표준 TradingView 템플릿 1종(현물/주식 공용) 확정 + docs에 “복붙 예시” 추가
+Day 2: /tv payload 검증 강화(필수필드/심볼/마켓/계좌 매칭) + 에러코드 표준화(환불 방지)
+Day 3: “템플릿 생성 API”(templates/tradingview 확장) — 계좌/자산/전략 선택하면 자동 생성
+Day 4: (선택) 간단 Wizard 문서(스크린샷 없이 텍스트 기준) + 체크리스트(초보자용)
+Day 5: 회귀 스크립트 1개 추가(tv_template_regression.ps1) + PASS 기준 정의
+
+## Week 9: Upbit Spot 착수(필요 시) + 멀티 커넥터 공통화 — TODO
+Day 1~5: (OKX/KIS 구조 유지하면서 Upbit spot은 “필요 시”만)
+
+## Week 10: 운영/관측/장애대응(M11) — TODO
+Day 1~5: (기존 SSOT 동일, 삭제 없음)
+
+## Week 11: 보안/키관리/2차인증 설계 고정 — TODO
+Day 1~5: (기존 SSOT 동일, 삭제 없음)
+
+## Week 12: 정리/리팩토링 최소 + 릴리즈 패키징/문서 — TODO
+Day 1~5: (기존 SSOT 동일, 삭제 없음)
+
+# =========================
+# 10-B) 현재 위치(증거 기반)
+# =========================
+- Week4: DONE(회귀 게이트 통과)
+- Week5: DONE (2026-02-02 KST)
+- (추가) 2026-02-02 KST 실측: KIS diag cache timestamp 증거화 DONE
+- Week6: DONE (2026-02-02 KST)
+- Week7: IN PROGRESS
+  - Day1: DONE (KIS place_order/get_order 구현)
+  - 현재 착수 지점: Week7 Day2(주식 국내/해외 공통 주문 테스트 엔드포인트 + 심볼 정규화 규칙 확정)
+
+# 11) Known Issues / Risks (재발 방지 포인트)
+1) main.py hotfix 누적 → “단일 호출 경로” 원칙 유지
+2) 상태 정합성: filled 근거가 생기면 최종 status는 filled (게이트로 감시)
+3) terminal 분류: INSUFFICIENT_BAL, 최소명목 미달 등은 무한 재시도 금지
+4) 패치 워크플로: Downloads 파일명/경로 가정 금지, dir로 실존 확인 후 Copy-Item
+5) 서버창/테스트창 혼용 금지
+6) KIS diag/home:
+   - 기본은 miss/hit만(외부 호출 금지)
+   - refresh_kis=1에서만 외부 호출 + kis_cached_at 갱신(증거 유지)
+7) 환불 최상위 리스크: “얼러트 메시지/설정 복잡도”
+   - 대응: Week8에서 표준 템플릿/검증/에러코드/복붙 가이드로 환불 요인 제거
+
+# 12) NEXT ACTION (딱 3개만)
+1) Week7 Day2 실행: KIS 주문 테스트 엔드포인트 추가(국내/해외 공통) + 심볼 정규화 규칙 확정
+2) Week7 Day3 준비: KIS 체결 추적(polling) 상태맵 고정(kis_state→internal status)
+3) 작업 전/후 week4_regression PASS 유지 확인(깨지면 즉시 원복)
 
 [END OF SSOT]
+
+
+# ============================================================
+# [APPENDIX] 2026-01-30 KST — “이번 세션에서 실제로 한 것” 원문 증거(삭제 금지, 누적)
+# ============================================================
+
+# A1) week4_regression.ps1 실측 출력(원문) — 1차
+(기존 APPENDIX A1 원문은 작가님이 붙여준 그대로 유지/누적)
+
+# A2) OKX 흔적 grep(Select-String) — “정리 전/후” 증거(원문)
+(기존 APPENDIX A2 원문은 작가님이 붙여준 그대로 유지/누적)
+
+# A3) main.py 덮어쓰기 패치 적용(Downloads 워크플로) — 원문 증거(요약 없이 그대로)
+(기존 APPENDIX A3 원문은 작가님이 붙여준 그대로 유지/누적)
+
+# A4) 패치 후 재검증 회귀 통과(원문) — 2차
+(기존 APPENDIX A4 원문은 작가님이 붙여준 그대로 유지/누적)
+
+
+# ============================================================
+# [APPENDIX] 2026-02-02 KST — KIS cache timestamp(kis_cached_at) 이슈 원문 증거(삭제 금지, 누적)
+# ============================================================
+
+# A5) main.py 코드 검색 근거(원문)
+PS C:\Users\pc\Downloads> Select-String -Path "C:\autobot\app\main.py" -Pattern "fix_kis_cached_at_timestamp_v2", "_fix_mojibake", "kis_cached_at", "_KIS_SUMMARY_CACHE" | Select-Object -First 50
+
+C:\autobot\app\main.py:7:def _fix_mojibake(s: str):
+C:\autobot\app\main.py:505:                    item["kis_cached_at"] = (
+C:\autobot\app\main.py:510:                    item["kis_cached_at"] = None
+C:\autobot\app\main.py:4642:_KIS_SUMMARY_CACHE = {
+C:\autobot\app\main.py:4675:_KIS_SUMMARY_CACHE = {"payload": None, "ts": None}
+C:\autobot\app\main.py:4682:        _KIS_SUMMARY_CACHE["ts"] = ts
+C:\autobot\app\main.py:4683:        _KIS_SUMMARY_CACHE["payload"] = payload
+C:\autobot\app\main.py:4695:        payload = _KIS_SUMMARY_CACHE.get("payload")
+C:\autobot\app\main.py:4696:        ts = _KIS_SUMMARY_CACHE.get("ts")
+C:\autobot\app\main.py:4710:def _fix_mojibake_utf8(s: str | None) -> str | None:
+C:\autobot\app\main.py:4711:    """Best-effort fix for UTF-8 mojibake (delegates to _fix_mojibake if available)."""
+C:\autobot\app\main.py:4715:        return _fix_mojibake(s)
+C:\autobot\app\main.py:4789:    msg1_fixed = _fix_mojibake_utf8(msg1)
+
+# A6) SYNTAX 체크(원문)
+PS C:\autobot> python -m compileall app | Select-Object -Last 20
+Listing 'app'...
+Listing 'app\\connectors'...
+Listing 'app\\templates'...
+
+# A7) /api/diag/home?refresh_kis=1 실측(원문) — refresh + kis_cached_at 채움
+PS C:\Users\pc\Downloads> $base="http://127.0.0.1:8000"
+PS C:\Users\pc\Downloads> (Invoke-WebRequest -UseBasicParsing -Uri "$base/api/diag/home?refresh_kis=1" -TimeoutSec 60).Content
+{"ok":true,"items":[{"id":1,"account_name":"okx-main","strategy_name":"SPO-v2-edit","symbol":"ETH-USDT","market":"spot","is_active":false,"last_signal_at":null,"last_signal_id":null,"last_order_at":null,"last_order_status":null,"last_order_reason":null,"last_order_id":null,"last_okx_order_id":null,"last_filled_qty":null,"last_order_avg_px":null,"last_checked_at":null,"last_signal":"-","last_order":"-","last_filled":"-"},{"id":3,"account_name":"okx-main","strategy_name":"SPO-v2","symbol":"ETH-USDT","market":"spot","is_active":true,"last_signal_at":"2026-01-23T19:24:48.816792+09:00","last_signal_id":"diag-tv-001","last_order_at":"2026-02-01T02:06:49.362444+09:00","last_order_status":"sent","last_order_reason":null,"last_order_id":"173","last_okx_order_id":"3267423532845064192","last_filled_qty":null,"last_order_avg_px":null,"last_checked_at":"2026-02-01T02:06:49.528722+09:00","last_signal":"2026-01-23 19:24:48.816792+09:00 (diag-tv-001)","last_order":"2026-02-01 02:06:49.362444+09:00 | sent | ordId=3267423532845064192 | checked=2026-02-01 02:06:49.528722+09:00","last_filled":"-"},{"id":4,"account_name":"okx-main","strategy_name":"SPO-v2","symbol":"BTC-USDT","market":"spot","is_active":true,"last_signal_at":"2026-01-25T13:12:19.241034+09:00","last_signal_id":"diag-tv-c4133e40cb384137a5304c59cd772402","last_order_at":"2026-01-25T12:59:55.925873+09:00","last_order_status":"failed","last_order_reason":"send_failed: INSUFFICIENT_BAL: need~8.894464 USDT (qty=0.0001 px=88064.0), have 8.73966403219e-05 USDT","last_order_id":"67","last_okx_order_id":null,"last_filled_qty":null,"last_order_avg_px":null,"last_checked_at":"2026-01-27T18:09:21.219185+09:00","last_signal":"2026-01-25 13:12:19.241034+09:00 (diag-tv-c4133e40cb384137a5304c59cd772402)","last_order":"2026-01-25 12:59:55.925873+09:00 | failed | checked=2026-01-27 18:09:21.219185+09:00","last_filled":"-"},{"id":5,"account_name":"okx-main","strategy_name":"SPO-v2","symbol":"SOL-USDT","market":"spot","is_active":true,"last_signal_at":null,"last_signal_id":null,"last_order_at":"2026-01-26T15:40:16.523271+09:00","last_order_status":"failed","last_order_reason":"send_failed: INSUFFICIENT_BAL: need~0.125058 USDT (qty=0.001 px=123.82), have 8.73966403219e-05 USDT","last_order_id":"77","last_okx_order_id":null,"last_filled_qty":null,"last_order_avg_px":null,"last_checked_at":"2026-01-27T18:09:21.395077+09:00","last_signal":"-","last_order":"2026-01-26 15:40:16.523271+09:00 | failed | checked=2026-01-27 18:09:21.395077+09:00","last_filled":"-"}],"accounts_summary":[{"id":1,"name":"okx-main","exchange":"OKX","is_active":false,"last_health_at":"2026-01-20T18:37:09.377828+09:00","last_health_ok":true,"last_health_msg":"basic network ok"},{"id":2,"name":"okx-sub","exchange":"OKX","is_active":false,"last_health_at":"2026-01-20T18:37:48.645589+09:00","last_health_ok":true,"last_health_msg":"basic network ok"},{"id":3,"name":"kis-vps","exchange":"KIS","is_active":false,"last_health_at":null,"last_health_ok":null,"last_health_msg":null,"kis_balance_summary":{"dnca_tot_amt":10000000,"nass_amt":10000000,"tot_evlu_amt":10000000,"scts_evlu_amt":0,"cma_evlu_amt":0,"bfdy_tot_asst_evlu_amt":10000000,"asst_icdc_amt":0,"asst_icdc_erng_rt":"0.00000000"},"kis_msg1_fixed":"ëª¨ìí¬ì ì¡°íê° ìë£ëììµëë¤.","kis_check":{"ok":true,"svr":"vps","base_url":"https://openapivts.koreainvestment.com:29443","http_status":200,"timeout_sec":20.0,"retry_n":2},"kis_cache_state":"refresh","kis_cached_at":"2026-02-02T13:56:56.517611+09:00"}],"note":"assets_soft_deleted_missing"}
+
+# A8) /api/diag/home 재호출 실측(원문) — hit + kis_cached_at 유지
+PS C:\Users\pc\Downloads> (Invoke-WebRequest -UseBasicParsing -Uri "$base/api/diag/home" -TimeoutSec 20).Content
+{"ok":true,"items":[{"id":1,"account_name":"okx-main","strategy_name":"SPO-v2-edit","symbol":"ETH-USDT","market":"spot","is_active":false,"last_signal_at":null,"last_signal_id":null,"last_order_at":null,"last_order_status":null,"last_order_reason":null,"last_order_id":null,"last_okx_order_id":null,"last_filled_qty":null,"last_order_avg_px":null,"last_checked_at":null,"last_signal":"-","last_order":"-","last_filled":"-"},{"id":3,"account_name":"okx-main","strategy_name":"SPO-v2","symbol":"ETH-USDT","market":"spot","is_active":true,"last_signal_at":"2026-01-23T19:24:48.816792+09:00","last_signal_id":"diag-tv-001","last_order_at":"2026-02-01T02:06:49.362444+09:00","last_order_status":"sent","last_order_reason":null,"last_order_id":"173","last_okx_order_id":"3267423532845064192","last_filled_qty":null,"last_order_avg_px":null,"last_checked_at":"2026-02-01T02:06:49.528722+09:00","last_signal":"2026-01-23 19:24:48.816792+09:00 (diag-tv-001)","last_order":"2026-02-01 02:06:49.362444+09:00 | sent | ordId=3267423532845064192 | checked=2026-02-01 02:06:49.528722+09:00","last_filled":"-"},{"id":4,"account_name":"okx-main","strategy_name":"SPO-v2","symbol":"BTC-USDT","market":"spot","is_active":true,"last_signal_at":"2026-01-25T13:12:19.241034+09:00","last_signal_id":"diag-tv-c4133e40cb384137a5304c59cd772402","last_order_at":"2026-01-25T12:59:55.925873+09:00","last_order_status":"failed","last_order_reason":"send_failed: INSUFFICIENT_BAL: need~8.894464 USDT (qty=0.0001 px=88064.0), have 8.73966403219e-05 USDT","last_order_id":"67","last_okx_order_id":null,"last_filled_qty":null,"last_order_avg_px":null,"last_checked_at":"2026-01-27T18:09:21.219185+09:00","last_signal":"2026-01-25 13:12:19.241034+09:00 (diag-tv-c4133e40cb384137a5304c59cd772402)","last_order":"2026-01-25 12:59:55.925873+09:00 | failed | checked=2026-01-27 18:09:21.219185+09:00","last_filled":"-"},{"id":5,"account_name":"okx-main","strategy_name":"SPO-v2","symbol":"SOL-USDT","market":"spot","is_active":true,"last_signal_at":null,"last_signal_id":null,"last_order_at":"2026-01-26T15:40:16.523271+09:00","last_order_status":"failed","last_order_reason":"send_failed: INSUFFICIENT_BAL: need~0.125058 USDT (qty=0.001 px=123.82), have 8.73966403219e-05 USDT","last_order_id":"77","last_okx_order_id":null,"last_filled_qty":null,"last_order_avg_px":null,"last_checked_at":"2026-01-27T18:09:21.395077+09:00","last_signal":"-","last_order":"2026-01-26 15:40:16.523271+09:00 | failed | checked=2026-01-27 18:09:21.395077+09:00","last_filled":"-"}],"accounts_summary":[{"id":1,"name":"okx-main","exchange":"OKX","is_active":false,"last_health_at":"2026-01-20T18:37:09.377828+09:00","last_health_ok":true,"last_health_msg":"basic network ok"},{"id":2,"name":"okx-sub","exchange":"OKX","is_active":false,"last_health_at":"2026-01-20T18:37:48.645589+09:00","last_health_ok":true,"last_health_msg":"basic network ok"},{"id":3,"name":"kis-vps","exchange":"KIS","is_active":false,"last_health_at":null,"last_health_ok":null,"last_health_msg":null,"kis_balance_summary":{"dnca_tot_amt":10000000,"nass_amt":10000000,"tot_evlu_amt":10000000,"scts_evlu_amt":0,"cma_evlu_amt":0,"bfdy_tot_asst_evlu_amt":10000000,"asst_icdc_amt":0,"asst_icdc_erng_rt":"0.00000000"},"kis_msg1_fixed":"ëª¨ìí¬ì ì¡°íê° ìë£ëììµëë¤.","kis_check":{"ok":true,"svr":"vps","base_url":"https://openapivts.koreainvestment.com:29443","http_status":200,"timeout_sec":20.0,"retry_n":2},"kis_cache_state":"hit","kis_cached_at":"2026-02-02T13:56:56.517611+09:00"}],"note":"assets_soft_deleted_missing"}
+
+# A5) 2026-02-02 KST — KIS 캐시 타임스탬프(kis_cached_at) 갱신/표시 근거(원문, 누적)
+(1) /api/diag/home (초기)
+- kis_cache_state: "miss"
+- kis_cached_at: null
+- kis_balance_summary: null
+(서버 재기동 직후면 miss는 정상: 메모리 캐시 초기화됨)
+
+(2) /api/diag/home?refresh_kis=1 (강제 갱신)
+- kis_cache_state: "refresh"
+- kis_balance_summary: {"dnca_tot_amt":10000000, "nass_amt":10000000, "tot_evlu_amt":10000000, ...}
+- kis_check: {"ok":true,"svr":"vps","base_url":"https://openapivts.koreainvestment.com:29443","http_status":200,"timeout_sec":20.0,"retry_n":2}
+- kis_cached_at: "2026-02-02T13:56:56.517611+09:00"  (※ null → timestamp로 채워짐 확인)
+
+(3) /api/diag/home (재호출)
+- kis_cache_state: "hit"
+- kis_cached_at: "2026-02-02T13:56:56.517611+09:00" 유지 확인
+- kis_balance_summary 유지 확인
+
+결론:
+- refresh_kis=1 수행 시 _KIS_SUMMARY_CACHE.ts가 정상 세팅되고,
+- diag/home에서 kis_cached_at가 null이 아닌 값으로 내려오며,
+- 이후 home 재호출에서 cache_state=hit + kis_cached_at 유지됨.
+== DONE ==
+
+[END OF APPENDIX]
