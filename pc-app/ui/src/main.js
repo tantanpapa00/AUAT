@@ -3532,7 +3532,7 @@ async function showSymbolDetail(symbol, exchange) {
             if (sourceEl) {
                 const source = detail.price.source || (detail.has_kis_account ? 'kis' : '');
                 if (source === 'naver') {
-                    sourceEl.textContent = '네이버 금융';
+                    sourceEl.textContent = t('naver_finance');
                     sourceEl.className = 'data-source naver';
                     sourceEl.style.display = 'inline-block';
                 } else if (source === 'yahoo') {
@@ -4127,7 +4127,7 @@ async function saveKisKrSettings() {
     }
 
     hideKisKrModal();
-    showToast('KIS_KR 주문 설정이 저장되었습니다.', 'success');
+    showToast(t('kis_kr_order_saved'), 'success');
 }
 
 async function saveKisUsSettings() {
@@ -4160,7 +4160,7 @@ async function saveKisUsSettings() {
     }
 
     hideKisUsModal();
-    showToast('KIS_US 주문 설정이 저장되었습니다.', 'success');
+    showToast(t('kis_us_order_saved'), 'success');
 }
 
 // KIS_KR 모달 이벤트 바인딩
@@ -4225,7 +4225,7 @@ async function calculateProfitRate() {
     const endDate = document.getElementById('profit-end-date')?.value;
 
     if (!auth.accessToken) {
-        showToast('로그인이 필요합니다.', 'error');
+        showToast(t('login_required'), 'error');
         return;
     }
 
@@ -4253,7 +4253,7 @@ async function calculateProfitRate() {
 
     } catch (e) {
         console.error('Failed to calculate profit rate:', e);
-        showToast('수익률 계산 실패: ' + e, 'error');
+        showToast(t('return_calc_failed') + ': ' + e, 'error');
     }
 }
 
@@ -4332,7 +4332,7 @@ document.querySelectorAll('.strategy-tab').forEach(tab => {
 document.getElementById('btn-run-backtest')?.addEventListener('click', runBacktest);
 
 async function runBacktest() {
-    showToast('백테스팅 실행 중...', 'info');
+    showToast(t('backtest_running'), 'info');
 
     // 현재 활성 탭에서 설정 수집
     const activeTab = document.querySelector('.strategy-tab.active')?.dataset.tab || 'custom';
@@ -4402,10 +4402,10 @@ async function runBacktest() {
         });
 
         displayBacktestResult(result);
-        showToast('백테스팅 완료', 'success');
+        showToast(t('backtest_complete'), 'success');
     } catch (error) {
         console.error('Backtest failed:', error);
-        showToast('백테스팅 실패: ' + error, 'error');
+        showToast(t('backtest_failed') + ': ' + error, 'error');
     }
 }
 
@@ -4568,11 +4568,11 @@ document.getElementById('btn-activate-strategy')?.addEventListener('click', asyn
             orderSettings: orderSettings,
             isActive: true
         });
-        showToast('전략이 저장되고 활성화되었습니다', 'success');
+        showToast(t('strategy_saved_activated'), 'success');
         document.querySelectorAll('.strategy-tab')[0].click();
         loadStrategies();
     } catch (error) {
-        showToast('전략 저장 실패: ' + error, 'error');
+        showToast(t('strategy_save_failed') + ': ' + error, 'error');
     }
 });
 
@@ -4869,18 +4869,18 @@ document.getElementById('btn-open-privacy')?.addEventListener('click', () => ope
 document.getElementById('btn-export-logs')?.addEventListener('click', async () => {
     try {
         const path = await invoke('export_diagnostic');
-        showToast('로그가 내보내졌습니다', 'success');
+        showToast(t('logs_exported'), 'success');
     } catch (e) {
-        showToast('내보내기 실패', 'error');
+        showToast(t('export_failed'), 'error');
     }
 });
 
 document.getElementById('btn-upgrade-hub')?.addEventListener('click', () => {
-    showToast('요금제 페이지로 이동합니다...', 'info');
+    showToast(t('navigating_to_pricing'), 'info');
     window.openPricingPage();
 });
 document.getElementById('btn-upgrade-premium')?.addEventListener('click', () => {
-    showToast('요금제 페이지로 이동합니다...', 'info');
+    showToast(t('navigating_to_pricing'), 'info');
     window.openPricingPage();
 });
 
@@ -5104,9 +5104,9 @@ async function loadUsersList() {
                         userId: userId,
                         plan: newPlan
                     });
-                    showToast('요금제가 변경되었습니다', 'success');
+                    showToast(t('plan_changed'), 'success');
                 } catch (error) {
-                    showToast('요금제 변경 실패', 'error');
+                    showToast(t('plan_change_failed'), 'error');
                     loadUsersList(); // 롤백
                 }
             });
@@ -5140,7 +5140,7 @@ async function loadAdminSystemPage() {
     }
 }
 
-document.getElementById('btn-export-users')?.addEventListener('click', () => showToast('CSV 내보내기 준비 중', 'info'));
+document.getElementById('btn-export-users')?.addEventListener('click', () => showToast(t('csv_export_preparing'), 'info'));
 
 // =====================================================
 // 시장분석 기능 (STEP 2)
@@ -5491,7 +5491,7 @@ let currentDetailExchange = null;
 // AI 분석 버튼 클릭 (폴링 방식)
 document.getElementById('btn-ai-analysis')?.addEventListener('click', async () => {
     if (!currentSymbolData) {
-        showToast('종목을 먼저 선택하세요', 'error');
+        showToast(t('select_stock_first'), 'error');
         return;
     }
 
@@ -5830,7 +5830,7 @@ document.getElementById('ai-modal')?.addEventListener('click', (e) => {
 // 관심종목 추가 버튼 클릭
 document.getElementById('btn-add-watchlist')?.addEventListener('click', async () => {
     if (!currentSymbolData) {
-        showToast('종목을 먼저 선택하세요', 'error');
+        showToast(t('select_stock_first'), 'error');
         return;
     }
 
@@ -5870,7 +5870,7 @@ async function addToWatchlist(groupId) {
             symbol: currentSymbolData.basic?.symbol || currentDetailSymbol,
             exchange: currentSymbolData.basic?.exchange || currentDetailExchange
         });
-        showToast('관심종목에 추가되었습니다', 'success');
+        showToast(t('added_to_watchlist'), 'success');
         document.getElementById('watchlist-modal').style.display = 'none';
     } catch (error) {
         showToast(error.toString(), 'error');
@@ -5882,7 +5882,7 @@ document.getElementById('btn-create-group')?.addEventListener('click', async () 
     const nameInput = document.getElementById('new-group-name');
     const name = nameInput.value.trim();
     if (!name) {
-        showToast('그룹 이름을 입력하세요', 'error');
+        showToast(t('enter_group_name'), 'error');
         return;
     }
 
@@ -5892,7 +5892,7 @@ document.getElementById('btn-create-group')?.addEventListener('click', async () 
             name: name
         });
         nameInput.value = '';
-        showToast('그룹이 생성되었습니다', 'success');
+        showToast(t('group_created'), 'success');
         // 목록 새로고침
         document.getElementById('btn-add-watchlist').click();
     } catch (error) {
@@ -9411,7 +9411,7 @@ async function loadHigh52Data() {
         // 테이블 헤더 업데이트 (데이터 있는 컬럼만)
         const tableHead = tbody.closest('table').querySelector('thead tr');
         if (tableHead) {
-            tableHead.innerHTML = '<th>종목명</th><th>현재가</th><th>등락률</th><th>52주 최고가</th><th>최고가 대비</th><th>거래량</th>';
+            tableHead.innerHTML = `<th>${t('th_stock_name')}</th><th>${t('th_current_price')}</th><th>${t('th_change_rate')}</th><th>${t('th_52w_high')}</th><th>${t('th_vs_high')}</th><th>${t('th_volume')}</th>`;
         }
 
         tbody.innerHTML = stocks.slice(0, 30).map(s => {
@@ -9470,7 +9470,7 @@ async function loadValuationData() {
         // 테이블 헤더 업데이트 (데이터 있는 컬럼만)
         const tableHead = tbody.closest('table').querySelector('thead tr');
         if (tableHead) {
-            tableHead.innerHTML = '<th>종목명</th><th>현재가</th><th>시가총액</th><th>PER</th><th>PBR</th><th>시장</th>';
+            tableHead.innerHTML = `<th>${t('th_stock_name')}</th><th>${t('th_current_price')}</th><th>${t('th_market_cap')}</th><th>PER</th><th>PBR</th><th>${t('th_market')}</th>`;
         }
 
         tbody.innerHTML = stocks.slice(0, 30).map(s => {
@@ -9545,10 +9545,10 @@ async function searchUsStock(query) {
         if (symbols.length > 0) {
             openStockDetail(symbols[0].symbol, 'kis_us');
         } else {
-            showToast('검색 결과가 없습니다', 'warning');
+            showToast(t('no_search_results'), 'warning');
         }
     } catch (error) {
-        showToast('검색 실패', 'error');
+        showToast(t('search_failed'), 'error');
     }
 }
 
@@ -9629,7 +9629,7 @@ async function searchEtf(query) {
             openStockDetail(symbols[0].symbol, 'kis_kr');
         }
     } catch (error) {
-        showToast('검색 실패', 'error');
+        showToast(t('search_failed'), 'error');
     }
 }
 
@@ -9708,7 +9708,7 @@ async function searchCrypto(query) {
             openStockDetail(symbols[0].symbol, symbols[0].exchange || 'binance');
         }
     } catch (error) {
-        showToast('검색 실패', 'error');
+        showToast(t('search_failed'), 'error');
     }
 }
 
@@ -9776,10 +9776,10 @@ async function loadWatchlist() {
                         accessToken: auth.accessToken || '',
                         name: name.trim()
                     });
-                    showToast('그룹이 생성되었습니다', 'success');
+                    showToast(t('group_created'), 'success');
                     await loadWatchlistGroups();
                 } catch (err) {
-                    showToast('그룹 생성 실패: ' + err, 'error');
+                    showToast(t('group_create_failed') + ': ' + err, 'error');
                 }
             });
         }
@@ -9835,14 +9835,14 @@ async function loadWatchlistGroups() {
                 e.stopPropagation();
                 const groupId = parseInt(btn.dataset.id);
 
-                if (!confirm('이 그룹을 삭제하시겠습니까? 그룹 내 종목도 함께 삭제됩니다.')) return;
+                if (!confirm(t('confirm_delete_group'))) return;
 
                 try {
                     await invoke('delete_watchlist_group', {
                         accessToken: auth.accessToken || '',
                         groupId: groupId
                     });
-                    showToast('그룹이 삭제되었습니다', 'success');
+                    showToast(t('group_deleted'), 'success');
 
                     // 삭제된 그룹이 현재 선택된 그룹이면 기본 그룹으로 전환
                     if (currentWatchlistGroupId === groupId) {
@@ -9851,7 +9851,7 @@ async function loadWatchlistGroups() {
                     await loadWatchlistGroups();
                     await loadWatchlistItems(currentWatchlistGroupId);
                 } catch (err) {
-                    showToast('그룹 삭제 실패: ' + err, 'error');
+                    showToast(t('group_delete_failed') + ': ' + err, 'error');
                 }
             });
         });
@@ -9868,10 +9868,10 @@ async function loadWatchlistGroups() {
                         accessToken: auth.accessToken || '',
                         name: name.trim()
                     });
-                    showToast('그룹이 생성되었습니다', 'success');
+                    showToast(t('group_created'), 'success');
                     await loadWatchlistGroups();
                 } catch (err) {
-                    showToast('그룹 생성 실패: ' + err, 'error');
+                    showToast(t('group_create_failed') + ': ' + err, 'error');
                 }
             });
         }
@@ -9929,10 +9929,10 @@ async function loadWatchlistItems(groupId) {
                                 accessToken: auth.accessToken || '',
                                 itemId: itemId
                             });
-                            showToast('관심종목에서 삭제되었습니다', 'success');
+                            showToast(t('removed_from_watchlist'), 'success');
                             await loadWatchlistItems(currentWatchlistGroupId);
                         } catch (err) {
-                            showToast('삭제 실패: ' + err, 'error');
+                            showToast(t('delete_failed') + ': ' + err, 'error');
                         }
                     });
                 });
@@ -10468,7 +10468,7 @@ async function openStockDetail(symbol, exchange) {
     } catch (error) {
         console.error('Failed to load stock detail:', error);
         if (nameEl) nameEl.textContent = symbol || '-';
-        showToast('종목 정보를 불러올 수 없습니다', 'error');
+        showToast(t('cannot_load_stock_info'), 'error');
     }
 }
 
@@ -10513,7 +10513,7 @@ async function openEtfDetail(code) {
     } catch (error) {
         console.error('Failed to load ETF detail:', error);
         if (nameEl) nameEl.textContent = code || '-';
-        showToast('ETF 정보를 불러올 수 없습니다', 'error');
+        showToast(t('cannot_load_etf_info'), 'error');
     }
 }
 
@@ -15153,9 +15153,9 @@ document.getElementById('btn-add-to-watchlist')?.addEventListener('click', async
             name: currentStockData.name || currentStockData.symbol,
             memo: ''
         });
-        showToast('관심종목에 추가되었습니다', 'success');
+        showToast(t('added_to_watchlist'), 'success');
     } catch (error) {
-        showToast('추가 실패: ' + error, 'error');
+        showToast(t('add_failed') + ': ' + error, 'error');
     }
 });
 
@@ -15997,10 +15997,10 @@ function initTrendDynamicUI() {
 document.getElementById('btn-mr-start')?.addEventListener('click', async () => {
     try {
         await invoke('start_scheduler', { accessToken: auth.accessToken || '' });
-        showToast('스케줄러가 시작되었습니다', 'success');
+        showToast(t('scheduler_started'), 'success');
         await loadMrSchedulerStatus();
     } catch (error) {
-        showToast('스케줄러 시작 실패: ' + error, 'error');
+        showToast(t('scheduler_start_failed') + ': ' + error, 'error');
     }
 });
 
@@ -16008,17 +16008,17 @@ document.getElementById('btn-mr-start')?.addEventListener('click', async () => {
 document.getElementById('btn-mr-stop')?.addEventListener('click', async () => {
     try {
         await invoke('stop_scheduler_premium', { accessToken: auth.accessToken || '' });
-        showToast('스케줄러가 중지되었습니다', 'info');
+        showToast(t('scheduler_stopped'), 'info');
         await loadMrSchedulerStatus();
     } catch (error) {
-        showToast('스케줄러 중지 실패: ' + error, 'error');
+        showToast(t('scheduler_stop_failed') + ': ' + error, 'error');
     }
 });
 
 // MR 새로고침
 document.getElementById('btn-mr-refresh')?.addEventListener('click', async () => {
     await loadMrEngineTab();
-    showToast('새로고침 완료', 'info');
+    showToast(t('refresh_complete'), 'info');
 });
 
 // MR 종목 추가
@@ -16027,7 +16027,7 @@ document.getElementById('btn-mr-save')?.addEventListener('click', async () => {
     const config = collectMrConfig();
 
     if (!config.exchange || !config.symbol) {
-        showToast('거래소와 종목을 선택해주세요', 'error');
+        showToast(t('select_exchange_and_stock'), 'error');
         return;
     }
 
@@ -16037,13 +16037,13 @@ document.getElementById('btn-mr-save')?.addEventListener('click', async () => {
             config: config
         });
 
-        showToast('설정이 저장되었습니다', 'success');
+        showToast(t('settings_saved'), 'success');
 
         // 전략 목록 갱신
         await loadStrategies();
         await loadActiveStrategies();
     } catch (error) {
-        showToast('설정 저장 실패: ' + error, 'error');
+        showToast(t('settings_save_failed') + ': ' + error, 'error');
     }
 });
 
@@ -16052,7 +16052,7 @@ document.getElementById('btn-mr-start-strategy')?.addEventListener('click', asyn
     const config = collectMrConfig();
 
     if (!config.exchange || !config.symbol) {
-        showToast('거래소와 종목을 선택해주세요', 'error');
+        showToast(t('select_exchange_and_stock'), 'error');
         return;
     }
 
@@ -16076,13 +16076,13 @@ document.getElementById('btn-mr-start-strategy')?.addEventListener('click', asyn
         // 스케줄러 시작
         await invoke('start_scheduler', { accessToken: auth.accessToken || '' });
 
-        showToast('전략이 시작되었습니다', 'success');
+        showToast(t('strategy_started'), 'success');
 
         // 전략 목록 갱신
         await loadStrategies();
         await loadActiveStrategies();
     } catch (error) {
-        showToast('전략 시작 실패: ' + error, 'error');
+        showToast(t('strategy_start_failed') + ': ' + error, 'error');
     }
 });
 
@@ -16212,7 +16212,7 @@ document.getElementById('btn-mr-run-backtest')?.addEventListener('click', async 
 
         if (result.success) {
             displayMrBacktestResult(result, config.exchange, config.symbol);
-            showToast('백테스트 완료', 'success');
+            showToast(t('backtest_complete'), 'success');
         } else {
             const errorMsg = result.error || result.message || '백테스트 실패';
             displayMrBacktestError(errorMsg);
@@ -17289,7 +17289,7 @@ function addCondition(groupId) {
                 <option value="value">고정값</option>
                 <option value="indicator">지표 비교</option>
             </select>
-            <input type="number" class="cond-compare-value" placeholder="값 입력" step="any">
+            <input type="number" class="cond-compare-value" placeholder="${t('enter_value')}" step="any">
             <div class="cond-compare-indicator" style="display:none;">
                 <select class="cond-indicator" data-side="right">
                     ${getIndicatorOptions()}
@@ -17767,17 +17767,17 @@ async function runCustomBacktest() {
     const config = collectCustomBacktestConfig();
 
     if (!config.exchange || !config.symbol) {
-        showToast('거래소와 종목을 선택해주세요.', 'error');
+        showToast(t('select_exchange_and_stock_dot'), 'error');
         return;
     }
 
     if (config.strategy.entry_rules.groups.length === 0) {
-        showToast('진입 조건을 최소 1개 이상 설정해주세요.', 'error');
+        showToast(t('set_entry_condition'), 'error');
         return;
     }
 
     if (config.strategy.exit_rules.groups.length === 0) {
-        showToast('청산 조건을 최소 1개 이상 설정해주세요.', 'error');
+        showToast(t('set_exit_condition'), 'error');
         return;
     }
 
@@ -17817,7 +17817,7 @@ async function runCustomBacktest() {
 
         if (data.success) {
             displayCustomBacktestResult(data, config.exchange, config.symbol);
-            showToast('백테스트 완료!', 'success');
+            showToast(t('backtest_complete_msg'), 'success');
         } else {
             if (errorEl) {
                 errorEl.textContent = data.message || '백테스트 실패';
@@ -17831,7 +17831,7 @@ async function runCustomBacktest() {
             errorEl.textContent = t('server_error') + ' ' + (e.message || e);
             errorEl.style.display = 'block';
         }
-        showToast('서버 연결 오류', 'error');
+        showToast(t('server_connection_error'), 'error');
     } finally {
         if (btn) {
             btn.disabled = false;
@@ -18156,7 +18156,7 @@ document.getElementById('btn-trend-run-backtest')?.addEventListener('click', asy
 
         if (result.success) {
             displayTrendBacktestResult(result);
-            showToast('백테스트 완료', 'success');
+            showToast(t('backtest_complete'), 'success');
         } else {
             const errorMsg = result.error || result.message || '백테스트 실패';
             if (errorEl) {
